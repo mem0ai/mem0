@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from embedchain.utils import clean_string
 
 
-class WebsiteLoader:
+class WebPageLoader:
 
     def load_data(self, url):
         response = requests.get(url)

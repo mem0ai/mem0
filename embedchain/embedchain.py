@@ -9,10 +9,10 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
-from embedchain.loaders.website import WebsiteLoader
+from embedchain.loaders.web_page import WebPageLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
-from embedchain.chunkers.website import WebsiteChunker
+from embedchain.chunkers.web_page import WebPageChunker
 
 load_dotenv()
 
@@ -37,7 +37,7 @@ class EmbedChain:
         loaders = {
             'youtube_video': YoutubeVideoLoader(),
             'pdf_file': PdfFileLoader(),
-            'website': WebsiteLoader()
+            'web_page': WebPageLoader()
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -48,7 +48,7 @@ class EmbedChain:
         chunkers = {
             'youtube_video': YoutubeVideoChunker(),
             'pdf_file': PdfFileChunker(),
-            'website': WebsiteChunker()
+            'web_page': WebPageChunker()
         }
         if data_type in chunkers:
             return chunkers[data_type]
