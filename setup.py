@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.0.3",
     author="Taranjeet Singh",
     author_email="reachtotj@gmail.com",
-    description="embedchain is a framework to easily create bots over any dataset",
+    description="embedchain is a framework to easily create LLM powered bots over any dataset",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/embedchain/embedchain",
