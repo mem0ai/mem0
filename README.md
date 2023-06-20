@@ -6,7 +6,7 @@ It abstracts the enitre process of loading dataset, chunking it, creating embedd
 
 You can add a single or multiple dataset using `.add` function and then use `.query` function to find an answer from the added datasets.
 
-* If you want to create a Naval Ravikant bot which has 1 youtube video, 1 book as pdf and 2 of his blog posts, all you need to do is add the links to the videos, pdf and blog posts and embedchain will create a bot for you.
+If you want to create a Naval Ravikant bot which has 1 youtube video, 1 book as pdf and 2 of his blog posts, all you need to do is add the links to the videos, pdf and blog posts and embedchain will create a bot for you.
 
 ```python
 
@@ -95,7 +95,7 @@ To add any pdf file, use the data_type as `pdf_file`. Eg:
 app.add('pdf_file', 'a_valid_url_where_pdf_file_can_be_accessed')
 ```
 
-Note that we do not support password protected pdfs as of now.
+Note that we do not support password protected pdfs.
 
 ### Web Page
 
@@ -138,7 +138,7 @@ In the first release, we are making it easier for anyone to get a chatbot over a
 
 embedchain is built on the following stack:
 
-- [langchain](https://github.com/hwchase17/langchain) as an LLM framework to load, chunk and index data
+- [Langchain](https://github.com/hwchase17/langchain) as an LLM framework to load, chunk and index data
 - [OpenAI's Ada embedding model](https://platform.openai.com/docs/guides/embeddings) to create embeddings
 - [OpenAI's ChatGPT API](https://platform.openai.com/docs/guides/gpt/chat-completions-api) as LLM to get answers given the context
 - [Chroma](https://github.com/chroma-core/chroma) as the vector database to store embeddings
