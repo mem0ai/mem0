@@ -29,11 +29,22 @@ openai_ef = embedding_functions.OpenAIEmbeddingFunction(
 
 class EmbedChain:
     def __init__(self):
+        """
+        Initializes the EmbedChain instance, sets up a ChromaDB client and
+        creates a ChromaDB collection.
+        """
         self.chromadb_client = self._get_or_create_db()
         self.collection = self._get_or_create_collection()
         self.user_asks = []
 
     def _get_loader(self, data_type):
+        """
+        Returns the appropriate data loader for the given data type.
+
+        :param data_type: The type of the data to load.
+        :return: The loader for the given data type.
+        :raises ValueError: If an unsupported data type is provided.
+        """
         loaders = {
             'youtube_video': YoutubeVideoLoader(),
             'pdf_file': PdfFileLoader(),
@@ -45,6 +56,13 @@ class EmbedChain:
             raise ValueError(f"Unsupported data type: {data_type}")
 
     def _get_chunker(self, data_type):
+        """
+        Returns the appropriate chunker for the given data type.
+
+        :param data_type: The type of the data to chunk.
+        :return: The chunker for the given data type.
+        :raises ValueError: If an unsupported data type is provided.
+        """
         chunkers = {
             'youtube_video': YoutubeVideoChunker(),
             'pdf_file': PdfFileChunker(),
@@ -56,12 +74,25 @@ class EmbedChain:
             raise ValueError(f"Unsupported data type: {data_type}")
 
     def add(self, data_type, url):
+        """
+        Adds the data from the given URL to the vector db.
+        Loads the data, chunks it, create embedding for each chunk
+        and then stores the embedding to vector database.
+
+        :param data_type: The type of the data to add.
+        :param url: The URL where the data is located.
+        """
         loader = self._get_loader(data_type)
         chunker = self._get_chunker(data_type)
         self.user_asks.append([data_type, url])
         self.load_and_embed(loader, chunker, url)
 
     def _get_or_create_db(self):
+        """
+        Returns a ChromaDB client, creates a new one if needed.
+
+        :return: The ChromaDB client.
+        """
         client_settings = chromadb.config.Settings(
             chroma_db_impl="duckdb+parquet",
             persist_directory=DB_DIR,
@@ -70,11 +101,23 @@ class EmbedChain:
         return chromadb.Client(client_settings)
 
     def _get_or_create_collection(self):
+        """
+        Returns a ChromaDB collection, creates a new one if needed.
+
+        :return: The ChromaDB collection.
+        """
         return self.chromadb_client.get_or_create_collection(
             'embedchain_store', embedding_function=openai_ef,
         )
 
-    def load_embeddings_to_db(self, loader, chunker, url):
+    def load_and_embed(self, loader, chunker, url):
+        """
+        Loads the data from the given URL, chunks it, and adds it to the database.
+
+        :param loader: The loader to use to load the data.
+        :param chunker: The chunker to use to chunk the data.
+        :param url: The URL where the data is located.
+        """
         embeddings_data = chunker.create_chunks(loader, url)
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
@@ -85,9 +128,6 @@ class EmbedChain:
             ids=ids
         )
         print(f"Successfully saved {url}. Total chunks count: {self.collection.count()}")
-
-    def load_and_embed(self, loader, chunker, url):
-        return self.load_embeddings_to_db(loader, chunker, url)
 
     def _format_result(self, results):
         return [
@@ -114,6 +154,14 @@ class EmbedChain:
         return response["choices"][0]["message"]["content"]
 
     def get_answer_from_llm(self, query, context):
+        """
+        Gets an answer based on the given query and context by passing it
+        to an LLM.
+
+        :param query: The query to use.
+        :param context: Similar documents to the query used as context.
+        :return: The answer.
+        """
         prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
         {context}
         Query: {query}
@@ -123,6 +171,14 @@ class EmbedChain:
         return answer
 
     def query(self, input_query):
+        """
+        Queries the vector database based on the given input query.
+        Gets relevant doc based on the query and then passes it to an
+        LLM as context to get the answer.
+
+        :param input_query: The query to use.
+        :return: The answer to the query.
+        """
         result = self.collection.query(
             query_texts=[input_query,],
             n_results=1,
@@ -133,4 +189,11 @@ class EmbedChain:
 
 
 class App(EmbedChain):
+    """
+    The EmbedChain app.
+    Has two functions: add and query.
+
+    adds(data_type, url): adds the data from the given URL to the vector db.
+    query(query): finds answer to the given query using vector database and LLM.
+    """
     pass
