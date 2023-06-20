@@ -2,6 +2,8 @@
 
 embedchain is a framework to easily create bots over any dataset.
 
+You can add a single or multiple dataset using `.add` function and then use `.query` function to find an answer from the added datasets.
+
 * If you want to create a Naval Ravikant bot which has 1 youtube video, 1 book as pdf and 2 of his blog posts, all you need to do is add the links to the videos, pdf and blog posts and embedchain will create a bot for you.
 
 ```python
@@ -18,7 +20,7 @@ app.add("web_page", "https://nav.al/agi")
 app.query("How to do a startup?")
 ```
 
-# How to use it?
+# Getting Started
 
 ## Installation
 
@@ -44,11 +46,11 @@ export OPENAI_API_KEY='sk-xxxxxxxx'
 
 from embedchain import App
 
-app = App()
+naval_ravikant_chat_bot_app = App()
 
-app.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-app.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-app.add("web_page", "https://nav.al/agi")
+naval_ravikant_chat_bot_app.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_ravikant_chat_bot_app.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_ravikant_chat_bot_app.add("web_page", "https://nav.al/agi")
 ```
 
 * Now you app is created. You can use `.query` function to get the answer for any query.
@@ -57,7 +59,37 @@ app.add("web_page", "https://nav.al/agi")
 print(app.query("How to do a startup?"))
 ```
 
-# What problem does it solve?
+## Format supported
+
+We support the following formats:
+
+* Youtube Video
+
+To add any youtube video to your app, use the data_type (first argument to `.add`) as `youtube_video`. Eg:
+
+```python
+app.add('youtube_video', 'a_valid_youtube_url_here')
+```
+
+* PDF File
+
+To add any pdf file, use the data_type as `pdf_file`. Eg:
+
+```python
+app.add('pdf_file', 'a_valid_url_where_pdf_file_can_be_accessed')
+```
+
+Note that we do not support password protected pdfs as of now.
+
+* Web Page
+
+To add any web page, use the data_type as `web_page`. Eg:
+
+```python
+app.add('web_page', 'a_valid_web_page_url')
+```
+
+# How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
 
