@@ -88,7 +88,7 @@ In the first release, we are making it easier for anyone to get a chatbot over a
 
 # Tech Stack
 
-* embedchain is built on the following stack:
+embedchain is built on the following stack:
 
 - [langchain](https://github.com/hwchase17/langchain) as an LLM framework to load, chunk and index data,
 - [OpenAI's Ada embedding model](https://platform.openai.com/docs/guides/embeddings) to create embeddings
