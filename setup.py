@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="embedchain",
-    version="0.0.2",
+    version="0.0.3",
     author="Taranjeet Singh",
     author_email="reachtotj@gmail.com",
     description="embedchain is a framework to easily create bots over any dataset",
@@ -24,7 +24,7 @@ setuptools.setup(
         "langchain>=0.0.205",
         "requests",
         "openai",
-        "chromadb",
+        "chromadb>=0.3.26",
         "youtube-transcript-api",
         "beautifulsoup4",
         "pypdf",

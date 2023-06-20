@@ -84,7 +84,7 @@ class EmbedChain:
             metadatas=metadatas,
             ids=ids
         )
-        print(f"Docs count: {self.collection.count()}")
+        print(f"Successfully saved {url}. Total chunks count: {self.collection.count()}")
 
     def load_and_embed(self, loader, chunker, url):
         return self.load_embeddings_to_db(loader, chunker, url)
