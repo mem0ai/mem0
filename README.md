@@ -53,6 +53,16 @@ naval_ravikant_chat_bot_app.add("pdf_file", "https://navalmanack.s3.amazonaws.co
 naval_ravikant_chat_bot_app.add("web_page", "https://nav.al/agi")
 ```
 
+* If there is any other app instance in your script or app, you can change the import as
+
+```python
+from embedchain import App as EmbedChainApp
+
+# or
+
+from embedchain import App as ECApp
+```
+
 * Now you app is created. You can use `.query` function to get the answer for any query.
 
 ```python
