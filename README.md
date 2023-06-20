@@ -1,6 +1,8 @@
 # embedchain
 
-embedchain is a framework to easily create bots over any dataset.
+embedchain is a framework to easily create LLM powered bots over any dataset.
+
+It abstracts the enitre process of loading dataset, chunking it, creating embeddings and then storing in vector database.
 
 You can add a single or multiple dataset using `.add` function and then use `.query` function to find an answer from the added datasets.
 
@@ -10,14 +12,15 @@ You can add a single or multiple dataset using `.add` function and then use `.qu
 
 from embedchain import App
 
-app = app()
+naval_chat_bot = App()
 
-app.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-app.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-app.add("web_page", "https://nav.al/feedback")
-app.add("web_page", "https://nav.al/agi")
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add("web_page", "https://nav.al/feedback")
+naval_chat_bot.add("web_page", "https://nav.al/agi")
 
-app.query("How to do a startup?")
+naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
+# answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
 # Getting Started
@@ -32,12 +35,13 @@ pip install embedchain
 
 ## Usage
 
-* We use OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key.
+* We use OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 * Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
-```bash
-export OPENAI_API_KEY='sk-xxxxxxxx'
+```python
+import os
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 ```
 
 * Next import the `App` class from embedchain and use `.add` function to add any dataset.
@@ -48,9 +52,10 @@ from embedchain import App
 
 naval_ravikant_chat_bot_app = App()
 
-naval_ravikant_chat_bot_app.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_ravikant_chat_bot_app.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-naval_ravikant_chat_bot_app.add("web_page", "https://nav.al/agi")
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add("web_page", "https://nav.al/feedback")
+naval_chat_bot.add("web_page", "https://nav.al/agi")
 ```
 
 * If there is any other app instance in your script or app, you can change the import as
@@ -66,14 +71,15 @@ from embedchain import App as ECApp
 * Now you app is created. You can use `.query` function to get the answer for any query.
 
 ```python
-print(app.query("How to do a startup?"))
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
+# answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
 ## Format supported
 
 We support the following formats:
 
-* Youtube Video
+### Youtube Video
 
 To add any youtube video to your app, use the data_type (first argument to `.add`) as `youtube_video`. Eg:
 
@@ -81,7 +87,7 @@ To add any youtube video to your app, use the data_type (first argument to `.add
 app.add('youtube_video', 'a_valid_youtube_url_here')
 ```
 
-* PDF File
+### PDF File
 
 To add any pdf file, use the data_type as `pdf_file`. Eg:
 
@@ -91,7 +97,7 @@ app.add('pdf_file', 'a_valid_url_where_pdf_file_can_be_accessed')
 
 Note that we do not support password protected pdfs as of now.
 
-* Web Page
+### Web Page
 
 To add any web page, use the data_type as `web_page`. Eg:
 
@@ -132,7 +138,7 @@ In the first release, we are making it easier for anyone to get a chatbot over a
 
 embedchain is built on the following stack:
 
-- [langchain](https://github.com/hwchase17/langchain) as an LLM framework to load, chunk and index data,
+- [langchain](https://github.com/hwchase17/langchain) as an LLM framework to load, chunk and index data
 - [OpenAI's Ada embedding model](https://platform.openai.com/docs/guides/embeddings) to create embeddings
 - [OpenAI's ChatGPT API](https://platform.openai.com/docs/guides/gpt/chat-completions-api) as LLM to get answers given the context
 - [Chroma](https://github.com/chroma-core/chroma) as the vector database to store embeddings
