@@ -10,7 +10,7 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 }
 
 
-class WebsiteChunker(BaseChunker):
+class WebPageChunker(BaseChunker):
     def __init__(self):
         text_splitter = RecursiveCharacterTextSplitter(**TEXT_SPLITTER_CHUNK_PARAMS)
         super().__init__(text_splitter)
