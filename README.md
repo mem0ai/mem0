@@ -68,7 +68,7 @@ from embedchain import App as EmbedChainApp
 from embedchain import App as ECApp
 ```
 
-* Now you app is created. You can use `.query` function to get the answer for any query.
+* Now your app is created. You can use `.query` function to get the answer for any query.
 
 ```python
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
