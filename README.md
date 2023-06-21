@@ -105,6 +105,10 @@ To add any web page, use the data_type as `web_page`. Eg:
 app.add('web_page', 'a_valid_web_page_url')
 ```
 
+### More Formats coming soon
+
+* If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
