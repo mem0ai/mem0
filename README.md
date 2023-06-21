@@ -4,7 +4,7 @@ embedchain is a framework to easily create LLM powered bots over any dataset.
 
 It abstracts the enitre process of loading dataset, chunking it, creating embeddings and then storing in vector database.
 
-You can add a single or multiple dataset using `.add` function and then use `.qna` function to find an answer from the added datasets.
+You can add a single or multiple dataset using `.add` function and then use `.query` function to find an answer from the added datasets.
 
 If you want to create a Naval Ravikant bot which has 1 youtube video, 1 book as pdf and 2 of his blog posts, all you need to do is add the links to the videos, pdf and blog posts and embedchain will create a bot for you.
 
@@ -19,7 +19,7 @@ naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgen
 naval_chat_bot.add("web_page", "https://nav.al/feedback")
 naval_chat_bot.add("web_page", "https://nav.al/agi")
 
-naval_chat_bot.qna("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
+naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
@@ -68,10 +68,10 @@ from embedchain import App as EmbedChainApp
 from embedchain import App as ECApp
 ```
 
-* Now your app is created. You can use `.qna` function to get the answer for any query.
+* Now your app is created. You can use `.query` function to get the answer for any query.
 
 ```python
-print(naval_chat_bot.qna("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
@@ -136,7 +136,7 @@ These questions may be trivial for some but for a lot of us, it needs research, 
 
 embedchain is a framework which takes care of all these nuances and provides a simple interface to create bots over any dataset.
 
-In the first release, we are making it easier for anyone to get a chatbot over any dataset up and running in less than a minute. All you need to do is create an app instance, add the data sets using `.add` function and then use `.qna` function to get the relevant answer.
+In the first release, we are making it easier for anyone to get a chatbot over any dataset up and running in less than a minute. All you need to do is create an app instance, add the data sets using `.add` function and then use `.query` function to get the relevant answer.
 
 # Tech Stack
 

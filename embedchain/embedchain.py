@@ -170,7 +170,7 @@ class EmbedChain:
         answer = self.get_openai_answer(prompt)
         return answer
 
-    def qna(self, input_query):
+    def query(self, input_query):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -194,6 +194,6 @@ class App(EmbedChain):
     Has two functions: add and query.
 
     adds(data_type, url): adds the data from the given URL to the vector db.
-    qna(query): finds answer to the given query using vector database and LLM.
+    query(query): finds answer to the given query using vector database and LLM.
     """
     pass
