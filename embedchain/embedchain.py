@@ -9,10 +9,12 @@ from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
+from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
+from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
 load_dotenv()
@@ -49,7 +51,8 @@ class EmbedChain:
             'youtube_video': YoutubeVideoLoader(),
             'pdf_file': PdfFileLoader(),
             'web_page': WebPageLoader(),
-            'qna_pair': LocalQnaPairLoader()
+            'qna_pair': LocalQnaPairLoader(),
+            'text': LocalTextLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -69,6 +72,7 @@ class EmbedChain:
             'pdf_file': PdfFileChunker(),
             'web_page': WebPageChunker(),
             'qna_pair': QnaPairChunker(),
+            'text': TextChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
