@@ -8,9 +8,11 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
+from embedchain.loaders_local.qna_pair import QnaPairLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
+from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
 load_dotenv()
@@ -46,7 +48,8 @@ class EmbedChain:
         loaders = {
             'youtube_video': YoutubeVideoLoader(),
             'pdf_file': PdfFileLoader(),
-            'web_page': WebPageLoader()
+            'web_page': WebPageLoader(),
+            'qna_pair': QnaPairLoader()
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -64,7 +67,8 @@ class EmbedChain:
         chunkers = {
             'youtube_video': YoutubeVideoChunker(),
             'pdf_file': PdfFileChunker(),
-            'web_page': WebPageChunker()
+            'web_page': WebPageChunker(),
+            'qna_pair': QnaPairChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
@@ -84,6 +88,20 @@ class EmbedChain:
         chunker = self._get_chunker(data_type)
         self.user_asks.append([data_type, url])
         self.load_and_embed(loader, chunker, url)
+
+    def add_local(self, data_type, content):
+        """
+        Adds the data you supply to the vector db.
+        Loads the data, chunks it, create embedding for each chunk
+        and then stores the embedding to vector database.
+
+        :param data_type: The type of the data to add.
+        :param content: The local data. Refer to the `README` for formatting.
+        """
+        loader = self._get_loader(data_type)
+        chunker = self._get_chunker(data_type)
+        self.user_asks.append([data_type, content])
+        self.load_and_embed(loader, chunker, content)
 
     def load_and_embed(self, loader, chunker, url):
         """
