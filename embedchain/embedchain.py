@@ -150,7 +150,7 @@ class EmbedChain:
 
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
-        :return: The Prompt
+        :return: The prompt
         """
         prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
         {context}
