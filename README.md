@@ -121,7 +121,7 @@ app.add('web_page', 'a_valid_web_page_url')
 To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
 
 ```python
-app.add('qna_pair', ("Question", "Answer"))
+app.add_local('qna_pair', ("Question", "Answer"))
 ```
 
 ### More Formats coming soon
