@@ -8,7 +8,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
-from embedchain.loaders_local.qna_pair import QnaPairLoader
+from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
@@ -49,7 +49,7 @@ class EmbedChain:
             'youtube_video': YoutubeVideoLoader(),
             'pdf_file': PdfFileLoader(),
             'web_page': WebPageLoader(),
-            'qna_pair': QnaPairLoader()
+            'qna_pair': LocalQnaPairLoader()
         }
         if data_type in loaders:
             return loaders[data_type]
