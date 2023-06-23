@@ -11,6 +11,7 @@ from embedchain.loaders.web_page import WebPageLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
+from embedchain.vectordb.chroma_db import ChromaDB
 
 load_dotenv()
 
@@ -21,13 +22,15 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 
 
 class EmbedChain:
-    def __init__(self, db):
+    def __init__(self, db=None):
         """
          Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param db: The instance of the VectorDB subclass.
         """
+        if db is None:
+            db = ChromaDB()
         self.db_client = db.client
         self.collection = db.collection
         self.user_asks = []

@@ -1,7 +1,9 @@
-import os
 import chromadb
-from base_vector_db import BaseVectorDB
+import os
+
 from chromadb.utils import embedding_functions
+
+from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
     api_key=os.getenv("OPENAI_API_KEY"),
@@ -9,7 +11,9 @@ openai_ef = embedding_functions.OpenAIEmbeddingFunction(
 )
 
 class ChromaDB(BaseVectorDB):
-    def __init__(self, db_dir):
+    def __init__(self, db_dir=None):
+        if db_dir is None:
+            db_dir = "db"
         self.client_settings = chromadb.config.Settings(
             chroma_db_impl="duckdb+parquet",
             persist_directory=db_dir,
