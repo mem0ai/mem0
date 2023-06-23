@@ -12,13 +12,9 @@ def clean_string(text):
         cleaned_text (str): The cleaned text after all the cleaning operations have been performed.
     """
     # Replacement of newline characters:
-    # This replaces all newline characters '\n' in the text with a space character ' '.
     text = text.replace('\n', ' ')
     
     # Stripping and reducing multiple spaces to single:
-    # The `strip()` function removes any leading or trailing spaces in the string. 
-    # The `re.sub(r'\s+', ' ', text)` uses a regular expression (regex) to find and replace 
-    # all occurrences of one or more whitespace characters (\s+) in the string with a single space ' '.
     cleaned_text = re.sub(r'\s+', ' ', text.strip())
     
     # Removing backslashes:
