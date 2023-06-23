@@ -1,4 +1,4 @@
-class QnaPairLoader:
+class LocalQnaPairLoader:
 
     def load_data(self, content):
         question, answer = content
