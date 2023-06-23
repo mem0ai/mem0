@@ -97,6 +97,24 @@ class EmbedChain:
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
+        # get existing ids, and discard doc if any common id exist.
+        existing_docs = self.collection.get(
+            ids=ids,
+            # where={"url": url}
+        )
+        existing_ids = set(existing_docs["ids"])
+
+        if len(existing_ids):
+            data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
+            data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
+
+            if not data_dict:
+                print(f"All data from {url} already exists in the database.")
+                return
+
+            ids = list(data_dict.keys())
+            documents, metadatas = zip(*data_dict.values())
+
         self.collection.add(
             documents=documents,
             metadatas=metadatas,
