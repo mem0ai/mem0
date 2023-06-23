@@ -18,11 +18,9 @@ def clean_string(text):
     cleaned_text = re.sub(r'\s+', ' ', text.strip())
     
     # Removing backslashes:
-    # This replaces all backslashes '\\' in the string with nothing, effectively removing them.
     cleaned_text = cleaned_text.replace('\\', '')
     
     # Replacing hash characters:
-    # This replaces all hash/pound characters '#' in the string with a space character ' '.
     cleaned_text = cleaned_text.replace('#', ' ')
     
     # Eliminating consecutive non-alphanumeric characters:
