@@ -7,9 +7,9 @@ embedchain is a framework to easily create LLM powered bots over any dataset.
 
 It abstracts the enitre process of loading dataset, chunking it, creating embeddings and then storing in vector database.
 
-You can add a single or multiple dataset using `.add` function and then use `.query` function to find an answer from the added datasets.
+You can add a single or multiple dataset using `.add` and `.add_local` function and then use `.query` function to find an answer from the added datasets.
 
-If you want to create a Naval Ravikant bot which has 1 youtube video, 1 book as pdf and 2 of his blog posts, all you need to do is add the links to the videos, pdf and blog posts and embedchain will create a bot for you.
+If you want to create a Naval Ravikant bot which has 1 youtube video, 1 book as pdf and 2 of his blog posts, as well as a question and answer pair you supply, all you need to do is add the links to the videos, pdf and blog posts and the QnA pair and embedchain will create a bot for you.
 
 ```python
 
@@ -17,10 +17,14 @@ from embedchain import App
 
 naval_chat_bot = App()
 
+# Embed Online Resources
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
 naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
 naval_chat_bot.add("web_page", "https://nav.al/feedback")
 naval_chat_bot.add("web_page", "https://nav.al/agi")
+
+# Embed Local Resources
+naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 
 naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
@@ -55,10 +59,14 @@ from embedchain import App
 
 naval_ravikant_chat_bot_app = App()
 
+# Embed Online Resources
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
 naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
 naval_chat_bot.add("web_page", "https://nav.al/feedback")
 naval_chat_bot.add("web_page", "https://nav.al/agi")
+
+# Embed Local Resources
+naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 ```
 
 * If there is any other app instance in your script or app, you can change the import as
@@ -106,6 +114,14 @@ To add any web page, use the data_type as `web_page`. Eg:
 
 ```python
 app.add('web_page', 'a_valid_web_page_url')
+```
+
+### QnA Pair
+
+To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
+
+```python
+app.add('qna_pair', ("Question", "Answer"))
 ```
 
 ### More Formats coming soon
