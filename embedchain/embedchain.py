@@ -163,8 +163,39 @@ class EmbedChain:
             top_p=1,
         )
         return response["choices"][0]["message"]["content"]
+    
+    def retrieve_from_database(self, input_query):
+        """
+        Queries the vector database based on the given input query.
+        Gets relevant doc based on the query
 
-    def get_answer_from_llm(self, query, context):
+        :param input_query: The query to use.
+        :return: The content of the document that matched your query.
+        """
+        result = self.collection.query(
+            query_texts=[input_query,],
+            n_results=1,
+        )
+        result_formatted = self._format_result(result)
+        content = result_formatted[0][0].page_content
+        return content
+    
+    def generate_prompt(self, input_query, context):
+        """
+        Generates a prompt based on the given query and context, ready to be passed to an LLM
+
+        :param input_query: The query to use.
+        :param context: Similar documents to the query used as context.
+        :return: The prompt
+        """
+        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        {context}
+        Query: {input_query}
+        Helpful Answer:
+        """
+        return prompt
+
+    def get_answer_from_llm(self, prompt):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -172,11 +203,6 @@ class EmbedChain:
         :param query: The query to use.
         :param context: Similar documents to the query used as context.
         :return: The answer.
-        """
-        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-        {context}
-        Query: {query}
-        Helpful Answer:
         """
         answer = self.get_openai_answer(prompt)
         return answer
@@ -190,12 +216,9 @@ class EmbedChain:
         :param input_query: The query to use.
         :return: The answer to the query.
         """
-        result = self.collection.query(
-            query_texts=[input_query,],
-            n_results=1,
-        )
-        result_formatted = self._format_result(result)
-        answer = self.get_answer_from_llm(input_query, result_formatted[0][0].page_content)
+        context = self.retrieve_from_database(input_query)
+        prompt = self.generate_prompt(input_query, context)
+        answer = self.get_answer_from_llm(prompt)
         return answer
 
 
