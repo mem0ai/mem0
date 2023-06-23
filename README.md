@@ -1,6 +1,7 @@
 # embedchain
 
 [![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/nhvCbCtKV)
+![PyPI](https://img.shields.io/pypi/v/embedchain)
 
 embedchain is a framework to easily create LLM powered bots over any dataset.
 
