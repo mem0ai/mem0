@@ -8,6 +8,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
+from embedchain.loaders.site_map import SitemapLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
@@ -53,6 +54,7 @@ class EmbedChain:
             'web_page': WebPageLoader(),
             'qna_pair': LocalQnaPairLoader(),
             'text': LocalTextLoader(),
+            'site_map': SitemapLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -73,6 +75,7 @@ class EmbedChain:
             'web_page': WebPageChunker(),
             'qna_pair': QnaPairChunker(),
             'text': TextChunker(),
+            'site_map': WebPageChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
