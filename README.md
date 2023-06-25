@@ -1,7 +1,9 @@
 # embedchain
 
 [![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/nhvCbCtKV)
-![PyPI](https://img.shields.io/pypi/v/embedchain)
+![PyPI](https://img.shields.io/pypi/v/embedchain) <a target="_blank" href="https://colab.research.google.com/github/embedchain/embedchain/blob/main/example.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
 
 embedchain is a framework to easily create LLM powered bots over any dataset.
 
