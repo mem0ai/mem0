@@ -164,21 +164,23 @@ class EmbedChain:
         )
         return response["choices"][0]["message"]["content"]
     
-    def retrieve_from_database(self, input_query):
+    def retrieve_from_database(self, input_query, number_documents = 1):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
 
         :param input_query: The query to use.
-        :return: The content of the document that matched your query.
+        :number_documents: The number of documents to retrieve from the database.
+        :return: List with the contents of the document that matched your query.
         """
         result = self.collection.query(
             query_texts=[input_query,],
-            n_results=1,
+            n_results=number_documents,
         )
         result_formatted = self._format_result(result)
-        content = result_formatted[0][0].page_content
-        return content
+        print(result_formatted)
+        contents = [document[0].page_content for document in result_formatted]
+        return contents
     
     def generate_prompt(self, input_query, context):
         """
@@ -188,11 +190,19 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The prompt
         """
-        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-        {context}
-        Query: {input_query}
-        Helpful Answer:
-        """
+        if type(context) is list and len(context) > 0:
+            prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+            {" | ".join(context)}
+            Query: {input_query}
+            Helpful Answer:
+            """
+        else:
+            prompt = f"""Use the following context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+            {context}
+            Query: {input_query}
+            Helpful Answer:
+            """
+
         return prompt
 
     def get_answer_from_llm(self, prompt):
@@ -207,16 +217,17 @@ class EmbedChain:
         answer = self.get_openai_answer(prompt)
         return answer
 
-    def query(self, input_query):
+    def query(self, input_query, number_documents=1):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
 
         :param input_query: The query to use.
+        :param number_context: The number of documents to include in the query. Results in a longer prompt, consuming more tokens.
         :return: The answer to the query.
         """
-        context = self.retrieve_from_database(input_query)
+        context = self.retrieve_from_database(input_query, number_documents)
         prompt = self.generate_prompt(input_query, context)
         answer = self.get_answer_from_llm(prompt)
         return answer
