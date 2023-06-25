@@ -116,6 +116,15 @@ To add any web page, use the data_type as `web_page`. Eg:
 app.add('web_page', 'a_valid_web_page_url')
 ```
 
+### Text
+
+To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
+
+```python
+app.add_local('text', 'Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.')
+```
+Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
+
 ### QnA Pair
 
 To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
