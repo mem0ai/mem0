@@ -86,7 +86,7 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
-You can also query multiple documents. The LLM then has more information to work with. The downside is, that the prompt is longer, consuming more tokens. Use this with caution and only if it fits your use case.
+* You can also query multiple documents. The LLM then has more information to work with. The downside is, that the prompt is longer, consuming more tokens. Use this with caution and only if it fits your use case.
 
 ```python
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", number_documents=3))
