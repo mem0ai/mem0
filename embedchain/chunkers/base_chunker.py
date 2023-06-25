@@ -3,9 +3,11 @@ import hashlib
 
 class BaseChunker:
     def __init__(self, text_splitter):
+        ''' Initialize the chunker. '''
         self.text_splitter = text_splitter
 
     def create_chunks(self, loader, url):
+        ''' Create chunks from a document. '''
         documents = []
         ids = []
         datas = loader.load_data(url)

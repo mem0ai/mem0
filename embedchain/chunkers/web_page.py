@@ -11,6 +11,7 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 
 
 class WebPageChunker(BaseChunker):
+    ''' Chunker for web pages. '''
     def __init__(self):
         text_splitter = RecursiveCharacterTextSplitter(**TEXT_SPLITTER_CHUNK_PARAMS)
         super().__init__(text_splitter)

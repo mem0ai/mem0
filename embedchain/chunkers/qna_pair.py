@@ -11,6 +11,7 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 
 
 class QnaPairChunker(BaseChunker):
+    ''' Chunker for QnA pairs. '''
     def __init__(self):
         text_splitter = RecursiveCharacterTextSplitter(**TEXT_SPLITTER_CHUNK_PARAMS)
         super().__init__(text_splitter)
