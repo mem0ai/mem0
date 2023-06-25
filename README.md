@@ -57,7 +57,7 @@ os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 
 from embedchain import App
 
-naval_ravikant_chat_bot_app = App()
+naval_chat_bot = App()
 
 # Embed Online Resources
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
