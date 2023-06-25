@@ -26,7 +26,7 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 class EmbedChain:
     def __init__(self, db=None):
         """
-         Initializes the EmbedChain instance, sets up a vector DB client and
+        Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param db: The instance of the VectorDB subclass.
