@@ -5,7 +5,7 @@
 
 embedchain is a framework to easily create LLM powered bots over any dataset.
 
-It abstracts the enitre process of loading dataset, chunking it, creating embeddings and then storing in vector database.
+It abstracts the entire process of loading a dataset, chunking it, creating embeddings and then storing in a vector database.
 
 You can add a single or multiple dataset using `.add` and `.add_local` function and then use `.query` function to find an answer from the added datasets.
 
