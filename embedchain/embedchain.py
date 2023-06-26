@@ -157,7 +157,7 @@ class EmbedChain:
             )
         ]
 
-    def get_openai_answer(self, prompt):
+    def get_llm_answer(self, prompt):
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -165,11 +165,11 @@ class EmbedChain:
         if Local_llm_flag:  
             response = HuggingFaceTextGenInference(  
                 inference_server_url=os.getenv('INFERENCE_SERVER_URL'),
-                max_new_tokens=4096,  
+                max_new_tokens=1000,  
                 top_k=10,  
                 top_p=0.95,  
                 typical_p=0.95,  
-                temperature=0.8,  
+                temperature=0.01,  
                 repetition_penalty=1.03,  
             )
         else:
@@ -219,7 +219,7 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_openai_answer(prompt)
+        answer = self.get_llm_answer(prompt)
         return answer
 
     def query(self, input_query):
