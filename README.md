@@ -135,7 +135,7 @@ app.add_local('qna_pair', ("Question", "Answer"))
 
 ### Reusing a Vector DB
 
-Default behavior is to create a persistent vector DB in the directory **./db**. you can split your application intp two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
+Default behavior is to create a persistent vector DB in the directory **./db**. You can split your application into two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
 
 Create a local index:
 
