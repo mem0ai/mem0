@@ -1,9 +1,11 @@
+## TODO: Create a toggle for using OpenAI
 #import openai
 import os
 import yaml
 
 #from dotenv import load_dotenv
 from langchain.docstore.document import Document
+## TODO: Create a toggle for using OpenAI
 #from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.embeddings.HuggingFaceEmbeddings import HuggingFaceEmbeddings
 from langchain import HuggingFaceTextGenInference
@@ -24,6 +26,7 @@ from embedchain.vectordb.chroma_db import ChromaDB
 with open("config.yaml", 'r') as stream:
     config = yaml.safe_load(stream)
 
+## TODO: Create a toggle for using OpenAI
 #embeddings = OpenAIEmbeddings()
 embeddings = HuggingFaceEmbeddings(
     model_name=config['embeddings_model'],
@@ -167,6 +170,7 @@ class EmbedChain:
         messages.append({
             "role": "user", "content": prompt
         })
+        ## TODO: Create a toggle for using OpenAI
         #response = openai.ChatCompletion.create(
         #    model="gpt-3.5-turbo-0613",
         #    messages=messages,
@@ -175,12 +179,12 @@ class EmbedChain:
         #    top_p=1,
         #)
         response = HuggingFaceTextGenInference(  
-            inference_server_url="http://erebus:8080/",  
+            inference_server_url=config['inference_server_url'],
             max_new_tokens=4096,  
             top_k=10,  
             top_p=0.95,  
             typical_p=0.95,  
-            temperature=0.7,  
+            temperature=0.8,  
             repetition_penalty=1.03,  
         )
         return response["choices"][0]["message"]["content"]
