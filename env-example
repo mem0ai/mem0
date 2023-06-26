@@ -1,0 +1,6 @@
+ENABLE_LOCAL_LLM=True
+OPENAI_API_KEY=<your_openai_api_key>
+HUGGINGFACE_API_KEY=<your_huggingface_api_key>
+INFERENCE_SERVER_URL=http://<your_hf_textgen_inference_server_address>:<server_port_number>/
+TOKENIZER_MODEL=<hf_profile/hf_model>
+EMBEDDINGS_MODEL=sentence-transformers/all-MiniLM-L6-v2

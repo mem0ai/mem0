@@ -1,11 +1,9 @@
-## TODO: Create a toggle for using OpenAI
-#import openai
+import openai
 import os
 import yaml
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 from langchain.docstore.document import Document
-## TODO: Create a toggle for using OpenAI
-#from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.embeddings.HuggingFaceEmbeddings import HuggingFaceEmbeddings
 from langchain import HuggingFaceTextGenInference
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
@@ -20,15 +18,19 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-# Load configuration file
-with open("config.yaml", 'r') as stream:
-    config = yaml.safe_load(stream)
+load_dotenv()
 
-## TODO: Create a toggle for using OpenAI
-#embeddings = OpenAIEmbeddings()
-embeddings = HuggingFaceEmbeddings(
-    model_name=config['embeddings_model'],
-)
+def get_boolean_env_var(ENABLE_LOCAL_LLM):
+    return os.getenv(ENABLE_LOCAL_LLM).lower() in ['true', '1', 't', 'y', 'yes']
+
+Local_llm_flag = get_boolean_env_var('ENABLE_LOCAL_LLM')
+
+if Local_llm_flag:
+    embeddings = HuggingFaceEmbeddings(
+        model_name=os.getenv('EMBEDDINGS_MODEL'),
+    )
+else:
+    embeddings = OpenAIEmbeddings()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
@@ -160,23 +162,24 @@ class EmbedChain:
         messages.append({
             "role": "user", "content": prompt
         })
-        ## TODO: Create a toggle for using OpenAI
-        #response = openai.ChatCompletion.create(
-        #    model="gpt-3.5-turbo-0613",
-        #    messages=messages,
-        #    temperature=0,
-        #    max_tokens=1000,
-        #    top_p=1,
-        #)
-        response = HuggingFaceTextGenInference(  
-            inference_server_url=config['inference_server_url'],
-            max_new_tokens=4096,  
-            top_k=10,  
-            top_p=0.95,  
-            typical_p=0.95,  
-            temperature=0.8,  
-            repetition_penalty=1.03,  
-        )
+        if Local_llm_flag:  
+            response = HuggingFaceTextGenInference(  
+                inference_server_url=os.getenv('INFERENCE_SERVER_URL'),
+                max_new_tokens=4096,  
+                top_k=10,  
+                top_p=0.95,  
+                typical_p=0.95,  
+                temperature=0.8,  
+                repetition_penalty=1.03,  
+            )
+        else:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo-0613",
+                messages=messages,
+                temperature=0,
+                max_tokens=1000,
+                top_p=1,
+            )
         return response["choices"][0]["message"]["content"]
     
     def retrieve_from_database(self, input_query):
