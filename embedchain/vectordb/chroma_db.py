@@ -1,8 +1,6 @@
 import chromadb
 import os
-
 from chromadb.utils import embedding_functions
-
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(

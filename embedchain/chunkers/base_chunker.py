@@ -1,6 +1,5 @@
 import hashlib
 
-
 class BaseChunker:
     def __init__(self, text_splitter):
         self.text_splitter = text_splitter

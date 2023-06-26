@@ -1,13 +1,10 @@
 import re
 
-
 def clean_string(text):
     """
     This function takes in a string and performs a series of text cleaning operations. 
-
     Args:
         text (str): The text to be cleaned. This is expected to be a string.
-
     Returns:
         cleaned_text (str): The cleaned text after all the cleaning operations have been performed.
     """
@@ -30,4 +27,3 @@ def clean_string(text):
     cleaned_text = re.sub(r'([^\w\s])\1*', r'\1', cleaned_text)
     
     return cleaned_text
-

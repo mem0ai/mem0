@@ -2,14 +2,12 @@
 #import openai
 import os
 import yaml
-
 #from dotenv import load_dotenv
 from langchain.docstore.document import Document
 ## TODO: Create a toggle for using OpenAI
 #from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.embeddings.HuggingFaceEmbeddings import HuggingFaceEmbeddings
 from langchain import HuggingFaceTextGenInference
-
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
@@ -35,13 +33,10 @@ embeddings = HuggingFaceEmbeddings(
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
 
-
 class EmbedChain:
     def __init__(self, db=None):
         """
-         Initializes the EmbedChain instance, sets up a vector DB client and
-        creates a collection.
-
+        Sets up a vector DB client and creates a collection 
         :param db: The instance of the VectorDB subclass.
         """
         if db is None:
@@ -53,7 +48,6 @@ class EmbedChain:
     def _get_loader(self, data_type):
         """
         Returns the appropriate data loader for the given data type.
-
         :param data_type: The type of the data to load.
         :return: The loader for the given data type.
         :raises ValueError: If an unsupported data type is provided.
@@ -73,7 +67,6 @@ class EmbedChain:
     def _get_chunker(self, data_type):
         """
         Returns the appropriate chunker for the given data type.
-
         :param data_type: The type of the data to chunk.
         :return: The chunker for the given data type.
         :raises ValueError: If an unsupported data type is provided.
@@ -95,7 +88,6 @@ class EmbedChain:
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
         and then stores the embedding to vector database.
-
         :param data_type: The type of the data to add.
         :param url: The URL where the data is located.
         """
@@ -109,7 +101,6 @@ class EmbedChain:
         Adds the data you supply to the vector db.
         Loads the data, chunks it, create embedding for each chunk
         and then stores the embedding to vector database.
-
         :param data_type: The type of the data to add.
         :param content: The local data. Refer to the `README` for formatting.
         """
@@ -121,7 +112,6 @@ class EmbedChain:
     def load_and_embed(self, loader, chunker, url):
         """
         Loads the data from the given URL, chunks it, and adds it to the database.
-
         :param loader: The loader to use to load the data.
         :param chunker: The chunker to use to chunk the data.
         :param url: The URL where the data is located.
@@ -193,7 +183,6 @@ class EmbedChain:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
-
         :param input_query: The query to use.
         :return: The content of the document that matched your query.
         """
@@ -208,7 +197,6 @@ class EmbedChain:
     def generate_prompt(self, input_query, context):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
-
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
         :return: The prompt
@@ -224,7 +212,6 @@ class EmbedChain:
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
-
         :param query: The query to use.
         :param context: Similar documents to the query used as context.
         :return: The answer.
@@ -237,7 +224,6 @@ class EmbedChain:
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
-
         :param input_query: The query to use.
         :return: The answer to the query.
         """
@@ -251,7 +237,6 @@ class App(EmbedChain):
     """
     The EmbedChain app.
     Has two functions: add and query.
-
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
     """
