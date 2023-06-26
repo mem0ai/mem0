@@ -11,7 +11,7 @@ setuptools.setup(
     description="embedchain is a framework to easily create LLM powered bots over any dataset",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/suparious/embedchain-local",
+    url="https://github.com/embedchain/embedchain",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
