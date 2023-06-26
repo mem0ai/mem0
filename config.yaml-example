@@ -1,3 +1,4 @@
 openai_api_key: '<your_openai_api_key>'
 inference_server_url: 'http://<your_hf_textgen_inference_server_address>:<server_port_number>/'
-tokenizer_model: '<hf_profile/hf_model>'
+tokenizer_model: '<hf_profile/hf_model>' # tiiuae/falcon-7b-instruct
+embeddings_model: '<hf_profile/hf_model>' # sentence-transformers/all-mpnet-base-v2

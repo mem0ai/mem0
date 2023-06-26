@@ -1,9 +1,12 @@
-import openai
+#import openai
 import os
+import yaml
 
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from langchain.docstore.document import Document
-from langchain.embeddings.openai import OpenAIEmbeddings
+#from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.embeddings.HuggingFaceEmbeddings import HuggingFaceEmbeddings
+from langchain import HuggingFaceTextGenInference
 
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
@@ -17,9 +20,14 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-load_dotenv()
+# Load configuration file
+with open("config.yaml", 'r') as stream:
+    config = yaml.safe_load(stream)
 
-embeddings = OpenAIEmbeddings()
+#embeddings = OpenAIEmbeddings()
+embeddings = HuggingFaceEmbeddings(
+    model_name=config['embeddings_model'],
+)
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
@@ -159,12 +167,21 @@ class EmbedChain:
         messages.append({
             "role": "user", "content": prompt
         })
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
-            messages=messages,
-            temperature=0,
-            max_tokens=1000,
-            top_p=1,
+        #response = openai.ChatCompletion.create(
+        #    model="gpt-3.5-turbo-0613",
+        #    messages=messages,
+        #    temperature=0,
+        #    max_tokens=1000,
+        #    top_p=1,
+        #)
+        response = HuggingFaceTextGenInference(  
+            inference_server_url="http://erebus:8080/",  
+            max_new_tokens=4096,  
+            top_k=10,  
+            top_p=0.95,  
+            typical_p=0.95,  
+            temperature=0.7,  
+            repetition_penalty=1.03,  
         )
         return response["choices"][0]["message"]["content"]
     
