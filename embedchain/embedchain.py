@@ -48,11 +48,11 @@ class EmbedChain:
         :raises ValueError: If an unsupported data type is provided.
         """
         loaders = {
-            'youtube_video': YoutubeVideoLoader(),
-            'pdf_file': PdfFileLoader(),
-            'web_page': WebPageLoader(),
-            'qna_pair': LocalQnaPairLoader(),
-            'text': LocalTextLoader(),
+            "youtube_video": YoutubeVideoLoader(),
+            "pdf_file": PdfFileLoader(),
+            "web_page": WebPageLoader(),
+            "qna_pair": LocalQnaPairLoader(),
+            "text": LocalTextLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -68,11 +68,11 @@ class EmbedChain:
         :raises ValueError: If an unsupported data type is provided.
         """
         chunkers = {
-            'youtube_video': YoutubeVideoChunker(),
-            'pdf_file': PdfFileChunker(),
-            'web_page': WebPageChunker(),
-            'qna_pair': QnaPairChunker(),
-            'text': TextChunker(),
+            "youtube_video": YoutubeVideoChunker(),
+            "pdf_file": PdfFileChunker(),
+            "web_page": WebPageChunker(),
+            "qna_pair": QnaPairChunker(),
+            "text": TextChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
@@ -127,8 +127,12 @@ class EmbedChain:
         existing_ids = set(existing_docs["ids"])
 
         if len(existing_ids):
-            data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
-            data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
+            data_dict = {
+                id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)
+            }
+            data_dict = {
+                id: value for id, value in data_dict.items() if id not in existing_ids
+            }
 
             if not data_dict:
                 print(f"All data from {url} already exists in the database.")
@@ -137,12 +141,10 @@ class EmbedChain:
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
-        self.collection.add(
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids
+        self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
+        print(
+            f"Successfully saved {url}. Total chunks count: {self.collection.count()}"
         )
-        print(f"Successfully saved {url}. Total chunks count: {self.collection.count()}")
 
     def _format_result(self, results):
         return [
@@ -156,9 +158,7 @@ class EmbedChain:
 
     def get_openai_answer(self, prompt):
         messages = []
-        messages.append({
-            "role": "user", "content": prompt
-        })
+        messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
@@ -167,7 +167,7 @@ class EmbedChain:
             top_p=1,
         )
         return response["choices"][0]["message"]["content"]
-    
+
     def retrieve_from_database(self, input_query):
         """
         Queries the vector database based on the given input query.
@@ -177,26 +177,29 @@ class EmbedChain:
         :return: The content of the document that matched your query.
         """
         result = self.collection.query(
-            query_texts=[input_query,],
+            query_texts=[
+                input_query,
+            ],
             n_results=1,
         )
         result_formatted = self._format_result(result)
         content = result_formatted[0][0].page_content
         return content
-    
+
     def generate_prompt(self, input_query, context):
         """
-        Generates a prompt based on the given query and context, ready to be passed to an LLM
+        Generates a prompt based on the given query and context,
+        ready to be passed to an LLM
 
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
         :return: The prompt
         """
-        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. 
         {context}
         Query: {input_query}
         Helpful Answer:
-        """
+        """  # noqa: E501
         return prompt
 
     def get_answer_from_llm(self, prompt):
@@ -234,4 +237,5 @@ class App(EmbedChain):
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
     """
+
     pass
