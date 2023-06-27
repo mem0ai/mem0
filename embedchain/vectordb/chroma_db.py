@@ -7,6 +7,7 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
     api_key=os.getenv("OPENAI_API_KEY"),
+    organization_id=os.getenv("OPENAI_ORGANIZATION"),
     model_name="text-embedding-ada-002"
 )
 
