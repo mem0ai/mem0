@@ -5,17 +5,8 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 
-from embedchain.loaders.youtube_video import YoutubeVideoLoader
-from embedchain.loaders.pdf_file import PdfFileLoader
-from embedchain.loaders.web_page import WebPageLoader
-from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
-from embedchain.loaders.local_text import LocalTextLoader
-from embedchain.chunkers.youtube_video import YoutubeVideoChunker
-from embedchain.chunkers.pdf_file import PdfFileChunker
-from embedchain.chunkers.web_page import WebPageChunker
-from embedchain.chunkers.qna_pair import QnaPairChunker
-from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.data_format import DataFormat
 
 load_dotenv()
 
@@ -39,46 +30,6 @@ class EmbedChain:
         self.collection = db.collection
         self.user_asks = []
 
-    def _get_loader(self, data_type):
-        """
-        Returns the appropriate data loader for the given data type.
-
-        :param data_type: The type of the data to load.
-        :return: The loader for the given data type.
-        :raises ValueError: If an unsupported data type is provided.
-        """
-        loaders = {
-            'youtube_video': YoutubeVideoLoader(),
-            'pdf_file': PdfFileLoader(),
-            'web_page': WebPageLoader(),
-            'qna_pair': LocalQnaPairLoader(),
-            'text': LocalTextLoader(),
-        }
-        if data_type in loaders:
-            return loaders[data_type]
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
-
-    def _get_chunker(self, data_type):
-        """
-        Returns the appropriate chunker for the given data type.
-
-        :param data_type: The type of the data to chunk.
-        :return: The chunker for the given data type.
-        :raises ValueError: If an unsupported data type is provided.
-        """
-        chunkers = {
-            'youtube_video': YoutubeVideoChunker(),
-            'pdf_file': PdfFileChunker(),
-            'web_page': WebPageChunker(),
-            'qna_pair': QnaPairChunker(),
-            'text': TextChunker(),
-        }
-        if data_type in chunkers:
-            return chunkers[data_type]
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
-
     def add(self, data_type, url):
         """
         Adds the data from the given URL to the vector db.
@@ -88,10 +39,9 @@ class EmbedChain:
         :param data_type: The type of the data to add.
         :param url: The URL where the data is located.
         """
-        loader = self._get_loader(data_type)
-        chunker = self._get_chunker(data_type)
+        data_format = DataFormat(data_type)
         self.user_asks.append([data_type, url])
-        self.load_and_embed(loader, chunker, url)
+        self.load_and_embed(data_format.loader, data_format.chunker, url)
 
     def add_local(self, data_type, content):
         """
@@ -102,10 +52,9 @@ class EmbedChain:
         :param data_type: The type of the data to add.
         :param content: The local data. Refer to the `README` for formatting.
         """
-        loader = self._get_loader(data_type)
-        chunker = self._get_chunker(data_type)
+        data_format = DataFormat(data_type)
         self.user_asks.append([data_type, content])
-        self.load_and_embed(loader, chunker, content)
+        self.load_and_embed(data_format.loader, data_format.chunker, content)
 
     def load_and_embed(self, loader, chunker, url):
         """
