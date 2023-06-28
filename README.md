@@ -125,6 +125,12 @@ app.add_local('text', 'Seek wealth, not money or status. Wealth is having assets
 ```
 Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
 
+Another shortcut is load a text file instead of enter a string, eg:
+
+```python
+app.add_file('text', "file/path/data.txt")
+```
+
 ### QnA Pair
 
 To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:

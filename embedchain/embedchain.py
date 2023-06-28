@@ -107,6 +107,18 @@ class EmbedChain:
         self.user_asks.append([data_type, content])
         self.load_and_embed(loader, chunker, content)
 
+    def add_file(self, data_type, file_path):
+        """
+        Adds the file content you supply to the vector db.
+        Loads the data, chunks it, create embedding for each chunk
+        and then stores the embedding to vector database.
+
+        :param data_type: The type of the data to add.
+        :param file_path: The local file path. Refer to the `README` for formatting.
+        """
+        content = open(file_path, "r").read()
+        self.add_local(data_type, content)
+
     def load_and_embed(self, loader, chunker, url):
         """
         Loads the data from the given URL, chunks it, and adds it to the database.
