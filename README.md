@@ -143,7 +143,7 @@ Creating a chat bot over any dataset needs the following steps to happen
 
 * load the data
 * create meaningful chunks
-* create embeddigns for each chunk
+* create embeddings for each chunk
 * store the chunks in vector database
 
 Whenever a user asks any query, following process happens to find the answer for the query
