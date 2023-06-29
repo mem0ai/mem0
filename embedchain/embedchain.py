@@ -225,7 +225,17 @@ class EmbedChain:
         answer = self.get_answer_from_llm(prompt)
         return answer
 
+    def set_model(self, input_model_type):
+        """
+        Select the right model and switch between gpt-4, gpt-3.5-turbo 
+        and others models from OpenAI.
 
+        :param set_model: OpenAI Model to use.
+        :return: The model selected.
+        """
+        model = "gpt-4" if input_model_type == "gpt-4" else model = "gpt-3.5-turbo-0613"
+        return model
+        
 class App(EmbedChain):
     """
     The EmbedChain app.
