@@ -233,7 +233,7 @@ class EmbedChain:
         :param set_model: OpenAI Model to use.
         :return: The model selected.
         """
-        model = "gpt-4" if input_model_type == "gpt-4" else model = "gpt-3.5-turbo-0613"
+        model = "gpt-4" if input_model_type == "gpt-4" else "gpt-3.5-turbo-0613"
         return model
         
 class App(EmbedChain):
