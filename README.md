@@ -17,6 +17,8 @@ from embedchain import App
 
 naval_chat_bot = App()
 
+# Optional - Set Model Type. Default is set to "gpt-3.5-turbo-0613": 
+naval_chat_bot.set_model("gpt-4")
 # Embed Online Resources
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
 naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")

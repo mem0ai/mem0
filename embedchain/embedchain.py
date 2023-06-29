@@ -154,13 +154,13 @@ class EmbedChain:
             )
         ]
 
-    def get_openai_answer(self, prompt):
+    def get_openai_answer(self, prompt, model="gpt-3.5-turbo-0613"):
         messages = []
         messages.append({
             "role": "user", "content": prompt
         })
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model=model,
             messages=messages,
             temperature=0,
             max_tokens=1000,
@@ -233,7 +233,7 @@ class EmbedChain:
         :param set_model: OpenAI Model to use.
         :return: The model selected.
         """
-        model = "gpt-4" if input_model_type == "gpt-4" else "gpt-3.5-turbo-0613"
+        model = "gpt-4", print("Switching to GPT-4") if input_model_type == "gpt-4" else "gpt-3.5-turbo-0613"
         return model
         
 class App(EmbedChain):
