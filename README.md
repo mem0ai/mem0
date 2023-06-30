@@ -139,6 +139,7 @@ app.add_local('qna_pair', ("Question", "Answer"))
 
 # How does it work?
 
+![](assets/workflow.png)
 Creating a chat bot over any dataset needs the following steps to happen
 
 * load the data
