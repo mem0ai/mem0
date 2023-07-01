@@ -6,6 +6,12 @@ class BaseChunker:
         self.text_splitter = text_splitter
 
     def create_chunks(self, loader, src):
+        """
+        Loads data and chunks it.
+
+        :param loader: The loader which's `load_data` method is used to create the raw data.
+        :param src: The data to be handled by the loader. Can be a URL for remote sources or local files for local loaders. 
+        """
         documents = []
         ids = []
         datas = loader.load_data(src)
