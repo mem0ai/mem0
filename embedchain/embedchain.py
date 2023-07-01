@@ -139,7 +139,7 @@ class EmbedChain:
 
         self.collection.add(
             documents=documents,
-            metadatas=metadatas,
+            metadatas=list(metadatas),
             ids=ids
         )
         print(f"Successfully saved {url}. Total chunks count: {self.collection.count()}")
