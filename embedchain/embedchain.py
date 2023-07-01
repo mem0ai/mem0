@@ -17,7 +17,7 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-load_dotenv()
+load_dotenv(override=True)
 
 embeddings = OpenAIEmbeddings()
 

@@ -45,6 +45,8 @@ pip install embedchain
 * We use OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 * Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
+* Copy .env.example into .env Your .env file should look like this:
+* ```OPENAI_API_KEY= your_api_key_here```
 
 ```python
 import os
