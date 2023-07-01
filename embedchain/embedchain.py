@@ -113,7 +113,7 @@ class EmbedChain:
 
         :param loader: The loader to use to load the data.
         :param chunker: The chunker to use to chunk the data.
-        :param src: The data to be handled by the loader. Can be a URL for remote sources or local files for local loaders.
+        :param src: The data to be handled by the loader. Can be a URL for remote sources or local content for local loaders.
         """
         embeddings_data = chunker.create_chunks(loader, src)
         documents = embeddings_data["documents"]

@@ -10,7 +10,7 @@ class BaseChunker:
         Loads data and chunks it.
 
         :param loader: The loader which's `load_data` method is used to create the raw data.
-        :param src: The data to be handled by the loader. Can be a URL for remote sources or local files for local loaders. 
+        :param src: The data to be handled by the loader. Can be a URL for remote sources or local content for local loaders. 
         """
         documents = []
         ids = []
