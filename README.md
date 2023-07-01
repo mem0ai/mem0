@@ -137,6 +137,20 @@ app.add_local('qna_pair', ("Question", "Answer"))
 
 * If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
 
+# Advanced
+This package is designed to be simple and work out of the box. For specific use cases, there are advanced options.
+
+## Client Mode
+By defining a (chromadb) server, you can run EmbedChain as a client only.
+
+```python
+from embedchain import App
+naval_chat_bot = App(server="localhost:8000")
+```
+This is useful for scalability. Say you have EmbedChain behind an API with multiple workers. If you separate clients and server, all clients can connect to the server, which only has to keep one instance of the database in memory. You also don't have to worry about adding embeddings while it's live.
+
+To run a chroma db server, run `git clone https://github.com/chroma-core/chroma.git`, navigate to the directory (`cd chroma`) and then start the server with `docker-compose up -d --build`.
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
