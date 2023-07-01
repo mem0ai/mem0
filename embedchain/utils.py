@@ -31,3 +31,17 @@ def clean_string(text):
     
     return cleaned_text
 
+
+def split_connection_string(connection_string):
+    try:
+        # Check if the connection string contains a schema
+        if '://' in connection_string:
+            schema, rest = connection_string.split('://')
+        else:
+            schema = 'http'
+            rest = connection_string
+        host, port = rest.split(':')
+        return schema, host, port
+    except ValueError:
+        print("Invalid connection string. Please ensure it's in the format host:port or schema://host:port")
+        return None

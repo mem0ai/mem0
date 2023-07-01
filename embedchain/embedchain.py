@@ -26,15 +26,16 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 
 
 class EmbedChain:
-    def __init__(self, db=None):
+    def __init__(self, db=None, server=None):
         """
          Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param db: The instance of the VectorDB subclass.
+        :param server: Optional. If you want to use EmbedChain as a client only, define the server connection string here.
         """
         if db is None:
-            db = ChromaDB()
+            db = ChromaDB(server=server)
         self.db_client = db.client
         self.collection = db.collection
         self.user_asks = []
