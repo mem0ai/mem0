@@ -192,7 +192,7 @@ class EmbedChain:
         """
         if len(contexts) > 0:
             prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            {" | ".join(context)}
+            {" | ".join(contexts)}
             Query: {input_query}
             Helpful Answer:
             """
