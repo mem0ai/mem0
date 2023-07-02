@@ -164,7 +164,7 @@ class EmbedChain:
         )
         return response["choices"][0]["message"]["content"]
     
-    def retrieve_from_database(self, input_query: str, number_documents = 1):
+    def retrieve_from_database(self, input_query, number_documents = 1):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
@@ -182,7 +182,7 @@ class EmbedChain:
         contents = [document[0].page_content for document in result_formatted]
         return contents
     
-    def generate_prompt(self, input_query: str, contexts: list[str]):
+    def generate_prompt(self, input_query, contexts):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
