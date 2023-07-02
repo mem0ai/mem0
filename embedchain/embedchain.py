@@ -190,7 +190,7 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The prompt
         """
-        if type(contexts) is list and len(contexts) > 0:
+        if len(contexts) > 0:
             prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
             {" | ".join(context)}
             Query: {input_query}
