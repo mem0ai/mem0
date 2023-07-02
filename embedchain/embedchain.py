@@ -172,6 +172,7 @@ class EmbedChain:
                 temperature=0.01,  
                 repetition_penalty=1.03,  
             )
+            return response(prompt)
         else:
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-0613",
@@ -180,7 +181,7 @@ class EmbedChain:
                 max_tokens=1000,
                 top_p=1,
             )
-        return response["choices"][0]["message"]["content"]
+            return response["choices"][0]["message"]["content"]
     
     def retrieve_from_database(self, input_query):
         """
