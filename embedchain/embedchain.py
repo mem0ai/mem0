@@ -182,7 +182,7 @@ class EmbedChain:
         contents = [document[0].page_content for document in result_formatted]
         return contents
     
-    def generate_prompt(self, input_query, context):
+    def generate_prompt(self, input_query: str, contexts: list[str]):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
