@@ -187,7 +187,7 @@ class EmbedChain:
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
-        :param context: Similar documents to the query used as context.
+        :param contexts: Similar documents to the query used as context.
         :return: The prompt
         """
         if len(contexts) > 0:
