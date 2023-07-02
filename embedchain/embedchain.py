@@ -198,7 +198,7 @@ class EmbedChain:
             """
         else:
             prompt = f"""Use the following context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            {context}
+            {contexts[0]}
             Query: {input_query}
             Helpful Answer:
             """
