@@ -165,3 +165,5 @@ cython_debug/
 
 # Database
 db
+
+.vscode

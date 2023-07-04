@@ -4,7 +4,7 @@ from embedchain.utils import clean_string
 
 
 class PdfFileLoader:
-
+    
     def load_data(self, url):
         loader = PyPDFLoader(url)
         output = []
