@@ -1,1 +1,1 @@
-from .embedchain import App
+from .embedchain import App, OpenSourceApp
