@@ -28,7 +28,7 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 class EmbedChain:
     def __init__(self, db=None):
         """
-         Initializes the EmbedChain instance, sets up a vector DB client and
+        Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param db: The instance of the VectorDB subclass.
@@ -181,7 +181,10 @@ class EmbedChain:
             n_results=1,
         )
         result_formatted = self._format_result(result)
-        content = result_formatted[0][0].page_content
+        if result_formatted:
+            content = result_formatted[0][0].page_content
+        else:
+            content = ""
         return content
     
     def generate_prompt(self, input_query, context):
