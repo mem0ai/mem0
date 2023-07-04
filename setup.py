@@ -29,5 +29,7 @@ setuptools.setup(
         "beautifulsoup4",
         "pypdf",
         "pytube",
+        "gpt4all",
+        "sentence_transformers",
     ]
 )
