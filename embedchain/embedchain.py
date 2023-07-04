@@ -1,7 +1,9 @@
 import openai
 import os
 
+from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
+from gpt4all import GPT4All
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 
@@ -17,20 +19,23 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-from gpt4all import GPT4All
+openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    organization_id=os.getenv("OPENAI_ORGANIZATION"),
+    model_name="text-embedding-ada-002"
+)
+sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
 gpt4all_model = None
 
 load_dotenv()
-
-embeddings = OpenAIEmbeddings()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
 
 
 class EmbedChain:
-    def __init__(self, db=None):
+    def __init__(self, db=None, ef=None):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
@@ -38,7 +43,7 @@ class EmbedChain:
         :param db: The instance of the VectorDB subclass.
         """
         if db is None:
-            db = ChromaDB()
+            db = ChromaDB(ef=ef)
         self.db_client = db.client
         self.collection = db.collection
         self.user_asks = []
@@ -230,6 +235,12 @@ class App(EmbedChain):
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
     """
+
+    def __int__(self, db=None, ef=None):
+        if ef is None:
+            ef = openai_ef
+        super().__init__(db, ef)
+
     def get_llm_model_answer(self, prompt):
         messages = []
         messages.append({
@@ -255,6 +266,14 @@ class OpenSourceApp(EmbedChain):
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
     """
+
+    def __init__(self, db=None, ef=None):
+        print("Loading open source embedding model. This may take some time...")
+        if ef is None:
+            ef = sentence_transformer_ef
+        print("Successfully loaded open source embedding model.")
+        super().__init__(db, ef)
+
     def get_llm_model_answer(self, prompt):
         global gpt4all_model
         if gpt4all_model is None:

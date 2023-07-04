@@ -30,5 +30,6 @@ setuptools.setup(
         "pypdf",
         "pytube",
         "gpt4all",
+        "sentence_transformers",
     ]
 )

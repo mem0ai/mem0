@@ -12,7 +12,8 @@ openai_ef = embedding_functions.OpenAIEmbeddingFunction(
 )
 
 class ChromaDB(BaseVectorDB):
-    def __init__(self, db_dir=None):
+    def __init__(self, db_dir=None, ef=None):
+        self.ef = ef if ef is not None else openai_ef
         if db_dir is None:
             db_dir = "db"
         self.client_settings = chromadb.config.Settings(
@@ -27,5 +28,5 @@ class ChromaDB(BaseVectorDB):
 
     def _get_or_create_collection(self):
         return self.client.get_or_create_collection(
-            'embedchain_store', embedding_function=openai_ef,
+            'embedchain_store', embedding_function=self.ef,
         )
