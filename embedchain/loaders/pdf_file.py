@@ -15,10 +15,8 @@ class PdfFileLoader:
             content = clean_string(content)
             meta_data = page.metadata
             meta_data["url"] = url
-            output.append(
-                {
-                    "content": content,
-                    "meta_data": meta_data,
-                }
-            )
+            output.append({
+                "content": content,
+                "meta_data": meta_data,
+            })
         return output
