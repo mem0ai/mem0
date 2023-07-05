@@ -1,11 +1,17 @@
 # embedchain
 
 [![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/nhvCbCtKV)
-![PyPI](https://img.shields.io/pypi/v/embedchain)
+[![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
 
-embedchain is a framework to easily create LLM powered bots over any dataset.
+embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
-It abstracts the entire process of loading a dataset, chunking it, creating embeddings and then storing in a vector database.
+# Latest Updates
+
+* Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
+
+# What is embedchain?
+
+Embedchain abstracts the entire process of loading a dataset, chunking it, creating embeddings and then storing in a vector database.
 
 You can add a single or multiple dataset using `.add` and `.add_local` function and then use `.query` function to find an answer from the added datasets.
 
@@ -42,7 +48,27 @@ pip install embedchain
 
 ## Usage
 
-* We use OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+Creating a chatbot involves 3 steps:
+
+- import the App instance
+- add dataset
+- query on the dataset and get answers
+
+### App Types
+
+We have two types of App.
+
+#### 1. App (uses OpenAI models, paid)
+
+```python
+from embedchain import App
+
+naval_chat_bot = App()
+```
+
+* `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
+
+* `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 * Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
@@ -51,13 +77,30 @@ import os
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 ```
 
-* Next import the `App` class from embedchain and use `.add` function to add any dataset.
+#### 2. OpenSourceApp (uses opensource models, free)
+
+```python
+from embedchain import OpenSourceApp
+
+naval_chat_bot = OpenSourceApp()
+```
+
+* `OpenSourceApp` uses open source embedding and LLM model. It uses `all-MiniLM-L6-v2` from Sentence Transformers library as the embedding model and `gpt4all` as the LLM.
+
+* Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed.
+
+* Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
+
+### Add data set and query
+
+* This step assumes that you have already created an `app` instance by either using `App` or `OpenSourceApp`. We are calling our app instance as `naval_chat_bot`
+
+* Now use `.add` function to add any dataset.
 
 ```python
 
-from embedchain import App
-
-naval_ravikant_chat_bot_app = App()
+# naval_chat_bot = App() or
+# naval_chat_bot = OpenSourceApp()
 
 # Embed Online Resources
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
@@ -73,10 +116,12 @@ naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant 
 
 ```python
 from embedchain import App as EmbedChainApp
+from embedchain import OpenSourceApp as EmbedChainOSApp
 
 # or
 
 from embedchain import App as ECApp
+from embedchain import OpenSourceApp as ECOSApp
 ```
 
 * Now your app is created. You can use `.query` function to get the answer for any query.
@@ -123,6 +168,15 @@ To add any web page, use the data_type as `web_page`. Eg:
 app.add('web_page', 'a_valid_web_page_url')
 ```
 
+### Text
+
+To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
+
+```python
+app.add_local('text', 'Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.')
+```
+Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
+
 ### QnA Pair
 
 To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
@@ -131,9 +185,57 @@ To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. 
 app.add_local('qna_pair', ("Question", "Answer"))
 ```
 
+### Reusing a Vector DB
+
+Default behavior is to create a persistent vector DB in the directory **./db**. You can split your application into two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
+
+Create a local index:
+
+```python
+
+from embedchain import App
+
+naval_chat_bot = App()
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+```
+
+You can reuse the local index with the same code, but without adding new documents:
+
+```python
+
+from embedchain import App
+
+naval_chat_bot = App()
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
+```
+
 ### More Formats coming soon
 
 * If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
+
+## Testing
+
+Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database. 
+
+For this you can use the `dry_run` method.
+
+Following the example above, add this to your script:
+
+```python
+print(naval_chat_bot.dry_run('Can you tell me who Naval Ravikant is?'))
+
+'''
+Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        Q: Who is Naval Ravikant?
+A: Naval Ravikant is an Indian-American entrepreneur and investor.
+        Query: Can you tell me who Naval Ravikant is?
+        Helpful Answer:
+'''
+```
+*The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed.*
+
+**The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
 # How does it work?
 
@@ -141,7 +243,7 @@ Creating a chat bot over any dataset needs the following steps to happen
 
 * load the data
 * create meaningful chunks
-* create embeddigns for each chunk
+* create embeddings for each chunk
 * store the chunks in vector database
 
 Whenever a user asks any query, following process happens to find the answer for the query
@@ -172,7 +274,23 @@ embedchain is built on the following stack:
 - [OpenAI's Ada embedding model](https://platform.openai.com/docs/guides/embeddings) to create embeddings
 - [OpenAI's ChatGPT API](https://platform.openai.com/docs/guides/gpt/chat-completions-api) as LLM to get answers given the context
 - [Chroma](https://github.com/chroma-core/chroma) as the vector database to store embeddings
+- [gpt4all](https://github.com/nomic-ai/gpt4all) as an open source LLM
+- [sentence-transformers](https://huggingface.co/sentence-transformers) as open source embedding model
 
 # Author
 
 * Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
+
+## Citation
+
+If you utilize this repository, please consider citing it with:
+```
+@misc{embedchain,
+  author = {Taranjeet Singh},
+  title = {Embechain: Framework to easily create LLM powered bots over any dataset},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/embedchain/embedchain}},
+}
+```
