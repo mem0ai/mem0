@@ -35,15 +35,20 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 
 
 class EmbedChain:
-    def __init__(self, db=None, ef=None):
+    def __init__(self, config):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
-        :param db: The instance of the VectorDB subclass.
+        :param config: A dictionary containing the following keys:
+            - 'db': The instance of the VectorDB subclass.
+            - 'ef': Embeddings function to calculate the relatedness of text strings.
+            - 'default_model': the default LLM model to use.
         """
-        if db is None:
-            db = ChromaDB(ef=ef)
+        if config["db"] is None:
+            config["db"] = ChromaDB(ef=config.get("ef"))
+        db = config.get("db")
+        self.default_model = config.get("default_model")
         self.db_client = db.client
         self.collection = db.collection
         self.user_asks = []
@@ -236,10 +241,12 @@ class App(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __int__(self, db=None, ef=None):
-        if ef is None:
-            ef = openai_ef
-        super().__init__(db, ef)
+    def __int__(self, config):
+        if config["ef"] is None:
+            config["ef"] = openai_ef
+        if config["default_model"] is None:
+            config["default_model"] = "gpt-3.5-turbo-0613"
+        super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
         messages = []
@@ -247,7 +254,7 @@ class App(EmbedChain):
             "role": "user", "content": prompt
         })
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model=self.default_model,
             messages=messages,
             temperature=0,
             max_tokens=1000,
@@ -267,17 +274,19 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, db=None, ef=None):
+    def __init__(self, config):
         print("Loading open source embedding model. This may take some time...")
-        if ef is None:
-            ef = sentence_transformer_ef
+        if config["ef"] is None:
+            config["ef"] = sentence_transformer_ef
+        if config["default_model"] is None:
+            config["default_model"] = "orca-mini-3b.ggmlv3.q4_0.bin"
         print("Successfully loaded open source embedding model.")
-        super().__init__(db, ef)
+        super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
         global gpt4all_model
         if gpt4all_model is None:
-            gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
+            gpt4all_model = GPT4All(self.default_model)
         response = gpt4all_model.generate(
             prompt=prompt,
         )
