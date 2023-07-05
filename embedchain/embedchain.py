@@ -241,7 +241,7 @@ class App(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __int__(self, config = {}):
+    def __init__(self, config = {}):
         if config.get("ef") is None:
             config["ef"] = openai_ef
         if config.get("default_model") is None:
