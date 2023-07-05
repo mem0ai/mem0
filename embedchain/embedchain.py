@@ -19,12 +19,6 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    organization_id=os.getenv("OPENAI_ORGANIZATION"),
-    model_name="text-embedding-ada-002"
-)
-sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
 gpt4all_model = None
 
@@ -238,7 +232,11 @@ class App(EmbedChain):
 
     def __int__(self, db=None, ef=None):
         if ef is None:
-            ef = openai_ef
+            ef = embedding_functions.OpenAIEmbeddingFunction(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                organization_id=os.getenv("OPENAI_ORGANIZATION"),
+                model_name="text-embedding-ada-002"
+            )
         super().__init__(db, ef)
 
     def get_llm_model_answer(self, prompt):
@@ -270,7 +268,9 @@ class OpenSourceApp(EmbedChain):
     def __init__(self, db=None, ef=None):
         print("Loading open source embedding model. This may take some time...")
         if ef is None:
-            ef = sentence_transformer_ef
+            ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            )
         print("Successfully loaded open source embedding model.")
         super().__init__(db, ef)
 
