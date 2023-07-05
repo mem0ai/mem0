@@ -3,7 +3,6 @@ import os
 
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
-from gpt4all import GPT4All
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 
@@ -292,6 +291,8 @@ class OpenSourceApp(EmbedChain):
         super().__init__(db, ef)
 
     def get_llm_model_answer(self, prompt):
+        from gpt4all import GPT4All
+    
         global gpt4all_model
         if gpt4all_model is None:
             gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
