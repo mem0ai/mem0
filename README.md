@@ -1,9 +1,9 @@
 # embedchain
 
 [![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/nhvCbCtKV)
-![PyPI](https://img.shields.io/pypi/v/embedchain)
+[![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
 
-embedchain is a framework to easily create LLM powered bots over any dataset.
+embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
 It abstracts the entire process of loading a dataset, chunking it, creating embeddings and then storing in a vector database.
 
