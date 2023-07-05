@@ -43,7 +43,7 @@ class EmbedChain:
         :param config: A dictionary containing the following keys:
             - 'db': The instance of the VectorDB subclass.
             - 'ef': Embeddings function to calculate the relatedness of text strings.
-            - 'default_model': the default LLM model to use.
+            - 'default_model': the default LLM model use during query.
         """
         if config["db"] is None:
             config["db"] = ChromaDB(ef=config.get("ef"))
