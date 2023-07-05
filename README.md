@@ -48,7 +48,7 @@ pip install embedchain
 
 ## Usage
 
-* Creating a chatbot involves 3 steps:
+Creating a chatbot involves 3 steps:
 
 - import the App instance
 - add dataset
@@ -56,7 +56,7 @@ pip install embedchain
 
 ### App Types
 
-* We have two types of App.
+We have two types of App.
 
 #### 1. App (uses OpenAI models, paid)
 
@@ -250,3 +250,17 @@ embedchain is built on the following stack:
 # Author
 
 * Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
+
+## Citation
+
+If you utilize this repository, please consider citing it with:
+```
+@misc{embedchain,
+  author = {Taranjeet Singh},
+  title = {Embechain: Framework to easily create LLM powered bots over any dataset},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/embedchain/embedchain}},
+}
+```
