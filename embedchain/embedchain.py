@@ -45,10 +45,10 @@ class EmbedChain:
             - 'ef': Embeddings function to calculate the relatedness of text strings.
             - 'default_model': the default LLM model use during query.
         """
-        if config["db"] is None:
+        if config.get("db") is None:
             config["db"] = ChromaDB(ef=config.get("ef"))
-        db = config.get("db")
         self.default_model = config.get("default_model")
+        db = config.get("db")
         self.db_client = db.client
         self.collection = db.collection
         self.user_asks = []
@@ -276,9 +276,9 @@ class OpenSourceApp(EmbedChain):
 
     def __init__(self, config):
         print("Loading open source embedding model. This may take some time...")
-        if config["ef"] is None:
+        if config.get("ef") is None:
             config["ef"] = sentence_transformer_ef
-        if config["default_model"] is None:
+        if config.get("default_model") is None:
             config["default_model"] = "orca-mini-3b.ggmlv3.q4_0.bin"
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
