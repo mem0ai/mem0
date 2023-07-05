@@ -35,7 +35,7 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 
 
 class EmbedChain:
-    def __init__(self, config):
+    def __init__(self, config = {}):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
@@ -241,10 +241,10 @@ class App(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __int__(self, config):
-        if config["ef"] is None:
+    def __int__(self, config = {}):
+        if config.get("ef") is None:
             config["ef"] = openai_ef
-        if config["default_model"] is None:
+        if config.get("default_model") is None:
             config["default_model"] = "gpt-3.5-turbo-0613"
         super().__init__(config)
 
@@ -274,7 +274,7 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config):
+    def __init__(self, config = {}):
         print("Loading open source embedding model. This may take some time...")
         if config.get("ef") is None:
             config["ef"] = sentence_transformer_ef
