@@ -173,7 +173,6 @@ class EmbedChain:
             n_results=number_documents,
         )
         result_formatted = self._format_result(result)
-        print(result_formatted)
         contents = [document[0].page_content for document in result_formatted]
         return contents
     
