@@ -164,19 +164,8 @@ class EmbedChain:
             )
         ]
 
-    def get_openai_answer(self, prompt):
-        messages = []
-        messages.append({
-            "role": "user", "content": prompt
-        })
-        response = openai.ChatCompletion.create(
-            model=self.model_name,
-            messages=messages,
-            temperature=0,
-            max_tokens=1000,
-            top_p=1,
-        )
-        return response["choices"][0]["message"]["content"]
+    def get_llm_model_answer(self, prompt):
+        raise NotImplementedError
     
     def retrieve_from_database(self, input_query):
         """
@@ -247,17 +236,6 @@ class EmbedChain:
         """
         self.model_name = model
         print(f"Switching to {model}")
-
-    # def set_model(self, input_model_type):
-    #     """
-    #     Select the right model and switch between gpt-4, gpt-3.5-turbo 
-    #     and others models from OpenAI.
-
-    #     :param set_model: OpenAI Model to use.
-    #     :return: The model selected.
-    #     """
-    #     model = "gpt-4", print("Switching to GPT-4") if input_model_type == "gpt-4" else "gpt-3.5-turbo-0613"
-    #     return model
         
 class App(EmbedChain):
     """
