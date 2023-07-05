@@ -219,6 +219,22 @@ class EmbedChain:
         prompt = self.generate_prompt(input_query, context)
         answer = self.get_answer_from_llm(prompt)
         return answer
+    
+    def dry_run(self, input_query):
+        """
+        A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
+
+        :param input_query: The query to use.
+        :return: The prompt that would be sent to the LLM
+        """
+        context = self.retrieve_from_database(input_query)
+        prompt = self.generate_prompt(input_query, context)
+        return prompt
 
 
 class App(EmbedChain):
@@ -228,6 +244,7 @@ class App(EmbedChain):
 
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
+    dry_run(query): test your prompt without consuming tokens.
     """
 
     def __int__(self, db=None, ef=None):

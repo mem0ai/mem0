@@ -207,6 +207,29 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 * If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
 
+## Testing
+
+Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database. 
+
+For this you can use the `dry_run` method.
+
+Following the example above, add this to your script:
+
+```python
+print(naval_chat_bot.dry_run('Can you tell me who Naval Ravikant is?'))
+
+'''
+Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        Q: Who is Naval Ravikant?
+A: Naval Ravikant is an Indian-American entrepreneur and investor.
+        Query: Can you tell me who Naval Ravikant is?
+        Helpful Answer:
+'''
+```
+*The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed.*
+
+**The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
