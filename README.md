@@ -5,7 +5,13 @@
 
 embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
-It abstracts the entire process of loading a dataset, chunking it, creating embeddings and then storing in a vector database.
+# Latest Updates
+
+* Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
+
+# What is embedchain?
+
+Embedchain abstracts the entire process of loading a dataset, chunking it, creating embeddings and then storing in a vector database.
 
 You can add a single or multiple dataset using `.add` and `.add_local` function and then use `.query` function to find an answer from the added datasets.
 
@@ -42,7 +48,27 @@ pip install embedchain
 
 ## Usage
 
-* We use OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+* Creating a chatbot involves 3 steps:
+
+- import the App instance
+- add dataset
+- query on the dataset and get answers
+
+### App Types
+
+* We have two types of App.
+
+#### 1. App (uses OpenAI models, paid)
+
+```python
+from embedchain import App
+
+naval_chat_bot = App()
+```
+
+* `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
+
+* `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 * Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
@@ -51,13 +77,30 @@ import os
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 ```
 
-* Next import the `App` class from embedchain and use `.add` function to add any dataset.
+#### 2. OpenSourceApp (uses opensource models, free)
+
+```python
+from embedchain import OpenSourceApp
+
+naval_chat_bot = OpenSourceApp()
+```
+
+* `OpenSourceApp` uses open source embedding and LLM model. It uses `all-MiniLM-L6-v2` from Sentence Transformers library as the embedding model and `gpt4all` as the LLM.
+
+* Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed.
+
+* Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
+
+### Add data set and query
+
+* This step assumes that you have already created an `app` instance by either using `App` or `OpenSourceApp`. We are calling our app instance as `naval_chat_bot`
+
+* Now use `.add` function to add any dataset.
 
 ```python
 
-from embedchain import App
-
-naval_chat_bot = App()
+# naval_chat_bot = App() or
+# naval_chat_bot = OpenSourceApp()
 
 # Embed Online Resources
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
@@ -73,10 +116,12 @@ naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant 
 
 ```python
 from embedchain import App as EmbedChainApp
+from embedchain import OpenSourceApp as EmbedChainOSApp
 
 # or
 
 from embedchain import App as ECApp
+from embedchain import OpenSourceApp as ECOSApp
 ```
 
 * Now your app is created. You can use `.query` function to get the answer for any query.
@@ -199,6 +244,8 @@ embedchain is built on the following stack:
 - [OpenAI's Ada embedding model](https://platform.openai.com/docs/guides/embeddings) to create embeddings
 - [OpenAI's ChatGPT API](https://platform.openai.com/docs/guides/gpt/chat-completions-api) as LLM to get answers given the context
 - [Chroma](https://github.com/chroma-core/chroma) as the vector database to store embeddings
+- [gpt4all](https://github.com/nomic-ai/gpt4all) as an open source LLM
+- [sentence-transformers](https://huggingface.co/sentence-transformers) as open source embedding model
 
 # Author
 
