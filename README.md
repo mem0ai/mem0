@@ -133,6 +133,31 @@ To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. 
 app.add_local('qna_pair', ("Question", "Answer"))
 ```
 
+### Reusing a Vector DB
+
+Default behavior is to create a persistent vector DB in the directory **./db**. You can split your application into two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
+
+Create a local index:
+
+```python
+
+from embedchain import App
+
+naval_chat_bot = App()
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+```
+
+You can reuse the local index with the same code, but without adding new documents:
+
+```python
+
+from embedchain import App
+
+naval_chat_bot = App()
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
+```
+
 ### More Formats coming soon
 
 * If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
