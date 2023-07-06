@@ -5,6 +5,7 @@ from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
+from embedchain.config.InitConfig import InitConfig
 
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
@@ -16,7 +17,6 @@ from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
-from embedchain.vectordb.chroma_db import ChromaDB
 
 
 gpt4all_model = None
@@ -28,17 +28,17 @@ DB_DIR = os.path.join(ABS_PATH, "db")
 
 
 class EmbedChain:
-    def __init__(self, db=None, ef=None):
+    def __init__(self, config: InitConfig):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param db: The instance of the VectorDB subclass.
         """
-        if db is None:
-            db = ChromaDB(ef=ef)
-        self.db_client = db.client
-        self.collection = db.collection
+        
+        self.config = config
+        self.db_client = self.config.db.client
+        self.collection = self.config.db.collection
         self.user_asks = []
 
     def _get_loader(self, data_type):
@@ -246,14 +246,10 @@ class App(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __int__(self, db=None, ef=None):
-        if ef is None:
-            ef = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002"
-            )
-        super().__init__(db, ef)
+    def __init__(self, config: InitConfig = None):
+        if config is None:
+            config = InitConfig()
+        super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
         messages = []
@@ -281,14 +277,22 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, db=None, ef=None):
+    def __init__(self, config: InitConfig = None):
         print("Loading open source embedding model. This may take some time...")
-        if ef is None:
-            ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+        if not config or not config.ef:
+            if config is None:
+                config = InitConfig(
+                    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                        model_name="all-MiniLM-L6-v2"
+                    )
+                )
+            else:
+                config._set_embedding_function(
+                    embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
-            )
+            ))
         print("Successfully loaded open source embedding model.")
-        super().__init__(db, ef)
+        super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
         from gpt4all import GPT4All
