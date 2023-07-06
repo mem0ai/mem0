@@ -7,6 +7,8 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
 
 # Latest Updates
 
+* Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
+
 * Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
 
 # What is embedchain?
@@ -135,6 +137,23 @@ from embedchain import OpenSourceApp as ECOSApp
 ```python
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
+```
+
+### Chat Interface
+
+* This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default.
+
+* To use this, call `.chat` function to get the answer for any query.
+
+```python
+print(naval_chat_bot.chat("How to be happy in life?"))
+# answer: The most important trick to being happy is to realize happiness is a skill you develop and a choice you make. You choose to be happy, and then you work at it. It's just like building muscles or succeeding at your job. It's about recognizing the abundance and gifts around you at all times.
+
+print(naval_chat_bot.chat("who is naval ravikant?"))
+# answer: Naval Ravikant is an Indian-American entrepreneur and investor.
+
+print(naval_chat_bot.chat("what did the author say about happiness?"))
+# answer: The author, Naval Ravikant, believes that happiness is a choice you make and a skill you develop. He compares the mind to the body, stating that just as the body can be molded and changed, so can the mind. He emphasizes the importance of being present in the moment and not getting caught up in regrets of the past or worries about the future. By being present and grateful for where you are, you can experience true happiness.
 ```
 
 ## Format supported
