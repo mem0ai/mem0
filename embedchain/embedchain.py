@@ -253,14 +253,19 @@ class EmbedChain:
         prompt += suffix_prompt
         return prompt
 
-    def chat(self, input_query):
+    def chat(self, input_query, config: ChatConfig = None):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
 
         Maintains last 5 conversations in memory.
+        :param input_query: The query to use.
+        :param config: Optional. The `ChatConfig` instance to use as configuration options.
+        :return: The answer to the query.
         """
+        if config is None:
+            config = ChatConfig()
         context = self.retrieve_from_database(input_query)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
