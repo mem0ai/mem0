@@ -31,5 +31,6 @@ setuptools.setup(
         "pytube",
         "gpt4all",
         "sentence_transformers",
-    ]
+        "unstructured",
+    ],
 )

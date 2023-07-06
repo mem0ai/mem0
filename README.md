@@ -1,6 +1,6 @@
 # embedchain
 
-[![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/nhvCbCtKV)
+[![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/6PzXDgEjG5)
 [![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
 
 embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
@@ -68,11 +68,11 @@ from embedchain import App
 naval_chat_bot = App()
 ```
 
-* `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
+- `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
 
-* `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
-* Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
+- Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
 ```python
 import os
@@ -87,17 +87,17 @@ from embedchain import OpenSourceApp
 naval_chat_bot = OpenSourceApp()
 ```
 
-* `OpenSourceApp` uses open source embedding and LLM model. It uses `all-MiniLM-L6-v2` from Sentence Transformers library as the embedding model and `gpt4all` as the LLM.
+- `OpenSourceApp` uses open source embedding and LLM model. It uses `all-MiniLM-L6-v2` from Sentence Transformers library as the embedding model and `gpt4all` as the LLM.
 
-* Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed.
+- Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed.
 
-* Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
+- Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
 
 ### Add Dataset
 
-* This step assumes that you have already created an `app` instance by either using `App` or `OpenSourceApp`. We are calling our app instance as `naval_chat_bot`
+- This step assumes that you have already created an `app` instance by either using `App` or `OpenSourceApp`. We are calling our app instance as `naval_chat_bot`
 
-* Now use `.add` function to add any dataset.
+- Now use `.add` function to add any dataset.
 
 ```python
 
@@ -114,7 +114,7 @@ naval_chat_bot.add("web_page", "https://nav.al/agi")
 naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 ```
 
-* If there is any other app instance in your script or app, you can change the import as
+- If there is any other app instance in your script or app, you can change the import as
 
 ```python
 from embedchain import App as EmbedChainApp
@@ -186,6 +186,14 @@ To add any web page, use the data_type as `web_page`. Eg:
 app.add('web_page', 'a_valid_web_page_url')
 ```
 
+### Doc File
+
+To add any doc/docx file, use the data_type as `doc_file`. Eg:
+
+```python
+app.add('doc_file', 'a_local_doc_file_path')
+```
+
 ### Text
 
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
@@ -193,6 +201,7 @@ To supply your own text, use the data_type as `text` and enter a string. The tex
 ```python
 app.add_local('text', 'Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.')
 ```
+
 Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
 
 ### QnA Pair
@@ -230,7 +239,7 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 ### More Formats coming soon
 
-* If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
+- If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
 
 ## Testing
 
@@ -251,7 +260,8 @@ A: Naval Ravikant is an Indian-American entrepreneur and investor.
         Helpful Answer:
 '''
 ```
-*The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed.*
+
+_The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed._
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
@@ -259,24 +269,24 @@ A: Naval Ravikant is an Indian-American entrepreneur and investor.
 
 Creating a chat bot over any dataset needs the following steps to happen
 
-* load the data
-* create meaningful chunks
-* create embeddings for each chunk
-* store the chunks in vector database
+- load the data
+- create meaningful chunks
+- create embeddings for each chunk
+- store the chunks in vector database
 
 Whenever a user asks any query, following process happens to find the answer for the query
 
-* create the embedding for query
-* find similar documents for this query from vector database
-* pass similar documents as context to LLM to get the final answer.
+- create the embedding for query
+- find similar documents for this query from vector database
+- pass similar documents as context to LLM to get the final answer.
 
 The process of loading the dataset and then querying involves multiple steps and each steps has nuances of it is own.
 
-* How should I chunk the data? What is a meaningful chunk size?
-* How should I create embeddings for each chunk? Which embedding model should I use?
-* How should I store the chunks in vector database? Which vector database should I use?
-* Should I store meta data along with the embeddings?
-* How should I find similar documents for a query? Which ranking model should I use?
+- How should I chunk the data? What is a meaningful chunk size?
+- How should I create embeddings for each chunk? Which embedding model should I use?
+- How should I store the chunks in vector database? Which vector database should I use?
+- Should I store meta data along with the embeddings?
+- How should I find similar documents for a query? Which ranking model should I use?
 
 These questions may be trivial for some but for a lot of us, it needs research, experimentation and time to find out the accurate answers.
 
@@ -297,11 +307,12 @@ embedchain is built on the following stack:
 
 # Author
 
-* Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
+- Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
 
 ## Citation
 
 If you utilize this repository, please consider citing it with:
+
 ```
 @misc{embedchain,
   author = {Taranjeet Singh},
