@@ -7,6 +7,8 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
 
 # Latest Updates
 
+* Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
+
 * Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
 
 # What is embedchain?
