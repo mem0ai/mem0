@@ -1,7 +1,7 @@
 from langchain.document_loaders import UnstructuredWordDocumentLoader
 
 
-class DocFileLoader:
+class DocxFileLoader:
     def load_data(self, url):
         loader = UnstructuredWordDocumentLoader(url)
         output = []
