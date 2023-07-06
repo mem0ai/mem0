@@ -279,7 +279,7 @@ class EmbedChain:
         chat_history = memory.load_memory_variables({})["history"]
         prompt = self.generate_chat_prompt(
             input_query,
-            context,
+            contexts,
             chat_history=chat_history,
         )
         answer = self.get_answer_from_llm(prompt)
