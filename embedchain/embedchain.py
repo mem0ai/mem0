@@ -171,44 +171,38 @@ class EmbedChain:
     def get_llm_model_answer(self, prompt):
         raise NotImplementedError
 
-    def retrieve_from_database(self, input_query, number_documents = 1):
+    def retrieve_from_database(self, input_query):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
 
         :param input_query: The query to use.
-        :number_documents: The number of documents to retrieve from the database.
-        :return: List with the contents of the document that matched your query.
+        :return: The content of the document that matched your query.
         """
         result = self.collection.query(
             query_texts=[input_query,],
-            n_results=number_documents,
+            n_results=1,
         )
         result_formatted = self._format_result(result)
-        contents = [document[0].page_content for document in result_formatted]
-        return contents
-    
-    def generate_prompt(self, input_query, contexts):
+        if result_formatted:
+            content = result_formatted[0][0].page_content
+        else:
+            content = ""
+        return content
+
+    def generate_prompt(self, input_query, context):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
-        :param contexts: List of similar documents to the query used as context.
+        :param context: Similar documents to the query used as context.
         :return: The prompt
         """
-        if len(contexts) > 1:
-            prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            {" | ".join(contexts)}
-            Query: {input_query}
-            Helpful Answer:
-            """
-        else:
-            prompt = f"""Use the following context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            {contexts[0]}
-            Query: {input_query}
-            Helpful Answer:
-            """
-
+        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        {context}
+        Query: {input_query}
+        Helpful Answer:
+        """
         return prompt
 
     def get_answer_from_llm(self, prompt):
