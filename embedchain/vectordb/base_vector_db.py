@@ -8,6 +8,4 @@ class BaseVectorDB:
 
     def _get_or_create_collection(self):
         raise NotImplementedError
-    
-    def _reset(self):
-        raise NotImplementedError
+
