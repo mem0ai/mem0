@@ -32,3 +32,7 @@ class ChromaDB(BaseVectorDB):
         return self.client.get_or_create_collection(
             'embedchain_store', embedding_function=self.ef,
         )
+    
+    def _reset(self):
+        self.client.reset()
+        return

@@ -265,6 +265,17 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
+# Advanced
+
+## Other methods
+
+### Reset
+Resets the database and deletes all embeddings. Irreversible. Requires reinitialization afterwards.
+
+```python
+app.reset()
+```
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen

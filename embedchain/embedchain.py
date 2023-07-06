@@ -279,6 +279,13 @@ class EmbedChain:
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context)
         return prompt
+    
+    def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        `App` has to be reinitialized after using this method.
+        """
+        self.db_client.reset()
 
 
 class App(EmbedChain):
