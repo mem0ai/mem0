@@ -209,7 +209,7 @@ class EmbedChain:
             Helpful Answer:
             """
         else:
-            raise ValueError("No context provided")
+            raise IndexError("No context provided")
 
         return prompt
 
