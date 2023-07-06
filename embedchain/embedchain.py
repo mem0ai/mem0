@@ -1,9 +1,12 @@
 import openai
 import os
 
+from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.memory import ConversationBufferMemory
+from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
 
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
@@ -11,33 +14,38 @@ from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.site_map import SitemapLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
+from embedchain.loaders.doc_file import DocFileLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
+from embedchain.chunkers.doc_file import DocFileChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-load_dotenv()
 
-embeddings = OpenAIEmbeddings()
+gpt4all_model = None
+
+load_dotenv()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
 
+memory = ConversationBufferMemory()
+
 
 class EmbedChain:
-    def __init__(self, db=None):
+    def __init__(self, config: InitConfig):
         """
-         Initializes the EmbedChain instance, sets up a vector DB client and
+        Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
-        :param db: The instance of the VectorDB subclass.
+        :param config: InitConfig instance to load as configuration.
         """
-        if db is None:
-            db = ChromaDB()
-        self.db_client = db.client
-        self.collection = db.collection
+        
+        self.config = config
+        self.db_client = self.config.db.client
+        self.collection = self.config.db.collection
         self.user_asks = []
 
     def _get_loader(self, data_type):
@@ -82,7 +90,7 @@ class EmbedChain:
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
 
-    def add(self, data_type, url):
+    def add(self, data_type, url, config: AddConfig = None):
         """
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
@@ -90,13 +98,16 @@ class EmbedChain:
 
         :param data_type: The type of the data to add.
         :param url: The URL where the data is located.
+        :param config: Optional. The `AddConfig` instance to use as configuration options.
         """
+        if config is None:
+            config = AddConfig()
         loader = self._get_loader(data_type)
         chunker = self._get_chunker(data_type)
         self.user_asks.append([data_type, url])
         self.load_and_embed(loader, chunker, url)
 
-    def add_local(self, data_type, content):
+    def add_local(self, data_type, content, config: AddConfig = None):
         """
         Adds the data you supply to the vector db.
         Loads the data, chunks it, create embedding for each chunk
@@ -104,7 +115,10 @@ class EmbedChain:
 
         :param data_type: The type of the data to add.
         :param content: The local data. Refer to the `README` for formatting.
+        :param config: Optional. The `AddConfig` instance to use as configuration options.
         """
+        if config is None:
+            config = AddConfig()
         loader = self._get_loader(data_type)
         chunker = self._get_chunker(data_type)
         self.user_asks.append([data_type, content])
@@ -157,20 +171,9 @@ class EmbedChain:
             )
         ]
 
-    def get_openai_answer(self, prompt):
-        messages = []
-        messages.append({
-            "role": "user", "content": prompt
-        })
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
-            messages=messages,
-            temperature=0,
-            max_tokens=1000,
-            top_p=1,
-        )
-        return response["choices"][0]["message"]["content"]
-    
+    def get_llm_model_answer(self, prompt):
+        raise NotImplementedError
+
     def retrieve_from_database(self, input_query):
         """
         Queries the vector database based on the given input query.
@@ -184,9 +187,12 @@ class EmbedChain:
             n_results=1,
         )
         result_formatted = self._format_result(result)
-        content = result_formatted[0][0].page_content
+        if result_formatted:
+            content = result_formatted[0][0].page_content
+        else:
+            content = ""
         return content
-    
+
     def generate_prompt(self, input_query, context):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
@@ -211,22 +217,97 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_openai_answer(prompt)
+        answer = self.get_llm_model_answer(prompt)
         return answer
 
-    def query(self, input_query):
+    def query(self, input_query, config: QueryConfig = None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
 
         :param input_query: The query to use.
+        :param config: Optional. The `QueryConfig` instance to use as configuration options.
         :return: The answer to the query.
         """
+        if config is None:
+            config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context)
         answer = self.get_answer_from_llm(prompt)
         return answer
+
+    def generate_chat_prompt(self, input_query, context, chat_history=''):
+        """
+        Generates a prompt based on the given query, context and chat history
+        for chat interface. This is then passed to an LLM.
+
+        :param input_query: The query to use.
+        :param context: Similar documents to the query used as context.
+        :param chat_history: User and bot conversation that happened before.
+        :return: The prompt
+        """
+        prefix_prompt = f"""You are a chatbot having a conversation with a human. You are given chat history and context. You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know"."""
+        chat_history_prompt = f"""\n----\nChat History: {chat_history}\n----"""
+        suffix_prompt = f"""\n####\nContext: {context}\n####\nQuery: {input_query}\nHelpful Answer:"""
+        prompt = prefix_prompt
+        if chat_history:
+            prompt += chat_history_prompt
+        prompt += suffix_prompt
+        return prompt
+
+    def chat(self, input_query, config: ChatConfig = None):
+        """
+        Queries the vector database on the given input query.
+        Gets relevant doc based on the query and then passes it to an
+        LLM as context to get the answer.
+
+        Maintains last 5 conversations in memory.
+        :param input_query: The query to use.
+        :param config: Optional. The `ChatConfig` instance to use as configuration options.
+        :return: The answer to the query.
+        """
+        if config is None:
+            config = ChatConfig()
+        context = self.retrieve_from_database(input_query)
+        global memory
+        chat_history = memory.load_memory_variables({})["history"]
+        prompt = self.generate_chat_prompt(
+            input_query,
+            context,
+            chat_history=chat_history,
+        )
+        answer = self.get_answer_from_llm(prompt)
+        memory.chat_memory.add_user_message(input_query)
+        memory.chat_memory.add_ai_message(answer)
+        return answer
+
+    def dry_run(self, input_query):
+        """
+        A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
+
+        :param input_query: The query to use.
+        :param config: Optional. The `QueryConfig` instance to use as configuration options.
+        :return: The prompt that would be sent to the LLM
+        """
+        if config is None:
+            config = QueryConfig()
+        context = self.retrieve_from_database(input_query)
+        prompt = self.generate_prompt(input_query, context)
+        return prompt
+
+
+    def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        `App` has to be reinitialized after using this method.
+        """
+        self.db_client.reset()
 
 
 class App(EmbedChain):
@@ -236,5 +317,70 @@ class App(EmbedChain):
 
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
+    dry_run(query): test your prompt without consuming tokens.
     """
-    pass
+
+    def __init__(self, config: InitConfig = None):
+        """
+        :param config: InitConfig instance to load as configuration. Optional.
+        """
+        if config is None:
+            config = InitConfig()
+        super().__init__(config)
+
+    def get_llm_model_answer(self, prompt):
+        messages = []
+        messages.append({
+            "role": "user", "content": prompt
+        })
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-0613",
+            messages=messages,
+            temperature=0,
+            max_tokens=1000,
+            top_p=1,
+        )
+        return response["choices"][0]["message"]["content"]
+
+
+class OpenSourceApp(EmbedChain):
+    """
+    The OpenSource app.
+    Same as App, but uses an open source embedding model and LLM.
+
+    Has two function: add and query.
+
+    adds(data_type, url): adds the data from the given URL to the vector db.
+    query(query): finds answer to the given query using vector database and LLM.
+    """
+
+    def __init__(self, config: InitConfig = None):
+        """
+        :param config: InitConfig instance to load as configuration. Optional. `ef` defaults to open source.
+        """
+        print("Loading open source embedding model. This may take some time...")
+        if not config or not config.ef:
+            if config is None:
+                config = InitConfig(
+                    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                        model_name="all-MiniLM-L6-v2"
+                    )
+                )
+            else:
+                config._set_embedding_function(
+                    embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            ))
+        print("Successfully loaded open source embedding model.")
+        super().__init__(config)
+
+    def get_llm_model_answer(self, prompt):
+        from gpt4all import GPT4All
+
+        global gpt4all_model
+        if gpt4all_model is None:
+            gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
+        response = gpt4all_model.generate(
+            prompt=prompt,
+        )
+        return response
