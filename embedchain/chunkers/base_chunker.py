@@ -1,4 +1,5 @@
 import hashlib
+import random
 
 
 class BaseChunker:
@@ -16,7 +17,7 @@ class BaseChunker:
             chunks = self.text_splitter.split_text(content)
             url = meta_data["url"]
             for chunk in chunks:
-                chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
+                chunk_id = hashlib.sha256((chunk + url + str(random.getrandbits(128))).encode()).hexdigest()
                 ids.append(chunk_id)
                 documents.append(chunk)
                 metadatas.append(meta_data)
