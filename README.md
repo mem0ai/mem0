@@ -7,6 +7,8 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
 
 # Latest Updates
 
+* Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
+
 * Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
 
 # What is embedchain?
@@ -50,9 +52,9 @@ pip install embedchain
 
 Creating a chatbot involves 3 steps:
 
-- import the App instance
-- add dataset
-- query on the dataset and get answers
+- Import the App instance (App Types)
+- Add Dataset (Add Dataset)
+- Query or Chat on the dataset and get answers (Interface Types)
 
 ### App Types
 
@@ -91,7 +93,7 @@ naval_chat_bot = OpenSourceApp()
 
 * Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
 
-### Add data set and query
+### Add Dataset
 
 * This step assumes that you have already created an `app` instance by either using `App` or `OpenSourceApp`. We are calling our app instance as `naval_chat_bot`
 
@@ -124,11 +126,37 @@ from embedchain import App as ECApp
 from embedchain import OpenSourceApp as ECOSApp
 ```
 
-* Now your app is created. You can use `.query` function to get the answer for any query.
+## Interface Types
+
+### Query Interface
+
+* This interface is like a question answering bot. It takes a question and gets the answer. It does not maintain context about the previous chats.
+
+* To use this, call `.query` function to get the answer for any query.
 
 ```python
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
+```
+
+### Chat Interface
+
+* This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default.
+
+* To use this, call `.chat` function to get the answer for any query.
+
+```python
+print(naval_chat_bot.chat("How to be happy in life?"))
+# answer: The most important trick to being happy is to realize happiness is a skill you develop and a choice you make. You choose to be happy, and then you work at it. It's just like building muscles or succeeding at your job. It's about recognizing the abundance and gifts around you at all times.
+Enter input (type 'exit' to quit): who is naval ravikant?
+
+print(naval_chat_bot.chat("who is naval ravikant?"))
+# answer: Naval Ravikant is an Indian-American entrepreneur and investor.
+Enter input (type 'exit' to quit): what did the author say about happiness?
+
+print(naval_chat_bot.chat("what did the author say about happiness?"))
+# answer: The author, Naval Ravikant, believes that happiness is a choice you make and a skill you develop. He compares the mind to the body, stating that just as the body can be molded and changed, so can the mind. He emphasizes the importance of being present in the moment and not getting caught up in regrets of the past or worries about the future. By being present and grateful for where you are, you can experience true happiness.
+Enter input (type 'exit' to quit):
 ```
 
 ## Format supported
@@ -209,7 +237,7 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 ## Testing
 
-Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database. 
+Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
 
 For this you can use the `dry_run` method.
 
