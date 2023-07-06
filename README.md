@@ -295,8 +295,9 @@ This section describes all possible config options.
 *coming soon*
 
 #### **Query Config**
-
-*coming soon*
+|option|description|type|default|
+|---|---|---|---|
+|number_documents|provide multiple documents as context|int|1|
 
 #### **Chat Config**
 
