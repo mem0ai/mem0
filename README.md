@@ -276,6 +276,63 @@ Resets the database and deletes all embeddings. Irreversible. Requires reinitial
 app.reset()
 ```
 
+## Configuration
+Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
+
+### Example
+
+Here's the readme example with configuration options.
+
+```python
+import os
+from embedchain import App
+from embedchain.config import InitConfig, AddConfig, QueryConfig
+from chromadb.utils import embedding_functions
+
+# Example: use your own embedding function
+config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                organization_id=os.getenv("OPENAI_ORGANIZATION"),
+                model_name="text-embedding-ada-002"
+            ))
+naval_chat_bot = App(config)
+
+add_config = AddConfig() # Currently no options
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", add_config)
+naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
+naval_chat_bot.add("web_page", "https://nav.al/feedback", add_config)
+naval_chat_bot.add("web_page", "https://nav.al/agi", add_config)
+
+naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), add_config)
+
+query_config = QueryConfig() # Currently no options
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config))
+```
+
+### Configs
+This section describes all possible config options.
+
+#### **InitConfig**
+|option|description|type|default|
+|---|---|---|---|
+|ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
+|db|vector database (experimental)|BaseVectorDB|ChromaDB|
+
+#### **Add Config**
+
+*coming soon*
+
+#### **Query Config**
+|option|description|type|default|
+|---|---|---|---|
+|number_documents|provide multiple documents as context|int|1|
+
+#### **Chat Config**
+
+All options for query and...
+
+*coming soon*
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
@@ -316,9 +373,15 @@ embedchain is built on the following stack:
 - [gpt4all](https://github.com/nomic-ai/gpt4all) as an open source LLM
 - [sentence-transformers](https://huggingface.co/sentence-transformers) as open source embedding model
 
-# Author
+# Team
+
+## Author
 
 - Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
+
+## Maintainer
+
+- [cachho](https://github.com/cachho)
 
 ## Citation
 
