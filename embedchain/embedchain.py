@@ -3,28 +3,24 @@ import os
 
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
-from gpt4all import GPT4All
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.memory import ConversationBufferMemory
 
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
+from embedchain.loaders.doc_file import DocFileLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
+from embedchain.chunkers.doc_file import DocFileChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    organization_id=os.getenv("OPENAI_ORGANIZATION"),
-    model_name="text-embedding-ada-002"
-)
-sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
 gpt4all_model = None
 
@@ -32,6 +28,8 @@ load_dotenv()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
+
+memory = ConversationBufferMemory()
 
 
 class EmbedChain:
@@ -231,6 +229,62 @@ class EmbedChain:
         answer = self.get_answer_from_llm(prompt)
         return answer
 
+    def generate_chat_prompt(self, input_query, context, chat_history=''):
+        """
+        Generates a prompt based on the given query, context and chat history
+        for chat interface. This is then passed to an LLM.
+
+        :param input_query: The query to use.
+        :param context: Similar documents to the query used as context.
+        :param chat_history: User and bot conversation that happened before.
+        :return: The prompt
+        """
+        prefix_prompt = f"""You are a chatbot having a conversation with a human. You are given chat history and context. You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know"."""
+        chat_history_prompt = f"""\n----\nChat History: {chat_history}\n----"""
+        suffix_prompt = f"""\n####\nContext: {context}\n####\nQuery: {input_query}\nHelpful Answer:"""
+        prompt = prefix_prompt
+        if chat_history:
+            prompt += chat_history_prompt
+        prompt += suffix_prompt
+        return prompt
+
+    def chat(self, input_query):
+        """
+        Queries the vector database on the given input query.
+        Gets relevant doc based on the query and then passes it to an
+        LLM as context to get the answer.
+
+        Maintains last 5 conversations in memory.
+        """
+        context = self.retrieve_from_database(input_query)
+        global memory
+        chat_history = memory.load_memory_variables({})["history"]
+        prompt = self.generate_chat_prompt(
+            input_query,
+            context,
+            chat_history=chat_history,
+        )
+        answer = self.get_answer_from_llm(prompt)
+        memory.chat_memory.add_user_message(input_query)
+        memory.chat_memory.add_ai_message(answer)
+        return answer
+
+    def dry_run(self, input_query):
+        """
+        A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
+
+        :param input_query: The query to use.
+        :return: The prompt that would be sent to the LLM
+        """
+        context = self.retrieve_from_database(input_query)
+        prompt = self.generate_prompt(input_query, context)
+        return prompt
+
 
 class App(EmbedChain):
     """
@@ -239,11 +293,16 @@ class App(EmbedChain):
 
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
+    dry_run(query): test your prompt without consuming tokens.
     """
 
     def __init__(self, config = {}):
         if config.get("ef") is None:
-            config["ef"] = openai_ef
+            config["ef"] = embedding_functions.OpenAIEmbeddingFunction(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                organization_id=os.getenv("OPENAI_ORGANIZATION"),
+                model_name="text-embedding-ada-002"
+            )
         if config.get("default_model") is None:
             config["default_model"] = "gpt-3.5-turbo-0613"
         super().__init__(config)
@@ -277,13 +336,17 @@ class OpenSourceApp(EmbedChain):
     def __init__(self, config = {}):
         print("Loading open source embedding model. This may take some time...")
         if config.get("ef") is None:
-            config["ef"] = sentence_transformer_ef
+            config["ef"] = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            )
         if config.get("default_model") is None:
             config["default_model"] = "orca-mini-3b.ggmlv3.q4_0.bin"
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
+        from gpt4all import GPT4All
+
         global gpt4all_model
         if gpt4all_model is None:
             gpt4all_model = GPT4All(self.default_model)
