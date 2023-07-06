@@ -171,38 +171,46 @@ class EmbedChain:
     def get_llm_model_answer(self, prompt):
         raise NotImplementedError
 
-    def retrieve_from_database(self, input_query):
+    def retrieve_from_database(self, input_query, config: QueryConfig):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
 
         :param input_query: The query to use.
+        :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
         result = self.collection.query(
             query_texts=[input_query,],
-            n_results=1,
+            n_results=config.number_documents,
         )
-        result_formatted = self._format_result(result)
-        if result_formatted:
-            content = result_formatted[0][0].page_content
-        else:
-            content = ""
-        return content
+        results_formatted = self._format_result(result)
+        contents = [result[0].page_content for result in results_formatted]
+        return contents
 
-    def generate_prompt(self, input_query, context):
+    def generate_prompt(self, input_query, contexts):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
-        :param context: Similar documents to the query used as context.
+        :param context: List of similar documents to the query used as context.
         :return: The prompt
         """
-        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-        {context}
-        Query: {input_query}
-        Helpful Answer:
-        """
+        if len(contexts) > 1:
+            prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+            Context: {(' | ').join(contexts)}
+            Query: {input_query}
+            Helpful Answer:
+            """
+        elif len(contexts) == 1:
+            prompt = f"""Use the following context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+            Context: {(' | ').join(contexts)}
+            Query: {input_query}
+            Helpful Answer:
+            """
+        else:
+            raise ValueError("No context provided")
+
         return prompt
 
     def get_answer_from_llm(self, prompt):
@@ -229,8 +237,8 @@ class EmbedChain:
         """
         if config is None:
             config = QueryConfig()
-        context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
+        contexts = self.retrieve_from_database(input_query, config)
+        prompt = self.generate_prompt(input_query, contexts)
         answer = self.get_answer_from_llm(prompt)
         return answer
 
@@ -266,7 +274,7 @@ class EmbedChain:
         """
         if config is None:
             config = ChatConfig()
-        context = self.retrieve_from_database(input_query)
+        contexts = self.retrieve_from_database(input_query, config)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
         prompt = self.generate_chat_prompt(
@@ -279,7 +287,7 @@ class EmbedChain:
         memory.chat_memory.add_ai_message(answer)
         return answer
 
-    def dry_run(self, input_query):
+    def dry_run(self, input_query, config: ChatConfig = None):
         """
         A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
@@ -294,8 +302,8 @@ class EmbedChain:
         """
         if config is None:
             config = QueryConfig()
-        context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
+        contexts = self.retrieve_from_database(input_query, config)
+        prompt = self.generate_prompt(input_query, contexts)
         return prompt
 
 
