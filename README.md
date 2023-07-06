@@ -161,6 +161,14 @@ To add any web page, use the data_type as `web_page`. Eg:
 app.add('web_page', 'a_valid_web_page_url')
 ```
 
+### Doc File
+
+To add any doc/docx file, use the data_type as `doc_file`. Eg:
+
+```python
+app.add('doc_file', 'a_local_doc_file_path')
+```
+
 ### Text
 
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
