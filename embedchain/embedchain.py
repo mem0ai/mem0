@@ -33,7 +33,7 @@ class EmbedChain:
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
-        :param db: The instance of the VectorDB subclass.
+        :param config: InitConfig instance to load as configuration.
         """
         
         self.config = config
@@ -247,6 +247,9 @@ class App(EmbedChain):
     """
 
     def __init__(self, config: InitConfig = None):
+        """
+        :param config: InitConfig instance to load as configuration. Optional.
+        """
         if config is None:
             config = InitConfig()
         super().__init__(config)
@@ -278,6 +281,9 @@ class OpenSourceApp(EmbedChain):
     """
 
     def __init__(self, config: InitConfig = None):
+        """
+        :param config: InitConfig instance to load as configuration. Optional. `ef` defaults to open source.
+        """
         print("Loading open source embedding model. This may take some time...")
         if not config or not config.ef:
             if config is None:

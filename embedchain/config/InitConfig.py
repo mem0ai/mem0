@@ -6,7 +6,14 @@ from embedchain.vectordb.chroma_db import ChromaDB
 from chromadb.utils import embedding_functions
 
 class InitConfig(BaseConfig):
+    """
+    Config to initialize an embedchain `App` instance.
+    """
     def __init__(self, ef=None, db=None):
+        """
+        :param ef: Optional. Embedding function to use.
+        :param db: Optional. (Vector) database to use for embeddings.
+        """
         # Embedding Function
         if ef is None:
             self.ef = embedding_functions.OpenAIEmbeddingFunction(
