@@ -1,4 +1,4 @@
-import BaseConfig
+from embedchain.config.BaseConfig import BaseConfig
 
 class AddConfig(BaseConfig):
     def __init__(self):
