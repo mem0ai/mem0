@@ -363,9 +363,15 @@ embedchain is built on the following stack:
 - [gpt4all](https://github.com/nomic-ai/gpt4all) as an open source LLM
 - [sentence-transformers](https://huggingface.co/sentence-transformers) as open source embedding model
 
-# Author
+# Team
+
+## Author
 
 - Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
+
+## Maintainer
+
+- [cachho](https://github.com/cachho)
 
 ## Citation
 
