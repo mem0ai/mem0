@@ -223,30 +223,19 @@ class EmbedChain:
         answer = self.get_llm_model_answer(prompt)
         return answer
 
-<<<<<<< HEAD
-    def query(self, input_query, number_documents=1):
-=======
     def query(self, input_query, config: QueryConfig = None):
->>>>>>> main
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
 
         :param input_query: The query to use.
-<<<<<<< HEAD
-        :param number_context: The number of documents to include in the query. Results in a longer prompt, consuming more tokens.
-        :return: The answer to the query.
-        """
-        context = self.retrieve_from_database(input_query, number_documents)
-=======
         :param config: Optional. The `QueryConfig` instance to use as configuration options.
         :return: The answer to the query.
         """
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
->>>>>>> main
         prompt = self.generate_prompt(input_query, context)
         answer = self.get_answer_from_llm(prompt)
         return answer
