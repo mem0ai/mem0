@@ -2,9 +2,6 @@ import os
 
 from embedchain.config.BaseConfig import BaseConfig
 
-from embedchain.vectordb.chroma_db import ChromaDB
-from chromadb.utils import embedding_functions
-
 class InitConfig(BaseConfig):
     """
     Config to initialize an embedchain `App` instance.
@@ -16,6 +13,7 @@ class InitConfig(BaseConfig):
         """
         # Embedding Function
         if ef is None:
+            from chromadb.utils import embedding_functions
             self.ef = embedding_functions.OpenAIEmbeddingFunction(
                 api_key=os.getenv("OPENAI_API_KEY"),
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
@@ -25,6 +23,7 @@ class InitConfig(BaseConfig):
             self.ef = ef
 
         if db is None:
+            from embedchain.vectordb.chroma_db import ChromaDB
             self.db = ChromaDB(ef=self.ef)
         else:
             self.db = db
