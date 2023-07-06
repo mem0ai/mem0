@@ -265,19 +265,6 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
-# Advanced
-
-## Other Methods
-
-### Count
-
-Counts the number of embeddings (chunks) in the database.
-
-```
-print(app.count())
-# returns: 481
-```
-
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
@@ -318,9 +305,15 @@ embedchain is built on the following stack:
 - [gpt4all](https://github.com/nomic-ai/gpt4all) as an open source LLM
 - [sentence-transformers](https://huggingface.co/sentence-transformers) as open source embedding model
 
-# Author
+# Team
+
+## Author
 
 - Taranjeet Singh ([@taranjeetio](https://twitter.com/taranjeetio))
+
+## Maintainer
+
+- [cachho](https://github.com/cachho)
 
 ## Citation
 
