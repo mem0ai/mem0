@@ -17,9 +17,10 @@ class BaseChunker:
             url = meta_data["url"]
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
-                ids.append(chunk_id)
-                documents.append(chunk)
-                metadatas.append(meta_data)
+                if (chunk_id not in ids):
+                    ids.append(chunk_id)
+                    documents.append(chunk)
+                    metadatas.append(meta_data)
         return {
             "documents": documents,
             "ids": ids,
