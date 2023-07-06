@@ -1,5 +1,4 @@
 import hashlib
-import random
 
 
 class BaseChunker:
@@ -9,6 +8,7 @@ class BaseChunker:
     def create_chunks(self, loader, url):
         documents = []
         ids = []
+        idMap = {}
         datas = loader.load_data(url)
         metadatas = []
         for data in datas:
@@ -17,10 +17,12 @@ class BaseChunker:
             chunks = self.text_splitter.split_text(content)
             url = meta_data["url"]
             for chunk in chunks:
-                chunk_id = hashlib.sha256((chunk + url + str(random.getrandbits(128))).encode()).hexdigest()
-                ids.append(chunk_id)
-                documents.append(chunk)
-                metadatas.append(meta_data)
+                chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
+                if (idMap.get(chunk_id) == None):
+                    idMap[chunk_id] = True
+                    ids.append(chunk_id)
+                    documents.append(chunk)
+                    metadatas.append(meta_data)
         return {
             "documents": documents,
             "ids": ids,
