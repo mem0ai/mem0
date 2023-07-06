@@ -323,6 +323,15 @@ All options for query and...
 
 *coming soon*
 
+## Other methods
+
+### Reset
+Resets the database and deletes all embeddings. Irreversible. Requires reinitialization afterwards.
+
+```python
+app.reset()
+```
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen

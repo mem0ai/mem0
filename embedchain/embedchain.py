@@ -299,6 +299,14 @@ class EmbedChain:
         return prompt
 
 
+    def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        `App` has to be reinitialized after using this method.
+        """
+        self.db_client.reset()
+
+
 class App(EmbedChain):
     """
     The EmbedChain app.
