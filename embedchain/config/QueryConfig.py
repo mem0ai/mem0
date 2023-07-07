@@ -28,7 +28,8 @@ class QueryConfig(BaseConfig):
         :param template: Optional. The `Template` instance to use as a template for prompt.
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
-        template = template if template else DEFAULT_PROMPT_TEMPLATE
+        if template is None:
+            template = DEFAULT_PROMPT_TEMPLATE
         if not (re.search(query_re, template.template) \
             and re.search(context_re, template.template)):
             raise ValueError("`template` should have `query` and `context` keys")
