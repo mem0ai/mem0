@@ -60,6 +60,7 @@ class EmbedChain:
             'web_page': WebPageLoader(),
             'qna_pair': LocalQnaPairLoader(),
             'text': LocalTextLoader(),
+            'docx': DocxFileLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -80,6 +81,7 @@ class EmbedChain:
             'web_page': WebPageChunker(),
             'qna_pair': QnaPairChunker(),
             'text': TextChunker(),
+            'docx': DocxFileChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
