@@ -279,7 +279,7 @@ class EmbedChain:
         memory.chat_memory.add_ai_message(answer)
         return answer
 
-    def dry_run(self, input_query):
+    def dry_run(self, input_query, config: QueryConfig = None):
         """
         A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
