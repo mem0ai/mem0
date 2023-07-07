@@ -315,7 +315,9 @@ This section describes all possible config options.
 
 #### **Query Config**
 
-*coming soon*
+|option|description|type|default|
+|---|---|---|---|
+|template|custom template for prompt|Template|DEFAULT_PROMPT_TEMPLATE|
 
 #### **Chat Config**
 
