@@ -283,11 +283,15 @@ from embedchain.config import InitConfig, AddConfig, QueryConfig
 from chromadb.utils import embedding_functions
 
 # Example: use your own embedding function
-config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
+config = InitConfig(
+            ef=embedding_functions.OpenAIEmbeddingFunction(
                 api_key=os.getenv("OPENAI_API_KEY"),
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name="text-embedding-ada-002"
-            ))
+            ),
+# Example: Run Chroma as a client  connecting to your chroma docker server
+            db_server="http://localhost:8000"
+            )
 naval_chat_bot = App(config)
 
 add_config = AddConfig() # Currently no options
