@@ -337,7 +337,7 @@ app.reset()
 ### Count
 Counts the number of embeddings (chunks) in the database.
 
-```
+```python
 print(app.count())
 # returns: 481
 ```
