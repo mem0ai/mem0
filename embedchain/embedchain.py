@@ -5,6 +5,7 @@ from string import Template
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
 from embedchain.config.QueryConfig import DEFAULT_PROMPT
@@ -359,7 +360,7 @@ class EmbedChainPersonApp:
 class PersonApp(EmbedChainPersonApp, App):
     """
     The Person app.
-    Extends functionality fr om EmbedChainPersonApp and App
+    Extends functionality from EmbedChainPersonApp and App
     """
     def query(self, input_query, config: QueryConfig = None):
         query_config = QueryConfig(
