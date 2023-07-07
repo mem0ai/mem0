@@ -12,9 +12,9 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 
 
-class DataFormat:
+class DataFormatter:
     """
-    DataFormat is an internal utility class which abstracts the mapping for
+    DataFormatter is an internal utility class which abstracts the mapping for
     loaders and chunkers to the data_type entered by the user in their
     .add or .add_local method call 
     """

@@ -9,7 +9,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
 from embedchain.config.QueryConfig import DEFAULT_PROMPT
-from embedchain.data_format import DataFormat
+from embedchain.data_format import DataFormatter
 
 gpt4all_model = None
 
@@ -51,9 +51,9 @@ class EmbedChain:
         if config is None:
             config = AddConfig()
         
-        data_format = DataFormat(data_type)
+        data_formatter = DataFormatter(data_type)
         self.user_asks.append([data_type, url])
-        self.load_and_embed(data_format.loader, data_format.chunker, url)
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, url)
 
     def add_local(self, data_type, content, config: AddConfig = None):
         """
@@ -68,9 +68,9 @@ class EmbedChain:
         if config is None:
             config = AddConfig()
         
-        data_format = DataFormat(data_type)
+        data_formatter = DataFormatter(data_type)
         self.user_asks.append([data_type, content])
-        self.load_and_embed(data_format.loader, data_format.chunker, content)
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, content)
 
     def load_and_embed(self, loader, chunker, src):
         """
