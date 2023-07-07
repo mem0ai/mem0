@@ -1,15 +1,17 @@
 # embedchain
 
-[![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/6PzXDgEjG5)
 [![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
+[![Discord](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/6PzXDgEjG5)
+[![Twitter](https://img.shields.io/twitter/follow/embedchain)](https://twitter.com/embedchain)
+[![Substack](https://img.shields.io/badge/Substack-%23006f5c.svg?logo=substack)](https://embedchain.substack.com/)
 
 embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
 # Latest Updates
 
-* Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
+- Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
 
-* Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
+- Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
 
 # What is embedchain?
 
@@ -130,9 +132,9 @@ from embedchain import OpenSourceApp as ECOSApp
 
 ### Query Interface
 
-* This interface is like a question answering bot. It takes a question and gets the answer. It does not maintain context about the previous chats.
+- This interface is like a question answering bot. It takes a question and gets the answer. It does not maintain context about the previous chats.
 
-* To use this, call `.query` function to get the answer for any query.
+- To use this, call `.query` function to get the answer for any query.
 
 ```python
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
@@ -141,9 +143,9 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 ### Chat Interface
 
-* This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default.
+- This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default.
 
-* To use this, call `.chat` function to get the answer for any query.
+- To use this, call `.chat` function to get the answer for any query.
 
 ```python
 print(naval_chat_bot.chat("How to be happy in life?"))
@@ -188,10 +190,10 @@ app.add('web_page', 'a_valid_web_page_url')
 
 ### Doc File
 
-To add any doc/docx file, use the data_type as `doc_file`. Eg:
+To add any doc/docx file, use the data_type as `docx`. Eg:
 
 ```python
-app.add('doc_file', 'a_local_doc_file_path')
+app.add('docx', 'a_local_docx_file_path')
 ```
 
 ### Text
