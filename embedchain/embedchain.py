@@ -357,17 +357,15 @@ class OpenSourceApp(EmbedChain):
         """
         print("Loading open source embedding model. This may take some time...")
         if not config or not config.ef:
+            ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            )
             if config is None:
                 config = InitConfig(
-                    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                        model_name="all-MiniLM-L6-v2"
-                    )
+                    ef = ef
                 )
             else:
-                config._set_embedding_function(
-                    embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"
-            ))
+                config._set_embedding_function(ef)
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
