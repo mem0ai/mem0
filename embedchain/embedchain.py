@@ -360,13 +360,14 @@ class OpenSourceApp(EmbedChain):
             if config is None:
                 config = InitConfig(
                     ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                            model_name="all-MiniLM-L6-v2"
-                        )
+                        model_name="all-MiniLM-L6-v2"
+                    )
                 )
             else:
-                config._set_embedding_function(embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name="all-MiniLM-L6-v2"
-                ))
+                config._set_embedding_function(
+                    embedding_functions.SentenceTransformerEmbeddingFunction(
+                        model_name="all-MiniLM-L6-v2"
+                    ))
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
