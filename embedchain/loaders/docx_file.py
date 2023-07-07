@@ -1,9 +1,8 @@
-from langchain.document_loaders import UnstructuredWordDocumentLoader
+from langchain.document_loaders import Docx2txtLoader
 
-
-class DocFileLoader:
+class DocxFileLoader:
     def load_data(self, url):
-        loader = UnstructuredWordDocumentLoader(url)
+        loader = Docx2txtLoader(url)
         output = []
         data = loader.load()
         content = data[0].page_content

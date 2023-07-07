@@ -1,5 +1,6 @@
 import openai
 import os
+from string import Template
 
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
@@ -13,13 +14,13 @@ from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
-from embedchain.loaders.doc_file import DocFileLoader
+from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
-from embedchain.chunkers.doc_file import DocFileChunker
+from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.vectordb.chroma_db import ChromaDB
 
 
@@ -61,6 +62,7 @@ class EmbedChain:
             'web_page': WebPageLoader(),
             'qna_pair': LocalQnaPairLoader(),
             'text': LocalTextLoader(),
+            'docx': DocxFileLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -81,6 +83,7 @@ class EmbedChain:
             'web_page': WebPageChunker(),
             'qna_pair': QnaPairChunker(),
             'text': TextChunker(),
+            'docx': DocxFileChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
@@ -121,22 +124,22 @@ class EmbedChain:
         self.user_asks.append([data_type, content])
         self.load_and_embed(loader, chunker, content)
 
-    def load_and_embed(self, loader, chunker, url):
+    def load_and_embed(self, loader, chunker, src):
         """
         Loads the data from the given URL, chunks it, and adds it to the database.
 
         :param loader: The loader to use to load the data.
         :param chunker: The chunker to use to chunk the data.
-        :param url: The URL where the data is located.
+        :param src: The data to be handled by the loader. Can be a URL for remote sources or local content for local loaders.
         """
-        embeddings_data = chunker.create_chunks(loader, url)
+        embeddings_data = chunker.create_chunks(loader, src)
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         # get existing ids, and discard doc if any common id exist.
         existing_docs = self.collection.get(
             ids=ids,
-            # where={"url": url}
+            # where={"url": src}
         )
         existing_ids = set(existing_docs["ids"])
 
@@ -145,7 +148,7 @@ class EmbedChain:
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
 
             if not data_dict:
-                print(f"All data from {url} already exists in the database.")
+                print(f"All data from {src} already exists in the database.")
                 return
 
             ids = list(data_dict.keys())
@@ -153,10 +156,10 @@ class EmbedChain:
 
         self.collection.add(
             documents=documents,
-            metadatas=metadatas,
+            metadatas=list(metadatas),
             ids=ids
         )
-        print(f"Successfully saved {url}. Total chunks count: {self.collection.count()}")
+        print(f"Successfully saved {src}. Total chunks count: {self.collection.count()}")
 
     def _format_result(self, results):
         return [
@@ -188,29 +191,17 @@ class EmbedChain:
         contents = [result[0].page_content for result in results_formatted]
         return contents
 
-    def generate_prompt(self, input_query, contexts):
+    def generate_prompt(self, input_query, contexts, template: Template = None):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
-        :param context: List of similar documents to the query used as context.
+        :param contexts: List of similar documents to the query used as context.
+        :param template: Optional. The `Template` instance to use as a template for prompt.
         :return: The prompt
         """
-        if len(contexts) > 1:
-            prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            Context: {(' | ').join(contexts)}
-            Query: {input_query}
-            Helpful Answer:
-            """
-        elif len(contexts) == 1:
-            prompt = f"""Use the following context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            Context: {(' | ').join(contexts)}
-            Query: {input_query}
-            Helpful Answer:
-            """
-        else:
-            raise IndexError("No context provided")
-
+        context_string = (' | ').join(contexts)
+        prompt = template.substitute(context = context_string, query = input_query)
         return prompt
 
     def get_answer_from_llm(self, prompt):
@@ -238,7 +229,7 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         contexts = self.retrieve_from_database(input_query, config)
-        prompt = self.generate_prompt(input_query, contexts)
+        prompt = self.generate_prompt(input_query, contexts, config.template)
         answer = self.get_answer_from_llm(prompt)
         return answer
 
@@ -287,7 +278,7 @@ class EmbedChain:
         memory.chat_memory.add_ai_message(answer)
         return answer
 
-    def dry_run(self, input_query, config: ChatConfig = None):
+    def dry_run(self, input_query, config: QueryConfig = None):
         """
         A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
@@ -305,6 +296,22 @@ class EmbedChain:
         contexts = self.retrieve_from_database(input_query, config)
         prompt = self.generate_prompt(input_query, contexts)
         return prompt
+
+    def count(self):
+        """
+        Count the number of embeddings.
+
+        :return: The number of embeddings.
+        """
+        return self.collection.count()
+
+
+    def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        `App` has to be reinitialized after using this method.
+        """
+        self.db_client.reset()
 
 
 class App(EmbedChain):
@@ -356,15 +363,14 @@ class OpenSourceApp(EmbedChain):
         :param config: InitConfig instance to load as configuration. Optional. `ef` defaults to open source.
         """
         print("Loading open source embedding model. This may take some time...")
-        if not config or not config.ef:
-            if config is None:
-                config = InitConfig(
-                    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                        model_name="all-MiniLM-L6-v2"
-                    )
+        if not config:
+            config = InitConfig(
+                ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="all-MiniLM-L6-v2"
                 )
-            else:
-                config._set_embedding_function(
+            )
+        elif not config.ef:
+            config._set_embedding_function(
                     embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
             ))
