@@ -3,13 +3,19 @@ from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
+from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
+from embedchain.chunkers.docx_file import DocxFileChunker
+
 
 class DataFormat:
+    """
+    DataFormat is an internal utility class which abstracts the mapping for
+    """
     def __init__(self, data_type):
         self.loader = self._get_loader(data_type)
         self.chunker = self._get_chunker(data_type)
@@ -28,6 +34,7 @@ class DataFormat:
             'web_page': WebPageLoader(),
             'qna_pair': LocalQnaPairLoader(),
             'text': LocalTextLoader(),
+            'docx': DocxFileLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -48,8 +55,10 @@ class DataFormat:
             'web_page': WebPageChunker(),
             'qna_pair': QnaPairChunker(),
             'text': TextChunker(),
+            'docx': DocxFileChunker(),
         }
         if data_type in chunkers:
             return chunkers[data_type]
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
+
