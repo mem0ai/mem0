@@ -87,6 +87,7 @@ class EmbedChain:
         # get existing ids, and discard doc if any common id exist.
         existing_docs = self.collection.get(
             ids=ids,
+            where={"app_id": self.config.id}, # optional filter
             # where={"url": src}
         )
         existing_ids = set(existing_docs["ids"])
@@ -101,6 +102,10 @@ class EmbedChain:
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
+        
+        # Add app id in metadatas so that they can be queried on later
+        for m in metadatas:
+            m["app_id"] = self.config.id
 
         self.collection.add(
             documents=documents,
@@ -133,6 +138,7 @@ class EmbedChain:
         result = self.collection.query(
             query_texts=[input_query,],
             n_results=1,
+            where={"app_id": self.config.id}, # optional filter
         )
         result_formatted = self._format_result(result)
         if result_formatted:

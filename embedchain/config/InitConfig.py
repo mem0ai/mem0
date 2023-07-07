@@ -1,12 +1,14 @@
 import os
-
 from embedchain.config.BaseConfig import BaseConfig
+import uuid
+
 
 class InitConfig(BaseConfig):
+    
     """
     Config to initialize an embedchain `App` instance.
     """
-    def __init__(self, ef=None, db=None):
+    def __init__(self, ef=None, db=None, id=None):
         """
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
@@ -27,6 +29,11 @@ class InitConfig(BaseConfig):
             self.db = ChromaDB(ef=self.ef)
         else:
             self.db = db
+            
+        if id is None:
+            self.id = str(uuid.uuid4())
+        else:
+            self.id = id
 
         return
 

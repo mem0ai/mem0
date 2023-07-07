@@ -32,5 +32,6 @@ setuptools.setup(
         "gpt4all",
         "sentence_transformers",
         "docx2txt",
+        "uuid"
     ],
 )
