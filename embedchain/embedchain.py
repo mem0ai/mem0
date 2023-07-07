@@ -364,15 +364,14 @@ class OpenSourceApp(EmbedChain):
         :param config: InitConfig instance to load as configuration. Optional. `ef` defaults to open source.
         """
         print("Loading open source embedding model. This may take some time...")
-        if not config or not config.ef:
-            if config is None:
-                config = InitConfig(
-                    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                        model_name="all-MiniLM-L6-v2"
-                    )
+        if not config:
+            config = InitConfig(
+                ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="all-MiniLM-L6-v2"
                 )
-            else:
-                config._set_embedding_function(
+            )
+        elif not config.ef:
+            config._set_embedding_function(
                     embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
             ))
