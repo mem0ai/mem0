@@ -8,6 +8,7 @@ from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
+from embedchain.config.QueryConfig import DEFAULT_PROMPT
 
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
@@ -42,7 +43,7 @@ class EmbedChain:
 
         :param config: InitConfig instance to load as configuration.
         """
-        
+
         self.config = config
         self.db_client = self.config.db.client
         self.collection = self.config.db.collection
@@ -388,3 +389,58 @@ class OpenSourceApp(EmbedChain):
             prompt=prompt,
         )
         return response
+
+
+class EmbedChainPersonApp:
+    """
+    Base class to create a person bot.
+    This bot behaves and speaks like a person.
+
+    :param person: name of the person, better if its a well known person.
+    :param config: InitConfig instance to load as configuration.
+    """
+    def __init__(self, person, config: InitConfig = None):
+        self.person = person
+        self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."
+        self.template = Template(
+            self.person_prompt + " " + DEFAULT_PROMPT
+        )
+        if config is None:
+            config = InitConfig()
+        super().__init__(config)
+
+
+class PersonApp(EmbedChainPersonApp, App):
+    """
+    The Person app.
+    Extends functionality from EmbedChainPersonApp and App
+    """
+    def query(self, input_query, config: QueryConfig = None):
+        query_config = QueryConfig(
+            template=self.template,
+        )
+        return super().query(input_query, query_config)
+
+    def chat(self, input_query, config: ChatConfig = None):
+        chat_config = ChatConfig(
+            template = self.template,
+        )
+        return super().chat(input_query, chat_config)
+
+
+class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
+    """
+    The Person app.
+    Extends functionality from EmbedChainPersonApp and OpenSourceApp
+    """
+    def query(self, input_query, config: QueryConfig = None):
+        query_config = QueryConfig(
+            template=self.template,
+        )
+        return super().query(input_query, query_config)
+
+    def chat(self, input_query, config: ChatConfig = None):
+        chat_config = ChatConfig(
+            template = self.template,
+        )
+        return super().chat(input_query, chat_config)
