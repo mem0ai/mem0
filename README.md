@@ -60,7 +60,7 @@ Creating a chatbot involves 3 steps:
 
 ### App Types
 
-We have two types of App.
+We have three types of App.
 
 #### 1. App (uses OpenAI models, paid)
 
@@ -72,7 +72,7 @@ naval_chat_bot = App()
 
 - `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
 
-- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 - Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
@@ -95,6 +95,24 @@ naval_chat_bot = OpenSourceApp()
 
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
 
+#### 3. PersonApp (uses OpenAI models, paid)
+
+```python
+from embedchain import PersonApp
+
+naval_chat_bot = PersonApp("name_of_person_or_character") #Like "Yoda"
+```
+
+- `PersonApp` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
+
+- `PersonApp` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+
+- Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
+
+````python
+import os
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+
 ### Add Dataset
 
 - This step assumes that you have already created an `app` instance by either using `App` or `OpenSourceApp`. We are calling our app instance as `naval_chat_bot`
@@ -114,18 +132,20 @@ naval_chat_bot.add("web_page", "https://nav.al/agi")
 
 # Embed Local Resources
 naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
-```
+````
 
 - If there is any other app instance in your script or app, you can change the import as
 
 ```python
 from embedchain import App as EmbedChainApp
 from embedchain import OpenSourceApp as EmbedChainOSApp
+from embedchain import PersonApp as EmbedChainPersonApp
 
 # or
 
 from embedchain import App as ECApp
 from embedchain import OpenSourceApp as ECOSApp
+from embedchain import PersonApp as ECPApp
 ```
 
 ## Interface Types
@@ -270,6 +290,7 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 # Advanced
 
 ## Configuration
+
 Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
 
 ### Example
@@ -303,33 +324,36 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 ```
 
 ### Configs
+
 This section describes all possible config options.
 
 #### **InitConfig**
-|option|description|type|default|
-|---|---|---|---|
-|ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
-|db|vector database (experimental)|BaseVectorDB|ChromaDB|
+
+| option | description                    | type                               | default                  |
+| ------ | ------------------------------ | ---------------------------------- | ------------------------ |
+| ef     | embedding function             | chromadb.utils.embedding_functions | {text-embedding-ada-002} |
+| db     | vector database (experimental) | BaseVectorDB                       | ChromaDB                 |
 
 #### **Add Config**
 
-*coming soon*
+_coming soon_
 
 #### **Query Config**
 
-|option|description|type|default|
-|---|---|---|---|
-|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+| option   | description                | type     | default                                                                                                                                                                                                             |
+| -------- | -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| template | custom template for prompt | Template | Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:") |
 
 #### **Chat Config**
 
 All options for query and...
 
-*coming soon*
+_coming soon_
 
 ## Other methods
 
 ### Reset
+
 Resets the database and deletes all embeddings. Irreversible. Requires reinitialization afterwards.
 
 ```python
@@ -337,6 +361,7 @@ app.reset()
 ```
 
 ### Count
+
 Counts the number of embeddings (chunks) in the database.
 
 ```python
