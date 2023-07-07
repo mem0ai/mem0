@@ -154,8 +154,6 @@ class EmbedChain:
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
-            documents = list(documents)
-            metadatas = list(metadatas)
 
         self.collection.add(
             documents=documents,
