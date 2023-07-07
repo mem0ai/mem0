@@ -33,4 +33,4 @@ class InitConfig(BaseConfig):
 
     def _set_embedding_function(self, ef):
         self.ef = ef
-        return        
+        return
