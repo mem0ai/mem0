@@ -316,7 +316,7 @@ This section describes all possible config options.
 #### **Query Config**
 |option|description|type|default|
 |---|---|---|---|
-|number_documents|provide multiple documents as context|int|1|
+|number_documents|number of documents to be retrieved as context|int|1|
 
 #### **Chat Config**
 
