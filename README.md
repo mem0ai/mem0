@@ -109,9 +109,10 @@ naval_chat_bot = PersonApp("name_of_person_or_character") #Like "Yoda"
 
 - Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
-````python
+```python
 import os
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+```
 
 ### Add Dataset
 
@@ -132,7 +133,7 @@ naval_chat_bot.add("web_page", "https://nav.al/agi")
 
 # Embed Local Resources
 naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
-````
+```
 
 - If there is any other app instance in your script or app, you can change the import as
 
