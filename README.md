@@ -310,6 +310,7 @@ This section describes all possible config options.
 |---|---|---|---|
 |ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
 |db|vector database (experimental)|BaseVectorDB|ChromaDB|
+|db_server|database server to connect to|URL-string|None|
 
 #### **Add Config**
 
