@@ -1,6 +1,5 @@
 import openai
 import os
-import re
 from string import Template
 
 from chromadb.utils import embedding_functions
@@ -31,18 +30,6 @@ load_dotenv()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
-DEFAULT_PROMPT_TEMPLATE = Template("""
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
-  $context
-  
-  Query: $query
-  
-  Helpful Answer:
-""")
-query_re = re.compile(r"\$\{*query\}*")
-context_re = re.compile(r"\$\{*context\}*")
 
 memory = ConversationBufferMemory()
 
@@ -213,11 +200,6 @@ class EmbedChain:
         :param template: Optional. The `Template` instance to use as a template for prompt.
         :return: The prompt
         """
-        if template is None:
-            template = DEFAULT_PROMPT_TEMPLATE
-        if not (re.search(query_re, template.template) \
-                and re.search(context_re, template.template)):
-            raise ValueError("`template` should have `query` and `context` keys")
         prompt = template.substitute(context = context, query = input_query)
         return prompt
 
@@ -233,7 +215,7 @@ class EmbedChain:
         answer = self.get_llm_model_answer(prompt)
         return answer
 
-    def query(self, input_query, config: QueryConfig = None, template: Template = None):
+    def query(self, input_query, config: QueryConfig = None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -241,13 +223,12 @@ class EmbedChain:
 
         :param input_query: The query to use.
         :param config: Optional. The `QueryConfig` instance to use as configuration options.
-        :param template: Optional. The `Template` instance to use as a template for prompt. This should contain $context and $query
         :return: The answer to the query.
         """
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context, template)
+        prompt = self.generate_prompt(input_query, context, config.template)
         answer = self.get_answer_from_llm(prompt)
         return answer
 
