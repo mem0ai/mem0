@@ -298,6 +298,14 @@ class EmbedChain:
         prompt = self.generate_prompt(input_query, context)
         return prompt
 
+    def count(self):
+        """
+        Count the number of embeddings.
+
+        :return: The number of embeddings.
+        """
+        return self.collection.count()
+
 
     def reset(self):
         """

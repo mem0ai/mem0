@@ -332,6 +332,14 @@ Resets the database and deletes all embeddings. Irreversible. Requires reinitial
 app.reset()
 ```
 
+### Count
+Counts the number of embeddings (chunks) in the database.
+
+```
+print(app.count())
+# returns: 481
+```
+
 # How does it work?
 
 Creating a chat bot over any dataset needs the following steps to happen
