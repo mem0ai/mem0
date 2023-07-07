@@ -15,6 +15,8 @@ from embedchain.chunkers.docx_file import DocxFileChunker
 class DataFormat:
     """
     DataFormat is an internal utility class which abstracts the mapping for
+    loaders and chunkers to the data_type entered by the user in their
+    .add or .add_local method call 
     """
     def __init__(self, data_type):
         self.loader = self._get_loader(data_type)
