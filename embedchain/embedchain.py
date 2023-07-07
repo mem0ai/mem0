@@ -1,5 +1,6 @@
 import openai
 import os
+from string import Template
 
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
@@ -192,19 +193,16 @@ class EmbedChain:
             content = ""
         return content
 
-    def generate_prompt(self, input_query, context):
+    def generate_prompt(self, input_query, context, template: Template = None):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
+        :param template: Optional. The `Template` instance to use as a template for prompt.
         :return: The prompt
         """
-        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-        {context}
-        Query: {input_query}
-        Helpful Answer:
-        """
+        prompt = template.substitute(context = context, query = input_query)
         return prompt
 
     def get_answer_from_llm(self, prompt):
@@ -232,7 +230,7 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
+        prompt = self.generate_prompt(input_query, context, config.template)
         answer = self.get_answer_from_llm(prompt)
         return answer
 
