@@ -8,7 +8,7 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
 class ChromaDB(BaseVectorDB):
-    def __init__(self, db_dir=None, server=None):
+    def __init__(self, ef=None, db_dir=None, db_server=None):
         if ef:
             self.ef = ef
         else:
@@ -21,14 +21,14 @@ class ChromaDB(BaseVectorDB):
         if db_dir is None:
             db_dir = "db"
 
-        if server is None:
+        if db_server is None:
             self.client_settings = chromadb.config.Settings(
                 chroma_db_impl="duckdb+parquet",
                 persist_directory=db_dir,
                 anonymized_telemetry=False
             )
         else:
-            _schema, host, port = split_connection_string(server)
+            _schema, host, port = split_connection_string(db_server)
             self.client_settings = chromadb.config.Settings(
                 chroma_api_impl="rest",
                 chroma_server_host=host,
