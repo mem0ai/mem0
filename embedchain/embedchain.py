@@ -243,7 +243,7 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
+        prompt = self.generate_prompt(input_query, context, config.template)
         return prompt
 
     def count(self):
