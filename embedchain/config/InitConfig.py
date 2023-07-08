@@ -25,6 +25,11 @@ class InitConfig(BaseConfig):
         return
     
     def _set_embedding_function_to_default(self):
+        """
+        Sets embedding function to default (`text-embedding-ada-002`).
+
+        :raises ValueError: If the template is not valid as template should contain $context and $query
+        """
         if os.getenv("OPENAI_API_KEY") is None or os.getenv("OPENAI_ORGANIZATION") is None:
             raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")
         self.ef = embedding_functions.OpenAIEmbeddingFunction(
@@ -39,5 +44,8 @@ class InitConfig(BaseConfig):
         return
 
     def _set_db_to_default(self):
+        """
+        Sets database to default (`ChromaDb`).
+        """
         from embedchain.vectordb.chroma_db import ChromaDB
         self.db = ChromaDB(ef=self.ef)
