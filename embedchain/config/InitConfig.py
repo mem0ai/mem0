@@ -37,6 +37,7 @@ class InitConfig(BaseConfig):
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name="text-embedding-ada-002"
             )
+        return
     
     def _set_db(self, db):
         if db:
@@ -49,3 +50,4 @@ class InitConfig(BaseConfig):
         """
         from embedchain.vectordb.chroma_db import ChromaDB
         self.db = ChromaDB(ef=self.ef)
+        return
