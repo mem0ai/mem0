@@ -60,7 +60,7 @@ Creating a chatbot involves 3 steps:
 
 ### App Types
 
-We have two types of App.
+We have three types of App.
 
 #### 1. App (uses OpenAI models, paid)
 
@@ -72,7 +72,7 @@ naval_chat_bot = App()
 
 - `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
 
-- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 - Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
@@ -94,6 +94,25 @@ naval_chat_bot = OpenSourceApp()
 - Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed.
 
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
+
+#### 3. PersonApp (uses OpenAI models, paid)
+
+```python
+from embedchain import PersonApp
+
+naval_chat_bot = PersonApp("name_of_person_or_character") #Like "Yoda"
+```
+
+- `PersonApp` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
+
+- `PersonApp` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+
+- Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
+
+```python
+import os
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+```
 
 ### Add Dataset
 
@@ -121,11 +140,13 @@ naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant 
 ```python
 from embedchain import App as EmbedChainApp
 from embedchain import OpenSourceApp as EmbedChainOSApp
+from embedchain import PersonApp as EmbedChainPersonApp
 
 # or
 
 from embedchain import App as ECApp
 from embedchain import OpenSourceApp as ECOSApp
+from embedchain import PersonApp as ECPApp
 ```
 
 ## Interface Types
@@ -270,6 +291,7 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 # Advanced
 
 ## Configuration
+
 Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
 
 ### Example
@@ -303,9 +325,11 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 ```
 
 ### Configs
+
 This section describes all possible config options.
 
 #### **InitConfig**
+
 |option|description|type|default|
 |---|---|---|---|
 |ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
@@ -313,7 +337,7 @@ This section describes all possible config options.
 
 #### **Add Config**
 
-*coming soon*
+_coming soon_
 
 #### **Query Config**
 
@@ -325,11 +349,12 @@ This section describes all possible config options.
 
 All options for query and...
 
-*coming soon*
+_coming soon_
 
 ## Other methods
 
 ### Reset
+
 Resets the database and deletes all embeddings. Irreversible. Requires reinitialization afterwards.
 
 ```python
@@ -337,6 +362,7 @@ app.reset()
 ```
 
 ### Count
+
 Counts the number of embeddings (chunks) in the database.
 
 ```python
