@@ -10,7 +10,7 @@ class InitConfig(BaseConfig):
         :param db: Optional. (Vector) database to use for embeddings.
         """
         # Embedding Function
-        if ef is not None:
+        if ef:
             self.ef = ef
 
         if db is None:
