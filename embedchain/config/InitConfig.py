@@ -12,14 +12,7 @@ class InitConfig(BaseConfig):
         :param db: Optional. (Vector) database to use for embeddings.
         """
         # Embedding Function
-        if ef is None:
-            from chromadb.utils import embedding_functions
-            self.ef = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002"
-            )
-        else:
+        if ef is not None:
             self.ef = ef
 
         if db is None:

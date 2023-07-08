@@ -279,6 +279,13 @@ class App(EmbedChain):
         """
         if config is None:
             config = InitConfig()
+        
+        if not config.ef:
+            config._set_embedding_function(embedding_functions.OpenAIEmbeddingFunction(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                organization_id=os.getenv("OPENAI_ORGANIZATION"),
+                model_name="text-embedding-ada-002"
+            ))
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
@@ -313,12 +320,9 @@ class OpenSourceApp(EmbedChain):
         """
         print("Loading open source embedding model. This may take some time...")
         if not config:
-            config = InitConfig(
-                ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name="all-MiniLM-L6-v2"
-                )
-            )
-        elif not config.ef:
+            config = InitConfig()
+        
+        if not config.ef:
             config._set_embedding_function(
                     embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
