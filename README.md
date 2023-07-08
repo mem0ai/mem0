@@ -349,15 +349,13 @@ print(app.count())
 # returns: 481
 ```
 
-# Advanced
-This package is designed to be simple and work out of the box. For specific use cases, there are advanced options.
-
 ## Client Mode
 By defining a (chromadb) server, you can run EmbedChain as a client only.
 
 ```python
 from embedchain import App
-naval_chat_bot = App(server="localhost:8000")
+config = InitConfig(db_server="http://localhost:8000")
+app = App(config)
 ```
 This is useful for scalability. Say you have EmbedChain behind an API with multiple workers. If you separate clients and server, all clients can connect to the server, which only has to keep one instance of the database in memory. You also don't have to worry about adding embeddings while it's live.
 
