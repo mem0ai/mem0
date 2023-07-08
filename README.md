@@ -393,12 +393,15 @@ _coming soon_
 |option|description|type|default|
 |---|---|---|---|
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+|history|include conversation history from your client or database|any (recommendation: list[str])|None
 
 #### **Chat Config**
 
 All options for query and...
 
 _coming soon_
+
+history is handled automatically, the config option is not supported.
 
 ## Other methods
 
