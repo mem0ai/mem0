@@ -1,5 +1,3 @@
-import os
-
 from embedchain.config.BaseConfig import BaseConfig
 
 class InitConfig(BaseConfig):
