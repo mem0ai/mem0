@@ -7,10 +7,6 @@
 
 embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
-Chinese Colab Tutorial:https://colab.research.google.com/drive/10_7Y0x4YXWVjuhhYwVraGQLpKAatTQTm?usp=sharing
-
-Chinese Video Tutorial:https://www.bilibili.com/video/BV1YX4y1H7oN
-
 # Latest Updates
 
 - Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
@@ -270,6 +266,12 @@ A: Naval Ravikant is an Indian-American entrepreneur and investor.
 _The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed._
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
+
+## Chinese Video and Colab Tutorials
+
+Colab Tutorial:https://colab.research.google.com/drive/10_7Y0x4YXWVjuhhYwVraGQLpKAatTQTm?usp=sharing
+
+Video Tutorial:https://www.bilibili.com/video/BV1YX4y1H7oN
 
 # Advanced
 
