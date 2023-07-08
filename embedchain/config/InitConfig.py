@@ -1,3 +1,7 @@
+import os
+
+from chromadb.utils import embedding_functions
+
 from embedchain.config.BaseConfig import BaseConfig
 
 class InitConfig(BaseConfig):
@@ -20,6 +24,18 @@ class InitConfig(BaseConfig):
         self.ef = ef
         return
     
+    def _set_embedding_function_to_default(self):
+        self.ef = embedding_functions.OpenAIEmbeddingFunction(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                organization_id=os.getenv("OPENAI_ORGANIZATION"),
+                model_name="text-embedding-ada-002"
+            )
+    
     def _set_db(self, db):
-        self.db = db
+        if db:
+            self.db = db            
         return
+
+    def _set_db_to_default(self):
+        from embedchain.vectordb.chroma_db import ChromaDB
+        self.db = ChromaDB(ef=self.ef)

@@ -5,12 +5,10 @@ from string import Template
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
 from embedchain.config.QueryConfig import DEFAULT_PROMPT
 from embedchain.data_formatter import DataFormatter
-from embedchain.vectordb.chroma_db import ChromaDB
 
 gpt4all_model = None
 
@@ -282,15 +280,10 @@ class App(EmbedChain):
             config = InitConfig()
         
         if not config.ef:
-            config._set_embedding_function(embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002"
-            ))
+            config._set_embedding_function_to_default()
 
         if not config.db:
-            from embedchain.vectordb.chroma_db import ChromaDB
-            config._set_db(ChromaDB(ef=config.ef))
+            config._set_db_to_default()
         
         super().__init__(config)
 
@@ -335,8 +328,7 @@ class OpenSourceApp(EmbedChain):
             ))
 
         if not config.db:
-            from embedchain.vectordb.chroma_db import ChromaDB
-            config._set_db(ChromaDB(ef=config.ef))
+            config._set_db_to_default()
 
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
