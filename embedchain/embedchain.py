@@ -224,8 +224,20 @@ class EmbedChain:
         )
         answer = self.get_answer_from_llm(prompt)
         memory.chat_memory.add_user_message(input_query)
-        memory.chat_memory.add_ai_message(answer)
-        return answer
+        if isinstance(answer, str):
+            memory.chat_memory.add_ai_message(answer)
+            return answer
+        else:
+            #this is a streamed response and needs to be handled differently
+            return self._stream_chat_response(answer)
+
+    def _stream_chat_response(self, answer):
+        streamed_answer = ""
+        for chunk in answer:
+            streamed_answer.join(chunk)
+            yield chunk
+        memory.chat_memory.add_ai_message(streamed_answer)
+          
 
     def dry_run(self, input_query, config: QueryConfig = None):
         """
