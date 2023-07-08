@@ -121,9 +121,6 @@ class EmbedChain:
 
     def get_llm_model_answer(self, prompt):
         raise NotImplementedError
-    
-    def stream_llm_model_answer(self, prompt):
-        raise ValueError('This model does not support streaming response')
 
     def retrieve_from_database(self, input_query):
         """
@@ -156,7 +153,7 @@ class EmbedChain:
         prompt = template.substitute(context = context, query = input_query)
         return prompt
 
-    def get_answer_from_llm(self, prompt, stream_response):
+    def get_answer_from_llm(self, prompt):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -165,10 +162,8 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        if stream_response:
-            return self.stream_llm_model_answer(prompt)
-        else:
-            return self.get_llm_model_answer(prompt)
+        
+        return self.get_llm_model_answer(prompt)
 
     def query(self, input_query, config: QueryConfig = None):
         """
@@ -184,7 +179,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
-        answer = self.get_answer_from_llm(prompt, config.stream_response)
+        answer = self.get_answer_from_llm(prompt)
         return answer
 
     def generate_chat_prompt(self, input_query, context, chat_history=''):
@@ -285,9 +280,15 @@ class App(EmbedChain):
         if config is None:
             config = InitConfig()
         super().__init__(config)
-    
 
-    def get_llm_model_answer(self, prompt, stream_response = False):
+    def get_llm_model_answer(self, prompt):
+        stream_response = self.config.stream_response
+        if stream_response:
+            return self._stream_llm_model_response(prompt)
+        else:
+            return self._get_llm_model_response(prompt)
+
+    def _get_llm_model_response(self, prompt, stream_response = False):
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -306,12 +307,12 @@ class App(EmbedChain):
             return response
         else:
             return response["choices"][0]["message"]["content"]
-        
-    def stream_llm_model_answer(self, prompt):
+    
+    def _stream_llm_model_response(self, prompt):
         """
         This is a generator for streaming response from the OpenAI completions API
         """
-        response = self.get_llm_model_answer(prompt, True)
+        response = self._get_llm_model_response(prompt, True)
         for line in response:
             chunk = line['choices'][0].get('delta', {}).get('content', '')
             yield chunk

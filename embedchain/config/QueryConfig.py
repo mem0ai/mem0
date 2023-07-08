@@ -22,7 +22,7 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None, stream_response = False):
+    def __init__(self, template: Template = None):
         """
         Initializes the QueryConfig instance.
 
@@ -35,7 +35,3 @@ class QueryConfig(BaseConfig):
             and re.search(context_re, template.template)):
             raise ValueError("`template` should have `query` and `context` keys")
         self.template = template
-
-        if not isinstance(stream_response, bool):
-            raise ValueError("`stream_respone` should be bool")
-        self.stream_response = stream_response

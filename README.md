@@ -165,9 +165,9 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 - You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format
 
-- To use this, call `.query` function with a `QueryConfig` instance passing `stream_response=True`. The following example iterates through the chunks and prints them as they appear
+- To use this, instantiate App with a `InitConfig` instance passing `stream_response=True`. The following example iterates through the chunks and prints them as they appear
 ```python
-query_config = QueryConfig(stream_response=True)
+app = App(InitConfig(stream_response=True))
 resp = naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
 
 for chunk in resp:

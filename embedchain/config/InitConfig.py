@@ -6,7 +6,7 @@ class InitConfig(BaseConfig):
     """
     Config to initialize an embedchain `App` instance.
     """
-    def __init__(self, ef=None, db=None):
+    def __init__(self, ef=None, db=None, stream_response=False):
         """
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
@@ -27,6 +27,10 @@ class InitConfig(BaseConfig):
             self.db = ChromaDB(ef=self.ef)
         else:
             self.db = db
+        
+        if not isinstance(stream_response, bool):
+            raise ValueError("`stream_respone` should be bool")
+        self.stream_response = stream_response
 
         return
 
