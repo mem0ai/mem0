@@ -151,7 +151,6 @@ class EmbedChain:
         :param config: Optional. The `QueryConfig` instance to use as configuration options.
         :return: The prompt
         """
-        print("History:", config.history)
         if not config.history:
             prompt = config.template.substitute(context = context, query = input_query)
         else:
