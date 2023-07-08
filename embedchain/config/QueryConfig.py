@@ -44,7 +44,7 @@ class QueryConfig(BaseConfig):
 
         :param template: Optional. The `Template` instance to use as a template for prompt.
         :param history: Optional. A list of strings to consider as history.
-        :raises ValueError: If the template is not valid as template should contain $context and $query
+        :raises ValueError: If the template is not valid as template should contain $context and $query (and optionally $history).
         """
         if not history:
             self.history = None
