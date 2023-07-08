@@ -141,16 +141,19 @@ class EmbedChain:
             content = ""
         return content
 
-    def generate_prompt(self, input_query, context, template: Template = None):
+    def generate_prompt(self, input_query, context, config: QueryConfig):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
-        :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param config: Optional. The `QueryConfig` instance to use as configuration options.
         :return: The prompt
         """
-        prompt = template.substitute(context = context, query = input_query)
+        if not config.history:
+            prompt = config.template.substitute(context = context, query = input_query)
+        else:
+            prompt = config.template.substitute(context = context, query = input_query, history = config.history)
         return prompt
 
     def get_answer_from_llm(self, prompt):
@@ -178,7 +181,7 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context, config.template)
+        prompt = self.generate_prompt(input_query, context, config)
         answer = self.get_answer_from_llm(prompt)
         return answer
 
@@ -243,7 +246,7 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
+        prompt = self.generate_prompt(input_query, context, config)
         return prompt
 
     def count(self):
