@@ -331,6 +331,12 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
+## Colab Notebook and Video Tutorials
+
+Chinese Colab Tutorial:https://colab.research.google.com/drive/10_7Y0x4YXWVjuhhYwVraGQLpKAatTQTm?usp=sharing
+
+Chinese Video Tutorial:https://www.bilibili.com/video/BV1YX4y1H7oN
+
 # Advanced
 
 ## Configuration
