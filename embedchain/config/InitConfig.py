@@ -1,10 +1,9 @@
 import os
-from embedchain.config.BaseConfig import BaseConfig
 import uuid
+from embedchain.config.BaseConfig import BaseConfig
 
 
 class InitConfig(BaseConfig):
-    
     """
     Config to initialize an embedchain `App` instance.
     """
@@ -12,6 +11,7 @@ class InitConfig(BaseConfig):
         """
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
+        :param id: Optional. ID of the app. Document metadata will have this id.
         """
         # Embedding Function
         if ef is None:
