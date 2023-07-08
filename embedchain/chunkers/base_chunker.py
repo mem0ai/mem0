@@ -14,6 +14,7 @@ class BaseChunker:
         """
         documents = []
         ids = []
+        idMap = {}
         datas = loader.load_data(src)
         metadatas = []
         for data in datas:
@@ -25,9 +26,11 @@ class BaseChunker:
 
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
-                ids.append(chunk_id)
-                documents.append(chunk)
-                metadatas.append(meta_data)
+                if (idMap.get(chunk_id) is None):
+                    idMap[chunk_id] = True
+                    ids.append(chunk_id)
+                    documents.append(chunk)
+                    metadatas.append(meta_data)
         return {
             "documents": documents,
             "ids": ids,
