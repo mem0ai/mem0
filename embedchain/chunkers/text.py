@@ -16,6 +16,5 @@ class TextChunker(BaseChunker):
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
             config = TEXT_SPLITTER_CHUNK_PARAMS
-        print(config)
         text_splitter = RecursiveCharacterTextSplitter(**config)
         super().__init__(text_splitter)

@@ -312,7 +312,15 @@ config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
             ))
 naval_chat_bot = App(config)
 
-add_config = AddConfig() # Currently no options
+# Example: define your own chunker config
+add_config = {
+        "chunker": {
+                "chunk_size": 1000,
+                "chunk_overlap": 100,
+                "length_function": len,
+        }
+}
+add_config = AddConfig(**add_config)
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", add_config)
 naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
 naval_chat_bot.add("web_page", "https://nav.al/feedback", add_config)
@@ -336,6 +344,32 @@ This section describes all possible config options.
 |db|vector database (experimental)|BaseVectorDB|ChromaDB|
 
 #### **Add Config**
+
+|option|description|type|default|
+|---|---|---|---|
+|chunker|chunker config|ChunkerConfig|{"chunk_size": 4000, "chunk_overlap": 200, "length_function": len}|
+|loader|loader config|LoaderConfig|None|
+
+##### **Chunker Config**
+
+|option|description|type|default|
+|---|---|---|---|
+|chunk_size|Maximum size of chunks to return|int|4000|
+|chunk_overlap|Overlap in characters between chunks|int|200|
+|length_function|Function that measures the length of given chunks|typing.Callable|len|
+
+Default values of chunker config parameters for different `data_type`:
+
+|data_type|chunk_size|chunk_overlap|length_function|
+|---|---|---|---|
+|docx|1000|0|len|
+|text|300|0|len|
+|qna_pair|300|0|len|
+|web_page|500|0|len|
+|pdf_file|1000|0|len|
+|youtube_video|2000|0|len|
+
+##### **Loader Config**
 
 _coming soon_
 
