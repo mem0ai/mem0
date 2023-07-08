@@ -10,6 +10,7 @@ from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
 from embedchain.config.QueryConfig import DEFAULT_PROMPT
 from embedchain.data_formatter import DataFormatter
+from embedchain.vectordb.chroma_db import ChromaDB
 
 gpt4all_model = None
 
@@ -286,6 +287,11 @@ class App(EmbedChain):
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name="text-embedding-ada-002"
             ))
+
+        if not config.db:
+            from embedchain.vectordb.chroma_db import ChromaDB
+            config._set_db(ChromaDB(ef=config.ef))
+        
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt):
@@ -327,6 +333,11 @@ class OpenSourceApp(EmbedChain):
                     embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
             ))
+
+        if not config.db:
+            from embedchain.vectordb.chroma_db import ChromaDB
+            config._set_db(ChromaDB(ef=config.ef))
+
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
