@@ -35,9 +35,6 @@ class EmbedChain:
         self.collection = self.config.db.collection
         self.user_asks = []
 
-    
-
-    
     def add(self, data_type, url, config: AddConfig = None):
         """
         Adds the data from the given URL to the vector db.
@@ -50,8 +47,8 @@ class EmbedChain:
         """
         if config is None:
             config = AddConfig()
-        
-        data_formatter = DataFormatter(data_type)
+
+        data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, url])
         self.load_and_embed(data_formatter.loader, data_formatter.chunker, url)
 
@@ -67,8 +64,8 @@ class EmbedChain:
         """
         if config is None:
             config = AddConfig()
-        
-        data_formatter = DataFormatter(data_type)
+
+        data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, content])
         self.load_and_embed(data_formatter.loader, data_formatter.chunker, content)
 
