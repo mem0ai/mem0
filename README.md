@@ -330,10 +330,10 @@ This section describes all possible config options.
 
 #### **InitConfig**
 
-| option | description                    | type                               | default                  |
-| ------ | ------------------------------ | ---------------------------------- | ------------------------ |
-| ef     | embedding function             | chromadb.utils.embedding_functions | {text-embedding-ada-002} |
-| db     | vector database (experimental) | BaseVectorDB                       | ChromaDB                 |
+|option|description|type|default|
+|---|---|---|---|
+|ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
+|db|vector database (experimental)|BaseVectorDB|ChromaDB|
 
 #### **Add Config**
 
@@ -341,9 +341,9 @@ _coming soon_
 
 #### **Query Config**
 
-| option   | description                | type     | default                                                                                                                                                                                                             |
-| -------- | -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| template | custom template for prompt | Template | Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:") |
+|option|description|type|default|
+|---|---|---|---|
+|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
 
 #### **Chat Config**
 
