@@ -60,15 +60,26 @@ class QueryConfig(BaseConfig):
             else:
                 template = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE
 
-        # Validate template without and with history
-        if self.history is None:
-            if not (re.search(query_re, template.template) \
-                and re.search(context_re, template.template)):
-                raise ValueError("`template` should have `query` and `context` keys")
+        if self.validate_template(template):
+            self.template = template
         else:
-            if not (re.search(query_re, template.template) \
-                and re.search(context_re, template.template)
-                and re.search(history_re, template.template)):
+            if self.history is None:
+                raise ValueError("`template` should have `query` and `context` keys")
+            else:
                 raise ValueError("`template` should have `query`, `context` and `history` keys")
 
-        self.template = template
+
+    def validate_template(self, template: Template):
+        """
+        validate the template
+
+        :param template: the template to validate
+        :return: Boolean, valid (true) or invalid (false)
+        """
+        if self.history is None:
+            return (re.search(query_re, template.template) \
+                and re.search(context_re, template.template))
+        else:
+            return (re.search(query_re, template.template) \
+                and re.search(context_re, template.template)
+                and re.search(history_re, template.template))
