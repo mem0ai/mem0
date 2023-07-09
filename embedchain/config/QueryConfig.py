@@ -31,7 +31,7 @@ DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_HISTORY)
 query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
-history_re = re.compile(r"\$\{*context\}*")
+history_re = re.compile(r"\$\{*history\}*")
 
 
 class QueryConfig(BaseConfig):
