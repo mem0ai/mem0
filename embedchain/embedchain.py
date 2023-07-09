@@ -1,5 +1,6 @@
 import openai
 import os
+import logging
 from string import Template
 
 from chromadb.utils import embedding_functions
@@ -179,7 +180,9 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
+        logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt)
+        logging.info(f"Answer: {answer}")
         return answer
 
     def generate_chat_prompt(self, input_query, context, chat_history=''):
@@ -222,9 +225,11 @@ class EmbedChain:
             context,
             chat_history=chat_history,
         )
+        logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt)
         memory.chat_memory.add_user_message(input_query)
         memory.chat_memory.add_ai_message(answer)
+        logging.info(f"Answer: {answer}")
         return answer
 
     def dry_run(self, input_query, config: QueryConfig = None):
@@ -244,6 +249,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
+        logging.info(f"Prompt: {prompt}")
         return prompt
 
     def count(self):
