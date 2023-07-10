@@ -17,16 +17,17 @@ DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 
-
 class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None):
+    def __init__(self, template: Template = None, temperature: float = 0.5):
         """
         Initializes the QueryConfig instance.
 
         :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param temperature: Optional. Controls the randomness of the model's output. 
+                            Higher values (closer to 1) make output more random, lower values make it more deterministic.
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
         if template is None:
@@ -35,3 +36,4 @@ class QueryConfig(BaseConfig):
             and re.search(context_re, template.template)):
             raise ValueError("`template` should have `query` and `context` keys")
         self.template = template
+        self.temperature = temperature
