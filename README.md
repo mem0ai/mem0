@@ -456,6 +456,7 @@ _coming soon_
 |option|description|type|default|
 |---|---|---|---|
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+|stream_response|control if response is streamed back to the user|bool|False|
 
 #### **Chat Config**
 
