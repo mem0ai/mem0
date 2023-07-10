@@ -350,7 +350,7 @@ class OpenSourceApp(EmbedChain):
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, config: ChatConfig):
         from gpt4all import GPT4All
 
         global gpt4all_model
@@ -358,6 +358,7 @@ class OpenSourceApp(EmbedChain):
             gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
         response = gpt4all_model.generate(
             prompt=prompt,
+            streaming=config.stream
         )
         return response
 
