@@ -201,7 +201,7 @@ class EmbedChain:
         prompt += suffix_prompt
         return prompt
 
-    def chat(self, input_query, config: ChatConfig = None):
+    def chat(self, input_query, config: ChatConfig):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
