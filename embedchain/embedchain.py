@@ -1,5 +1,6 @@
 import openai
 import os
+import logging
 from string import Template
 
 from chromadb.utils import embedding_functions
@@ -10,6 +11,7 @@ from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
 from embedchain.config.QueryConfig import DEFAULT_PROMPT
 from embedchain.data_formatter import DataFormatter
+from string import Template
 
 gpt4all_model = None
 
@@ -99,12 +101,14 @@ class EmbedChain:
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
+        chunks_before_addition = self.count()
+
         self.collection.add(
             documents=documents,
             metadatas=list(metadatas),
             ids=ids
         )
-        print(f"Successfully saved {src}. Total chunks count: {self.collection.count()}")
+        print(f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")
 
     def _format_result(self, results):
         return [
@@ -138,19 +142,22 @@ class EmbedChain:
             content = ""
         return content
 
-    def generate_prompt(self, input_query, context, template: Template = None):
+    def generate_prompt(self, input_query, context, config: QueryConfig):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
-        :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param config: Optional. The `QueryConfig` instance to use as configuration options.
         :return: The prompt
         """
-        prompt = template.substitute(context = context, query = input_query)
+        if not config.history:
+            prompt = config.template.substitute(context = context, query = input_query)
+        else:
+            prompt = config.template.substitute(context = context, query = input_query, history = config.history)
         return prompt
 
-    def get_answer_from_llm(self, prompt):
+    def get_answer_from_llm(self, prompt, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -159,8 +166,8 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_llm_model_answer(prompt)
-        return answer
+        
+        return self.get_llm_model_answer(prompt, config)
 
     def query(self, input_query, config: QueryConfig = None):
         """
@@ -175,28 +182,12 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context, config.template)
-        answer = self.get_answer_from_llm(prompt)
+        prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
+        answer = self.get_answer_from_llm(prompt, config)
+        logging.info(f"Answer: {answer}")
         return answer
 
-    def generate_chat_prompt(self, input_query, context, chat_history=''):
-        """
-        Generates a prompt based on the given query, context and chat history
-        for chat interface. This is then passed to an LLM.
-
-        :param input_query: The query to use.
-        :param context: Similar documents to the query used as context.
-        :param chat_history: User and bot conversation that happened before.
-        :return: The prompt
-        """
-        prefix_prompt = f"""You are a chatbot having a conversation with a human. You are given chat history and context. You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know"."""
-        chat_history_prompt = f"""\n----\nChat History: {chat_history}\n----"""
-        suffix_prompt = f"""\n####\nContext: {context}\n####\nQuery: {input_query}\nHelpful Answer:"""
-        prompt = prefix_prompt
-        if chat_history:
-            prompt += chat_history_prompt
-        prompt += suffix_prompt
-        return prompt
 
     def chat(self, input_query, config: ChatConfig = None):
         """
@@ -209,20 +200,37 @@ class EmbedChain:
         :param config: Optional. The `ChatConfig` instance to use as configuration options.
         :return: The answer to the query.
         """
-        if config is None:
-            config = ChatConfig()
         context = self.retrieve_from_database(input_query)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
-        prompt = self.generate_chat_prompt(
-            input_query,
-            context,
-            chat_history=chat_history,
-        )
-        answer = self.get_answer_from_llm(prompt)
+        
+        if config is None:
+            config = ChatConfig()
+        if chat_history:
+            config.set_history(chat_history)
+            
+        prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
+        answer = self.get_answer_from_llm(prompt, config)
+
         memory.chat_memory.add_user_message(input_query)
-        memory.chat_memory.add_ai_message(answer)
-        return answer
+        
+        if isinstance(answer, str):
+            memory.chat_memory.add_ai_message(answer)
+            logging.info(f"Answer: {answer}")
+            return answer
+        else:
+            #this is a streamed response and needs to be handled differently.
+            return self._stream_chat_response(answer)
+
+    def _stream_chat_response(self, answer):
+        streamed_answer = ""
+        for chunk in answer:
+            streamed_answer.join(chunk)
+            yield chunk
+        memory.chat_memory.add_ai_message(streamed_answer)
+        logging.info(f"Answer: {streamed_answer}")
+          
 
     def dry_run(self, input_query, config: QueryConfig = None):
         """
@@ -240,7 +248,8 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context, config.template)
+        prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
         return prompt
 
     def count(self):
@@ -278,7 +287,8 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, config: ChatConfig):
+
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -289,8 +299,22 @@ class App(EmbedChain):
             temperature=0,
             max_tokens=1000,
             top_p=1,
+            stream=config.stream
         )
-        return response["choices"][0]["message"]["content"]
+
+        if config.stream:
+            return self._stream_llm_model_response(response)
+        else:
+            return response["choices"][0]["message"]["content"]
+    
+    def _stream_llm_model_response(self, response):
+        """
+        This is a generator for streaming response from the OpenAI completions API
+        """
+        for line in response:
+            chunk = line['choices'][0].get('delta', {}).get('content', '')
+            yield chunk
+
 
 
 class OpenSourceApp(EmbedChain):
@@ -323,7 +347,7 @@ class OpenSourceApp(EmbedChain):
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, config: ChatConfig):
         from gpt4all import GPT4All
 
         global gpt4all_model
@@ -331,6 +355,7 @@ class OpenSourceApp(EmbedChain):
             gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
         response = gpt4all_model.generate(
             prompt=prompt,
+            streaming=config.stream
         )
         return response
 
