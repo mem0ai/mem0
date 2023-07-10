@@ -155,7 +155,7 @@ class EmbedChain:
         prompt = template.substitute(context = context, query = input_query)
         return prompt
 
-    def get_answer_from_llm(self, prompt):
+    def get_answer_from_llm(self, prompt, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -164,8 +164,7 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        
-        return self.get_llm_model_answer(prompt)
+        return self.get_llm_model_answer(prompt, config)
 
     def query(self, input_query, config: QueryConfig = None):
         """
@@ -181,7 +180,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
-        answer = self.get_answer_from_llm(prompt)
+        answer = self.get_llm_model_answer(prompt, config)
         return answer
 
     def generate_chat_prompt(self, input_query, context, chat_history=''):
@@ -203,7 +202,7 @@ class EmbedChain:
         prompt += suffix_prompt
         return prompt
 
-    def chat(self, input_query, config: ChatConfig = None):
+    def chat(self, input_query, config: ChatConfig):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -214,8 +213,7 @@ class EmbedChain:
         :param config: Optional. The `ChatConfig` instance to use as configuration options.
         :return: The answer to the query.
         """
-        if config is None:
-            config = ChatConfig()
+
         context = self.retrieve_from_database(input_query)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
@@ -224,7 +222,7 @@ class EmbedChain:
             context,
             chat_history=chat_history,
         )
-        answer = self.get_answer_from_llm(prompt)
+        answer = self.get_answer_from_llm(prompt, config)
         memory.chat_memory.add_user_message(input_query)
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
@@ -295,7 +293,7 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, config: QueryConfig):
         stream_response = self.config.stream_response
         if stream_response:
             return self._stream_llm_model_response(prompt)
@@ -308,11 +306,11 @@ class App(EmbedChain):
             "role": "user", "content": prompt
         })
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model = config.model,
             messages=messages,
-            temperature=0,
-            max_tokens=1000,
-            top_p=1,
+            temperature = config.temperature,
+            max_tokens = config.max_tokens,
+            top_p=config.top_p,
             stream=stream_response
         )
 
@@ -330,6 +328,7 @@ class App(EmbedChain):
         for line in response:
             chunk = line['choices'][0].get('delta', {}).get('content', '')
             yield chunk
+
 
 
 
