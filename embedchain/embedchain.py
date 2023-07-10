@@ -281,13 +281,13 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, temperature, max_tokens):
+    def get_llm_model_answer(self, prompt, temperature, max_tokens, model):
         messages = []
         messages.append({
             "role": "user", "content": prompt
         })
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model=model,
             messages=messages,
             temperature= temperature,
             max_tokens= max_tokens,
