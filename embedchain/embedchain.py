@@ -163,8 +163,7 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_llm_model_answer(prompt, config)
-        return answer
+        return self.get_llm_model_answer(prompt, config)
 
     def query(self, input_query, config: QueryConfig = None):
         """
@@ -180,7 +179,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
-        answer = self.get_llm_model_answer(prompt, config)
+        answer = self.get_answer_from_llm(prompt, config)
         return answer
 
     def generate_chat_prompt(self, input_query, context, chat_history=''):
@@ -281,7 +280,7 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: QueryConfig):
+    def get_llm_model_answer(self, prompt, config: ChatConfig):
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -292,8 +291,19 @@ class App(EmbedChain):
             temperature = config.temperature,
             max_tokens = config.max_tokens,
             top_p=config.top_p,
+            stream=config.stream
         )
-        return response["choices"][0]["message"]["content"]
+        if config.stream:
+            return self._stream_llm_model_response(response)
+        else:
+            return response["choices"][0]["message"]["content"]
+    def _stream_llm_model_response(self, response):
+        """
+        This is a generator for streaming response from the OpenAI completions API
+        """
+        for line in response:
+            chunk = line['choices'][0].get('delta', {}).get('content', '')
+            yield chunk
 
 
 
