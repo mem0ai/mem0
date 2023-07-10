@@ -21,7 +21,7 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None, temperature = None):
+    def __init__(self, template: Template = None, temperature = None, max_tokens = None):
         """
         Initializes the QueryConfig instance.
 
@@ -37,3 +37,4 @@ class QueryConfig(BaseConfig):
             raise ValueError("`template` should have `query` and `context` keys")
         self.template = template
         self.temperature = temperature
+        self.max_tokens = max_tokens
