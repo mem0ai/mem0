@@ -22,11 +22,12 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None):
+    def __init__(self, template: Template = None, stream: bool = False):
         """
         Initializes the QueryConfig instance.
 
         :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param stream: Optional. Control if response is streamed back to the user
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
         if template is None:
@@ -35,3 +36,7 @@ class QueryConfig(BaseConfig):
             and re.search(context_re, template.template)):
             raise ValueError("`template` should have `query` and `context` keys")
         self.template = template
+
+        if not isinstance(stream, bool):
+            raise ValueError("`stream` should be bool")
+        self.stream = stream
