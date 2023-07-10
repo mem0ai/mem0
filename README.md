@@ -7,6 +7,49 @@
 
 embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
+# Table of Contents
+
+- [Latest Updates](#latest-updates)
+- [What is embedchain?](#what-is-embedchain)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [App Types](#app-types)
+      - [1. App (uses OpenAI models, paid)](#1-app-uses-openai-models-paid)
+      - [2. OpenSourceApp (uses opensource models, free)](#2-opensourceapp-uses-opensource-models-free)
+      - [3. PersonApp (uses OpenAI models, paid)](#3-personapp-uses-openai-models-paid)
+    - [Add Dataset](#add-dataset)
+  - [Interface Types](#interface-types)
+    - [Query Interface](#query-interface)
+    - [Chat Interface](#chat-interface)
+  - [Format supported](#format-supported)
+    - [Youtube Video](#youtube-video)
+    - [PDF File](#pdf-file)
+    - [Web Page](#web-page)
+    - [Doc File](#doc-file)
+    - [Text](#text)
+    - [QnA Pair](#qna-pair)
+    - [Reusing a Vector DB](#reusing-a-vector-db)
+    - [More Formats coming soon](#more-formats-coming-soon)
+  - [Testing](#testing)
+- [Advanced](#advanced)
+  - [Configuration](#configuration)
+    - [Example](#example)
+    - [Configs](#configs)
+      - [InitConfig](#initconfig)
+      - [Add Config](#add-config)
+      - [Query Config](#query-config)
+      - [Chat Config](#chat-config)
+  - [Other methods](#other-methods)
+    - [Reset](#reset)
+    - [Count](#count)
+- [How does it work?](#how-does-it-work)
+- [Tech Stack](#tech-stack)
+- [Team](#team)
+  - [Author](#author)
+  - [Maintainer](#maintainer)
+  - [Citation](#citation)
+
 # Latest Updates
 
 - Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
@@ -301,6 +344,12 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
+## Colab Notebook and Video Tutorials
+
+Chinese Colab Tutorial:https://colab.research.google.com/drive/10_7Y0x4YXWVjuhhYwVraGQLpKAatTQTm?usp=sharing
+
+Chinese Video Tutorial:https://www.bilibili.com/video/BV1YX4y1H7oN
+
 # Advanced
 
 ## Configuration
@@ -335,6 +384,53 @@ naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant 
 
 query_config = QueryConfig() # Currently no options
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config))
+```
+
+Here's the example of using custom prompt template with `.query`
+
+```python
+from embedchain.config import QueryConfig
+from embedchain.embedchain import App
+from string import Template
+import wikipedia
+
+einstein_chat_bot = App()
+
+# Embed Wikipedia page
+page = wikipedia.page("Albert Einstein")
+einstein_chat_bot.add("text", page.content)
+
+# Example: use your own custom template with `$context` and `$query`
+einstein_chat_template = Template("""
+        You are Albert Einstein, a German-born theoretical physicist,
+        widely ranked among the greatest and most influential scientists of all time.
+
+        Use the following information about Albert Einstein to respond to 
+        the human's query acting as Albert Einstein.
+        Context: $context                                
+
+        Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+        Human: $query
+        Albert Einstein:""")
+query_config = QueryConfig(einstein_chat_template)
+queries = [
+        "Where did you complete your studies?",
+        "Why did you win nobel prize?",
+        "Why did you divorce your first wife?",
+]
+for query in queries:
+        response = einstein_chat_bot.query(query, query_config)
+        print("Query: ", query)
+        print("Response: ", response)
+
+# Output
+# Query:  Where did you complete your studies?
+# Response:  I completed my secondary education at the Argovian cantonal school in Aarau, Switzerland.
+# Query:  Why did you win nobel prize?
+# Response:  I won the Nobel Prize in Physics in 1921 for my services to Theoretical Physics, particularly for my discovery of the law of the photoelectric effect.
+# Query:  Why did you divorce your first wife?
+# Response:  We divorced due to living apart for five years.
 ```
 
 ### Configs
