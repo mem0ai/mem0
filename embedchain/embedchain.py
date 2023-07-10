@@ -281,16 +281,16 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, temperature, max_tokens, model):
+    def get_llm_model_answer(self, prompt, config):
         messages = []
         messages.append({
             "role": "user", "content": prompt
         })
         response = openai.ChatCompletion.create(
-            model=model,
+            model = config.model,
             messages=messages,
-            temperature= temperature,
-            max_tokens= max_tokens,
+            temperature = config.temperature,
+            max_tokens = config.max_tokens,
             top_p=1,
         )
         return response["choices"][0]["message"]["content"]
