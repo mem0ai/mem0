@@ -37,5 +37,11 @@ class QueryConfig(BaseConfig):
             and re.search(context_re, template.template)):
             raise ValueError("`template` should have `query` and `context` keys")
         self.template = template
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        if temperature == None:
+          self.temperature = 0
+        else:
+          self.temperature = temperature
+        if max_tokens == None:
+          self.max_tokens = max_tokens
+        else:
+          self.max_tokens = max_tokens
