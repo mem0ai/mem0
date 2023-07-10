@@ -307,10 +307,10 @@ class App(EmbedChain):
             temperature=0,
             max_tokens=1000,
             top_p=1,
-            stream=config.stream_response
+            stream=config.stream
         )
 
-        if config.stream_response:
+        if config.stream:
             return self._stream_llm_model_response(response)
         else:
             return response["choices"][0]["message"]["content"]

@@ -226,12 +226,12 @@ print(naval_chat_bot.chat("what did the author say about happiness?"))
 
 - You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Currently only supports OpenAI model.
 
-- To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream_response=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
+- To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
 
 ```python
 app = App()
-query_config = QueryConfig(stream_response = True)
-resp = naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config)
+query_config = QueryConfig(stream = True)
+resp = app.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config)
 
 for chunk in resp:
     print(chunk, end="", flush=True)
@@ -456,7 +456,7 @@ _coming soon_
 |option|description|type|default|
 |---|---|---|---|
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
-|stream_response|control if response is streamed back to the user|bool|False|
+|stream|control if response is streamed back to the user|bool|False|
 
 #### **Chat Config**
 
