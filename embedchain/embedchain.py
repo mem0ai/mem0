@@ -102,12 +102,14 @@ class EmbedChain:
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
+        chunks_before_addition = self.count()
+
         self.collection.add(
             documents=documents,
             metadatas=list(metadatas),
             ids=ids
         )
-        print(f"Successfully saved {src}. Total chunks count: {self.collection.count()}")
+        print(f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")
 
     def _format_result(self, results):
         return [
