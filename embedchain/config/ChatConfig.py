@@ -15,4 +15,4 @@ class ChatConfig(QueryConfig):
         :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
-        super().__init__(model, temperature, max_tokens, top_p)
+        super().__init__(model=model, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
