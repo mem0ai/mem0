@@ -377,8 +377,17 @@ config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
             ))
 naval_chat_bot = App(config)
 
-add_config = AddConfig() # Currently no options
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", add_config)
+# Example: define your own chunker config for `youtube_video`
+youtube_add_config = {
+        "chunker": {
+                "chunk_size": 1000,
+                "chunk_overlap": 100,
+                "length_function": len,
+        }
+}
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(**youtube_add_config))
+
+add_config = AddConfig()
 naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
 naval_chat_bot.add("web_page", "https://nav.al/feedback", add_config)
 naval_chat_bot.add("web_page", "https://nav.al/agi", add_config)
@@ -450,13 +459,39 @@ This section describes all possible config options.
 
 #### **Add Config**
 
+|option|description|type|default|
+|---|---|---|---|
+|chunker|chunker config|ChunkerConfig|Default values for chunker depends on the `data_type`. Please refer [ChunkerConfig](#chunker-config)|
+|loader|loader config|LoaderConfig|None|
+
+##### **Chunker Config**
+
+|option|description|type|default|
+|---|---|---|---|
+|chunk_size|Maximum size of chunks to return|int|Default value for various `data_type` mentioned below|
+|chunk_overlap|Overlap in characters between chunks|int|Default value for various `data_type` mentioned below|
+|length_function|Function that measures the length of given chunks|typing.Callable|Default value for various `data_type` mentioned below|
+
+Default values of chunker config parameters for different `data_type`:
+
+|data_type|chunk_size|chunk_overlap|length_function|
+|---|---|---|---|
+|docx|1000|0|len|
+|text|300|0|len|
+|qna_pair|300|0|len|
+|web_page|500|0|len|
+|pdf_file|1000|0|len|
+|youtube_video|2000|0|len|
+
+##### **Loader Config**
+
 _coming soon_
 
 #### **Query Config**
 
 |option|description|type|default|
 |---|---|---|---|
-|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
 |history|include conversation history from your client or database|any (recommendation: list[str])|None
 |stream|control if response is streamed back to the user|bool|False|
 
