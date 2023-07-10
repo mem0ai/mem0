@@ -21,7 +21,7 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None, temperature: float = 0.5):
+    def __init__(self, template: Template = None, temperature = None):
         """
         Initializes the QueryConfig instance.
 
