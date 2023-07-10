@@ -1,4 +1,5 @@
 import os
+import logging
 
 from embedchain.config.BaseConfig import BaseConfig
 
@@ -6,11 +7,15 @@ class InitConfig(BaseConfig):
     """
     Config to initialize an embedchain `App` instance.
     """
-    def __init__(self, ef=None, db=None):
+
+    def __init__(self, log_level=None, ef=None, db=None):
         """
+        :param log_level: Optional. (String) Debug level ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
         """
+        self._setup_logging(log_level)
+
         # Embedding Function
         if ef is None:
             from chromadb.utils import embedding_functions
@@ -30,7 +35,18 @@ class InitConfig(BaseConfig):
 
         return
 
-
     def _set_embedding_function(self, ef):
         self.ef = ef
+        return
+
+    def _setup_logging(self, debug_level):
+        level = logging.WARNING  # Default level
+        if debug_level is not None:
+            level = getattr(logging, debug_level.upper(), None)
+            if not isinstance(level, int):
+                raise ValueError(f'Invalid log level: {debug_level}')
+
+        logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s",
+                            level=level)
+        self.logger = logging.getLogger(__name__)
         return

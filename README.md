@@ -444,6 +444,7 @@ This section describes all possible config options.
 
 |option|description|type|default|
 |---|---|---|---|
+|log_level|log level|string|WARNING|
 |ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
 |db|vector database (experimental)|BaseVectorDB|ChromaDB|
 

@@ -1,5 +1,6 @@
 import openai
 import os
+import logging
 from string import Template
 
 from chromadb.utils import embedding_functions
@@ -185,7 +186,9 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt, config)
+        logging.info(f"Answer: {answer}")
         return answer
 
 
@@ -210,14 +213,17 @@ class EmbedChain:
             config.set_history(chat_history)
             
         prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt, config)
 
         memory.chat_memory.add_user_message(input_query)
+        
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
+            logging.info(f"Answer: {answer}")
             return answer
         else:
-            #this is a streamed response and needs to be handled differently
+            #this is a streamed response and needs to be handled differently.
             return self._stream_chat_response(answer)
 
     def _stream_chat_response(self, answer):
@@ -226,6 +232,7 @@ class EmbedChain:
             streamed_answer.join(chunk)
             yield chunk
         memory.chat_memory.add_ai_message(streamed_answer)
+        logging.info(f"Answer: {streamed_answer}")
           
 
     def dry_run(self, input_query, config: QueryConfig = None):
@@ -245,6 +252,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
         return prompt
 
     def count(self):
