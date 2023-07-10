@@ -153,7 +153,7 @@ class EmbedChain:
         prompt = template.substitute(context = context, query = input_query)
         return prompt
 
-    def get_answer_from_llm(self, prompt, config):
+    def get_answer_from_llm(self, prompt, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -280,7 +280,7 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config):
+    def get_llm_model_answer(self, prompt, config: QueryConfig):
         messages = []
         messages.append({
             "role": "user", "content": prompt
