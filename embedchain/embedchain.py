@@ -179,7 +179,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
-        answer = self.get_answer_from_llm(prompt)
+        answer = self.get_llm_model_answer(prompt, config.temperature)  # Pass the temperature to get_llm_model_answer
         return answer
 
     def generate_chat_prompt(self, input_query, context, chat_history=''):
@@ -281,7 +281,7 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, temperature):
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -289,11 +289,12 @@ class App(EmbedChain):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
-            temperature=0,
+            temperature=temperature,  # Use the temperature parameter here
             max_tokens=1000,
             top_p=1,
         )
         return response["choices"][0]["message"]["content"]
+
 
 
 class OpenSourceApp(EmbedChain):
