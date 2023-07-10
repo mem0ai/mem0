@@ -4,7 +4,7 @@ class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.
     """
-    def __init__(self, template: Template = None, model = None, temperature = None, max_tokens = None, top_p = None):
+    def __init__(self, model = None, temperature = None, max_tokens = None, top_p = None):
         """
         Initializes the ChatConfig instance.
         :param template: Optional. The `Template` instance to use as a template for prompt.
@@ -15,4 +15,4 @@ class ChatConfig(QueryConfig):
         :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
-        super().__init__(template, model, temperature, max_tokens, top_p)
+        super().__init__(model, temperature, max_tokens, top_p)
