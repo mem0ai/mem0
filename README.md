@@ -457,6 +457,7 @@ _coming soon_
 |temperature|creativity of the model (0-1)|float|0|
 |max_tokens|limit maximum tokens used|int|1000|
 |top_p|diversity of words used by the model (0-1)|float|1|
+|stream|control if response is streamed back to the user|bool|False|
 
 #### **Chat Config**
 
