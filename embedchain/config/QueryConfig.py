@@ -30,6 +30,7 @@ class QueryConfig(BaseConfig):
         :param temperature: Optional. Controls the randomness of the model's output. 
                             Higher values (closer to 1) make output more random, lower values make it more deterministic.
         :param max_tokens: Optional. Controls how many tokens are generated.
+        :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
         if template is None:
