@@ -204,6 +204,19 @@ from embedchain import PersonApp as ECPApp
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
+### Stream Response
+
+- You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format
+
+- To use this, instantiate App with a `InitConfig` instance passing `stream_response=True`. The following example iterates through the chunks and prints them as they appear
+```python
+app = App(InitConfig(stream_response=True))
+resp = naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
+
+for chunk in resp:
+    print(chunk, end="", flush=True)
+# answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
+```
 
 ### Chat Interface
 
