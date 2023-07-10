@@ -230,12 +230,13 @@ class EmbedChain:
         logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt)
         memory.chat_memory.add_user_message(input_query)
+        
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
             return answer
         else:
-            #this is a streamed response and needs to be handled differently
+            #this is a streamed response and needs to be handled differently. It is not logged.
             return self._stream_chat_response(answer)
 
     def _stream_chat_response(self, answer):
