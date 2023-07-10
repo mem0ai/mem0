@@ -224,7 +224,7 @@ print(naval_chat_bot.chat("what did the author say about happiness?"))
 
 ### Stream Response
 
-- You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Currently only supports OpenAI model.
+- You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Supports both OpenAI model and OpenSourceApp.
 
 - To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
 
