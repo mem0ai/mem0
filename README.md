@@ -393,6 +393,10 @@ _coming soon_
 |option|description|type|default|
 |---|---|---|---|
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+|model|choose which OpenAI model is used|string|"gpt-3.5-turbo-0613|
+|temperature|choose how creative the model is|float|0|
+|max_tokens|choose the maximum token output|int|1000|
+|top_p|choose the diversity of words used by the model|float|1|
 
 #### **Chat Config**
 
