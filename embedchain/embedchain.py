@@ -280,7 +280,7 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: QueryConfig):
+    def get_llm_model_answer(self, prompt, config):
         messages = []
         messages.append({
             "role": "user", "content": prompt
