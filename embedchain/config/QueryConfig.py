@@ -21,11 +21,12 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None, model = None, temperature = None, max_tokens = None, top_p = None):
+    def __init__(self, template: Template = None, stream: bool = False, model = None, temperature = None, max_tokens = None, top_p = None):
         """
         Initializes the QueryConfig instance.
 
         :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param stream: Optional. Control if response is streamed back to the user
         :param model: Optional. Controls the OpenAI model used.
         :param temperature: Optional. Controls the randomness of the model's output. 
                             Higher values (closer to 1) make output more random, lower values make it more deterministic.
@@ -63,3 +64,7 @@ class QueryConfig(BaseConfig):
           self.top_p = 1
         else:
           self.top_p = top_p
+        
+        if not isinstance(stream, bool):
+          raise ValueError("`stream` should be bool")
+        self.stream = stream
