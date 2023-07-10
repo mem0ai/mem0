@@ -2,17 +2,18 @@ from embedchain.config.BaseConfig import BaseConfig
 from string import Template
 import re
 
-
-DEFAULT_PROMPT_TEMPLATE = Template("""
+DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
   If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
   $context
-  
+
   Query: $query
-  
+
   Helpful Answer:
-""")
+"""
+
+DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 
