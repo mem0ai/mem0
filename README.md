@@ -1,15 +1,60 @@
 # embedchain
 
-[![](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/6PzXDgEjG5)
 [![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
+[![Discord](https://dcbadge.vercel.app/api/server/nhvCbCtKV?style=flat)](https://discord.gg/6PzXDgEjG5)
+[![Twitter](https://img.shields.io/twitter/follow/embedchain)](https://twitter.com/embedchain)
+[![Substack](https://img.shields.io/badge/Substack-%23006f5c.svg?logo=substack)](https://embedchain.substack.com/)
 
 embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
+# Table of Contents
+
+- [Latest Updates](#latest-updates)
+- [What is embedchain?](#what-is-embedchain)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [App Types](#app-types)
+      - [1. App (uses OpenAI models, paid)](#1-app-uses-openai-models-paid)
+      - [2. OpenSourceApp (uses opensource models, free)](#2-opensourceapp-uses-opensource-models-free)
+      - [3. PersonApp (uses OpenAI models, paid)](#3-personapp-uses-openai-models-paid)
+    - [Add Dataset](#add-dataset)
+  - [Interface Types](#interface-types)
+    - [Query Interface](#query-interface)
+    - [Chat Interface](#chat-interface)
+  - [Format supported](#format-supported)
+    - [Youtube Video](#youtube-video)
+    - [PDF File](#pdf-file)
+    - [Web Page](#web-page)
+    - [Doc File](#doc-file)
+    - [Text](#text)
+    - [QnA Pair](#qna-pair)
+    - [Reusing a Vector DB](#reusing-a-vector-db)
+    - [More Formats coming soon](#more-formats-coming-soon)
+  - [Testing](#testing)
+- [Advanced](#advanced)
+  - [Configuration](#configuration)
+    - [Example](#example)
+    - [Configs](#configs)
+      - [InitConfig](#initconfig)
+      - [Add Config](#add-config)
+      - [Query Config](#query-config)
+      - [Chat Config](#chat-config)
+  - [Other methods](#other-methods)
+    - [Reset](#reset)
+    - [Count](#count)
+- [How does it work?](#how-does-it-work)
+- [Tech Stack](#tech-stack)
+- [Team](#team)
+  - [Author](#author)
+  - [Maintainer](#maintainer)
+  - [Citation](#citation)
+
 # Latest Updates
 
-* Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
+- Introduce a new interface called `chat`. It remembers the history (last 5 messages) and can be used to powerful stateful bots. You can use it by calling `.chat` on any app instance. Works for both OpenAI and OpenSourceApp.
 
-* Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
+- Introduce a new app type called `OpenSourceApp`. It uses `gpt4all` as the LLM and `sentence transformers` all-MiniLM-L6-v2 as the embedding model. If you use this app, you dont have to pay for anything.
 
 # What is embedchain?
 
@@ -58,7 +103,7 @@ Creating a chatbot involves 3 steps:
 
 ### App Types
 
-We have two types of App.
+We have three types of App.
 
 #### 1. App (uses OpenAI models, paid)
 
@@ -70,7 +115,7 @@ naval_chat_bot = App()
 
 - `App` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
 
-- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have dont have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 - Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
@@ -92,6 +137,25 @@ naval_chat_bot = OpenSourceApp()
 - Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed.
 
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app.
+
+#### 3. PersonApp (uses OpenAI models, paid)
+
+```python
+from embedchain import PersonApp
+
+naval_chat_bot = PersonApp("name_of_person_or_character") #Like "Yoda"
+```
+
+- `PersonApp` uses OpenAI's model, so these are paid models. You will be charged for embedding model usage and LLM usage.
+
+- `PersonApp` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+
+- Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
+
+```python
+import os
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+```
 
 ### Add Dataset
 
@@ -119,20 +183,22 @@ naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant 
 ```python
 from embedchain import App as EmbedChainApp
 from embedchain import OpenSourceApp as EmbedChainOSApp
+from embedchain import PersonApp as EmbedChainPersonApp
 
 # or
 
 from embedchain import App as ECApp
 from embedchain import OpenSourceApp as ECOSApp
+from embedchain import PersonApp as ECPApp
 ```
 
 ## Interface Types
 
 ### Query Interface
 
-* This interface is like a question answering bot. It takes a question and gets the answer. It does not maintain context about the previous chats.
+- This interface is like a question answering bot. It takes a question and gets the answer. It does not maintain context about the previous chats.
 
-* To use this, call `.query` function to get the answer for any query.
+- To use this, call `.query` function to get the answer for any query.
 
 ```python
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
@@ -141,9 +207,9 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 ### Chat Interface
 
-* This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default.
+- This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default.
 
-* To use this, call `.chat` function to get the answer for any query.
+- To use this, call `.chat` function to get the answer for any query.
 
 ```python
 print(naval_chat_bot.chat("How to be happy in life?"))
@@ -154,6 +220,22 @@ print(naval_chat_bot.chat("who is naval ravikant?"))
 
 print(naval_chat_bot.chat("what did the author say about happiness?"))
 # answer: The author, Naval Ravikant, believes that happiness is a choice you make and a skill you develop. He compares the mind to the body, stating that just as the body can be molded and changed, so can the mind. He emphasizes the importance of being present in the moment and not getting caught up in regrets of the past or worries about the future. By being present and grateful for where you are, you can experience true happiness.
+```
+
+### Stream Response
+
+- You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Currently only supports OpenAI model.
+
+- To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
+
+```python
+app = App()
+query_config = QueryConfig(stream = True)
+resp = app.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config)
+
+for chunk in resp:
+    print(chunk, end="", flush=True)
+# answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
 ## Format supported
@@ -188,10 +270,10 @@ app.add('web_page', 'a_valid_web_page_url')
 
 ### Doc File
 
-To add any doc/docx file, use the data_type as `doc_file`. Eg:
+To add any doc/docx file, use the data_type as `docx`. Eg:
 
 ```python
-app.add('doc_file', 'a_local_doc_file_path')
+app.add('docx', 'a_local_docx_file_path')
 ```
 
 ### Text
@@ -272,9 +354,16 @@ _The embedding is confirmed to work as expected. It returns the right document, 
 
 **The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
 
+## Colab Notebook and Video Tutorials
+
+Chinese Colab Tutorial:https://colab.research.google.com/drive/10_7Y0x4YXWVjuhhYwVraGQLpKAatTQTm?usp=sharing
+
+Chinese Video Tutorial:https://www.bilibili.com/video/BV1YX4y1H7oN
+
 # Advanced
 
 ## Configuration
+
 Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
 
 ### Example
@@ -307,36 +396,102 @@ query_config = QueryConfig() # Currently no options
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config))
 ```
 
+Here's the example of using custom prompt template with `.query`
+
+```python
+from embedchain.config import QueryConfig
+from embedchain.embedchain import App
+from string import Template
+import wikipedia
+
+einstein_chat_bot = App()
+
+# Embed Wikipedia page
+page = wikipedia.page("Albert Einstein")
+einstein_chat_bot.add("text", page.content)
+
+# Example: use your own custom template with `$context` and `$query`
+einstein_chat_template = Template("""
+        You are Albert Einstein, a German-born theoretical physicist,
+        widely ranked among the greatest and most influential scientists of all time.
+
+        Use the following information about Albert Einstein to respond to 
+        the human's query acting as Albert Einstein.
+        Context: $context                                
+
+        Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+        Human: $query
+        Albert Einstein:""")
+query_config = QueryConfig(einstein_chat_template)
+queries = [
+        "Where did you complete your studies?",
+        "Why did you win nobel prize?",
+        "Why did you divorce your first wife?",
+]
+for query in queries:
+        response = einstein_chat_bot.query(query, query_config)
+        print("Query: ", query)
+        print("Response: ", response)
+
+# Output
+# Query:  Where did you complete your studies?
+# Response:  I completed my secondary education at the Argovian cantonal school in Aarau, Switzerland.
+# Query:  Why did you win nobel prize?
+# Response:  I won the Nobel Prize in Physics in 1921 for my services to Theoretical Physics, particularly for my discovery of the law of the photoelectric effect.
+# Query:  Why did you divorce your first wife?
+# Response:  We divorced due to living apart for five years.
+```
+
 ### Configs
+
 This section describes all possible config options.
 
 #### **InitConfig**
+
 |option|description|type|default|
 |---|---|---|---|
+|log_level|log level|string|WARNING|
 |ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
 |db|vector database (experimental)|BaseVectorDB|ChromaDB|
 
 #### **Add Config**
 
-*coming soon*
+_coming soon_
 
 #### **Query Config**
 
-*coming soon*
+|option|description|type|default|
+|---|---|---|---|
+|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+|history|include conversation history from your client or database|any (recommendation: list[str])|None
+|stream|control if response is streamed back to the user|bool|False|
 
 #### **Chat Config**
 
 All options for query and...
 
-*coming soon*
+_coming soon_
+
+history is handled automatically, the config option is not supported.
 
 ## Other methods
 
 ### Reset
+
 Resets the database and deletes all embeddings. Irreversible. Requires reinitialization afterwards.
 
 ```python
 app.reset()
+```
+
+### Count
+
+Counts the number of embeddings (chunks) in the database.
+
+```python
+print(app.count())
+# returns: 481
 ```
 
 # How does it work?

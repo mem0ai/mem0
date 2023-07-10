@@ -1,5 +1,7 @@
 import openai
 import os
+import logging
+from string import Template
 
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
@@ -7,22 +9,9 @@ from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from embedchain.config import InitConfig, AddConfig, QueryConfig, ChatConfig
-
-from embedchain.loaders.youtube_video import YoutubeVideoLoader
-from embedchain.loaders.pdf_file import PdfFileLoader
-from embedchain.loaders.web_page import WebPageLoader
-from embedchain.loaders.site_map import SitemapLoader
-from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
-from embedchain.loaders.local_text import LocalTextLoader
-from embedchain.loaders.doc_file import DocFileLoader
-from embedchain.chunkers.youtube_video import YoutubeVideoChunker
-from embedchain.chunkers.pdf_file import PdfFileChunker
-from embedchain.chunkers.web_page import WebPageChunker
-from embedchain.chunkers.qna_pair import QnaPairChunker
-from embedchain.chunkers.text import TextChunker
-from embedchain.chunkers.doc_file import DocFileChunker
-from embedchain.vectordb.chroma_db import ChromaDB
-
+from embedchain.config.QueryConfig import DEFAULT_PROMPT
+from embedchain.data_formatter import DataFormatter
+from string import Template
 
 gpt4all_model = None
 
@@ -42,54 +31,15 @@ class EmbedChain:
 
         :param config: InitConfig instance to load as configuration.
         """
-        
+
         self.config = config
         self.db_client = self.config.db.client
         self.collection = self.config.db.collection
         self.user_asks = []
 
-    def _get_loader(self, data_type):
-        """
-        Returns the appropriate data loader for the given data type.
+    
 
-        :param data_type: The type of the data to load.
-        :return: The loader for the given data type.
-        :raises ValueError: If an unsupported data type is provided.
-        """
-        loaders = {
-            'youtube_video': YoutubeVideoLoader(),
-            'pdf_file': PdfFileLoader(),
-            'web_page': WebPageLoader(),
-            'qna_pair': LocalQnaPairLoader(),
-            'text': LocalTextLoader(),
-            'site_map': SitemapLoader(),
-        }
-        if data_type in loaders:
-            return loaders[data_type]
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
-
-    def _get_chunker(self, data_type):
-        """
-        Returns the appropriate chunker for the given data type.
-
-        :param data_type: The type of the data to chunk.
-        :return: The chunker for the given data type.
-        :raises ValueError: If an unsupported data type is provided.
-        """
-        chunkers = {
-            'youtube_video': YoutubeVideoChunker(),
-            'pdf_file': PdfFileChunker(),
-            'web_page': WebPageChunker(),
-            'qna_pair': QnaPairChunker(),
-            'text': TextChunker(),
-            'site_map': WebPageChunker(),
-        }
-        if data_type in chunkers:
-            return chunkers[data_type]
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
-
+    
     def add(self, data_type, url, config: AddConfig = None):
         """
         Adds the data from the given URL to the vector db.
@@ -102,10 +52,10 @@ class EmbedChain:
         """
         if config is None:
             config = AddConfig()
-        loader = self._get_loader(data_type)
-        chunker = self._get_chunker(data_type)
+        
+        data_formatter = DataFormatter(data_type)
         self.user_asks.append([data_type, url])
-        self.load_and_embed(loader, chunker, url)
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, url)
 
     def add_local(self, data_type, content, config: AddConfig = None):
         """
@@ -119,27 +69,27 @@ class EmbedChain:
         """
         if config is None:
             config = AddConfig()
-        loader = self._get_loader(data_type)
-        chunker = self._get_chunker(data_type)
+        
+        data_formatter = DataFormatter(data_type)
         self.user_asks.append([data_type, content])
-        self.load_and_embed(loader, chunker, content)
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, content)
 
-    def load_and_embed(self, loader, chunker, url):
+    def load_and_embed(self, loader, chunker, src):
         """
         Loads the data from the given URL, chunks it, and adds it to the database.
 
         :param loader: The loader to use to load the data.
         :param chunker: The chunker to use to chunk the data.
-        :param url: The URL where the data is located.
+        :param src: The data to be handled by the loader. Can be a URL for remote sources or local content for local loaders.
         """
-        embeddings_data = chunker.create_chunks(loader, url)
+        embeddings_data = chunker.create_chunks(loader, src)
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         # get existing ids, and discard doc if any common id exist.
         existing_docs = self.collection.get(
             ids=ids,
-            # where={"url": url}
+            # where={"url": src}
         )
         existing_ids = set(existing_docs["ids"])
 
@@ -148,18 +98,20 @@ class EmbedChain:
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
 
             if not data_dict:
-                print(f"All data from {url} already exists in the database.")
+                print(f"All data from {src} already exists in the database.")
                 return
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
+        chunks_before_addition = self.count()
+
         self.collection.add(
             documents=documents,
-            metadatas=metadatas,
+            metadatas=list(metadatas),
             ids=ids
         )
-        print(f"Successfully saved {url}. Total chunks count: {self.collection.count()}")
+        print(f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")
 
     def _format_result(self, results):
         return [
@@ -193,22 +145,22 @@ class EmbedChain:
             content = ""
         return content
 
-    def generate_prompt(self, input_query, context):
+    def generate_prompt(self, input_query, context, config: QueryConfig):
         """
         Generates a prompt based on the given query and context, ready to be passed to an LLM
 
         :param input_query: The query to use.
         :param context: Similar documents to the query used as context.
+        :param config: Optional. The `QueryConfig` instance to use as configuration options.
         :return: The prompt
         """
-        prompt = f"""Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-        {context}
-        Query: {input_query}
-        Helpful Answer:
-        """
+        if not config.history:
+            prompt = config.template.substitute(context = context, query = input_query)
+        else:
+            prompt = config.template.substitute(context = context, query = input_query, history = config.history)
         return prompt
 
-    def get_answer_from_llm(self, prompt):
+    def get_answer_from_llm(self, prompt, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -217,8 +169,8 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_llm_model_answer(prompt)
-        return answer
+        
+        return self.get_llm_model_answer(prompt, config)
 
     def query(self, input_query, config: QueryConfig = None):
         """
@@ -233,28 +185,12 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
-        answer = self.get_answer_from_llm(prompt)
+        prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
+        answer = self.get_answer_from_llm(prompt, config)
+        logging.info(f"Answer: {answer}")
         return answer
 
-    def generate_chat_prompt(self, input_query, context, chat_history=''):
-        """
-        Generates a prompt based on the given query, context and chat history
-        for chat interface. This is then passed to an LLM.
-
-        :param input_query: The query to use.
-        :param context: Similar documents to the query used as context.
-        :param chat_history: User and bot conversation that happened before.
-        :return: The prompt
-        """
-        prefix_prompt = f"""You are a chatbot having a conversation with a human. You are given chat history and context. You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know"."""
-        chat_history_prompt = f"""\n----\nChat History: {chat_history}\n----"""
-        suffix_prompt = f"""\n####\nContext: {context}\n####\nQuery: {input_query}\nHelpful Answer:"""
-        prompt = prefix_prompt
-        if chat_history:
-            prompt += chat_history_prompt
-        prompt += suffix_prompt
-        return prompt
 
     def chat(self, input_query, config: ChatConfig = None):
         """
@@ -267,22 +203,39 @@ class EmbedChain:
         :param config: Optional. The `ChatConfig` instance to use as configuration options.
         :return: The answer to the query.
         """
-        if config is None:
-            config = ChatConfig()
         context = self.retrieve_from_database(input_query)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
-        prompt = self.generate_chat_prompt(
-            input_query,
-            context,
-            chat_history=chat_history,
-        )
-        answer = self.get_answer_from_llm(prompt)
-        memory.chat_memory.add_user_message(input_query)
-        memory.chat_memory.add_ai_message(answer)
-        return answer
+        
+        if config is None:
+            config = ChatConfig()
+        if chat_history:
+            config.set_history(chat_history)
+            
+        prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
+        answer = self.get_answer_from_llm(prompt, config)
 
-    def dry_run(self, input_query):
+        memory.chat_memory.add_user_message(input_query)
+        
+        if isinstance(answer, str):
+            memory.chat_memory.add_ai_message(answer)
+            logging.info(f"Answer: {answer}")
+            return answer
+        else:
+            #this is a streamed response and needs to be handled differently.
+            return self._stream_chat_response(answer)
+
+    def _stream_chat_response(self, answer):
+        streamed_answer = ""
+        for chunk in answer:
+            streamed_answer.join(chunk)
+            yield chunk
+        memory.chat_memory.add_ai_message(streamed_answer)
+        logging.info(f"Answer: {streamed_answer}")
+          
+
+    def dry_run(self, input_query, config: QueryConfig = None):
         """
         A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
@@ -298,8 +251,17 @@ class EmbedChain:
         if config is None:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
-        prompt = self.generate_prompt(input_query, context)
+        prompt = self.generate_prompt(input_query, context, config)
+        logging.info(f"Prompt: {prompt}")
         return prompt
+
+    def count(self):
+        """
+        Count the number of embeddings.
+
+        :return: The number of embeddings.
+        """
+        return self.collection.count()
 
 
     def reset(self):
@@ -328,7 +290,8 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, config: ChatConfig):
+
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -339,8 +302,22 @@ class App(EmbedChain):
             temperature=0,
             max_tokens=1000,
             top_p=1,
+            stream=config.stream
         )
-        return response["choices"][0]["message"]["content"]
+
+        if config.stream:
+            return self._stream_llm_model_response(response)
+        else:
+            return response["choices"][0]["message"]["content"]
+    
+    def _stream_llm_model_response(self, response):
+        """
+        This is a generator for streaming response from the OpenAI completions API
+        """
+        for line in response:
+            chunk = line['choices'][0].get('delta', {}).get('content', '')
+            yield chunk
+
 
 
 class OpenSourceApp(EmbedChain):
@@ -359,15 +336,14 @@ class OpenSourceApp(EmbedChain):
         :param config: InitConfig instance to load as configuration. Optional. `ef` defaults to open source.
         """
         print("Loading open source embedding model. This may take some time...")
-        if not config or not config.ef:
-            if config is None:
-                config = InitConfig(
-                    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                        model_name="all-MiniLM-L6-v2"
-                    )
+        if not config:
+            config = InitConfig(
+                ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="all-MiniLM-L6-v2"
                 )
-            else:
-                config._set_embedding_function(
+            )
+        elif not config.ef:
+            config._set_embedding_function(
                     embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
             ))
@@ -384,3 +360,58 @@ class OpenSourceApp(EmbedChain):
             prompt=prompt,
         )
         return response
+
+
+class EmbedChainPersonApp:
+    """
+    Base class to create a person bot.
+    This bot behaves and speaks like a person.
+
+    :param person: name of the person, better if its a well known person.
+    :param config: InitConfig instance to load as configuration.
+    """
+    def __init__(self, person, config: InitConfig = None):
+        self.person = person
+        self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."
+        self.template = Template(
+            self.person_prompt + " " + DEFAULT_PROMPT
+        )
+        if config is None:
+            config = InitConfig()
+        super().__init__(config)
+
+
+class PersonApp(EmbedChainPersonApp, App):
+    """
+    The Person app.
+    Extends functionality from EmbedChainPersonApp and App
+    """
+    def query(self, input_query, config: QueryConfig = None):
+        query_config = QueryConfig(
+            template=self.template,
+        )
+        return super().query(input_query, query_config)
+
+    def chat(self, input_query, config: ChatConfig = None):
+        chat_config = ChatConfig(
+            template = self.template,
+        )
+        return super().chat(input_query, chat_config)
+
+
+class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
+    """
+    The Person app.
+    Extends functionality from EmbedChainPersonApp and OpenSourceApp
+    """
+    def query(self, input_query, config: QueryConfig = None):
+        query_config = QueryConfig(
+            template=self.template,
+        )
+        return super().query(input_query, query_config)
+
+    def chat(self, input_query, config: ChatConfig = None):
+        chat_config = ChatConfig(
+            template = self.template,
+        )
+        return super().chat(input_query, chat_config)
