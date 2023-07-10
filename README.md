@@ -204,19 +204,6 @@ from embedchain import PersonApp as ECPApp
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
-### Stream Response
-
-- You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format
-
-- To use this, instantiate App with a `InitConfig` instance passing `stream_response=True`. The following example iterates through the chunks and prints them as they appear
-```python
-app = App(InitConfig(stream_response=True))
-resp = naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
-
-for chunk in resp:
-    print(chunk, end="", flush=True)
-# answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
-```
 
 ### Chat Interface
 
@@ -233,6 +220,22 @@ print(naval_chat_bot.chat("who is naval ravikant?"))
 
 print(naval_chat_bot.chat("what did the author say about happiness?"))
 # answer: The author, Naval Ravikant, believes that happiness is a choice you make and a skill you develop. He compares the mind to the body, stating that just as the body can be molded and changed, so can the mind. He emphasizes the importance of being present in the moment and not getting caught up in regrets of the past or worries about the future. By being present and grateful for where you are, you can experience true happiness.
+```
+
+### Stream Response
+
+- You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Currently only supports OpenAI model.
+
+- To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
+
+```python
+app = App()
+query_config = QueryConfig(stream = True)
+resp = app.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config)
+
+for chunk in resp:
+    print(chunk, end="", flush=True)
+# answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
 ```
 
 ## Format supported
@@ -453,6 +456,7 @@ _coming soon_
 |option|description|type|default|
 |---|---|---|---|
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
+|stream|control if response is streamed back to the user|bool|False|
 
 #### **Chat Config**
 
