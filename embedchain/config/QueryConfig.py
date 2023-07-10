@@ -48,7 +48,7 @@ class QueryConfig(BaseConfig):
 
       
         if max_tokens == None:
-          self.max_tokens = 0
+          self.max_tokens = 1000
         else:
           self.max_tokens = max_tokens
 
