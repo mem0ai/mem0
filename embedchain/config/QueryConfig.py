@@ -42,6 +42,6 @@ class QueryConfig(BaseConfig):
         else:
           self.temperature = temperature
         if max_tokens == None:
-          self.max_tokens = max_tokens
+          self.max_tokens = 0
         else:
           self.max_tokens = max_tokens
