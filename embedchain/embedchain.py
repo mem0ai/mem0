@@ -236,7 +236,7 @@ class EmbedChain:
             logging.info(f"Answer: {answer}")
             return answer
         else:
-            #this is a streamed response and needs to be handled differently. It is not logged.
+            #this is a streamed response and needs to be handled differently.
             return self._stream_chat_response(answer)
 
     def _stream_chat_response(self, answer):
