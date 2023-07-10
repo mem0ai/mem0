@@ -21,7 +21,7 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
-    def __init__(self, template: Template = None, temperature = None, max_tokens = None):
+    def __init__(self, template: Template = None, temperature = None, max_tokens = None, model = None):
         """
         Initializes the QueryConfig instance.
 
@@ -45,3 +45,7 @@ class QueryConfig(BaseConfig):
           self.max_tokens = 0
         else:
           self.max_tokens = max_tokens
+        if model == None:
+          self.model = "gpt-3.5-turbo-0613"
+        else:
+          self.model = model
