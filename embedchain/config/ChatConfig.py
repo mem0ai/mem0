@@ -1,5 +1,5 @@
 from embedchain.config.QueryConfig import QueryConfig
-
+from string import Template
 class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.
