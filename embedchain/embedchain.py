@@ -213,7 +213,9 @@ class EmbedChain:
         :return: The answer to the query.
         """
         if config is None:
-            config = ChatConfig()
+            self.config = ChatConfig()
+        else:
+            self.config = config
         context = self.retrieve_from_database(input_query)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
