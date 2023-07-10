@@ -39,18 +39,26 @@ class QueryConfig(BaseConfig):
             and re.search(context_re, template.template)):
             raise ValueError("`template` should have `query` and `context` keys")
         self.template = template
+
+      
         if temperature == None:
           self.temperature = 0
         else:
           self.temperature = temperature
+
+      
         if max_tokens == None:
           self.max_tokens = 0
         else:
           self.max_tokens = max_tokens
+
+      
         if model == None:
           self.model = "gpt-3.5-turbo-0613"
         else:
           self.model = model
+
+      
         if top_p == None:
           self.top_p = 1
         else:
