@@ -108,7 +108,7 @@ class EmbedChain:
             metadatas=list(metadatas),
             ids=ids
         )
-        print(f"Successfully saved {src}. New chunks count: {self..count() - chunks_before_addition}")
+        print(f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")
 
     def _format_result(self, results):
         return [
