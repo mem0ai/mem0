@@ -289,8 +289,8 @@ class App(EmbedChain):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
-            temperature= 0 if temperature == None else temperature,
-            max_tokens=1000 if max_tokens == None else max_tokens,
+            temperature= temperature,
+            max_tokens= max_tokens,
             top_p=1,
         )
         return response["choices"][0]["message"]["content"]
