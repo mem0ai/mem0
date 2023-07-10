@@ -289,7 +289,7 @@ class App(EmbedChain):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
-            temperature=temperature,  # Use the temperature parameter here
+            temperature=temperature,
             max_tokens=1000,
             top_p=1,
         )
