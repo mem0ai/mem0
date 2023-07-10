@@ -153,7 +153,7 @@ class EmbedChain:
         prompt = template.substitute(context = context, query = input_query)
         return prompt
 
-    def get_answer_from_llm(self, prompt, config):
+    def get_answer_from_llm(self, prompt, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
