@@ -103,12 +103,14 @@ class EmbedChain:
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
+        chunks_before_addition = self.count()
+
         self.collection.add(
             documents=documents,
             metadatas=list(metadatas),
             ids=ids
         )
-        print(f"Successfully saved {src}. Total chunks count: {self.collection.count()}")
+        print(f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")
 
     def _format_result(self, results):
         return [
@@ -157,7 +159,7 @@ class EmbedChain:
             prompt = config.template.substitute(context = context, query = input_query, history = config.history)
         return prompt
 
-    def get_answer_from_llm(self, prompt):
+    def get_answer_from_llm(self, prompt, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -166,8 +168,8 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_llm_model_answer(prompt)
-        return answer
+        
+        return self.get_llm_model_answer(prompt, config)
 
     def query(self, input_query, config: QueryConfig = None):
         """
@@ -183,7 +185,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config)
-        answer = self.get_answer_from_llm(prompt)
+        answer = self.get_answer_from_llm(prompt, config)
         return answer
 
 
@@ -208,10 +210,23 @@ class EmbedChain:
             config.set_history(chat_history)
             
         prompt = self.generate_prompt(input_query, context, config)
-        answer = self.get_answer_from_llm(prompt)
+        answer = self.get_answer_from_llm(prompt, config)
+
         memory.chat_memory.add_user_message(input_query)
-        memory.chat_memory.add_ai_message(answer)
-        return answer
+        if isinstance(answer, str):
+            memory.chat_memory.add_ai_message(answer)
+            return answer
+        else:
+            #this is a streamed response and needs to be handled differently
+            return self._stream_chat_response(answer)
+
+    def _stream_chat_response(self, answer):
+        streamed_answer = ""
+        for chunk in answer:
+            streamed_answer.join(chunk)
+            yield chunk
+        memory.chat_memory.add_ai_message(streamed_answer)
+          
 
     def dry_run(self, input_query, config: QueryConfig = None):
         """
@@ -267,7 +282,8 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt, config: ChatConfig):
+
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -278,8 +294,22 @@ class App(EmbedChain):
             temperature=0,
             max_tokens=1000,
             top_p=1,
+            stream=config.stream
         )
-        return response["choices"][0]["message"]["content"]
+
+        if config.stream:
+            return self._stream_llm_model_response(response)
+        else:
+            return response["choices"][0]["message"]["content"]
+    
+    def _stream_llm_model_response(self, response):
+        """
+        This is a generator for streaming response from the OpenAI completions API
+        """
+        for line in response:
+            chunk = line['choices'][0].get('delta', {}).get('content', '')
+            yield chunk
+
 
 
 class OpenSourceApp(EmbedChain):

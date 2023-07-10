@@ -20,11 +20,12 @@ class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.
     """
-    def __init__(self, template: Template = None):
+    def __init__(self, template: Template = None, stream: bool = False):
         """
         Initializes the ChatConfig instance.
 
         :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param stream: Optional. Control if response is streamed back to the user
         :raises ValueError: If the template is not valid as template should contain $context and $query and $history
         """
         if template is None:
@@ -32,7 +33,7 @@ class ChatConfig(QueryConfig):
 
         # History is set as 0 to ensure that there is always a history, that way, there don't have to be two templates.
         # Having two templates would make it complicated because the history is not user controlled.
-        super().__init__(template, history=[0])
+        super().__init__(template, history=[0], stream=stream)
 
     def set_history(self, history):
         """
@@ -42,3 +43,4 @@ class ChatConfig(QueryConfig):
         """
         self.history = history
         return
+
