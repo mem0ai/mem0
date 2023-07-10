@@ -153,7 +153,7 @@ class EmbedChain:
         prompt = template.substitute(context = context, query = input_query)
         return prompt
 
-    def get_answer_from_llm(self, prompt):
+    def get_answer_from_llm(self, prompt, config):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -162,7 +162,7 @@ class EmbedChain:
         :param context: Similar documents to the query used as context.
         :return: The answer.
         """
-        answer = self.get_llm_model_answer(prompt)
+        answer = self.get_llm_model_answer(prompt, config)
         return answer
 
     def query(self, input_query, config: QueryConfig = None):
@@ -212,10 +212,7 @@ class EmbedChain:
         :param config: Optional. The `ChatConfig` instance to use as configuration options.
         :return: The answer to the query.
         """
-        if config is None:
-            self.config = ChatConfig()
-        else:
-            self.config = config
+
         context = self.retrieve_from_database(input_query)
         global memory
         chat_history = memory.load_memory_variables({})["history"]
@@ -224,7 +221,7 @@ class EmbedChain:
             context,
             chat_history=chat_history,
         )
-        answer = self.get_answer_from_llm(prompt)
+        answer = self.get_answer_from_llm(prompt, config)
         memory.chat_memory.add_user_message(input_query)
         memory.chat_memory.add_ai_message(answer)
         return answer
