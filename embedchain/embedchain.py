@@ -179,7 +179,7 @@ class EmbedChain:
             config = QueryConfig()
         context = self.retrieve_from_database(input_query)
         prompt = self.generate_prompt(input_query, context, config.template)
-        answer = self.get_llm_model_answer(prompt, config.temperature)
+        answer = self.get_llm_model_answer(prompt, config.temperature, config.max_tokens)
         return answer
 
     def generate_chat_prompt(self, input_query, context, chat_history=''):
@@ -281,7 +281,7 @@ class App(EmbedChain):
             config = InitConfig()
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, temperature):
+    def get_llm_model_answer(self, prompt, temperature, max_tokens):
         messages = []
         messages.append({
             "role": "user", "content": prompt
@@ -290,7 +290,7 @@ class App(EmbedChain):
             model="gpt-3.5-turbo-0613",
             messages=messages,
             temperature= 0 if temperature == None else temperature,
-            max_tokens=1000,
+            max_tokens=1000 if max_tokens == None else max_tokens,
             top_p=1,
         )
         return response["choices"][0]["message"]["content"]
