@@ -245,7 +245,7 @@ class EmbedChain:
             streamed_answer.join(chunk)
             yield chunk
         memory.chat_memory.add_ai_message(streamed_answer)
-        logging.info(f"Answer: {answer}")
+        logging.info(f"Answer: {streamed_answer}")
           
 
     def dry_run(self, input_query, config: QueryConfig = None):
