@@ -28,6 +28,7 @@ class QueryConfig(BaseConfig):
         :param template: Optional. The `Template` instance to use as a template for prompt.
         :param temperature: Optional. Controls the randomness of the model's output. 
                             Higher values (closer to 1) make output more random, lower values make it more deterministic.
+        :param max_tokens: Optional. Controls how many tokens are generated.
         :raises ValueError: If the template is not valid as template should contain $context and $query
         """
         if template is None:
