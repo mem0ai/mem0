@@ -291,7 +291,7 @@ class App(EmbedChain):
             messages=messages,
             temperature = config.temperature,
             max_tokens = config.max_tokens,
-            top_p=1,
+            top_p=config.top_p,
         )
         return response["choices"][0]["message"]["content"]
 
