@@ -8,18 +8,14 @@ class InitConfig(BaseConfig):
     """
     Config to initialize an embedchain `App` instance.
     """
-    def __init__(self, ef=None, db=None, stream_response=False):
+    def __init__(self, ef=None, db=None):
         """
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
         """
+
         self.ef = ef
         self.db = db
-        
-        if not isinstance(stream_response, bool):
-            raise ValueError("`stream_respone` should be bool")
-        self.stream_response = stream_response
-
         return
 
 
