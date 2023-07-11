@@ -1,9 +1,9 @@
 from typing import Optional
-from embedchain.chunkers.base_chunker import BaseChunker
-from embedchain.config.AddConfig import ChunkerConfig
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
+from embedchain.chunkers.base_chunker import BaseChunker
+from embedchain.config.AddConfig import ChunkerConfig
 
 TEXT_SPLITTER_CHUNK_PARAMS = {
     "chunk_size": 1000,
@@ -13,7 +13,8 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 
 
 class PdfFileChunker(BaseChunker):
-    ''' Chunker for PDF file. '''
+    """Chunker for PDF file."""
+
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
             config = TEXT_SPLITTER_CHUNK_PARAMS

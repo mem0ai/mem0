@@ -1,6 +1,7 @@
-from embedchain.config.BaseConfig import BaseConfig
-from string import Template
 import re
+from string import Template
+
+from embedchain.config.BaseConfig import BaseConfig
 
 DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
@@ -11,7 +12,7 @@ DEFAULT_PROMPT = """
   Query: $query
 
   Helpful Answer:
-"""
+"""  # noqa:E501
 
 DEFAULT_PROMPT_WITH_HISTORY = """
   Use the following pieces of context to answer the query at the end.
@@ -25,7 +26,7 @@ DEFAULT_PROMPT_WITH_HISTORY = """
   Query: $query
 
   Helpful Answer:
-"""
+"""  # noqa:E501
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_HISTORY)
@@ -37,6 +38,7 @@ class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
+
     def __init__(self, template: Template = None, model = None, temperature = None, max_tokens = None, top_p = None, history = None, stream: bool = False):
         """
         Initializes the QueryConfig instance.
@@ -48,8 +50,9 @@ class QueryConfig(BaseConfig):
         :param max_tokens: Optional. Controls how many tokens are generated.
         :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
         :param history: Optional. A list of strings to consider as history.
-        :param stream: Optional. Control if response is streamed back to the user
-        :raises ValueError: If the template is not valid as template should contain $context and $query (and optionally $history).
+        :param stream: Optional. Control if response is streamed back to user
+        :raises ValueError: If the template is not valid as template should
+        contain $context and $query (and optionally $history).
         """
         if not history:
             self.history = None
@@ -94,12 +97,13 @@ class QueryConfig(BaseConfig):
             if self.history is None:
                 raise ValueError("`template` should have `query` and `context` keys")
             else:
-                raise ValueError("`template` should have `query`, `context` and `history` keys")
+                raise ValueError(
+                    "`template` should have `query`, `context` and `history` keys"
+                )
 
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
         self.stream = stream
-                
 
     def validate_template(self, template: Template):
         """
@@ -109,9 +113,12 @@ class QueryConfig(BaseConfig):
         :return: Boolean, valid (true) or invalid (false)
         """
         if self.history is None:
-            return (re.search(query_re, template.template) \
-                and re.search(context_re, template.template))
+            return re.search(query_re, template.template) and re.search(
+                context_re, template.template
+            )
         else:
-            return (re.search(query_re, template.template) \
+            return (
+                re.search(query_re, template.template)
                 and re.search(context_re, template.template)
-                and re.search(history_re, template.template))
+                and re.search(history_re, template.template)
+            )

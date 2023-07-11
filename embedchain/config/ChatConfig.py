@@ -1,8 +1,10 @@
-from embedchain.config.QueryConfig import QueryConfig
 from string import Template
 
+from embedchain.config.QueryConfig import QueryConfig
+
 DEFAULT_PROMPT = """
-  You are a chatbot having a conversation with a human. You are given chat history and context.
+  You are a chatbot having a conversation with a human. You are given chat
+  history and context.
   You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know".
 
   $context
@@ -12,9 +14,10 @@ DEFAULT_PROMPT = """
   Query: $query
 
   Helpful Answer:
-"""
+"""  # noqa:E501
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
+
 
 class ChatConfig(QueryConfig):
     """
@@ -36,6 +39,7 @@ class ChatConfig(QueryConfig):
         if template is None:
             template = DEFAULT_PROMPT_TEMPLATE
 
+
         # History is set as 0 to ensure that there is always a history, that way, there don't have to be two templates.
         # Having two templates would make it complicated because the history is not user controlled.
         super().__init__(template, model=model, temperature=temperature, max_tokens=max_tokens, top_p=top_p, history=[0], stream=stream)
@@ -43,7 +47,7 @@ class ChatConfig(QueryConfig):
     def set_history(self, history):
         """
         Chat history is not user provided and not set at initialization time
-        
+
         :param history: (string) history to set
         """
         self.history = history
