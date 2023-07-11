@@ -8,7 +8,7 @@ PROJECT_NAME := embedchain
 
 install:
 	$(PIP) install --upgrade pip
-	$(PIP) install .[dev]
+	$(PIP) install -e .[dev]
 
 format:
 	$(PYTHON) -m black .

@@ -9,7 +9,7 @@ class InitConfig(BaseConfig):
     Config to initialize an embedchain `App` instance.
     """
 
-    def __init__(self, log_level=None, ef=None, db=None):
+    def __init__(self, log_level=None, ef=None, db=None, host=None, port=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -33,7 +33,7 @@ class InitConfig(BaseConfig):
         if db is None:
             from embedchain.vectordb.chroma_db import ChromaDB
 
-            self.db = ChromaDB(ef=self.ef)
+            self.db = ChromaDB(ef=self.ef, host=host, port=port)
         else:
             self.db = db
 
