@@ -1,7 +1,9 @@
 from langchain.document_loaders import Docx2txtLoader
 
+
 class DocxFileLoader:
     def load_data(self, url):
+        """Load data from a .docx file."""
         loader = Docx2txtLoader(url)
         output = []
         data = loader.load()
