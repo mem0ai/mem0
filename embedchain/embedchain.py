@@ -112,11 +112,9 @@ class EmbedChain:
             documents, metadatas = zip(*data_dict.values())
 
         chunks_before_addition = self.count()
-
         self.collection.add(documents=documents, metadatas=list(metadatas), ids=ids)
         print(
-            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}"  # noqa:E501
-        )
+            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")  # noqa:E501
 
     def _format_result(self, results):
         return [
@@ -305,12 +303,12 @@ class App(EmbedChain):
         messages = []
         messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model = config.model,
             messages=messages,
-            temperature=0,
-            max_tokens=1000,
-            top_p=1,
-            stream=config.stream,
+            temperature = config.temperature,
+            max_tokens = config.max_tokens,
+            top_p=config.top_p,
+            stream=config.stream
         )
 
         if config.stream:

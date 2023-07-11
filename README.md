@@ -495,6 +495,10 @@ _coming soon_
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
 |history|include conversation history from your client or database|any (recommendation: list[str])|None
 |stream|control if response is streamed back to the user|bool|False|
+|model|OpenAI model|string|gpt-3.5-turbo-0613|
+|temperature|creativity of the model (0-1)|float|0|
+|max_tokens|limit maximum tokens used|int|1000|
+|top_p|diversity of words used by the model (0-1)|float|1|
 
 #### **Chat Config**
 
