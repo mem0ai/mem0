@@ -57,7 +57,7 @@ class ChatConfig(QueryConfig):
         # there don't have to be two templates. Having two templates would make it
         # complicated because the history is not user controlled.
         super().__init__(
-            template,
+            template=template,
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
