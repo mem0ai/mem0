@@ -67,29 +67,18 @@ class QueryConfig(BaseConfig):
                 template = DEFAULT_PROMPT_TEMPLATE
             else:
                 template = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE
-        
-        if temperature == None:
-          self.temperature = 0
-        else:
-          self.temperature = temperature
 
       
-        if max_tokens == None:
-          self.max_tokens = 1000
-        else:
-          self.max_tokens = max_tokens
+        self.temperature = temprature if temperature else None
 
       
-        if model == None:
-          self.model = "gpt-3.5-turbo-0613"
-        else:
-          self.model = model
+        self.max_tokens = max_tokens if max_tokens else 1000
 
       
-        if top_p == None:
-          self.top_p = 1
-        else:
-          self.top_p = top_p
+        self.model = model if model else "gpt-3.5-turbo-0613"
+
+      
+        self.top_p = top_p if top_p else 1
 
         if self.validate_template(template):
             self.template = template
