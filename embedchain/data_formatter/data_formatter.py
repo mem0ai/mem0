@@ -4,7 +4,7 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
-from embedchain.config import AddConfig
+from embedchain.config.AddConfig import AddConfig
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader

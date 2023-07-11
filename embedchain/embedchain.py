@@ -8,9 +8,11 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
-from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import DEFAULT_PROMPT
-from embedchain.data_formatter import DataFormatter
+from embedchain.config.AddConfig import AddConfig
+from embedchain.config.ChatConfig import ChatConfig
+from embedchain.config.InitConfig import InitConfig
+from embedchain.config.QueryConfig import DEFAULT_PROMPT, QueryConfig
+from embedchain.data_formatter.data_formatter import DataFormatter
 
 gpt4all_model = None
 

@@ -367,7 +367,9 @@ Here's the readme example with configuration options.
 ```python
 import os
 from embedchain import App
-from embedchain.config import InitConfig, AddConfig, QueryConfig
+from embedchain.config.AddConfig import AddConfig
+from embedchain.config.InitConfig import InitConfig
+from embedchain.config.QueryConfig import QueryConfig
 from chromadb.utils import embedding_functions
 
 # Example: use your own embedding function
@@ -402,7 +404,7 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 Here's the example of using custom prompt template with `.query`
 
 ```python
-from embedchain.config import QueryConfig
+from embedchain.config.QueryConfig import QueryConfig
 from embedchain.embedchain import App
 from string import Template
 import wikipedia
@@ -418,9 +420,9 @@ einstein_chat_template = Template("""
         You are Albert Einstein, a German-born theoretical physicist,
         widely ranked among the greatest and most influential scientists of all time.
 
-        Use the following information about Albert Einstein to respond to 
+        Use the following information about Albert Einstein to respond to
         the human's query acting as Albert Einstein.
-        Context: $context                                
+        Context: $context
 
         Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
