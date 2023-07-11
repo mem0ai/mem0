@@ -9,7 +9,7 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, db_dir=None, ef=None):
+    def __init__(self, db_dir=None, ef=None, host=None, port=None):
         if ef:
             self.ef = ef
         else:
@@ -18,13 +18,21 @@ class ChromaDB(BaseVectorDB):
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name="text-embedding-ada-002",
             )
-        if db_dir is None:
-            db_dir = "db"
-        self.client_settings = chromadb.config.Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory=db_dir,
-            anonymized_telemetry=False,
-        )
+
+        if host and port:
+            self.client_settings = chromadb.config.Settings(
+                chroma_api_impl="rest",
+                chroma_server_host=host,
+                chroma_server_http_port=port,
+            )
+        else:
+            if db_dir is None:
+                db_dir = "db"
+            self.client_settings = chromadb.config.Settings(
+                chroma_db_impl="duckdb+parquet",
+                persist_directory=db_dir,
+                anonymized_telemetry=False,
+            )
         super().__init__()
 
     def _get_or_create_db(self):
