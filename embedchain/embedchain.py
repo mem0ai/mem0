@@ -190,7 +190,7 @@ class EmbedChain:
         return answer
 
 
-    def chat(self, input_query, config: ChatConfig):
+    def chat(self, input_query, config: ChatConfig = None):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
