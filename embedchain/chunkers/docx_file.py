@@ -14,6 +14,7 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 
 
 class DocxFileChunker(BaseChunker):
+    ''' Chunker for .docx file. '''
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
             config = TEXT_SPLITTER_CHUNK_PARAMS

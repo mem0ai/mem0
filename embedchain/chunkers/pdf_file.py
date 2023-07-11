@@ -13,6 +13,7 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 
 
 class PdfFileChunker(BaseChunker):
+    ''' Chunker for PDF file. '''
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
             config = TEXT_SPLITTER_CHUNK_PARAMS
