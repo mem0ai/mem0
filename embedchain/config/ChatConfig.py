@@ -26,6 +26,7 @@ class ChatConfig(QueryConfig):
 
     def __init__(
         self,
+        number_documents=None,
         template: Template = None,
         model=None,
         temperature=None,
@@ -36,6 +37,8 @@ class ChatConfig(QueryConfig):
         """
         Initializes the ChatConfig instance.
 
+        :param number_documents: Number of documents to pull from the database as
+        context.
         :param template: Optional. The `Template` instance to use as a template for
         prompt.
         :param model: Optional. Controls the OpenAI model used.
@@ -57,6 +60,7 @@ class ChatConfig(QueryConfig):
         # there don't have to be two templates. Having two templates would make it
         # complicated because the history is not user controlled.
         super().__init__(
+            number_documents=number_documents,
             template=template,
             model=model,
             temperature=temperature,
