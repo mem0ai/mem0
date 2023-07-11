@@ -2,6 +2,7 @@ class BaseConfig:
     """
     Base config.
     """
+
     def __init__(self):
         pass
 
