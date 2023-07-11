@@ -76,7 +76,6 @@ class QueryConfig(BaseConfig):
 
       
         self.model = model if model else "gpt-3.5-turbo-0613"
-
         self.top_p = top_p if top_p else 1
 
         if self.validate_template(template):
