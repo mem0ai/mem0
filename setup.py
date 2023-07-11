@@ -33,4 +33,11 @@ setuptools.setup(
         "sentence_transformers",
         "docx2txt",
     ],
+    extras_require={
+        "dev": [
+            "black",
+            "ruff",
+            "isort"
+        ]
+    }
 )
