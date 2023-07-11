@@ -44,6 +44,7 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
     - [Reset](#reset)
     - [Count](#count)
 - [How does it work?](#how-does-it-work)
+- [Contribution Guidelines](#contribution-guidelines)
 - [Tech Stack](#tech-stack)
 - [Team](#team)
   - [Author](#author)
@@ -377,8 +378,17 @@ config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
             ))
 naval_chat_bot = App(config)
 
-add_config = AddConfig() # Currently no options
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", add_config)
+# Example: define your own chunker config for `youtube_video`
+youtube_add_config = {
+        "chunker": {
+                "chunk_size": 1000,
+                "chunk_overlap": 100,
+                "length_function": len,
+        }
+}
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(**youtube_add_config))
+
+add_config = AddConfig()
 naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
 naval_chat_bot.add("web_page", "https://nav.al/feedback", add_config)
 naval_chat_bot.add("web_page", "https://nav.al/agi", add_config)
@@ -450,6 +460,32 @@ This section describes all possible config options.
 
 #### **Add Config**
 
+|option|description|type|default|
+|---|---|---|---|
+|chunker|chunker config|ChunkerConfig|Default values for chunker depends on the `data_type`. Please refer [ChunkerConfig](#chunker-config)|
+|loader|loader config|LoaderConfig|None|
+
+##### **Chunker Config**
+
+|option|description|type|default|
+|---|---|---|---|
+|chunk_size|Maximum size of chunks to return|int|Default value for various `data_type` mentioned below|
+|chunk_overlap|Overlap in characters between chunks|int|Default value for various `data_type` mentioned below|
+|length_function|Function that measures the length of given chunks|typing.Callable|Default value for various `data_type` mentioned below|
+
+Default values of chunker config parameters for different `data_type`:
+
+|data_type|chunk_size|chunk_overlap|length_function|
+|---|---|---|---|
+|docx|1000|0|len|
+|text|300|0|len|
+|qna_pair|300|0|len|
+|web_page|500|0|len|
+|pdf_file|1000|0|len|
+|youtube_video|2000|0|len|
+
+##### **Loader Config**
+
 _coming soon_
 
 #### **Query Config**
@@ -460,6 +496,10 @@ _coming soon_
 |template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
 |history|include conversation history from your client or database|any (recommendation: list[str])|None
 |stream|control if response is streamed back to the user|bool|False|
+|model|OpenAI model|string|gpt-3.5-turbo-0613|
+|temperature|creativity of the model (0-1)|float|0|
+|max_tokens|limit maximum tokens used|int|1000|
+|top_p|diversity of words used by the model (0-1)|float|1|
 
 #### **Chat Config**
 
@@ -516,6 +556,27 @@ These questions may be trivial for some but for a lot of us, it needs research, 
 embedchain is a framework which takes care of all these nuances and provides a simple interface to create bots over any dataset.
 
 In the first release, we are making it easier for anyone to get a chatbot over any dataset up and running in less than a minute. All you need to do is create an app instance, add the data sets using `.add` function and then use `.query` function to get the relevant answer.
+
+# Contribution Guidelines
+
+Thank you for your interest in contributing to the EmbedChain project! We welcome your ideas and contributions to help improve the project. Please follow the instructions below to get started:
+
+1. **Fork the repository**: Click on the "Fork" button at the top right corner of this repository page. This will create a copy of the repository in your own GitHub account.
+
+2. **Install the required dependencies**: Ensure that you have the necessary dependencies installed in your Python environment. You can do this by running the following command:
+
+```bash
+make install
+```
+
+3. **Make changes in the code**: Create a new branch in your forked repository and make your desired changes in the codebase.
+4. **Format code**: Before creating a pull request, it's important to ensure that your code follows our formatting guidelines. Run the following commands to format the code:
+
+```bash
+make lint format
+```
+
+5. **Create a pull request**: When you are ready to contribute your changes, submit a pull request to the EmbedChain repository. Provide a clear and descriptive title for your pull request, along with a detailed description of the changes you have made.
 
 # Tech Stack
 

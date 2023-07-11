@@ -4,8 +4,8 @@ from embedchain.utils import clean_string
 
 
 class PdfFileLoader:
-    
     def load_data(self, url):
+        """Load data from a PDF file."""
         loader = PyPDFLoader(url)
         output = []
         pages = loader.load_and_split()
@@ -16,8 +16,10 @@ class PdfFileLoader:
             content = clean_string(content)
             meta_data = page.metadata
             meta_data["url"] = url
-            output.append({
-                "content": content,
-                "meta_data": meta_data,
-            })
+            output.append(
+                {
+                    "content": content,
+                    "meta_data": meta_data,
+                }
+            )
         return output
