@@ -114,7 +114,7 @@ class EmbedChain:
         chunks_before_addition = self.count()
         self.collection.add(documents=documents, metadatas=list(metadatas), ids=ids)
         print(
-            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}"  # noqa:E501
+            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")  # noqa:E501
 
     def _format_result(self, results):
         return [
