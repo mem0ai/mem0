@@ -8,6 +8,7 @@ from embedchain.utils import clean_string
 class WebPageLoader:
 
     def load_data(self, url):
+        ''' Load data from a web page. '''
         response = requests.get(url)
         data = response.content
         soup = BeautifulSoup(data, 'html.parser')

@@ -7,6 +7,8 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
 class ChromaDB(BaseVectorDB):
+    ''' Vector database using ChromaDB. '''
+    
     def __init__(self, db_dir=None, ef=None):
         if ef:
             self.ef = ef
@@ -26,9 +28,11 @@ class ChromaDB(BaseVectorDB):
         super().__init__()
 
     def _get_or_create_db(self):
+        ''' Get or create the database. '''
         return chromadb.Client(self.client_settings)
 
     def _get_or_create_collection(self):
+        ''' Get or create the collection. '''
         return self.client.get_or_create_collection(
             'embedchain_store', embedding_function=self.ef,
         )

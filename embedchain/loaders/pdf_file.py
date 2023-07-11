@@ -6,6 +6,7 @@ from embedchain.utils import clean_string
 class PdfFileLoader:
     
     def load_data(self, url):
+        ''' Load data from a PDF file. '''
         loader = PyPDFLoader(url)
         output = []
         pages = loader.load_and_split()
