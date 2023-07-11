@@ -34,19 +34,30 @@ query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 history_re = re.compile(r"\$\{*history\}*")
 
+
 class QueryConfig(BaseConfig):
     """
     Config for the `query` method.
     """
 
-    def __init__(self, number_documents=None, template: Template = None, model = None, temperature = None, max_tokens = None, top_p = None, history = None, stream: bool = False):
+    def __init__(
+        self,
+        number_documents=None,
+        template: Template = None,
+        model=None,
+        temperature=None,
+        max_tokens=None,
+        top_p=None,
+        history=None,
+        stream: bool = False,
+    ):
         """
         Initializes the QueryConfig instance.
 
         :param number_documents: Number of documents to pull from the database as context.
         :param template: Optional. The `Template` instance to use as a template for prompt.
         :param model: Optional. Controls the OpenAI model used.
-        :param temperature: Optional. Controls the randomness of the model's output. 
+        :param temperature: Optional. Controls the randomness of the model's output.
                             Higher values (closer to 1) make output more random, lower values make it more deterministic.
         :param max_tokens: Optional. Controls how many tokens are generated.
         :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
@@ -59,7 +70,7 @@ class QueryConfig(BaseConfig):
             self.number_documents = 1
         else:
             self.number_documents = number_documents
-  
+
         if not history:
             self.history = None
         else:
@@ -74,7 +85,6 @@ class QueryConfig(BaseConfig):
             else:
                 template = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE
 
-      
         self.temperature = temperature if temperature else 0
         self.max_tokens = max_tokens if max_tokens else 1000
         self.model = model if model else "gpt-3.5-turbo-0613"

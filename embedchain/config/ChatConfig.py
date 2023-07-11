@@ -23,13 +23,22 @@ class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.
     """
-    def __init__(self, template: Template = None, model = None, temperature = None, max_tokens = None, top_p = None, stream: bool = False):
+
+    def __init__(
+        self,
+        template: Template = None,
+        model=None,
+        temperature=None,
+        max_tokens=None,
+        top_p=None,
+        stream: bool = False,
+    ):
         """
         Initializes the ChatConfig instance.
 
         :param template: Optional. The `Template` instance to use as a template for prompt.
         :param model: Optional. Controls the OpenAI model used.
-        :param temperature: Optional. Controls the randomness of the model's output. 
+        :param temperature: Optional. Controls the randomness of the model's output.
                             Higher values (closer to 1) make output more random, lower values make it more deterministic.
         :param max_tokens: Optional. Controls how many tokens are generated.
         :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
@@ -39,10 +48,17 @@ class ChatConfig(QueryConfig):
         if template is None:
             template = DEFAULT_PROMPT_TEMPLATE
 
-
         # History is set as 0 to ensure that there is always a history, that way, there don't have to be two templates.
         # Having two templates would make it complicated because the history is not user controlled.
-        super().__init__(template, model=model, temperature=temperature, max_tokens=max_tokens, top_p=top_p, history=[0], stream=stream)
+        super().__init__(
+            template,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            history=[0],
+            stream=stream,
+        )
 
     def set_history(self, history):
         """

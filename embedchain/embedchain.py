@@ -114,7 +114,8 @@ class EmbedChain:
         chunks_before_addition = self.count()
         self.collection.add(documents=documents, metadatas=list(metadatas), ids=ids)
         print(
-            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}")  # noqa:E501
+            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}"
+        )  # noqa:E501
 
     def _format_result(self, results):
         return [
@@ -159,9 +160,11 @@ class EmbedChain:
         configuration options.
         :return: The prompt
         """
-        context_string = (' | ').join(contexts)
+        context_string = (" | ").join(contexts)
         if not config.history:
-            prompt = config.template.substitute(context=context_string, query=input_query)
+            prompt = config.template.substitute(
+                context=context_string, query=input_query
+            )
         else:
             prompt = config.template.substitute(
                 context=context_string, query=input_query, history=config.history
@@ -220,7 +223,7 @@ class EmbedChain:
             config = ChatConfig()
         if chat_history:
             config.set_history(chat_history)
-            
+
         prompt = self.generate_prompt(input_query, contexts, config)
         logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt, config)
@@ -302,12 +305,12 @@ class App(EmbedChain):
         messages = []
         messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
-            model = config.model,
+            model=config.model,
             messages=messages,
-            temperature = config.temperature,
-            max_tokens = config.max_tokens,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
             top_p=config.top_p,
-            stream=config.stream
+            stream=config.stream,
         )
 
         if config.stream:
