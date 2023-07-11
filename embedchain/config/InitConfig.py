@@ -56,7 +56,7 @@ class InitConfig(BaseConfig):
         """
         if (
             os.getenv("OPENAI_API_KEY") is None
-            or os.getenv("OPENAI_ORGANIZATION") is None
+            and os.getenv("OPENAI_ORGANIZATION") is None
         ):
             raise ValueError(
                 "OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided"  # noqa:E501
