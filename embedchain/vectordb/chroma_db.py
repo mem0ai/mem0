@@ -1,14 +1,14 @@
-import chromadb
 import os
 
+import chromadb
 from chromadb.utils import embedding_functions
 
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
 class ChromaDB(BaseVectorDB):
-    ''' Vector database using ChromaDB. '''
-    
+    """Vector database using ChromaDB."""
+
     def __init__(self, db_dir=None, ef=None):
         if ef:
             self.ef = ef
@@ -16,23 +16,24 @@ class ChromaDB(BaseVectorDB):
             self.ef = embedding_functions.OpenAIEmbeddingFunction(
                 api_key=os.getenv("OPENAI_API_KEY"),
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002"
+                model_name="text-embedding-ada-002",
             )
         if db_dir is None:
             db_dir = "db"
         self.client_settings = chromadb.config.Settings(
             chroma_db_impl="duckdb+parquet",
             persist_directory=db_dir,
-            anonymized_telemetry=False
+            anonymized_telemetry=False,
         )
         super().__init__()
 
     def _get_or_create_db(self):
-        ''' Get or create the database. '''
+        """Get or create the database."""
         return chromadb.Client(self.client_settings)
 
     def _get_or_create_collection(self):
-        ''' Get or create the collection. '''
+        """Get or create the collection."""
         return self.client.get_or_create_collection(
-            'embedchain_store', embedding_function=self.ef,
+            "embedchain_store",
+            embedding_function=self.ef,
         )

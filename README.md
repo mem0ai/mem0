@@ -44,6 +44,7 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
     - [Reset](#reset)
     - [Count](#count)
 - [How does it work?](#how-does-it-work)
+- [Contribution Guidelines](#contribution-guidelines)
 - [Tech Stack](#tech-stack)
 - [Team](#team)
   - [Author](#author)
@@ -550,6 +551,27 @@ These questions may be trivial for some but for a lot of us, it needs research, 
 embedchain is a framework which takes care of all these nuances and provides a simple interface to create bots over any dataset.
 
 In the first release, we are making it easier for anyone to get a chatbot over any dataset up and running in less than a minute. All you need to do is create an app instance, add the data sets using `.add` function and then use `.query` function to get the relevant answer.
+
+# Contribution Guidelines
+
+Thank you for your interest in contributing to the EmbedChain project! We welcome your ideas and contributions to help improve the project. Please follow the instructions below to get started:
+
+1. **Fork the repository**: Click on the "Fork" button at the top right corner of this repository page. This will create a copy of the repository in your own GitHub account.
+
+2. **Install the required dependencies**: Ensure that you have the necessary dependencies installed in your Python environment. You can do this by running the following command:
+
+```bash
+make install
+```
+
+3. **Make changes in the code**: Create a new branch in your forked repository and make your desired changes in the codebase.
+4. **Format code**: Before creating a pull request, it's important to ensure that your code follows our formatting guidelines. Run the following commands to format the code:
+
+```bash
+make lint format
+```
+
+5. **Create a pull request**: When you are ready to contribute your changes, submit a pull request to the EmbedChain repository. Provide a clear and descriptive title for your pull request, along with a detailed description of the changes you have made.
 
 # Tech Stack
 
