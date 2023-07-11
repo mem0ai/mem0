@@ -36,20 +36,26 @@ class ChatConfig(QueryConfig):
         """
         Initializes the ChatConfig instance.
 
-        :param template: Optional. The `Template` instance to use as a template for prompt.
+        :param template: Optional. The `Template` instance to use as a template for
+        prompt.
         :param model: Optional. Controls the OpenAI model used.
         :param temperature: Optional. Controls the randomness of the model's output.
-                            Higher values (closer to 1) make output more random, lower values make it more deterministic.
+        Higher values (closer to 1) make output more random,lower values make it more
+        deterministic.
         :param max_tokens: Optional. Controls how many tokens are generated.
-        :param top_p: Optional. Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.
+        :param top_p: Optional. Controls the diversity of words.Higher values
+        (closer to 1) make word selection more diverse, lower values make words less
+        diverse.
         :param stream: Optional. Control if response is streamed back to the user
-        :raises ValueError: If the template is not valid as template should contain $context and $query and $history
+        :raises ValueError: If the template is not valid as template should contain
+        $context and $query and $history
         """
         if template is None:
             template = DEFAULT_PROMPT_TEMPLATE
 
-        # History is set as 0 to ensure that there is always a history, that way, there don't have to be two templates.
-        # Having two templates would make it complicated because the history is not user controlled.
+        # History is set as 0 to ensure that there is always a history, that way,
+        # there don't have to be two templates. Having two templates would make it
+        # complicated because the history is not user controlled.
         super().__init__(
             template,
             model=model,

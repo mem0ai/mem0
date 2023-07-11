@@ -114,8 +114,11 @@ class EmbedChain:
         chunks_before_addition = self.count()
         self.collection.add(documents=documents, metadatas=list(metadatas), ids=ids)
         print(
-            f"Successfully saved {src}. New chunks count: {self.count() - chunks_before_addition}"
-        )  # noqa:E501
+            (
+                f"Successfully saved {src}. New chunks count: "
+                f"{self.count() - chunks_before_addition}"
+            )
+        )
 
     def _format_result(self, results):
         return [
@@ -299,6 +302,13 @@ class App(EmbedChain):
         """
         if config is None:
             config = InitConfig()
+        
+        if not config.ef:
+            config._set_embedding_function_to_default()
+
+        if not config.db:
+            config._set_db_to_default()
+        
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
@@ -347,17 +357,17 @@ class OpenSourceApp(EmbedChain):
             "Loading open source embedding model. This may take some time..."
         )  # noqa:E501
         if not config:
-            config = InitConfig(
-                ef=embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name="all-MiniLM-L6-v2"
-                )
-            )
-        elif not config.ef:
+            config = InitConfig()
+        
+        if not config.ef:
             config._set_embedding_function(
-                embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name="all-MiniLM-L6-v2"
-                )
-            )
+                    embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            ))
+
+        if not config.db:
+            config._set_db_to_default()
+
         print("Successfully loaded open source embedding model.")
         super().__init__(config)
 
