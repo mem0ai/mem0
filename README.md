@@ -608,3 +608,7 @@ If you utilize this repository, please consider citing it with:
   howpublished = {\url{https://github.com/embedchain/embedchain}},
 }
 ```
+
+# Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=embedchain/embedchain&type=Date)](https://star-history.com/#embedchain/embedchain&Date)
