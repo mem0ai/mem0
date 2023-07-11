@@ -24,7 +24,7 @@ setuptools.setup(
         "langchain>=0.0.205",
         "requests",
         "openai",
-        "chromadb>=0.3.26",
+        "chromadb==0.3.26",
         "youtube-transcript-api",
         "beautifulsoup4",
         "pypdf",
@@ -32,6 +32,7 @@ setuptools.setup(
         "gpt4all",
         "sentence_transformers",
         "docx2txt",
+        "pydantic==1.10.8",
     ],
     extras_require={
         "dev": [
