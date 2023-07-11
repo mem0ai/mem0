@@ -301,13 +301,13 @@ class App(EmbedChain):
         """
         if config is None:
             config = InitConfig()
-        
+
         if not config.ef:
             config._set_embedding_function_to_default()
 
         if not config.db:
             config._set_db_to_default()
-        
+
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
@@ -357,12 +357,13 @@ class OpenSourceApp(EmbedChain):
         )  # noqa:E501
         if not config:
             config = InitConfig()
-        
+
         if not config.ef:
             config._set_embedding_function(
-                    embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"
-            ))
+                embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="all-MiniLM-L6-v2"
+                )
+            )
 
         if not config.db:
             config._set_db_to_default()

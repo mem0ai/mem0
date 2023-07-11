@@ -34,11 +34,5 @@ setuptools.setup(
         "docx2txt",
         "pydantic==1.10.8",
     ],
-    extras_require={
-        "dev": [
-            "black",
-            "ruff",
-            "isort"
-        ]
-    }
+    extras_require={"dev": ["black", "ruff", "isort"]},
 )
