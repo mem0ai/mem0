@@ -62,7 +62,7 @@ class DataFormatter:
             "qna_pair": QnaPairChunker(config),
             "text": TextChunker(config),
             "docx": DocxFileChunker(config),
-            "site_map": WebPageChunker(config),
+            "sitemap": WebPageChunker(config),
         }
         if data_type in chunkers:
             return chunkers[data_type]
