@@ -299,7 +299,7 @@ app.add_local('qna_pair', ("Question", "Answer"))
 To add a XML site map containing list of all urls, use the data_type as `sitemap` and enter the sitemap url. Eg:
 
 ```python
-app.add('site_map', 'a_valid_sitemap_url/sitemap.xml')
+app.add('sitemap', 'a_valid_sitemap_url/sitemap.xml')
 ```
 
 ### Reusing a Vector DB
