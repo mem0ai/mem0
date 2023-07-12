@@ -40,7 +40,7 @@ class DataFormatter:
             "qna_pair": LocalQnaPairLoader(),
             "text": LocalTextLoader(),
             "docx": DocxFileLoader(),
-            "site_map": SitemapLoader(),
+            "sitemap": SitemapLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
