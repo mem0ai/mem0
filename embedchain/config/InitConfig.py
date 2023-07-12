@@ -1,7 +1,6 @@
 import os
 from embedchain.config.BaseConfig import BaseConfig
 
-
 class InitConfig(BaseConfig):
     """
     Config to initialize an embedchain `App` instance.
