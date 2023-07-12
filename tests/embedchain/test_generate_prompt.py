@@ -7,7 +7,7 @@ from embedchain import App
 from embedchain.embedchain import QueryConfig
 
 
-class TestPromptGeneration(unittest.TestCase):
+class TestGeneratePrompt(unittest.TestCase):
     def setUp(self):
         self.app = App()
 
