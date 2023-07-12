@@ -167,3 +167,4 @@ cython_debug/
 db
 
 .vscode
+.idea
