@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from string import Template
 from unittest.mock import patch
 
 from embedchain import App
@@ -23,7 +24,13 @@ class TestApp(unittest.TestCase):
         with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
             input_query = "Test query"
-            config = QueryConfig(history=["Past context 1", "Past context 2"])
+            config = QueryConfig(
+                number_documents=3,
+                template=Template(
+                    "Question: $query, context: $context, history: $history"
+                ),
+                history=["Past context 1", "Past context 2"],
+            )
 
             with patch.object(self.app, "get_answer_from_llm"):
                 self.app.dry_run(input_query, config)
