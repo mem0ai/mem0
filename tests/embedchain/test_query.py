@@ -15,10 +15,17 @@ class TestApp(unittest.TestCase):
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_query(self):
         """
-        Assumptions:
-        Calls retrieve_from_database exactly once with "Test query" and an instance of QueryConfig as arguments.
-        Calls get_llm_model_answer exactly once. You're not checking the arguments in this case.
-        Returns the value it received from get_llm_model_answer.
+        This test checks the functionality of the 'query' method in the App class.
+        It simulates a scenario where the 'retrieve_from_database' method returns a context list and 'get_llm_model_answer' returns an expected answer string.
+
+        The 'query' method is expected to call 'retrieve_from_database' and 'get_llm_model_answer' methods appropriately and return the right answer.
+
+        Key assumptions tested:
+        - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of QueryConfig.
+        - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
+        - 'query' method returns the value it received from 'get_llm_model_answer'.
+
+        The test isolates the 'query' method behavior by mocking out 'retrieve_from_database' and 'get_llm_model_answer' methods.
         """
         with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
