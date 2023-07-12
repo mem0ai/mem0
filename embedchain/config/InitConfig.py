@@ -62,6 +62,7 @@ class InitConfig(BaseConfig):
         Sets database to default (`ChromaDb`).
         """
         from embedchain.vectordb.chroma_db import ChromaDB
+
         self.db = ChromaDB(ef=self.ef, host=self.host, port=self.port)
 
     def _setup_logging(self, debug_level):
