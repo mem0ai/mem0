@@ -1,3 +1,4 @@
+from embedchain.DataTypeEnum import DataType
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
@@ -33,17 +34,21 @@ class DataFormatter:
         :raises ValueError: If an unsupported data type is provided.
         """
         loaders = {
-            "youtube_video": YoutubeVideoLoader(),
-            "pdf_file": PdfFileLoader(),
-            "web_page": WebPageLoader(),
-            "qna_pair": LocalQnaPairLoader(),
-            "text": LocalTextLoader(),
-            "docx": DocxFileLoader(),
+            DataType.YOUTUBE_VIDEO: YoutubeVideoLoader(),
+            DataType.PDF_FILE: PdfFileLoader(),
+            DataType.WEB_PAGE: WebPageLoader(),
+            DataType.QNA_PAIR: LocalQnaPairLoader(),
+            DataType.TEXT: LocalTextLoader(),
+            DataType.DOCX: DocxFileLoader(),
         }
-        if data_type in loaders:
+        if isinstance(data_type, DataType):
             return loaders[data_type]
+        # compatible string
+        if not isinstance(data_type, DataType):
+            data_type_enum = DataType.get_enum(data_type)
+            return loaders[data_type_enum]
         else:
-            raise ValueError(f"Unsupported data type: {data_type}")
+            raise ValueError(f"Unsupported data type: {data_type}, please use DataType enum")
 
     def _get_chunker(self, data_type, config):
         """
@@ -54,14 +59,18 @@ class DataFormatter:
         :raises ValueError: If an unsupported data type is provided.
         """
         chunkers = {
-            "youtube_video": YoutubeVideoChunker(config),
-            "pdf_file": PdfFileChunker(config),
-            "web_page": WebPageChunker(config),
-            "qna_pair": QnaPairChunker(config),
-            "text": TextChunker(config),
-            "docx": DocxFileChunker(config),
+            DataType.YOUTUBE_VIDEO: YoutubeVideoChunker(config),
+            DataType.PDF_FILE: PdfFileChunker(config),
+            DataType.WEB_PAGE: WebPageChunker(config),
+            DataType.QNA_PAIR: QnaPairChunker(config),
+            DataType.TEXT: TextChunker(config),
+            DataType.DOCX: DocxFileChunker(config),
         }
-        if data_type in chunkers:
+        if isinstance(data_type, DataType):
             return chunkers[data_type]
+        # compatible string
+        if not isinstance(data_type, DataType):
+            data_type_enum = DataType.get_enum(data_type)
+            return chunkers[data_type_enum]
         else:
-            raise ValueError(f"Unsupported data type: {data_type}")
+            raise ValueError(f"Unsupported data type: {data_type}, please use DataType enum")

@@ -7,7 +7,7 @@ class DataType(Enum):
     WEB_PAGE = "web_page"
     QNA_PAIR = "qna_pair"
     TEXT = "text"
-    DOC = "docx"
+    DOCX = "docx"
 
 
     @staticmethod

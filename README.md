@@ -72,13 +72,13 @@ from embedchain import App
 naval_chat_bot = App()
 
 # Embed Online Resources
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-naval_chat_bot.add("web_page", "https://nav.al/feedback")
-naval_chat_bot.add("web_page", "https://nav.al/agi")
+naval_chat_bot.add(DataType.YOUTUBE_VIDEO, "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add(DataType.PDF_FILE, "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add(DataType.WEB_PAGE, "https://nav.al/feedback")
+naval_chat_bot.add(DataType.WEB_PAGE, "https://nav.al/agi")
 
 # Embed Local Resources
-naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
+naval_chat_bot.add_local(DataType.QNA_PAIR, ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 
 naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
 # answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
@@ -170,13 +170,13 @@ os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 # naval_chat_bot = OpenSourceApp()
 
 # Embed Online Resources
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-naval_chat_bot.add("web_page", "https://nav.al/feedback")
-naval_chat_bot.add("web_page", "https://nav.al/agi")
+naval_chat_bot.add(DataType.YOUTUBE_VIDEO, "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add(DataType.PDF_FILE, "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add(DataType.WEB_PAGE, "https://nav.al/feedback")
+naval_chat_bot.add(DataType.WEB_PAGE, "https://nav.al/agi")
 
 # Embed Local Resources
-naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
+naval_chat_bot.add_local(DataType.QNA_PAIR, ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 ```
 
 - If there is any other app instance in your script or app, you can change the import as
@@ -274,7 +274,7 @@ app.add('web_page', 'a_valid_web_page_url')
 To add any doc/docx file, use the data_type as `docx`. Eg:
 
 ```python
-app.add('docx', 'a_local_docx_file_path')
+app.add(DataType.DOCX, 'a_local_docx_file_path')
 ```
 
 ### Text
@@ -306,8 +306,8 @@ Create a local index:
 from embedchain import App
 
 naval_chat_bot = App()
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add(DataType.YOUTUBE_VIDEO, "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add(DataType.PDF_FILE, "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
 ```
 
 You can reuse the local index with the same code, but without adding new documents:
@@ -386,14 +386,14 @@ youtube_add_config = {
                 "length_function": len,
         }
 }
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(**youtube_add_config))
+naval_chat_bot.add(DataType.YOUTUBE_VIDEO, "https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(**youtube_add_config))
 
 add_config = AddConfig()
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
-naval_chat_bot.add("web_page", "https://nav.al/feedback", add_config)
-naval_chat_bot.add("web_page", "https://nav.al/agi", add_config)
+naval_chat_bot.add(DataType.PDF_FILE, "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
+naval_chat_bot.add(DataType.WEB_PAGE, "https://nav.al/feedback", add_config)
+naval_chat_bot.add(DataType.WEB_PAGE, "https://nav.al/agi", add_config)
 
-naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), add_config)
+naval_chat_bot.add_local(DataType.QNA_PAIR, ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), add_config)
 
 query_config = QueryConfig() # Currently no options
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config))
@@ -411,7 +411,7 @@ einstein_chat_bot = App()
 
 # Embed Wikipedia page
 page = wikipedia.page("Albert Einstein")
-einstein_chat_bot.add("text", page.content)
+einstein_chat_bot.add(DataType.TEXT, page.content)
 
 # Example: use your own custom template with `$context` and `$query`
 einstein_chat_template = Template("""
