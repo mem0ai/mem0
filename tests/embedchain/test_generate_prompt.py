@@ -5,6 +5,7 @@ from string import Template
 
 from embedchain import App
 from embedchain.embedchain import QueryConfig
+from unittest.mock import patch
 
 
 class TestGeneratePrompt(unittest.TestCase):
@@ -57,3 +58,15 @@ class TestGeneratePrompt(unittest.TestCase):
             context="Context 1 | Context 2 | Context 3", query=input_query
         )
         self.assertEqual(result, expected_result)
+
+
+    def test_generate_prompt_with_history(self):
+        """
+        Test the 'generate_prompt' method with QueryConfig containing a history attribute.
+        """
+        config = QueryConfig(history=["Past context 1", "Past context 2"])
+        config.template = Template("Context: $context | Query: $query | History: $history")
+        prompt = self.app.generate_prompt("Test query", ["Test context"], config)
+
+        expected_prompt = "Context: Test context | Query: Test query | History: ['Past context 1', 'Past context 2']"
+        self.assertEqual(prompt, expected_prompt)
