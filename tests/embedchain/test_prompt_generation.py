@@ -2,7 +2,6 @@
 
 import unittest
 from string import Template
-from unittest.mock import MagicMock, patch
 
 from embedchain import App
 from embedchain.embedchain import QueryConfig
