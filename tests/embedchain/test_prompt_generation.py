@@ -1,3 +1,5 @@
+# ruff: noqa: E501
+
 import unittest
 from string import Template
 from unittest.mock import MagicMock, patch
