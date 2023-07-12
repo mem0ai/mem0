@@ -294,6 +294,13 @@ To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. 
 ```python
 app.add_local('qna_pair', ("Question", "Answer"))
 ```
+### Sitemap
+
+To add a XML site map containing list of all urls, use the data_type as `sitemap` and enter the sitemap url. Eg:
+
+```python
+app.add('sitemap', 'a_valid_sitemap_url/sitemap.xml')
+```
 
 ### Reusing a Vector DB
 
@@ -492,7 +499,8 @@ _coming soon_
 
 |option|description|type|default|
 |---|---|---|---|
-|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
+|number_documents|number of documents to be retrieved as context|int|1|
+|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: $query Helpful Answer:")|
 |history|include conversation history from your client or database|any (recommendation: list[str])|None
 |stream|control if response is streamed back to the user|bool|False|
 |model|OpenAI model|string|gpt-3.5-turbo-0613|

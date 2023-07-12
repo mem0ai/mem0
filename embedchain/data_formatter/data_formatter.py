@@ -10,6 +10,7 @@ from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
+from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 
@@ -40,6 +41,7 @@ class DataFormatter:
             DataType.QNA_PAIR: LocalQnaPairLoader(),
             DataType.TEXT: LocalTextLoader(),
             DataType.DOCX: DocxFileLoader(),
+            "sitemap": SitemapLoader(),
         }
         if isinstance(data_type, DataType):
             return loaders[data_type]
@@ -65,6 +67,7 @@ class DataFormatter:
             DataType.QNA_PAIR: QnaPairChunker(config),
             DataType.TEXT: TextChunker(config),
             DataType.DOCX: DocxFileChunker(config),
+            "sitemap": WebPageChunker(config),
         }
         if isinstance(data_type, DataType):
             return chunkers[data_type]

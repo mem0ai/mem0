@@ -1,3 +1,4 @@
+import logging
 import os
 
 import chromadb
@@ -20,6 +21,7 @@ class ChromaDB(BaseVectorDB):
             )
 
         if host and port:
+            logging.info(f"Connecting to ChromaDB server: {host}:{port}")
             self.client_settings = chromadb.config.Settings(
                 chroma_api_impl="rest",
                 chroma_server_host=host,
