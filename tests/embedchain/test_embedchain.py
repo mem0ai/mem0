@@ -36,6 +36,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         app.add_local("text", knowledge)
 
         app.query("What text did I give you?")
+        app.chat("What text did I give you?")
 
         self.assertEqual(
             mock_ec_get_llm_model_answer.call_args[1]["documents"], [knowledge]
