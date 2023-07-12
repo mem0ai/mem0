@@ -1,11 +1,12 @@
 import unittest
+from string import Template
 from unittest.mock import MagicMock, patch
+
 from embedchain import App
 from embedchain.embedchain import QueryConfig
-from string import Template
+
 
 class TestPromptGeneration(unittest.TestCase):
-
     def setUp(self):
         self.app = App()
 
@@ -22,7 +23,9 @@ class TestPromptGeneration(unittest.TestCase):
         # Setup
         input_query = "Test query"
         contexts = ["Context 1", "Context 2", "Context 3"]
-        template = "You are a bot. Context: ${context} - Query: ${query} - Helpful answer:"
+        template = (
+            "You are a bot. Context: ${context} - Query: ${query} - Helpful answer:"
+        )
         config = QueryConfig(template=Template(template))
 
         # Execute
@@ -49,5 +52,7 @@ class TestPromptGeneration(unittest.TestCase):
         result = self.app.generate_prompt(input_query, contexts, config)
 
         # Assert
-        expected_result = config.template.substitute(context="Context 1 | Context 2 | Context 3", query=input_query)
+        expected_result = config.template.substitute(
+            context="Context 1 | Context 2 | Context 3", query=input_query
+        )
         self.assertEqual(result, expected_result)
