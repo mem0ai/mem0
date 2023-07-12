@@ -85,10 +85,11 @@ class EmbedChain:
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         # get existing ids, and discard doc if any common id exist.
+        where={"app_id": self.config.id} if self.config.id is not None else {}
+        # where={"url": src}
         existing_docs = self.collection.get(
             ids=ids,
-            where={"app_id": self.config.id}, # optional filter
-            # where={"url": src}
+            where=where, # optional filter
         )
         existing_ids = set(existing_docs["ids"])
 
@@ -104,8 +105,8 @@ class EmbedChain:
             documents, metadatas = zip(*data_dict.values())
         
         # Add app id in metadatas so that they can be queried on later
-        for m in metadatas:
-            m["app_id"] = self.config.id
+        if (self.config.id is not None):
+            metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
         self.collection.add(
             documents=documents,
@@ -135,10 +136,11 @@ class EmbedChain:
         :param input_query: The query to use.
         :return: The content of the document that matched your query.
         """
+        where = {"app_id": self.config.id} if self.config.id is not None else {}
         result = self.collection.query(
             query_texts=[input_query,],
             n_results=1,
-            where={"app_id": self.config.id}, # optional filter
+            where=where, # optional filter
         )
         result_formatted = self._format_result(result)
         if result_formatted:

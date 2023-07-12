@@ -1,5 +1,4 @@
 import os
-import uuid
 from embedchain.config.BaseConfig import BaseConfig
 
 
@@ -29,11 +28,8 @@ class InitConfig(BaseConfig):
             self.db = ChromaDB(ef=self.ef)
         else:
             self.db = db
-            
-        if id is None:
-            self.id = str(uuid.uuid4())
-        else:
-            self.id = id
+        
+        self.id = id
 
         return
 

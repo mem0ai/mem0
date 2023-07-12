@@ -31,7 +31,6 @@ setuptools.setup(
         "pytube",
         "gpt4all",
         "sentence_transformers",
-        "docx2txt",
-        "uuid"
+        "docx2txt"
     ],
 )
