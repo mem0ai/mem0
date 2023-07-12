@@ -54,7 +54,8 @@ class QueryConfig(BaseConfig):
         """
         Initializes the QueryConfig instance.
 
-        :param number_documents: Number of documents to pull from the database as context.
+        :param number_documents: Number of documents to pull from the database as
+        context.
         :param template: Optional. The `Template` instance to use as a template for
         prompt.
         :param model: Optional. Controls the OpenAI model used.

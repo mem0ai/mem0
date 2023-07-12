@@ -20,27 +20,11 @@ class InitConfig(BaseConfig):
         """
         self._setup_logging(log_level)
 
-        # Embedding Function
-        if ef is None:
-            from chromadb.utils import embedding_functions
-
-            self.ef = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002",
-            )
-        else:
-            self.ef = ef
-
-        if db is None:
-            from embedchain.vectordb.chroma_db import ChromaDB
-
-            self.db = ChromaDB(ef=self.ef, host=host, port=port)
-        else:
-            self.db = db
-
         self.ef = ef
         self.db = db
+
+        self.host = host
+        self.port = port
         return
 
     def _set_embedding_function(self, ef):
@@ -56,7 +40,7 @@ class InitConfig(BaseConfig):
         """
         if (
             os.getenv("OPENAI_API_KEY") is None
-            or os.getenv("OPENAI_ORGANIZATION") is None
+            and os.getenv("OPENAI_ORGANIZATION") is None
         ):
             raise ValueError(
                 "OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided"  # noqa:E501
@@ -78,8 +62,7 @@ class InitConfig(BaseConfig):
         Sets database to default (`ChromaDb`).
         """
         from embedchain.vectordb.chroma_db import ChromaDB
-
-        self.db = ChromaDB(ef=self.ef)
+        self.db = ChromaDB(ef=self.ef, host=self.host, port=self.port)
 
     def _setup_logging(self, debug_level):
         level = logging.WARNING  # Default level
