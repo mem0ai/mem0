@@ -20,10 +20,12 @@ class TestApp(unittest.TestCase):
     def test_chat_with_memory(self, mock_answer, mock_retrieve, mock_memory):
         """
         This test checks the functionality of the 'chat' method in the App class with respect to the chat history memory.
-        The 'chat' method is called twice. The first call initializes the chat history memory. The second call is expected to use the chat history from the first call.
+        The 'chat' method is called twice. The first call initializes the chat history memory.
+        The second call is expected to use the chat history from the first call.
 
         Key assumptions tested:
-        - After the first call, 'memory.chat_memory.add_user_message' and 'memory.chat_memory.add_ai_message' are called with correct arguments, adding the correct chat history.
+        - After the first call, 'memory.chat_memory.add_user_message' and 'memory.chat_memory.add_ai_message' are called with correct arguments,
+            adding the correct chat history.
         - During the second call, the 'chat' method uses the chat history from the first call.
 
         The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database', 'get_answer_from_llm' and 'memory' methods.
