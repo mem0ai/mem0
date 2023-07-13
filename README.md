@@ -453,6 +453,17 @@ for query in queries:
 # Response:  We divorced due to living apart for five years.
 ```
 
+**Client Mode**. By defining a (ChromaDB) server, you can run EmbedChain as a client only.
+
+```python
+from embedchain import App
+config = InitConfig(host="localhost", port="8080")
+app = App(config)
+```
+This is useful for scalability. Say you have EmbedChain behind an API with multiple workers. If you separate clients and server, all clients can connect to the server, which only has to keep one instance of the database in memory. You also don't have to worry about replication.
+
+To run a chroma db server, run `git clone https://github.com/chroma-core/chroma.git`, navigate to the directory (`cd chroma`) and then start the server with `docker-compose up -d --build`.
+
 ### Configs
 
 This section describes all possible config options.
@@ -464,6 +475,8 @@ This section describes all possible config options.
 |log_level|log level|string|WARNING|
 |ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
 |db|vector database (experimental)|BaseVectorDB|ChromaDB|
+|host|hostname for (Chroma) DB server|string|None|
+|port|port number for (Chroma) DB server|string, int|None|
 
 #### **Add Config**
 
