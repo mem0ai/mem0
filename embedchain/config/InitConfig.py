@@ -14,6 +14,8 @@ class InitConfig(BaseConfig):
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
         :param id: Optional. ID of the app. Document metadata will have this id.
+        :param host: Optional. Hostname for the database server.
+        :param port: Optional. Port for the database server.
         """
         self._setup_logging(log_level)
 
