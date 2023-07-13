@@ -40,7 +40,3 @@ class MockLoader:
                 "meta_data": {"url": "none"},
             }
         ]
-
-
-if __name__ == "__main__":
-    unittest.main()
