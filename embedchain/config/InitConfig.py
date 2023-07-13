@@ -17,6 +17,8 @@ class InitConfig(BaseConfig):
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
+        :param host: Optional. Hostname for the database server.
+        :param port: Optional. Port for the database server.
         """
         self._setup_logging(log_level)
 
