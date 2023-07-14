@@ -14,20 +14,19 @@ class WebPageLoader:
         soup = BeautifulSoup(data, "html.parser")
         original_size = len(str(soup))
 
-        for tag in soup(
-            [
-                "nav",
-                "aside",
-                "form",
-                "header",
-                "noscript",
-                "svg",
-                "canvas",
-                "footer",
-                "script",
-                "style",
-            ]
-        ):
+        tags_to_exclude = [
+            "nav",
+            "aside",
+            "form",
+            "header",
+            "noscript",
+            "svg",
+            "canvas",
+            "footer",
+            "script",
+            "style",
+        ]
+        for tag in soup(tags_to_exclude):
             tag.decompose()
 
         ids_to_exclude = ["sidebar"]
