@@ -42,6 +42,7 @@ class WebPageLoader:
             "nav",
             "header-sidebar-wrapper",
             "blog-sidebar-wrapper",
+            "related-posts"
         ]
         for class_name in classes_to_exclude:
             tags = soup.find_all(class_=class_name)
