@@ -25,7 +25,6 @@ class WebPageLoader:
             "footer",
             "script",
             "style",
-            "link",
         ]
         for tag in soup(tags_to_exclude):
             tag.decompose()
