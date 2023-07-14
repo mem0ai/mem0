@@ -14,9 +14,9 @@ class ChunkerConfig(BaseConfig):
         chunk_overlap: Optional[int] = None,
         length_function: Optional[Callable[[str], int]] = None,
     ):
-        self.chunk_size = 2000 if chunk_size is None else chunk_size
-        self.chunk_overlap = 0 if chunk_overlap is None else chunk_overlap
-        self.length_function = len if length_function is None else length_function
+        self.chunk_size = chunk_size if chunk_size else 2000
+        self.chunk_overlap = chunk_overlap if chunk_overlap else 0
+        self.length_function = length_function if length_function else len
 
 
 class LoaderConfig(BaseConfig):
