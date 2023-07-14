@@ -29,7 +29,7 @@ class WebPageLoader:
         for tag in soup(tags_to_exclude):
             tag.decompose()
 
-        ids_to_exclude = ["sidebar"]
+        ids_to_exclude = ["sidebar", "main-navigation", "menu-main-menu"]
         for id in ids_to_exclude:
             tags = soup.find_all(id=id)
             for tag in tags:
