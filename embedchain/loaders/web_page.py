@@ -24,7 +24,7 @@ class WebPageLoader:
                 "style",
             ]
         ):
-            tag.string = " "
+            tag.decompose()
 
         ids_to_exclude = ["sidebar"]
         for id in ids_to_exclude:
