@@ -12,7 +12,7 @@ class WebPageLoader:
         response = requests.get(url)
         data = response.content
         soup = BeautifulSoup(data, "html.parser")
-        original_size = len(str(soup))
+        original_size = len(str(soup.get_text()))
 
         tags_to_exclude = [
             "nav",
@@ -51,7 +51,7 @@ class WebPageLoader:
         content = soup.get_text()
         content = clean_string(content)
 
-        cleaned_size = len(str(soup))
+        cleaned_size = len(content)
         logging.info(
             f"[{url}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
         )
