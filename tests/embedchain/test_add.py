@@ -22,5 +22,5 @@ class TestApp(unittest.TestCase):
         By asserting that 'user_asks' is updated correctly after the 'add' method is called, we can confirm that the method is working as intended.
         The Collection.add method from the chromadb library is mocked during this test to isolate the behavior of the 'add' method.
         """
-        self.app.add("web_page", "https://example.com")
-        self.assertEqual(self.app.user_asks, [["web_page", "https://example.com"]])
+        self.app.add("web_page", "https://example.com", {"meta": "meta-data"})
+        self.assertEqual(self.app.user_asks, [["web_page", "https://example.com", {"meta": "meta-data"}]])
