@@ -35,7 +35,13 @@ class WebPageLoader:
             for tag in tags:
                 tag.decompose()
 
-        classes_to_exclude = ["elementor-location-header", "navbar-header", "nav", "header-sidebar-wrapper", "blog-sidebar-wrapper"]
+        classes_to_exclude = [
+            "elementor-location-header",
+            "navbar-header",
+            "nav",
+            "header-sidebar-wrapper",
+            "blog-sidebar-wrapper",
+        ]
         for class_name in classes_to_exclude:
             tags = soup.find_all(class_=class_name)
             for tag in tags:
