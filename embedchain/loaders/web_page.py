@@ -1,3 +1,5 @@
+import logging
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -10,6 +12,8 @@ class WebPageLoader:
         response = requests.get(url)
         data = response.content
         soup = BeautifulSoup(data, "html.parser")
+        original_size = len(str(soup))
+
         for tag in soup(
             [
                 "nav",
@@ -34,6 +38,11 @@ class WebPageLoader:
 
         content = soup.get_text()
         content = clean_string(content)
+
+        cleaned_size = len(str(soup))
+        logging.info(
+            f"Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
+        )
 
         meta_data = {
             "url": url,
