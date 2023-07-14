@@ -25,7 +25,7 @@ class WebPageLoader:
             "footer",
             "script",
             "style",
-            "link"
+            "link",
         ]
         for tag in soup(tags_to_exclude):
             tag.decompose()
@@ -42,7 +42,7 @@ class WebPageLoader:
             "nav",
             "header-sidebar-wrapper",
             "blog-sidebar-wrapper",
-            "related-posts"
+            "related-posts",
         ]
         for class_name in classes_to_exclude:
             tags = soup.find_all(class_=class_name)
