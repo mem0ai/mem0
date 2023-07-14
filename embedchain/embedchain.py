@@ -210,9 +210,22 @@ class EmbedChain:
         contexts = self.retrieve_from_database(input_query, config)
         prompt = self.generate_prompt(input_query, contexts, config)
         logging.info(f"Prompt: {prompt}")
+
         answer = self.get_answer_from_llm(prompt, config)
-        logging.info(f"Answer: {answer}")
-        return answer
+
+        if isinstance(answer, str):
+            logging.info(f"Answer: {answer}")
+            return answer
+        else:
+            return self._stream_query_response(answer)
+    
+    def _stream_query_response(self, answer):
+        streamed_answer = ""
+        for chunk in answer:
+            streamed_answer = streamed_answer + chunk
+            yield chunk
+        logging.info(f"Answer: {streamed_answer}")
+
 
     def chat(self, input_query, config: ChatConfig = None):
         """
@@ -254,7 +267,7 @@ class EmbedChain:
     def _stream_chat_response(self, answer):
         streamed_answer = ""
         for chunk in answer:
-            streamed_answer.join(chunk)
+            streamed_answer = streamed_answer + chunk
             yield chunk
         memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
