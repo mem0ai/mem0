@@ -220,7 +220,7 @@ class EmbedChain:
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
 
-        Maintains last 5 conversations in memory.
+        Maintains the whole conversation in memory.
         :param input_query: The query to use.
         :param config: Optional. The `ChatConfig` instance to use as
         configuration options.
