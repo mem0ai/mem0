@@ -1,4 +1,4 @@
-from .AddConfig import AddConfig
+from .AddConfig import AddConfig, ChunkerConfig
 from .BaseConfig import BaseConfig
 from .ChatConfig import ChatConfig
 from .InitConfig import InitConfig
