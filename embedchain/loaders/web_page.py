@@ -32,16 +32,16 @@ class WebPageLoader:
             if tag:
                 tag.decompose()
 
-        output = []
         content = soup.get_text()
         content = clean_string(content)
+
         meta_data = {
             "url": url,
         }
-        output.append(
+
+        return [
             {
                 "content": content,
                 "meta_data": meta_data,
             }
-        )
-        return output
+        ]
