@@ -25,6 +25,13 @@ class WebPageLoader:
             ]
         ):
             tag.string = " "
+
+        ids_to_exclude = ["sidebar"]
+        for id in ids_to_exclude:
+            tag = soup.find(id=id)
+            if tag:
+                tag.decompose()
+
         output = []
         content = soup.get_text()
         content = clean_string(content)
