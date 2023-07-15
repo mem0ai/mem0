@@ -40,13 +40,8 @@ class InitConfig(BaseConfig):
         :raises ValueError: If the template is not valid as template should contain
         $context and $query
         """
-        if (
-            os.getenv("OPENAI_API_KEY") is None
-            and os.getenv("OPENAI_ORGANIZATION") is None
-        ):
-            raise ValueError(
-                "OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided"  # noqa:E501
-            )
+        if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
+            raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")  # noqa:E501
         self.ef = embedding_functions.OpenAIEmbeddingFunction(
             api_key=os.getenv("OPENAI_API_KEY"),
             organization_id=os.getenv("OPENAI_ORGANIZATION"),
@@ -74,8 +69,6 @@ class InitConfig(BaseConfig):
             if not isinstance(level, int):
                 raise ValueError(f"Invalid log level: {debug_level}")
 
-        logging.basicConfig(
-            format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=level
-        )
+        logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=level)
         self.logger = logging.getLogger(__name__)
         return
