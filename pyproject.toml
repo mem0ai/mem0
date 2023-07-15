@@ -30,7 +30,7 @@ exclude = [
     "node_modules",
     "venv",
 ]
-line-length = 88
+line-length = 120
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 target-version = "py38"
 
@@ -38,7 +38,7 @@ target-version = "py38"
 max-complexity = 10
 
 [tool.black]
-line-length = 88
+line-length = 120
 target-version = ["py38", "py39", "py310", "py311"]
 include = '\.pyi?$'
 exclude = '''

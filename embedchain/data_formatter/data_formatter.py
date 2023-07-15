@@ -66,7 +66,7 @@ class DataFormatter:
             "text": TextChunker(config),
             "docx": DocxFileChunker(config),
             "sitemap": WebPageChunker(config),
-            "code_docs_page": CodeDocsPageChunker(config)
+            "code_docs_page": CodeDocsPageChunker(config),
         }
         if data_type in chunkers:
             return chunkers[data_type]

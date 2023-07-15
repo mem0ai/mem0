@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 
 from embedchain.utils import clean_string
 
+
 class CodeDocsPageLoader:
     def load_data(self, url):
         """Load data from a web page."""
@@ -10,14 +11,14 @@ class CodeDocsPageLoader:
         data = response.content
         soup = BeautifulSoup(data, "html.parser")
         selectors = [
-            'article.bd-article',
+            "article.bd-article",
             'article[role="main"]',
-            'div.md-content',
+            "div.md-content",
             'div[role="main"]',
-            'div.container',
-            'div.section',
-            'article',
-            'main',
+            "div.container",
+            "div.section",
+            "article",
+            "main",
         ]
         content = None
         for selector in selectors:
@@ -43,11 +44,11 @@ class CodeDocsPageLoader:
             ]
         ):
             tag.string = " "
-        for div in soup.find_all("div", {'class': 'cell_output'}):
+        for div in soup.find_all("div", {"class": "cell_output"}):
             div.decompose()
-        for div in soup.find_all("div", {'class': 'output_wrapper'}):
+        for div in soup.find_all("div", {"class": "output_wrapper"}):
             div.decompose()
-        for div in soup.find_all("div", {'class': 'output'}):
+        for div in soup.find_all("div", {"class": "output"}):
             div.decompose()
         content = clean_string(soup.get_text())
         output = []
