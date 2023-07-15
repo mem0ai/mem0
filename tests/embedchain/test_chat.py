@@ -1,9 +1,8 @@
 import os
 import unittest
-from unittest.mock import ANY, MagicMock, call, patch
+from unittest.mock import patch
 
 from embedchain import App
-from embedchain.embedchain import ChatConfig
 
 
 class TestApp(unittest.TestCase):
