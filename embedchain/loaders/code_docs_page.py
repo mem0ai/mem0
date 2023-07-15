@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 
 from embedchain.utils import clean_string
 
-class DevDocsPageLoader:
+class CodeDocsPageLoader:
     def load_data(self, url):
         """Load data from a web page."""
         response = requests.get(url)
