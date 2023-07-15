@@ -17,7 +17,7 @@ DEFAULT_PROMPT = """
 DEFAULT_PROMPT_WITH_HISTORY = """
   Use the following pieces of context to answer the query at the end.
   If you don't know the answer, just say that you don't know, don't try to make up an answer.
-  I will provide you with our conversation history. 
+  I will provide you with our conversation history.
 
   $context
 
@@ -28,8 +28,20 @@ DEFAULT_PROMPT_WITH_HISTORY = """
   Helpful Answer:
 """  # noqa:E501
 
+CODE_DOCS_PAGE_DEFAULT_PROMPT = """
+  Use the following pieces of context to answer the query at the end.
+  If you don't know the answer, just say that you don't know, don't try to make up an answer. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
+
+  $context
+
+  Query: $query
+
+  Helpful Answer:
+"""  # noqa:E501
+
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_HISTORY)
+CODE_DOCS_PAGE_PROMPT_TEMPLATE = Template(CODE_DOCS_PAGE_DEFAULT_PROMPT)
 query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 history_re = re.compile(r"\$\{*history\}*")

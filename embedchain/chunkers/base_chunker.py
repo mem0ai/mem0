@@ -25,7 +25,7 @@ class BaseChunker:
             meta_data = data["meta_data"]
             url = meta_data["url"]
 
-            chunks = self.text_splitter.split_text(content)
+            chunks = self.get_chunks(content)
 
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
@@ -39,3 +39,11 @@ class BaseChunker:
             "ids": ids,
             "metadatas": metadatas,
         }
+
+    def get_chunks(self, content):
+        """
+        Returns chunks using text splitter instance.
+
+        Override in child class if custom logic.
+        """
+        return self.text_splitter.split_text(content)

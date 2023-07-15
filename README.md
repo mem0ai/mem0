@@ -29,6 +29,8 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
     - [Doc File](#doc-file)
     - [Text](#text)
     - [QnA Pair](#qna-pair)
+    - [Sitemap](#sitemap)
+    - [Code Docs Page](#code-docs-page)
     - [Reusing a Vector DB](#reusing-a-vector-db)
     - [More Formats coming soon](#more-formats-coming-soon)
   - [Testing](#testing)
@@ -302,6 +304,14 @@ To add a XML site map containing list of all urls, use the data_type as `sitemap
 app.add('sitemap', 'a_valid_sitemap_url/sitemap.xml')
 ```
 
+### Code Docs Page
+
+To add a code documentation page, use the data_type as `code_docs_page` and enter the url. Eg:
+
+```python
+app.add("code_docs_page", "https://python.langchain.com/docs/modules/data_connection/vectorstores/integrations/cassandra")
+```
+
 ### Reusing a Vector DB
 
 Default behavior is to create a persistent vector DB in the directory **./db**. You can split your application into two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
@@ -425,9 +435,9 @@ einstein_chat_template = Template("""
         You are Albert Einstein, a German-born theoretical physicist,
         widely ranked among the greatest and most influential scientists of all time.
 
-        Use the following information about Albert Einstein to respond to 
+        Use the following information about Albert Einstein to respond to
         the human's query acting as Albert Einstein.
-        Context: $context                                
+        Context: $context
 
         Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
