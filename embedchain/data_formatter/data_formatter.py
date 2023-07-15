@@ -1,3 +1,4 @@
+from embedchain.chunkers.code_docs_page import CodeDocsPageChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
@@ -5,6 +6,7 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
+from embedchain.loaders.code_docs_page import CodeDocsPageLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
@@ -41,6 +43,7 @@ class DataFormatter:
             "text": LocalTextLoader(),
             "docx": DocxFileLoader(),
             "sitemap": SitemapLoader(),
+            "code_docs_page": CodeDocsPageLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -63,6 +66,7 @@ class DataFormatter:
             "text": TextChunker(config),
             "docx": DocxFileChunker(config),
             "sitemap": WebPageChunker(config),
+            "code_docs_page": CodeDocsPageChunker(config)
         }
         if data_type in chunkers:
             return chunkers[data_type]
