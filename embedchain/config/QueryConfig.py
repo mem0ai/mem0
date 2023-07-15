@@ -113,9 +113,7 @@ class QueryConfig(BaseConfig):
             if self.history is None:
                 raise ValueError("`template` should have `query` and `context` keys")
             else:
-                raise ValueError(
-                    "`template` should have `query`, `context` and `history` keys"
-                )
+                raise ValueError("`template` should have `query`, `context` and `history` keys")
 
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
@@ -129,9 +127,7 @@ class QueryConfig(BaseConfig):
         :return: Boolean, valid (true) or invalid (false)
         """
         if self.history is None:
-            return re.search(query_re, template.template) and re.search(
-                context_re, template.template
-            )
+            return re.search(query_re, template.template) and re.search(context_re, template.template)
         else:
             return (
                 re.search(query_re, template.template)
