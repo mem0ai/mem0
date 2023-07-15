@@ -1,5 +1,8 @@
+import logging
+
 import requests
 from bs4 import BeautifulSoup
+from bs4.builder import ParserRejectedMarkup
 
 from embedchain.loaders.web_page import WebPageLoader
 
@@ -19,6 +22,9 @@ class SitemapLoader:
         soup = BeautifulSoup(response.text, "xml")
         links = [link.text for link in soup.find_all("loc")]
         for link in links:
-            each_load_data = web_page_loader.load_data(link)
-            output.append(each_load_data)
+            try:
+                each_load_data = web_page_loader.load_data(link)
+                output.append(each_load_data)
+            except ParserRejectedMarkup as e:
+                logging.error(f"Failed to parse {link}: {e}")
         return [data[0] for data in output]
