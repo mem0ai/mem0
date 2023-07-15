@@ -9,7 +9,7 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import DEFAULT_PROMPT
+from embedchain.config.QueryConfig import DEFAULT_PROMPT, CODE_DOCS_PAGE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -35,6 +35,7 @@ class EmbedChain:
         self.db_client = self.config.db.client
         self.collection = self.config.db.collection
         self.user_asks = []
+        self.is_code_docs_instance = False
 
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
         """
@@ -53,7 +54,11 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, url, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, url, metadata)
+        self.load_and_embed(
+            data_formatter.loader, data_formatter.chunker, url, metadata
+        )
+        if data_type in ("code_docs_page", ):
+            self.is_code_docs_instance = True
 
     def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
         """
@@ -117,10 +122,12 @@ class EmbedChain:
 
         chunks_before_addition = self.count()
 
-         # Add metadata to each document
+        # Add metadata to each document
         metadatas_with_metadata = [meta or metadata for meta in metadatas]
 
-        self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+        self.collection.add(
+            documents=documents, metadatas=list(metadatas_with_metadata), ids=ids
+        )
         print(
             (
                 f"Successfully saved {src}. New chunks count: "
@@ -207,12 +214,27 @@ class EmbedChain:
         """
         if config is None:
             config = QueryConfig()
+        if self.is_code_docs_instance:
+            config.template = CODE_DOCS_PAGE_PROMPT_TEMPLATE
+            config.number_documents = 5
         contexts = self.retrieve_from_database(input_query, config)
         prompt = self.generate_prompt(input_query, contexts, config)
         logging.info(f"Prompt: {prompt}")
+
         answer = self.get_answer_from_llm(prompt, config)
-        logging.info(f"Answer: {answer}")
-        return answer
+
+        if isinstance(answer, str):
+            logging.info(f"Answer: {answer}")
+            return answer
+        else:
+            return self._stream_query_response(answer)
+
+    def _stream_query_response(self, answer):
+        streamed_answer = ""
+        for chunk in answer:
+            streamed_answer = streamed_answer + chunk
+            yield chunk
+        logging.info(f"Answer: {streamed_answer}")
 
     def chat(self, input_query, config: ChatConfig = None):
         """
@@ -220,7 +242,7 @@ class EmbedChain:
         Gets relevant doc based on the query and then passes it to an
         LLM as context to get the answer.
 
-        Maintains last 5 conversations in memory.
+        Maintains the whole conversation in memory.
         :param input_query: The query to use.
         :param config: Optional. The `ChatConfig` instance to use as
         configuration options.
@@ -228,7 +250,9 @@ class EmbedChain:
         """
         if config is None:
             config = ChatConfig()
-
+        if self.is_code_docs_instance:
+            config.template = CODE_DOCS_PAGE_PROMPT_TEMPLATE
+            config.number_documents = 5
         contexts = self.retrieve_from_database(input_query, config)
 
         global memory
@@ -254,7 +278,7 @@ class EmbedChain:
     def _stream_chat_response(self, answer):
         streamed_answer = ""
         for chunk in answer:
-            streamed_answer.join(chunk)
+            streamed_answer = streamed_answer + chunk
             yield chunk
         memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
