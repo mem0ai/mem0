@@ -1,5 +1,3 @@
-# ruff: noqa: E501
-
 import unittest
 from string import Template
 
@@ -24,16 +22,16 @@ class TestGeneratePrompt(unittest.TestCase):
         # Setup
         input_query = "Test query"
         contexts = ["Context 1", "Context 2", "Context 3"]
-        template = (
-            "You are a bot. Context: ${context} - Query: ${query} - Helpful answer:"
-        )
+        template = "You are a bot. Context: ${context} - Query: ${query} - Helpful answer:"
         config = QueryConfig(template=Template(template))
 
         # Execute
         result = self.app.generate_prompt(input_query, contexts, config)
 
         # Assert
-        expected_result = "You are a bot. Context: Context 1 | Context 2 | Context 3 - Query: Test query - Helpful answer:"
+        expected_result = (
+            "You are a bot. Context: Context 1 | Context 2 | Context 3 - Query: Test query - Helpful answer:"
+        )
         self.assertEqual(result, expected_result)
 
     def test_generate_prompt_with_contexts_list(self):
@@ -53,9 +51,7 @@ class TestGeneratePrompt(unittest.TestCase):
         result = self.app.generate_prompt(input_query, contexts, config)
 
         # Assert
-        expected_result = config.template.substitute(
-            context="Context 1 | Context 2 | Context 3", query=input_query
-        )
+        expected_result = config.template.substitute(context="Context 1 | Context 2 | Context 3", query=input_query)
         self.assertEqual(result, expected_result)
 
     def test_generate_prompt_with_history(self):
@@ -63,9 +59,7 @@ class TestGeneratePrompt(unittest.TestCase):
         Test the 'generate_prompt' method with QueryConfig containing a history attribute.
         """
         config = QueryConfig(history=["Past context 1", "Past context 2"])
-        config.template = Template(
-            "Context: $context | Query: $query | History: $history"
-        )
+        config.template = Template("Context: $context | Query: $query | History: $history")
         prompt = self.app.generate_prompt("Test query", ["Test context"], config)
 
         expected_prompt = "Context: Test context | Query: Test query | History: ['Past context 1', 'Past context 2']"

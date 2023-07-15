@@ -1,5 +1,3 @@
-# ruff: noqa: E501
-
 import os
 import unittest
 from string import Template
@@ -26,9 +24,7 @@ class TestApp(unittest.TestCase):
             input_query = "Test query"
             config = QueryConfig(
                 number_documents=3,
-                template=Template(
-                    "Question: $query, context: $context, history: $history"
-                ),
+                template=Template("Question: $query, context: $context, history: $history"),
                 history=["Past context 1", "Past context 2"],
             )
 

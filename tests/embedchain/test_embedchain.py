@@ -1,5 +1,3 @@
-# ruff: noqa: E501
-
 import os
 import unittest
 from unittest.mock import patch
@@ -38,6 +36,4 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         app.query("What text did I give you?")
         app.chat("What text did I give you?")
 
-        self.assertEqual(
-            mock_ec_get_llm_model_answer.call_args[1]["documents"], [knowledge]
-        )
+        self.assertEqual(mock_ec_get_llm_model_answer.call_args[1]["documents"], [knowledge])
