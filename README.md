@@ -19,6 +19,7 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
       - [2. OpenSourceApp (uses opensource models, free)](#2-opensourceapp-uses-opensource-models-free)
       - [3. PersonApp (uses OpenAI models, paid)](#3-personapp-uses-openai-models-paid)
     - [Add Dataset](#add-dataset)
+    - [Metadata](#metadata)
   - [Interface Types](#interface-types)
     - [Query Interface](#query-interface)
     - [Chat Interface](#chat-interface)
@@ -194,7 +195,23 @@ from embedchain import App as ECApp
 from embedchain import OpenSourceApp as ECOSApp
 from embedchain import PersonApp as ECPApp
 ```
+### Metadata
 
+- You can also add metadata to your datasets by passing a `metadata` parameter in the `.add` or `.add_local` function.
+
+```python
+metadata = {
+    'author': 'John Doe',
+    'category': 'Sample Data',
+    'date': '2023-07-15',
+    'source': 'Data Repository',
+    'description': 'This is an example dataset for testing purposes.'
+}
+
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", metadata=metadata)
+```
+
+- The `metadata` parameter expects a dictionary object where the keys represent metadata attributes, and the values represent corresponding metadata values
 ## Interface Types
 
 ### Query Interface
