@@ -2,7 +2,7 @@ import logging
 import os  # noqa: F401
 
 import chromadb
-from chromadb.utils import embedding_functions  # noqa: F401
+from chromadb.utils import embedding_functions
 
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
