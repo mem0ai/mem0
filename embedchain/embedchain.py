@@ -9,7 +9,8 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import CODE_DOCS_PAGE_PROMPT_TEMPLATE, DEFAULT_PROMPT
+from embedchain.config.QueryConfig import (CODE_DOCS_PAGE_PROMPT_TEMPLATE,
+                                           DEFAULT_PROMPT)
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None

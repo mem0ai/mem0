@@ -4,7 +4,7 @@ PIP := $(PYTHON) -m pip
 PROJECT_NAME := embedchain
 
 # Targets
-.PHONY: install format lint clean test
+.PHONY: install format lint clean test ci_lint ci_test
 
 install:
 	$(PIP) install --upgrade pip
@@ -22,3 +22,9 @@ clean:
 
 test:
 	$(PYTHON) -m pytest
+
+ci_lint:
+	poetry run ruff .
+
+ci_test:
+	poetry run pytest

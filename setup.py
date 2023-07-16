@@ -1,6 +1,6 @@
-import setuptools
-
 import importlib.metadata
+
+import setuptools
 
 version = importlib.metadata.version(__package__ or __name__)
 
