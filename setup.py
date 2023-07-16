@@ -1,11 +1,15 @@
 import setuptools
 
+import importlib.metadata
+
+version = importlib.metadata.version(__package__ or __name__)
+
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="embedchain",
-    version="0.0.23",
+    version=version,
     author="Taranjeet Singh",
     author_email="reachtotj@gmail.com",
     description="embedchain is a framework to easily create LLM powered bots over any dataset",  # noqa:E501
@@ -33,7 +37,7 @@ setuptools.setup(
         "gpt4all",
         "sentence_transformers",
         "docx2txt",
-        "pydantic==1.10.8"
+        "pydantic==1.10.8",
     ],
     extras_require={"dev": ["black", "ruff", "isort", "pytest"]},
 )

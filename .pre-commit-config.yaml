@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: 'v0.0.220'
+    hooks:
+      - id: ruff
+        name: ruff
+        # Respect `exclude` and `extend-exclude` settings.
+        args: ["--force-exclude"]
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        entry: poetry run pytest
+        language: system
+        pass_filenames: false
+        always_run: true

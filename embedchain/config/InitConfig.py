@@ -3,10 +3,12 @@ import os
 from chromadb.utils import embedding_functions
 from embedchain.config.BaseConfig import BaseConfig
 
+
 class InitConfig(BaseConfig):
     """
     Config to initialize an embedchain `App` instance.
     """
+
     def __init__(self, log_level=None, ef=None, db=None, host=None, port=None, id=None):
         """
         :param log_level: Optional. (String) Debug level
@@ -21,10 +23,11 @@ class InitConfig(BaseConfig):
 
         if db is None:
             from embedchain.vectordb.chroma_db import ChromaDB
-            self.db = ChromaDB(ef=self.ef)
+
+            self.db = ChromaDB(ef=ef)
         else:
             self.db = db
-        
+
         self.ef = ef
         self.host = host
         self.port = port
