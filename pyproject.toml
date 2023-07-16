@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.21"
+version = "0.0.23"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
@@ -38,7 +38,7 @@ exclude = [
     "node_modules",
     "venv",
 ]
-line-length = 88
+line-length = 120
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 target-version = "py38"
 
@@ -50,7 +50,7 @@ max-complexity = 10
 "embedchain/__init__.py" = ["E401"]
 
 [tool.black]
-line-length = 88
+line-length = 120
 target-version = ["py38", "py39", "py310", "py311"]
 include = '\.pyi?$'
 exclude = '''

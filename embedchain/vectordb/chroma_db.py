@@ -1,8 +1,8 @@
 import logging
-import os
+import os  # noqa: F401
 
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.utils import embedding_functions  # noqa: F401
 
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
@@ -11,14 +11,7 @@ class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
     def __init__(self, db_dir=None, ef=None, host=None, port=None):
-        if ef:
-            self.ef = ef
-        else:
-            self.ef = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002",
-            )
+        self.ef = ef
 
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")

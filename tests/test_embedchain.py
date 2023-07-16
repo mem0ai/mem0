@@ -14,7 +14,8 @@ class TestApp(unittest.TestCase):
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_add(self):
         self.app.add("web_page", "https://example.com")
-        self.assertEqual(self.app.user_asks, [["web_page", "https://example.com"]])
+        # Review this test too
+        self.assertEqual(self.app.user_asks, [["web_page", "https://example.com", None]])
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_query(self):
@@ -25,5 +26,6 @@ class TestApp(unittest.TestCase):
                 answer = self.app.query("Test query")
 
         self.assertEqual(answer, "Test answer")
+        # Review this test too!
         # mock_retrieve.assert_called_once_with("Test query")
         # mock_answer.assert_called_once()

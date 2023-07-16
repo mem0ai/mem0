@@ -19,6 +19,7 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
       - [2. OpenSourceApp (uses opensource models, free)](#2-opensourceapp-uses-opensource-models-free)
       - [3. PersonApp (uses OpenAI models, paid)](#3-personapp-uses-openai-models-paid)
     - [Add Dataset](#add-dataset)
+    - [Metadata](#metadata)
   - [Interface Types](#interface-types)
     - [Query Interface](#query-interface)
     - [Chat Interface](#chat-interface)
@@ -29,6 +30,8 @@ embedchain is a framework to easily create LLM powered bots over any dataset. If
     - [Doc File](#doc-file)
     - [Text](#text)
     - [QnA Pair](#qna-pair)
+    - [Sitemap](#sitemap)
+    - [Code Docs Page](#code-docs-page)
     - [Reusing a Vector DB](#reusing-a-vector-db)
     - [More Formats coming soon](#more-formats-coming-soon)
   - [Testing](#testing)
@@ -192,7 +195,23 @@ from embedchain import App as ECApp
 from embedchain import OpenSourceApp as ECOSApp
 from embedchain import PersonApp as ECPApp
 ```
+### Metadata
 
+- You can also add metadata to your datasets by passing a `metadata` parameter in the `.add` or `.add_local` function.
+
+```python
+metadata = {
+    'author': 'John Doe',
+    'category': 'Sample Data',
+    'date': '2023-07-15',
+    'source': 'Data Repository',
+    'description': 'This is an example dataset for testing purposes.'
+}
+
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", metadata=metadata)
+```
+
+- The `metadata` parameter expects a dictionary object where the keys represent metadata attributes, and the values represent corresponding metadata values
 ## Interface Types
 
 ### Query Interface
@@ -300,6 +319,14 @@ To add a XML site map containing list of all urls, use the data_type as `sitemap
 
 ```python
 app.add('sitemap', 'a_valid_sitemap_url/sitemap.xml')
+```
+
+### Code Docs Page
+
+To add a code documentation page, use the data_type as `code_docs_page` and enter the url. Eg:
+
+```python
+app.add("code_docs_page", "https://python.langchain.com/docs/modules/data_connection/vectorstores/integrations/cassandra")
 ```
 
 ### Reusing a Vector DB
@@ -425,9 +452,9 @@ einstein_chat_template = Template("""
         You are Albert Einstein, a German-born theoretical physicist,
         widely ranked among the greatest and most influential scientists of all time.
 
-        Use the following information about Albert Einstein to respond to 
+        Use the following information about Albert Einstein to respond to
         the human's query acting as Albert Einstein.
-        Context: $context                                
+        Context: $context
 
         Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
@@ -453,6 +480,17 @@ for query in queries:
 # Response:  We divorced due to living apart for five years.
 ```
 
+**Client Mode**. By defining a (ChromaDB) server, you can run EmbedChain as a client only.
+
+```python
+from embedchain import App
+config = InitConfig(host="localhost", port="8080")
+app = App(config)
+```
+This is useful for scalability. Say you have EmbedChain behind an API with multiple workers. If you separate clients and server, all clients can connect to the server, which only has to keep one instance of the database in memory. You also don't have to worry about replication.
+
+To run a chroma db server, run `git clone https://github.com/chroma-core/chroma.git`, navigate to the directory (`cd chroma`) and then start the server with `docker-compose up -d --build`.
+
 ### Configs
 
 This section describes all possible config options.
@@ -464,6 +502,8 @@ This section describes all possible config options.
 |log_level|log level|string|WARNING|
 |ef|embedding function|chromadb.utils.embedding_functions|{text-embedding-ada-002}|
 |db|vector database (experimental)|BaseVectorDB|ChromaDB|
+|host|hostname for (Chroma) DB server|string|None|
+|port|port number for (Chroma) DB server|string, int|None|
 
 #### **Add Config**
 
