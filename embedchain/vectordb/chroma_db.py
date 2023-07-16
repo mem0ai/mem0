@@ -1,5 +1,5 @@
 import logging
-import os  # noqa: F401
+import os
 
 import chromadb
 from chromadb.utils import embedding_functions
