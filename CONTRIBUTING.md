@@ -56,7 +56,7 @@ Make sure that the linter does not report any errors or warnings before submitti
 We use `black` to reformat the code by running the following command:
 
 ```bash
-black embedchain 
+make format
 ```
 
 ### 🧪 Testing
