@@ -577,6 +577,7 @@ print(app.count())
 
 # How does it work?
 
+![](assets/workflow.png)
 Creating a chat bot over any dataset needs the following steps to happen
 
 - load the data
