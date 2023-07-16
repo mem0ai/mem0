@@ -170,3 +170,4 @@ db
 /poetry.lock
 .idea/
 
+.DS_Store

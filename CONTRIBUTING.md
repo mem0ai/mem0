@@ -10,8 +10,8 @@ To make a contribution, follow the following steps:
 2. Do the changes on your fork with dedicated feature branch `feature/f1`
 3. If you modified the code (new feature or bug-fix), please add tests for it
 4. Include proper documentation / docstring and examples to run the feature
-5. Check the linting 
-6. Ensure that all tests pass 
+5. Check the linting
+6. Ensure that all tests pass
 7. Submit a pull request
 
 For more details about pull requests, please read [GitHub's guides](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
@@ -25,7 +25,7 @@ Please DO NOT use pip or conda to install the dependencies. Instead, use poetry:
 
 ```bash
 poetry install --all-extras
-or 
+or
 poetry install --with dev
 
 #activate

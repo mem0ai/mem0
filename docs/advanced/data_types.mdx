@@ -1,0 +1,84 @@
+---
+title: '📋 Supported data formats'
+---
+
+Embedchain supports following data formats:
+
+### Youtube video
+
+To add any youtube video to your app, use the data_type (first argument to `.add()` method) as `youtube_video`. Eg:
+
+```python
+app.add('youtube_video', 'a_valid_youtube_url_here')
+```
+
+### PDF file
+
+To add any pdf file, use the data_type as `pdf_file`. Eg:
+
+```python
+app.add('pdf_file', 'a_valid_url_where_pdf_file_can_be_accessed')
+```
+
+Note that we do not support password protected pdfs.
+
+### Web page
+
+To add any web page, use the data_type as `web_page`. Eg:
+
+```python
+app.add('web_page', 'a_valid_web_page_url')
+```
+
+### Doc file
+
+To add any doc/docx file, use the data_type as `docx`. Eg:
+
+```python
+app.add('docx', 'a_local_docx_file_path')
+```
+
+### Text
+
+To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
+
+```python
+app.add_local('text', 'Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.')
+```
+
+Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
+
+### QnA pair
+
+To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
+
+```python
+app.add_local('qna_pair', ("Question", "Answer"))
+```
+
+## Reusing a vector database
+
+Default behavior is to create a persistent vector DB in the directory **./db**. You can split your application into two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
+
+Create a local index:
+
+```python
+from embedchain import App
+
+naval_chat_bot = App()
+naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+```
+
+You can reuse the local index with the same code, but without adding new documents:
+
+```python
+from embedchain import App
+
+naval_chat_bot = App()
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
+```
+
+### More formats (coming soon!)
+
+- If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.

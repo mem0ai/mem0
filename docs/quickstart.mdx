@@ -1,0 +1,29 @@
+---
+title: '🚀 Quickstart'
+description: '💡 Start building LLM powered bots under 30 seconds'
+---
+
+Install embedchain python package:
+
+```bash
+pip install embedchain
+```
+
+Run your first bot in python using the following code. Make sure to set the `OPENAI_API_KEY` 🔑 environment variable in the code.
+
+```python
+import os
+
+from embedchain Import App
+
+os.environ["OPENAI_API_KEY"] = "xxx"
+elon_musk_bot = App()
+
+# Embed Online Resources
+elon_musk_bot.add("web_page", "https://en.wikipedia.org/wiki/Elon_Musk")
+elon_musk_bot.add("web_page", "https://www.tesla.com/elon-musk")
+
+response = elon_bot.query("How many companies does Elon Musk run?")
+print(response)
+# Answer: 'Elon Musk runs four companies: Tesla, SpaceX, Neuralink, and The Boring Company.'
+```

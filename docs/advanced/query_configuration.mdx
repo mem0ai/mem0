@@ -1,0 +1,58 @@
+---
+title: '🔍 Query configurations'
+---
+
+## InitConfig
+
+| option    | description           | type                            | default                |
+|-----------|-----------------------|---------------------------------|------------------------|
+| log_level | log level             | string                          | WARNING                |
+| ef        | embedding function    | chromadb.utils.embedding_functions | \{text-embedding-ada-002\} |
+| db        | vector database (experimental) | BaseVectorDB               | ChromaDB               |
+
+
+## AddConfig
+
+|option|description|type|default|
+|---|---|---|---|
+|chunker|chunker config|ChunkerConfig|Default values for chunker depends on the `data_type`. Please refer [ChunkerConfig](#chunker-config)|
+|loader|loader config|LoaderConfig|None|
+
+### ChunkerConfig
+
+|option|description|type|default|
+|---|---|---|---|
+|chunk_size|Maximum size of chunks to return|int|Default value for various `data_type` mentioned below|
+|chunk_overlap|Overlap in characters between chunks|int|Default value for various `data_type` mentioned below|
+|length_function|Function that measures the length of given chunks|typing.Callable|Default value for various `data_type` mentioned below|
+
+Default values of chunker config parameters for different `data_type`:
+
+|data_type|chunk_size|chunk_overlap|length_function|
+|---|---|---|---|
+|docx|1000|0|len|
+|text|300|0|len|
+|qna_pair|300|0|len|
+|web_page|500|0|len|
+|pdf_file|1000|0|len|
+|youtube_video|2000|0|len|
+
+### LoaderConfig
+
+_coming soon_
+
+## QueryConfig
+
+|option|description|type|default|
+|---|---|---|---|
+|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
+|history|include conversation history from your client or database|any (recommendation: list[str])|None
+|stream|control if response is streamed back to the user|bool|False|
+
+## ChatConfig
+
+All options for query and...
+
+_coming soon_
+
+History is handled automatically, the config option is not supported.

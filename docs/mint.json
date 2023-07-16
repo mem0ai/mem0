@@ -1,0 +1,50 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Embedchain",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.png",
+  "colors": {
+    "primary": "#12A7D3",
+    "light": "#81D7F7",
+    "dark": "#004E7A"
+  },
+  "topbarLinks": [
+    {
+      "name": "Twitter",
+      "url": "https://twitter.com/embedchain"
+    },
+    {
+      "name": "Discord",
+      "url": "https://discord.gg/6PzXDgEjG5"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "GitHub",
+    "url": "https://embedchain.ai"
+  },
+  "navigation": [
+    {
+      "group": "Getting started",
+      "pages": ["quickstart", "introduction"]
+    },
+    {
+      "group": "Advanced",
+      "pages": ["advanced/advanced_usage", "advanced/data_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/showcase"]
+    },
+    {
+      "group": "Contribution Guidelines",
+      "pages": ["contribution/dev", "contribution/docs"]
+    }
+
+  ],
+  "footerSocials": {
+    "twitter": "https://twitter.com/embedchain",
+    "github": "https://github.com/embedchain/embedchain",
+    "linkedin": "https://www.linkedin.com/company/embedchain"
+  },
+  "backgroundImage": "/background.png",
+  "isWhiteLabeled": true
+}
