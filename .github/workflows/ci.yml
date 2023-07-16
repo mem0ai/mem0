@@ -23,6 +23,6 @@ jobs:
       - name: Install dependencies
         run: poetry install --all-extras
       - name: Lint with ruff
-        run: poetry run ruff embedchain examples
+        run: make ci_lint
       - name: Test with pytest
-        run: poetry run pytest
+        run: make ci_test

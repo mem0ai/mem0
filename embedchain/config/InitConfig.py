@@ -1,6 +1,8 @@
 import logging
 import os
+
 from chromadb.utils import embedding_functions
+
 from embedchain.config.BaseConfig import BaseConfig
 
 
