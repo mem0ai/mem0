@@ -12,8 +12,8 @@ TEXT_SPLITTER_CHUNK_PARAMS = {
 }
 
 
-class CodeDocsPageChunker(BaseChunker):
-    """Chunker for code docs page."""
+class DocsSiteChunker(BaseChunker):
+    """Chunker for code docs site."""
 
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
