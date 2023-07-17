@@ -1,5 +1,0 @@
-pip
-black==23.3.0
-isort==5.8.0
-ruff==0.0.277
-pytest==7.4.0

@@ -11,22 +11,22 @@ class InitConfig(BaseConfig):
     Config to initialize an embedchain `App` instance.
     """
 
-    def __init__(self, log_level=None, ef=None, db=None, host=None, port=None):
+    def __init__(self, log_level=None, ef=None, db=None, host=None, port=None, id=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
+        :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
         """
         self._setup_logging(log_level)
-
         self.ef = ef
         self.db = db
-
         self.host = host
         self.port = port
+        self.id = id
         return
 
     def _set_embedding_function(self, ef):
@@ -40,13 +40,8 @@ class InitConfig(BaseConfig):
         :raises ValueError: If the template is not valid as template should contain
         $context and $query
         """
-        if (
-            os.getenv("OPENAI_API_KEY") is None
-            and os.getenv("OPENAI_ORGANIZATION") is None
-        ):
-            raise ValueError(
-                "OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided"  # noqa:E501
-            )
+        if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
+            raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")  # noqa:E501
         self.ef = embedding_functions.OpenAIEmbeddingFunction(
             api_key=os.getenv("OPENAI_API_KEY"),
             organization_id=os.getenv("OPENAI_ORGANIZATION"),
@@ -74,8 +69,6 @@ class InitConfig(BaseConfig):
             if not isinstance(level, int):
                 raise ValueError(f"Invalid log level: {debug_level}")
 
-        logging.basicConfig(
-            format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=level
-        )
+        logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=level)
         self.logger = logging.getLogger(__name__)
         return
