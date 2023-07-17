@@ -1,6 +1,7 @@
 import logging
 import os
 from string import Template
+import time
 
 import openai
 from chromadb.utils import embedding_functions
@@ -128,8 +129,34 @@ class EmbedChain:
 
         chunks_before_addition = self.count()
 
-        self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+        # Do a ratelimit pre-check
+        chars_in_documents = sum([len(doc) for doc in documents])
+
+        # If the pre-check fails, don't even try to add all documents at once
+        if chars_in_documents < self.config.rate_limit:
+            try:
+                self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+                print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+                return
+            except openai.error.RateLimitError as e:
+                logging.warning("Rate limit hit. Will try to continue by adding chunks one by one. Error:", e)
+                time.sleep(10)
+        else:
+            logging.info(f"Chunks contain a total of {chars_in_documents} characters, which is higher than the rate limit of {self.config.rate_limit}. Trying to add them one by one.")
+    
+        # Try adding documents one by one with retries
+        for i, (document, metadata, id) in enumerate(zip(documents, list(metadatas_with_metadata), ids)):
+            while True:
+                try:
+                    self.collection.add(documents=document, metadatas=metadata, ids=id)
+                    logging.info(f"Successfully saved chunk {i+1} of {len(documents)}")
+                    break
+                except openai.error.RateLimitError as e:
+                    logging.warning(f"Rate limit hit in chunk {i+1} of {len(documents)}. Waiting 30s.")
+                    time.sleep(30)
+
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+        return
 
     def _format_result(self, results):
         return [
