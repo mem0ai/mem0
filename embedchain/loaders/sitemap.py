@@ -22,7 +22,7 @@ class SitemapLoader:
 
         soup = BeautifulSoup(response.text, "xml")
 
-        links = [link.text for link in soup.find_all("loc") if link.parent.name == 'url']
+        links = [link.text for link in soup.find_all("loc") if link.parent.name == "url"]
         if len(links) == 0:
             # Get all <loc> tags as a fallback. This might include images.
             links = [link.text for link in soup.find_all("loc")]
@@ -31,7 +31,7 @@ class SitemapLoader:
             try:
                 each_load_data = web_page_loader.load_data(link)
 
-                if (is_readable(each_load_data[0].get('content'))):
+                if is_readable(each_load_data[0].get("content")):
                     output.append(each_load_data)
                 else:
                     logging.warning(f"Page is not readable (too many invalid characters): {link}")

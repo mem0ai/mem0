@@ -35,10 +35,11 @@ def clean_string(text):
 
     return cleaned_text
 
+
 def is_readable(s):
     """
     Heuristic to determine if a string is "readable" (mostly contains printable characters and forms meaningful words)
-    
+
     :param s: string
     :return: True if the string is more than 95% printable.
     """
