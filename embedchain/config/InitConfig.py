@@ -22,15 +22,8 @@ class InitConfig(BaseConfig):
         :param port: Optional. Port for the database server.
         """
         self._setup_logging(log_level)
-
-        if db is None:
-            from embedchain.vectordb.chroma_db import ChromaDB
-
-            self.db = ChromaDB(ef=ef)
-        else:
-            self.db = db
-
         self.ef = ef
+        self.db = db
         self.host = host
         self.port = port
         self.id = id
