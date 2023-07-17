@@ -9,7 +9,7 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import CODE_DOCS_PAGE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
+from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -35,7 +35,7 @@ class EmbedChain:
         self.db_client = self.config.db.client
         self.collection = self.config.db.collection
         self.user_asks = []
-        self.is_code_docs_instance = False
+        self.is_docs_site_instance = False
         self.online = False
 
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
@@ -56,8 +56,8 @@ class EmbedChain:
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, url, metadata])
         self.load_and_embed(data_formatter.loader, data_formatter.chunker, url, metadata)
-        if data_type in ("code_docs_page",):
-            self.is_code_docs_instance = True
+        if data_type in ("docs_site",):
+            self.is_docs_site_instance = True
 
     def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
         """
@@ -201,6 +201,7 @@ class EmbedChain:
 
     def access_search_and_get_results(self, input_query):
         from langchain.tools import DuckDuckGoSearchRun
+
         search = DuckDuckGoSearchRun()
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
@@ -218,8 +219,8 @@ class EmbedChain:
         """
         if config is None:
             config = QueryConfig()
-        if self.is_code_docs_instance:
-            config.template = CODE_DOCS_PAGE_PROMPT_TEMPLATE
+        if self.is_docs_site_instance:
+            config.template = DOCS_SITE_PROMPT_TEMPLATE
             config.number_documents = 5
         k = {}
         if self.online:
@@ -257,8 +258,8 @@ class EmbedChain:
         """
         if config is None:
             config = ChatConfig()
-        if self.is_code_docs_instance:
-            config.template = CODE_DOCS_PAGE_PROMPT_TEMPLATE
+        if self.is_docs_site_instance:
+            config.template = DOCS_SITE_PROMPT_TEMPLATE
             config.number_documents = 5
         k = {}
         if self.online:
