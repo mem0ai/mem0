@@ -1,15 +1,13 @@
 import logging
 import os
-from string import Template
 
-import openai
-from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
-from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
+from embedchain.config import AddConfig, ChatConfig, QueryConfig
+from embedchain.config.apps.BaseAppConfig import BaseAppConfig
+from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -23,7 +21,7 @@ memory = ConversationBufferMemory()
 
 
 class EmbedChain:
-    def __init__(self, config: InitConfig):
+    def __init__(self, config: BaseAppConfig):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
@@ -139,7 +137,10 @@ class EmbedChain:
             )
         ]
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self):
+        """
+        Usually implemented by child class
+        """
         raise NotImplementedError
 
     def retrieve_from_database(self, input_query, config: QueryConfig):
@@ -329,152 +330,3 @@ class EmbedChain:
         `App` has to be reinitialized after using this method.
         """
         self.db_client.reset()
-
-
-class App(EmbedChain):
-    """
-    The EmbedChain app.
-    Has two functions: add and query.
-
-    adds(data_type, url): adds the data from the given URL to the vector db.
-    query(query): finds answer to the given query using vector database and LLM.
-    dry_run(query): test your prompt without consuming tokens.
-    """
-
-    def __init__(self, config: InitConfig = None):
-        """
-        :param config: InitConfig instance to load as configuration. Optional.
-        """
-        if config is None:
-            config = InitConfig()
-
-        if not config.ef:
-            config._set_embedding_function_to_default()
-
-        if not config.db:
-            config._set_db_to_default()
-
-        super().__init__(config)
-
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
-        messages = []
-        messages.append({"role": "user", "content": prompt})
-        response = openai.ChatCompletion.create(
-            model=config.model,
-            messages=messages,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            stream=config.stream,
-        )
-
-        if config.stream:
-            return self._stream_llm_model_response(response)
-        else:
-            return response["choices"][0]["message"]["content"]
-
-    def _stream_llm_model_response(self, response):
-        """
-        This is a generator for streaming response from the OpenAI completions API
-        """
-        for line in response:
-            chunk = line["choices"][0].get("delta", {}).get("content", "")
-            yield chunk
-
-
-class OpenSourceApp(EmbedChain):
-    """
-    The OpenSource app.
-    Same as App, but uses an open source embedding model and LLM.
-
-    Has two function: add and query.
-
-    adds(data_type, url): adds the data from the given URL to the vector db.
-    query(query): finds answer to the given query using vector database and LLM.
-    """
-
-    def __init__(self, config: InitConfig = None):
-        """
-        :param config: InitConfig instance to load as configuration. Optional.
-        `ef` defaults to open source.
-        """
-        print("Loading open source embedding model. This may take some time...")  # noqa:E501
-        if not config:
-            config = InitConfig()
-
-        if not config.ef:
-            config._set_embedding_function(
-                embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-            )
-
-        if not config.db:
-            config._set_db_to_default()
-
-        print("Successfully loaded open source embedding model.")
-        super().__init__(config)
-
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
-        from gpt4all import GPT4All
-
-        global gpt4all_model
-        if gpt4all_model is None:
-            gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
-        response = gpt4all_model.generate(prompt=prompt, streaming=config.stream)
-        return response
-
-
-class EmbedChainPersonApp:
-    """
-    Base class to create a person bot.
-    This bot behaves and speaks like a person.
-
-    :param person: name of the person, better if its a well known person.
-    :param config: InitConfig instance to load as configuration.
-    """
-
-    def __init__(self, person, config: InitConfig = None):
-        self.person = person
-        self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
-        if config is None:
-            config = InitConfig()
-        super().__init__(config)
-
-
-class PersonApp(EmbedChainPersonApp, App):
-    """
-    The Person app.
-    Extends functionality from EmbedChainPersonApp and App
-    """
-
-    def query(self, input_query, config: QueryConfig = None):
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
-        query_config = QueryConfig(
-            template=self.template,
-        )
-        return super().query(input_query, query_config)
-
-    def chat(self, input_query, config: ChatConfig = None):
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT_WITH_HISTORY)
-        chat_config = ChatConfig(
-            template=self.template,
-        )
-        return super().chat(input_query, chat_config)
-
-
-class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
-    """
-    The Person app.
-    Extends functionality from EmbedChainPersonApp and OpenSourceApp
-    """
-
-    def query(self, input_query, config: QueryConfig = None):
-        query_config = QueryConfig(
-            template=self.template,
-        )
-        return super().query(input_query, query_config)
-
-    def chat(self, input_query, config: ChatConfig = None):
-        chat_config = ChatConfig(
-            template=self.template,
-        )
-        return super().chat(input_query, chat_config)
