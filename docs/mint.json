@@ -32,7 +32,7 @@
     },
     {
       "group": "Advanced",
-      "pages": ["advanced/advanced_usage", "advanced/data_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/showcase"]
+      "pages": ["advanced/app_types", "advanced/data_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/showcase"]
     },
     {
       "group": "Contribution Guidelines",
