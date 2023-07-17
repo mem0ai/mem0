@@ -1,5 +1,6 @@
 import logging
 from enum import Enum
+from typing import Any
 
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
@@ -11,6 +12,8 @@ load_dotenv()
 
 class EmbeddingFunctions(Enum):
     OPENAI = "OPENAI"
+    HUGGING_FACE = "HUGGING_FACE"
+    VERTEX_AI = "VERTEX_AI"
 
 
 class CustomAppConfig(BaseAppConfig):
@@ -38,18 +41,34 @@ class CustomAppConfig(BaseAppConfig):
         )
 
     @staticmethod
+    def langchain_default_concept(embeddings: Any):
+        """
+        Langchains default function layout for embeddings.
+        """
+        def embed_function(texts: Documents) -> Embeddings:
+            return embeddings.embed_documents(texts)
+        
+        return embed_function
+
+
+    @staticmethod
     def embedding_function(embedding_function: EmbeddingFunctions):
         if not isinstance(embedding_function, EmbeddingFunctions):
             raise ValueError(
                 f"Invalid option: '{embedding_function}'. Expecting one of the following options: {list(map(lambda x: x.value, EmbeddingFunctions))}"  # noqa: E501
             )
 
-        if embedding_function.OPENAI:
+        if embedding_function == EmbeddingFunctions.OPENAI:
             from langchain.embeddings import OpenAIEmbeddings
-
             embeddings = OpenAIEmbeddings()
+            return CustomAppConfig.langchain_default_concept(embeddings)
+        
+        elif embedding_function == EmbeddingFunctions.HUGGING_FACE:
+            from langchain.embeddings import HuggingFaceEmbeddings
+            embeddings = HuggingFaceEmbeddings()
+            return CustomAppConfig.langchain_default_concept(embeddings)
 
-            def embed_function(texts: Documents) -> Embeddings:
-                return embeddings.embed_documents(texts)
-
-            return embed_function
+        elif embedding_function == EmbeddingFunctions.VERTEX_AI:
+            from langchain.embeddings import VertexAIEmbeddings
+            embeddings = VertexAIEmbeddings()
+            return CustomAppConfig.langchain_default_concept(embeddings)
