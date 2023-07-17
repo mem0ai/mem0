@@ -9,7 +9,7 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import CODE_DOCS_PAGE_PROMPT_TEMPLATE, DEFAULT_PROMPT
+from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -35,7 +35,8 @@ class EmbedChain:
         self.db_client = self.config.db.client
         self.collection = self.config.db.collection
         self.user_asks = []
-        self.is_code_docs_instance = False
+        self.is_docs_site_instance = False
+        self.online = False
 
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
         """
@@ -55,8 +56,8 @@ class EmbedChain:
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, url, metadata])
         self.load_and_embed(data_formatter.loader, data_formatter.chunker, url, metadata)
-        if data_type in ("code_docs_page",):
-            self.is_code_docs_instance = True
+        if data_type in ("docs_site",):
+            self.is_docs_site_instance = True
 
     def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
         """
@@ -97,11 +98,11 @@ class EmbedChain:
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         # get existing ids, and discard doc if any common id exist.
-        where={"app_id": self.config.id} if self.config.id is not None else {}
+        where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
         existing_docs = self.collection.get(
             ids=ids,
-            where=where, # optional filter
+            where=where,  # optional filter
         )
         existing_ids = set(existing_docs["ids"])
 
@@ -115,9 +116,9 @@ class EmbedChain:
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
-        
+
         # Add app id in metadatas so that they can be queried on later
-        if (self.config.id is not None):
+        if self.config.id is not None:
             metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
         chunks_before_addition = self.count()
@@ -150,9 +151,11 @@ class EmbedChain:
         :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
-        where = {"app_id": self.config.id} if self.config.id is not None else {} # optional filter
+        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
         result = self.collection.query(
-            query_texts=[input_query,],
+            query_texts=[
+                input_query,
+            ],
             n_results=config.number_documents,
             where=where,
         )
@@ -160,7 +163,10 @@ class EmbedChain:
         contents = [result[0].page_content for result in results_formatted]
         return contents
 
-    def generate_prompt(self, input_query, contexts, config: QueryConfig):
+    def _append_search_and_context(self, context, web_search_result):
+        return f"{context}\nWeb Search Result: {web_search_result}"
+
+    def generate_prompt(self, input_query, contexts, config: QueryConfig, **kwargs):
         """
         Generates a prompt based on the given query and context, ready to be
         passed to an LLM
@@ -172,6 +178,9 @@ class EmbedChain:
         :return: The prompt
         """
         context_string = (" | ").join(contexts)
+        web_search_result = kwargs.get("web_search_result", "")
+        if web_search_result:
+            context_string = self._append_search_and_context(context_string, web_search_result)
         if not config.history:
             prompt = config.template.substitute(context=context_string, query=input_query)
         else:
@@ -190,6 +199,13 @@ class EmbedChain:
 
         return self.get_llm_model_answer(prompt, config)
 
+    def access_search_and_get_results(self, input_query):
+        from langchain.tools import DuckDuckGoSearchRun
+
+        search = DuckDuckGoSearchRun()
+        logging.info(f"Access search to get answers for {input_query}")
+        return search.run(input_query)
+
     def query(self, input_query, config: QueryConfig = None):
         """
         Queries the vector database based on the given input query.
@@ -203,11 +219,14 @@ class EmbedChain:
         """
         if config is None:
             config = QueryConfig()
-        if self.is_code_docs_instance:
-            config.template = CODE_DOCS_PAGE_PROMPT_TEMPLATE
+        if self.is_docs_site_instance:
+            config.template = DOCS_SITE_PROMPT_TEMPLATE
             config.number_documents = 5
+        k = {}
+        if self.online:
+            k["web_search_result"] = self.access_search_and_get_results(input_query)
         contexts = self.retrieve_from_database(input_query, config)
-        prompt = self.generate_prompt(input_query, contexts, config)
+        prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
 
         answer = self.get_answer_from_llm(prompt, config)
@@ -239,10 +258,13 @@ class EmbedChain:
         """
         if config is None:
             config = ChatConfig()
-        if self.is_code_docs_instance:
-            config.template = CODE_DOCS_PAGE_PROMPT_TEMPLATE
+        if self.is_docs_site_instance:
+            config.template = DOCS_SITE_PROMPT_TEMPLATE
             config.number_documents = 5
-        contexts = self.retrieve_from_database(input_query, config)
+        k = {}
+        if self.online:
+            k["web_search_result"] = self.access_search_and_get_results(input_query)
+        contexts = self.retrieve_from_database(input_query, config, **k)
 
         global memory
         chat_history = memory.load_memory_variables({})["history"]
@@ -250,7 +272,7 @@ class EmbedChain:
         if chat_history:
             config.set_history(chat_history)
 
-        prompt = self.generate_prompt(input_query, contexts, config)
+        prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
         answer = self.get_answer_from_llm(prompt, config)
 
@@ -413,7 +435,6 @@ class EmbedChainPersonApp:
     def __init__(self, person, config: InitConfig = None):
         self.person = person
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
         if config is None:
             config = InitConfig()
         super().__init__(config)
@@ -426,12 +447,14 @@ class PersonApp(EmbedChainPersonApp, App):
     """
 
     def query(self, input_query, config: QueryConfig = None):
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
         query_config = QueryConfig(
             template=self.template,
         )
         return super().query(input_query, query_config)
 
     def chat(self, input_query, config: ChatConfig = None):
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT_WITH_HISTORY)
         chat_config = ChatConfig(
             template=self.template,
         )
