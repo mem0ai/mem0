@@ -354,6 +354,11 @@ class App(EmbedChain):
         if not config.db:
             config._set_db_to_default()
 
+        if config.is_azure:
+            openai.api_base=os.getenv("OPENAI_API_BASE")
+            openai.api_type="azure"
+            openai.api_version="2023-05-15"
+
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):

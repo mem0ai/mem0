@@ -11,7 +11,7 @@ class InitConfig(BaseConfig):
     Config to initialize an embedchain `App` instance.
     """
 
-    def __init__(self, log_level=None, ef=None, db=None, host=None, port=None, id=None):
+    def __init__(self, log_level=None, ef=None, db=None, host=None, port=None, id=None, is_azure=False):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -20,6 +20,7 @@ class InitConfig(BaseConfig):
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
+        :param is_azure: Optional. Use azure OpenAI. Only works for OpenAI embeddings
         """
         self._setup_logging(log_level)
         self.ef = ef
@@ -27,6 +28,8 @@ class InitConfig(BaseConfig):
         self.host = host
         self.port = port
         self.id = id
+        self.is_azure = is_azure
+        
         return
 
     def _set_embedding_function(self, ef):
@@ -40,12 +43,19 @@ class InitConfig(BaseConfig):
         :raises ValueError: If the template is not valid as template should contain
         $context and $query
         """
+
         if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
             raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")  # noqa:E501
+        
+        if self.is_azure and os.getenv("OPENAI_API_BASE") is None:
+            raise ValueError("OPENAI_API_BASE environment variables not provided")
+        
         self.ef = embedding_functions.OpenAIEmbeddingFunction(
             api_key=os.getenv("OPENAI_API_KEY"),
             organization_id=os.getenv("OPENAI_ORGANIZATION"),
             model_name="text-embedding-ada-002",
+            api_type="azure" if self.is_azure else None,
+            api_base=os.getenv("OPENAI_API_BASE")
         )
         return
 
