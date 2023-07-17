@@ -3,13 +3,16 @@ import os
 from string import Template
 
 import openai
-from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
-from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
+from embedchain.config import (AddConfig, AppConfig, ChatConfig,
+                               OpenSourceAppConfig, QueryConfig)
+from embedchain.config.Apps.BaseAppConfig import BaseAppConfig
+from embedchain.config.QueryConfig import (DEFAULT_PROMPT,
+                                           DEFAULT_PROMPT_WITH_HISTORY,
+                                           DOCS_SITE_PROMPT_TEMPLATE)
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -23,7 +26,7 @@ memory = ConversationBufferMemory()
 
 
 class EmbedChain:
-    def __init__(self, config: InitConfig):
+    def __init__(self, config: BaseAppConfig):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
@@ -341,18 +344,12 @@ class App(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: InitConfig = None):
+    def __init__(self, config: AppConfig = None):
         """
-        :param config: InitConfig instance to load as configuration. Optional.
+        :param config: AppConfig instance to load as configuration. Optional.
         """
         if config is None:
-            config = InitConfig()
-
-        if not config.ef:
-            config._set_embedding_function_to_default()
-
-        if not config.db:
-            config._set_db_to_default()
+            config = AppConfig()
 
         super().__init__(config)
 
@@ -393,24 +390,16 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: InitConfig = None):
+    def __init__(self, config: OpenSourceAppConfig = None):
         """
         :param config: InitConfig instance to load as configuration. Optional.
         `ef` defaults to open source.
         """
-        print("Loading open source embedding model. This may take some time...")  # noqa:E501
+        logging.info("Loading open source embedding model. This may take some time...")  # noqa:E501
         if not config:
-            config = InitConfig()
+            config = OpenSourceAppConfig()
 
-        if not config.ef:
-            config._set_embedding_function(
-                embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-            )
-
-        if not config.db:
-            config._set_db_to_default()
-
-        print("Successfully loaded open source embedding model.")
+        logging.info("Successfully loaded open source embedding model.")
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
@@ -429,14 +418,14 @@ class EmbedChainPersonApp:
     This bot behaves and speaks like a person.
 
     :param person: name of the person, better if its a well known person.
-    :param config: InitConfig instance to load as configuration.
+    :param config: BaseAppConfig instance to load as configuration.
     """
 
-    def __init__(self, person, config: InitConfig = None):
+    def __init__(self, person, config: BaseAppConfig = None):
         self.person = person
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
         if config is None:
-            config = InitConfig()
+            config = BaseAppConfig()
         super().__init__(config)
 
 
