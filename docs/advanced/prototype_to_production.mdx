@@ -1,0 +1,87 @@
+---
+title: '💸 From Prototype to Production'
+---
+
+Embedchain makes it really easy to get a prototype running. Moving from a prototype to production isn't much harder, but a few extra steps are needed.
+
+## Baseline
+
+These best practices are useful for any application, even prototypes.
+
+### Leverage database persistency
+
+By default, embedchain creates a persistent vector DB in the directory **./db**.
+
+### Separating database writes and reads
+
+This is important, because the writes (`.add` method) are asynchronous. That means, that if you add a document and try to query it in the same, synchronous script, it will not be found.
+
+Best practice here is to create one script with all the ways you want to add data, and a separate script to consume the database with `.chat`, `.query` and other read methods.
+
+#### Example
+
+```python
+# train.py
+from embedchain import App
+
+naval_chat_bot = App()
+
+videos = ["https://www.youtube.com/watch?v=3qHkcs3kG44"]
+for video in videos:
+    naval_chat_bot.add("youtube_video", video)
+
+naval_chat_bot.add(
+    "pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf"
+)
+```
+
+You can reuse the local index with the same code, but without adding new documents:
+
+```python
+# query.py
+from embedchain import App
+
+naval_chat_bot = App()
+user_query = input("Query: ")
+print(naval_chat_bot.query(user_query))
+```
+
+## Moving to Production
+
+Scalable production environments should be able to scale and handle as many simultaneous requests as possible.
+
+### Client/Server Model
+
+The best way to do this is with a client/server model. The clients are lightweight, the server is able to handle simultaneous requests.
+
+Without this model, each embedchain app instance will have client and database capabilities.
+This does not only take up much more memories, multiple workers with their own app instance can also lead to race conditions and other unwanted behavior.
+
+#### How to
+
+##### Run a ChromaDB Server
+
+To run a Chroma db server, run `git clone https://github.com/chroma-core/chroma.git`, navigate to the directory (`cd chroma`) and then start the server with `docker-compose up -d --build`.
+
+Keep in mind, that your Chroma server has its own persistent database, so you start with an empty database and have to add your embeddings.
+
+##### Connect your Embedchain to the Server
+
+```python
+from embedchain import App
+from embedchain.config import InitConfig
+
+config = InitConfig(host="localhost", port="8080")
+app = App(config=config)
+```
+
+#### Next steps
+
+##### Run a WSGI Server
+
+You can also create `docker-compose.yml` file in the root directory, the parent directory of chroma.
+Copy Chroma's `docker-compose.yml` file's content, and change the paths to the subdirectory.
+
+Now you can add a WSGI server to your docker-compose file, such as **Flask** with **Gunicorn**. Implement a query endpoint, and optional admin endpoints for functions such as adding or resetting embeddings.
+
+This setup will allow your users to connect with parallel workers, and help you make your embedchain accessible to your target audience (public or private), while being scalable, ACID-compliant and reducing memory usage.
