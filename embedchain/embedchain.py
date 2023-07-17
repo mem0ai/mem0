@@ -6,7 +6,7 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
-from embedchain.config.Apps.BaseAppConfig import BaseAppConfig
+from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 
