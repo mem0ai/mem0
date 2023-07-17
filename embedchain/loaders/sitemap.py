@@ -34,7 +34,7 @@ class SitemapLoader:
                 if (is_readable(each_load_data[0].get('content'))):
                     output.append(each_load_data)
                 else:
-                    logging.warning(f"Page is not readable: {link}")
+                    logging.warning(f"Page is not readable (too many invalid characters): {link}")
             except ParserRejectedMarkup as e:
                 logging.error(f"Failed to parse {link}: {e}")
         return [data[0] for data in output]
