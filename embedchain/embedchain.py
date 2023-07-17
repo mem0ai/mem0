@@ -9,7 +9,9 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
+from embedchain.config.QueryConfig import (DEFAULT_PROMPT,
+                                           DEFAULT_PROMPT_WITH_HISTORY,
+                                           DOCS_SITE_PROMPT_TEMPLATE)
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -121,10 +123,10 @@ class EmbedChain:
         if self.config.id is not None:
             metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
-        chunks_before_addition = self.count()
-
         # Add metadata to each document
         metadatas_with_metadata = [meta or metadata for meta in metadatas]
+
+        chunks_before_addition = self.count()
 
         self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
