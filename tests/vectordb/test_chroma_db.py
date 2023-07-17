@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain import App
-from embedchain.config import InitConfig
+from embedchain.config import AppConfig
 from embedchain.vectordb.chroma_db import ChromaDB, chromadb
 
 
@@ -38,7 +38,7 @@ class TestChromaDbHostsInit(unittest.TestCase):
         host = "test-host"
         port = "1234"
 
-        config = InitConfig(host=host, port=port)
+        config = AppConfig(host=host, port=port)
 
         _app = App(config)
 
@@ -65,7 +65,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
         """
-        config = InitConfig(log_level="DEBUG")
+        config = AppConfig(log_level="DEBUG")
 
         _app = App(config)
 
