@@ -9,7 +9,7 @@ from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.config import AddConfig, ChatConfig, InitConfig, QueryConfig
-from embedchain.config.QueryConfig import CODE_DOCS_PAGE_PROMPT_TEMPLATE, DEFAULT_PROMPT
+from embedchain.config.QueryConfig import CODE_DOCS_PAGE_PROMPT_TEMPLATE, DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 from embedchain.data_formatter import DataFormatter
 
 gpt4all_model = None
@@ -434,7 +434,6 @@ class EmbedChainPersonApp:
     def __init__(self, person, config: InitConfig = None):
         self.person = person
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
         if config is None:
             config = InitConfig()
         super().__init__(config)
@@ -447,12 +446,14 @@ class PersonApp(EmbedChainPersonApp, App):
     """
 
     def query(self, input_query, config: QueryConfig = None):
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
         query_config = QueryConfig(
             template=self.template,
         )
         return super().query(input_query, query_config)
 
     def chat(self, input_query, config: ChatConfig = None):
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT_WITH_HISTORY)
         chat_config = ChatConfig(
             template=self.template,
         )
