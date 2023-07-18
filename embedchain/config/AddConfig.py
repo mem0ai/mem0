@@ -10,13 +10,13 @@ class ChunkerConfig(BaseConfig):
 
     def __init__(
         self,
-        chunk_size: Optional[int] = 4000,
-        chunk_overlap: Optional[int] = 200,
-        length_function: Optional[Callable[[str], int]] = len,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
+        length_function: Optional[Callable[[str], int]] = None,
     ):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.length_function = length_function
+        self.chunk_size = chunk_size if chunk_size else 2000
+        self.chunk_overlap = chunk_overlap if chunk_overlap else 0
+        self.length_function = length_function if length_function else len
 
 
 class LoaderConfig(BaseConfig):
