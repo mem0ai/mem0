@@ -21,14 +21,14 @@ class CustomAppConfig(BaseAppConfig):
         self,
         log_level=None,
         embedding_fn: EmbeddingFunctions = None,
-        embedding_fn_model = None,
+        embedding_fn_model=None,
         db=None,
         host=None,
         port=None,
         id=None,
         provider: Providers = None,
         model=None,
-        open_source_app_config=None
+        open_source_app_config=None,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -79,7 +79,7 @@ class CustomAppConfig(BaseAppConfig):
         if embedding_function == EmbeddingFunctions.OPENAI:
             from langchain.embeddings import OpenAIEmbeddings
 
-            if model: 
+            if model:
                 embeddings = OpenAIEmbeddings(model=model)
             else:
                 embeddings = OpenAIEmbeddings()
@@ -96,8 +96,9 @@ class CustomAppConfig(BaseAppConfig):
 
             embeddings = VertexAIEmbeddings(model_name=model)
             return CustomAppConfig.langchain_default_concept(embeddings)
-        
+
         elif embedding_function == EmbeddingFunctions.GPT4ALL:
             # Note: We could use langchains GPT4ALL embedding, but it's not available in all versions.
             from chromadb.utils import embedding_functions
+
             return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model)

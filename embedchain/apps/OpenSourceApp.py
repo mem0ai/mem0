@@ -42,8 +42,10 @@ class OpenSourceApp(EmbedChain):
     def _get_instance(model):
         try:
             from gpt4all import GPT4All
-        except ModuleNotFoundError: 
-            raise ValueError("The GPT4All python package is not installed. Please install it with `pip install GPT4All`") from None
+        except ModuleNotFoundError:
+            raise ValueError(
+                "The GPT4All python package is not installed. Please install it with `pip install GPT4All`"
+            ) from None
 
         return GPT4All(model)
 

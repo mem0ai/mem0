@@ -39,7 +39,9 @@ class CustomApp(EmbedChain):
     def set_llm_model(self, provider: Providers):
         self.provider = provider
         if provider == Providers.GPT4ALL:
-            raise ValueError("GPT4ALL needs to be instantiated with the model known, please create a new app instance instead")
+            raise ValueError(
+                "GPT4ALL needs to be instantiated with the model known, please create a new app instance instead"
+            )
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
         # TODO: Quitting the streaming response here for now.
@@ -73,7 +75,7 @@ class CustomApp(EmbedChain):
 
         chat = ChatOpenAI(
             temperature=config.temperature,
-            model=config.model or 'gpt-3.5-turbo',
+            model=config.model or "gpt-3.5-turbo",
             max_tokens=config.max_tokens,
             streaming=config.stream,
         )
