@@ -10,6 +10,8 @@ from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 
+from chromadb.errors import InvalidDimensionException
+
 gpt4all_model = None
 
 load_dotenv()
@@ -152,14 +154,18 @@ class EmbedChain:
         :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
-        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
-        result = self.collection.query(
-            query_texts=[
-                input_query,
-            ],
-            n_results=config.number_documents,
-            where=where,
-        )
+        try:
+            where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
+            result = self.collection.query(
+                query_texts=[
+                    input_query,
+                ],
+                n_results=config.number_documents,
+                where=where,
+            )
+        except InvalidDimensionException as e:
+            raise InvalidDimensionException(e.message() + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database.") from None
+
         results_formatted = self._format_result(result)
         contents = [result[0].page_content for result in results_formatted]
         return contents
