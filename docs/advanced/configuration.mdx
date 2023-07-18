@@ -13,11 +13,12 @@ Here's the readme example with configuration options.
 ```python
 import os
 from embedchain import App
-from embedchain.config import InitConfig, AddConfig, QueryConfig, ChunkerConfig
+from embedchain.config import AppConfig, AddConfig, QueryConfig, ChunkerConfig
 from chromadb.utils import embedding_functions
 
 # Example: use your own embedding function
-config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
+# Warning: We are currenty reworking the concept of custom apps, this might not be working.
+config = AppConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
                 api_key=os.getenv("OPENAI_API_KEY"),
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name="text-embedding-ada-002"
