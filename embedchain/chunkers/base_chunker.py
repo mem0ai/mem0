@@ -26,7 +26,7 @@ class BaseChunker:
 
             meta_data = data["meta_data"]
             # add data type to meta data to allow query using data type
-            meta_data["embedchain_data_type"] = self.data_type
+            meta_data["data_type"] = self.data_type
             url = meta_data["url"]
 
             chunks = self.get_chunks(content)
