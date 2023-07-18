@@ -47,13 +47,11 @@ class CustomAppConfig(BaseAppConfig):
         else:
             raise ValueError("CustomApp must have a provider assigned.")
 
-        self.model = model
-
         self.open_source_app_config = open_source_app_config
 
         super().__init__(
             log_level=log_level,
-            embedding_fn=CustomAppConfig.embedding_function(embedding_function=embedding_fn),
+            embedding_fn=CustomAppConfig.embedding_function(embedding_function=embedding_fn, model=embedding_fn_model),
             db=db,
             host=host,
             port=port,
@@ -81,21 +79,25 @@ class CustomAppConfig(BaseAppConfig):
         if embedding_function == EmbeddingFunctions.OPENAI:
             from langchain.embeddings import OpenAIEmbeddings
 
-            embeddings = OpenAIEmbeddings()
+            if model: 
+                embeddings = OpenAIEmbeddings(model=model)
+            else:
+                embeddings = OpenAIEmbeddings()
             return CustomAppConfig.langchain_default_concept(embeddings)
 
         elif embedding_function == EmbeddingFunctions.HUGGING_FACE:
             from langchain.embeddings import HuggingFaceEmbeddings
 
-            embeddings = HuggingFaceEmbeddings()
+            embeddings = HuggingFaceEmbeddings(model_name=model)
             return CustomAppConfig.langchain_default_concept(embeddings)
 
         elif embedding_function == EmbeddingFunctions.VERTEX_AI:
             from langchain.embeddings import VertexAIEmbeddings
 
-            embeddings = VertexAIEmbeddings()
+            embeddings = VertexAIEmbeddings(model_name=model)
             return CustomAppConfig.langchain_default_concept(embeddings)
         
         elif embedding_function == EmbeddingFunctions.GPT4ALL:
+            # Note: We could use langchains GPT4ALL embedding, but it's not available in all versions.
             from chromadb.utils import embedding_functions
             return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model)
