@@ -21,6 +21,7 @@ class CustomAppConfig(BaseAppConfig):
         self,
         log_level=None,
         embedding_fn: EmbeddingFunctions = None,
+        embedding_fn_model = None,
         db=None,
         host=None,
         port=None,
@@ -33,6 +34,7 @@ class CustomAppConfig(BaseAppConfig):
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param embedding_fn: Optional. Embedding function to use.
+        :param embedding_fn_model: Optional. Model name to use for embedding function.
         :param db: Optional. (Vector) database to use for embeddings.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
@@ -70,7 +72,7 @@ class CustomAppConfig(BaseAppConfig):
         return embed_function
 
     @staticmethod
-    def embedding_function(embedding_function: EmbeddingFunctions):
+    def embedding_function(embedding_function: EmbeddingFunctions, model: str = None):
         if not isinstance(embedding_function, EmbeddingFunctions):
             raise ValueError(
                 f"Invalid option: '{embedding_function}'. Expecting one of the following options: {list(map(lambda x: x.value, EmbeddingFunctions))}"  # noqa: E501
@@ -93,3 +95,7 @@ class CustomAppConfig(BaseAppConfig):
 
             embeddings = VertexAIEmbeddings()
             return CustomAppConfig.langchain_default_concept(embeddings)
+        
+        elif embedding_function == EmbeddingFunctions.GPT4ALL:
+            from chromadb.utils import embedding_functions
+            return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model)
