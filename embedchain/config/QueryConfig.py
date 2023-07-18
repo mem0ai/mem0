@@ -104,7 +104,7 @@ class QueryConfig(BaseConfig):
 
         self.temperature = temperature if temperature else 0
         self.max_tokens = max_tokens if max_tokens else 1000
-        self.model = model if model else "gpt-3.5-turbo-0613"
+        self.model = model
         self.top_p = top_p if top_p else 1
 
         if self.validate_template(template):

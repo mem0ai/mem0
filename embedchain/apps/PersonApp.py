@@ -4,8 +4,7 @@ from embedchain.apps.App import App
 from embedchain.apps.OpenSourceApp import OpenSourceApp
 from embedchain.config import ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
-from embedchain.config.QueryConfig import (DEFAULT_PROMPT,
-                                           DEFAULT_PROMPT_WITH_HISTORY)
+from embedchain.config.QueryConfig import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 
 
 class EmbedChainPersonApp:
