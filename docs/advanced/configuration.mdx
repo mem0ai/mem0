@@ -6,7 +6,7 @@ Embedchain is made to work out of the box. However, for advanced users we're als
 
 ## Examples
 
-### Custom embedding function
+### General
 
 Here's the readme example with configuration options.
 
@@ -16,13 +16,8 @@ from embedchain import App
 from embedchain.config import AppConfig, AddConfig, QueryConfig, ChunkerConfig
 from chromadb.utils import embedding_functions
 
-# Example: use your own embedding function
-# Warning: We are currenty reworking the concept of custom apps, this might not be working.
-config = AppConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name="text-embedding-ada-002"
-            ))
+# Example: set the log level for debugging
+config = AppConfig(log_level="DEBUG")
 naval_chat_bot = App(config)
 
 # Example: define your own chunker config for `youtube_video`
@@ -36,7 +31,7 @@ naval_chat_bot.add("web_page", "https://nav.al/agi", add_config)
 
 naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), add_config)
 
-query_config = QueryConfig() # Currently no options
+query_config = QueryConfig()
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config))
 ```
 
@@ -87,23 +82,4 @@ for query in queries:
 # Response:  I won the Nobel Prize in Physics in 1921 for my services to Theoretical Physics, particularly for my discovery of the law of the photoelectric effect.
 # Query:  Why did you divorce your first wife?
 # Response:  We divorced due to living apart for five years.
-```
-
-## Other methods
-
-### Reset
-
-Resets the database and deletes all embeddings. Irreversible. Requires reinitialization afterwards.
-
-```python
-app.reset()
-```
-
-### Count
-
-Counts the number of embeddings (chunks) in the database.
-
-```python
-print(app.count())
-# returns: 481
 ```
