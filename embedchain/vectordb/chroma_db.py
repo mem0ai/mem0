@@ -11,6 +11,9 @@ class ChromaDB(BaseVectorDB):
     def __init__(self, db_dir=None, embedding_fn=None, host=None, port=None):
         self.embedding_fn = embedding_fn
 
+        if not hasattr(embedding_fn, '__call__'):
+            raise ValueError("Embedding function is not a function")        
+        
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
             self.client_settings = chromadb.config.Settings(
