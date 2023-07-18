@@ -19,7 +19,7 @@ class CustomAppConfig(BaseAppConfig):
     def __init__(
         self,
         log_level=None,
-        ef: EmbeddingFunctions = None,
+        embedding_fn: EmbeddingFunctions = None,
         db=None,
         host=None,
         port=None,
@@ -29,7 +29,7 @@ class CustomAppConfig(BaseAppConfig):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
-        :param ef: Optional. Embedding function to use.
+        :param embedding_fn: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
@@ -43,7 +43,7 @@ class CustomAppConfig(BaseAppConfig):
 
         super().__init__(
             log_level=log_level,
-            ef=CustomAppConfig.embedding_function(embedding_function=ef),
+            ef=CustomAppConfig.embedding_function(embedding_function=embedding_fn),
             db=db,
             host=host,
             port=port,
