@@ -39,7 +39,7 @@ class BaseAppConfig(BaseConfig):
             raise ValueError("ChromaDb cannot be instantiated without an embedding function")
         from embedchain.vectordb.chroma_db import ChromaDB
 
-        return ChromaDB(ef=embedding_fn, host=host, port=port)
+        return ChromaDB(embedding_fn=embedding_fn, host=host, port=port)
 
     def _setup_logging(self, debug_level):
         level = logging.WARNING  # Default level
