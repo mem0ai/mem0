@@ -71,3 +71,33 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
 
         self.assertEqual(mock_client.call_args[0][0].chroma_server_host, None)
         self.assertEqual(mock_client.call_args[0][0].chroma_server_http_port, None)
+
+
+class TestChromaDbDefaultCollection(unittest.TestCase):
+    def test_init_with_default_collection(self):
+        """
+        Test if the `App` instance is initialized with the correct default collection name.
+        """
+        app = App()
+
+        self.assertEqual(app.collection.name, "embedchain_store")
+
+    def test_init_with_custom_collection(self):
+        """
+        Test if the `App` instance is initialized with the correct custom collection name.
+        """
+        config = InitConfig(collection_name="test_collection")
+        app = App(config)
+
+        self.assertEqual(app.collection.name, "test_collection")
+
+
+class TestChromaDbSetCollection(unittest.TestCase):
+    def test_init_with_host_and_port(self):
+        """
+        Test if the `App` collection is correctly switched using the `set_collection` method.
+        """
+        app = App()
+        app.set_collection("test_collection")
+
+        self.assertEqual(app.collection.name, "test_collection")

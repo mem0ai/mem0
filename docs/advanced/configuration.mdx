@@ -24,6 +24,10 @@ config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
             ))
 naval_chat_bot = App(config)
 
+# Example: specify a custom collection name
+config = InitConfig(collection_name="naval_chat_bot")
+naval_chat_bot = App(config)
+
 # Example: define your own chunker config for `youtube_video`
 youtube_add_config = {
         "chunker": {

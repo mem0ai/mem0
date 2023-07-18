@@ -33,7 +33,7 @@ class EmbedChain:
 
         self.config = config
         self.db_client = self.config.db.client
-        self.collection = self.config.db.collection
+        self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
         self.user_asks = []
         self.is_code_docs_instance = False
         self.online = False
@@ -201,6 +201,7 @@ class EmbedChain:
 
     def access_search_and_get_results(self, input_query):
         from langchain.tools import DuckDuckGoSearchRun
+
         search = DuckDuckGoSearchRun()
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
@@ -313,6 +314,14 @@ class EmbedChain:
         prompt = self.generate_prompt(input_query, contexts, config)
         logging.info(f"Prompt: {prompt}")
         return prompt
+
+    def set_collection(self, collection_name):
+        """
+        Set the collection to use.
+
+        :param name: The name of the collection to use.
+        """
+        self.collection = self.config.db._get_or_create_collection(collection_name)
 
     def count(self):
         """

@@ -11,12 +11,13 @@ class InitConfig(BaseConfig):
     Config to initialize an embedchain `App` instance.
     """
 
-    def __init__(self, log_level=None, ef=None, db=None, host=None, port=None, id=None):
+    def __init__(self, log_level=None, ef=None, db=None, collection_name=None, host=None, port=None, id=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param ef: Optional. Embedding function to use.
         :param db: Optional. (Vector) database to use for embeddings.
+        :param collection_name: Optional. Collection name for the database.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
@@ -24,6 +25,7 @@ class InitConfig(BaseConfig):
         self._setup_logging(log_level)
         self.ef = ef
         self.db = db
+        self.collection_name = collection_name
         self.host = host
         self.port = port
         self.id = id
