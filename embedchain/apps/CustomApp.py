@@ -67,17 +67,15 @@ class CustomApp(EmbedChain):
 
     @staticmethod
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
-        from langchain.callbacks import AsyncIteratorCallbackHandler
         from langchain.chat_models import ChatOpenAI
 
-        callback_handler = AsyncIteratorCallbackHandler() if config.stream else None
+        logging.info(vars(config))
 
         chat = ChatOpenAI(
             temperature=config.temperature,
-            model=config.model,
+            model=config.model or 'gpt-3.5-turbo',
             max_tokens=config.max_tokens,
             streaming=config.stream,
-            callbacks=[callback_handler],
         )
 
         if config.top_p and config.top_p != 1:
