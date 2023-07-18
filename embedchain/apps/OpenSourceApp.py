@@ -19,7 +19,7 @@ class OpenSourceApp(EmbedChain):
 
     def __init__(self, config: OpenSourceAppConfig = None):
         """
-        :param config: InitConfig instance to load as configuration. Optional.
+        :param config: OpenSourceAppConfig instance to load as configuration. Optional.
         `ef` defaults to open source.
         """
         logging.info("Loading open source embedding model. This may take some time...")  # noqa:E501
