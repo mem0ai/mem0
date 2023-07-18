@@ -36,7 +36,7 @@ class OpenSourceApp(EmbedChain):
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
-        self._get_gpt4all_answer(prompt=prompt, config=config)
+        return self._get_gpt4all_answer(prompt=prompt, config=config)
 
     @staticmethod
     def _get_instance(model):
