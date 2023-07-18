@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain import App
-from embedchain.config import InitConfig
+from embedchain.config import AppConfig
 
 
 class TestChromaDbHostsLoglevel(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
         """
-        config = InitConfig(log_level="DEBUG")
+        config = AppConfig(log_level="DEBUG")
 
         app = App(config)
 

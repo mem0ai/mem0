@@ -13,11 +13,12 @@ Here's the readme example with configuration options.
 ```python
 import os
 from embedchain import App
-from embedchain.config import InitConfig, AddConfig, QueryConfig, ChunkerConfig
+from embedchain.config import AppConfig, AddConfig, QueryConfig, ChunkerConfig
 from chromadb.utils import embedding_functions
 
 # Example: use your own embedding function
-config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
+# Warning: We are currenty reworking the concept of custom apps, this might not be working.
+config = AppConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
                 api_key=os.getenv("OPENAI_API_KEY"),
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name="text-embedding-ada-002"
@@ -25,7 +26,7 @@ config = InitConfig(ef=embedding_functions.OpenAIEmbeddingFunction(
 naval_chat_bot = App(config)
 
 # Example: specify a custom collection name
-config = InitConfig(collection_name="naval_chat_bot")
+config = AppConfig(collection_name="naval_chat_bot")
 naval_chat_bot = App(config)
 
 # Example: define your own chunker config for `youtube_video`

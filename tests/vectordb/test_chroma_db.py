@@ -3,8 +3,9 @@
 import unittest
 from unittest.mock import patch
 
-from embedchain import App
-from embedchain.config import InitConfig
+from embedchain.apps.App import App
+from embedchain.apps.OpenSourceApp import OpenSourceApp
+from embedchain.config import AppConfig, OpenSourceAppConfig, CustomAppConfig
 from embedchain.vectordb.chroma_db import ChromaDB, chromadb
 
 
@@ -38,7 +39,7 @@ class TestChromaDbHostsInit(unittest.TestCase):
         host = "test-host"
         port = "1234"
 
-        config = InitConfig(host=host, port=port)
+        config = AppConfig(host=host, port=port)
 
         _app = App(config)
 
@@ -65,7 +66,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
         """
-        config = InitConfig(log_level="DEBUG")
+        config = AppConfig(log_level="DEBUG")
 
         _app = App(config)
 
@@ -73,7 +74,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         self.assertEqual(mock_client.call_args[0][0].chroma_server_http_port, None)
 
 
-class TestChromaDbDefaultCollection(unittest.TestCase):
+class TestChromaDbCollection(unittest.TestCase):
     def test_init_with_default_collection(self):
         """
         Test if the `App` instance is initialized with the correct default collection name.
@@ -86,14 +87,17 @@ class TestChromaDbDefaultCollection(unittest.TestCase):
         """
         Test if the `App` instance is initialized with the correct custom collection name.
         """
-        config = InitConfig(collection_name="test_collection")
+        config = AppConfig(collection_name="test_collection")
         app = App(config)
 
         self.assertEqual(app.collection.name, "test_collection")
 
+        opensourceconfig = OpenSourceAppConfig(collection_name="test_collection1")
+        opensourceapp = OpenSourceApp(opensourceconfig)
 
-class TestChromaDbSetCollection(unittest.TestCase):
-    def test_init_with_host_and_port(self):
+        self.assertEqual(opensourceapp.collection.name, "test_collection1")
+
+    def test_set_collection(self):
         """
         Test if the `App` collection is correctly switched using the `set_collection` method.
         """

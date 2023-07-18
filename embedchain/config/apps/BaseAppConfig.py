@@ -1,68 +1,47 @@
 import logging
-import os
-
-from chromadb.utils import embedding_functions
 
 from embedchain.config.BaseConfig import BaseConfig
 
 
-class InitConfig(BaseConfig):
+class BaseAppConfig(BaseConfig):
     """
-    Config to initialize an embedchain `App` instance.
+    Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
     """
 
     def __init__(self, log_level=None, ef=None, db=None, collection_name=None, host=None, port=None, id=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
-        :param ef: Optional. Embedding function to use.
-        :param db: Optional. (Vector) database to use for embeddings.
+        :param ef: Embedding function to use.
+        :param db: Optional. (Vector) database instance to use for embeddings.
         :param collection_name: Optional. Collection name for the database.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
         """
         self._setup_logging(log_level)
-        self.ef = ef
-        self.db = db
+
+        self.db = db if db else BaseAppConfig.default_db(ef=ef, host=host, port=port)
         self.collection_name = collection_name
-        self.host = host
-        self.port = port
         self.id = id
         return
 
-    def _set_embedding_function(self, ef):
-        self.ef = ef
-        return
-
-    def _set_embedding_function_to_default(self):
-        """
-        Sets embedding function to default (`text-embedding-ada-002`).
-
-        :raises ValueError: If the template is not valid as template should contain
-        $context and $query
-        """
-        if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
-            raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")  # noqa:E501
-        self.ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            organization_id=os.getenv("OPENAI_ORGANIZATION"),
-            model_name="text-embedding-ada-002",
-        )
-        return
-
-    def _set_db(self, db):
-        if db:
-            self.db = db
-        return
-
-    def _set_db_to_default(self):
+    @staticmethod
+    def default_db(ef, host, port):
         """
         Sets database to default (`ChromaDb`).
+
+        :param ef: Embedding function to use in database.
+        :param host: Optional. Hostname for the database server.
+        :param port: Optional. Port for the database server.
+        :returns: Default database
+        :raises ValueError: BaseAppConfig knows no default embedding function.
         """
+        if ef is None:
+            raise ValueError("ChromaDb cannot be instantiated without an embedding function")
         from embedchain.vectordb.chroma_db import ChromaDB
 
-        self.db = ChromaDB(ef=self.ef, host=self.host, port=self.port)
+        return ChromaDB(ef=ef, host=host, port=port)
 
     def _setup_logging(self, debug_level):
         level = logging.WARNING  # Default level
