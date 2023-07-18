@@ -1,4 +1,5 @@
 import logging
+from typing import Iterable, List, Union
 
 from embedchain.config import ChatConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
@@ -26,14 +27,39 @@ class OpenSourceApp(EmbedChain):
         if not config:
             config = OpenSourceAppConfig()
 
+        if not config.model:
+            raise ValueError("OpenSourceApp needs a model to be instantiated. Maybe you passed the wrong config type?")
+
+        self.instance = OpenSourceApp._get_instance(config.model)
+
         logging.info("Successfully loaded open source embedding model.")
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
-        from gpt4all import GPT4All
+        return self._get_gpt4all_answer(prompt=prompt, config=config)
 
-        global gpt4all_model
-        if gpt4all_model is None:
-            gpt4all_model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
-        response = gpt4all_model.generate(prompt=prompt, streaming=config.stream)
+    @staticmethod
+    def _get_instance(model):
+        try:
+            from gpt4all import GPT4All
+        except ModuleNotFoundError:
+            raise ValueError(
+                "The GPT4All python package is not installed. Please install it with `pip install GPT4All`"
+            ) from None
+
+        return GPT4All(model)
+
+    def _get_gpt4all_answer(self, prompt: str, config: ChatConfig) -> Union[str, Iterable]:
+        if config.model and config.model != self.config.model:
+            raise RuntimeError(
+                "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
+            )
+
+        response = self.instance.generate(
+            prompt=prompt,
+            streaming=config.stream,
+            top_p=config.top_p,
+            max_tokens=config.max_tokens,
+            temp=config.temperature,
+        )
         return response
