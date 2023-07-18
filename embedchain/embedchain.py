@@ -12,8 +12,6 @@ from embedchain.data_formatter import DataFormatter
 
 from chromadb.errors import InvalidDimensionException
 
-gpt4all_model = None
-
 load_dotenv()
 
 ABS_PATH = os.getcwd()
