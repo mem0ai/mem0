@@ -1,15 +1,11 @@
 import logging
+from typing import List
+
+from langchain.schema import BaseMessage
 
 from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.models import LlmModels
-
-from langchain.schema import BaseMessage
-
-from typing import List
-
-import sys
-import traceback
 
 
 class CustomApp(EmbedChain):
@@ -66,14 +62,12 @@ class CustomApp(EmbedChain):
                 messages = CustomApp._get_messages(prompt)
 
                 return chat(messages).content
-            
+
             if self.llm_model == LlmModels.ANTHROPHIC:
                 from langchain.chat_models import ChatAnthropic
 
-                chat = ChatAnthropic(temperature=config.temperature,
-                    model=config.model,
-                    max_tokens=config.max_tokens)
-                
+                chat = ChatAnthropic(temperature=config.temperature, model=config.model, max_tokens=config.max_tokens)
+
                 if config.max_tokens and config.max_tokens != 1000:
                     logging.warning("Config option `max_tokens` is not supported by this model.")
 
@@ -82,17 +76,12 @@ class CustomApp(EmbedChain):
                 return chat(messages).content
         except ImportError as e:
             raise ImportError(e.msg) from None
-        
+
     @staticmethod
     def _get_messages(prompt: str) -> List[BaseMessage]:
         from langchain.schema import HumanMessage, SystemMessage
-        return [
-            SystemMessage(content="You are a helpful assistant."),
-            HumanMessage(
-                content=prompt
-            )
-        ]
 
+        return [SystemMessage(content="You are a helpful assistant."), HumanMessage(content=prompt)]
 
     def _stream_llm_model_response(self, response):
         """
