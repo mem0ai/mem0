@@ -1,11 +1,6 @@
 from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
-from enum import Enum
-
-class LlmModels(Enum):
-    OPENAI = "OPENAI"
-    ANTHROPHIC = "ANTHPROPIC"
-    VERTEX_AI = "VERTEX_AI"
+from embedchain.models import LlmModels
 
 
 class CustomApp(EmbedChain):
@@ -25,33 +20,26 @@ class CustomApp(EmbedChain):
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")
-        
+
         self.llm_model = config.llm_model
 
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
-
         if self.llm_model == LlmModels.OPENAI:
             from langchain.chat_models import ChatOpenAI
-            from langchain.prompts.chat import (
-                ChatPromptTemplate,
-                SystemMessagePromptTemplate,
-                AIMessagePromptTemplate,
-                HumanMessagePromptTemplate,
-            )
+            from langchain.prompts.chat import (AIMessagePromptTemplate,
+                                                ChatPromptTemplate,
+                                                HumanMessagePromptTemplate,
+                                                SystemMessagePromptTemplate)
             from langchain.schema import AIMessage, HumanMessage, SystemMessage
+
             chat = ChatOpenAI(temperature=config.temperature)
             messages = [
-                SystemMessage(
-                    content="You are a helpful assistant."
-                ),
-                HumanMessage(
-                    content=prompt
-                ),
+                SystemMessage(content="You are a helpful assistant."),
+                HumanMessage(content=prompt),
             ]
             return chat(messages)
-
 
         # if config.stream:
         #     return self._stream_llm_model_response(response)
