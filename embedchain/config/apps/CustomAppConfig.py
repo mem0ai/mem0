@@ -4,6 +4,7 @@ from typing import Any
 
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
+from embedchain.apps.CustomApp import LlmModels
 
 from .BaseAppConfig import BaseAppConfig
 
@@ -21,7 +22,7 @@ class CustomAppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `App` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, ef: EmbeddingFunctions = None, db=None, host=None, port=None, id=None):
+    def __init__(self, log_level=None, ef: EmbeddingFunctions = None, db=None, host=None, port=None, id=None, llm_model: LlmModels=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -30,7 +31,13 @@ class CustomAppConfig(BaseAppConfig):
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
+        :param llm_model: Optional. (LlmModels): Llm Model to use.
         """
+        if llm_model:
+            self.llm_model = llm_model
+        else:
+            raise ValueError("CustomApp must have a llm_model assigned.")
+
         super().__init__(
             log_level=log_level,
             ef=CustomAppConfig.embedding_function(embedding_function=ef),

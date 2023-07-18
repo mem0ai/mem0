@@ -1,5 +1,11 @@
 from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
+from enum import Enum
+
+class LlmModels(Enum):
+    OPENAI = "OPENAI"
+    ANTHROPHIC = "ANTHPROPIC"
+    VERTEX_AI = "VERTEX_AI"
 
 
 class CustomApp(EmbedChain):
@@ -19,26 +25,39 @@ class CustomApp(EmbedChain):
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")
+        
+        self.llm_model = config.llm_model
 
         super().__init__(config)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
-        # messages = []
-        # messages.append({"role": "user", "content": prompt})
-        # response = openai.ChatCompletion.create(
-        #     model=config.model,
-        #     messages=messages,
-        #     temperature=config.temperature,
-        #     max_tokens=config.max_tokens,
-        #     top_p=config.top_p,
-        #     stream=config.stream,
-        # )
+
+        if self.llm_model == LlmModels.OPENAI:
+            from langchain.chat_models import ChatOpenAI
+            from langchain.prompts.chat import (
+                ChatPromptTemplate,
+                SystemMessagePromptTemplate,
+                AIMessagePromptTemplate,
+                HumanMessagePromptTemplate,
+            )
+            from langchain.schema import AIMessage, HumanMessage, SystemMessage
+            chat = ChatOpenAI(temperature=config.temperature)
+            messages = [
+                SystemMessage(
+                    content="You are a helpful assistant."
+                ),
+                HumanMessage(
+                    content=prompt
+                ),
+            ]
+            return chat(messages)
+
 
         # if config.stream:
         #     return self._stream_llm_model_response(response)
         # else:
         #     return response["choices"][0]["message"]["content"]
-        raise NotImplementedError("Not yet implemented for custom app")
+        # raise NotImplementedError("Not yet implemented for custom app")
 
     def _stream_llm_model_response(self, response):
         """
