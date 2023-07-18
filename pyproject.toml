@@ -90,7 +90,6 @@ youtube-transcript-api = "^0.6.1"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"
 pytube = "^15.0.0"
-sentence-transformers = "^2.2.2"
 
 
 
@@ -105,10 +104,6 @@ click = "^8.1.3"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
-
-
-[tool.poetry.group.docs.dependencies]
-
 
 
 [tool.poetry.scripts]

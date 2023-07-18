@@ -92,11 +92,6 @@ class TestChromaDbCollection(unittest.TestCase):
 
         self.assertEqual(app.collection.name, "test_collection")
 
-        opensourceconfig = OpenSourceAppConfig(collection_name="test_collection1")
-        opensourceapp = OpenSourceApp(opensourceconfig)
-
-        self.assertEqual(opensourceapp.collection.name, "test_collection1")
-
     def test_set_collection(self):
         """
         Test if the `App` collection is correctly switched using the `set_collection` method.
