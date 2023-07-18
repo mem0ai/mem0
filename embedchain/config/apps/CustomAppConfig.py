@@ -4,9 +4,10 @@ from typing import Any
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
 
-from embedchain.models import EmbeddingFunctions, LlmModels
+from embedchain.models import EmbeddingFunctions, Providers
 
 from .BaseAppConfig import BaseAppConfig
+from embedchain.models import Providers
 
 load_dotenv()
 
@@ -24,7 +25,9 @@ class CustomAppConfig(BaseAppConfig):
         host=None,
         port=None,
         id=None,
-        llm_model: LlmModels = None,
+        provider: Providers = None,
+        model=None,
+        open_source_app_config=None
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -34,12 +37,17 @@ class CustomAppConfig(BaseAppConfig):
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
-        :param llm_model: Optional. (LlmModels): Llm Model to use.
+        :param provider: Optional. (Providers): LLM Provider to use.
+        :param open_source_app_config: Optional. Config instance needed for open source apps.
         """
-        if llm_model:
-            self.llm_model = llm_model
+        if provider:
+            self.provider = provider
         else:
-            raise ValueError("CustomApp must have a llm_model assigned.")
+            raise ValueError("CustomApp must have a provider assigned.")
+
+        self.model = model
+
+        self.open_source_app_config = open_source_app_config
 
         super().__init__(
             log_level=log_level,

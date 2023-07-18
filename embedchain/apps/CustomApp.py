@@ -1,11 +1,11 @@
 import logging
-from typing import List, Iterable, Union
+from typing import Iterable, List, Union
 
 from langchain.schema import BaseMessage
 
-from embedchain.config import ChatConfig, CustomAppConfig
+from embedchain.config import ChatConfig, CustomAppConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.models import LlmModels
+from embedchain.models import Providers
 
 
 class CustomApp(EmbedChain):
@@ -20,20 +20,26 @@ class CustomApp(EmbedChain):
 
     def __init__(self, config: CustomAppConfig = None):
         """
-        :param config: AppConfig instance to load as configuration. Optional.
+        :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")
 
-        self.llm_model = config.llm_model
+        self.provider = config.provider
 
-        self.gpt4all_model = None
+        if config.provider == Providers.GPT4ALL:
+            from embedchain import OpenSourceApp
+
+            # Because these models run locally, they should have an instance running when the custom app is created
+            self.open_source_app = OpenSourceApp(config=config.open_source_app_config)
 
         super().__init__(config)
 
-    def set_llm_model(self, llm_model: LlmModels):
-        self.llm_model = llm_model
+    def set_llm_model(self, provider: Providers):
+        self.provider = provider
+        if provider == Providers.GPT4ALL:
+            raise ValueError("GPT4ALL needs to be instantiated with the model known, please create a new app instance instead")
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
         # TODO: Quitting the streaming response here for now.
@@ -44,17 +50,17 @@ class CustomApp(EmbedChain):
             )
 
         try:
-            if self.llm_model == LlmModels.OPENAI:
+            if self.provider == Providers.OPENAI:
                 return CustomApp._get_openai_answer(prompt, config)
 
-            if self.llm_model == LlmModels.ANTHROPHIC:
+            if self.provider == Providers.ANTHROPHIC:
                 return CustomApp._get_athrophic_answer(prompt, config)
 
-            if self.llm_model == LlmModels.VERTEX_AI:
+            if self.provider == Providers.VERTEX_AI:
                 return CustomApp._get_vertex_answer(prompt, config)
-            
-            if self.llm_model == LlmModels.GPT4ALL:
-                return self._get_gpt4all_answer(prompt, config)
+
+            if self.provider == Providers.GPT4ALL:
+                return self.open_source_app._get_gpt4all_answer(prompt, config)
 
         except ImportError as e:
             raise ImportError(e.msg) from None
@@ -106,14 +112,6 @@ class CustomApp(EmbedChain):
         messages = CustomApp._get_messages(prompt)
 
         return chat(messages).content
-    
-    def _get_gpt4all_answer(self, prompt: str, config: ChatConfig) -> Union[str, Iterable]:
-        from gpt4all import GPT4All
-
-        if self.gpt4all_model is None:
-            self.gpt4all_model = GPT4All(config.model or "orca-mini-3b.ggmlv3.q4_0.bin")
-        response = self.gpt4all_model.generate(prompt=prompt, streaming=config.stream)
-        return response
 
     @staticmethod
     def _get_messages(prompt: str) -> List[BaseMessage]:
