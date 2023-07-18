@@ -1,9 +1,9 @@
 import logging
-from typing import Iterable, List, Union
+from typing import List
 
 from langchain.schema import BaseMessage
 
-from embedchain.config import ChatConfig, CustomAppConfig, OpenSourceAppConfig
+from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.models import Providers
 

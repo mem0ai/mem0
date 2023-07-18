@@ -15,7 +15,8 @@ class OpenSourceAppConfig(BaseAppConfig):
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
-        :param model: Optional. GPT4ALL uses the model to instantiate the class. So unlike `App`, it has to be provided before querying.
+        :param model: Optional. GPT4ALL uses the model to instantiate the class.
+        So unlike `App`, it has to be provided before querying.
         """
         self.model = model or "orca-mini-3b.ggmlv3.q4_0.bin"
 

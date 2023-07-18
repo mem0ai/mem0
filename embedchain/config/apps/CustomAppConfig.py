@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 from chromadb.api.types import Documents, Embeddings
@@ -7,7 +6,6 @@ from dotenv import load_dotenv
 from embedchain.models import EmbeddingFunctions, Providers
 
 from .BaseAppConfig import BaseAppConfig
-from embedchain.models import Providers
 
 load_dotenv()
 
