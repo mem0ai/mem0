@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Iterable, Union
 
 from langchain.schema import BaseMessage
 
@@ -28,6 +28,8 @@ class CustomApp(EmbedChain):
 
         self.llm_model = config.llm_model
 
+        self.gpt4all_model = None
+
         super().__init__(config)
 
     def set_llm_model(self, llm_model: LlmModels):
@@ -50,6 +52,9 @@ class CustomApp(EmbedChain):
 
             if self.llm_model == LlmModels.VERTEX_AI:
                 return CustomApp._get_vertex_answer(prompt, config)
+            
+            if self.llm_model == LlmModels.GPT4ALL:
+                return self._get_gpt4all_answer(prompt, config)
 
         except ImportError as e:
             raise ImportError(e.msg) from None
@@ -101,6 +106,14 @@ class CustomApp(EmbedChain):
         messages = CustomApp._get_messages(prompt)
 
         return chat(messages).content
+    
+    def _get_gpt4all_answer(self, prompt: str, config: ChatConfig) -> Union[str, Iterable]:
+        from gpt4all import GPT4All
+
+        if self.gpt4all_model is None:
+            self.gpt4all_model = GPT4All(config.model or "orca-mini-3b.ggmlv3.q4_0.bin")
+        response = self.gpt4all_model.generate(prompt=prompt, streaming=config.stream)
+        return response
 
     @staticmethod
     def _get_messages(prompt: str) -> List[BaseMessage]:
