@@ -1,6 +1,7 @@
 import logging
 import os
 
+from chromadb.errors import InvalidDimensionException
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
@@ -9,8 +10,6 @@ from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
-
-from chromadb.errors import InvalidDimensionException
 
 load_dotenv()
 
@@ -164,7 +163,7 @@ class EmbedChain:
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
                 e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."
+                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
             ) from None
 
         results_formatted = self._format_result(result)
