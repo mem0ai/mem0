@@ -22,7 +22,7 @@ class AppConfig(BaseAppConfig):
         super().__init__(
             log_level=log_level,
             collection_name=collection_name,
-            ef=AppConfig.default_embedding_function(),
+            embedding_f=AppConfig.default_embedding_function(),
             host=host,
             port=port,
             id=id,

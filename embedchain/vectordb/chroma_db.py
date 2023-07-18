@@ -8,8 +8,11 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, db_dir=None, ef=None, host=None, port=None):
-        self.ef = ef
+    def __init__(self, db_dir=None, embedding_fn=None, host=None, port=None):
+        self.embedding_fn = embedding_fn
+
+        if not hasattr(embedding_fn, "__call__"):
+            raise ValueError("Embedding function is not a function")
 
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
@@ -38,5 +41,5 @@ class ChromaDB(BaseVectorDB):
             name = "embedchain_store"
         return self.client.get_or_create_collection(
             name=name,
-            embedding_function=self.ef,
+            embedding_function=self.embedding_fn,
         )
