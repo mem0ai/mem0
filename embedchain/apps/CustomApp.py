@@ -43,39 +43,64 @@ class CustomApp(EmbedChain):
 
         try:
             if self.llm_model == LlmModels.OPENAI:
-                from langchain.callbacks import AsyncIteratorCallbackHandler
-                from langchain.chat_models import ChatOpenAI
-
-                callback_handler = AsyncIteratorCallbackHandler() if config.stream else None
-
-                chat = ChatOpenAI(
-                    temperature=config.temperature,
-                    model=config.model,
-                    max_tokens=config.max_tokens,
-                    streaming=config.stream,
-                    callbacks=[callback_handler],
-                )
-
-                if config.top_p and config.top_p != 1:
-                    logging.warning("Config option `top_p` is not supported by this model.")
-
-                messages = CustomApp._get_messages(prompt)
-
-                return chat(messages).content
+                return CustomApp._get_openai_answer(prompt, config)
 
             if self.llm_model == LlmModels.ANTHROPHIC:
-                from langchain.chat_models import ChatAnthropic
+                return CustomApp._get_athrophic_answer(prompt, config)
 
-                chat = ChatAnthropic(temperature=config.temperature, model=config.model, max_tokens=config.max_tokens)
+            if self.llm_model == LlmModels.VERTEX_AI:
+                return CustomApp._get_vertex_answer(prompt, config)
 
-                if config.max_tokens and config.max_tokens != 1000:
-                    logging.warning("Config option `max_tokens` is not supported by this model.")
-
-                messages = CustomApp._get_messages(prompt)
-
-                return chat(messages).content
         except ImportError as e:
             raise ImportError(e.msg) from None
+
+    @staticmethod
+    def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
+        from langchain.callbacks import AsyncIteratorCallbackHandler
+        from langchain.chat_models import ChatOpenAI
+
+        callback_handler = AsyncIteratorCallbackHandler() if config.stream else None
+
+        chat = ChatOpenAI(
+            temperature=config.temperature,
+            model=config.model,
+            max_tokens=config.max_tokens,
+            streaming=config.stream,
+            callbacks=[callback_handler],
+        )
+
+        if config.top_p and config.top_p != 1:
+            logging.warning("Config option `top_p` is not supported by this model.")
+
+        messages = CustomApp._get_messages(prompt)
+
+        return chat(messages).content
+
+    @staticmethod
+    def _get_athrophic_answer(prompt: str, config: ChatConfig) -> str:
+        from langchain.chat_models import ChatAnthropic
+
+        chat = ChatAnthropic(temperature=config.temperature, model=config.model)
+
+        if config.max_tokens and config.max_tokens != 1000:
+            logging.warning("Config option `max_tokens` is not supported by this model.")
+
+        messages = CustomApp._get_messages(prompt)
+
+        return chat(messages).content
+
+    @staticmethod
+    def _get_vertex_answer(prompt: str, config: ChatConfig) -> str:
+        from langchain.chat_models import ChatVertexAI
+
+        chat = ChatVertexAI(temperature=config.temperature, model=config.model, max_output_tokens=config.max_tokens)
+
+        if config.top_p and config.top_p != 1:
+            logging.warning("Config option `top_p` is not supported by this model.")
+
+        messages = CustomApp._get_messages(prompt)
+
+        return chat(messages).content
 
     @staticmethod
     def _get_messages(prompt: str) -> List[BaseMessage]:
