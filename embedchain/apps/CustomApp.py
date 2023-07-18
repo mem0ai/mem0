@@ -1,3 +1,5 @@
+import logging
+
 from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.models import LlmModels
@@ -25,27 +27,38 @@ class CustomApp(EmbedChain):
 
         super().__init__(config)
 
+    def set_llm_model(self, llm_model: LlmModels):
+        self.llm_model = llm_model
+
     def get_llm_model_answer(self, prompt, config: ChatConfig):
         if self.llm_model == LlmModels.OPENAI:
+            from langchain.callbacks import AsyncIteratorCallbackHandler
             from langchain.chat_models import ChatOpenAI
-            from langchain.prompts.chat import (AIMessagePromptTemplate,
-                                                ChatPromptTemplate,
-                                                HumanMessagePromptTemplate,
-                                                SystemMessagePromptTemplate)
-            from langchain.schema import AIMessage, HumanMessage, SystemMessage
+            from langchain.schema import HumanMessage, SystemMessage
 
-            chat = ChatOpenAI(temperature=config.temperature)
+            callback_handler = AsyncIteratorCallbackHandler() if config.stream else None
+
+            chat = ChatOpenAI(
+                temperature=config.temperature,
+                model=config.model,
+                max_tokens=config.max_tokens,
+                streaming=config.stream,
+                callbacks=[callback_handler],
+            )
             messages = [
                 SystemMessage(content="You are a helpful assistant."),
                 HumanMessage(content=prompt),
             ]
-            return chat(messages)
 
-        # if config.stream:
-        #     return self._stream_llm_model_response(response)
-        # else:
-        #     return response["choices"][0]["message"]["content"]
-        # raise NotImplementedError("Not yet implemented for custom app")
+            # TODO: Quitting the streaming response here for now.
+            # Idea: https://gist.github.com/jvelezmagic/03ddf4c452d011aae36b2a0f73d72f68
+            if config.stream:
+                raise NotImplementedError(
+                    "Streaming responses have not been implemented for this model yet. Please disable."
+                )
+
+            response = chat(messages)
+            return response.content
 
     def _stream_llm_model_response(self, response):
         """
