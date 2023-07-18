@@ -27,7 +27,7 @@ class App(EmbedChain):
         messages = []
         messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
-            model=config.model,
+            model=config.model if config.model else "gpt-3.5-turbo-0613",
             messages=messages,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
