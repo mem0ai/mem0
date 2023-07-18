@@ -28,6 +28,7 @@ class CustomAppConfig(BaseAppConfig):
         provider: Providers = None,
         model=None,
         open_source_app_config=None,
+    ):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].

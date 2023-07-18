@@ -4,8 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain.apps.App import App
-from embedchain.apps.OpenSourceApp import OpenSourceApp
-from embedchain.config import AppConfig, OpenSourceAppConfig, CustomAppConfig
+from embedchain.config import AppConfig
 from embedchain.vectordb.chroma_db import ChromaDB, chromadb
 
 
