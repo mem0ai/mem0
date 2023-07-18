@@ -17,7 +17,11 @@ class OpenSourceAppConfig(BaseAppConfig):
         :param port: Optional. Port for the database server.
         """
         super().__init__(
-            log_level=log_level, embedding_fn=OpenSourceAppConfig.default_embedding_function(), host=host, port=port, id=id
+            log_level=log_level,
+            embedding_fn=OpenSourceAppConfig.default_embedding_function(),
+            host=host,
+            port=port,
+            id=id,
         )
 
     @staticmethod
