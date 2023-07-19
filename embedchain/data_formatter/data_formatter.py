@@ -69,6 +69,8 @@ class DataFormatter:
             "docs_site": DocsSiteChunker(config),
         }
         if data_type in chunkers:
-            return chunkers[data_type]
+            chunker = chunkers[data_type]
+            chunker.set_data_type(data_type)
+            return chunker
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
