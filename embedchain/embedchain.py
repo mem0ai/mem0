@@ -68,17 +68,10 @@ class EmbedChain:
         :param config: Optional. The `AddConfig` instance to use as
         configuration options.
         """
-        if config is None:
-            config = AddConfig()
-
-        data_formatter = DataFormatter(data_type, config)
-        self.user_asks.append([data_type, content])
-        self.load_and_embed(
-            data_formatter.loader,
-            data_formatter.chunker,
-            content,
-            metadata,
-        )
+        # We just call the add method.
+        # The only difference between the two is that in local the argument is content not URL.
+        self.add(data_type=data_type, url=content, metadata=metadata, config=config)
+        return
 
     def load_and_embed(self, loader, chunker, src, metadata=None):
         """
