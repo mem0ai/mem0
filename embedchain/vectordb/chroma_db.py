@@ -17,17 +17,16 @@ class ChromaDB(BaseVectorDB):
 
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.client_settings = chromadb.HttpClient(host=host, port=port)
+            self.settings = Settings(chroma_server_host=host, chroma_server_http_port=port)
+        else:
             if db_dir is None:
                 db_dir = "db"
-            self.client_settings = chromadb.PersistentClient(
-                path=db_dir, settings=Settings(anonymized_telemetry=False, allow_reset=True)
-            )
+            self.settings = Settings(persist_directory=db_dir, anonymized_telemetry=False, allow_reset=True)
         super().__init__()
 
     def _get_or_create_db(self):
         """Get or create the database."""
-        return chromadb.EphemeralClient(self.client_settings)
+        return chromadb.PersistentClient(self.settings)
 
     def _get_or_create_collection(self):
         """Get or create the collection."""
