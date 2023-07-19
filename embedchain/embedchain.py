@@ -213,7 +213,7 @@ class EmbedChain:
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def query(self, input_query, config: QueryConfig = None):
+    def query(self, input_query, config: QueryConfig = None, dry_run=False):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -222,6 +222,12 @@ class EmbedChain:
         :param input_query: The query to use.
         :param config: Optional. The `QueryConfig` instance to use as
         configuration options.
+        :param dry_run: Optional. A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
         :return: The answer to the query.
         """
         if config is None:
@@ -235,6 +241,9 @@ class EmbedChain:
         contexts = self.retrieve_from_database(input_query, config)
         prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
+
+        if dry_run:
+            return prompt
 
         answer = self.get_answer_from_llm(prompt, config)
 
@@ -251,7 +260,7 @@ class EmbedChain:
             yield chunk
         logging.info(f"Answer: {streamed_answer}")
 
-    def chat(self, input_query, config: ChatConfig = None):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -261,6 +270,12 @@ class EmbedChain:
         :param input_query: The query to use.
         :param config: Optional. The `ChatConfig` instance to use as
         configuration options.
+        :param dry_run: Optional. A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
         :return: The answer to the query.
         """
         if config is None:
@@ -281,6 +296,10 @@ class EmbedChain:
 
         prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
+
+        if dry_run:
+            return prompt
+
         answer = self.get_answer_from_llm(prompt, config)
 
         memory.chat_memory.add_user_message(input_query)
@@ -300,27 +319,6 @@ class EmbedChain:
             yield chunk
         memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
-
-    def dry_run(self, input_query, config: QueryConfig = None):
-        """
-        A dry run does everything except send the resulting prompt to
-        the LLM. The purpose is to test the prompt, not the response.
-        You can use it to test your prompt, including the context provided
-        by the vector database's doc retrieval.
-        The only thing the dry run does not consider is the cut-off due to
-        the `max_tokens` parameter.
-
-        :param input_query: The query to use.
-        :param config: Optional. The `QueryConfig` instance to use as
-        configuration options.
-        :return: The prompt that would be sent to the LLM
-        """
-        if config is None:
-            config = QueryConfig()
-        contexts = self.retrieve_from_database(input_query, config)
-        prompt = self.generate_prompt(input_query, contexts, config)
-        logging.info(f"Prompt: {prompt}")
-        return prompt
 
     def count(self):
         """
