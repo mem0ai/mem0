@@ -18,7 +18,7 @@ class TestChromaDbHosts(unittest.TestCase):
         port = "1234"
 
         with patch.object(chromadb, "Client") as mock_client:
-            db = ChromaDB(host=host, port=port, embedding_fn=len)
+            _db = ChromaDB(host=host, port=port, embedding_fn=len)
 
         expected_client = Settings(
             chroma_server_host="test-host",
