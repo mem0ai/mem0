@@ -335,7 +335,6 @@ class EmbedChain:
         Resets the database. Deletes all embeddings irreversibly.
         `App` does not have to be reinitialized after using this method.
         """
+        collection_name = self.collection.name
         self.db_client.reset()
-
-        # Initalize default collection
-        self.collection = self.config.db._get_or_create_collection()
+        self.collection = self.config.db._get_or_create_collection(collection_name)
