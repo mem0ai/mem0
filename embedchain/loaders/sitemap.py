@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from bs4.builder import ParserRejectedMarkup
 
 from embedchain.loaders.web_page import WebPageLoader
+from embedchain.utils import is_readable
 
 
 class SitemapLoader:
@@ -20,11 +21,20 @@ class SitemapLoader:
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "xml")
-        links = [link.text for link in soup.find_all("loc")]
+
+        links = [link.text for link in soup.find_all("loc") if link.parent.name == "url"]
+        if len(links) == 0:
+            # Get all <loc> tags as a fallback. This might include images.
+            links = [link.text for link in soup.find_all("loc")]
+
         for link in links:
             try:
                 each_load_data = web_page_loader.load_data(link)
-                output.append(each_load_data)
+
+                if is_readable(each_load_data[0].get("content")):
+                    output.append(each_load_data)
+                else:
+                    logging.warning(f"Page is not readable (too many invalid characters): {link}")
             except ParserRejectedMarkup as e:
                 logging.error(f"Failed to parse {link}: {e}")
         return [data[0] for data in output]
