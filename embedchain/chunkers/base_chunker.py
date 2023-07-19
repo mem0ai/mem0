@@ -5,6 +5,7 @@ class BaseChunker:
     def __init__(self, text_splitter):
         """Initialize the chunker."""
         self.text_splitter = text_splitter
+        self.data_type = None
 
     def create_chunks(self, loader, src):
         """
@@ -22,7 +23,10 @@ class BaseChunker:
         metadatas = []
         for data in datas:
             content = data["content"]
+
             meta_data = data["meta_data"]
+            # add data type to meta data to allow query using data type
+            meta_data["data_type"] = self.data_type
             url = meta_data["url"]
 
             chunks = self.get_chunks(content)
@@ -47,3 +51,9 @@ class BaseChunker:
         Override in child class if custom logic.
         """
         return self.text_splitter.split_text(content)
+
+    def set_data_type(self, data_type):
+        """
+        set the data type of chunker
+        """
+        self.data_type = data_type
