@@ -43,7 +43,7 @@ from embedchain.config import CustomAppConfig
 from embedchain.models import Providers, EmbeddingFunctions
 
 config = CustomAppConfig(embedding_fn=EmbeddingFunctions.OPENAI, provider=Providers.OPENAI)
-app = CustomApp()
+app = CustomApp(config)
 ```
 
 - `CustomApp` is not opinionated.
@@ -51,6 +51,16 @@ app = CustomApp()
 - while it's doing that, it's still providing abstractions through `Providers`.
 - paid and free/open source providers included.
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
+- Following providers are available for an LLM
+    - OPENAI
+    - ANTHPROPIC
+    - VERTEX_AI
+    - GPT4ALL
+- Following embedding functions are available for an embedding function
+    - OPENAI
+    - HUGGING_FACE
+    - VERTEX_AI
+    - GPT4ALL
 
 
 ### PersonApp
