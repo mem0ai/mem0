@@ -1,4 +1,5 @@
 import re
+import string
 
 
 def clean_string(text):
@@ -33,3 +34,14 @@ def clean_string(text):
     cleaned_text = re.sub(r"([^\w\s])\1*", r"\1", cleaned_text)
 
     return cleaned_text
+
+
+def is_readable(s):
+    """
+    Heuristic to determine if a string is "readable" (mostly contains printable characters and forms meaningful words)
+
+    :param s: string
+    :return: True if the string is more than 95% printable.
+    """
+    printable_ratio = sum(c in string.printable for c in s) / len(s)
+    return printable_ratio > 0.95  # 95% of characters are printable
