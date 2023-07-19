@@ -2,7 +2,14 @@
 title: '📋 Supported data formats'
 ---
 
-Embedchain supports following data formats:
+Embedchain supports following data formats.
+
+They are split up into remote (`add`) and local (`add_local`) data types.
+You can still use the `add` and `add_local` methods interchangably, this separation is not enforced.
+But where they stand in this documentation should give you an idea whether you should pass an URL or data directly.
+
+## Remote data types
+You can add local files with the remote `add` method by using the `File:` [URI scheme](https://en.wikipedia.org/wiki/File_URI_scheme).
 
 ### Youtube video
 
@@ -38,14 +45,6 @@ Add all web pages from an xml-sitemap. Filters non-text files. Use the data_type
 app.add('sitemap', 'https://example.com/sitemap.xml')
 ```
 
-### Doc file
-
-To add any doc/docx file, use the data_type as `docx`. Eg:
-
-```python
-app.add('docx', 'a_local_docx_file_path')
-```
-
 ### Code documentation website loader
 
 To add any code documentation website as a loader, use the data_type as `docs_site`. Eg:
@@ -53,6 +52,8 @@ To add any code documentation website as a loader, use the data_type as `docs_si
 ```python
 app.add("docs_site", "https://docs.embedchain.ai/")
 ```
+
+## Local Data Types
 
 ### Text
 
@@ -70,6 +71,14 @@ To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. 
 
 ```python
 app.add_local('qna_pair', ("Question", "Answer"))
+```
+
+### Doc file
+
+To add any doc/docx file, use the data_type as `docx`. Eg:
+
+```python
+app.add_local('docx', 'a_local_docx_file_path')
 ```
 
 ## Reusing a vector database
@@ -95,6 +104,6 @@ naval_chat_bot = App()
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 ```
 
-### More formats (coming soon!)
+## More formats (coming soon!)
 
 - If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
