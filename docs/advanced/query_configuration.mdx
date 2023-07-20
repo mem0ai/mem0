@@ -18,6 +18,14 @@ title: '🔍 Query configurations'
 |chunker|chunker config|ChunkerConfig|Default values for chunker depends on the `data_type`. Please refer [ChunkerConfig](#chunker-config)|
 |loader|loader config|LoaderConfig|None|
 
+Yes, you are passing `ChunkerConfig` to `AddConfig`, like so:
+
+```python
+chunker_config = ChunkerConfig(chunk_size=100)
+add_config = AddConfig(chunker=chunker_config)
+app.add_local("text", "lorem ipsum", config=add_config)
+```
+
 ### ChunkerConfig
 
 |option|description|type|default|
