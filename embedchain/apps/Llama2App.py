@@ -20,7 +20,7 @@ class Llama2App(EmbedChain):
         :param config: AppConfig instance to load as configuration. Optional.
         """
         if "REPLICATE_API_TOKEN" not in os.environ:
-            raise ValueError("Please set the REPLICATE_API_TOKEN environment variable to your OpenAI API key.")
+            raise ValueError("Please set the REPLICATE_API_TOKEN environment variable.")
 
         if config is None:
             config = AppConfig()
