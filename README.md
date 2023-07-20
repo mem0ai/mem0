@@ -14,6 +14,29 @@ Embedchain is a framework to easily create LLM powered bots over any dataset. If
 pip install embedchain
 ```
 
+## 🔥 Latest
+
+- **[2023/07/19]** Released support for 🦙 `llama2` model. Start creating your `llama2` based bots like this:
+
+  ```python
+  import os
+
+  from embedchain import Llama2App
+
+  os.environ['REPLICATE_API_TOKEN'] = "REPLICATE API TOKEN"
+
+  zuck_bot = Llama2App()
+
+  # Embed your data
+  zuck_bot.add("youtube_video", "https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
+  zuck_bot.add("web_page", "https://en.wikipedia.org/wiki/Mark_Zuckerberg")
+
+  # Nice, your bot is ready now. Start asking questions to your bot.
+  zuck_bot.query("Who is Mark Zuckerberg?")
+  # Answer: Mark Zuckerberg is an American internet entrepreneur and business magnate. He is the co-founder and CEO of Facebook.
+  ```
+
+
 ## 🔍 Demo
 
 Try out embedchain in your browser:
