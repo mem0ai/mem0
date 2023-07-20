@@ -20,8 +20,6 @@ class EmbedChainPersonApp:
     def __init__(self, person, config: BaseAppConfig = None):
         self.person = person
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
-        if config is None:
-            config = BaseAppConfig()
         super().__init__(config)
 
 
