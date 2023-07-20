@@ -58,18 +58,19 @@ class DataFormatter:
         :return: The chunker for the given data type.
         :raises ValueError: If an unsupported data type is provided.
         """
-        chunkers = {
-            "youtube_video": YoutubeVideoChunker(config),
-            "pdf_file": PdfFileChunker(config),
-            "web_page": WebPageChunker(config),
-            "qna_pair": QnaPairChunker(config),
-            "text": TextChunker(config),
-            "docx": DocxFileChunker(config),
-            "sitemap": WebPageChunker(config),
-            "docs_site": DocsSiteChunker(config),
+        chunker_classes = {
+            "youtube_video": YoutubeVideoChunker,
+            "pdf_file": PdfFileChunker,
+            "web_page": WebPageChunker,
+            "qna_pair": QnaPairChunker,
+            "text": TextChunker,
+            "docx": DocxFileChunker,
+            "sitemap": WebPageChunker,
+            "docs_site": DocsSiteChunker,
         }
-        if data_type in chunkers:
-            chunker = chunkers[data_type]
+        if data_type in chunker_classes:
+            chunker_class = chunker_classes[data_type]
+            chunker = chunker_class(config)
             chunker.set_data_type(data_type)
             return chunker
         else:
