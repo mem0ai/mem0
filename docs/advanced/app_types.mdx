@@ -23,6 +23,35 @@ import os
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 ```
 
+### Llama2App
+
+```python
+import os
+
+from embedchain import Llama2App
+
+os.environ['REPLICATE_API_TOKEN'] = "REPLICATE API TOKEN"
+
+zuck_bot = Llama2App()
+
+# Embed your data
+zuck_bot.add("youtube_video", "https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
+zuck_bot.add("web_page", "https://en.wikipedia.org/wiki/Mark_Zuckerberg")
+
+# Nice, your bot is ready now. Start asking questions to your bot.
+zuck_bot.query("Who is Mark Zuckerberg?")
+# Answer: Mark Zuckerberg is an American internet entrepreneur and business magnate. He is the co-founder and CEO of Facebook. Born in 1984, he dropped out of Harvard University to focus on his social media platform, which has since grown to become one of the largest and most influential technology companies in the world.
+
+# Enable web search for your bot
+zuck_bot.online = True # enable internet access for the bot
+zuck_bot.query("Who owns the new threads app and when it was founded?")
+# Answer: Based on the context provided, the new Threads app is owned by Meta, the parent company of Facebook, Instagram, and WhatsApp.
+```
+
+- `Llama2App` uses Replicate's LLM model, so these are paid models. You can get the `REPLICATE_API_TOKEN` by registering on [their website](https://replicate.com/account).
+- `Llama2App` uses OpenAI's embedding model to create embeddings for chunks. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+
+
 ### OpenSourceApp
 
 ```python

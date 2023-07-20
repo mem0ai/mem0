@@ -1,8 +1,9 @@
 import os
 
+from langchain.llms import Replicate
+
 from embedchain.config import AppConfig
 from embedchain.embedchain import EmbedChain
-from langchain.llms import Replicate
 
 
 class Llama2App(EmbedChain):
@@ -18,8 +19,8 @@ class Llama2App(EmbedChain):
         """
         :param config: AppConfig instance to load as configuration. Optional.
         """
-        if "REPLICATE_API_KEY" not in os.environ:
-            raise ValueError("Please set the REPLICATE_API_KEY environment variable to your OpenAI API key.")
+        if "REPLICATE_API_TOKEN" not in os.environ:
+            raise ValueError("Please set the REPLICATE_API_TOKEN environment variable to your OpenAI API key.")
 
         if config is None:
             config = AppConfig()
