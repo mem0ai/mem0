@@ -8,12 +8,12 @@ title: '🧪 Testing'
 
 Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
 
-For this you can use the `dry_run` method.
+For this you can use the `dry_run` option in your `query` or `chat` method.
 
 Following the example above, add this to your script:
 
 ```python
-print(naval_chat_bot.dry_run('Can you tell me who Naval Ravikant is?'))
+print(naval_chat_bot.query('Can you tell me who Naval Ravikant is?', dry_run=True))
 
 '''
 Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.

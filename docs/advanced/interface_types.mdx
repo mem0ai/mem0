@@ -34,6 +34,11 @@ print(naval_chat_bot.chat("what did the author say about happiness?"))
 # answer: The author, Naval Ravikant, believes that happiness is a choice you make and a skill you develop. He compares the mind to the body, stating that just as the body can be molded and changed, so can the mind. He emphasizes the importance of being present in the moment and not getting caught up in regrets of the past or worries about the future. By being present and grateful for where you are, you can experience true happiness.
 ```
 
+#### Dry Run
+
+Dry Run is an option in the `query` and `chat` methods that allows the user to not send their constructed prompt to the LLM, to save money. It's used for [testing](/advanced/testing#dry-run).
+
+
 ### Stream Response
 
 - You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Supports both OpenAI model and OpenSourceApp. 📊
@@ -51,10 +56,6 @@ for chunk in resp:
 ```
 
 ### Other Methods
-
-#### Dry Run
-
-Dry run has all the options that `query` has, it just doesn't send the prompt to the LLM, to save money. It's used for [testing](/advanced/testing#dry-run).
 
 #### Reset
 
