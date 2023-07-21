@@ -121,7 +121,7 @@ class EmbedChain:
         chunks_before_addition = self.count()
 
         # Add metadata to each document
-        metadatas_with_metadata = [meta or metadata for meta in metadatas]
+        metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
         self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
