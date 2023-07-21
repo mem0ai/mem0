@@ -24,7 +24,7 @@ setuptools.setup(
         "langchain>=0.0.205",
         "requests",
         "openai",
-        "chromadb=^0.4.2",
+        "chromadb>=0.4.2",
         "youtube-transcript-api",
         "beautifulsoup4",
         "pypdf",
