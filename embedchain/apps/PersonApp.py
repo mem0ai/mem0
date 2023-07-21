@@ -51,12 +51,14 @@ class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
     """
 
     def query(self, input_query, config: QueryConfig = None):
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
         query_config = QueryConfig(
             template=self.template,
         )
         return super().query(input_query, query_config)
 
     def chat(self, input_query, config: ChatConfig = None):
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT_WITH_HISTORY)
         chat_config = ChatConfig(
             template=self.template,
         )
