@@ -118,6 +118,9 @@ class EmbedChain:
         if self.config.id is not None:
             metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
+        # FIXME: Fix the error handling logic when metadatas or metadata is None
+        metadatas = metadatas if metadatas else []
+        metadata = metadata if metadata else {}
         chunks_before_addition = self.count()
 
         # Add metadata to each document
