@@ -289,7 +289,7 @@ class EmbedChain:
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config, **k)
+        contexts = self.retrieve_from_database(input_query, config)
 
         global memory
         chat_history = memory.load_memory_variables({})["history"]
