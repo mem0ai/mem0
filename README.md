@@ -85,7 +85,7 @@ If you utilize this repository, please consider citing it with:
 ```
 @misc{embedchain,
   author = {Taranjeet Singh},
-  title = {Embechain: Framework to easily create LLM powered bots over any dataset},
+  title = {Embedchain: Framework to easily create LLM powered bots over any dataset},
   year = {2023},
   publisher = {GitHub},
   journal = {GitHub repository},
