@@ -23,19 +23,29 @@ class EmbedChainPersonApp:
         super().__init__(config)
 
     def add_person_template_to_config(self, default_prompt: str, config: ChatConfig = None):
+        """
+        This method checks if the config object contains a prompt template
+        if yes it adds the person prompt to it and return the updated config
+        else it creates a config object with the default prompt added to the person prompt
 
-        self.template = Template(self.person_prompt + " " + default_prompt)
+        :param default_prompt: it is the default prompt for query or chat methods
+        :param config: Optional. The `ChatConfig` instance to use as
+        configuration options.
+        """
+        template = Template(self.person_prompt + " " + default_prompt)
 
-        if config is None:
-            config = QueryConfig(
-                template=self.template,
-            )
-
-        elif config.template is None:
-            config.template = self.template
-
+        if config:
+            if config.template:
+                # Add person prompt to custom user template
+                config.template = Template(self.person_prompt + " " + config.template.template)
+            else:
+                # If no user template is present, use person prompt with the default template
+                config.template = template
         else:
-            config.template = Template(self.person_prompt + " " + config.template.template)
+            # if no config is present at all, initialize the config with person prompt and default template
+            config = QueryConfig(
+                template=template,
+            )
 
         return config
 
