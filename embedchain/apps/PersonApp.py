@@ -22,6 +22,26 @@ class EmbedChainPersonApp:
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
         super().__init__(config)
 
+    def add_person_template_to_config(self, config: ChatConfig = None):
+
+        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
+         
+        if config is None:
+            config = QueryConfig(
+                template=self.template,
+            )
+        
+        elif config.template is None:
+            config.template = self.template
+        
+        else:
+            config.template = Template(self.person_prompt + " " + config.template.template)
+        
+        return config
+
+        
+             
+
 
 class PersonApp(EmbedChainPersonApp, App):
     """
@@ -30,18 +50,12 @@ class PersonApp(EmbedChainPersonApp, App):
     """
 
     def query(self, input_query, config: QueryConfig = None, dry_run=False):
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
-        query_config = QueryConfig(
-            template=self.template,
-        )
-        return super().query(input_query, query_config, dry_run)
+        config = self.add_person_template_to_config(config)
+        return super().query(input_query, config, dry_run)
 
     def chat(self, input_query, config: ChatConfig = None, dry_run=False):
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT_WITH_HISTORY)
-        chat_config = ChatConfig(
-            template=self.template,
-        )
-        return super().chat(input_query, chat_config, dry_run)
+        config = self.add_person_template_to_config(config)
+        return super().chat(input_query, config, dry_run)
 
 
 class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
@@ -51,15 +65,9 @@ class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
     """
 
     def query(self, input_query, config: QueryConfig = None, dry_run=False):
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT)
-        query_config = QueryConfig(
-            template=self.template,
-        )
-        return super().query(input_query, query_config, dry_run)
+        config = self.add_person_template_to_config(config)
+        return super().query(input_query, config, dry_run)
 
     def chat(self, input_query, config: ChatConfig = None, dry_run=False):
-        self.template = Template(self.person_prompt + " " + DEFAULT_PROMPT_WITH_HISTORY)
-        chat_config = ChatConfig(
-            template=self.template,
-        )
-        return super().chat(input_query, chat_config, dry_run)
+        config = self.add_person_template_to_config(config)
+        return super().chat(input_query, config, dry_run)
