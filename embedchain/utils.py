@@ -52,7 +52,10 @@ def use_pysqlite3():
     """
     Swap std-lib sqlite3 with pysqlite3.
     """
+    import subprocess
     import sys
+
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pysqlite3-binary"])
 
     __import__("pysqlite3")
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
