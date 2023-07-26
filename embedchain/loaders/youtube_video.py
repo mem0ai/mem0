@@ -1,9 +1,10 @@
 from langchain.document_loaders import YoutubeLoader
 
+from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
 
-class YoutubeVideoLoader:
+class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
         loader = YoutubeLoader.from_youtube_url(url, add_video_info=True)

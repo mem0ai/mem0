@@ -4,11 +4,12 @@ import requests
 from bs4 import BeautifulSoup
 from bs4.builder import ParserRejectedMarkup
 
+from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.utils import is_readable
 
 
-class SitemapLoader:
+class SitemapLoader(BaseLoader):
     def load_data(self, sitemap_url):
         """
         This method takes a sitemap URL as input and retrieves

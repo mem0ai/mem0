@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
+from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
+from embedchain.loaders.base_loader import BaseLoader
 
 load_dotenv()
 
@@ -80,7 +82,7 @@ class EmbedChain:
             metadata,
         )
 
-    def load_and_embed(self, loader, chunker, src, metadata=None):
+    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 

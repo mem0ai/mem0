@@ -1,7 +1,9 @@
 from langchain.document_loaders import Docx2txtLoader
 
+from embedchain.loaders.base_loader import BaseLoader
 
-class DocxFileLoader:
+
+class DocxFileLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a .docx file."""
         loader = Docx2txtLoader(url)
