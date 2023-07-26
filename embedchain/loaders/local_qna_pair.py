@@ -1,4 +1,7 @@
-class LocalQnaPairLoader:
+from embedchain.loaders.base_loader import BaseLoader
+
+
+class LocalQnaPairLoader(BaseLoader):
     def load_data(self, content):
         """Load data from a local QnA pair."""
         question, answer = content

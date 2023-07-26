@@ -4,8 +4,10 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
+from embedchain.loaders.base_loader import BaseLoader
 
-class DocsSiteLoader:
+
+class DocsSiteLoader(BaseLoader):
     def __init__(self):
         self.visited_links = set()
 
