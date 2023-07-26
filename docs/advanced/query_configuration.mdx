@@ -54,9 +54,14 @@ _coming soon_
 
 |option|description|type|default|
 |---|---|---|---|
-|template|custom template for prompt|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
-|history|include conversation history from your client or database|any (recommendation: list[str])|None
-|stream|control if response is streamed back to the user|bool|False|
+|number_documents|Absolute number of documents to pull from the database as context.|int|1
+|template|custom template for prompt. If history is used with query, $history has to be included as well.|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
+|model|name of the model used.|string|depends on app type|
+|temperature|Controls the randomness of the model's output. Higher values (closer to 1) make output more random, lower values make it more deterministic.|float|0|
+|max_tokens|Controls how many tokens are used. Exact implementation (whether it counts prompt and/or response) depends on the model.|int|1000|
+|top_p|Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.|float|1|
+|history|include conversation history from your client or database.|any (recommendation: list[str])|None|
+|stream|control if response is streamed back to the user.|bool|False|
 
 ## ChatConfig
 
@@ -64,4 +69,4 @@ All options for query and...
 
 _coming soon_
 
-History is handled automatically, the config option is not supported.
+`history` is not supported, as that is handled is handled automatically, the config option is not supported.
