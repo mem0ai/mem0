@@ -45,6 +45,15 @@ Add all web pages from an xml-sitemap. Filters non-text files. Use the data_type
 app.add('sitemap', 'https://example.com/sitemap.xml')
 ```
 
+### Doc file
+
+To add any doc/docx file, use the data_type as `docx`. Local files work too. Eg:
+
+```python
+app.add_local('docx', 'https://example.com/content/file.docx')
+app.add_local('docx', 'content/a_local_file.docx')
+```
+
 ### Code documentation website loader
 
 To add any code documentation website as a loader, use the data_type as `docs_site`. Eg:
@@ -71,14 +80,6 @@ To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. 
 
 ```python
 app.add_local('qna_pair', ("Question", "Answer"))
-```
-
-### Doc file
-
-To add any doc/docx file, use the data_type as `docx`. Eg:
-
-```python
-app.add_local('docx', 'a_local_docx_file_path')
 ```
 
 ## Reusing a vector database
