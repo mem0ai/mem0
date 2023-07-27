@@ -39,7 +39,7 @@ class TestApp(unittest.TestCase):
 
     def test_detect_datatype_docs_in_path(self):
         self.assertEqual(detect_datatype("https://www.example.com/docs/index.html"), "docs_site")
-        self.assertNotEqual(detect_datatype("file:///var/www/docs/index.html"), "docs_site") # NOT equal
+        self.assertNotEqual(detect_datatype("file:///var/www/docs/index.html"), "docs_site")  # NOT equal
 
     def test_detect_datatype_web_page(self):
         self.assertEqual(detect_datatype("https://www.example.com"), "web_page")
