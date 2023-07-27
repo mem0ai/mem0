@@ -155,7 +155,7 @@ def detect_datatype(source: Any) -> str:
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.
         raise ValueError(
-            "Source points to a valid file, but based on the filename, no `data_type` can be detected. Please use the `data_type` argument to forcefully declare a datatype."  # noqa: E501
+            "Source points to a valid file, but based on the filename, no `data_type` can be detected. Please be aware, that not all data_types allow conventional file references, some require the use of the `file URI scheme`. Please refer to the embedchain documentation (https://docs.embedchain.ai/advanced/data_types#remote-data-types)."  # noqa: E501
         )
 
     else:
