@@ -13,14 +13,26 @@ class TestApp(unittest.TestCase):
         self.assertEqual(detect_datatype("https://vid.plus/watch?v=dQw4w9WgXcQ"), "youtube_video")
         self.assertEqual(detect_datatype("https://youtu.be/dQw4w9WgXcQ"), "youtube_video")
 
+    def test_detect_datatype_local_file(self):
+        self.assertEqual(detect_datatype("file:///home/user/file.txt"), "web_page")
+
     def test_detect_datatype_pdf(self):
         self.assertEqual(detect_datatype("https://www.example.com/document.pdf"), "pdf_file")
+    
+    def test_detect_datatype_local_pdf(self):
+        self.assertEqual(detect_datatype("file:///home/user/document.pdf"), "pdf_file")
 
     def test_detect_datatype_xml(self):
         self.assertEqual(detect_datatype("https://www.example.com/sitemap.xml"), "sitemap")
 
+    def test_detect_datatype_local_xml(self):
+        self.assertEqual(detect_datatype("file:///home/user/sitemap.xml"), "sitemap")
+
     def test_detect_datatype_docx(self):
         self.assertEqual(detect_datatype("https://www.example.com/document.docx"), "docx")
+
+    def test_detect_datatype_local_docx(self):
+        self.assertEqual(detect_datatype("file:///home/user/document.docx"), "docx")
 
     def test_detect_datatype_docs_site(self):
         self.assertEqual(detect_datatype("https://docs.example.com"), "docs_site")
