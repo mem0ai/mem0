@@ -130,9 +130,18 @@ def detect_datatype(source: Any) -> str:
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return "web_page"
+    
+    elif not isinstance(source, str):
+        # For datatypes where source is not a string.
 
-    if isinstance(source, str) and os.path.isfile(source):
+        if isinstance(source, tuple) and len(source) == 2:
+            logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
+            return "qna_pair"
+
+    elif os.path.isfile(source):
         # For datatypes that support conventional file references.
+        # Note: checking for string is not necessary anymore.
+
         if source.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return "docx"
@@ -143,11 +152,8 @@ def detect_datatype(source: Any) -> str:
         )
 
     else:
-        # Source is not a URL
+        # Source is not a URL.
 
-        if isinstance(source, tuple) and len(source) == 2:
-            logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
-            return "qna_pair"
-
+        # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return "text"
