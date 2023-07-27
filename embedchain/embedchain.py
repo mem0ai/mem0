@@ -45,7 +45,7 @@ class EmbedChain:
         and then stores the embedding to vector database.
 
         :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
-        :param data_type: The type of the data to add.
+        :param data_type: Optional. Automatically detected, but can be forced with this argument.The type of the data to add.
         :param metadata: Optional. Metadata associated with the data source.
         :param config: Optional. The `AddConfig` instance to use as configuration
         options.
