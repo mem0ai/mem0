@@ -61,6 +61,14 @@ class TestApp(unittest.TestCase):
     def test_detect_datatype_text(self):
         self.assertEqual(detect_datatype("Just some text."), "text")
 
+    @patch("os.path.isfile")
+    def test_detect_datatype_regular_filesystem_file_not_detected(self, mock_isfile):
+        """Test error if a valid file is referenced, but it isn't a valid data_type"""
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=True) as tmp:
+            mock_isfile.return_value = True
+            with self.assertRaises(ValueError):
+                detect_datatype(tmp.name)
+
 
 if __name__ == "__main__":
     unittest.main()
