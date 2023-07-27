@@ -89,6 +89,8 @@ def detect_datatype(source: Any) -> str:
     from urllib.parse import urlparse
 
     try:
+        if not isinstance(source, str):
+            raise ValueError("Source is not a string and thus cannot be a URL.")
         url = urlparse(source)
         # Check if both scheme and netloc are present
         if not all([url.scheme, url.netloc]):
