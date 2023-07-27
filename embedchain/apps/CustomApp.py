@@ -74,8 +74,6 @@ class CustomApp(EmbedChain):
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import ChatOpenAI
 
-        logging.info(vars(config))
-
         chat = ChatOpenAI(
             temperature=config.temperature,
             model=config.model or "gpt-3.5-turbo",
@@ -119,8 +117,6 @@ class CustomApp(EmbedChain):
     @staticmethod
     def _get_azure_openai_answer(prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import AzureChatOpenAI
-
-        logging.info(vars(config))
 
         chat = AzureChatOpenAI(
             deployment_name="td2",
