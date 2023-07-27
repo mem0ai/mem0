@@ -141,7 +141,7 @@ def detect_datatype(source: Any) -> str:
         # Raise an error if it isn't a string and also not a valid non-string type (one of the previous).
         # We could stringify it, but it is better to raise an error and let the user decide how they want to do that.
         raise TypeError(
-            "Source is not a string and a valid non-string type could not be detected. If you want to embed it, please stringify it, for instance by using `str(source)`."  # noqa: E501
+            "Source is not a string and a valid non-string type could not be detected. If you want to embed it, please stringify it, for instance by using `str(source)` or `(', ').join(source)`."  # noqa: E501
         )
 
     elif os.path.isfile(source):
