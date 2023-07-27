@@ -89,11 +89,16 @@ class TestApp(unittest.TestCase):
         """Test examples used in the documentation."""
         self.assertEqual(detect_datatype("https://en.wikipedia.org/wiki/Elon_Musk"), "web_page")
         self.assertEqual(detect_datatype("https://www.tesla.com/elon-musk"), "web_page")
-        
+
     def test_doc_examples_introduction(self):
         """Test examples used in the documentation."""
         self.assertEqual(detect_datatype("https://www.youtube.com/watch?v=3qHkcs3kG44"), "youtube_video")
-        self.assertEqual(detect_datatype("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf"), "pdf_file")
+        self.assertEqual(
+            detect_datatype(
+                "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf"
+            ),
+            "pdf_file",
+        )
         self.assertEqual(detect_datatype("https://nav.al/feedback"), "web_page")
 
     def test_doc_examples_app_types(self):
@@ -103,14 +108,17 @@ class TestApp(unittest.TestCase):
 
     def test_doc_examples_configuration(self):
         """Test examples used in the documentation."""
-        import time
-        import sys
         import subprocess
+        import sys
+
         subprocess.check_call([sys.executable, "-m", "pip", "install", "wikipedia"])
         import wikipedia
+
         page = wikipedia.page("Albert Einstein")
-        # TODO: Add a wikipedia type, so wikipedia is a dependency and we don't need this slow test. (timings: import: 1.4s, fetch wiki: 0.7s)
+        # TODO: Add a wikipedia type, so wikipedia is a dependency and we don't need this slow test.
+        # (timings: import: 1.4s, fetch wiki: 0.7s)
         self.assertEqual(detect_datatype(page.content), "text")
+
 
 if __name__ == "__main__":
     unittest.main()
