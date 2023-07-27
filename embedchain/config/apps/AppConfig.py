@@ -1,6 +1,12 @@
 import os
 
-from chromadb.utils import embedding_functions
+try:
+    from chromadb.utils import embedding_functions
+except RuntimeError:
+    from embedchain.utils import use_pysqlite3
+
+    use_pysqlite3()
+    from chromadb.utils import embedding_functions
 
 from .BaseAppConfig import BaseAppConfig
 
