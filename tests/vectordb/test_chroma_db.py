@@ -3,10 +3,11 @@
 import unittest
 from unittest.mock import patch
 
+from chromadb.config import Settings
+
 from embedchain import App
 from embedchain.config import AppConfig
 from embedchain.vectordb.chroma_db import ChromaDB, chromadb
-from chromadb.config import Settings
 
 
 class TestChromaDbHosts(unittest.TestCase):
