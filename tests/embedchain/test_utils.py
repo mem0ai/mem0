@@ -61,6 +61,11 @@ class TestApp(unittest.TestCase):
     def test_detect_datatype_text(self):
         self.assertEqual(detect_datatype("Just some text."), "text")
 
+    def test_detect_datatype_non_string_error(self):
+        """Test type error if the value passed is not a string, and not a valid non-string data_type"""
+        with self.assertRaises(TypeError):
+            detect_datatype(["foo", "bar"])
+
     @patch("os.path.isfile")
     def test_detect_datatype_regular_filesystem_file_not_detected(self, mock_isfile):
         """Test error if a valid file is referenced, but it isn't a valid data_type"""
