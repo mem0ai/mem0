@@ -31,7 +31,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
 
         knowledge = "lorem ipsum dolor sit amet, consectetur adipiscing"
 
-        app.add(knowledge, "text")
+        app.add(knowledge, data_type="text")
 
         app.query("What text did I give you?")
         app.chat("What text did I give you?")
