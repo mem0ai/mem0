@@ -56,7 +56,7 @@ class TestApp(unittest.TestCase):
         self.assertEqual(detect_datatype("not a url"), "text")
 
     def test_detect_datatype_qna_pair(self):
-        self.assertEqual(detect_datatype(("Question?", "Answer.")), "qna_pair")
+        self.assertEqual(detect_datatype(("Question?", "Answer. Content of the string is irrelevant.")), "qna_pair")
 
     def test_detect_datatype_text(self):
         self.assertEqual(detect_datatype("Just some text."), "text")
