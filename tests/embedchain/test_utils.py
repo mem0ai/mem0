@@ -56,7 +56,14 @@ class TestApp(unittest.TestCase):
         self.assertEqual(detect_datatype("not a url"), "text")
 
     def test_detect_datatype_qna_pair(self):
-        self.assertEqual(detect_datatype(("Question?", "Answer. Content of the string is irrelevant.")), "qna_pair")
+        self.assertEqual(detect_datatype(("Question?", "Answer. Content of the string is irrelevant.")), "qna_pair")  #
+
+    def test_detect_datatype_qna_pair_types(self):
+        """Test that a QnA pair needs to be a tuple of length two, and both items have to be strings."""
+        with self.assertRaises(TypeError):
+            self.assertNotEqual(
+                detect_datatype(("How many planets are in our solar system?", 8)), "qna_pair"
+            )  # NOT equal
 
     def test_detect_datatype_text(self):
         self.assertEqual(detect_datatype("Just some text."), "text")
