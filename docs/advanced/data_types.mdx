@@ -2,7 +2,7 @@
 title: '📋 Supported data formats'
 ---
 
-Embedchain supports following data formats:
+## Remote Data Types
 
 ### Youtube video
 
@@ -54,6 +54,8 @@ To add any code documentation website as a loader, use the data_type as `docs_si
 app.add("docs_site", "https://docs.embedchain.ai/")
 ```
 
+## Local Data Types
+
 ### Text
 
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
@@ -95,6 +97,6 @@ naval_chat_bot = App()
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 ```
 
-### More formats (coming soon!)
+## More formats (coming soon!)
 
 - If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.
