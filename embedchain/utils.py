@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import string
 from typing import Any
@@ -129,6 +130,17 @@ def detect_datatype(source: Any) -> str:
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return "web_page"
+
+    if isinstance(source, str) and os.path.isfile(source):
+        # For datatypes that support conventional file references.
+        if source.endswith(".docx"):
+            logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
+            return "docx"
+        
+        # If the source is a valid file, that's not detectable as a type, an error is raised. It does not fallback to text.
+        raise ValueError(
+            "Source points to a valid file, but based on the name, no `data_type` can be detected. Please use the `data_type` argument to forcefully declare a datatype."
+        )
 
     else:
         # Source is not a URL
