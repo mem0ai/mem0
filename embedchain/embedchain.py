@@ -12,6 +12,7 @@ from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 from embedchain.loaders.base_loader import BaseLoader
+from embedchain.utils import detect_datatype
 
 load_dotenv()
 
@@ -37,14 +38,14 @@ class EmbedChain:
         self.is_docs_site_instance = False
         self.online = False
 
-    def add(self, data_type, url, metadata=None, config: AddConfig = None):
+    def add(self, source, data_type=None, metadata=None, config: AddConfig = None):
         """
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
         and then stores the embedding to vector database.
 
+        :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
         :param data_type: The type of the data to add.
-        :param url: The URL where the data is located.
         :param metadata: Optional. Metadata associated with the data source.
         :param config: Optional. The `AddConfig` instance to use as configuration
         options.
@@ -52,35 +53,14 @@ class EmbedChain:
         if config is None:
             config = AddConfig()
 
+        if not data_type:
+            data_type = detect_datatype(source)
+
         data_formatter = DataFormatter(data_type, config)
-        self.user_asks.append([data_type, url, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, url, metadata)
+        self.user_asks.append([data_type, source, metadata])
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata)
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
-
-    def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
-        """
-        Adds the data you supply to the vector db.
-        Loads the data, chunks it, create embedding for each chunk
-        and then stores the embedding to vector database.
-
-        :param data_type: The type of the data to add.
-        :param content: The local data. Refer to the `README` for formatting.
-        :param metadata: Optional. Metadata associated with the data source.
-        :param config: Optional. The `AddConfig` instance to use as
-        configuration options.
-        """
-        if config is None:
-            config = AddConfig()
-
-        data_formatter = DataFormatter(data_type, config)
-        self.user_asks.append([data_type, content])
-        self.load_and_embed(
-            data_formatter.loader,
-            data_formatter.chunker,
-            content,
-            metadata,
-        )
 
     def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """

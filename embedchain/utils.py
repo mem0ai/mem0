@@ -1,5 +1,7 @@
+import logging
 import re
 import string
+from typing import Any
 
 
 def clean_string(text):
@@ -45,3 +47,69 @@ def is_readable(s):
     """
     printable_ratio = sum(c in string.printable for c in s) / len(s)
     return printable_ratio > 0.95  # 95% of characters are printable
+
+
+def format_source(source: str, limit: int = 20) -> str:
+    """
+    Format a string to only take the first x and last x letters.
+    This makes it easier to display a URL, keeping familiarity while ensuring a consistent length.
+    If the string is too short, it is not sliced.
+    """
+    if len(source) > 2 * limit:
+        return source[:limit] + "..." + source[-limit:]
+    return source
+
+
+def detect_datatype(source: Any) -> str:
+    """
+    Automatically detect the datatype of the given source.
+
+    :param source: the source to base the detection on
+    :return: data_type string
+    """
+    from urllib.parse import urlparse
+
+    try:
+        url = urlparse(source)
+        # Check if both scheme and netloc are present
+        if not all([url.scheme, url.netloc]):
+            raise ValueError("Not a valid URL.")
+    except ValueError:
+        url = False
+
+    formatted_source = format_source(str(source), 30)
+
+    if url:
+        if ("youtube" in url.netloc and "watch" in url.path) or ("youtu.be") in url.netloc:
+            logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
+            return "youtube_video"
+
+        if url.path.endswith(".pdf"):
+            logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
+            return "pdf_file"
+
+        if url.path.endswith(".xml"):
+            logging.debug(f"Source of `{formatted_source}` detected as `sitemap`.")
+            return "sitemap"
+
+        if url.path.endswith(".docx"):
+            logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
+            return "docx"
+
+        if "docs" in url.netloc or "docs" in url.path:
+            logging.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
+            return "docs_site"
+
+        # If none of the above conditions are met, it's a general web page
+        logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
+        return "web_page"
+
+    else:
+        # Source is not a URL
+
+        if isinstance(source, tuple) and len(source) == 2:
+            logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
+            return "qna_pair"
+
+        logging.debug(f"Source of `{formatted_source}` detected as `text`.")
+        return "text"
