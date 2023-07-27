@@ -92,8 +92,8 @@ def detect_datatype(source: Any) -> str:
         if not isinstance(source, str):
             raise ValueError("Source is not a string and thus cannot be a URL.")
         url = urlparse(source)
-        # Check if both scheme and netloc are present
-        if not all([url.scheme, url.netloc]):
+        # Check if both scheme and netloc are present. Local file system URIs are acceptable too.
+        if not all([url.scheme, url.netloc]) and url.scheme != 'file':
             raise ValueError("Not a valid URL.")
     except ValueError:
         url = False
