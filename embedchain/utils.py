@@ -152,9 +152,10 @@ def detect_datatype(source: Any) -> str:
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return "docx"
 
-        # If the source is a valid file, that's not detectable as a type, an error is raised. It does not fallback to text.
+        # If the source is a valid file, that's not detectable as a type, an error is raised.
+        # It does not fallback to text.
         raise ValueError(
-            "Source points to a valid file, but based on the name, no `data_type` can be detected. Please use the `data_type` argument to forcefully declare a datatype."
+            "Source points to a valid file, but based on the filename, no `data_type` can be detected. Please use the `data_type` argument to forcefully declare a datatype."  # noqa: E501
         )
 
     else:
