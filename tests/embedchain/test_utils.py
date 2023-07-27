@@ -18,7 +18,7 @@ class TestApp(unittest.TestCase):
 
     def test_detect_datatype_pdf(self):
         self.assertEqual(detect_datatype("https://www.example.com/document.pdf"), "pdf_file")
-    
+
     def test_detect_datatype_local_pdf(self):
         self.assertEqual(detect_datatype("file:///home/user/document.pdf"), "pdf_file")
 
@@ -39,6 +39,7 @@ class TestApp(unittest.TestCase):
 
     def test_detect_datatype_docs_in_path(self):
         self.assertEqual(detect_datatype("https://www.example.com/docs/index.html"), "docs_site")
+        self.assertNotEqual(detect_datatype("file:///var/www/docs/index.html"), "docs_site") # NOT equal
 
     def test_detect_datatype_web_page(self):
         self.assertEqual(detect_datatype("https://www.example.com"), "web_page")
