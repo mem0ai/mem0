@@ -59,16 +59,18 @@ class EmbedChain:
         if not data_type:
             data_type = detect_datatype(source)
 
+        hash_object = hashlib.md5(source.encode("utf-8"))
+        hash_hex = hash_object.hexdigest()
+
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata)
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, hash_hex)
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
 
-        hash_object = hashlib.md5(source.encode("utf-8"))
-        return hash_object.hexdigest()
+        return hash_hex
 
-    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
+    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, hash_hex=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -77,11 +79,15 @@ class EmbedChain:
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
+        :param hash_hex: Hexadecimal hash of the source.
         """
         embeddings_data = chunker.create_chunks(loader, src)
+
+        # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
+
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
@@ -102,19 +108,28 @@ class EmbedChain:
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
-        # Add app id in metadatas so that they can be queried on later
-        if self.config.id is not None:
-            metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
+        # Loop though all metadatas and add extras.
+        new_metadatas = []
+        for m in metadatas:
+            # Add app id in metadatas so that they can be queried on later
+            if self.config.id:
+                m["app_id"] = self.config.id
 
-        # FIXME: Fix the error handling logic when metadatas or metadata is None
-        metadatas = metadatas if metadatas else []
-        metadata = metadata if metadata else {}
+            # Add hashed source
+            m["hash"] = hash_hex
+
+            # Note: Metadata is the function argument
+            if metadata:
+                # Spread whatever is in metadata into the new object.
+                m.update(metadata)
+
+            new_metadatas.append(m)
+        metadatas = new_metadatas
+
+        # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
 
-        # Add metadata to each document
-        metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
-
-        self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+        self.collection.add(documents=documents, metadatas=list(metadatas), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
 
     def _format_result(self, results):
