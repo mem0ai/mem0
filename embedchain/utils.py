@@ -130,13 +130,19 @@ def detect_datatype(source: Any) -> str:
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return "web_page"
-    
+
     elif not isinstance(source, str):
         # For datatypes where source is not a string.
 
         if isinstance(source, tuple) and len(source) == 2:
             logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
             return "qna_pair"
+
+        # Raise an error if it isn't a string and also not a valid non-string type (one of the previous).
+        # We could stringify it, but it is better to raise an error and let the user decide how they want to do that.
+        raise TypeError(
+            "Source is not a string and a valid non-string type could not be detected. If you want to embed it, please stringify it, for instance by using `str(source)`."  # noqa: E501
+        )
 
     elif os.path.isfile(source):
         # For datatypes that support conventional file references.
@@ -145,7 +151,7 @@ def detect_datatype(source: Any) -> str:
         if source.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return "docx"
-        
+
         # If the source is a valid file, that's not detectable as a type, an error is raised. It does not fallback to text.
         raise ValueError(
             "Source points to a valid file, but based on the name, no `data_type` can be detected. Please use the `data_type` argument to forcefully declare a datatype."
