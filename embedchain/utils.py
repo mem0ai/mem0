@@ -121,7 +121,7 @@ def detect_datatype(source: Any) -> str:
             return "docx"
 
         if "docs" in url.netloc or ("docs" in url.path and url.scheme != "file"):
-            # `docs` detection via path is not accepted for local filesystem URIs,
+            # `docs_site` detection via path is not accepted for local filesystem URIs,
             # because that would mean all paths that contain `docs` are now doc sites, which is too aggressive.
             logging.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
             return "docs_site"
