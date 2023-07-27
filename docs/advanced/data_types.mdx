@@ -88,7 +88,7 @@ app.add("https://docs.embedchain.ai/", data_type="docs_site")
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
 
 ```python
-app.add_local('Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.', data_type='text')
+app.add('Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.', data_type='text')
 ```
 
 Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
@@ -98,7 +98,7 @@ Note: This is not used in the examples because in most cases you will supply a w
 To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
 
 ```python
-app.add_local(("Question", "Answer"), data_type="qna_pair")
+app.add(("Question", "Answer"), data_type="qna_pair")
 ```
 
 ## Reusing a vector database
