@@ -50,7 +50,7 @@ class TestApp(unittest.TestCase):
         self.assertNotEqual(detect_datatype("file:///var/www/docs/index.html"), "docs_site")  # NOT equal
 
     def test_detect_datatype_web_page(self):
-        self.assertEqual(detect_datatype("https://www.example.com"), "web_page")
+        self.assertEqual(detect_datatype("https://nav.al/agi"), "web_page")
 
     def test_detect_datatype_invalid_url(self):
         self.assertEqual(detect_datatype("not a url"), "text")
@@ -85,6 +85,32 @@ class TestApp(unittest.TestCase):
         """Test that if a filepath is not actually an existing file, it is not handled as a file path."""
         self.assertEqual(detect_datatype("/var/not-an-existing-file.txt"), "text")
 
+    def test_doc_examples_quickstart(self):
+        """Test examples used in the documentation."""
+        self.assertEqual(detect_datatype("https://en.wikipedia.org/wiki/Elon_Musk"), "web_page")
+        self.assertEqual(detect_datatype("https://www.tesla.com/elon-musk"), "web_page")
+        
+    def test_doc_examples_introduction(self):
+        """Test examples used in the documentation."""
+        self.assertEqual(detect_datatype("https://www.youtube.com/watch?v=3qHkcs3kG44"), "youtube_video")
+        self.assertEqual(detect_datatype("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf"), "pdf_file")
+        self.assertEqual(detect_datatype("https://nav.al/feedback"), "web_page")
+
+    def test_doc_examples_app_types(self):
+        """Test examples used in the documentation."""
+        self.assertEqual(detect_datatype("https://www.youtube.com/watch?v=Ff4fRgnuFgQ"), "youtube_video")
+        self.assertEqual(detect_datatype("https://en.wikipedia.org/wiki/Mark_Zuckerberg"), "web_page")
+
+    def test_doc_examples_configuration(self):
+        """Test examples used in the documentation."""
+        import time
+        import sys
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "wikipedia"])
+        import wikipedia
+        page = wikipedia.page("Albert Einstein")
+        # TODO: Add a wikipedia type, so wikipedia is a dependency and we don't need this slow test. (timings: import: 1.4s, fetch wiki: 0.7s)
+        self.assertEqual(detect_datatype(page.content), "text")
 
 if __name__ == "__main__":
     unittest.main()
