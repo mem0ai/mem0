@@ -69,6 +69,10 @@ class TestApp(unittest.TestCase):
             with self.assertRaises(ValueError):
                 detect_datatype(tmp.name)
 
+    def test_detect_datatype_regular_filesystem_no_file(self):
+        """Test that if a filepath is not actually an existing file, it is not handled as a file path."""
+        self.assertEqual(detect_datatype("/var/not-an-existing-file.txt"), "text")
+
 
 if __name__ == "__main__":
     unittest.main()
