@@ -20,9 +20,9 @@ class AppConfig(BaseAppConfig):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
-        :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
+        :param id: Optional. ID of the app. Document metadata will have this id.
         """
         super().__init__(
             log_level=log_level, embedding_fn=AppConfig.default_embedding_function(), host=host, port=port, id=id
