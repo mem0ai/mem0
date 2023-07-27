@@ -1,3 +1,4 @@
+import logging
 import re
 import string
 
@@ -45,3 +46,22 @@ def is_readable(s):
     """
     printable_ratio = sum(c in string.printable for c in s) / len(s)
     return printable_ratio > 0.95  # 95% of characters are printable
+
+
+def use_pysqlite3():
+    """
+    Swap std-lib sqlite3 with pysqlite3.
+    """
+    import platform
+
+    if platform.system() == "Linux":
+        # According to the Chroma team, this patch only works on Linux
+        import subprocess
+        import sys
+
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pysqlite3-binary"])
+
+        __import__("pysqlite3")
+        sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+        # Don't be surprised if this doesn't log as you expect, because the logger is instantiated after the import
+        logging.info("Swapped std-lib sqlite3 with pysqlite3")
