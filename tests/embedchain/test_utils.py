@@ -11,8 +11,6 @@ class TestApp(unittest.TestCase):
         self.assertEqual(detect_datatype("https://m.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube_video")
         self.assertEqual(detect_datatype("https://www.youtube-nocookie.com/watch?v=dQw4w9WgXcQ"), "youtube_video")
         self.assertEqual(detect_datatype("https://vid.plus/watch?v=dQw4w9WgXcQ"), "youtube_video")
-
-    def test_detect_datatype_short_youtube(self):
         self.assertEqual(detect_datatype("https://youtu.be/dQw4w9WgXcQ"), "youtube_video")
 
     def test_detect_datatype_pdf(self):
