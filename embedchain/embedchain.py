@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 
@@ -50,6 +51,7 @@ class EmbedChain:
         :param metadata: Optional. Metadata associated with the data source.
         :param config: Optional. The `AddConfig` instance to use as configuration
         options.
+        :return: md5-hash of the source, in hexadecimal representation.
         """
         if config is None:
             config = AddConfig()
@@ -62,6 +64,9 @@ class EmbedChain:
         self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata)
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
+
+        hash_object = hashlib.md5(source.encode("utf-8"))
+        return hash_object.hexdigest()
 
     def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """
