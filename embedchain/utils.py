@@ -134,7 +134,7 @@ def detect_datatype(source: Any) -> str:
     elif not isinstance(source, str):
         # For datatypes where source is not a string.
 
-        if isinstance(source, tuple) and len(source) == 2:
+        if isinstance(source, tuple) and len(source) == 2 and isinstance(source[0], str) and isinstance(source[1], str):
             logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
             return "qna_pair"
 
