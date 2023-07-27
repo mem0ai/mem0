@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from unittest.mock import patch
 
 from embedchain.utils import detect_datatype
 
@@ -33,6 +35,12 @@ class TestApp(unittest.TestCase):
 
     def test_detect_datatype_local_docx(self):
         self.assertEqual(detect_datatype("file:///home/user/document.docx"), "docx")
+
+    @patch("os.path.isfile")
+    def test_detect_datatype_regular_filesystem_docx(self, mock_isfile):
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=True) as tmp:
+            mock_isfile.return_value = True
+            self.assertEqual(detect_datatype(tmp.name), "docx")
 
     def test_detect_datatype_docs_site(self):
         self.assertEqual(detect_datatype("https://docs.example.com"), "docs_site")
