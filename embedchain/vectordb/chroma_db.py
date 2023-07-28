@@ -1,6 +1,12 @@
 import logging
 
-import chromadb
+try:
+    import chromadb
+except RuntimeError:
+    from embedchain.utils import use_pysqlite3
+
+    use_pysqlite3()
+    import chromadb
 from chromadb.config import Settings
 
 from embedchain.vectordb.base_vector_db import BaseVectorDB
