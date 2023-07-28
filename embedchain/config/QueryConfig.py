@@ -7,7 +7,7 @@ DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
   If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
-  $context
+  Context: $context
 
   Query: $query
 
@@ -19,7 +19,7 @@ DEFAULT_PROMPT_WITH_HISTORY = """
   If you don't know the answer, just say that you don't know, don't try to make up an answer.
   I will provide you with our conversation history.
 
-  $context
+  Context: $context
 
   History: $history
 
@@ -32,7 +32,7 @@ DOCS_SITE_DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
   If you don't know the answer, just say that you don't know, don't try to make up an answer. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
 
-  $context
+  Context: $context
 
   Query: $query
 

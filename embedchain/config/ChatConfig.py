@@ -7,7 +7,7 @@ DEFAULT_PROMPT = """
   history and context.
   You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know".
 
-  $context
+  Context: $context
 
   History: $history
 
