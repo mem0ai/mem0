@@ -35,10 +35,8 @@ class ChromaDB(BaseVectorDB):
         """Get or create the database."""
         return chromadb.Client(self.client_settings)
 
-    def _get_or_create_collection(self, name=None):
+    def _get_or_create_collection(self, name):
         """Get or create the collection."""
-        if name is None:
-            name = "embedchain"
         return self.client.get_or_create_collection(
             name=name,
             embedding_function=self.embedding_fn,
