@@ -1,4 +1,7 @@
-class LocalTextLoader:
+from embedchain.loaders.base_loader import BaseLoader
+
+
+class LocalTextLoader(BaseLoader):
     def load_data(self, content):
         """Load data from a local text file."""
         meta_data = {

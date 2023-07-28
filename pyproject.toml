@@ -82,10 +82,10 @@ color = true
 [tool.poetry.dependencies]
 python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
 python-dotenv = "^1.0.0"
-langchain = "^0.0.205"
+langchain = "^0.0.237"
 requests = "^2.31.0"
 openai = "^0.27.5"
-chromadb ="^0.3.26"
+chromadb ="^0.4.2"
 youtube-transcript-api = "^0.6.1"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"

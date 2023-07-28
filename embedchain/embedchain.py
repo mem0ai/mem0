@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
+from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
+from embedchain.loaders.base_loader import BaseLoader
 
 load_dotenv()
 
@@ -80,7 +82,7 @@ class EmbedChain:
             metadata,
         )
 
-    def load_and_embed(self, loader, chunker, src, metadata=None):
+    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -118,10 +120,13 @@ class EmbedChain:
         if self.config.id is not None:
             metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
+        # FIXME: Fix the error handling logic when metadatas or metadata is None
+        metadatas = metadatas if metadatas else []
+        metadata = metadata if metadata else {}
         chunks_before_addition = self.count()
 
         # Add metadata to each document
-        metadatas_with_metadata = [meta or metadata for meta in metadatas]
+        metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
         self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
@@ -286,7 +291,7 @@ class EmbedChain:
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config, **k)
+        contexts = self.retrieve_from_database(input_query, config)
 
         global memory
         chat_history = memory.load_memory_variables({})["history"]
