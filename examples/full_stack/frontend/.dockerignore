@@ -1,0 +1,7 @@
+node_modules/
+build
+dist
+.env
+.git
+.next/
+trash_files/
