@@ -18,7 +18,6 @@ app.register_blueprint(chat_response_bp)
 # Initialize the app on startup
 def load_app():
     os.makedirs(DB_DIRECTORY_OPEN_AI, exist_ok=True)
-    # os.makedirs(DB_DIRECTORY_OPEN_SOURCE, exist_ok=True)
     db.init_app(app)
     with app.app_context():
         db.create_all()
@@ -27,3 +26,4 @@ def load_app():
 if __name__ == '__main__':
     load_app()
     app.run(host='0.0.0.0', debug=True, port=8000)
+    

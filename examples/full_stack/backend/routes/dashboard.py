@@ -38,12 +38,10 @@ def check_key():
 def create_bot():
     data = request.get_json()
     name = data['name']
-    # persona = data['persona']
     slug = name.lower().replace(' ', '_')
     existing_bot = BotList.query.filter_by(slug=slug).first()
     if existing_bot:
         return make_response(jsonify(message='Bot already exists'), 400),
-    # new_bot = BotList(name=name, persona=persona, slug=slug)
     new_bot = BotList(name=name, slug=slug)
     db.session.add(new_bot)
     db.session.commit()
@@ -72,17 +70,5 @@ def get_bots():
         bot_list.append({
             'name': bot.name,
             'slug': bot.slug,
-            # 'persona': bot.persona
         })
     return jsonify(bot_list)
-
-
-# Purge the vector DBs
-# @dashboard_bp.route("/api/purge_db", methods=["POST"])
-# def purge_db():
-#     try:
-#         shutil.rmtree(os.path.join(DB_DIRECTORY_OPEN_AI,'db'))
-#         shutil.rmtree(os.path.join(DB_DIRECTORY_OPEN_SOURCE,'db'))
-#         return make_response(jsonify(message='Database purged successfully'), 200)
-#     except Exception as e:
-#         return make_response(jsonify({"error": str(e)}), 400)

@@ -21,10 +21,8 @@ def add_sources():
             api_key = APIKey.query.first().key
             os.environ['OPENAI_API_KEY'] = api_key
             chat_bot = App()
-        # elif embedding_model == 'open_source':
-        #     os.chdir(DB_DIRECTORY_OPEN_SOURCE)
-        #     chat_bot = OpenSourceApp()
         chat_bot.add(name, value)
         return make_response(jsonify(message='Sources added successfully'), 200)
     except Exception as e:
         return make_response(jsonify(message=f'Error adding sources: {str(e)}'), 400)
+        
