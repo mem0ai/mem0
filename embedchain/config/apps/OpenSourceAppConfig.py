@@ -8,7 +8,7 @@ class OpenSourceAppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `OpenSourceApp` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, collection_name=None, host=None, port=None, id=None, model=None):
+    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, model=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -24,10 +24,10 @@ class OpenSourceAppConfig(BaseAppConfig):
         super().__init__(
             log_level=log_level,
             embedding_fn=OpenSourceAppConfig.default_embedding_function(),
-            collection_name=collection_name,
             host=host,
             port=port,
             id=id,
+            collection_name=collection_name,
         )
 
     @staticmethod

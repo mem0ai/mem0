@@ -21,12 +21,11 @@ class CustomAppConfig(BaseAppConfig):
         embedding_fn: EmbeddingFunctions = None,
         embedding_fn_model=None,
         db=None,
-        collection_name=None,
         host=None,
         port=None,
         id=None,
+        collection_name=None,
         provider: Providers = None,
-        model=None,
         open_source_app_config=None,
     ):
         """
@@ -35,10 +34,10 @@ class CustomAppConfig(BaseAppConfig):
         :param embedding_fn: Optional. Embedding function to use.
         :param embedding_fn_model: Optional. Model name to use for embedding function.
         :param db: Optional. (Vector) database to use for embeddings.
-        :param collection_name: Optional. Collection name for the database.
-        :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
+        :param id: Optional. ID of the app. Document metadata will have this id.
+        :param collection_name: Optional. Collection name for the database.
         :param provider: Optional. (Providers): LLM Provider to use.
         :param open_source_app_config: Optional. Config instance needed for open source apps.
         """
@@ -53,10 +52,10 @@ class CustomAppConfig(BaseAppConfig):
             log_level=log_level,
             embedding_fn=CustomAppConfig.embedding_function(embedding_function=embedding_fn, model=embedding_fn_model),
             db=db,
-            collection_name=collection_name,
             host=host,
             port=port,
             id=id,
+            collection_name=collection_name,
         )
 
     @staticmethod
