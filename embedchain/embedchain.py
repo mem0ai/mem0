@@ -329,7 +329,7 @@ class EmbedChain:
         """
         Set the collection to use.
 
-        :param name: The name of the collection to use.
+        :param collection_name: The name of the collection to use.
         """
         self.collection = self.config.db._get_or_create_collection(collection_name)
 
