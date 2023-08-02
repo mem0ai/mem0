@@ -81,7 +81,7 @@ class TestChromaDbCollection(unittest.TestCase):
         """
         app = App()
 
-        self.assertEqual(app.collection.name, "embedchain")
+        self.assertEqual(app.collection.name, "embedchain_store")
 
     def test_init_with_custom_collection(self):
         """
