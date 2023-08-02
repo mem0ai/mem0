@@ -1,18 +1,14 @@
-import os 
-import shutil
-from flask import Blueprint, request, jsonify, make_response
+from flask import Blueprint, jsonify, make_response, request
+from models import APIKey, BotList, db
 
-from models import db, APIKey, BotList
-from paths import DB_DIRECTORY_OPEN_AI, DB_DIRECTORY_OPEN_SOURCE
-
-dashboard_bp = Blueprint('dashboard', __name__)
+dashboard_bp = Blueprint("dashboard", __name__)
 
 
 # Set Open AI Key
-@dashboard_bp.route('/api/set_key', methods=['POST'])
+@dashboard_bp.route("/api/set_key", methods=["POST"])
 def set_key():
     data = request.get_json()
-    api_key = data['openAIKey']
+    api_key = data["openAIKey"]
     existing_key = APIKey.query.first()
     if existing_key:
         existing_key.key = api_key
@@ -20,32 +16,32 @@ def set_key():
         new_key = APIKey(key=api_key)
         db.session.add(new_key)
     db.session.commit()
-    return make_response(jsonify(message='API key saved successfully'), 200)
+    return make_response(jsonify(message="API key saved successfully"), 200)
 
 
 # Check OpenAI Key
-@dashboard_bp.route('/api/check_key', methods=['GET'])
+@dashboard_bp.route("/api/check_key", methods=["GET"])
 def check_key():
     existing_key = APIKey.query.first()
     if existing_key:
-        return make_response(jsonify(status="ok", message='OpenAI Key exists'), 200)
+        return make_response(jsonify(status="ok", message="OpenAI Key exists"), 200)
     else:
-        return make_response(jsonify(status="fail", message='No OpenAI Key present'), 200)
+        return make_response(jsonify(status="fail", message="No OpenAI Key present"), 200)
 
 
 # Create a bot
-@dashboard_bp.route('/api/create_bot', methods=['POST'])
+@dashboard_bp.route("/api/create_bot", methods=["POST"])
 def create_bot():
     data = request.get_json()
-    name = data['name']
-    slug = name.lower().replace(' ', '_')
+    name = data["name"]
+    slug = name.lower().replace(" ", "_")
     existing_bot = BotList.query.filter_by(slug=slug).first()
     if existing_bot:
-        return make_response(jsonify(message='Bot already exists'), 400),
+        return (make_response(jsonify(message="Bot already exists"), 400),)
     new_bot = BotList(name=name, slug=slug)
     db.session.add(new_bot)
     db.session.commit()
-    return make_response(jsonify(message='Bot created successfully'), 200)
+    return make_response(jsonify(message="Bot created successfully"), 200)
 
 
 # Delete a bot
@@ -57,18 +53,20 @@ def delete_bot():
     if bot:
         db.session.delete(bot)
         db.session.commit()
-        return make_response(jsonify(message='Bot deleted successfully'), 200)
-    return make_response(jsonify(message='Bot not found'), 400)
+        return make_response(jsonify(message="Bot deleted successfully"), 200)
+    return make_response(jsonify(message="Bot not found"), 400)
 
 
 # Get the list of bots
-@dashboard_bp.route('/api/get_bots', methods=['GET'])
+@dashboard_bp.route("/api/get_bots", methods=["GET"])
 def get_bots():
     bots = BotList.query.all()
     bot_list = []
     for bot in bots:
-        bot_list.append({
-            'name': bot.name,
-            'slug': bot.slug,
-        })
+        bot_list.append(
+            {
+                "name": bot.name,
+                "slug": bot.slug,
+            }
+        )
     return jsonify(bot_list)

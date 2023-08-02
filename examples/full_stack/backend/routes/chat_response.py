@@ -1,11 +1,12 @@
-import os 
-from flask import Blueprint, request, jsonify, make_response
-from embedchain import App, PersonApp, OpenSourceApp, PersonOpenSourceApp
+import os
 
+from flask import Blueprint, jsonify, make_response, request
 from models import APIKey
-from paths import DB_DIRECTORY_OPEN_AI, DB_DIRECTORY_OPEN_SOURCE
+from paths import DB_DIRECTORY_OPEN_AI
 
-chat_response_bp = Blueprint('chat_response', __name__)
+from embedchain import App
+
+chat_response_bp = Blueprint("chat_response", __name__)
 
 
 # Chat Response for user query
@@ -26,7 +27,6 @@ def get_answer():
 
         response = chat_bot.chat(query)
         return make_response(jsonify({"response": response}), 200)
-        
+
     except Exception as e:
         return make_response(jsonify({"error": str(e)}), 400)
-        

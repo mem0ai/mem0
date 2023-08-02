@@ -1,15 +1,14 @@
 import os
+
 from flask import Flask
-
 from models import db
-from paths import ROOT_DIRECTORY, DB_DIRECTORY_OPEN_AI, DB_DIRECTORY_OPEN_SOURCE
-
+from paths import DB_DIRECTORY_OPEN_AI, ROOT_DIRECTORY
+from routes.chat_response import chat_response_bp
 from routes.dashboard import dashboard_bp
 from routes.sources import sources_bp
-from routes.chat_response import chat_response_bp
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(ROOT_DIRECTORY, 'database', 'user_data.db')
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(ROOT_DIRECTORY, "database", "user_data.db")
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(sources_bp)
 app.register_blueprint(chat_response_bp)
@@ -23,7 +22,6 @@ def load_app():
         db.create_all()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     load_app()
-    app.run(host='0.0.0.0', debug=True, port=8000)
-    
+    app.run(host="0.0.0.0", debug=True, port=8000)
