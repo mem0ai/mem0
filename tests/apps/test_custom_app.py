@@ -1,7 +1,9 @@
 import unittest
+
 from embedchain import CustomApp
 from embedchain.config import CustomAppConfig
-from embedchain.models import Providers, EmbeddingFunctions
+from embedchain.models import EmbeddingFunctions, Providers
+
 
 class TestChromaDbHosts(unittest.TestCase):
     def test_app_init_openai_openai(self):

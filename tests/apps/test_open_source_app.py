@@ -1,6 +1,8 @@
 import unittest
+
 from embedchain import OpenSourceApp
 from embedchain.config import OpenSourceAppConfig
+
 
 class TestChromaDbHosts(unittest.TestCase):
     def test_app_init(self):
