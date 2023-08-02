@@ -22,7 +22,7 @@ class BaseAppConfig(BaseConfig):
         self._setup_logging(log_level)
 
         self.db = db if db else BaseAppConfig.default_db(embedding_fn=embedding_fn, host=host, port=port)
-        self.collection_name = collection_name if collection_name else "embedchain"
+        self.collection_name = collection_name if collection_name else "embedchain_store"
         self.id = id
         return
 
