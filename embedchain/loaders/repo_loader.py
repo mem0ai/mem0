@@ -1,12 +1,14 @@
-import os
-import urllib.parse
-import tempfile
 import logging
-import subprocess
+import os
 import shutil
+import subprocess
+import tempfile
+import urllib.parse
 
 from repo_loader import repo_loader
+
 from embedchain.loaders.base_loader import BaseLoader
+
 
 class RepoLoader(BaseLoader):
     def load_data(self, content):
