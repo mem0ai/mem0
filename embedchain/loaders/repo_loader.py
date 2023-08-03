@@ -15,7 +15,7 @@ class RepoLoader(BaseLoader):
         # Check if content is a local directory
         if os.path.isdir(content):
             directory = os.path.abspath(content)
-            logging.debug(f"Loading from local directory: {directory}")
+            logging.debug(f"Loading repository from local directory: {directory}")
         else:
             # Check if content is a valid URL
             try:
