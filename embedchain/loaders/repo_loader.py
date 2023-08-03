@@ -1,14 +1,40 @@
+import os
+import urllib.parse
 import tempfile
 import logging
+import subprocess
+import shutil
 
 from repo_loader import repo_loader
-
 from embedchain.loaders.base_loader import BaseLoader
-
 
 class RepoLoader(BaseLoader):
     def load_data(self, content):
         """Load data from a git repository."""
+
+        # Check if content is a local directory
+        if os.path.isdir(content):
+            directory = os.path.abspath(content)
+            logging.debug(f"Loading from local directory: {directory}")
+        else:
+            # Check if content is a valid URL
+            try:
+                result = urllib.parse.urlparse(content)
+                if all([result.scheme, result.netloc]):
+                    # If content is a valid URL, clone the repository into a temporary directory
+                    temp_dir = tempfile.mkdtemp()
+                    try:
+                        subprocess.run(["git", "clone", content, temp_dir], check=True)
+                        directory = temp_dir
+                        logging.debug(f"Cloned repository from {content} to temporary directory {temp_dir}")
+                    except subprocess.CalledProcessError:
+                        shutil.rmtree(temp_dir)  # clean up
+                        raise ValueError(f"Failed to clone repository from URL: {content}")
+                else:
+                    raise ValueError("The content must be a valid local directory or a valid URL")
+            except ValueError as ve:
+                logging.error(str(ve))
+                raise
 
         # This creates a temporary file and opens it for writing
         temp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -17,7 +43,7 @@ class RepoLoader(BaseLoader):
             outfile = temp_file.name
             logging.debug(f"repository temp file located at: {temp_file.name}")
 
-            repo_loader.load(content, out_path=outfile, preamble="", quiet=True, progress=True)
+            repo_loader.load(directory, out_path=outfile, preamble="", quiet=True, progress=True)
 
             # Ensure everything is written
             temp_file.flush()
@@ -37,7 +63,7 @@ class RepoLoader(BaseLoader):
 
             # TODO: Repo name as metadata, whether it's remote or local.
             meta_data = {
-                "url": content,
+                "url": f"repo-{directory}",
             }
 
             output = [{"content": file, "meta_data": meta_data} for file in individual_file_content]
@@ -45,5 +71,9 @@ class RepoLoader(BaseLoader):
         finally:
             # Make sure you close the file when you're done with it
             temp_file.close()
+
+            # If the directory was a temporary one, remove it
+            if directory == temp_dir:
+                shutil.rmtree(temp_dir)
 
         return output
