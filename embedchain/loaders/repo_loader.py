@@ -18,6 +18,7 @@ class RepoLoader(BaseLoader):
         if os.path.isdir(content):
             directory = os.path.abspath(content)
             logging.debug(f"Loading repository from local directory: {directory}")
+            origin = directory
         else:
             # Check if content is a valid URL
             try:
@@ -29,6 +30,7 @@ class RepoLoader(BaseLoader):
                         subprocess.run(["git", "clone", content, temp_dir], check=True)
                         directory = temp_dir
                         logging.debug(f"Cloned repository from {content} to temporary directory {temp_dir}")
+                        origin = content
                     except subprocess.CalledProcessError:
                         shutil.rmtree(temp_dir)  # clean up
                         raise ValueError(f"Failed to clone repository from URL: {content}")
@@ -65,7 +67,7 @@ class RepoLoader(BaseLoader):
 
             # TODO: Repo name as metadata, whether it's remote or local.
             meta_data = {
-                "url": f"repo-{directory}",
+                "url": f"repo-{origin}",
             }
 
             output = [{"content": file, "meta_data": meta_data} for file in individual_file_content]
