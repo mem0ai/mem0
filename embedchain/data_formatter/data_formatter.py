@@ -11,6 +11,7 @@ from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
+from embedchain.loaders.repo_loader import RepoLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
@@ -44,6 +45,7 @@ class DataFormatter:
             "docx": DocxFileLoader(),
             "sitemap": SitemapLoader(),
             "docs_site": DocsSiteLoader(),
+            "repo": RepoLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -67,6 +69,7 @@ class DataFormatter:
             "docx": DocxFileChunker,
             "sitemap": WebPageChunker,
             "docs_site": DocsSiteChunker,
+            "repo": TextChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
