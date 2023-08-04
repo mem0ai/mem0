@@ -34,6 +34,7 @@ class AppConfig(BaseAppConfig):
             id=id,
             collection_name=collection_name,
             db_type=db_type,
+            vector_dim=1536,  # vector length created by embedding fn
         )
 
     @staticmethod

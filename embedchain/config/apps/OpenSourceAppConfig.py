@@ -30,6 +30,7 @@ class OpenSourceAppConfig(BaseAppConfig):
             id=id,
             collection_name=collection_name,
             db_type=db_type,
+            vector_dim=384,  # vector length created by embedding fn
         )
 
     @staticmethod

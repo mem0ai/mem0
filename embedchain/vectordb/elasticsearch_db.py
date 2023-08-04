@@ -15,7 +15,10 @@ class EsDB(BaseVectorDB):
     """
 
     def __init__(
-        self, embedding_fn: Callable[[list[str]], list[str]] = None, es_client: Optional[Elasticsearch] = None
+        self,
+        embedding_fn: Callable[[list[str]], list[str]] = None,
+        es_client: Optional[Elasticsearch] = None,
+        vector_dim: int = None,
     ):
         if not hasattr(embedding_fn, "__call__"):
             raise ValueError("Embedding function is not a function")
@@ -27,10 +30,11 @@ class EsDB(BaseVectorDB):
         api_key = api_key if api_key is not None else ""
         if not endpoint and not es_client:
             raise ValueError("Elasticsearch endpoint is required to connect")
+        if vector_dim is None:
+            raise ValueError("Vector Dimension is required to refer correct index and mapping")
         self.client = es_client if es_client is not None else Elasticsearch(endpoint, api_key=(api_key_id, api_key))
-        self.es_index = "embedchain_store"
-        # Check if its configurable, currently setting it to max, also check for performance issues
-        self.vector_dim = 2048
+        self.vector_dim = vector_dim
+        self.es_index = f"embedchain_store_{self.vector_dim}"
         self.bulk = bulk
         index_settings = {
             "mappings": {

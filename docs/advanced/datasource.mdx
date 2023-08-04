@@ -28,7 +28,7 @@ _To use elasticsearch as vector db we need an external running instance and conn
 - `Elasticsearch` as vector database can be used by setting `db_type='es'` in `AppConfig`.
 - `ES_ENDPOINT` is mandatory to connect to `Elasticsearch`. 
 - `ES_API_KEY_ID` and `ES_API_KEY` can be configured for authentication and connecting to `Elasticsearch`. 
-- An index with name `embedchain_store` is created if not present.
+- An index with name `embedchain_store_1536` is created if not present.
 
 ### OpenSourceApp
 Similarly for Open source app set `db_type='es'`
@@ -39,3 +39,4 @@ from embedchain.config import OpenSourceAppConfig
 opensource_es_app_config = OpenSourceAppConfig(db_type='es')
 opensource_es_app = OpenSourceApp(opensource_es_app_config)
 ```
+- An index with name `embedchain_store_384` is created if not present.

@@ -1,6 +1,5 @@
 from typing import Any, List, Optional, Union
 
-import numpy as np
 from langchain.docstore.document import Document
 
 from embedchain.vectordb.chroma_db import ChromaDB
@@ -54,15 +53,11 @@ class VectorDb:
             docs = []
             embeddings = self.db.embedding_fn(documents)
             for id, text, metadata, text_vector in zip(ids, documents, metadatas, embeddings):
-                # need to do this to create fixed dimension vector, padding with zeros
-                # NOTE: look for better solutions
-                vector = np.zeros(self.db.vector_dim)
-                vector[: len(text_vector)] = text_vector
                 docs.append(
                     {
                         "_index": self.db.es_index,
                         "_id": id,
-                        "_source": {"text": text, "metadata": metadata, "text_vector": vector.tolist()},
+                        "_source": {"text": text, "metadata": metadata, "text_vector": text_vector},
                     }
                 )
             self.db.bulk(self.db.client, docs)
@@ -102,14 +97,13 @@ class VectorDb:
             https://www.elastic.co/guide/en/elasticsearch/reference/master/knn-search.html#exact-knn
             """
             input_query_vector = self.db.embedding_fn(input_query)
-            query_vector = np.zeros(self.db.vector_dim)
-            query_vector[: len(input_query_vector[0])] = input_query_vector[0]
+            query_vector = input_query_vector[0]
             query = {
                 "script_score": {
                     "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},
                     "script": {
                         "source": "cosineSimilarity(params.input_query_vector, 'text_vector') + 1.0",
-                        "params": {"input_query_vector": query_vector.tolist()},
+                        "params": {"input_query_vector": query_vector},
                     },
                 }
             }
