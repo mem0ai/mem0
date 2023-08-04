@@ -91,6 +91,7 @@ beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"
 pytube = "^15.0.0"
 llama-index = { version = "^0.7.21", optional = true }
+elasticsearch = "^8.9.0"
 
 
 

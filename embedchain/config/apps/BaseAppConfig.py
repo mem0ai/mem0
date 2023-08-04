@@ -1,6 +1,7 @@
 import logging
 
 from embedchain.config.BaseConfig import BaseConfig
+from embedchain.vectordb.vector_db import VectorDb
 
 
 class BaseAppConfig(BaseConfig):
@@ -8,7 +9,17 @@ class BaseAppConfig(BaseConfig):
     Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
     """
 
-    def __init__(self, log_level=None, embedding_fn=None, db=None, host=None, port=None, id=None, collection_name=None):
+    def __init__(
+        self,
+        log_level=None,
+        embedding_fn=None,
+        db=None,
+        host=None,
+        port=None,
+        id=None,
+        collection_name=None,
+        db_type=None,
+    ):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -18,30 +29,46 @@ class BaseAppConfig(BaseConfig):
         :param port: Optional. Port for the database server.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param collection_name: Optional. Collection name for the database.
+        :param db_type: Optional. db type to use. Currently [chroma, es] are supported.
         """
         self._setup_logging(log_level)
-
-        self.db = db if db else BaseAppConfig.default_db(embedding_fn=embedding_fn, host=host, port=port)
+        self.db = BaseAppConfig.get_db(
+            db=db,
+            embedding_fn=embedding_fn,
+            host=host,
+            port=port,
+            db_type=db_type,
+        )
         self.collection_name = collection_name if collection_name else "embedchain_store"
         self.id = id
         return
 
     @staticmethod
-    def default_db(embedding_fn, host, port):
+    def get_db(db, embedding_fn, host, port, db_type):
         """
-        Sets database to default (`ChromaDb`).
-
+        Get db based on db_type, db with default database (`ChromaDb`)
+        :param Optional. (Vector) database to use for embeddings.
         :param embedding_fn: Embedding function to use in database.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
-        :returns: Default database
+        :param db_type: Optional. db type to use. Supported values (`es`, `chroma`)
+        :returns: database instance
         :raises ValueError: BaseAppConfig knows no default embedding function.
         """
+        if db:
+            return VectorDb(db, db_type)
+
         if embedding_fn is None:
             raise ValueError("ChromaDb cannot be instantiated without an embedding function")
+
+        if db_type == "es":
+            from embedchain.vectordb.elasticsearch_db import EsDB
+
+            return VectorDb(EsDB(embedding_fn=embedding_fn), db_type)
+
         from embedchain.vectordb.chroma_db import ChromaDB
 
-        return ChromaDB(embedding_fn=embedding_fn, host=host, port=port)
+        return VectorDb(ChromaDB(embedding_fn=embedding_fn, host=host, port=port))
 
     def _setup_logging(self, debug_level):
         level = logging.WARNING  # Default level

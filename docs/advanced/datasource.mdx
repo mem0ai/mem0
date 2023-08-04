@@ -1,0 +1,41 @@
+---
+title: '💾 Datasource'
+---
+
+## Vector Database
+
+We support `Chromadb` and `Elasticsearch` as two type of vector database. 
+`Chromadb` is used as default.
+
+### App
+```python
+import os
+
+from embedchain import App
+from embedchain.config import AppConfig
+
+os.environ["ES_ENDPOINT"] = "elasticsearch_endpoint"
+# Adds HTTP header 'Authorization: ApiKey <base64 api_key.id:api_key.api_key>'
+os.environ["ES_API_KEY_ID"] = "api_key_id" # Optional
+os.environ["ES_API_KEY"] = "api_key" # Optional
+
+
+es_app_config = AppConfig(db_type='es')
+es_app = App(es_app_config)
+```
+_To use elasticsearch as vector db we need an external running instance and connection config_
+
+- `Elasticsearch` as vector database can be used by setting `db_type='es'` in `AppConfig`.
+- `ES_ENDPOINT` is mandatory to connect to `Elasticsearch`. 
+- `ES_API_KEY_ID` and `ES_API_KEY` can be configured for authentication and connecting to `Elasticsearch`. 
+- An index with name `embedchain_store` is created if not present.
+
+### OpenSourceApp
+Similarly for Open source app set `db_type='es'`
+```python
+from embedchain import OpenSourceApp
+from embedchain.config import OpenSourceAppConfig
+
+opensource_es_app_config = OpenSourceAppConfig(db_type='es')
+opensource_es_app = OpenSourceApp(opensource_es_app_config)
+```

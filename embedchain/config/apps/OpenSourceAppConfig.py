@@ -8,7 +8,7 @@ class OpenSourceAppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `OpenSourceApp` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, model=None):
+    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, model=None, db_type=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -17,6 +17,7 @@ class OpenSourceAppConfig(BaseAppConfig):
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
         :param model: Optional. GPT4ALL uses the model to instantiate the class.
+        :param db_type: Optional. db type to use. Currently [chroma, es] are supported.
         So unlike `App`, it has to be provided before querying.
         """
         self.model = model or "orca-mini-3b.ggmlv3.q4_0.bin"
@@ -28,6 +29,7 @@ class OpenSourceAppConfig(BaseAppConfig):
             port=port,
             id=id,
             collection_name=collection_name,
+            db_type=db_type,
         )
 
     @staticmethod

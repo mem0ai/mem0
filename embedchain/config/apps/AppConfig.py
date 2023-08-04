@@ -16,7 +16,7 @@ class AppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `App` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None):
+    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, db_type=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -24,6 +24,7 @@ class AppConfig(BaseAppConfig):
         :param port: Optional. Port for the database server.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param collection_name: Optional. Collection name for the database.
+        :param db_type: Optional. db type to use. Currently [chroma, es] are supported.
         """
         super().__init__(
             log_level=log_level,
@@ -32,6 +33,7 @@ class AppConfig(BaseAppConfig):
             port=port,
             id=id,
             collection_name=collection_name,
+            db_type=db_type,
         )
 
     @staticmethod
