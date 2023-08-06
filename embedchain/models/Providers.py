@@ -7,3 +7,5 @@ class Providers(Enum):
     VERTEX_AI = "VERTEX_AI"
     GPT4ALL = "GPT4ALL"
     AZURE_OPENAI = "AZURE_OPENAI"
+    COHERE = "COHERE"
+    REPLICATE = "REPLICATE"

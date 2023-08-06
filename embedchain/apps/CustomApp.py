@@ -7,6 +7,8 @@ from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.models import Providers
 
+from litellm import completion
+
 
 class CustomApp(EmbedChain):
     """
@@ -72,21 +74,20 @@ class CustomApp(EmbedChain):
 
     @staticmethod
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
-        from langchain.chat_models import ChatOpenAI
+        from litellm import completion
+        if config.top_p and config.top_p != 1:
+            logging.warning("Config option `top_p` is not supported by this model.")
 
-        chat = ChatOpenAI(
+        messages = CustomApp._get_messages(prompt)
+        response = completion(
+            messages = messages,
             temperature=config.temperature,
             model=config.model or "gpt-3.5-turbo",
             max_tokens=config.max_tokens,
             streaming=config.stream,
         )
 
-        if config.top_p and config.top_p != 1:
-            logging.warning("Config option `top_p` is not supported by this model.")
-
-        messages = CustomApp._get_messages(prompt)
-
-        return chat(messages).content
+        return response["choices"][0]["message"]["content"] 
 
     @staticmethod
     def _get_athrophic_answer(prompt: str, config: ChatConfig) -> str:
