@@ -171,3 +171,7 @@ db
 .idea/
 
 .DS_Store
+
+# Google API
+credentials.json
+token.json
