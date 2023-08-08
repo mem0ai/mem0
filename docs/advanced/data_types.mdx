@@ -54,6 +54,34 @@ To add any code documentation website as a loader, use the data_type as `docs_si
 app.add("docs_site", "https://docs.embedchain.ai/")
 ```
 
+### Gmail
+
+To add mails from your gmail inbox, use the data_type as `gmail`.
+
+The second argument is a search query. You can test queries in your gmail web client.
+For all mails, use `*` (behaviour with large inboxes has not been tested, use at your own risk).
+
+To use this you need `credentials.json` in your current directory. Follow these steps to get the credentials
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Create a project if you don#t have one already.
+3. Create an `OAuth Consent Screen` in the project. Don't be alarmed when you have to choose `external`.
+4. Make sure the consent screen is published.
+5. Enable the [Gmail API](https://console.cloud.google.com/apis/api/gmail.googleapis.com)
+6. Create credentials from the `Credentials` tab.
+7. Select the type `OAuth Client ID`.
+8. Choose the application type `Web application`. As a name you can choose `embedchain`.
+9. Add an authorized redirect URI for `http://localhost:8080/`.
+10. You can leave everything else at default, finish the creation.
+11. When you are done, a modal opens where you can download the details in `json` format.
+12. Put the `.json` file in your current directory and rename it to `credentials.json`
+
+Eg:
+
+```python
+app.add("gmail", "*")
+```
+
 ### Text
 
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
