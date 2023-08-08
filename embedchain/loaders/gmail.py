@@ -77,8 +77,7 @@ class GmailLoader(BaseLoader):
                     f"[{id}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
                 )
 
-            output.append({
-                "meta_data": {"url": id}, "content": content})
+            output.append({"meta_data": {"url": id}, "content": content})
 
         print(output)
         return output
