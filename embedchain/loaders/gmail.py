@@ -1,8 +1,7 @@
 import logging
 import quopri
-from datetime import datetime
+from textwrap import dedent
 
-import requests
 from bs4 import BeautifulSoup
 
 try:
@@ -99,7 +98,13 @@ class GmailLoader(BaseLoader):
                     f"[{id}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
                 )
 
-            result = f"email from '{meta_data.get('from')}' to '{meta_data.get('to')}'\nsubject: {meta_data.get('subject')}\ndate: {meta_data.get('date')}\npreview: {snippet}\ncontent: f{content}\n"
-            output.append({"meta_data": meta_data, "content": result})
+            result = f"""
+            email from '{meta_data.get('from')}' to '{meta_data.get('to')}'
+            subject: {meta_data.get('subject')}
+            date: {meta_data.get('date')}
+            preview: {snippet}
+            content: f{content}
+            """
+            output.append({"meta_data": meta_data, "content": dedent(result)})
 
         return output
