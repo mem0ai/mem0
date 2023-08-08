@@ -1,5 +1,6 @@
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.gmail import GmailChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
@@ -8,6 +9,7 @@ from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
+from embedchain.loaders.gmail import GmailLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
@@ -44,6 +46,7 @@ class DataFormatter:
             "docx": DocxFileLoader(),
             "sitemap": SitemapLoader(),
             "docs_site": DocsSiteLoader(),
+            "gmail": GmailLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -67,6 +70,7 @@ class DataFormatter:
             "docx": DocxFileChunker,
             "sitemap": WebPageChunker,
             "docs_site": DocsSiteChunker,
+            "gmail": GmailChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
