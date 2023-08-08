@@ -1,0 +1,7 @@
+__pycache__/
+database
+pyenv
+venv
+.env
+.git
+trash_files/

@@ -35,6 +35,10 @@
       "pages": ["advanced/app_types", "advanced/interface_types", "advanced/adding_data","advanced/data_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/showcase"]
     },
     {
+      "group": "Examples",
+      "pages": ["examples/full_stack"]
+    },
+    {
       "group": "Contribution Guidelines",
       "pages": ["contribution/dev", "contribution/docs"]
     }

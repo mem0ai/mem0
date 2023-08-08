@@ -1,0 +1,20 @@
+<svg
+  fill="currentColor"
+  version="1.1"
+  id="Layer_1"
+  xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  viewBox="0 0 24 24"
+  enable-background="new 0 0 24 24"
+  xml:space="preserve"
+>
+  <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+  <g
+    id="SVGRepo_tracerCarrier"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  ></g>
+  <g id="SVGRepo_iconCarrier">
+    <path d="M18.41,0.01H4V9h2V2.01h10v6h6v14H4v2h20V5.6L18.41,0.01z M18,2.43l3.59,3.59H18V2.43z M21,18v2h-1h-1h-1v-8h2v6H21z M7,12 H6v2h1v6h2v-6h1v-2H9H7z M15,12l-1,1.61L13,12v0h-2v8h2v-4.21l1,1.61l1-1.61V20h2v-8L15,12L15,12z M3,15H2v-3H0v8h2v-3h1v3h2v-8H3 V15z"></path>
+  </g>
+</svg>
