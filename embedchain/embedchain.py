@@ -81,7 +81,7 @@ class EmbedChain:
             data_type = detect_datatype(source)
 
         # `source_id` is the hash of the source argument
-        hash_object = hashlib.md5(source.encode("utf-8"))
+        hash_object = hashlib.md5(str(source).encode("utf-8"))
         source_id = hash_object.hexdigest()
 
         data_formatter = DataFormatter(data_type, config)
