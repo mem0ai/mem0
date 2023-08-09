@@ -57,6 +57,18 @@ class EmbedChain:
         if config is None:
             config = AddConfig()
 
+        try:
+            DataType(source)
+            logging.warning(
+                f"It looks like you used '{source}', a data_type, as the source argument. Since v0.0.34, Embedchain is able to detect the data_type automatically, so the arguments of the `add` method switched places."  # noqa #E501
+            )
+            logging.warning(
+                "Embedchain is swapping the arguments for you. This functionality might be deprecated in the future, so please adjust your code."  # noqa #E501
+            )
+            source, data_type = data_type, source
+        except ValueError:
+            pass
+
         if data_type:
             try:
                 data_type = DataType(data_type)
