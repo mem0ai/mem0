@@ -70,6 +70,28 @@ class EmbedChain:
 
         return hash_hex
 
+    def add_local(self, source, data_type=None, metadata=None, config: AddConfig = None):
+        """
+        Warning:
+            This method is deprecated and will be removed in future versions. Use `add` instead.
+
+        Adds the data from the given URL to the vector db.
+        Loads the data, chunks it, create embedding for each chunk
+        and then stores the embedding to vector database.
+
+        :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
+        :param data_type: Optional. Automatically detected, but can be forced with this argument.
+        The type of the data to add.
+        :param metadata: Optional. Metadata associated with the data source.
+        :param config: Optional. The `AddConfig` instance to use as configuration
+        options.
+        :return: md5-hash of the source, in hexadecimal representation.
+        """
+        logging.warning(
+            "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."
+        )
+        return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
+
     def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, hash_hex=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
