@@ -38,18 +38,20 @@ class DataFormatter:
         :raises ValueError: If an unsupported data type is provided.
         """
         loaders = {
-            "youtube_video": YoutubeVideoLoader(),
-            "pdf_file": PdfFileLoader(),
-            "web_page": WebPageLoader(),
-            "qna_pair": LocalQnaPairLoader(),
-            "text": LocalTextLoader(),
-            "docx": DocxFileLoader(),
-            "sitemap": SitemapLoader(),
-            "docs_site": DocsSiteLoader(),
-            "notion": NotionLoader(),
+            "youtube_video": YoutubeVideoLoader,
+            "pdf_file": PdfFileLoader,
+            "web_page": WebPageLoader,
+            "qna_pair": LocalQnaPairLoader,
+            "text": LocalTextLoader,
+            "docx": DocxFileLoader,
+            "sitemap": SitemapLoader,
+            "docs_site": DocsSiteLoader,
+            "notion": NotionLoader,
         }
         if data_type in loaders:
-            return loaders[data_type]
+            loader_class = loaders[data_type]
+            loader = loader_class()
+            return loader
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
 
