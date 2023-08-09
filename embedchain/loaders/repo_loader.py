@@ -79,7 +79,11 @@ class RepoLoader(BaseLoader):
             temp_file.close()
 
             # If the directory was a temporary one, remove it
-            if directory == temp_dir:
-                shutil.rmtree(temp_dir)
+            try:
+                if temp_dir and directory == temp_dir:
+                    shutil.rmtree(temp_dir)
+            except UnboundLocalError:
+                # Make sure cleanup doesn't fail if no temp_dir was created.
+                pass
 
         return output
