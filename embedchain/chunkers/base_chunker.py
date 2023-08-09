@@ -1,5 +1,7 @@
 import hashlib
+
 from embedchain.models.data_type import DataType
+
 
 class BaseChunker:
     def __init__(self, text_splitter):
