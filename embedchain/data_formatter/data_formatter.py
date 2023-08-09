@@ -1,5 +1,6 @@
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
@@ -10,6 +11,7 @@ from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
+from embedchain.loaders.notion import NotionLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
@@ -44,6 +46,7 @@ class DataFormatter:
             "docx": DocxFileLoader(),
             "sitemap": SitemapLoader(),
             "docs_site": DocsSiteLoader(),
+            "notion": NotionLoader(),
         }
         if data_type in loaders:
             return loaders[data_type]
@@ -67,6 +70,7 @@ class DataFormatter:
             "docx": DocxFileChunker,
             "sitemap": WebPageChunker,
             "docs_site": DocsSiteChunker,
+            "notion": NotionChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
