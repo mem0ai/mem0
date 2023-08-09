@@ -8,19 +8,21 @@ class BaseAppConfig(BaseConfig):
     Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
     """
 
-    def __init__(self, log_level=None, embedding_fn=None, db=None, host=None, port=None, id=None):
+    def __init__(self, log_level=None, embedding_fn=None, db=None, host=None, port=None, id=None, collection_name=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param embedding_fn: Embedding function to use.
         :param db: Optional. (Vector) database instance to use for embeddings.
-        :param id: Optional. ID of the app. Document metadata will have this id.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
+        :param id: Optional. ID of the app. Document metadata will have this id.
+        :param collection_name: Optional. Collection name for the database.
         """
         self._setup_logging(log_level)
 
         self.db = db if db else BaseAppConfig.default_db(embedding_fn=embedding_fn, host=host, port=port)
+        self.collection_name = collection_name if collection_name else "embedchain_store"
         self.id = id
         return
 

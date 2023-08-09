@@ -3,7 +3,6 @@ class BaseVectorDB:
 
     def __init__(self):
         self.client = self._get_or_create_db()
-        self.collection = self._get_or_create_collection()
 
     def _get_or_create_db(self):
         """Get or create the database."""
