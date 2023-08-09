@@ -1,6 +1,13 @@
 import logging
 
-import chromadb
+try:
+    import chromadb
+except RuntimeError:
+    from embedchain.utils import use_pysqlite3
+
+    use_pysqlite3()
+    import chromadb
+from chromadb.config import Settings
 
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
@@ -16,26 +23,23 @@ class ChromaDB(BaseVectorDB):
 
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.client_settings = chromadb.config.Settings(
-                chroma_api_impl="rest",
-                chroma_server_host=host,
-                chroma_server_http_port=port,
-            )
+            self.settings = Settings(chroma_server_host=host, chroma_server_http_port=port)
+            self.client = chromadb.HttpClient(self.settings)
         else:
             if db_dir is None:
                 db_dir = "db"
-            self.client_settings = chromadb.config.Settings(
-                chroma_db_impl="duckdb+parquet",
-                persist_directory=db_dir,
-                anonymized_telemetry=False,
+            self.settings = Settings(anonymized_telemetry=False, allow_reset=True)
+            self.client = chromadb.PersistentClient(
+                path=db_dir,
+                settings=self.settings,
             )
         super().__init__()
 
     def _get_or_create_db(self):
         """Get or create the database."""
-        return chromadb.Client(self.client_settings)
+        return self.client
 
-    def _get_or_create_collection(self, name=None):
+    def _get_or_create_collection(self, name):
         """Get or create the collection."""
         if name is None:
             name = "embedchain_store"

@@ -64,14 +64,15 @@ class CustomApp(EmbedChain):
             if self.provider == Providers.GPT4ALL:
                 return self.open_source_app._get_gpt4all_answer(prompt, config)
 
+            if self.provider == Providers.AZURE_OPENAI:
+                return CustomApp._get_azure_openai_answer(prompt, config)
+
         except ImportError as e:
             raise ImportError(e.msg) from None
 
     @staticmethod
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import ChatOpenAI
-
-        logging.info(vars(config))
 
         chat = ChatOpenAI(
             temperature=config.temperature,
@@ -105,6 +106,29 @@ class CustomApp(EmbedChain):
         from langchain.chat_models import ChatVertexAI
 
         chat = ChatVertexAI(temperature=config.temperature, model=config.model, max_output_tokens=config.max_tokens)
+
+        if config.top_p and config.top_p != 1:
+            logging.warning("Config option `top_p` is not supported by this model.")
+
+        messages = CustomApp._get_messages(prompt)
+
+        return chat(messages).content
+
+    @staticmethod
+    def _get_azure_openai_answer(prompt: str, config: ChatConfig) -> str:
+        from langchain.chat_models import AzureChatOpenAI
+
+        if not config.deployment_name:
+            raise ValueError("Deployment name must be provided for Azure OpenAI")
+
+        chat = AzureChatOpenAI(
+            deployment_name=config.deployment_name,
+            openai_api_version="2023-05-15",
+            model_name=config.model or "gpt-3.5-turbo",
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+            streaming=config.stream,
+        )
 
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
