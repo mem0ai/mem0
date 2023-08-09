@@ -350,6 +350,8 @@ class EmbedChain:
         self.db_client.reset()
         self.collection = self.config.db._get_or_create_collection(collection_name)
         # Todo: Automatically recreating a collection with the same name cannot be the best way to handle a reset.
+        # A downside of this implementation is, if you have two instances,
+        # the other instance will not get the updated `self.collection` attribute.
         # A better way would be to create the collection if it is called again after being reset.
-        # That means, checking if the collection exists inside the database consuming methods, and creating it if it doesn't.
-        # For now, this will do.
+        # That means, checking if collection exists in the db-consuming methods, and creating it if it doesn't.
+        # That's an extra steps for all uses, just to satisfy a niche use case in a niche method. For now, this will do.
