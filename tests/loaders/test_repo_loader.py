@@ -24,4 +24,4 @@ class TestRepoLoader(unittest.TestCase):
 
         # Verify the metadata
         metadata = data_item["meta_data"]
-        self.assertEqual(metadata["url"], "repo-https://github.com/github/gitignore")
+        self.assertEqual(metadata["url"], "https://github.com/github/gitignore")

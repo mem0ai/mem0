@@ -19,6 +19,7 @@ class RepoLoader(BaseLoader):
             directory = os.path.abspath(content)
             logging.debug(f"Loading repository from local directory: {directory}")
             origin = directory
+            is_local = True
         else:
             # Check if content is a valid URL
             try:
@@ -34,6 +35,7 @@ class RepoLoader(BaseLoader):
                     except subprocess.CalledProcessError:
                         shutil.rmtree(temp_dir)  # clean up
                         raise ValueError(f"Failed to clone repository from URL: {content}")
+                    is_local = False
                 else:
                     raise ValueError("The content must be a valid local directory or a valid URL")
             except ValueError as ve:
@@ -67,7 +69,7 @@ class RepoLoader(BaseLoader):
 
             # TODO: Repo name as metadata, whether it's remote or local.
             meta_data = {
-                "url": f"repo-{origin}",
+                "url": f"repo-{origin}" if is_local else content,
             }
 
             output = [{"content": file, "meta_data": meta_data} for file in individual_file_content]
