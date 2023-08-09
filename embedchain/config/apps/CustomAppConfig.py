@@ -52,8 +52,7 @@ class CustomAppConfig(BaseAppConfig):
         super().__init__(
             log_level=log_level,
             embedding_fn=CustomAppConfig.embedding_function(
-                embedding_function=embedding_fn, model=embedding_fn_model,
-                deployment_name=deployment_name
+                embedding_function=embedding_fn, model=embedding_fn_model, deployment_name=deployment_name
             ),
             db=db,
             host=host,
