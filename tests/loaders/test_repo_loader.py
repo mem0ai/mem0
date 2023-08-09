@@ -1,7 +1,7 @@
-import unittest
+import os
 import subprocess
 import tempfile
-import os
+import unittest
 
 from embedchain.loaders.repo_loader import RepoLoader
 
@@ -28,6 +28,7 @@ class TestRepoLoader(unittest.TestCase):
         # Verify the metadata
         metadata = data_item["meta_data"]
         self.assertEqual(metadata["url"], "https://github.com/github/gitignore")
+
 
 class TestRepoLoaderWithLocalClone(unittest.TestCase):
     def test_load_data_from_local_clone(self):
