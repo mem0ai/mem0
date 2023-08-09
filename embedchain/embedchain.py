@@ -13,6 +13,7 @@ from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 from embedchain.loaders.base_loader import BaseLoader
+from embedchain.models.data_type import DataType
 from embedchain.utils import detect_datatype
 
 load_dotenv()
@@ -56,6 +57,14 @@ class EmbedChain:
         if config is None:
             config = AddConfig()
 
+        if data_type:
+            try:
+                data_type = DataType(data_type)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid data_type: '{data_type}'.",
+                    f"Please use one of the following: {[data_type.value for data_type in DataType]}",
+                ) from None
         if not data_type:
             data_type = detect_datatype(source)
 
@@ -88,7 +97,7 @@ class EmbedChain:
         :return: md5-hash of the source, in hexadecimal representation.
         """
         logging.warning(
-            "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."
+            "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."  # noqa: E501
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
 
