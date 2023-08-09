@@ -32,7 +32,7 @@ class EmbedChain:
 
         self.config = config
         self.db_client = self.config.db.client
-        self.collection = self.config.db.collection
+        self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
@@ -324,6 +324,14 @@ class EmbedChain:
             yield chunk
         memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
+
+    def set_collection(self, collection_name):
+        """
+        Set the collection to use.
+
+        :param collection_name: The name of the collection to use.
+        """
+        self.collection = self.config.db._get_or_create_collection(collection_name)
 
     def count(self):
         """

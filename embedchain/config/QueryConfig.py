@@ -62,6 +62,7 @@ class QueryConfig(BaseConfig):
         top_p=None,
         history=None,
         stream: bool = False,
+        deployment_name=None,
     ):
         """
         Initializes the QueryConfig instance.
@@ -106,6 +107,7 @@ class QueryConfig(BaseConfig):
         self.max_tokens = max_tokens if max_tokens else 1000
         self.model = model
         self.top_p = top_p if top_p else 1
+        self.deployment_name = deployment_name
 
         if self.validate_template(template):
             self.template = template

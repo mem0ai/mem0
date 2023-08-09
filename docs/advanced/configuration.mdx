@@ -20,6 +20,10 @@ from chromadb.utils import embedding_functions
 config = AppConfig(log_level="DEBUG")
 naval_chat_bot = App(config)
 
+# Example: specify a custom collection name
+config = AppConfig(collection_name="naval_chat_bot")
+naval_chat_bot = App(config)
+
 # Example: define your own chunker config for `youtube_video`
 chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=100, length_function=len)
 naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(chunker=chunker_config))
