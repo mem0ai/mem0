@@ -5,7 +5,7 @@ from embedchain.config import CustomAppConfig
 from embedchain.models import EmbeddingFunctions, Providers
 
 
-class TestChromaDbHosts(unittest.TestCase):
+class TestCustomApp(unittest.TestCase):
     def test_app_init_openai_openai(self):
         """
         Test that app can be instantiated with config.

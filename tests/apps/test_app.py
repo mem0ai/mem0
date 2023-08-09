@@ -4,7 +4,7 @@ from embedchain import App
 from embedchain.config import AppConfig
 
 
-class TestChromaDbHosts(unittest.TestCase):
+class TestApp(unittest.TestCase):
     def test_app_init(self):
         """
         Test that app can be instantiated with config.
