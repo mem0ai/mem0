@@ -59,3 +59,5 @@ class BaseChunker:
         set the data type of chunker
         """
         self.data_type = data_type
+
+        # TODO: This should be done during initialization. This means it has to be done in the child classes.
