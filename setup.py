@@ -38,5 +38,8 @@ setuptools.setup(
         "duckduckgo-search==3.8.4",
         "repo-loader==0.2.2",
     ],
-    extras_require={"dev": ["black", "ruff", "isort", "pytest"], "community": ["llama-index==0.7.21"]},
+    extras_require={
+        "dev": ["black", "ruff", "isort", "pytest"],
+        "community": ["llama-index==0.7.21", "repo-loader==0.2.2"],
+    },
 )
