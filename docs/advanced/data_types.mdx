@@ -82,6 +82,18 @@ Eg:
 app.add("gmail", "*")
 ```
 
+### Notion
+To use notion you must install the extra dependencies with `pip install embedchain[notion]`.
+
+To load a notion page, use the data_type as `notion`.
+The next argument must **end** with the `notion page id`. The id is a 32-character string. Eg:
+
+```python
+app.add("notion", "cfbc134ca6464fc980d0391613959196")
+app.add("notion", "my-page-cfbc134ca6464fc980d0391613959196")
+app.add("notion", "https://www.notion.so/my-page-cfbc134ca6464fc980d0391613959196")
+```
+
 ### Text
 
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:

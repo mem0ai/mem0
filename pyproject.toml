@@ -108,7 +108,6 @@ isort = "^5.12.0"
 streamlit = ["streamlit"]
 community = ["llama-index"]
 
-
 [tool.poetry.group.docs.dependencies]
 
 
