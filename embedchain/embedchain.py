@@ -52,7 +52,7 @@ class EmbedChain:
         :param metadata: Optional. Metadata associated with the data source.
         :param config: Optional. The `AddConfig` instance to use as configuration
         options.
-        :return: md5-hash of the source, in hexadecimal representation.
+        :return: source_id, a md5-hash of the source, in hexadecimal representation.
         """
         if config is None:
             config = AddConfig()
@@ -80,16 +80,17 @@ class EmbedChain:
         if not data_type:
             data_type = detect_datatype(source)
 
+        # `source_id` is the hash of the source argument
         hash_object = hashlib.md5(source.encode("utf-8"))
-        hash_hex = hash_object.hexdigest()
+        source_id = hash_object.hexdigest()
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, hash_hex)
+        self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, source_id)
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
 
-        return hash_hex
+        return source_id
 
     def add_local(self, source, data_type=None, metadata=None, config: AddConfig = None):
         """
@@ -113,7 +114,7 @@ class EmbedChain:
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
 
-    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, hash_hex=None):
+    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, source_id=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -122,7 +123,7 @@ class EmbedChain:
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
-        :param hash_hex: Hexadecimal hash of the source.
+        :param source_id: Hexadecimal hash of the source.
         """
         embeddings_data = chunker.create_chunks(loader, src)
 
@@ -159,7 +160,7 @@ class EmbedChain:
                 m["app_id"] = self.config.id
 
             # Add hashed source
-            m["hash"] = hash_hex
+            m["hash"] = source_id
 
             # Note: Metadata is the function argument
             if metadata:
