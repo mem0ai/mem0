@@ -141,6 +141,10 @@ def detect_datatype(source: Any) -> str:
         if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
             return "youtube_video"
+        
+        if url.netloc in {"notion.so", "notion.site"}:
+            logging.debug(f"Source of `{formatted_source}` detected as `notion`.")
+            return "notion"
 
         if url.path.endswith(".pdf"):
             logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
