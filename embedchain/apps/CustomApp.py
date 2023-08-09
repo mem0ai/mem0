@@ -74,8 +74,6 @@ class CustomApp(EmbedChain):
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import ChatOpenAI
 
-        logging.info(vars(config))
-
         chat = ChatOpenAI(
             temperature=config.temperature,
             model=config.model or "gpt-3.5-turbo",
@@ -120,11 +118,13 @@ class CustomApp(EmbedChain):
     def _get_azure_openai_answer(prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import AzureChatOpenAI
 
-        logging.info(vars(config))
+        if not config.deployment_name:
+            raise ValueError("Deployment name must be provided for Azure OpenAI")
 
         chat = AzureChatOpenAI(
-            deployment_name="td2",
-            model_name=config.model or "text-davinci-002",
+            deployment_name=config.deployment_name,
+            openai_api_version="2023-05-15",
+            model_name=config.model or "gpt-3.5-turbo",
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             streaming=config.stream,
