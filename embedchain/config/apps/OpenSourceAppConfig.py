@@ -41,6 +41,6 @@ class OpenSourceAppConfig(BaseAppConfig):
             return embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
         except ValueError as e:
             print(e)
-            raise ImportError(
+            raise ModuleNotFoundError(
                 "The open source app requires extra dependencies. Install with `pip install embedchain[opensource]`"
             ) from None
