@@ -367,6 +367,8 @@ class EmbedChain:
                 "metadata": {
                     "app_id": self.config.id,
                     "version": importlib.metadata.version(__package__ or __name__),
+                    "method": "init",
+                    "language": "py",
                 }
             }
             response = requests.post(url, json=payload)
