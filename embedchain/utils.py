@@ -65,7 +65,7 @@ def use_pysqlite3():
             import datetime
             import subprocess
             import sys
-            
+
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", "pysqlite3-binary", "--quiet", "--disable-pip-version-check"]
             )
@@ -86,6 +86,6 @@ def use_pysqlite3():
             print(
                 f"{current_time} [embedchain] [ERROR]",
                 "Failed to swap std-lib sqlite3 with pysqlite3 for ChromaDb compatibility.",
-                f"Error:",
-                e
+                "Error:",
+                e,
             )
