@@ -46,14 +46,14 @@ class DataFormatter:
             DataType.DOCX: DocxFileLoader(),
             DataType.SITEMAP: SitemapLoader(),
             DataType.DOCS_SITE: DocsSiteLoader(),
-            DataType.NOTION: NotionLoader(),
         }
-        lazy_loaders = ("notion", )
+        lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
             return loaders[data_type]
         elif data_type in lazy_loaders:
-            if data_type == "notion":
+            if data_type == DataType.NOTION:
                 from embedchain.loaders.notion import NotionLoader
+
                 return NotionLoader()
             else:
                 raise ValueError(f"Unsupported data type: {data_type}")
