@@ -1,10 +1,14 @@
+import importlib.metadata
 import logging
 import os
+import threading
 
+import requests
 from chromadb.errors import InvalidDimensionException
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
@@ -36,6 +40,10 @@ class EmbedChain:
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
+
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._track)
+        thread_telemetry.start()
 
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
         """
@@ -347,3 +355,19 @@ class EmbedChain:
         `App` has to be reinitialized after using this method.
         """
         self.db_client.reset()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+    def _track(self):
+        if not self.config.anonymous_telemetry:
+            return
+
+        with threading.Lock():
+            url = "https://api.embedchain.ai/api/v1/telemetry/"
+            payload = {
+                "metadata": {
+                    "app_id": self.config.id,
+                    "version": importlib.metadata.version(__package__ or __name__),
+                }
+            }
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
