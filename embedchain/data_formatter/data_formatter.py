@@ -40,7 +40,7 @@ class DataFormatter:
         loaders = {
             DataType.YOUTUBE_VIDEO: YoutubeVideoLoader(),
             DataType.PDF_FILE: PdfFileLoader(),
-            DataType.PDF_FILE: WebPageLoader(),
+            DataType.WEB_PAGE: WebPageLoader(),
             DataType.QNA_PAIR: LocalQnaPairLoader(),
             DataType.TEXT: LocalTextLoader(),
             DataType.DOCX: DocxFileLoader(),
