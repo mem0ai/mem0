@@ -3,6 +3,7 @@ from typing import Any
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
 
+from embedchain.config.vectordbs import ElasticsearchDBConfig
 from embedchain.models import EmbeddingFunctions, Providers, VectorDatabases, VectorDimensions
 
 from .BaseAppConfig import BaseAppConfig
@@ -29,6 +30,7 @@ class CustomAppConfig(BaseAppConfig):
         open_source_app_config=None,
         deployment_name=None,
         db_type: VectorDatabases = None,
+        es_config: ElasticsearchDBConfig = None,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -43,6 +45,7 @@ class CustomAppConfig(BaseAppConfig):
         :param provider: Optional. (Providers): LLM Provider to use.
         :param open_source_app_config: Optional. Config instance needed for open source apps.
         :param db_type: Optional. type of Vector database to use.
+        :param es_config: Optional. elasticsearch database config to be used for connection
         """
         if provider:
             self.provider = provider
@@ -63,6 +66,7 @@ class CustomAppConfig(BaseAppConfig):
             collection_name=collection_name,
             db_type=db_type,
             vector_dim=CustomAppConfig.get_vector_dimension(embedding_function=embedding_fn),
+            es_config=es_config,
         )
 
     @staticmethod
