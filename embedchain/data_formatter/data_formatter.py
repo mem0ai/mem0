@@ -1,5 +1,6 @@
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.text import TextChunker
@@ -45,8 +46,15 @@ class DataFormatter:
             "sitemap": SitemapLoader(),
             "docs_site": DocsSiteLoader(),
         }
+        lazy_loaders = ("notion", )
         if data_type in loaders:
             return loaders[data_type]
+        elif data_type in lazy_loaders:
+            if data_type == "notion":
+                from embedchain.loaders.notion import NotionLoader
+                return NotionLoader()
+            else:
+                raise ValueError(f"Unsupported data type: {data_type}")
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
 
@@ -67,6 +75,7 @@ class DataFormatter:
             "docx": DocxFileChunker,
             "sitemap": WebPageChunker,
             "docs_site": DocsSiteChunker,
+            "notion": NotionChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]

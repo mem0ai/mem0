@@ -8,11 +8,12 @@ class OpenSourceAppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `OpenSourceApp` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, host=None, port=None, id=None, model=None):
+    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, model=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
         :param id: Optional. ID of the app. Document metadata will have this id.
+        :param collection_name: Optional. Collection name for the database.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
         :param model: Optional. GPT4ALL uses the model to instantiate the class.
@@ -26,6 +27,7 @@ class OpenSourceAppConfig(BaseAppConfig):
             host=host,
             port=port,
             id=id,
+            collection_name=collection_name,
         )
 
     @staticmethod
