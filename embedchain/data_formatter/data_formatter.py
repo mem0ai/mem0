@@ -11,7 +11,6 @@ from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
-from embedchain.loaders.notion import NotionLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
@@ -49,8 +48,15 @@ class DataFormatter:
             DataType.DOCS_SITE: DocsSiteLoader(),
             DataType.NOTION: NotionLoader(),
         }
+        lazy_loaders = ("notion", )
         if data_type in loaders:
             return loaders[data_type]
+        elif data_type in lazy_loaders:
+            if data_type == "notion":
+                from embedchain.loaders.notion import NotionLoader
+                return NotionLoader()
+            else:
+                raise ValueError(f"Unsupported data type: {data_type}")
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
 
