@@ -1,8 +1,8 @@
 import logging
 import os
 
-from chromadb.errors import InvalidDimensionException
 from dotenv import load_dotenv
+from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
 from embedchain.chunkers.base_chunker import BaseChunker
@@ -30,8 +30,7 @@ class EmbedChain:
         """
 
         self.config = config
-        # self.db_client = self.config.db.client
-        # self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
+        self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
         self.db = self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
@@ -97,9 +96,11 @@ class EmbedChain:
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         # get existing ids, and discard doc if any common id exist.
+        where = {"app_id": self.config.id} if self.config.id is not None else {}
+        # where={"url": src}
         existing_ids = self.db.get(
-            ids,
-            self.config.id,
+            ids=ids,
+            where=where,  # optional filter
         )
 
         if len(existing_ids):
@@ -128,6 +129,16 @@ class EmbedChain:
         self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
 
+    def _format_result(self, results):
+        return [
+            (Document(page_content=result[0], metadata=result[1] or {}), result[2])
+            for result in zip(
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+            )
+        ]
+
     def get_llm_model_answer(self):
         """
         Usually implemented by child class
@@ -143,17 +154,13 @@ class EmbedChain:
         :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
-        try:
-            contents = self.db.query(
-                input_query,
-                config.number_documents,
-                self.config.id,
-            )
-        except InvalidDimensionException as e:
-            raise InvalidDimensionException(
-                e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
-            ) from None
+        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
+        contents = self.db.query(
+            input_query=input_query,
+            n_results=config.number_documents,
+            where=where,
+        )
+
         return contents
 
     def _append_search_and_context(self, context, web_search_result):

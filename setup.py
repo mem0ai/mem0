@@ -36,7 +36,10 @@ setuptools.setup(
         "pydantic==1.10.8",
         "replicate==0.9.0",
         "duckduckgo-search==3.8.4",
-        "elasticsearch>=8.0.0",
     ],
-    extras_require={"dev": ["black", "ruff", "isort", "pytest"], "community": ["llama-index==0.7.21"]},
+    extras_require={
+        "dev": ["black", "ruff", "isort", "pytest"],
+        "community": ["llama-index==0.7.21"],
+        "elasticsearch": ["elasticsearch>=8.9.0"],
+    },
 )
