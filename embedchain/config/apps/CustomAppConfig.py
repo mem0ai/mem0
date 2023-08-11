@@ -4,7 +4,8 @@ from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
 
 from embedchain.config.vectordbs import ElasticsearchDBConfig
-from embedchain.models import EmbeddingFunctions, Providers, VectorDatabases, VectorDimensions
+from embedchain.models import (EmbeddingFunctions, Providers, VectorDatabases,
+                               VectorDimensions)
 
 from .BaseAppConfig import BaseAppConfig
 
