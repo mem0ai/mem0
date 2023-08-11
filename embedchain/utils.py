@@ -90,7 +90,7 @@ def use_pysqlite3():
             print(
                 f"{current_time} [embedchain] [ERROR]",
                 "Failed to swap std-lib sqlite3 with pysqlite3 for ChromaDb compatibility.",
-                f"Error:",
+                "Error:",
                 e,
             )
         __import__("pysqlite3")
