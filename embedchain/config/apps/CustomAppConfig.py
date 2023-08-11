@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
@@ -30,6 +30,7 @@ class CustomAppConfig(BaseAppConfig):
         provider: Providers = None,
         open_source_app_config=None,
         deployment_name=None,
+        collect_metrics: Optional[bool] = None,
         db_type: VectorDatabases = None,
         es_config: ElasticsearchDBConfig = None,
     ):
@@ -45,6 +46,7 @@ class CustomAppConfig(BaseAppConfig):
         :param collection_name: Optional. Collection name for the database.
         :param provider: Optional. (Providers): LLM Provider to use.
         :param open_source_app_config: Optional. Config instance needed for open source apps.
+        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         :param db_type: Optional. type of Vector database to use.
         :param es_config: Optional. elasticsearch database config to be used for connection
         """
@@ -65,6 +67,7 @@ class CustomAppConfig(BaseAppConfig):
             port=port,
             id=id,
             collection_name=collection_name,
+            collect_metrics=collect_metrics,
             db_type=db_type,
             vector_dim=CustomAppConfig.get_vector_dimension(embedding_function=embedding_fn),
             es_config=es_config,

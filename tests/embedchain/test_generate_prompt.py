@@ -2,12 +2,12 @@ import unittest
 from string import Template
 
 from embedchain import App
-from embedchain.embedchain import QueryConfig
+from embedchain.config import AppConfig, QueryConfig
 
 
 class TestGeneratePrompt(unittest.TestCase):
     def setUp(self):
-        self.app = App()
+        self.app = App(config=AppConfig(collect_metrics=False))
 
     def test_generate_prompt_with_template(self):
         """

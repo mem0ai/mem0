@@ -1,9 +1,14 @@
+import importlib.metadata
 import logging
 import os
+import threading
+from typing import Optional
 
+import requests
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
@@ -36,6 +41,10 @@ class EmbedChain:
         self.is_docs_site_instance = False
         self.online = False
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
+        thread_telemetry.start()
+
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
         """
         Adds the data from the given URL to the vector db.
@@ -53,9 +62,20 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, url, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, url, metadata)
+        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
+            data_formatter.loader, data_formatter.chunker, url, metadata
+        )
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
+
+        # Send anonymous telemetry
+        if self.config.collect_metrics:
+            # it's quicker to check the variable twice than to count words when they won't be submitted.
+            word_count = sum([len(document.split(" ")) for document in documents])
+
+            extra_metadata = {"data_type": data_type, "word_count": word_count, "chunks_count": new_chunks}
+            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add", extra_metadata))
+            thread_telemetry.start()
 
     def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
         """
@@ -90,6 +110,7 @@ class EmbedChain:
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
+        :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         embeddings_data = chunker.create_chunks(loader, src)
         documents = embeddings_data["documents"]
@@ -109,7 +130,8 @@ class EmbedChain:
 
             if not data_dict:
                 print(f"All data from {src} already exists in the database.")
-                return
+                # Make sure to return a matching return type
+                return [], [], [], 0
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
@@ -126,8 +148,10 @@ class EmbedChain:
         # Add metadata to each document
         metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
-        self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
-        print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+        self.db.add(documents=documents, metadatas=metadatas_with_metadata, ids=ids)
+        count_new_chunks = self.count() - chunks_before_addition
+        print((f"Successfully saved {src}. New chunks count: {count_new_chunks}"))
+        return list(documents), metadatas_with_metadata, ids, count_new_chunks
 
     def _format_result(self, results):
         return [
@@ -240,6 +264,10 @@ class EmbedChain:
 
         answer = self.get_answer_from_llm(prompt, config)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             logging.info(f"Answer: {answer}")
             return answer
@@ -297,6 +325,10 @@ class EmbedChain:
 
         memory.chat_memory.add_user_message(input_query)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
@@ -321,7 +353,7 @@ class EmbedChain:
         """
         self.collection = self.config.db._get_or_create_collection(collection_name)
 
-    def count(self):
+    def count(self) -> int:
         """
         Count the number of embeddings.
 
@@ -334,4 +366,27 @@ class EmbedChain:
         Resets the database. Deletes all embeddings irreversibly.
         `App` has to be reinitialized after using this method.
         """
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
+        thread_telemetry.start()
+
         self.db.reset()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+    def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
+        if not self.config.collect_metrics:
+            return
+
+        with threading.Lock():
+            url = "https://api.embedchain.ai/api/v1/telemetry/"
+            metadata = {
+                "app_id": self.config.id,
+                "version": importlib.metadata.version(__package__ or __name__),
+                "method": method,
+                "language": "py",
+            }
+            if extra_metadata:
+                metadata.update(extra_metadata)
+
+            response = requests.post(url, json={"metadata": metadata})
+            response.raise_for_status()

@@ -25,7 +25,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
         """
-        config = AppConfig(log_level="DEBUG")
+        config = AppConfig(log_level="DEBUG", collect_metrics=False)
 
         app = App(config)
 
