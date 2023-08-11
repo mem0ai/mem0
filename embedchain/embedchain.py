@@ -132,7 +132,8 @@ class EmbedChain:
 
             if not data_dict:
                 print(f"All data from {src} already exists in the database.")
-                return
+                # Make sure to return a matching return type
+                return [], [], [], 0
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
