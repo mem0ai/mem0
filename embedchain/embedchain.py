@@ -358,7 +358,7 @@ class EmbedChain:
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _track(self):
-        if not self.config.anonymous_telemetry:
+        if not self.config.collect_metrics:
             return
 
         with threading.Lock():

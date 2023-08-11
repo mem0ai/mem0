@@ -7,7 +7,7 @@ from embedchain.config import AppConfig, QueryConfig
 
 class TestGeneratePrompt(unittest.TestCase):
     def setUp(self):
-        self.app = App(config=AppConfig(anonymous_telemetry=False))
+        self.app = App(config=AppConfig(collect_metrics=False))
 
     def test_generate_prompt_with_template(self):
         """

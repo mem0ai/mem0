@@ -28,7 +28,7 @@ class CustomAppConfig(BaseAppConfig):
         provider: Providers = None,
         open_source_app_config=None,
         deployment_name=None,
-        anonymous_telemetry=None,
+        collect_metrics=None,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -42,7 +42,7 @@ class CustomAppConfig(BaseAppConfig):
         :param collection_name: Optional. Collection name for the database.
         :param provider: Optional. (Providers): LLM Provider to use.
         :param open_source_app_config: Optional. Config instance needed for open source apps.
-        :param anonymous_telemetry: Defaults to True. Send anonymous telemetry to improve embedchain.
+        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         """
         if provider:
             self.provider = provider
@@ -61,7 +61,7 @@ class CustomAppConfig(BaseAppConfig):
             port=port,
             id=id,
             collection_name=collection_name,
-            anonymous_telemetry=anonymous_telemetry,
+            collect_metrics=collect_metrics,
         )
 
     @staticmethod

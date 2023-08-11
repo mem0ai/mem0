@@ -10,7 +10,7 @@ class TestApp(unittest.TestCase):
     os.environ["OPENAI_API_KEY"] = "test_key"
 
     def setUp(self):
-        self.app = App(config=AppConfig(anonymous_telemetry=False))
+        self.app = App(config=AppConfig(collect_metrics=False))
 
     @patch("embedchain.embedchain.memory", autospec=True)
     @patch.object(App, "retrieve_from_database", return_value=["Test context"])

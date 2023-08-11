@@ -9,7 +9,7 @@ class OpenSourceAppConfig(BaseAppConfig):
     """
 
     def __init__(
-        self, log_level=None, host=None, port=None, id=None, collection_name=None, anonymous_telemetry=None, model=None
+        self, log_level=None, host=None, port=None, id=None, collection_name=None, collect_metrics=None, model=None
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -18,7 +18,7 @@ class OpenSourceAppConfig(BaseAppConfig):
         :param collection_name: Optional. Collection name for the database.
         :param host: Optional. Hostname for the database server.
         :param port: Optional. Port for the database server.
-        :param anonymous_telemetry: Defaults to True. Send anonymous telemetry to improve embedchain.
+        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         :param model: Optional. GPT4ALL uses the model to instantiate the class.
         So unlike `App`, it has to be provided before querying.
         """
@@ -31,7 +31,7 @@ class OpenSourceAppConfig(BaseAppConfig):
             port=port,
             id=id,
             collection_name=collection_name,
-            anonymous_telemetry=anonymous_telemetry,
+            collect_metrics=collect_metrics,
         )
 
     @staticmethod

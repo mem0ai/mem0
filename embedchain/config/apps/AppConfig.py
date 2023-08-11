@@ -16,7 +16,7 @@ class AppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `App` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, anonymous_telemetry=None):
+    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, collect_metrics=None):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
@@ -24,7 +24,7 @@ class AppConfig(BaseAppConfig):
         :param port: Optional. Port for the database server.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param collection_name: Optional. Collection name for the database.
-        :param anonymous_telemetry: Defaults to True. Send anonymous telemetry to improve embedchain.
+        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         """
         super().__init__(
             log_level=log_level,
@@ -33,7 +33,7 @@ class AppConfig(BaseAppConfig):
             port=port,
             id=id,
             collection_name=collection_name,
-            anonymous_telemetry=anonymous_telemetry,
+            collect_metrics=collect_metrics,
         )
 
     @staticmethod

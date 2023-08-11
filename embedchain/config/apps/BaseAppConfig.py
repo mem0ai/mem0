@@ -17,7 +17,7 @@ class BaseAppConfig(BaseConfig):
         port=None,
         id=None,
         collection_name=None,
-        anonymous_telemetry=True,
+        collect_metrics=True,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -28,14 +28,14 @@ class BaseAppConfig(BaseConfig):
         :param port: Optional. Port for the database server.
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param collection_name: Optional. Collection name for the database.
-        :param anonymous_telemetry: Defaults to True. Send anonymous telemetry to improve embedchain.
+        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         """
         self._setup_logging(log_level)
 
         self.db = db if db else BaseAppConfig.default_db(embedding_fn=embedding_fn, host=host, port=port)
         self.collection_name = collection_name if collection_name else "embedchain_store"
         self.id = id
-        self.anonymous_telemetry = True if (anonymous_telemetry is True or anonymous_telemetry is None) else False
+        self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False
         return
 
     @staticmethod
