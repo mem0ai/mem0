@@ -171,10 +171,7 @@ class EmbedChain:
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
 
-        # Add metadata to each document
-        metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
-
-        self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+        self.db.add(documents=documents, metadatas=metadatas, ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
 
     def _format_result(self, results):
