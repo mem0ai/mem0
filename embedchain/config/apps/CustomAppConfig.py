@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
@@ -30,7 +30,7 @@ class CustomAppConfig(BaseAppConfig):
         provider: Providers = None,
         open_source_app_config=None,
         deployment_name=None,
-        collect_metrics=None,
+        collect_metrics: Optional[bool] = None,
         db_type: VectorDatabases = None,
         es_config: ElasticsearchDBConfig = None,
     ):

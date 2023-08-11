@@ -19,7 +19,7 @@ class BaseAppConfig(BaseConfig):
         port=None,
         id=None,
         collection_name=None,
-        collect_metrics=True,
+        collect_metrics: bool = True,
         db_type: VectorDatabases = None,
         vector_dim: VectorDimensions = None,
         es_config: ElasticsearchDBConfig = None,

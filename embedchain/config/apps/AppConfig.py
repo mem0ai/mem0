@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 try:
     from chromadb.utils import embedding_functions
@@ -16,7 +17,15 @@ class AppConfig(BaseAppConfig):
     Config to initialize an embedchain custom `App` instance, with extra config options.
     """
 
-    def __init__(self, log_level=None, host=None, port=None, id=None, collection_name=None, collect_metrics=None):
+    def __init__(
+        self,
+        log_level=None,
+        host=None,
+        port=None,
+        id=None,
+        collection_name=None,
+        collect_metrics: Optional[bool] = None,
+    ):
         """
         :param log_level: Optional. (String) Debug level
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].

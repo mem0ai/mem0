@@ -1,3 +1,5 @@
+from typing import Optional
+
 from chromadb.utils import embedding_functions
 
 from .BaseAppConfig import BaseAppConfig
@@ -9,7 +11,14 @@ class OpenSourceAppConfig(BaseAppConfig):
     """
 
     def __init__(
-        self, log_level=None, host=None, port=None, id=None, collection_name=None, collect_metrics=None, model=None
+        self,
+        log_level=None,
+        host=None,
+        port=None,
+        id=None,
+        collection_name=None,
+        collect_metrics: Optional[bool] = None,
+        model=None,
     ):
         """
         :param log_level: Optional. (String) Debug level
