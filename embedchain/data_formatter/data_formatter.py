@@ -45,7 +45,6 @@ class DataFormatter:
             "docx": DocxFileLoader,
             "sitemap": SitemapLoader,
             "docs_site": DocsSiteLoader,
-            "notion": NotionLoader,
         }
         lazy_loaders = ("notion",)
         if data_type in loaders:
