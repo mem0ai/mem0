@@ -73,6 +73,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         self.assertEqual(mock_client.call_args[0][0].chroma_server_host, None)
         self.assertEqual(mock_client.call_args[0][0].chroma_server_http_port, None)
 
+
 class TestChromaDbDuplicateHandling:
     def test_duplicates_throw_warning(self, caplog):
         """
@@ -101,8 +102,8 @@ class TestChromaDbDuplicateHandling:
         app.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         app.set_collection("test_collection_2")
         app.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
-        assert "Insert of existing embedding ID: 0" not in caplog.text # not
-        assert "Add of existing embedding ID: 0" not in caplog.text # not
+        assert "Insert of existing embedding ID: 0" not in caplog.text  # not
+        assert "Add of existing embedding ID: 0" not in caplog.text  # not
 
 
 class TestChromaDbCollection(unittest.TestCase):
@@ -197,9 +198,9 @@ class TestChromaDbCollection(unittest.TestCase):
         app2.collection.add(embeddings=[0, 0, 0], ids=["0"])
 
         # Swap names and test
-        app1.set_collection('test_collection_2')
+        app1.set_collection("test_collection_2")
         self.assertEqual(app1.count(), 1)
-        app2.set_collection('test_collection_1')
+        app2.set_collection("test_collection_1")
         self.assertEqual(app2.count(), 3)
 
     def test_ids_share_collections(self):

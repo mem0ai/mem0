@@ -1,0 +1,46 @@
+---
+title: '🌍 API Server'
+---
+
+### 🐳 Docker Setup
+
+- Open variables.env, and edit it to add your 🔑 `OPENAI_API_KEY`.
+- To setup your api server using docker, run the following command inside this folder using your terminal.
+
+```bash
+docker-compose up --build
+```
+
+📝 Note: The build command might take a while to install all the packages depending on your system resources.
+
+### 🚀 Usage Instructions
+
+- Your api server is running on [http://localhost:5000/](http://localhost:5000/)
+- To use the api server, make an api call to the endpoints `/add` and `/query` using the json formats discussed below.
+- To add data sources to the bot:
+```json
+// Request
+{
+  "data_type": "your_data_type_here",
+  "url_or_text": "your_url_or_text_here"
+}
+
+// Response
+{
+  "data": "Added data_type: url_or_text"
+}
+```
+- To ask questions from the bot:
+```json
+// Request
+{
+  "question": "your_question_here"
+}
+
+// Response
+{
+  "data": "your_answer_here"
+}
+```
+
+🎉 Happy Chatting! 🎉
