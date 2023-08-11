@@ -1,5 +1,6 @@
 import logging
 import os
+import asyncio
 
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
@@ -81,53 +82,104 @@ class EmbedChain:
             metadata,
         )
 
-    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
+    async def upload_data(self, ids, documents, metadatas, src, metadata):
         """
-        Loads the data from the given URL, chunks it, and adds it to database.
-
-        :param loader: The loader to use to load the data.
-        :param chunker: The chunker to use to chunk the data.
-        :param src: The data to be handled by the loader. Can be a URL for
-        remote sources or local content for local loaders.
-        :param metadata: Optional. Metadata associated with the data source.
+        Splits the chunks into batches to avoid breaking the OpenAI Embeddings limit.
         """
-        embeddings_data = chunker.create_chunks(loader, src)
-        documents = embeddings_data["documents"]
-        metadatas = embeddings_data["metadatas"]
-        ids = embeddings_data["ids"]
-        # get existing ids, and discard doc if any common id exist.
-        where = {"app_id": self.config.id} if self.config.id is not None else {}
-        # where={"url": src}
-        existing_ids = self.db.get(
-            ids=ids,
-            where=where,  # optional filter
-        )
+            try:
+                # get existing ids, and discard doc if any common id exist.
+                where = {"app_id": self.config.id} if self.config.id is not None else {}
+                # where={"url": src}
+                existing_docs = self.collection.get(
+                    ids=ids,
+                    where=where,  # optional filter
+                )
+                existing_ids = set(existing_docs["ids"])
 
-        if len(existing_ids):
-            data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
-            data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
+                if len(existing_ids):
+                    data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
+                    data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
 
-            if not data_dict:
-                print(f"All data from {src} already exists in the database.")
-                return
+                    if not data_dict:
+                        logging.warning(f"All data from {src} already exists in the database.")
+                        return
 
-            ids = list(data_dict.keys())
-            documents, metadatas = zip(*data_dict.values())
+                    ids = list(data_dict.keys())
+                    documents, metadatas = zip(*data_dict.values())
 
-        # Add app id in metadatas so that they can be queried on later
-        if self.config.id is not None:
-            metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
+                # Add app id in metadatas so that they can be queried on later
+                if self.config.id is not None:
+                    metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
-        # FIXME: Fix the error handling logic when metadatas or metadata is None
-        metadatas = metadatas if metadatas else []
-        metadata = metadata if metadata else {}
-        chunks_before_addition = self.count()
+                # FIXME: Fix the error handling logic when metadatas or metadata is None
+                metadatas = metadatas if metadatas else []
+                metadata = metadata if metadata else {}
+                chunks_before_addition = self.count()
 
-        # Add metadata to each document
-        metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
+                logging.log(100,"about to add metadata!")
+                # Add metadata to each document
+                metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
-        self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
-        print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+                self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+                logging.log(100,(f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+
+            except Exception as e:
+                logging.error(e)
+
+        def load_and_embed(self, loader, chunker, src, metadata=None):
+            """
+            Loads the data from the given URL, chunks it, and adds it to database.
+
+            :param loader: The loader to use to load the data.
+            :param chunker: The chunker to use to chunk the data.
+            :param src: The data to be handled by the loader. Can be a URL for
+            remote sources or local content for local loaders.
+            :param metadata: Optional. Metadata associated with the data source.
+            """
+
+            def count_chars(obj):
+                if isinstance(obj, str):
+                    return len(obj)
+                elif isinstance(obj, dict):
+                    return sum(count_chars(v) for v in obj.values())
+                elif isinstance(obj, list):
+                    return sum(count_chars(v) for v in obj)
+                else:
+                    return 0
+
+            embeddings_data = chunker.create_chunks(loader, src)
+
+            try:
+                charCount = count_chars(embeddings_data)
+            except Exception as e:
+                logging.error(e)
+
+            documents = embeddings_data["documents"]
+            metadatas = embeddings_data["metadatas"]
+            ids = embeddings_data["ids"]
+
+            # Split the data into batches of less than 300k characters
+            batches = []
+            batch = []
+            batch_size = 0
+            for id, doc, meta in zip(ids, documents, metadatas):
+                doc_size = len(doc)
+                if batch_size + doc_size > 300000:
+                    batches.append(batch)
+                    batch = []
+                    batch_size = 0
+                batch.append((id, doc, meta))
+                batch_size += doc_size
+            if batch:
+                batches.append(batch)
+
+            # Run the upload_data function asynchronously for each batch with a delay of 0.05 seconds
+            for batch in batches:
+                logging.log(100,"entering batch loop")
+                ids, documents, metadatas = zip(*batch)
+                asyncio.run(self.upload_data(list(ids), list(documents), list(metadatas), src, metadata))
+                asyncio.sleep(0.05)
+
 
     def _format_result(self, results):
         return [
