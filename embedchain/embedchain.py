@@ -1,7 +1,6 @@
 import logging
 import os
 
-from chromadb.errors import InvalidDimensionException
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
@@ -31,8 +30,8 @@ class EmbedChain:
         """
 
         self.config = config
-        self.db_client = self.config.db.client
         self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
+        self.db = self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
@@ -99,11 +98,10 @@ class EmbedChain:
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
-        existing_docs = self.collection.get(
+        existing_ids = self.db.get(
             ids=ids,
             where=where,  # optional filter
         )
-        existing_ids = set(existing_docs["ids"])
 
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
@@ -128,7 +126,7 @@ class EmbedChain:
         # Add metadata to each document
         metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
-        self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+        self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
 
     def _format_result(self, results):
@@ -156,23 +154,13 @@ class EmbedChain:
         :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
-        try:
-            where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
-            result = self.collection.query(
-                query_texts=[
-                    input_query,
-                ],
-                n_results=config.number_documents,
-                where=where,
-            )
-        except InvalidDimensionException as e:
-            raise InvalidDimensionException(
-                e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
-            ) from None
+        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
+        contents = self.db.query(
+            input_query=input_query,
+            n_results=config.number_documents,
+            where=where,
+        )
 
-        results_formatted = self._format_result(result)
-        contents = [result[0].page_content for result in results_formatted]
         return contents
 
     def _append_search_and_context(self, context, web_search_result):
@@ -339,11 +327,11 @@ class EmbedChain:
 
         :return: The number of embeddings.
         """
-        return self.collection.count()
+        return self.db.count()
 
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
         `App` has to be reinitialized after using this method.
         """
-        self.db_client.reset()
+        self.db.reset()
