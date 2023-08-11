@@ -33,6 +33,7 @@ class ChatConfig(QueryConfig):
         max_tokens=None,
         top_p=None,
         stream: bool = False,
+        deployment_name=None,
     ):
         """
         Initializes the ChatConfig instance.
@@ -68,6 +69,7 @@ class ChatConfig(QueryConfig):
             top_p=top_p,
             history=[0],
             stream=stream,
+            deployment_name=deployment_name,
         )
 
     def set_history(self, history):

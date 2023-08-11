@@ -1,15 +1,16 @@
 import logging
 import os
 
-from chromadb.errors import InvalidDimensionException
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 
+from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
+from embedchain.loaders.base_loader import BaseLoader
 
 load_dotenv()
 
@@ -29,8 +30,8 @@ class EmbedChain:
         """
 
         self.config = config
-        self.db_client = self.config.db.client
-        self.collection = self.config.db.collection
+        self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
+        self.db = self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
@@ -73,7 +74,7 @@ class EmbedChain:
         self.add(data_type=data_type, url=content, metadata=metadata, config=config)
         return
 
-    def load_and_embed(self, loader, chunker, src, metadata=None):
+    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -90,11 +91,10 @@ class EmbedChain:
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
-        existing_docs = self.collection.get(
+        existing_ids = self.db.get(
             ids=ids,
             where=where,  # optional filter
         )
-        existing_ids = set(existing_docs["ids"])
 
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
@@ -111,12 +111,15 @@ class EmbedChain:
         if self.config.id is not None:
             metadatas = [{**m, "app_id": self.config.id} for m in metadatas]
 
+        # FIXME: Fix the error handling logic when metadatas or metadata is None
+        metadatas = metadatas if metadatas else []
+        metadata = metadata if metadata else {}
         chunks_before_addition = self.count()
 
         # Add metadata to each document
-        metadatas_with_metadata = [meta or metadata for meta in metadatas]
+        metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
-        self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
+        self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
         print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
 
     def _format_result(self, results):
@@ -144,23 +147,13 @@ class EmbedChain:
         :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
-        try:
-            where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
-            result = self.collection.query(
-                query_texts=[
-                    input_query,
-                ],
-                n_results=config.number_documents,
-                where=where,
-            )
-        except InvalidDimensionException as e:
-            raise InvalidDimensionException(
-                e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
-            ) from None
+        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
+        contents = self.db.query(
+            input_query=input_query,
+            n_results=config.number_documents,
+            where=where,
+        )
 
-        results_formatted = self._format_result(result)
-        contents = [result[0].page_content for result in results_formatted]
         return contents
 
     def _append_search_and_context(self, context, web_search_result):
@@ -206,7 +199,7 @@ class EmbedChain:
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def query(self, input_query, config: QueryConfig = None):
+    def query(self, input_query, config: QueryConfig = None, dry_run=False):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -215,6 +208,12 @@ class EmbedChain:
         :param input_query: The query to use.
         :param config: Optional. The `QueryConfig` instance to use as
         configuration options.
+        :param dry_run: Optional. A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
         :return: The answer to the query.
         """
         if config is None:
@@ -228,6 +227,9 @@ class EmbedChain:
         contexts = self.retrieve_from_database(input_query, config)
         prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
+
+        if dry_run:
+            return prompt
 
         answer = self.get_answer_from_llm(prompt, config)
 
@@ -244,7 +246,7 @@ class EmbedChain:
             yield chunk
         logging.info(f"Answer: {streamed_answer}")
 
-    def chat(self, input_query, config: ChatConfig = None):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -254,6 +256,12 @@ class EmbedChain:
         :param input_query: The query to use.
         :param config: Optional. The `ChatConfig` instance to use as
         configuration options.
+        :param dry_run: Optional. A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response.
+        You can use it to test your prompt, including the context provided
+        by the vector database's doc retrieval.
+        The only thing the dry run does not consider is the cut-off due to
+        the `max_tokens` parameter.
         :return: The answer to the query.
         """
         if config is None:
@@ -264,7 +272,7 @@ class EmbedChain:
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config, **k)
+        contexts = self.retrieve_from_database(input_query, config)
 
         global memory
         chat_history = memory.load_memory_variables({})["history"]
@@ -274,6 +282,10 @@ class EmbedChain:
 
         prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
+
+        if dry_run:
+            return prompt
+
         answer = self.get_answer_from_llm(prompt, config)
 
         memory.chat_memory.add_user_message(input_query)
@@ -294,26 +306,13 @@ class EmbedChain:
         memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
 
-    def dry_run(self, input_query, config: QueryConfig = None):
+    def set_collection(self, collection_name):
         """
-        A dry run does everything except send the resulting prompt to
-        the LLM. The purpose is to test the prompt, not the response.
-        You can use it to test your prompt, including the context provided
-        by the vector database's doc retrieval.
-        The only thing the dry run does not consider is the cut-off due to
-        the `max_tokens` parameter.
+        Set the collection to use.
 
-        :param input_query: The query to use.
-        :param config: Optional. The `QueryConfig` instance to use as
-        configuration options.
-        :return: The prompt that would be sent to the LLM
+        :param collection_name: The name of the collection to use.
         """
-        if config is None:
-            config = QueryConfig()
-        contexts = self.retrieve_from_database(input_query, config)
-        prompt = self.generate_prompt(input_query, contexts, config)
-        logging.info(f"Prompt: {prompt}")
-        return prompt
+        self.collection = self.config.db._get_or_create_collection(collection_name)
 
     def count(self):
         """
@@ -321,11 +320,11 @@ class EmbedChain:
 
         :return: The number of embeddings.
         """
-        return self.collection.count()
+        return self.db.count()
 
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
         `App` has to be reinitialized after using this method.
         """
-        self.db_client.reset()
+        self.db.reset()
