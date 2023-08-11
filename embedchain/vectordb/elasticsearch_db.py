@@ -44,7 +44,7 @@ class ElasticsearchDB(BaseVectorDB):
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "text_vector": {"type": "dense_vector", "index": False, "dims": self.vector_dim},
+                    "embeddings": {"type": "dense_vector", "index": False, "dims": self.vector_dim},
                 }
             }
         }
@@ -84,12 +84,12 @@ class ElasticsearchDB(BaseVectorDB):
         """
         docs = []
         embeddings = self.embedding_fn(documents)
-        for id, text, metadata, text_vector in zip(ids, documents, metadatas, embeddings):
+        for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
             docs.append(
                 {
                     "_index": self.es_index,
                     "_id": id,
-                    "_source": {"text": text, "metadata": metadata, "text_vector": text_vector},
+                    "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
                 }
             )
         bulk(self.client, docs)
@@ -109,7 +109,7 @@ class ElasticsearchDB(BaseVectorDB):
             "script_score": {
                 "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},
                 "script": {
-                    "source": "cosineSimilarity(params.input_query_vector, 'text_vector') + 1.0",
+                    "source": "cosineSimilarity(params.input_query_vector, 'embeddings') + 1.0",
                     "params": {"input_query_vector": query_vector},
                 },
             }
