@@ -46,7 +46,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         app.reset()
 
         # Make sure the client is still healthy
-        app.db_client.heartbeat()
+        app.db.client.heartbeat()
         # Make sure the collection exists, and can be added to
         app.collection.add(
             embeddings=[[1.1, 2.3, 3.2], [4.5, 6.9, 4.4], [1.1, 2.3, 3.2]],
