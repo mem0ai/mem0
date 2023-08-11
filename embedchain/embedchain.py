@@ -66,6 +66,10 @@ class EmbedChain:
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init", {"data_type": data_type}))
+        thread_telemetry.start()
+
     def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
         """
         Adds the data you supply to the vector db.
@@ -99,6 +103,7 @@ class EmbedChain:
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
+        :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         embeddings_data = chunker.create_chunks(loader, src)
         documents = embeddings_data["documents"]
@@ -135,8 +140,10 @@ class EmbedChain:
         # Add metadata to each document
         metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
-        self.db.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
-        print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+        self.db.add(documents=documents, metadatas=metadatas_with_metadata, ids=ids)
+        count_new_chunks = self.count() - chunks_before_addition
+        print((f"Successfully saved {src}. New chunks count: {count_new_chunks}"))
+        return list(documents), metadatas_with_metadata, ids, count_new_chunks
 
     def _format_result(self, results):
         return [
@@ -330,7 +337,7 @@ class EmbedChain:
         """
         self.collection = self.config.db._get_or_create_collection(collection_name)
 
-    def count(self):
+    def count(self) -> int:
         """
         Count the number of embeddings.
 
