@@ -3,14 +3,14 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from embedchain import App
-from embedchain.embedchain import QueryConfig
+from embedchain.config import AppConfig, QueryConfig
 
 
 class TestApp(unittest.TestCase):
     os.environ["OPENAI_API_KEY"] = "test_key"
 
     def setUp(self):
-        self.app = App()
+        self.app = App(config=AppConfig(collect_metrics=False))
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_query(self):
