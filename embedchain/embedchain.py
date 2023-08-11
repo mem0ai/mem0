@@ -86,7 +86,7 @@ class EmbedChain:
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type, metadata])
         self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, source_id)
-        if data_type in ("docs_site",):
+        if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
         return source_id
