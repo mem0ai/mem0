@@ -36,7 +36,6 @@
     },
     {
       "group": "Examples",
-      "pages": ["examples/full_stack", ]
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot"]
     },
     {
