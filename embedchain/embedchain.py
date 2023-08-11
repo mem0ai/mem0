@@ -2,6 +2,7 @@ import importlib.metadata
 import logging
 import os
 import threading
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -41,7 +42,7 @@ class EmbedChain:
         self.online = False
 
         # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._track)
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
@@ -345,19 +346,20 @@ class EmbedChain:
         self.db.reset()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
-    def _track(self):
+    def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
         if not self.config.collect_metrics:
             return
 
         with threading.Lock():
             url = "https://api.embedchain.ai/api/v1/telemetry/"
-            payload = {
-                "metadata": {
-                    "app_id": self.config.id,
-                    "version": importlib.metadata.version(__package__ or __name__),
-                    "method": "init",
-                    "language": "py",
-                }
+            metadata = {
+                "app_id": self.config.id,
+                "version": importlib.metadata.version(__package__ or __name__),
+                "method": method,
+                "language": "py",
             }
-            response = requests.post(url, json=payload)
+            if extra_metadata:
+                metadata.update(extra_metadata)
+
+            response = requests.post(url, json={"metadata": metadata})
             response.raise_for_status()
