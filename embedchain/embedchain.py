@@ -266,6 +266,10 @@ class EmbedChain:
 
         answer = self.get_answer_from_llm(prompt, config)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             logging.info(f"Answer: {answer}")
             return answer
@@ -323,6 +327,10 @@ class EmbedChain:
 
         memory.chat_memory.add_user_message(input_query)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
@@ -360,6 +368,10 @@ class EmbedChain:
         Resets the database. Deletes all embeddings irreversibly.
         `App` has to be reinitialized after using this method.
         """
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
+        thread_telemetry.start()
+
         self.db.reset()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
