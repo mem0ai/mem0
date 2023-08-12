@@ -5,7 +5,12 @@ import subprocess
 import tempfile
 import urllib.parse
 
-from repo_loader import repo_loader
+try:
+    from repo_loader import repo_loader
+except ImportError:
+    raise ImportError(
+        "Repo Loader requires extra dependencies. Install with `pip install repo-loader` or `pip install embedchain[community]`"  # noqa #E501
+    ) from None
 
 from embedchain.loaders.base_loader import BaseLoader
 
