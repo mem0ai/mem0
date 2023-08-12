@@ -12,7 +12,6 @@ from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
-from embedchain.loaders.repo_loader import RepoLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
@@ -46,9 +45,8 @@ class DataFormatter:
             "docx": DocxFileLoader,
             "sitemap": SitemapLoader,
             "docs_site": DocsSiteLoader,
-            "repo": RepoLoader,
         }
-        lazy_loaders = ("notion",)
+        lazy_loaders = ("notion", "repo")
         if data_type in loaders:
             loader_class = loaders[data_type]
             loader = loader_class()
@@ -58,6 +56,10 @@ class DataFormatter:
                 from embedchain.loaders.notion import NotionLoader
 
                 return NotionLoader()
+            elif data_type == "repo":
+                from embedchain.loaders.repo_loader import RepoLoader
+
+                return RepoLoader()
             else:
                 raise ValueError(f"Unsupported data type: {data_type}")
         else:
