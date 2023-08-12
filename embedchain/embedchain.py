@@ -382,7 +382,7 @@ class EmbedChain:
         with threading.Lock():
             url = "https://api.embedchain.ai/api/v1/telemetry/"
             metadata = {
-                "session_id": self.s_id,
+                "s_id": self.s_id,
                 "version": importlib.metadata.version(__package__ or __name__),
                 "method": method,
                 "language": "py",
