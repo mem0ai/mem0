@@ -43,7 +43,7 @@ class EmbedChain:
         self.online = False
 
         # Send anonymous telemetry
-        self.id = self.config.id if self.config.id else str(uuid.uuid4())
+        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
@@ -382,7 +382,7 @@ class EmbedChain:
         with threading.Lock():
             url = "https://api.embedchain.ai/api/v1/telemetry/"
             metadata = {
-                "session_id": self.id,
+                "session_id": self.s_id,
                 "version": importlib.metadata.version(__package__ or __name__),
                 "method": method,
                 "language": "py",
