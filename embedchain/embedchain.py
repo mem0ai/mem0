@@ -390,7 +390,5 @@ class EmbedChain:
             if extra_metadata:
                 metadata.update(extra_metadata)
 
-            logging.info(metadata)
-
             response = requests.post(url, json={"metadata": metadata})
             response.raise_for_status()
