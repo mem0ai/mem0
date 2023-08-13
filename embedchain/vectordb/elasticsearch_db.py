@@ -9,7 +9,7 @@ except ImportError:
     ) from None
 
 from embedchain.config import ElasticsearchDBConfig
-from embedchain.models.VectorDimensions import VectorDimensions
+from embedchain.models.vector_dimensions import VectorDimensions
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 

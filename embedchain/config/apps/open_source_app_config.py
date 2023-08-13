@@ -2,7 +2,7 @@ from typing import Optional
 
 from chromadb.utils import embedding_functions
 
-from .BaseAppConfig import BaseAppConfig
+from .base_app_config import BaseAppConfig
 
 
 class OpenSourceAppConfig(BaseAppConfig):

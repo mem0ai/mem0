@@ -12,8 +12,8 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
-from embedchain.config.apps.BaseAppConfig import BaseAppConfig
-from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
+from embedchain.config.apps.base_app_config import BaseAppConfig
+from embedchain.config.query_config import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
 from embedchain.loaders.base_loader import BaseLoader
 

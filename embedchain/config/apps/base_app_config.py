@@ -1,7 +1,7 @@
 import logging
 
-from embedchain.config.BaseConfig import BaseConfig
-from embedchain.config.vectordbs import ElasticsearchDBConfig
+from embedchain.config.base_config import BaseConfig
+from embedchain.config.vectordbs import elasticsearch_db_config
 from embedchain.models import VectorDatabases, VectorDimensions
 
 
@@ -22,7 +22,7 @@ class BaseAppConfig(BaseConfig):
         collect_metrics: bool = True,
         db_type: VectorDatabases = None,
         vector_dim: VectorDimensions = None,
-        es_config: ElasticsearchDBConfig = None,
+        es_config: elasticsearch_db_config = None,
     ):
         """
         :param log_level: Optional. (String) Debug level

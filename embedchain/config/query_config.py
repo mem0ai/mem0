@@ -1,7 +1,7 @@
 import re
 from string import Template
 
-from embedchain.config.BaseConfig import BaseConfig
+from embedchain.config.base_config import BaseConfig
 
 DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.

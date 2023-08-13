@@ -3,11 +3,10 @@ from typing import Any, Optional
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
 
-from embedchain.config.vectordbs import ElasticsearchDBConfig
-from embedchain.models import (EmbeddingFunctions, Providers, VectorDatabases,
-                               VectorDimensions)
+from embedchain.config.vectordbs import elasticsearch_db_config
+from embedchain.models import EmbeddingFunctions, Providers, VectorDatabases, VectorDimensions
 
-from .BaseAppConfig import BaseAppConfig
+from .base_app_config import BaseAppConfig
 
 load_dotenv()
 
@@ -32,7 +31,7 @@ class CustomAppConfig(BaseAppConfig):
         deployment_name=None,
         collect_metrics: Optional[bool] = None,
         db_type: VectorDatabases = None,
-        es_config: ElasticsearchDBConfig = None,
+        es_config: elasticsearch_db_config = None,
     ):
         """
         :param log_level: Optional. (String) Debug level

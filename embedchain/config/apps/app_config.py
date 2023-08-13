@@ -9,7 +9,7 @@ except RuntimeError:
     use_pysqlite3()
     from chromadb.utils import embedding_functions
 
-from .BaseAppConfig import BaseAppConfig
+from .base_app_config import BaseAppConfig
 
 
 class AppConfig(BaseAppConfig):

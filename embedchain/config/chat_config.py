@@ -1,6 +1,6 @@
 from string import Template
 
-from embedchain.config.QueryConfig import QueryConfig
+from embedchain.config.query_config import QueryConfig
 
 DEFAULT_PROMPT = """
   You are a chatbot having a conversation with a human. You are given chat
