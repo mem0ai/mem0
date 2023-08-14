@@ -5,4 +5,4 @@ from .apps.open_source_app_config import OpenSourceAppConfig  # noqa: F401
 from .base_config import BaseConfig  # noqa: F401
 from .chat_config import ChatConfig  # noqa: F401
 from .query_config import QueryConfig  # noqa: F401
-from .vectordbs.elasticsearch_db_config import ElasticsearchDBConfig  # noqa: F401
+from .vector_dbs.elasticsearch_db_config import ElasticsearchDBConfig  # noqa: F401

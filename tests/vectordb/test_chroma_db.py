@@ -7,7 +7,7 @@ from chromadb.config import Settings
 
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.vectordb.chroma_db import ChromaDB, chromadb
+from embedchain.vector_db.chroma_db import ChromaDB, chromadb
 
 
 class TestChromaDbHosts(unittest.TestCase):
@@ -31,7 +31,7 @@ class TestChromaDbHosts(unittest.TestCase):
 
 # Review this test
 class TestChromaDbHostsInit(unittest.TestCase):
-    @patch("embedchain.vectordb.chroma_db.chromadb.Client")
+    @patch("embedchain.vector_db.chroma_db.chromadb.Client")
     def test_init_with_host_and_port(self, mock_client):
         """
         Test if the `App` instance is initialized with the correct host and port values.
@@ -48,7 +48,7 @@ class TestChromaDbHostsInit(unittest.TestCase):
 
 
 class TestChromaDbHostsNone(unittest.TestCase):
-    @patch("embedchain.vectordb.chroma_db.chromadb.Client")
+    @patch("embedchain.vector_db.chroma_db.chromadb.Client")
     def test_init_with_host_and_port(self, mock_client):
         """
         Test if the `App` instance is initialized without default hosts and ports.
@@ -61,7 +61,7 @@ class TestChromaDbHostsNone(unittest.TestCase):
 
 
 class TestChromaDbHostsLoglevel(unittest.TestCase):
-    @patch("embedchain.vectordb.chroma_db.chromadb.Client")
+    @patch("embedchain.vector_db.chroma_db.chromadb.Client")
     def test_init_with_host_and_port(self, mock_client):
         """
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.

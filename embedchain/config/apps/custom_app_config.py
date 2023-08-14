@@ -3,7 +3,7 @@ from typing import Any, Optional
 from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
 
-from embedchain.config.vectordbs import elasticsearch_db_config
+from embedchain.config.vector_dbs import elasticsearch_db_config
 from embedchain.models import EmbeddingFunctions, Providers, VectorDatabases, VectorDimensions
 
 from .base_app_config import BaseAppConfig

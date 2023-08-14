@@ -1,7 +1,7 @@
 import logging
 
 from embedchain.config.base_config import BaseConfig
-from embedchain.config.vectordbs import elasticsearch_db_config
+from embedchain.config.vector_dbs import elasticsearch_db_config
 from embedchain.models import VectorDatabases, VectorDimensions
 
 
@@ -76,13 +76,13 @@ class BaseAppConfig(BaseConfig):
             raise ValueError("ChromaDb cannot be instantiated without an embedding function")
 
         if db_type == VectorDatabases.ELASTICSEARCH:
-            from embedchain.vectordb.elasticsearch_db import ElasticsearchDB
+            from embedchain.vector_db.elasticsearch_db import ElasticsearchDB
 
             return ElasticsearchDB(
                 embedding_fn=embedding_fn, vector_dim=vector_dim, collection_name=collection_name, es_config=es_config
             )
 
-        from embedchain.vectordb.chroma_db import ChromaDB
+        from embedchain.vector_db.chroma_db import ChromaDB
 
         return ChromaDB(embedding_fn=embedding_fn, host=host, port=port)
 

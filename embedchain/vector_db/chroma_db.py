@@ -14,7 +14,7 @@ except RuntimeError:
 
 from chromadb.config import Settings
 
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.vector_db.base_vector_db import BaseVectorDB
 
 
 class ChromaDB(BaseVectorDB):
