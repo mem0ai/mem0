@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 from typing import Optional
+import uuid
 
 import requests
 from dotenv import load_dotenv
@@ -42,6 +43,7 @@ class EmbedChain:
         self.online = False
 
         # Send anonymous telemetry
+        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
@@ -380,7 +382,7 @@ class EmbedChain:
         with threading.Lock():
             url = "https://api.embedchain.ai/api/v1/telemetry/"
             metadata = {
-                "app_id": self.config.id,
+                "s_id": self.s_id,
                 "version": importlib.metadata.version(__package__ or __name__),
                 "method": method,
                 "language": "py",
