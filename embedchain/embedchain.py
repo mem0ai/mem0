@@ -96,12 +96,18 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, content])
-        self.load_and_embed(
-            data_formatter.loader,
-            data_formatter.chunker,
-            content,
-            metadata,
+        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
+            data_formatter.loader, data_formatter.chunker, content, metadata
         )
+
+        # Send anonymous telemetry
+        if self.config.collect_metrics:
+            # it's quicker to check the variable twice than to count words when they won't be submitted.
+            word_count = sum([len(document.split(" ")) for document in documents])
+
+            extra_metadata = {"data_type": data_type, "word_count": word_count, "chunks_count": new_chunks}
+            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add_local", extra_metadata))
+            thread_telemetry.start()
 
     def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """
