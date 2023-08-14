@@ -30,6 +30,19 @@ def query():
     question = data.get("question")
     if question:
         try:
+            response = chat_bot.query(question)
+            return jsonify({"data": response}), 200
+        except Exception:
+            return jsonify({"error": "An error occurred. Please try again!"}), 500
+    return jsonify({"error": "Invalid request. Please provide 'question' in JSON format."}), 400
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json()
+    question = data.get("question")
+    if question:
+        try:
             response = chat_bot.chat(question)
             return jsonify({"data": response}), 200
         except Exception:
