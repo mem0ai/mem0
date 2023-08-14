@@ -245,8 +245,7 @@ class TestChromaDbCollection(unittest.TestCase):
         # Resetting the first one should reset them all.
         app1.reset()
 
-        # Reinstantiate them
-        app1 = App(AppConfig(collection_name="one_collection", id="new_app_id_1", collect_metrics=False))
+        # Reinstantiate app2-4, app1 doesn't have to be reinstantiated (PR #319)
         app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2", collect_metrics=False))
         app3 = App(AppConfig(collection_name="three_collection", id="new_app_id_3", collect_metrics=False))
         app4 = App(AppConfig(collection_name="four_collection", id="new_app_id_3", collect_metrics=False))
