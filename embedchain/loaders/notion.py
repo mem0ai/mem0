@@ -4,7 +4,7 @@ import os
 try:
     from llama_index import download_loader
 except ImportError:
-    raise ImportError("Notion requires extra dependencies. Install with `pip install embedchain[notion]`") from None
+    raise ImportError("Notion requires extra dependencies. Install with `pip install embedchain[community]`") from None
 
 
 from embedchain.loaders.base_loader import BaseLoader
