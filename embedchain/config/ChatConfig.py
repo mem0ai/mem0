@@ -1,4 +1,5 @@
 from string import Template
+from typing import Optional
 
 from embedchain.config.QueryConfig import QueryConfig
 
@@ -7,13 +8,9 @@ DEFAULT_PROMPT = """
   history and context.
   You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know".
 
-  $context
+  Context: $context
 
   History: $history
-
-  Query: $query
-
-  Helpful Answer:
 """  # noqa:E501
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
@@ -27,7 +24,7 @@ class ChatConfig(QueryConfig):
     def __init__(
         self,
         number_documents=None,
-        template: Template = None,
+        template: Optional[Template] = None,
         model=None,
         temperature=None,
         max_tokens=None,

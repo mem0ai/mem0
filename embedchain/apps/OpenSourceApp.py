@@ -1,8 +1,17 @@
 import logging
+from string import Template
 from typing import Iterable, Union
 
 from embedchain.config import ChatConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
+
+PROMPT = """
+System: ${system}
+
+User: ${prompt}
+"""
+
+PROMPT_TEMPLATE = Template(PROMPT)
 
 gpt4all_model = None
 
@@ -49,14 +58,16 @@ class OpenSourceApp(EmbedChain):
 
         return GPT4All(model)
 
-    def _get_gpt4all_answer(self, prompt: str, config: ChatConfig) -> Union[str, Iterable]:
+    def _get_gpt4all_answer(self, prompt: str, system_prompt: str, config: ChatConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
                 "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
             )
 
+        full_prompt = PROMPT_TEMPLATE.substitute(system=system_prompt, prompt=prompt)
+
         response = self.instance.generate(
-            prompt=prompt,
+            prompt=full_prompt,
             streaming=config.stream,
             top_p=config.top_p,
             max_tokens=config.max_tokens,

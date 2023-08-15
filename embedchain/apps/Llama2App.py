@@ -1,9 +1,18 @@
 import os
+from string import Template
 
 from langchain.llms import Replicate
 
 from embedchain.config import AppConfig
 from embedchain.embedchain import EmbedChain
+
+PROMPT = """
+System: ${system}
+
+User: ${prompt}
+"""
+
+PROMPT_TEMPLATE = Template(PROMPT)
 
 
 class Llama2App(EmbedChain):
@@ -27,10 +36,13 @@ class Llama2App(EmbedChain):
 
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: AppConfig = None):
+    def get_llm_model_answer(self, prompt: str, system_prompt: str, config: AppConfig = None):
         # TODO: Move the model and other inputs into config
+
+        full_prompt = PROMPT_TEMPLATE.substitute(system=system_prompt, prompt=prompt)
+
         llm = Replicate(
             model="a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5",
             input={"temperature": 0.75, "max_length": 500, "top_p": 1},
         )
-        return llm(prompt)
+        return llm(full_prompt)

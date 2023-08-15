@@ -43,7 +43,7 @@ class CustomApp(EmbedChain):
                 "GPT4ALL needs to be instantiated with the model known, please create a new app instance instead"
             )
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
+    def get_llm_model_answer(self, prompt, system_prompt: str, config: ChatConfig):
         # TODO: Quitting the streaming response here for now.
         # Idea: https://gist.github.com/jvelezmagic/03ddf4c452d011aae36b2a0f73d72f68
         if config.stream:
@@ -53,25 +53,27 @@ class CustomApp(EmbedChain):
 
         try:
             if self.provider == Providers.OPENAI:
-                return CustomApp._get_openai_answer(prompt, config)
+                return CustomApp._get_openai_answer(prompt=prompt, system_prompt=system_prompt, config=config)
 
             if self.provider == Providers.ANTHROPHIC:
-                return CustomApp._get_athrophic_answer(prompt, config)
+                return CustomApp._get_athrophic_answer(prompt=prompt, system_prompt=system_prompt, config=config)
 
             if self.provider == Providers.VERTEX_AI:
-                return CustomApp._get_vertex_answer(prompt, config)
+                return CustomApp._get_vertex_answer(prompt=prompt, system_prompt=system_prompt, config=config)
 
             if self.provider == Providers.GPT4ALL:
-                return self.open_source_app._get_gpt4all_answer(prompt, config)
+                return self.open_source_app._get_gpt4all_answer(
+                    prompt=prompt, system_prompt=system_prompt, config=config
+                )
 
             if self.provider == Providers.AZURE_OPENAI:
-                return CustomApp._get_azure_openai_answer(prompt, config)
+                return CustomApp._get_azure_openai_answer(prompt=prompt, system_prompt=system_prompt, config=config)
 
         except ImportError as e:
             raise ImportError(e.msg) from None
 
     @staticmethod
-    def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_openai_answer(prompt: str, system_prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import ChatOpenAI
 
         chat = ChatOpenAI(
@@ -84,12 +86,12 @@ class CustomApp(EmbedChain):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt=prompt, system_prompt=system_prompt)
 
         return chat(messages).content
 
     @staticmethod
-    def _get_athrophic_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_athrophic_answer(prompt: str, system_prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import ChatAnthropic
 
         chat = ChatAnthropic(temperature=config.temperature, model=config.model)
@@ -97,12 +99,12 @@ class CustomApp(EmbedChain):
         if config.max_tokens and config.max_tokens != 1000:
             logging.warning("Config option `max_tokens` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt=prompt, system_prompt=system_prompt)
 
         return chat(messages).content
 
     @staticmethod
-    def _get_vertex_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_vertex_answer(prompt: str, system_prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import ChatVertexAI
 
         chat = ChatVertexAI(temperature=config.temperature, model=config.model, max_output_tokens=config.max_tokens)
@@ -110,12 +112,12 @@ class CustomApp(EmbedChain):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt=prompt, system_prompt=system_prompt)
 
         return chat(messages).content
 
     @staticmethod
-    def _get_azure_openai_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_azure_openai_answer(prompt: str, system_prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import AzureChatOpenAI
 
         if not config.deployment_name:
@@ -133,15 +135,15 @@ class CustomApp(EmbedChain):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt=prompt, system_prompt=system_prompt)
 
         return chat(messages).content
 
     @staticmethod
-    def _get_messages(prompt: str) -> List[BaseMessage]:
+    def _get_messages(prompt: str, system_prompt: str) -> List[BaseMessage]:
         from langchain.schema import HumanMessage, SystemMessage
 
-        return [SystemMessage(content="You are a helpful assistant."), HumanMessage(content=prompt)]
+        return [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
 
     def _stream_llm_model_response(self, response):
         """

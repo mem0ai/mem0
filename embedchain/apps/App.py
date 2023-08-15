@@ -23,9 +23,8 @@ class App(EmbedChain):
 
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
-        messages = []
-        messages.append({"role": "user", "content": prompt})
+    def get_llm_model_answer(self, prompt, system_prompt, config: ChatConfig):
+        messages = [{"role": "user", "content": prompt}, {"role": "system", "content": system_prompt}]
         response = openai.ChatCompletion.create(
             model=config.model or "gpt-3.5-turbo-0613",
             messages=messages,

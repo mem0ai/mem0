@@ -2,8 +2,8 @@ import importlib.metadata
 import logging
 import os
 import threading
-from typing import Optional
 import uuid
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -198,12 +198,11 @@ class EmbedChain:
     def _append_search_and_context(self, context, web_search_result):
         return f"{context}\nWeb Search Result: {web_search_result}"
 
-    def generate_prompt(self, input_query, contexts, config: QueryConfig, **kwargs):
+    def generate_system_prompt(self, contexts, config: QueryConfig, **kwargs):
         """
         Generates a prompt based on the given query and context, ready to be
         passed to an LLM
 
-        :param input_query: The query to use.
         :param contexts: List of similar documents to the query used as context.
         :param config: Optional. The `QueryConfig` instance to use as
         configuration options.
@@ -214,22 +213,18 @@ class EmbedChain:
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
         if not config.history:
-            prompt = config.template.substitute(context=context_string, query=input_query)
+            prompt = config.template.substitute(context=context_string)
         else:
-            prompt = config.template.substitute(context=context_string, query=input_query, history=config.history)
+            prompt = config.template.substitute(context=context_string, history=config.history)
         return prompt
 
-    def get_answer_from_llm(self, prompt, config: ChatConfig):
+    def get_answer_from_llm(self, prompt: str, system_prompt: str, config: ChatConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
-
-        :param query: The query to use.
-        :param context: Similar documents to the query used as context.
-        :return: The answer.
         """
 
-        return self.get_llm_model_answer(prompt, config)
+        return self.get_llm_model_answer(prompt=prompt, system_prompt=system_prompt, config=config)
 
     def access_search_and_get_results(self, input_query):
         from langchain.tools import DuckDuckGoSearchRun
@@ -264,13 +259,14 @@ class EmbedChain:
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
         contexts = self.retrieve_from_database(input_query, config)
-        prompt = self.generate_prompt(input_query, contexts, config, **k)
-        logging.info(f"Prompt: {prompt}")
+        prompt = self.generate_system_prompt(contexts, config, **k)
+        logging.info(f"System Prompt: {prompt}")
+        logging.info(f"User Query: {input_query}")
 
         if dry_run:
             return prompt
 
-        answer = self.get_answer_from_llm(prompt, config)
+        answer = self.get_answer_from_llm(prompt=input_query, system_prompt=prompt, config=config)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
@@ -323,13 +319,14 @@ class EmbedChain:
         if chat_history:
             config.set_history(chat_history)
 
-        prompt = self.generate_prompt(input_query, contexts, config, **k)
-        logging.info(f"Prompt: {prompt}")
+        prompt = self.generate_system_prompt(contexts, config, **k)
+        logging.info(f"System Prompt: {prompt}")
+        logging.info(f"User Query: {input_query}")
 
         if dry_run:
             return prompt
 
-        answer = self.get_answer_from_llm(prompt, config)
+        answer = self.get_answer_from_llm(prompt=input_query, system_prompt=prompt, config=config)
 
         memory.chat_memory.add_user_message(input_query)
 
@@ -377,7 +374,7 @@ class EmbedChain:
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
         thread_telemetry.start()
-      
+
         collection_name = self.collection.name
         self.db.reset()
         self.collection = self.config.db._get_or_create_collection(collection_name)

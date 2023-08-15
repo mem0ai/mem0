@@ -20,17 +20,16 @@ class TestGeneratePrompt(unittest.TestCase):
         the format specified by the template.
         """
         # Setup
-        input_query = "Test query"
         contexts = ["Context 1", "Context 2", "Context 3"]
-        template = "You are a bot. Context: ${context} - Query: ${query} - Helpful answer:"
+        template = "You are a bot. Context: ${context}"
         config = QueryConfig(template=Template(template))
 
         # Execute
-        result = self.app.generate_prompt(input_query, contexts, config)
+        result = self.app.generate_system_prompt(contexts, config)
 
         # Assert
         expected_result = (
-            "You are a bot. Context: Context 1 | Context 2 | Context 3 - Query: Test query - Helpful answer:"
+            "You are a bot. Context: Context 1 | Context 2 | Context 3"
         )
         self.assertEqual(result, expected_result)
 
@@ -43,15 +42,14 @@ class TestGeneratePrompt(unittest.TestCase):
         correctly includes all the contexts and the query.
         """
         # Setup
-        input_query = "Test query"
         contexts = ["Context 1", "Context 2", "Context 3"]
         config = QueryConfig()
 
         # Execute
-        result = self.app.generate_prompt(input_query, contexts, config)
+        result = self.app.generate_system_prompt(contexts, config)
 
         # Assert
-        expected_result = config.template.substitute(context="Context 1 | Context 2 | Context 3", query=input_query)
+        expected_result = config.template.substitute(context="Context 1 | Context 2 | Context 3")
         self.assertEqual(result, expected_result)
 
     def test_generate_prompt_with_history(self):
@@ -59,8 +57,8 @@ class TestGeneratePrompt(unittest.TestCase):
         Test the 'generate_prompt' method with QueryConfig containing a history attribute.
         """
         config = QueryConfig(history=["Past context 1", "Past context 2"])
-        config.template = Template("Context: $context | Query: $query | History: $history")
-        prompt = self.app.generate_prompt("Test query", ["Test context"], config)
+        config.template = Template("Context: $context | History: $history")
+        prompt = self.app.generate_system_prompt(["Test context"], config)
 
-        expected_prompt = "Context: Test context | Query: Test query | History: ['Past context 1', 'Past context 2']"
+        expected_prompt = "Context: Test context | History: ['Past context 1', 'Past context 2']"
         self.assertEqual(prompt, expected_prompt)

@@ -1,5 +1,6 @@
 import re
 from string import Template
+from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
 
@@ -7,11 +8,7 @@ DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
   If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
-  $context
-
-  Query: $query
-
-  Helpful Answer:
+  Context: $context
 """  # noqa:E501
 
 DEFAULT_PROMPT_WITH_HISTORY = """
@@ -19,25 +16,21 @@ DEFAULT_PROMPT_WITH_HISTORY = """
   If you don't know the answer, just say that you don't know, don't try to make up an answer.
   I will provide you with our conversation history.
 
-  $context
+  Context: $context
 
   History: $history
-
-  Query: $query
-
-  Helpful Answer:
 """  # noqa:E501
 
 DOCS_SITE_DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
   If you don't know the answer, just say that you don't know, don't try to make up an answer. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
 
-  $context
-
-  Query: $query
-
-  Helpful Answer:
+  Context: $context
 """  # noqa:E501
+
+DEFAULT_SYSTEM_PROMPT = """
+  You are a helpful assistant.
+"""
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_HISTORY)
@@ -55,7 +48,7 @@ class QueryConfig(BaseConfig):
     def __init__(
         self,
         number_documents=None,
-        template: Template = None,
+        template: Optional[Template] = None,
         model=None,
         temperature=None,
         max_tokens=None,
@@ -70,7 +63,7 @@ class QueryConfig(BaseConfig):
         :param number_documents: Number of documents to pull from the database as
         context.
         :param template: Optional. The `Template` instance to use as a template for
-        prompt.
+        the system prompt.
         :param model: Optional. Controls the OpenAI model used.
         :param temperature: Optional. Controls the randomness of the model's output.
         Higher values (closer to 1) make output more random, lower values make it more
@@ -113,9 +106,9 @@ class QueryConfig(BaseConfig):
             self.template = template
         else:
             if self.history is None:
-                raise ValueError("`template` should have `query` and `context` keys")
+                raise ValueError("`template` should have `context` keys")
             else:
-                raise ValueError("`template` should have `query`, `context` and `history` keys")
+                raise ValueError("`template` should have `context` and `history` keys")
 
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
@@ -129,10 +122,6 @@ class QueryConfig(BaseConfig):
         :return: Boolean, valid (true) or invalid (false)
         """
         if self.history is None:
-            return re.search(query_re, template.template) and re.search(context_re, template.template)
+            return re.search(context_re, template.template)
         else:
-            return (
-                re.search(query_re, template.template)
-                and re.search(context_re, template.template)
-                and re.search(history_re, template.template)
-            )
+            return re.search(context_re, template.template) and re.search(history_re, template.template)
