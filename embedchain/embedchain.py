@@ -2,8 +2,8 @@ import importlib.metadata
 import logging
 import os
 import threading
-from typing import Optional
 import uuid
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -377,7 +377,7 @@ class EmbedChain:
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
         thread_telemetry.start()
-      
+
         collection_name = self.collection.name
         self.db.reset()
         self.collection = self.config.db._get_or_create_collection(collection_name)
