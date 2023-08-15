@@ -141,10 +141,11 @@ class CustomApp(EmbedChain):
     def _get_messages(prompt: str, system_prompt: Optional[str] = None) -> List[BaseMessage]:
         from langchain.schema import HumanMessage, SystemMessage
 
-        return [
-            SystemMessage(content=system_prompt if system_prompt else "You are a helpful assistant."),
-            HumanMessage(content=prompt),
-        ]
+        messages = []
+        if system_prompt:
+            messages.append(SystemMessage(content=system_prompt))
+        messages.append(HumanMessage(content=prompt))
+        return messages
 
     def _stream_llm_model_response(self, response):
         """
