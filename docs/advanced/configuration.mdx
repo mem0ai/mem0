@@ -65,9 +65,7 @@ einstein_chat_template = Template("""
         Context: $context
 
         Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
-        Human: $query
-        Albert Einstein:""")
+""")
 query_config = QueryConfig(template=einstein_chat_template)
 queries = [
         "Where did you complete your studies?",

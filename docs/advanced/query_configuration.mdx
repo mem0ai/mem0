@@ -58,7 +58,7 @@ _coming soon_
 |option|description|type|default|
 |---|---|---|---|
 |number_documents|Absolute number of documents to pull from the database as context.|int|1
-|template|custom template for prompt. If history is used with query, $history has to be included as well.|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context Query: \$query Helpful Answer:")|
+|template|custom template for prompt. If history is used, it has to be included with $history.|Template|Template("Use the following pieces of context to answer the query at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. \$context")|
 |model|name of the model used.|string|depends on app type|
 |temperature|Controls the randomness of the model's output. Higher values (closer to 1) make output more random, lower values make it more deterministic.|float|0|
 |max_tokens|Controls how many tokens are used. Exact implementation (whether it counts prompt and/or response) depends on the model.|int|1000|
