@@ -1,5 +1,6 @@
 from string import Template
 from typing import Optional
+import textwrap
 
 from embedchain.config.QueryConfig import QueryConfig
 
@@ -13,7 +14,7 @@ DEFAULT_PROMPT = """
   History: $history
 """  # noqa:E501
 
-DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
+DEFAULT_PROMPT_TEMPLATE = Template(textwrap.dedent(DEFAULT_PROMPT).strip())
 
 
 class ChatConfig(QueryConfig):

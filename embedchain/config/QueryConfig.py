@@ -1,6 +1,7 @@
 import re
 from string import Template
 from typing import Optional
+import textwrap
 
 from embedchain.config.BaseConfig import BaseConfig
 
@@ -32,9 +33,9 @@ DEFAULT_SYSTEM_PROMPT = """
   You are a helpful assistant.
 """
 
-DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
-DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_HISTORY)
-DOCS_SITE_PROMPT_TEMPLATE = Template(DOCS_SITE_DEFAULT_PROMPT)
+DEFAULT_PROMPT_TEMPLATE = Template(textwrap.dedent(DEFAULT_PROMPT).strip())
+DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(textwrap.dedent(DEFAULT_PROMPT_WITH_HISTORY).strip())
+DOCS_SITE_PROMPT_TEMPLATE = Template(textwrap.dedent(DOCS_SITE_DEFAULT_PROMPT).strip())
 query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 history_re = re.compile(r"\$\{*history\}*")
