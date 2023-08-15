@@ -1,7 +1,7 @@
 import re
+import textwrap
 from string import Template
 from typing import Optional
-import textwrap
 
 from embedchain.config.BaseConfig import BaseConfig
 

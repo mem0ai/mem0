@@ -28,9 +28,7 @@ class TestGeneratePrompt(unittest.TestCase):
         result = self.app.generate_system_prompt(contexts, config)
 
         # Assert
-        expected_result = (
-            "You are a bot. Context: Context 1 | Context 2 | Context 3"
-        )
+        expected_result = "You are a bot. Context: Context 1 | Context 2 | Context 3"
         self.assertEqual(result, expected_result)
 
     def test_generate_prompt_with_contexts_list(self):
