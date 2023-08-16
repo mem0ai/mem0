@@ -70,7 +70,7 @@ class EmbedChain:
         try:
             DataType(source)
             logging.warning(
-                f"It looks like you used '{source}', a data_type, as the `source` argument. Since v0.0.35, Embedchain is able to detect the data_type automatically, so the arguments of the `add` method switched places."  # noqa #E501
+                f"It looks like you used '{source}', a data_type, as the `source` argument. Since v0.0.39, Embedchain is able to detect the data_type automatically, so the arguments of the `add` method switched places."  # noqa #E501
             )
             logging.warning(
                 "Embedchain is swapping the arguments for you. This functionality might be deprecated in the future, so please adjust your code."  # noqa #E501
