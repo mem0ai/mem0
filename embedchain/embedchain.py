@@ -105,7 +105,7 @@ class EmbedChain:
             # it's quicker to check the variable twice than to count words when they won't be submitted.
             word_count = sum([len(document.split(" ")) for document in documents])
 
-            extra_metadata = {"data_type": data_type, "word_count": word_count, "chunks_count": new_chunks}
+            extra_metadata = {"data_type": data_type.value, "word_count": word_count, "chunks_count": new_chunks}
             thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add", extra_metadata))
             thread_telemetry.start()
 
