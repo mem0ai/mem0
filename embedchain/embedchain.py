@@ -1,10 +1,15 @@
+import importlib.metadata
 import logging
 import os
+import threading
+import uuid
+from typing import Optional
 
-from chromadb.errors import InvalidDimensionException
+import requests
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
@@ -31,11 +36,16 @@ class EmbedChain:
         """
 
         self.config = config
-        self.db_client = self.config.db.client
         self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
+        self.db = self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
+
+        # Send anonymous telemetry
+        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
+        thread_telemetry.start()
 
     def add(self, data_type, url, metadata=None, config: AddConfig = None):
         """
@@ -54,9 +64,20 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, url, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, url, metadata)
+        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
+            data_formatter.loader, data_formatter.chunker, url, metadata
+        )
         if data_type in ("docs_site",):
             self.is_docs_site_instance = True
+
+        # Send anonymous telemetry
+        if self.config.collect_metrics:
+            # it's quicker to check the variable twice than to count words when they won't be submitted.
+            word_count = sum([len(document.split(" ")) for document in documents])
+
+            extra_metadata = {"data_type": data_type, "word_count": word_count, "chunks_count": new_chunks}
+            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add", extra_metadata))
+            thread_telemetry.start()
 
     def add_local(self, data_type, content, metadata=None, config: AddConfig = None):
         """
@@ -75,12 +96,18 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([data_type, content])
-        self.load_and_embed(
-            data_formatter.loader,
-            data_formatter.chunker,
-            content,
-            metadata,
+        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
+            data_formatter.loader, data_formatter.chunker, content, metadata
         )
+
+        # Send anonymous telemetry
+        if self.config.collect_metrics:
+            # it's quicker to check the variable twice than to count words when they won't be submitted.
+            word_count = sum([len(document.split(" ")) for document in documents])
+
+            extra_metadata = {"data_type": data_type, "word_count": word_count, "chunks_count": new_chunks}
+            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add_local", extra_metadata))
+            thread_telemetry.start()
 
     def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None):
         """
@@ -91,6 +118,7 @@ class EmbedChain:
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
+        :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         embeddings_data = chunker.create_chunks(loader, src)
         documents = embeddings_data["documents"]
@@ -99,11 +127,10 @@ class EmbedChain:
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
-        existing_docs = self.collection.get(
+        existing_ids = self.db.get(
             ids=ids,
             where=where,  # optional filter
         )
-        existing_ids = set(existing_docs["ids"])
 
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
@@ -111,7 +138,8 @@ class EmbedChain:
 
             if not data_dict:
                 print(f"All data from {src} already exists in the database.")
-                return
+                # Make sure to return a matching return type
+                return [], [], [], 0
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
@@ -128,8 +156,10 @@ class EmbedChain:
         # Add metadata to each document
         metadatas_with_metadata = [{**meta, **metadata} for meta in metadatas]
 
-        self.collection.add(documents=documents, metadatas=list(metadatas_with_metadata), ids=ids)
-        print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+        self.db.add(documents=documents, metadatas=metadatas_with_metadata, ids=ids)
+        count_new_chunks = self.count() - chunks_before_addition
+        print((f"Successfully saved {src}. New chunks count: {count_new_chunks}"))
+        return list(documents), metadatas_with_metadata, ids, count_new_chunks
 
     def _format_result(self, results):
         return [
@@ -156,23 +186,13 @@ class EmbedChain:
         :param config: The query configuration.
         :return: The content of the document that matched your query.
         """
-        try:
-            where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
-            result = self.collection.query(
-                query_texts=[
-                    input_query,
-                ],
-                n_results=config.number_documents,
-                where=where,
-            )
-        except InvalidDimensionException as e:
-            raise InvalidDimensionException(
-                e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
-            ) from None
+        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
+        contents = self.db.query(
+            input_query=input_query,
+            n_results=config.number_documents,
+            where=where,
+        )
 
-        results_formatted = self._format_result(result)
-        contents = [result[0].page_content for result in results_formatted]
         return contents
 
     def _append_search_and_context(self, context, web_search_result):
@@ -252,6 +272,10 @@ class EmbedChain:
 
         answer = self.get_answer_from_llm(prompt, config)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             logging.info(f"Answer: {answer}")
             return answer
@@ -309,6 +333,10 @@ class EmbedChain:
 
         memory.chat_memory.add_user_message(input_query)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
@@ -333,17 +361,48 @@ class EmbedChain:
         """
         self.collection = self.config.db._get_or_create_collection(collection_name)
 
-    def count(self):
+    def count(self) -> int:
         """
         Count the number of embeddings.
 
         :return: The number of embeddings.
         """
-        return self.collection.count()
+        return self.db.count()
 
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
-        `App` has to be reinitialized after using this method.
+        `App` does not have to be reinitialized after using this method.
         """
-        self.db_client.reset()
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
+        thread_telemetry.start()
+
+        collection_name = self.collection.name
+        self.db.reset()
+        self.collection = self.config.db._get_or_create_collection(collection_name)
+        # Todo: Automatically recreating a collection with the same name cannot be the best way to handle a reset.
+        # A downside of this implementation is, if you have two instances,
+        # the other instance will not get the updated `self.collection` attribute.
+        # A better way would be to create the collection if it is called again after being reset.
+        # That means, checking if collection exists in the db-consuming methods, and creating it if it doesn't.
+        # That's an extra steps for all uses, just to satisfy a niche use case in a niche method. For now, this will do.
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+    def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
+        if not self.config.collect_metrics:
+            return
+
+        with threading.Lock():
+            url = "https://api.embedchain.ai/api/v1/telemetry/"
+            metadata = {
+                "s_id": self.s_id,
+                "version": importlib.metadata.version(__package__ or __name__),
+                "method": method,
+                "language": "py",
+            }
+            if extra_metadata:
+                metadata.update(extra_metadata)
+
+            response = requests.post(url, json={"metadata": metadata})
+            response.raise_for_status()

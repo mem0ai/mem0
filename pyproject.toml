@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.34"
+version = "0.0.38"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
@@ -95,6 +95,7 @@ sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = ">=2.0.0, !=2.0.1", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
 gpt4all = { version = "^1.0.8", optional = true }
+elasticsearch = { version = "^8.9.0", optional = true }
 
 
 
@@ -112,6 +113,7 @@ isort = "^5.12.0"
 streamlit = ["streamlit"]
 community = ["llama-index"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
+elasticsearch = ["elasticsearch"]
 
 [tool.poetry.group.docs.dependencies]
 
