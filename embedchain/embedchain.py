@@ -52,7 +52,7 @@ class EmbedChain:
 
     def add(
         self,
-        source: str | tuple,
+        source,
         data_type: Optional[DataType] = None,
         metadata: Optional[Dict] = None,
         config: Optional[AddConfig] = None,
