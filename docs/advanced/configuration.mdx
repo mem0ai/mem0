@@ -68,7 +68,7 @@ einstein_chat_template = Template("""
 
         Human: $query
         Albert Einstein:""")
-query_config = QueryConfig(template=einstein_chat_template)
+query_config = QueryConfig(template=einstein_chat_template, system_prompt="You are Albert Einstein.")
 queries = [
         "Where did you complete your studies?",
         "Why did you win nobel prize?",
