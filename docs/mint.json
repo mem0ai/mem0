@@ -36,7 +36,7 @@
     },
     {
       "group": "Examples",
-      "pages": ["examples/full_stack", "examples/api_server"]
+      "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot"]
     },
     {
       "group": "Contribution Guidelines",

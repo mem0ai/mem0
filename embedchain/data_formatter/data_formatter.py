@@ -38,18 +38,20 @@ class DataFormatter:
         :raises ValueError: If an unsupported data type is provided.
         """
         loaders = {
-            DataType.YOUTUBE_VIDEO: YoutubeVideoLoader(),
-            DataType.PDF_FILE: PdfFileLoader(),
-            DataType.WEB_PAGE: WebPageLoader(),
-            DataType.QNA_PAIR: LocalQnaPairLoader(),
-            DataType.TEXT: LocalTextLoader(),
-            DataType.DOCX: DocxFileLoader(),
-            DataType.SITEMAP: SitemapLoader(),
-            DataType.DOCS_SITE: DocsSiteLoader(),
+            DataType.YOUTUBE_VIDEO: YoutubeVideoLoader,
+            DataType.PDF_FILE: PdfFileLoader,
+            DataType.WEB_PAGE: WebPageLoader,
+            DataType.QNA_PAIR: LocalQnaPairLoader,
+            DataType.TEXT: LocalTextLoader,
+            DataType.DOCX: DocxFileLoader,
+            DataType.SITEMAP: SitemapLoader,
+            DataType.DOCS_SITE: DocsSiteLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
-            return loaders[data_type]
+            loader_class = loaders[data_type]
+            loader = loader_class()
+            return loader
         elif data_type in lazy_loaders:
             if data_type == DataType.NOTION:
                 from embedchain.loaders.notion import NotionLoader

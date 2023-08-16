@@ -39,7 +39,7 @@ class TestChromaDbHostsInit(unittest.TestCase):
         host = "test-host"
         port = "1234"
 
-        config = AppConfig(host=host, port=port)
+        config = AppConfig(host=host, port=port, collect_metrics=False)
 
         _app = App(config)
 
@@ -54,7 +54,7 @@ class TestChromaDbHostsNone(unittest.TestCase):
         Test if the `App` instance is initialized without default hosts and ports.
         """
 
-        _app = App()
+        _app = App(config=AppConfig(collect_metrics=False))
 
         self.assertEqual(mock_client.call_args[0][0].chroma_server_host, None)
         self.assertEqual(mock_client.call_args[0][0].chroma_server_http_port, None)
@@ -68,7 +68,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         config = AppConfig(log_level="DEBUG")
 
-        _app = App(config)
+        _app = App(config=AppConfig(collect_metrics=False))
 
         self.assertEqual(mock_client.call_args[0][0].chroma_server_host, None)
         self.assertEqual(mock_client.call_args[0][0].chroma_server_http_port, None)
@@ -82,7 +82,7 @@ class TestChromaDbDuplicateHandling:
         # Start with a clean app
         App().reset()
 
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
         app.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         app.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         assert "Insert of existing embedding ID: 0" in caplog.text
@@ -97,7 +97,7 @@ class TestChromaDbDuplicateHandling:
         # Start with a clean app
         App().reset()
 
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
         app.set_collection("test_collection_1")
         app.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         app.set_collection("test_collection_2")
@@ -111,7 +111,7 @@ class TestChromaDbCollection(unittest.TestCase):
         """
         Test if the `App` instance is initialized with the correct default collection name.
         """
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
 
         self.assertEqual(app.collection.name, "embedchain_store")
 
@@ -119,7 +119,7 @@ class TestChromaDbCollection(unittest.TestCase):
         """
         Test if the `App` instance is initialized with the correct custom collection name.
         """
-        config = AppConfig(collection_name="test_collection")
+        config = AppConfig(collection_name="test_collection", collect_metrics=False)
         app = App(config)
 
         self.assertEqual(app.collection.name, "test_collection")
@@ -128,7 +128,7 @@ class TestChromaDbCollection(unittest.TestCase):
         """
         Test if the `App` collection is correctly switched using the `set_collection` method.
         """
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
         app.set_collection("test_collection")
 
         self.assertEqual(app.collection.name, "test_collection")
@@ -140,7 +140,7 @@ class TestChromaDbCollection(unittest.TestCase):
         # Start with a clean app
         App().reset()
 
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
         app.set_collection("test_collection_1")
         # Collection should be empty when created
         self.assertEqual(app.count(), 0)
@@ -166,12 +166,12 @@ class TestChromaDbCollection(unittest.TestCase):
         # Start with a clean app
         App().reset()
 
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
         app.set_collection("test_collection_1")
         app.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         del app
 
-        app = App()
+        app = App(config=AppConfig(collect_metrics=False))
         app.set_collection("test_collection_1")
         self.assertEqual(app.count(), 1)
 
@@ -185,8 +185,8 @@ class TestChromaDbCollection(unittest.TestCase):
         App().reset()
 
         # Create two apps
-        app1 = App(AppConfig(collection_name="test_collection_1"))
-        app2 = App(AppConfig(collection_name="test_collection_2"))
+        app1 = App(AppConfig(collection_name="test_collection_1", collect_metrics=False))
+        app2 = App(AppConfig(collection_name="test_collection_2", collect_metrics=False))
 
         # app2 has been created last, but adding to app1 will still write to collection 1.
         app1.collection.add(embeddings=[0, 0, 0], ids=["0"])
@@ -211,8 +211,8 @@ class TestChromaDbCollection(unittest.TestCase):
         App().reset()
 
         # Create two apps
-        app1 = App(AppConfig(collection_name="one_collection", id="new_app_id_1"))
-        app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2"))
+        app1 = App(AppConfig(collection_name="one_collection", id="new_app_id_1", collect_metrics=False))
+        app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2", collect_metrics=False))
 
         # Add data
         app1.collection.add(embeddings=[[0, 0, 0], [1, 1, 1]], ids=["0", "1"])
@@ -231,10 +231,10 @@ class TestChromaDbCollection(unittest.TestCase):
 
         # Create four apps.
         # app1, which we are about to reset, shares an app with one, and an id with the other, none with the last.
-        app1 = App(AppConfig(collection_name="one_collection", id="new_app_id_1"))
-        app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2"))
-        app3 = App(AppConfig(collection_name="three_collection", id="new_app_id_1"))
-        app4 = App(AppConfig(collection_name="four_collection", id="new_app_id_4"))
+        app1 = App(AppConfig(collection_name="one_collection", id="new_app_id_1", collect_metrics=False))
+        app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2", collect_metrics=False))
+        app3 = App(AppConfig(collection_name="three_collection", id="new_app_id_1", collect_metrics=False))
+        app4 = App(AppConfig(collection_name="four_collection", id="new_app_id_4", collect_metrics=False))
 
         # Each one of them get data
         app1.collection.add(embeddings=[0, 0, 0], ids=["1"])
@@ -245,11 +245,10 @@ class TestChromaDbCollection(unittest.TestCase):
         # Resetting the first one should reset them all.
         app1.reset()
 
-        # Reinstantiate them
-        app1 = App(AppConfig(collection_name="one_collection", id="new_app_id_1"))
-        app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2"))
-        app3 = App(AppConfig(collection_name="three_collection", id="new_app_id_3"))
-        app4 = App(AppConfig(collection_name="four_collection", id="new_app_id_3"))
+        # Reinstantiate app2-4, app1 doesn't have to be reinstantiated (PR #319)
+        app2 = App(AppConfig(collection_name="one_collection", id="new_app_id_2", collect_metrics=False))
+        app3 = App(AppConfig(collection_name="three_collection", id="new_app_id_3", collect_metrics=False))
+        app4 = App(AppConfig(collection_name="four_collection", id="new_app_id_3", collect_metrics=False))
 
         # All should be empty
         self.assertEqual(app1.count(), 0)

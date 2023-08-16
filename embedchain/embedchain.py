@@ -1,10 +1,16 @@
 import hashlib
+import importlib.metadata
 import logging
 import os
+import threading
+import uuid
+from typing import Optional
 
+import requests
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, ChatConfig, QueryConfig
@@ -38,6 +44,11 @@ class EmbedChain:
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
+
+        # Send anonymous telemetry
+        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
+        thread_telemetry.start()
 
     def add(self, source, data_type=None, metadata=None, config: AddConfig = None):
         """
@@ -85,9 +96,18 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type, metadata])
-        self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, source_id)
+        documents, _metadatas, _ids, new_chunks = self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, source_id)
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
+
+        # Send anonymous telemetry
+        if self.config.collect_metrics:
+            # it's quicker to check the variable twice than to count words when they won't be submitted.
+            word_count = sum([len(document.split(" ")) for document in documents])
+
+            extra_metadata = {"data_type": data_type, "word_count": word_count, "chunks_count": new_chunks}
+            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add", extra_metadata))
+            thread_telemetry.start()
 
         return source_id
 
@@ -123,6 +143,7 @@ class EmbedChain:
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
         :param source_id: Hexadecimal hash of the source.
+        :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         embeddings_data = chunker.create_chunks(loader, src)
 
@@ -145,7 +166,8 @@ class EmbedChain:
 
             if not data_dict:
                 print(f"All data from {src} already exists in the database.")
-                return
+                # Make sure to return a matching return type
+                return [], [], [], 0
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
@@ -172,7 +194,9 @@ class EmbedChain:
         chunks_before_addition = self.count()
 
         self.db.add(documents=documents, metadatas=metadatas, ids=ids)
-        print((f"Successfully saved {src}. New chunks count: " f"{self.count() - chunks_before_addition}"))
+        count_new_chunks = self.count() - chunks_before_addition
+        print((f"Successfully saved {src}. New chunks count: {count_new_chunks}"))
+        return list(documents), metadatas, ids, count_new_chunks
 
     def _format_result(self, results):
         return [
@@ -285,6 +309,10 @@ class EmbedChain:
 
         answer = self.get_answer_from_llm(prompt, config)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             logging.info(f"Answer: {answer}")
             return answer
@@ -342,6 +370,10 @@ class EmbedChain:
 
         memory.chat_memory.add_user_message(input_query)
 
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
+        thread_telemetry.start()
+
         if isinstance(answer, str):
             memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
@@ -366,7 +398,7 @@ class EmbedChain:
         """
         self.collection = self.config.db._get_or_create_collection(collection_name)
 
-    def count(self):
+    def count(self) -> int:
         """
         Count the number of embeddings.
 
@@ -377,6 +409,37 @@ class EmbedChain:
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
-        `App` has to be reinitialized after using this method.
+        `App` does not have to be reinitialized after using this method.
         """
+        # Send anonymous telemetry
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
+        thread_telemetry.start()
+
+        collection_name = self.collection.name
         self.db.reset()
+        self.collection = self.config.db._get_or_create_collection(collection_name)
+        # Todo: Automatically recreating a collection with the same name cannot be the best way to handle a reset.
+        # A downside of this implementation is, if you have two instances,
+        # the other instance will not get the updated `self.collection` attribute.
+        # A better way would be to create the collection if it is called again after being reset.
+        # That means, checking if collection exists in the db-consuming methods, and creating it if it doesn't.
+        # That's an extra steps for all uses, just to satisfy a niche use case in a niche method. For now, this will do.
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+    def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
+        if not self.config.collect_metrics:
+            return
+
+        with threading.Lock():
+            url = "https://api.embedchain.ai/api/v1/telemetry/"
+            metadata = {
+                "s_id": self.s_id,
+                "version": importlib.metadata.version(__package__ or __name__),
+                "method": method,
+                "language": "py",
+            }
+            if extra_metadata:
+                metadata.update(extra_metadata)
+
+            response = requests.post(url, json={"metadata": metadata})
+            response.raise_for_status()

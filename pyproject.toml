@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.36"
+version = "0.0.38"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
