@@ -101,7 +101,7 @@ class EmbedChain:
         source_id = hash_object.hexdigest()
 
         data_formatter = DataFormatter(data_type, config)
-        self.user_asks.append([source, data_type, metadata])
+        self.user_asks.append([source, data_type.value, metadata])
         documents, _metadatas, _ids, new_chunks = self.load_and_embed(
             data_formatter.loader, data_formatter.chunker, source, metadata, source_id
         )
