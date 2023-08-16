@@ -203,7 +203,7 @@ class EmbedChain:
 
         self.db.add(documents=documents, metadatas=metadatas, ids=ids)
         count_new_chunks = self.count() - chunks_before_addition
-        print((f"Successfully saved {src}. New chunks count: {count_new_chunks}"))
+        print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
     def _format_result(self, results):
