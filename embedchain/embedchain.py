@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 import uuid
-from typing import Optional
+from typing import Dict, Optional
 
 import requests
 from dotenv import load_dotenv
@@ -50,7 +50,7 @@ class EmbedChain:
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
-    def add(self, source, data_type=None, metadata=None, config: AddConfig = None):
+    def add(self, source: str | tuple, data_type: Optional[DataType] = None, metadata: Optional[Dict] = None, config: Optional[AddConfig] = None):
         """
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
