@@ -2,14 +2,40 @@
 title: '📋 Supported data formats'
 ---
 
-Embedchain supports following data formats:
+## Automatic data type detection
+The add method automatically tries to detect the data_type, based on your input for the source argument. So `app.add('https://www.youtube.com/watch?v=dQw4w9WgXcQ')` is enough to embed a YouTube video.
+
+This detection is implemented for all formats. It is based on factors such as whether it's a URL, a local file, the source data type, etc.
+
+### Debugging automatic detection
+
+
+Set `log_level=DEBUG` (in [AppConfig](http://localhost:3000/advanced/query_configuration#appconfig)) and make sure it's working as intended.
+
+Otherwise, you will not know when, for instance, an invalid filepath is interpreted as raw text instead.
+
+### Forcing a data type
+
+To omit any issues with the data type detection, you can **force** a data_type by adding it as a `add` method argument.
+The examples below show you the keyword to force the respective `data_type`.
+
+Forcing can also be used for edge cases, such as interpreting a sitemap as a web_page, for reading it's raw text instead of following links.
+
+## Remote Data Types
+
+<Tip>
+**Use local files in remote data types**
+
+Some data_types are meant for remote content and only work with URLs.
+You can pass local files by formatting the path using the `file:` [URI scheme](https://en.wikipedia.org/wiki/File_URI_scheme), e.g. `file:///info.pdf`.
+</Tip>
 
 ### Youtube video
 
 To add any youtube video to your app, use the data_type (first argument to `.add()` method) as `youtube_video`. Eg:
 
 ```python
-app.add('youtube_video', 'a_valid_youtube_url_here')
+app.add('a_valid_youtube_url_here', data_type='youtube_video')
 ```
 
 ### PDF file
@@ -17,7 +43,7 @@ app.add('youtube_video', 'a_valid_youtube_url_here')
 To add any pdf file, use the data_type as `pdf_file`. Eg:
 
 ```python
-app.add('pdf_file', 'a_valid_url_where_pdf_file_can_be_accessed')
+app.add('a_valid_url_where_pdf_file_can_be_accessed', data_type='pdf_file')
 ```
 
 Note that we do not support password protected pdfs.
@@ -27,7 +53,7 @@ Note that we do not support password protected pdfs.
 To add any web page, use the data_type as `web_page`. Eg:
 
 ```python
-app.add('web_page', 'a_valid_web_page_url')
+app.add('a_valid_web_page_url', data_type='web_page')
 ```
 
 ### Sitemap
@@ -35,15 +61,16 @@ app.add('web_page', 'a_valid_web_page_url')
 Add all web pages from an xml-sitemap. Filters non-text files. Use the data_type as `sitemap`. Eg:
 
 ```python
-app.add('sitemap', 'https://example.com/sitemap.xml')
+app.add('https://example.com/sitemap.xml', data_type='sitemap')
 ```
 
 ### Doc file
 
-To add any doc/docx file, use the data_type as `docx`. Eg:
+To add any doc/docx file, use the data_type as `docx`. `docx` allows remote urls and conventional file paths. Eg:
 
 ```python
-app.add('docx', 'a_local_docx_file_path')
+app.add('https://example.com/content/intro.docx', data_type="docx")
+app.add('content/intro.docx', data_type="docx")
 ```
 
 ### Code documentation website loader
@@ -51,27 +78,29 @@ app.add('docx', 'a_local_docx_file_path')
 To add any code documentation website as a loader, use the data_type as `docs_site`. Eg:
 
 ```python
-app.add("docs_site", "https://docs.embedchain.ai/")
+app.add("https://docs.embedchain.ai/", data_type="docs_site")
 ```
 
 ### Notion
 To use notion you must install the extra dependencies with `pip install embedchain[notion]`.
 
-To load a notion page, use the data_type as `notion`.
+To load a notion page, use the data_type as `notion`. Since it is hard to automatically detect, forcing this is advised.
 The next argument must **end** with the `notion page id`. The id is a 32-character string. Eg:
 
 ```python
-app.add("notion", "cfbc134ca6464fc980d0391613959196")
-app.add("notion", "my-page-cfbc134ca6464fc980d0391613959196")
-app.add("notion", "https://www.notion.so/my-page-cfbc134ca6464fc980d0391613959196")
+app.add("cfbc134ca6464fc980d0391613959196", "notion")
+app.add("my-page-cfbc134ca6464fc980d0391613959196", "notion")
+app.add("https://www.notion.so/my-page-cfbc134ca6464fc980d0391613959196", "notion")
 ```
+
+## Local Data Types
 
 ### Text
 
 To supply your own text, use the data_type as `text` and enter a string. The text is not processed, this can be very versatile. Eg:
 
 ```python
-app.add_local('text', 'Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.')
+app.add('Seek wealth, not money or status. Wealth is having assets that earn while you sleep. Money is how we transfer time and wealth. Status is your place in the social hierarchy.', data_type='text')
 ```
 
 Note: This is not used in the examples because in most cases you will supply a whole paragraph or file, which did not fit.
@@ -81,7 +110,7 @@ Note: This is not used in the examples because in most cases you will supply a w
 To supply your own QnA pair, use the data_type as `qna_pair` and enter a tuple. Eg:
 
 ```python
-app.add_local('qna_pair', ("Question", "Answer"))
+app.add(("Question", "Answer"), data_type="qna_pair")
 ```
 
 ## Reusing a vector database
@@ -94,8 +123,8 @@ Create a local index:
 from embedchain import App
 
 naval_chat_bot = App()
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
 ```
 
 You can reuse the local index with the same code, but without adding new documents:
@@ -107,6 +136,6 @@ naval_chat_bot = App()
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 ```
 
-### More formats (coming soon!)
+## More formats (coming soon!)
 
 - If you want to add any other format, please create an [issue](https://github.com/embedchain/embedchain/issues) and we will add it to the list of supported formats.

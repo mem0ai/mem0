@@ -1,5 +1,7 @@
 import hashlib
 
+from embedchain.models.data_type import DataType
+
 
 class BaseChunker:
     def __init__(self, text_splitter):
@@ -26,7 +28,7 @@ class BaseChunker:
 
             meta_data = data["meta_data"]
             # add data type to meta data to allow query using data type
-            meta_data["data_type"] = self.data_type
+            meta_data["data_type"] = self.data_type.value
             url = meta_data["url"]
 
             chunks = self.get_chunks(content)
@@ -52,8 +54,10 @@ class BaseChunker:
         """
         return self.text_splitter.split_text(content)
 
-    def set_data_type(self, data_type):
+    def set_data_type(self, data_type: DataType):
         """
         set the data type of chunker
         """
         self.data_type = data_type
+
+        # TODO: This should be done during initialization. This means it has to be done in the child classes.

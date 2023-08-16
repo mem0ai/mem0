@@ -26,8 +26,8 @@ os.environ["OPENAI_API_KEY"] = "xxx"
 elon_musk_bot = App()
 
 # Embed Online Resources
-elon_musk_bot.add("web_page", "https://en.wikipedia.org/wiki/Elon_Musk")
-elon_musk_bot.add("web_page", "https://www.tesla.com/elon-musk")
+elon_musk_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
+elon_musk_bot.add("https://www.tesla.com/elon-musk")
 
 response = elon_musk_bot.query("How many companies does Elon Musk run?")
 print(response)

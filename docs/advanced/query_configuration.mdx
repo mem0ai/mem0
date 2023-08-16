@@ -25,7 +25,7 @@ Yes, you are passing `ChunkerConfig` to `AddConfig`, like so:
 ```python
 chunker_config = ChunkerConfig(chunk_size=100)
 add_config = AddConfig(chunker=chunker_config)
-app.add_local("text", "lorem ipsum", config=add_config)
+app.add("lorem ipsum", config=add_config)
 ```
 
 ### ChunkerConfig
