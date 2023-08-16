@@ -50,7 +50,13 @@ class EmbedChain:
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
-    def add(self, source: str | tuple, data_type: Optional[DataType] = None, metadata: Optional[Dict] = None, config: Optional[AddConfig] = None):
+    def add(
+        self,
+        source: str | tuple,
+        data_type: Optional[DataType] = None,
+        metadata: Optional[Dict] = None,
+        config: Optional[AddConfig] = None,
+    ):
         """
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
@@ -96,7 +102,9 @@ class EmbedChain:
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type, metadata])
-        documents, _metadatas, _ids, new_chunks = self.load_and_embed(data_formatter.loader, data_formatter.chunker, source, metadata, source_id)
+        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
+            data_formatter.loader, data_formatter.chunker, source, metadata, source_id
+        )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
