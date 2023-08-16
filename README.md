@@ -78,6 +78,9 @@ elon_bot.query("How many companies does Elon Musk run?")
 Contributions are welcome! Please check out the issues on the repository, and feel free to open a pull request.
 For more information, please see the [contributing guidelines](CONTRIBUTING.md).
 
+For more refrence, please go through [Development Guide](https://docs.embedchain.ai/contribution/dev) and [Documentation Guide](https://docs.embedchain.ai/contribution/docs).
+
+
 ## Citation
 
 If you utilize this repository, please consider citing it with:
