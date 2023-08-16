@@ -1,4 +1,5 @@
 from string import Template
+from typing import Optional
 
 from embedchain.config.QueryConfig import QueryConfig
 
@@ -34,6 +35,7 @@ class ChatConfig(QueryConfig):
         top_p=None,
         stream: bool = False,
         deployment_name=None,
+        system_prompt: Optional[str] = None,
     ):
         """
         Initializes the ChatConfig instance.
@@ -51,6 +53,8 @@ class ChatConfig(QueryConfig):
         (closer to 1) make word selection more diverse, lower values make words less
         diverse.
         :param stream: Optional. Control if response is streamed back to the user
+        :param deployment_name: t.b.a.
+        :param system_prompt: Optional. System prompt string.
         :raises ValueError: If the template is not valid as template should contain
         $context and $query and $history
         """
@@ -70,6 +74,7 @@ class ChatConfig(QueryConfig):
             history=[0],
             stream=stream,
             deployment_name=deployment_name,
+            system_prompt=system_prompt,
         )
 
     def set_history(self, history):

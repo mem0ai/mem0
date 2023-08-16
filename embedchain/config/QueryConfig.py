@@ -1,5 +1,6 @@
 import re
 from string import Template
+from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
 
@@ -63,6 +64,7 @@ class QueryConfig(BaseConfig):
         history=None,
         stream: bool = False,
         deployment_name=None,
+        system_prompt: Optional[str] = None,
     ):
         """
         Initializes the QueryConfig instance.
@@ -81,6 +83,8 @@ class QueryConfig(BaseConfig):
         diverse.
         :param history: Optional. A list of strings to consider as history.
         :param stream: Optional. Control if response is streamed back to user
+        :param deployment_name: t.b.a.
+        :param system_prompt: Optional. System prompt string.
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history).
         """
@@ -108,6 +112,7 @@ class QueryConfig(BaseConfig):
         self.model = model
         self.top_p = top_p if top_p else 1
         self.deployment_name = deployment_name
+        self.system_prompt = system_prompt
 
         if self.validate_template(template):
             self.template = template
