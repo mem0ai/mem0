@@ -2,8 +2,8 @@ import importlib.metadata
 import logging
 import os
 import threading
-from typing import Optional
 import uuid
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
