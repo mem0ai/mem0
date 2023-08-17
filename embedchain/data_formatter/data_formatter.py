@@ -49,7 +49,7 @@ class DataFormatter:
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
         }
-        lazy_loaders = {DataType.NOTION}
+        lazy_loaders = {DataType.NOTION, DataType.GMAIL}
         if data_type in loaders:
             loader_class = loaders[data_type]
             loader = loader_class()
@@ -59,6 +59,10 @@ class DataFormatter:
                 from embedchain.loaders.notion import NotionLoader
 
                 return NotionLoader()
+            elif data_type == DataType.GMAIL:
+                from embedchain.loaders.gmail import GmailLoader
+
+                return GmailLoader()
             else:
                 raise ValueError(f"Unsupported data type: {data_type}")
         else:
@@ -82,6 +86,7 @@ class DataFormatter:
             DataType.WEB_PAGE: WebPageChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
+            DataType.GMAIL: GmailChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
