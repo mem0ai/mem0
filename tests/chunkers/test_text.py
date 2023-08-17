@@ -4,6 +4,7 @@ import unittest
 
 from embedchain.chunkers.text import TextChunker
 from embedchain.config import ChunkerConfig
+from embedchain.models.data_type import DataType
 
 
 class TestTextChunker(unittest.TestCase):
@@ -15,6 +16,8 @@ class TestTextChunker(unittest.TestCase):
         chunker_config = ChunkerConfig(chunk_size=10, chunk_overlap=0, length_function=len)
         chunker = TextChunker(config=chunker_config)
         text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+        # Data type must be set manually in the test
+        chunker.set_data_type(DataType.TEXT)
 
         result = chunker.create_chunks(MockLoader(), text)
 
@@ -31,6 +34,8 @@ class TestTextChunker(unittest.TestCase):
         chunker_config = ChunkerConfig(chunk_size=9999999999, chunk_overlap=0, length_function=len)
         chunker = TextChunker(config=chunker_config)
         text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+        # Data type must be set manually in the test
+        chunker.set_data_type(DataType.TEXT)
 
         result = chunker.create_chunks(MockLoader(), text)
 
@@ -46,6 +51,8 @@ class TestTextChunker(unittest.TestCase):
         chunker = TextChunker(config=chunker_config)
         # We can't test with lorem ipsum because chunks are deduped, so would be recurring characters.
         text = """0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\x0b\x0c"""
+        # Data type must be set manually in the test
+        chunker.set_data_type(DataType.TEXT)
 
         result = chunker.create_chunks(MockLoader(), text)
 

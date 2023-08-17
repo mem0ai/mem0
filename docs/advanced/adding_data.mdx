@@ -6,20 +6,20 @@ title: '➕ Adding Data'
 
 - This step assumes that you have already created an `app` instance by either using `App`, `OpenSourceApp` or `CustomApp`. We are calling our app instance as `naval_chat_bot` 🤖
 
-- Now use `.add()` function to add any dataset.
+- Now use `.add` method to add any dataset.
 
 ```python
 # naval_chat_bot = App() or
 # naval_chat_bot = OpenSourceApp()
 
 # Embed Online Resources
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-naval_chat_bot.add("web_page", "https://nav.al/feedback")
-naval_chat_bot.add("web_page", "https://nav.al/agi")
+naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add("https://nav.al/feedback")
+naval_chat_bot.add("https://nav.al/agi")
 
 # Embed Local Resources
-naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
+naval_chat_bot.add(("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 ```
 
 The possible formats to add data can be found on the [Supported Data Formats](/advanced/data_types) page.

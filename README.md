@@ -28,8 +28,8 @@ pip install embedchain
   zuck_bot = Llama2App()
 
   # Embed your data
-  zuck_bot.add("youtube_video", "https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
-  zuck_bot.add("web_page", "https://en.wikipedia.org/wiki/Mark_Zuckerberg")
+  zuck_bot.add("https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
+  zuck_bot.add("https://en.wikipedia.org/wiki/Mark_Zuckerberg")
 
   # Nice, your bot is ready now. Start asking questions to your bot.
   zuck_bot.query("Who is Mark Zuckerberg?")
@@ -64,9 +64,9 @@ os.environ["OPENAI_API_KEY"] = "YOUR API KEY"
 elon_bot = App()
 
 # Embed online resources
-elon_bot.add("web_page", "https://en.wikipedia.org/wiki/Elon_Musk")
-elon_bot.add("web_page", "https://tesla.com/elon-musk")
-elon_bot.add("youtube_video", "https://www.youtube.com/watch?v=MxZpaJK74Y4")
+elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
+elon_bot.add("https://tesla.com/elon-musk")
+elon_bot.add("https://www.youtube.com/watch?v=MxZpaJK74Y4")
 
 # Query the bot
 elon_bot.query("How many companies does Elon Musk run?")
@@ -77,6 +77,9 @@ elon_bot.query("How many companies does Elon Musk run?")
 
 Contributions are welcome! Please check out the issues on the repository, and feel free to open a pull request.
 For more information, please see the [contributing guidelines](CONTRIBUTING.md).
+
+For more refrence, please go through [Development Guide](https://docs.embedchain.ai/contribution/dev) and [Documentation Guide](https://docs.embedchain.ai/contribution/docs).
+
 
 ## Citation
 
