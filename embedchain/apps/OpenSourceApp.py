@@ -55,6 +55,9 @@ class OpenSourceApp(EmbedChain):
                 "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
             )
 
+        if config.system_prompt:
+            raise ValueError("OpenSourceApp does not support `system_prompt`")
+
         response = self.instance.generate(
             prompt=prompt,
             streaming=config.stream,

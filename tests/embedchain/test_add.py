@@ -23,5 +23,14 @@ class TestApp(unittest.TestCase):
         The Collection.add method from the chromadb library is mocked during this test to isolate the behavior of the
         'add' method.
         """
-        self.app.add("web_page", "https://example.com", {"meta": "meta-data"})
-        self.assertEqual(self.app.user_asks, [["web_page", "https://example.com", {"meta": "meta-data"}]])
+        self.app.add("https://example.com", metadata={"meta": "meta-data"})
+        self.assertEqual(self.app.user_asks, [["https://example.com", "web_page", {"meta": "meta-data"}]])
+
+    @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
+    def test_add_forced_type(self):
+        """
+        Test that you can also force a data_type with `add`.
+        """
+        data_type = "text"
+        self.app.add("https://example.com", data_type=data_type, metadata={"meta": "meta-data"})
+        self.assertEqual(self.app.user_asks, [["https://example.com", data_type, {"meta": "meta-data"}]])

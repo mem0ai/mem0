@@ -25,7 +25,7 @@ Yes, you are passing `ChunkerConfig` to `AddConfig`, like so:
 ```python
 chunker_config = ChunkerConfig(chunk_size=100)
 add_config = AddConfig(chunker=chunker_config)
-app.add_local("text", "lorem ipsum", config=add_config)
+app.add("lorem ipsum", config=add_config)
 ```
 
 ### ChunkerConfig
@@ -65,6 +65,8 @@ _coming soon_
 |top_p|Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse.|float|1|
 |history|include conversation history from your client or database.|any (recommendation: list[str])|None|
 |stream|control if response is streamed back to the user.|bool|False|
+|deployment_name|t.b.a.|str|None|
+|system_prompt|System prompt string. Unused if none.|str|None|
 
 ## ChatConfig
 

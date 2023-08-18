@@ -2,6 +2,8 @@
 title: '🌍 API Server'
 ---
 
+The API Server based on Flask integrates the `embedchain` package, offering endpoints to add, query, and chat to engage in conversations with a chatbot using JSON requests.
+
 ### 🐳 Docker Setup
 
 - Open variables.env, and edit it to add your 🔑 `OPENAI_API_KEY`.
@@ -16,8 +18,8 @@ docker-compose up --build
 ### 🚀 Usage Instructions
 
 - Your api server is running on [http://localhost:5000/](http://localhost:5000/)
-- To use the api server, make an api call to the endpoints `/add` and `/query` using the json formats discussed below.
-- To add data sources to the bot:
+- To use the api server, make an api call to the endpoints `/add`, `/query` and `/chat` using the json formats discussed below.
+- To add data sources to the bot (/add):
 ```json
 // Request
 {
@@ -30,7 +32,7 @@ docker-compose up --build
   "data": "Added data_type: url_or_text"
 }
 ```
-- To ask questions from the bot:
+- To ask queries from the bot (/query):
 ```json
 // Request
 {
@@ -41,6 +43,49 @@ docker-compose up --build
 {
   "data": "your_answer_here"
 }
+```
+- To chat with the bot (/chat):
+```json
+// Request
+{
+  "question": "your_question_here"
+}
+
+// Response
+{
+  "data": "your_answer_here"
+}
+```
+
+### 📡 Curl Call Formats
+
+- To add data sources to the bot (/add):
+```bash
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+         "data_type": "your_data_type_here",
+         "url_or_text": "your_url_or_text_here"
+     }' \
+     http://localhost:5000/add
+```
+- To ask queries from the bot (/query):
+```bash
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+         "question": "your_question_here"
+     }' \
+     http://localhost:5000/query
+```
+- To chat with the bot (/chat):
+```bash
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+         "question": "your_question_here"
+     }' \
+     http://localhost:5000/chat
 ```
 
 🎉 Happy Chatting! 🎉
