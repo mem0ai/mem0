@@ -1,0 +1,14 @@
+# This file is made as a .gitignore equivalent for gpt processes and packages
+
+# Add the following to .vscode/settings.json to have vscode treat this file as a .gitignore file.
+# {
+#     "files.associations": {
+#       "*.gptignore": "ignore"
+#     }
+# }
+
+# This file is respected by the following dependencies:
+# - repo-loader (https://github.com/cachho/repo-loader)
+
+# ignore package-lock because it's too big
+examples/full_stack/frontend/package-lock.json
