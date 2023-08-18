@@ -36,7 +36,6 @@ setuptools.setup(
         "pydantic==1.10.8",
         "replicate==0.9.0",
         "duckduckgo-search==3.8.4",
-        "repo-loader==0.2.2",
     ],
     extras_require={
         "dev": ["black", "ruff", "isort", "pytest"],
