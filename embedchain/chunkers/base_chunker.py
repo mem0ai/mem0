@@ -28,7 +28,6 @@ class BaseChunker:
             content = data["content"]
 
             meta_data = data["meta_data"]
-            print(meta_data)
             # add data type to meta data to allow query using data type
             meta_data["data_type"] = self.data_type.value
             url = meta_data["url"]
