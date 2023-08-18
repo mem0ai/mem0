@@ -160,6 +160,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
+        if url.path.endswith(".git") or url.path.startswith("git@") or url.netloc in {"https://github.com"}:
+            logging.debug(f"Source of `{formatted_source}` detected as `repo`.")
+            return DataType.REPO
+
         if "docs" in url.netloc or ("docs" in url.path and url.scheme != "file"):
             # `docs_site` detection via path is not accepted for local filesystem URIs,
             # because that would mean all paths that contain `docs` are now doc sites, which is too aggressive.
@@ -196,6 +200,14 @@ def detect_datatype(source: Any) -> DataType:
         raise ValueError(
             "Source points to a valid file, but based on the filename, no `data_type` can be detected. Please be aware, that not all data_types allow conventional file references, some require the use of the `file URI scheme`. Please refer to the embedchain documentation (https://docs.embedchain.ai/advanced/data_types#remote-data-types)."  # noqa: E501
         )
+
+    elif os.path.isdir(source):
+        # For datatypes that support conventional file references.
+        # Where the file reference is a directory.
+
+        # Repo is currently the only data type that accpets a whole local directory.
+        logging.debug(f"Source of `{formatted_source}` detected as `repo`.")
+        return DataType.REPO
 
     else:
         # Source is not a URL.
