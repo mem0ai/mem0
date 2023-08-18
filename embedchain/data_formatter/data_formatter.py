@@ -47,7 +47,7 @@ class DataFormatter:
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
         }
-        lazy_loaders = {DataType.NOTION}
+        lazy_loaders = {DataType.NOTION, DataType.REPO}
         if data_type in loaders:
             loader_class = loaders[data_type]
             loader = loader_class()
@@ -57,7 +57,7 @@ class DataFormatter:
                 from embedchain.loaders.notion import NotionLoader
 
                 return NotionLoader()
-            elif data_type == "repo":
+            elif data_type == DataType.REPO:
                 from embedchain.loaders.repo_loader import RepoLoader
 
                 return RepoLoader()
@@ -84,7 +84,7 @@ class DataFormatter:
             DataType.WEB_PAGE: WebPageChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
-            "repo": TextChunker,
+            DataType.REPO: TextChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
