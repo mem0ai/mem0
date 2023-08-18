@@ -39,7 +39,7 @@ setuptools.setup(
     ],
     extras_require={
         "dev": ["black", "ruff", "isort", "pytest"],
-        "community": ["llama-index==0.7.21", "repo-loader==0.2.2"],
+        "community": ["llama-index==0.7.21", "repo-loader==0.2.2", "whats-that-code==0.2.0"],
         "elasticsearch": ["elasticsearch>=8.9.0"],
     },
 )

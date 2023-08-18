@@ -17,4 +17,4 @@ class NotionChunker(BaseChunker):
             chunk_overlap=config.chunk_overlap,
             length_function=config.length_function,
         )
-        super().__init__(text_splitter)
+        super().__init__(text_splitter, config)

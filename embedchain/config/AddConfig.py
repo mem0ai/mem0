@@ -18,6 +18,9 @@ class ChunkerConfig(BaseConfig):
         self.chunk_overlap = chunk_overlap if chunk_overlap else 0
         self.length_function = length_function if length_function else len
 
+        # Dynamic chunker is not user configurable
+        self._use_dynamic_chunker = False
+
 
 class LoaderConfig(BaseConfig):
     """

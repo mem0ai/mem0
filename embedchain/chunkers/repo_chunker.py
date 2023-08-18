@@ -1,6 +1,7 @@
 from typing import Optional
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
+from whats_that_code.election import guess_language_all_methods
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config.AddConfig import ChunkerConfig
@@ -11,10 +12,23 @@ class RepoChunker(BaseChunker):
 
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
-            config = ChunkerConfig(chunk_size=300, chunk_overlap=0, length_function=len)
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=config.chunk_size,
-            chunk_overlap=config.chunk_overlap,
-            length_function=config.length_function,
+            config = ChunkerConfig(chunk_size=50, chunk_overlap=0, length_function=len)
+        config._use_dynamic_chunker = True
+        
+        super().__init__(None, config)
+
+    def _set_dynamic_text_splitter(self, content, metadata):
+        filename = metadata.get('filename')
+
+        self.text_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=RepoChunker._get_detected_language(filename, content),
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap,
+            length_function=self.config.length_function,
         )
-        super().__init__(text_splitter)
+
+    @staticmethod
+    def _get_detected_language(filename, code) -> Language:
+        detected = guess_language_all_methods(code, file_name=filename)
+        print("Detected:", detected)
+        return detected
