@@ -73,13 +73,13 @@ class RepoLoader(BaseLoader):
             logging.info(f"repository read, {len(individual_file_content)-2} files, {len(lines)} lines")
 
             output = []
-            # Start with index 2, because the first split is the preamble, 
+            # Start with index 2, because the first split is the preamble,
             # and in the preamble it's actually using the delimiter as instructions.
             for file in individual_file_content[2:]:
                 # TODO: Repo name as metadata, whether it's remote or local.
                 meta_data = {
                     "url": f"repo-{origin}" if is_local else content,
-                    "filename": file.split("\n")[1 if file.startswith("\n") else 0]
+                    "filename": file.split("\n")[1 if file.startswith("\n") else 0],
                 }
                 output.append({"content": file, "meta_data": meta_data})
 
