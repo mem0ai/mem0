@@ -12,3 +12,6 @@
 
 # ignore package-lock because it's too big
 examples/full_stack/frontend/package-lock.json
+
+# No explanation needed
+.git
