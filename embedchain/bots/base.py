@@ -1,6 +1,6 @@
 from embedchain import CustomApp
-from embedchain.config import AddConfig, QueryConfig, CustomAppConfig
-from embedchain.models import Providers, EmbeddingFunctions
+from embedchain.config import AddConfig, CustomAppConfig, QueryConfig
+from embedchain.models import EmbeddingFunctions, Providers
 
 
 class BaseBot:

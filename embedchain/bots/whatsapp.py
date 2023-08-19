@@ -1,11 +1,12 @@
-from flask import Flask, request
-from twilio.twiml.messaging_response import MessagingResponse
-from .base import BaseBot
-
 import argparse
 import logging
 import signal
 import sys
+
+from flask import Flask, request
+from twilio.twiml.messaging_response import MessagingResponse
+
+from .base import BaseBot
 
 
 class WhatsAppBot(BaseBot):
@@ -14,24 +15,26 @@ class WhatsAppBot(BaseBot):
 
     def handle_message(self, message):
         if message.startswith("add "):
-            response = self.add_sources(message)
+            response = self.add_data(message)
         else:
-            response = self.query(message)
+            response = self.ask_bot(message)
         return response
 
-    def add_source(self, message):
-        data = message.split(" ", 1)
+    def add_data(self, message):
+        data = message.split(" ")[-1]
         try:
             self.add(data)
             response = f"Added {data}"
-        except Exception as e:
-            response = f"Failed to add {data}.\nError: {str(e)}"
+        except Exception:
+            logging.exception(f"Failed to add data {data}.")
+            response = "Some error occurred while adding data."
         return response
 
-    def query(self, message):
+    def ask_bot(self, message):
         try:
             response = self.query(message)
         except Exception:
+            logging.exception(f"Failed to query {message}.")
             response = "An error occurred. Please try again!"
         return response
 
@@ -48,15 +51,15 @@ class WhatsAppBot(BaseBot):
         def chat():
             incoming_message = request.values.get("Body", "").lower()
             response = self.handle_message(incoming_message)
-            response = MessagingResponse()
-            response.message(response)
-            return str(response)
+            twilio_response = MessagingResponse()
+            twilio_response.message(response)
+            return str(twilio_response)
 
         app.run(host=host, port=port, debug=debug)
 
 
 def start_command():
-    parser = argparse.ArgumentParser(description="EmbedChain WhatsAppBot Command Line Interface")
+    parser = argparse.ArgumentParser(description="EmbedChain WhatsAppBot command line interface")
     parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind")
     parser.add_argument("--port", default=5000, type=int, help="Port to bind")
     args = parser.parse_args()
