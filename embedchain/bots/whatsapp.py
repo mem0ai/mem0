@@ -24,7 +24,7 @@ class WhatsAppBot(BaseBot):
         data = message.split(" ")[-1]
         try:
             self.add(data)
-            response = f"Added {data}"
+            response = f"Added data from: {data}"
         except Exception:
             logging.exception(f"Failed to add data {data}.")
             response = "Some error occurred while adding data."
