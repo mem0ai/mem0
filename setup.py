@@ -41,5 +41,6 @@ setuptools.setup(
         "dev": ["black", "ruff", "isort", "pytest"],
         "community": ["llama-index==0.7.21"],
         "elasticsearch": ["elasticsearch>=8.9.0"],
+        "whatsapp": ["twilio==8.5.0", "flask==1.1.2"],
     },
 )
