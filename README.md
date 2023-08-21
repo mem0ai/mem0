@@ -14,7 +14,7 @@ Embedchain is a framework to easily create LLM powered bots over any dataset. If
 pip install embedchain
 ```
 
-> On Windows, check you've also installed the [C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+> For Windows, you'll also need [C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
 
 ## 🔥 Latest
 
