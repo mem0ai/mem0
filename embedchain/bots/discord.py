@@ -2,13 +2,15 @@ import argparse
 import logging
 import os
 
-from .base import BaseBot
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv
-load_dotenv()
 import discord
 from discord import app_commands
+from discord.ext import commands
+from dotenv import load_dotenv
+
+from .base import BaseBot
+
+load_dotenv()
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -45,10 +47,10 @@ class DiscordBot(BaseBot):
         except Exception as e:
             await interaction.response.send("An error occurred. Please try again!")
             print("Error occurred during 'add' command:", e)
-    
+
     @tree.command(name="ping", description="Simple ping pong command", guild=discord.Object(id=895731234355937282))
     async def ping(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Pong", ephemeral=True)
+        await interaction.response.send_message("Pong", ephemeral=True)
 
     def add_data(self, message):
         data = message.split(" ")[-1]
@@ -75,7 +77,9 @@ class DiscordBot(BaseBot):
         print(f"Logged in as {client.user.name}")
 
     @tree.error
-    async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError) -> None:
+    async def on_app_command_error(
+        interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+    ) -> None:
         if isinstance(error, commands.CommandNotFound):
             await interaction.response.send("Invalid command. Please refer to the documentation for correct syntax.")
         else:
@@ -83,6 +87,7 @@ class DiscordBot(BaseBot):
 
     def start(self, debug=True):
         client.run(os.environ["DISCORD_BOT_TOKEN"])
+
 
 def start_command():
     parser = argparse.ArgumentParser(description="EmbedChain WhatsAppBot command line interface")
