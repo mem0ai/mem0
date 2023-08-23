@@ -16,32 +16,28 @@ from slack_sdk import WebClient
 from embedchain import App
 
 load_dotenv()
-app = Flask(__name__)
 
-slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET")
-
-slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
-client = WebClient(token=slack_bot_token)
-
-chat_bot = App()
-recent_message = {"ts": 0, "channel": ""}
+SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
 class SlackBot(BaseBot):
     def __init__(self):
+        self.client = WebClient(token=SLACK_BOT_TOKEN)
+        self.chat_bot = App()
+        self.recent_message = {"ts": 0, "channel": ""}
         super().__init__()
 
     def handle_message(self, event_data):
-        print("Event Data: ", event_data)
-        message = event_data["event"]
-        if "text" in message and message.get("subtype") != "bot_message":
+        message = event_data.get("event")
+        if message and "text" in message and message.get("subtype") != "bot_message":
             text: str = message["text"]
-            if float(message.get("ts")) > float(recent_message["ts"]):
-                recent_message["ts"] = message["ts"]
-                recent_message["channel"] = message["channel"]
+            if float(message.get("ts")) > float(self.recent_message["ts"]):
+                self.recent_message["ts"] = message["ts"]
+                self.recent_message["channel"] = message["channel"]
                 if text.startswith("query"):
                     _, question = text.split(" ", 1)
                     try:
-                        response = chat_bot.chat(question)
+                        response = self.chat_bot.chat(question)
                         self.send_slack_message(message["channel"], response)
                         print("Query answered successfully!")
                     except Exception as e:
@@ -52,7 +48,7 @@ class SlackBot(BaseBot):
                     if url_or_text.startswith("<") and url_or_text.endswith(">"):
                         url_or_text = url_or_text[1:-1]
                     try:
-                        chat_bot.add(data_type, url_or_text)
+                        self.chat_bot.add(data_type, url_or_text)
                         self.send_slack_message(message["channel"], f"Added {data_type} : {url_or_text}")
                     except ValueError as e:
                         self.send_slack_message(message["channel"], f"Error: {str(e)}")
@@ -63,7 +59,7 @@ class SlackBot(BaseBot):
 
 
     def send_slack_message(self, channel, message):
-        response = client.chat_postMessage(channel=channel, text=message)
+        response = self.client.chat_postMessage(channel=channel, text=message)
         return response
 
     def start(self, host="0.0.0.0", port=5000, debug=True):
