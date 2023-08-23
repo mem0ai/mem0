@@ -8,36 +8,48 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 load_dotenv()
+import discord
+from discord import app_commands
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="/ec ", intents=intents)
+intents = discord.Intents.default()
+client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
+
 
 class DiscordBot(BaseBot):
     def __init__(self):
         super().__init__()
 
-    @bot.command()
-    async def query_command(self, ctx, *, question: str):
-        print(f"User: {ctx.author.name}, Query: {question}")
+    @tree.command(name="question", description="ask embedchain")
+    async def query_command(self, interaction: discord.Interaction, question: str):
+        await interaction.response.defer()
+        member = client.guilds[0].get_member(client.user.id)
+        print(f"User: {member}, Query: {question}")
         try:
             response = self.ask_bot(question)
-            await DiscordBot.send_response(ctx, response)
+            await interaction.response.send(response)
         except Exception as e:
-            await DiscordBot.send_response(ctx, "An error occurred. Please try again!")
+            await interaction.response.send("An error occurred. Please try again!")
             print("Error occurred during 'query' command:", e)
 
-    @bot.command()
-    async def add_command(self, ctx, *, add: Any):
-        print(f"User: {ctx.author.name}, Add: {add}")
+    @tree.command(name="add", description="add new content to the embedchain database")
+    async def add_command(self, interaction: discord.Interaction, url_or_text: str):
+        await interaction.response.defer()
+        member = client.guilds[0].get_member(client.user.id)
+        print(f"User: {member}, Add: {url_or_text}")
         try:
-            response = self.add_data(add)
-            await DiscordBot.send_response(ctx, response)
+            response = self.add_data(url_or_text)
+            await interaction.response.send(response)
         except Exception as e:
-            await DiscordBot.send_response(ctx, "An error occurred. Please try again!")
+            await interaction.response.send("An error occurred. Please try again!")
             print("Error occurred during 'add' command:", e)
-
+    
+    @tree.command(name="ping", description="Simple ping pong command", guild=discord.Object(id=895731234355937282))
+    async def ping(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Pong", ephemeral=True)
 
     def add_data(self, message):
         data = message.split(" ")[-1]
@@ -57,28 +69,21 @@ class DiscordBot(BaseBot):
             response = "An error occurred. Please try again!"
         return response
 
-    def start(self, debug=True):
-        bot.run(os.environ["DISCORD_BOT_TOKEN"])
-
-    @bot.event
+    @client.event
     async def on_ready():
-        print(f"Logged in as {bot.user.name}")
+        await tree.sync()
+        print("Command tree synced")
+        print(f"Logged in as {client.user.name}")
 
-
-    @bot.event
-    async def on_command_error(ctx, error):
+    @tree.error
+    async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError) -> None:
         if isinstance(error, commands.CommandNotFound):
-            await DiscordBot.send_response(ctx, "Invalid command. Please refer to the documentation for correct syntax.")
+            await interaction.response.send("Invalid command. Please refer to the documentation for correct syntax.")
         else:
             print("Error occurred during command execution:", error)
 
-    @staticmethod
-    async def send_response(ctx, message):
-        if ctx.guild is None:
-            await ctx.send(message)
-        else:
-            await ctx.reply(message)
-
+    def start(self, debug=True):
+        client.run(os.environ["DISCORD_BOT_TOKEN"])
 
 def start_command():
     parser = argparse.ArgumentParser(description="EmbedChain WhatsAppBot command line interface")
