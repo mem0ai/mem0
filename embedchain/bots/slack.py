@@ -67,7 +67,6 @@ class SlackBot(BaseBot):
         return response
 
     def start(self, host="0.0.0.0", port=5000, debug=True):
-        global app
         app = Flask(__name__)
 
         def signal_handler(sig, frame):
