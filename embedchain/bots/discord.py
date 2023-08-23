@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-from typing import Any
 
 from .base import BaseBot
 import discord
