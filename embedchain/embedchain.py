@@ -50,6 +50,14 @@ class EmbedChain:
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
+    @property
+    def collect_metrics(self):
+        return self.config.collect_metrics
+
+    @collect_metrics.setter
+    def collect_metrics(self, value):
+        self.config.collect_metrics = value
+
     def add(
         self,
         source,
