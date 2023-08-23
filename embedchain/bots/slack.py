@@ -12,7 +12,6 @@ import os
 from dotenv import load_dotenv
 from flask import Flask
 from slack_sdk import WebClient
-from slackeventsapi import SlackEventAdapter
 
 from embedchain import App
 
@@ -29,16 +28,13 @@ recent_message = {"ts": 0, "channel": ""}
 
 class SlackBot(BaseBot):
     def __init__(self):
-        global app
-        slack_events_adapter = SlackEventAdapter(slack_signing_secret, "/slack/events", server=app)
-        self.handle_message = slack_events_adapter.on("message")(self.handle_message)
         super().__init__()
 
     def handle_message(self, event_data):
         print("Event Data: ", event_data)
         message = event_data["event"]
         if "text" in message and message.get("subtype") != "bot_message":
-            text = message["text"]
+            text: str = message["text"]
             if float(message.get("ts")) > float(recent_message["ts"]):
                 recent_message["ts"] = message["ts"]
                 recent_message["channel"] = message["channel"]
@@ -58,10 +54,12 @@ class SlackBot(BaseBot):
                     try:
                         chat_bot.add(data_type, url_or_text)
                         self.send_slack_message(message["channel"], f"Added {data_type} : {url_or_text}")
+                    except ValueError as e:
+                        self.send_slack_message(message["channel"], f"Error: {str(e)}")
+                        print("Error occurred during 'add' command:", e)                        
                     except Exception as e:
                         self.send_slack_message(message["channel"], f"Failed to add {data_type} : {url_or_text}")
                         print("Error occurred during 'add' command:", e)
-
 
 
     def send_slack_message(self, channel, message):
@@ -80,34 +78,25 @@ class SlackBot(BaseBot):
 
         @app.route("/", methods=["POST"])
         def chat():
+            # Check if the request is a verification request
+            if request.json.get('challenge'):
+                return str(request.json.get('challenge'))
+            
             response = self.handle_message(request.json)
             return str(response)
 
         app.run(host=host, port=port, debug=debug)
 
-    def await_verification(self, host="0.0.0.0", port=5000, debug=True):
-        app = Flask(__name__)
-        
-        @app.route("/", methods=["POST"])
-        def verify():
-            if request.json.get('challenge'):
-                return str(request.json.get('challenge'))
-
-        app.run(host=host, port=port, debug=debug)
-        
 
 
 def start_command():
     parser = argparse.ArgumentParser(description="EmbedChain SlackBot command line interface")
     parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind")
     parser.add_argument("--port", default=5000, type=int, help="Port to bind")
-    parser.add_argument("--verify", help="make the bot available for event verification", action="store_true")
     args = parser.parse_args()
 
-    whatsapp_bot = SlackBot()
-    if args.verify:
-        whatsapp_bot.await_verification()
-    whatsapp_bot.start(host=args.host, port=args.port)
+    slack_bot = SlackBot()
+    slack_bot.start(host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
