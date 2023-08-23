@@ -45,7 +45,7 @@ class SlackBot(BaseBot):
                     if url_or_text.startswith("<") and url_or_text.endswith(">"):
                         url_or_text = url_or_text[1:-1]
                     try:
-                        self.chat_bot.add(data_type, url_or_text)
+                        self.chat_bot.add(url_or_text, data_type)
                         self.send_slack_message(message["channel"], f"Added {data_type} : {url_or_text}")
                     except ValueError as e:
                         self.send_slack_message(message["channel"], f"Error: {str(e)}")
