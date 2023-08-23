@@ -10,7 +10,6 @@ from .base import BaseBot
 
 load_dotenv()
 
-
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -71,6 +70,8 @@ class DiscordBot(BaseBot):
 
     @client.event
     async def on_ready():
+        # TODO: Sync in admin command, to not hit rate limits.
+        # This might be overkill for most users, and it would require to set a guild or user id. where sync is allowed.
         await tree.sync()
         print("Command tree synced")
         print(f"Logged in as {client.user.name}")
