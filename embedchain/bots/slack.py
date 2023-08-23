@@ -20,7 +20,6 @@ load_dotenv()
 app = Flask(__name__)
 
 slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET")
-slack_events_adapter = SlackEventAdapter(slack_signing_secret, "/chat", app)
 
 slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
 client = WebClient(token=slack_bot_token)
@@ -30,10 +29,13 @@ recent_message = {"ts": 0, "channel": ""}
 
 class SlackBot(BaseBot):
     def __init__(self):
+        global app
+        slack_events_adapter = SlackEventAdapter(slack_signing_secret, "/slack/events", server=app)
+        self.handle_message = slack_events_adapter.on("message")(self.handle_message)
         super().__init__()
 
-    @slack_events_adapter.on("message")
     def handle_message(self, event_data):
+        print("Event Data: ", event_data)
         message = event_data["event"]
         if "text" in message and message.get("subtype") != "bot_message":
             text = message["text"]
@@ -67,6 +69,7 @@ class SlackBot(BaseBot):
         return response
 
     def start(self, host="0.0.0.0", port=5000, debug=True):
+        global app
         app = Flask(__name__)
 
         def signal_handler(sig, frame):
@@ -76,8 +79,19 @@ class SlackBot(BaseBot):
         signal.signal(signal.SIGINT, signal_handler)
 
         @app.route("/", methods=["POST"])
+        def chat():
+            response = self.handle_message(request.json)
+            return str(response)
+
+        app.run(host=host, port=port, debug=debug)
+
+    def await_verification(self, host="0.0.0.0", port=5000, debug=True):
+        app = Flask(__name__)
+        
+        @app.route("/", methods=["POST"])
         def verify():
-            return str(request.json.get('challenge'))
+            if request.json.get('challenge'):
+                return str(request.json.get('challenge'))
 
         app.run(host=host, port=port, debug=debug)
         
@@ -87,9 +101,12 @@ def start_command():
     parser = argparse.ArgumentParser(description="EmbedChain SlackBot command line interface")
     parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind")
     parser.add_argument("--port", default=5000, type=int, help="Port to bind")
+    parser.add_argument("--verify", help="make the bot available for event verification", action="store_true")
     args = parser.parse_args()
 
     whatsapp_bot = SlackBot()
+    if args.verify:
+        whatsapp_bot.await_verification()
     whatsapp_bot.start(host=args.host, port=args.port)
 
 
