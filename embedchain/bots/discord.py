@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 
@@ -90,11 +89,6 @@ class DiscordBot(BaseBot):
 
 
 def start_command():
-    parser = argparse.ArgumentParser(description="EmbedChain WhatsAppBot command line interface")
-    parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind")
-    parser.add_argument("--port", default=5000, type=int, help="Port to bind")
-    args = parser.parse_args()
-
     discord_bot = DiscordBot()
     discord_bot.start()
 
