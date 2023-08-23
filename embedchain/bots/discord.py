@@ -46,7 +46,7 @@ class DiscordBot(BaseBot):
             await interaction.response.send("An error occurred. Please try again!")
             print("Error occurred during 'add' command:", e)
 
-    @tree.command(name="ping", description="Simple ping pong command", guild=discord.Object(id=895731234355937282))
+    @tree.command(name="ping", description="Simple ping pong command")
     async def ping(self, interaction: discord.Interaction):
         await interaction.response.send_message("Pong", ephemeral=True)
 
