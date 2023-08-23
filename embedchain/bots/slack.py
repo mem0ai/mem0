@@ -1,24 +1,21 @@
 import argparse
 import logging
+import os
 import signal
 import sys
 
-from flask import Flask, request
-
-from .base import BaseBot
-
-import os
-
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, request
 from slack_sdk import WebClient
 
 from embedchain import App
 
+from .base import BaseBot
+
 load_dotenv()
 
-SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+
 
 class SlackBot(BaseBot):
     def __init__(self):
@@ -52,11 +49,10 @@ class SlackBot(BaseBot):
                         self.send_slack_message(message["channel"], f"Added {data_type} : {url_or_text}")
                     except ValueError as e:
                         self.send_slack_message(message["channel"], f"Error: {str(e)}")
-                        print("Error occurred during 'add' command:", e)                        
+                        print("Error occurred during 'add' command:", e)
                     except Exception as e:
                         self.send_slack_message(message["channel"], f"Failed to add {data_type} : {url_or_text}")
                         print("Error occurred during 'add' command:", e)
-
 
     def send_slack_message(self, channel, message):
         response = self.client.chat_postMessage(channel=channel, text=message)
@@ -74,14 +70,13 @@ class SlackBot(BaseBot):
         @app.route("/", methods=["POST"])
         def chat():
             # Check if the request is a verification request
-            if request.json.get('challenge'):
-                return str(request.json.get('challenge'))
-            
+            if request.json.get("challenge"):
+                return str(request.json.get("challenge"))
+
             response = self.handle_message(request.json)
             return str(response)
 
         app.run(host=host, port=port, debug=debug)
-
 
 
 def start_command():
