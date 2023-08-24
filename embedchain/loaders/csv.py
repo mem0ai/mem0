@@ -17,7 +17,7 @@ class CsvLoader(BaseLoader):
         url = urlparse(content)
         if all([url.scheme, url.netloc]) and url.scheme not in ["file", "http", "https"]:
             raise ValueError("Not a valid URL.")
-        
+
         if url.scheme in ["http", "https"]:
             response = requests.get(content)
             response.raise_for_status()
@@ -40,5 +40,4 @@ class CsvLoader(BaseLoader):
             for i, row in enumerate(reader):
                 line = ", ".join([f"{field}: {value}" for field, value in row.items()])
                 result.append({"content": line, "meta_data": {"url": content, "row": i + 1}})
-
         return result
