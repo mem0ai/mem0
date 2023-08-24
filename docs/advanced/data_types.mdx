@@ -67,12 +67,15 @@ app.add('https://example.com/sitemap.xml', data_type='sitemap')
 ### PostgreSQL
 
 You can run any postgres query and embed the results. Use the data_type as `postgres`.
-Your environement variables (`.env`) must include the following parameters: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
-Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+Headers are included for each line, so if you have an `name` column, `John` will be added as `name: John`. Eg:
 
 ```python
 app.add('SELECT * FROM student', data_type="postgres")
 ```
+
+Your environement variables (`.env`) **must** include the following parameters: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
+
+*Note: This data_type is currently not automatically detected, so you will have to force it.*
 
 ### Doc file
 
