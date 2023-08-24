@@ -1,4 +1,4 @@
-from embedchain.chunkers.csv import CsvChunker
+from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.notion import NotionChunker
@@ -83,7 +83,7 @@ class DataFormatter:
             DataType.WEB_PAGE: WebPageChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
-            DataType.CSV: CsvChunker,
+            DataType.CSV: TableChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
