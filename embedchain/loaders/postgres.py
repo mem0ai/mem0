@@ -42,23 +42,17 @@ class PostgresLoader(BaseLoader):
     def load_data(self, content):
         """Load data from a PostgreSQL database using a query, write to a temporary CSV, and return the CSV content."""
         query = content
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        column_names = [desc[0] for desc in cursor.description]
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            column_names = [desc[0] for desc in cursor.description]
 
-        # Create a temporary CSV file
-        temp_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".csv", newline="")
-        csv_writer = csv.writer(temp_file)
-        csv_writer.writerow(column_names)  # Write the header
-        for row in rows:
-            csv_writer.writerow(row)
-
-        # Get the path to the temporary CSV file and close the file
-        temp_file_path = temp_file.name
-        temp_file.close()
-
-        cursor.close()
+            with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".csv", newline="") as temp_file:
+                csv_writer = csv.writer(temp_file)
+                csv_writer.writerow(column_names)
+                for row in rows:
+                    csv_writer.writerow(row)
+                temp_file_path = temp_file.name
 
         # Use the csv loader to process the file
         output = CsvLoader.load_data(temp_file_path)
@@ -72,3 +66,7 @@ class PostgresLoader(BaseLoader):
         os.remove(temp_file_path)
 
         return output
+
+    def __del__(self):
+        # Close the connection when the object is destroyed
+        self.conn.close()
