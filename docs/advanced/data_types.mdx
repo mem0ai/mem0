@@ -73,6 +73,15 @@ app.add('https://example.com/content/intro.docx', data_type="docx")
 app.add('content/intro.docx', data_type="docx")
 ```
 
+### CSV file
+
+To add any csv file, use the data_type as `csv`. `csv` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+
+```python
+app.add('https://example.com/content/sheet.csv', data_type="csv")
+app.add('content/sheet.csv', data_type="csv")
+```
+
 ### Code documentation website loader
 
 To add any code documentation website as a loader, use the data_type as `docs_site`. Eg:
