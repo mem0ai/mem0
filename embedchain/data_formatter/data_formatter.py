@@ -1,9 +1,9 @@
-from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
+from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
@@ -14,6 +14,7 @@ from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
+from embedchain.loaders.postgres import PostgresLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
@@ -49,6 +50,7 @@ class DataFormatter:
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
             DataType.CSV: CsvLoader,
+            DataType.POSTGRES: PostgresLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -84,6 +86,7 @@ class DataFormatter:
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
             DataType.CSV: TableChunker,
+            DataType.POSTGRES: TableChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
