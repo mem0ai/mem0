@@ -68,7 +68,7 @@ class CustomApp(EmbedChain):
                 return CustomApp._get_azure_openai_answer(prompt, config)
 
         except ImportError as e:
-            raise ImportError(e.msg) from None
+            raise ModuleNotFoundError(e.msg) from None
 
     @staticmethod
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
