@@ -36,10 +36,10 @@ class SlackBot(BaseBot):
                     try:
                         response = self.chat_bot.chat(question)
                         self.send_slack_message(message["channel"], response)
-                        print("Query answered successfully!")
+                        logging.info("Query answered successfully!")
                     except Exception as e:
                         self.send_slack_message(message["channel"], "An error occurred. Please try again!")
-                        print("Error occurred during 'query' command:", e)
+                        logging.error("Error occurred during 'query' command:", e)
                 elif text.startswith("add"):
                     _, data_type, url_or_text = text.split(" ", 2)
                     if url_or_text.startswith("<") and url_or_text.endswith(">"):
@@ -49,10 +49,10 @@ class SlackBot(BaseBot):
                         self.send_slack_message(message["channel"], f"Added {data_type} : {url_or_text}")
                     except ValueError as e:
                         self.send_slack_message(message["channel"], f"Error: {str(e)}")
-                        print("Error occurred during 'add' command:", e)
+                        logging.error("Error occurred during 'add' command:", e)
                     except Exception as e:
                         self.send_slack_message(message["channel"], f"Failed to add {data_type} : {url_or_text}")
-                        print("Error occurred during 'add' command:", e)
+                        logging.error("Error occurred during 'add' command:", e)
 
     def send_slack_message(self, channel, message):
         response = self.client.chat_postMessage(channel=channel, text=message)
