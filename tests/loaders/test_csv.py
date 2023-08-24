@@ -1,12 +1,13 @@
 import csv
 import os
 import tempfile
+import pytest
 
-from embedchain.loaders.csv import \
-    CsvLoader  # Change this to the appropriate import path
+from embedchain.loaders.csv import CsvLoader
 
 
-def test_load_data():
+@pytest.mark.parametrize("delimiter", [',', '\t', ';', '|'])
+def test_load_data(delimiter):
     """
     Test csv loader
 
@@ -14,7 +15,7 @@ def test_load_data():
     """
     # Creating temporary CSV file
     with tempfile.NamedTemporaryFile(mode="w+", newline="", delete=False) as tmpfile:
-        writer = csv.writer(tmpfile)
+        writer = csv.writer(tmpfile, delimiter=delimiter)
         writer.writerow(["Name", "Age", "Occupation"])
         writer.writerow(["Alice", "28", "Engineer"])
         writer.writerow(["Bob", "35", "Doctor"])
