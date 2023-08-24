@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 import tempfile
 
 from dotenv import load_dotenv
@@ -32,6 +33,12 @@ class PostgresLoader(BaseLoader):
         # Call the base class's __init__ method with all args and kwargs
         super().__init__(*args, **kwargs)
 
+    def _get_db_name(self):
+        """Extract the database name from the connection's DSN."""
+        # NOTE: We could just read the env var again.
+        match = re.search(r"dbname=([a-zA-Z0-9_]+)", self.conn.dsn)
+        return match.group(1) if match else None
+
     def load_data(self, content):
         """Load data from a PostgreSQL database using a query, write to a temporary CSV, and return the CSV content."""
         query = content
@@ -55,6 +62,11 @@ class PostgresLoader(BaseLoader):
 
         # Use the csv loader to process the file
         output = CsvLoader.load_data(temp_file_path)
+
+        # Overwrite metadata
+        for doc in output:
+            doc["meta_data"]["url"] = query
+            doc["meta_data"]["database"] = self._get_db_name()
 
         # Delete the temporary file when done
         os.remove(temp_file_path)
