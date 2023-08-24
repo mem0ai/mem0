@@ -4,15 +4,12 @@ import os
 import signal
 import sys
 
-from dotenv import load_dotenv
 from flask import Flask, request
 from slack_sdk import WebClient
 
 from embedchain import App
 
 from .base import BaseBot
-
-load_dotenv()
 
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
