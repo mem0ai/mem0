@@ -41,3 +41,20 @@ class TestApp(unittest.TestCase):
         self.assertEqual(mock_retrieve.call_args[0][0], "Test query")
         self.assertIsInstance(mock_retrieve.call_args[0][1], QueryConfig)
         mock_answer.assert_called_once()
+
+    @patch("openai.ChatCompletion.create")
+    def test_query_config_passing(self, mock_create):
+        mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
+
+        config = AppConfig()
+        chat_config = QueryConfig(system_prompt="Test system prompt")
+        app = App(config=config)
+
+        app.get_llm_model_answer("Test query", chat_config)
+
+        # Test systemp_prompt: Check that the 'create' method was called with the correct 'messages' argument
+        messages_arg = mock_create.call_args.kwargs["messages"]
+        self.assertEqual(messages_arg[0]["role"], "system")
+        self.assertEqual(messages_arg[0]["content"], "Test system prompt")
+
+        # TODO: Add tests for other config variables
