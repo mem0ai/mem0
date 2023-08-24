@@ -19,12 +19,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install pep517
+      - name: Install Poetry
         run: |
-          python -m pip install pep517 --user
-
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+  
+      - name: Install dependencies
+        run: poetry install
+  
       - name: Build a binary wheel and a source tarball
-        run: python -m pep517.build .
+        run: poetry build
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
