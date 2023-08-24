@@ -1,3 +1,4 @@
+from embedchain.chunkers.csv import CsvChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.notion import NotionChunker
@@ -7,6 +8,7 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
+from embedchain.loaders.csv import CsvLoader
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
@@ -46,6 +48,7 @@ class DataFormatter:
             DataType.DOCX: DocxFileLoader,
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
+            DataType.CSV: CsvLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -80,6 +83,7 @@ class DataFormatter:
             DataType.WEB_PAGE: WebPageChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
+            DataType.CSV: CsvChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]
