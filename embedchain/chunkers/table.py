@@ -6,8 +6,8 @@ from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config.AddConfig import ChunkerConfig
 
 
-class CsvChunker(BaseChunker):
-    """Chunker for csv."""
+class TableChunker(BaseChunker):
+    """Chunker for tables, for instance csv, google sheets or databases."""
 
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
