@@ -2,6 +2,7 @@ import csv
 
 from embedchain.loaders.base_loader import BaseLoader
 
+
 class CsvLoader(BaseLoader):
     def load_data(self, content):
         """Load a csv file wit headers. Each line is a document"""
