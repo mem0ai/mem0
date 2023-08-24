@@ -155,6 +155,10 @@ def detect_datatype(source: Any) -> DataType:
         if url.path.endswith(".xml"):
             logging.debug(f"Source of `{formatted_source}` detected as `sitemap`.")
             return DataType.SITEMAP
+        
+        if url.path.endswith(".csv"):
+            logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
+            return DataType.SITEMAP
 
         if url.path.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
