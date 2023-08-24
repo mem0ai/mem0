@@ -83,7 +83,7 @@ class DiscordBot(BaseBot):
         else:
             print("Error occurred during command execution:", error)
 
-    def start(self, debug=True):
+    def start(self):
         client.run(os.environ["DISCORD_BOT_TOKEN"])
 
 
