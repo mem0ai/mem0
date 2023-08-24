@@ -2,11 +2,15 @@ import csv
 import os
 import tempfile
 
-import psycopg2
 from dotenv import load_dotenv
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.csv import CsvLoader
+
+try:
+    import psycopg2
+except ImportError:
+    raise ImportError("Postgres requires extra dependencies. Install with `pip install embedchain[postgres]`") from None
 
 
 class PostgresLoader(BaseLoader):

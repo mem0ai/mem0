@@ -50,9 +50,8 @@ class DataFormatter:
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
             DataType.CSV: CsvLoader,
-            DataType.POSTGRES: PostgresLoader,
         }
-        lazy_loaders = {DataType.NOTION}
+        lazy_loaders = {DataType.NOTION, DataType.POSTGRES}
         if data_type in loaders:
             loader_class = loaders[data_type]
             loader = loader_class()
@@ -62,6 +61,10 @@ class DataFormatter:
                 from embedchain.loaders.notion import NotionLoader
 
                 return NotionLoader()
+            elif data_type == DataType.POSTGRES:
+                from embedchain.loaders.postgres import PostgresLoader
+
+                return PostgresLoader()
             else:
                 raise ValueError(f"Unsupported data type: {data_type}")
         else:
