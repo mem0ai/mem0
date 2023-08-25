@@ -1,5 +1,6 @@
 import logging
 import os
+import argparse
 
 import discord
 from discord import app_commands
@@ -51,8 +52,11 @@ async def query_command(interaction: discord.Interaction, question: str):
     member = client.guilds[0].get_member(client.user.id)
     print(f"User: {member}, Query: {question}")
     try:
-        response = discord_bot.ask_bot(question)
-        print(f"response: {response}")
+        answer = discord_bot.ask_bot(question)
+        if args.include_question:
+            response = f"> {question}\n\n{answer}"
+        else:
+            response = answer
         await interaction.followup.send(response)
     except Exception as e:
         await interaction.followup.send("An error occurred. Please try again!")
@@ -95,6 +99,15 @@ async def on_ready():
 
 
 def start_command():
+    parser = argparse.ArgumentParser(description="EmbedChain DiscordBot command line interface")
+    parser.add_argument(
+        "--include-question",
+        help="include question in query reply, otherwise it is hidden behind the slash command.",
+        action="store_true",
+    )
+    global args
+    args = parser.parse_args()
+
     global discord_bot
     discord_bot = DiscordBot()
     discord_bot.start()
