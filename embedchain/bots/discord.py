@@ -14,39 +14,10 @@ tree = app_commands.CommandTree(client)
 
 # Invite link example
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_APPLICATION_ID}&permissions=199680&scope=applications.commands%20bot
-
-
-class DiscordBot(BaseBot):
-    def __init__(self):
-        super().__init__()
-
-    @tree.command(name="question", description="ask embedchain")
-    async def query_command(self, interaction: discord.Interaction, question: str):
-        await interaction.response.defer()
-        member = client.guilds[0].get_member(client.user.id)
-        print(f"User: {member}, Query: {question}")
-        try:
-            response = self.ask_bot(question)
-            await interaction.response.send(response)
-        except Exception as e:
-            await interaction.response.send("An error occurred. Please try again!")
-            print("Error occurred during 'query' command:", e)
-
-    @tree.command(name="add", description="add new content to the embedchain database")
-    async def add_command(self, interaction: discord.Interaction, url_or_text: str):
-        await interaction.response.defer()
-        member = client.guilds[0].get_member(client.user.id)
-        print(f"User: {member}, Add: {url_or_text}")
-        try:
-            response = self.add_data(url_or_text)
-            await interaction.response.send(response)
-        except Exception as e:
-            await interaction.response.send("An error occurred. Please try again!")
-            print("Error occurred during 'add' command:", e)
-
-    @tree.command(name="ping", description="Simple ping pong command")
-    async def ping(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Pong", ephemeral=True)
+    
+class DiscordBot(commands.Cog, BaseBot):
+    def __init__(self, *args, **kwargs):
+        BaseBot.__init__(self, *args, **kwargs)
 
     def add_data(self, message):
         data = message.split(" ")[-1]
@@ -65,29 +36,62 @@ class DiscordBot(BaseBot):
             logging.exception(f"Failed to query {message}.")
             response = "An error occurred. Please try again!"
         return response
-
-    @client.event
-    async def on_ready():
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         # TODO: Sync in admin command, to not hit rate limits.
         # This might be overkill for most users, and it would require to set a guild or user id, where sync is allowed.
         await tree.sync()
         print("Command tree synced")
         print(f"Logged in as {client.user.name}")
 
-    @tree.error
-    async def on_app_command_error(
-        interaction: discord.Interaction, error: discord.app_commands.AppCommandError
-    ) -> None:
-        if isinstance(error, commands.CommandNotFound):
-            await interaction.response.send("Invalid command. Please refer to the documentation for correct syntax.")
-        else:
-            print("Error occurred during command execution:", error)
-
     def start(self):
         client.run(os.environ["DISCORD_BOT_TOKEN"])
 
+    def setup(bot):
+        bot.add_cog(DiscordBot(bot))
+
+# @tree decorator cannot be used in a class. A global discord_bot is used as a workaround.
+
+@tree.command(name="question", description="ask embedchain")
+async def query_command(interaction: discord.Interaction, question: str):
+    await interaction.response.defer()
+    member = client.guilds[0].get_member(client.user.id)
+    print(f"User: {member}, Query: {question}")
+    try:
+        response = discord_bot.ask_bot(question)
+        await interaction.response.send(response)
+    except Exception as e:
+        await interaction.response.send("An error occurred. Please try again!")
+        print("Error occurred during 'query' command:", e)
+
+@tree.command(name="add", description="add new content to the embedchain database")
+async def add_command( interaction: discord.Interaction, url_or_text: str):
+    await interaction.response.defer()
+    member = client.guilds[0].get_member(client.user.id)
+    print(f"User: {member}, Add: {url_or_text}")
+    try:
+        response = discord_bot.add_data(url_or_text)
+        await interaction.response.send(response)
+    except Exception as e:
+        await interaction.response.send("An error occurred. Please try again!")
+        print("Error occurred during 'add' command:", e)
+
+@tree.command(name="ping", description="Simple ping pong command")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong", ephemeral=True)
+
+@tree.error
+async def on_app_command_error(
+    interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+) -> None:
+    if isinstance(error, commands.CommandNotFound):
+        await interaction.response.send("Invalid command. Please refer to the documentation for correct syntax.")
+    else:
+        print("Error occurred during command execution:", error)
 
 def start_command():
+    global discord_bot
     discord_bot = DiscordBot()
     discord_bot.start()
 
