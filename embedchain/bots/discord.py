@@ -50,7 +50,7 @@ class DiscordBot(BaseBot):
 async def query_command(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
     member = client.guilds[0].get_member(client.user.id)
-    print(f"User: {member}, Query: {question}")
+    logging.info(f"User: {member}, Query: {question}")
     try:
         answer = discord_bot.ask_bot(question)
         if args.include_question:
@@ -60,20 +60,20 @@ async def query_command(interaction: discord.Interaction, question: str):
         await interaction.followup.send(response)
     except Exception as e:
         await interaction.followup.send("An error occurred. Please try again!")
-        print("Error occurred during 'query' command:", e)
+        logging.error("Error occurred during 'query' command:", e)
 
 
 @tree.command(name="add", description="add new content to the embedchain database")
 async def add_command(interaction: discord.Interaction, url_or_text: str):
     await interaction.response.defer()
     member = client.guilds[0].get_member(client.user.id)
-    print(f"User: {member}, Add: {url_or_text}")
+    logging.info(f"User: {member}, Add: {url_or_text}")
     try:
         response = discord_bot.add_data(url_or_text)
         await interaction.followup.send(response)
     except Exception as e:
         await interaction.followup.send("An error occurred. Please try again!")
-        print("Error occurred during 'add' command:", e)
+        logging.error("Error occurred during 'add' command:", e)
 
 
 @tree.command(name="ping", description="Simple ping pong command")
@@ -86,7 +86,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
     if isinstance(error, commands.CommandNotFound):
         await interaction.followup.send("Invalid command. Please refer to the documentation for correct syntax.")
     else:
-        print("Error occurred during command execution:", error)
+        logging.error("Error occurred during command execution:", error)
 
 
 @client.event
@@ -94,8 +94,8 @@ async def on_ready():
     # TODO: Sync in admin command, to not hit rate limits.
     # This might be overkill for most users, and it would require to set a guild or user id, where sync is allowed.
     await tree.sync()
-    print("Command tree synced")
-    print(f"Logged in as {client.user.name}")
+    logging.debug("Command tree synced")
+    logging.info(f"Logged in as {client.user.name}")
 
 
 def start_command():
