@@ -15,7 +15,7 @@ tree = app_commands.CommandTree(client)
 # Invite link example
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_APPLICATION_ID}&permissions=199680&scope=applications.commands%20bot
     
-class DiscordBot(commands.Cog, BaseBot):
+class DiscordBot(BaseBot):
     def __init__(self, *args, **kwargs):
         BaseBot.__init__(self, *args, **kwargs)
 
@@ -36,20 +36,9 @@ class DiscordBot(commands.Cog, BaseBot):
             logging.exception(f"Failed to query {message}.")
             response = "An error occurred. Please try again!"
         return response
-    
-    @commands.Cog.listener()
-    async def on_ready(self):
-        # TODO: Sync in admin command, to not hit rate limits.
-        # This might be overkill for most users, and it would require to set a guild or user id, where sync is allowed.
-        await tree.sync()
-        print("Command tree synced")
-        print(f"Logged in as {client.user.name}")
 
     def start(self):
         client.run(os.environ["DISCORD_BOT_TOKEN"])
-
-    def setup(bot):
-        bot.add_cog(DiscordBot(bot))
 
 # @tree decorator cannot be used in a class. A global discord_bot is used as a workaround.
 
@@ -60,9 +49,10 @@ async def query_command(interaction: discord.Interaction, question: str):
     print(f"User: {member}, Query: {question}")
     try:
         response = discord_bot.ask_bot(question)
-        await interaction.response.send(response)
+        print(f"response: {response}")
+        await interaction.followup.send(response)
     except Exception as e:
-        await interaction.response.send("An error occurred. Please try again!")
+        await interaction.followup.send("An error occurred. Please try again!")
         print("Error occurred during 'query' command:", e)
 
 @tree.command(name="add", description="add new content to the embedchain database")
@@ -72,9 +62,9 @@ async def add_command( interaction: discord.Interaction, url_or_text: str):
     print(f"User: {member}, Add: {url_or_text}")
     try:
         response = discord_bot.add_data(url_or_text)
-        await interaction.response.send(response)
+        await interaction.followup.send(response)
     except Exception as e:
-        await interaction.response.send("An error occurred. Please try again!")
+        await interaction.followup.send("An error occurred. Please try again!")
         print("Error occurred during 'add' command:", e)
 
 @tree.command(name="ping", description="Simple ping pong command")
@@ -86,9 +76,17 @@ async def on_app_command_error(
     interaction: discord.Interaction, error: discord.app_commands.AppCommandError
 ) -> None:
     if isinstance(error, commands.CommandNotFound):
-        await interaction.response.send("Invalid command. Please refer to the documentation for correct syntax.")
+        await interaction.followup.send("Invalid command. Please refer to the documentation for correct syntax.")
     else:
         print("Error occurred during command execution:", error)
+
+@client.event
+async def on_ready():
+    # TODO: Sync in admin command, to not hit rate limits.
+    # This might be overkill for most users, and it would require to set a guild or user id, where sync is allowed.
+    await tree.sync()
+    print("Command tree synced")
+    print(f"Logged in as {client.user.name}")
 
 def start_command():
     global discord_bot
