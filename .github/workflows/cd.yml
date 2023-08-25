@@ -1,24 +1,40 @@
-name: cd
+name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
 
 on:
   release:
-    types:
-      - published
-
-permissions:
-  id-token: write
-  contents: read
+    types: [published] # This will trigger the workflow when you create a new release
 
 jobs:
-  publish_to_pypi:
-    name: publish to pypi on new release
+  build-n-publish:
+    name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
     runs-on: ubuntu-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: JRubics/poetry-publish@v1.16
-        name: Build and publish to PyPI
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          pypi_token: ${{ secrets.PYPI_TOKEN }}
-          ignore_dev_requirements: "yes"
-          repository_url: https://upload.pypi.org/legacy/
-          repository_name: embedchain
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+  
+      - name: Install dependencies
+        run: poetry install
+  
+      - name: Build a binary wheel and a source tarball
+        run: poetry build
+
+      - name: Publish distribution 📦 to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository_url: https://test.pypi.org/legacy/
+
+      - name: Publish distribution 📦 to PyPI
+        if: startsWith(github.ref, 'refs/tags')
+        uses: pypa/gh-action-pypi-publish@release/v1
