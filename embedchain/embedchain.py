@@ -56,6 +56,8 @@ class EmbedChain:
 
     @collect_metrics.setter
     def collect_metrics(self, value):
+        if not isinstance(value, bool):
+            raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.config.collect_metrics = value
 
     def add(
