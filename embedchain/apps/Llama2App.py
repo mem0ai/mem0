@@ -29,7 +29,7 @@ class Llama2App(EmbedChain):
 
     def get_llm_model_answer(self, prompt, config: ChatConfig = None):
         # TODO: Move the model and other inputs into config
-        if config.system_prompt:
+        if self.system_prompt or config.system_prompt:
             raise ValueError("Llama2App does not support `system_prompt`")
         llm = Replicate(
             model="a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5",
