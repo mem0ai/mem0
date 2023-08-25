@@ -14,7 +14,8 @@ tree = app_commands.CommandTree(client)
 
 # Invite link example
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_APPLICATION_ID}&permissions=199680&scope=applications.commands%20bot
-    
+
+
 class DiscordBot(BaseBot):
     def __init__(self, *args, **kwargs):
         BaseBot.__init__(self, *args, **kwargs)
@@ -40,7 +41,9 @@ class DiscordBot(BaseBot):
     def start(self):
         client.run(os.environ["DISCORD_BOT_TOKEN"])
 
+
 # @tree decorator cannot be used in a class. A global discord_bot is used as a workaround.
+
 
 @tree.command(name="question", description="ask embedchain")
 async def query_command(interaction: discord.Interaction, question: str):
@@ -55,8 +58,9 @@ async def query_command(interaction: discord.Interaction, question: str):
         await interaction.followup.send("An error occurred. Please try again!")
         print("Error occurred during 'query' command:", e)
 
+
 @tree.command(name="add", description="add new content to the embedchain database")
-async def add_command( interaction: discord.Interaction, url_or_text: str):
+async def add_command(interaction: discord.Interaction, url_or_text: str):
     await interaction.response.defer()
     member = client.guilds[0].get_member(client.user.id)
     print(f"User: {member}, Add: {url_or_text}")
@@ -67,18 +71,19 @@ async def add_command( interaction: discord.Interaction, url_or_text: str):
         await interaction.followup.send("An error occurred. Please try again!")
         print("Error occurred during 'add' command:", e)
 
+
 @tree.command(name="ping", description="Simple ping pong command")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong", ephemeral=True)
 
+
 @tree.error
-async def on_app_command_error(
-    interaction: discord.Interaction, error: discord.app_commands.AppCommandError
-) -> None:
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError) -> None:
     if isinstance(error, commands.CommandNotFound):
         await interaction.followup.send("Invalid command. Please refer to the documentation for correct syntax.")
     else:
         print("Error occurred during command execution:", error)
+
 
 @client.event
 async def on_ready():
@@ -87,6 +92,7 @@ async def on_ready():
     await tree.sync()
     print("Command tree synced")
     print(f"Logged in as {client.user.name}")
+
 
 def start_command():
     global discord_bot
