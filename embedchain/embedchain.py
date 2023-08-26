@@ -46,8 +46,9 @@ class EmbedChain:
 
         # Send anonymous telemetry
         self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
-        thread_telemetry.start()
+        if self.config.collect_metrics:
+            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
+            thread_telemetry.start()
 
     def add(
         self,
