@@ -7,7 +7,7 @@ from embedchain.embedchain import EmbedChain
 class RemoteLLMApp(EmbedChain):
     """The EmbedChain Remote LLM class.
 
-    HuggingFace TGI is a Rust, Python and gRPC server for text generation inference.
+    RemoteLLMApp allows you to use a self-hosted Remote LLM as a remote inference service.
     Used in production at Remote LLM to power Hugging Chat, the Inference API and Inference Endpoint.
 
     The users can self-host the Remote LLM as a remote inference service.
