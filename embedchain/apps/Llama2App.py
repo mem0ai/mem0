@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from langchain.llms import Replicate
 
@@ -15,9 +16,10 @@ class Llama2App(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: AppConfig = None):
+    def __init__(self, config: AppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: AppConfig instance to load as configuration. Optional.
+        :param system_prompt: System prompt string. Optional.
         """
         if "REPLICATE_API_TOKEN" not in os.environ:
             raise ValueError("Please set the REPLICATE_API_TOKEN environment variable.")
@@ -25,7 +27,7 @@ class Llama2App(EmbedChain):
         if config is None:
             config = AppConfig()
 
-        super().__init__(config)
+        super().__init__(config, system_prompt)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig = None):
         # TODO: Move the model and other inputs into config

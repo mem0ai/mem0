@@ -22,6 +22,7 @@ class CustomApp(EmbedChain):
         """
         :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
+        :param system_prompt: Optional. System prompt string.
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")

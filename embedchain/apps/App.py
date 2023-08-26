@@ -19,7 +19,7 @@ class App(EmbedChain):
     def __init__(self, config: AppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: AppConfig instance to load as configuration. Optional.
-        :param system_prompt: Optional. System prompt string.
+        :param system_prompt: System prompt string. Optional.
         """
         if config is None:
             config = AppConfig()
