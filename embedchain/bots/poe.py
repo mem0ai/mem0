@@ -1,8 +1,11 @@
 import argparse
 import logging
 import os
+from typing import List, Optional
 
 from fastapi_poe import PoeBot, run
+
+from embedchain.config import QueryConfig
 
 from .base import BaseBot
 
@@ -13,14 +16,21 @@ class PoeBot(BaseBot, PoeBot):
 
     async def get_response(self, query):
         last_message = query.query[-1].content
-        answer = self.handle_message(last_message)
+        try:
+            history = [f"{m.role}: {m.content}" for m in query.query[-6:-1]] if len(query.query) > 0 else None
+        except Exception as e:
+            logging.error(
+                f"Something went wrong when processing the chat history. Message is being sent without history. Error: {e}"
+            )
+        logging.warning(history)
+        answer = self.handle_message(last_message, history)
         yield self.text_event(answer)
 
-    def handle_message(self, message):
+    def handle_message(self, message, history: Optional[List[str]] = None):
         if message.startswith("/add "):
             response = self.add_data(message)
         else:
-            response = self.ask_bot(message)
+            response = self.ask_bot(message, history)
         return response
 
     def add_data(self, message):
@@ -33,9 +43,10 @@ class PoeBot(BaseBot, PoeBot):
             response = "Some error occurred while adding data."
         return response
 
-    def ask_bot(self, message):
+    def ask_bot(self, message, history: List[str]):
         try:
-            response = self.query(message)
+            config = QueryConfig(history=history)
+            response = self.query(message, config)
         except Exception:
             logging.exception(f"Failed to query {message}.")
             response = "An error occurred. Please try again!"
