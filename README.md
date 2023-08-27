@@ -8,6 +8,10 @@
 
 Embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
 
+## 🤝 Let's Talk Embedchain!
+
+Schedule a [Feedback Session](https://cal.com/taranjeetio/ec) with Taranjeet, the founder, to discuss any issues, provide feedback, or explore improvements.
+
 ## 🔧 Quick install
 
 ```bash

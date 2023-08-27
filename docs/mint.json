@@ -47,7 +47,8 @@
   "footerSocials": {
     "twitter": "https://twitter.com/embedchain",
     "github": "https://github.com/embedchain/embedchain",
-    "linkedin": "https://www.linkedin.com/company/embedchain"
+    "linkedin": "https://www.linkedin.com/company/embedchain",
+    "website": "https://embedchain.ai"
   },
   "backgroundImage": "/background.png",
   "isWhiteLabeled": true
