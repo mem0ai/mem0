@@ -60,7 +60,7 @@ def start_command():
     parser = argparse.ArgumentParser(description="EmbedChain PoeBot command line interface")
     # parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind")
     # parser.add_argument("--port", default=5000, type=int, help="Port to bind")
-    parser.add_argument("--apikey", type=str, help="Poe API key")
+    parser.add_argument("--api-key", type=str, help="Poe API key")
     # parser.add_argument(
     #     "--history-length",
     #     default=5,
@@ -71,7 +71,7 @@ def start_command():
 
     # FIXME: Arguments are automatically loaded by Poebot's ArgumentParser which causes it to fail.
 
-    run(PoeBot(), api_key=args.apikey or os.environ.get("POE_API_KEY"))
+    run(PoeBot(), api_key=args.api_key or os.environ.get("POE_API_KEY"))
 
 
 if __name__ == "__main__":
