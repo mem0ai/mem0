@@ -12,16 +12,19 @@ from .base import BaseBot
 
 class PoeBot(BaseBot, PoeBot):
     def __init__(self):
+        self.history_length = 5
         super().__init__()
 
     async def get_response(self, query):
         last_message = query.query[-1].content
         try:
-            history = [f"{m.role}: {m.content}" for m in query.query[-6:-1]] if len(query.query) > 0 else None
-        except Exception as e:
-            logging.error(
-                f"Something went wrong when processing the chat history. Message is being sent without history. Error: {e}"
+            history = (
+                [f"{m.role}: {m.content}" for m in query.query[-(self.history_length + 1) : -1]]
+                if len(query.query) > 0
+                else None
             )
+        except Exception as e:
+            logging.error(f"Error when processing the chat history. Message is being sent without history. Error: {e}")
         logging.warning(history)
         answer = self.handle_message(last_message, history)
         yield self.text_event(answer)
@@ -58,7 +61,15 @@ def start_command():
     # parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind")
     # parser.add_argument("--port", default=5000, type=int, help="Port to bind")
     parser.add_argument("--apikey", type=str, help="Poe API key")
+    # parser.add_argument(
+    #     "--history-length",
+    #     default=5,
+    #     type=int,
+    #     help="Set the max size of the chat history. Multiplies cost, but improves conversation awareness.",
+    # )
     args = parser.parse_args()
+
+    # FIXME: Arguments are automatically loaded by Poebot's ArgumentParser which causes it to fail.
 
     run(PoeBot(), api_key=args.apikey or os.environ.get("POE_API_KEY"))
 
