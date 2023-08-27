@@ -1,9 +1,11 @@
 import hashlib
 import importlib.metadata
+import json
 import logging
 import os
 import threading
 import uuid
+from pathlib import Path
 from typing import Dict, Optional
 
 import requests
@@ -25,6 +27,9 @@ load_dotenv()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
+HOME_DIR = str(Path.home())
+CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
 class EmbedChain:
@@ -46,8 +51,29 @@ class EmbedChain:
 
         # Send anonymous telemetry
         self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
+        self.u_id = self._load_or_generate_user_id()
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
+
+    def _load_or_generate_user_id(self):
+        """
+        Loads the user id from the config file if it exists, otherwise generates a new
+        one and saves it to the config file.
+        """
+        if not os.path.exists(CONFIG_DIR):
+            os.makedirs(CONFIG_DIR)
+
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+                if "user_id" in data:
+                    return data["user_id"]
+
+        u_id = str(uuid.uuid4())
+        with open(CONFIG_FILE, "w") as f:
+            json.dump({"user_id": u_id}, f)
+
+        return u_id
 
     def add(
         self,
@@ -443,9 +469,11 @@ class EmbedChain:
                 "version": importlib.metadata.version(__package__ or __name__),
                 "method": method,
                 "language": "py",
+                "u_id": self.u_id,
             }
             if extra_metadata:
                 metadata.update(extra_metadata)
 
             response = requests.post(url, json={"metadata": metadata})
-            response.raise_for_status()
+            if response.status_code != 200:
+                logging.warning(f"Telemetry event failed with status code {response.status_code}")
