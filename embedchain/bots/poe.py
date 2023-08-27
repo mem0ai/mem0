@@ -10,7 +10,7 @@ from embedchain.config import QueryConfig
 from .base import BaseBot
 
 
-class PoeBot(BaseBot, PoeBot):
+class EcPoeBot(BaseBot, PoeBot):
     def __init__(self):
         self.history_length = 5
         super().__init__()
@@ -72,7 +72,7 @@ def start_command():
     # FIXME: Arguments are automatically loaded by Poebot's ArgumentParser which causes it to fail.
     # the port argument here is also just for show, it actually works because poe has the same argument.
 
-    run(PoeBot(), api_key=args.api_key or os.environ.get("POE_API_KEY"))
+    run(EcPoeBot(), api_key=args.api_key or os.environ.get("POE_API_KEY"))
 
 
 if __name__ == "__main__":
