@@ -6,6 +6,16 @@ T = TypeVar('T', bound='JSONSerializable')
 def register_deserializable(cls: Type[T]) -> Type[T]:
     """
     A class decorator to register a class as deserializable.
+    
+    When a class is decorated with @register_deserializable, it becomes
+    a part of the set of classes that the JSONSerializable class can
+    deserialize.
+
+    Example:
+        @register_deserializable
+        class ChildClass(JSONSerializable):
+            def __init__(self, ...):
+                # initialization logic
 
     Args:
         cls (Type): The class to be registered.
