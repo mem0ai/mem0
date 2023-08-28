@@ -34,10 +34,10 @@ class JSONSerializable:
     This class provides methods to serialize and deserialize objects,
     as well as save serialized objects to a file and load them back.
     """
-
-    # A set of classes that are allowed to be deserialized.
-    # Without this, you could for instance deserialize a bot in a config.
-    _deserializable_classes: set = set()
+    def __init__(self):
+        # A set of classes that are allowed to be deserialized.
+        # Without this, you could for instance deserialize a bot in a config.
+        self._deserializable_classes: set = set()
 
     def serialize(self) -> str:
         """
