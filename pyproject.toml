@@ -98,6 +98,7 @@ gpt4all = { version = "^1.0.8", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
 flask = "^2.3.3"
 twilio = "^8.5.0"
+fastapi-poe = { version = "0.0.16", optional = true }
 
 
 
@@ -116,6 +117,7 @@ streamlit = ["streamlit"]
 community = ["llama-index"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
+poe = ["fastapi-poe"]
 
 [tool.poetry.group.docs.dependencies]
 
