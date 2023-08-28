@@ -1,5 +1,6 @@
 from embedchain.helper_classes.json_serializable import JSONSerializable
 
+
 class BaseLoader(JSONSerializable):
     def __init__(self):
         pass

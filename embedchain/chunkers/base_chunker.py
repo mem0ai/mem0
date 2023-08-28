@@ -1,7 +1,8 @@
 import hashlib
 
-from embedchain.models.data_type import DataType
 from embedchain.helper_classes.json_serializable import JSONSerializable
+from embedchain.models.data_type import DataType
+
 
 class BaseChunker(JSONSerializable):
     def __init__(self, text_splitter):

@@ -19,10 +19,11 @@ from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
+from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
 from embedchain.utils import detect_datatype
-from embedchain.helper_classes.json_serializable import JSONSerializable
+
 load_dotenv()
 
 ABS_PATH = os.getcwd()

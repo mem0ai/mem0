@@ -1,12 +1,13 @@
 import json
-from typing import Any, Dict, Type, Union, TypeVar
+from typing import Any, Dict, Type, TypeVar, Union
 
-T = TypeVar('T', bound='JSONSerializable')
+T = TypeVar("T", bound="JSONSerializable")
+
 
 def register_deserializable(cls: Type[T]) -> Type[T]:
     """
     A class decorator to register a class as deserializable.
-    
+
     When a class is decorated with @register_deserializable, it becomes
     a part of the set of classes that the JSONSerializable class can
     deserialize.
@@ -34,6 +35,7 @@ class JSONSerializable:
     This class provides methods to serialize and deserialize objects,
     as well as save serialized objects to a file and load them back.
     """
+
     def __init__(self):
         # A set of classes that are allowed to be deserialized.
         # Without this, you could for instance deserialize a bot in a config.
@@ -83,7 +85,7 @@ class JSONSerializable:
         """
         if hasattr(obj, "__dict__"):
             dct = obj.__dict__.copy()
-            dct['__class__'] = obj.__class__.__name__
+            dct["__class__"] = obj.__class__.__name__
             return dct
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
@@ -98,7 +100,7 @@ class JSONSerializable:
         Returns:
             Object: The decoded object or the original dictionary if decoding is not possible.
         """
-        class_name = dct.pop('__class__', None)
+        class_name = dct.pop("__class__", None)
         if class_name:
             if class_name not in cls._deserializable_classes:
                 print(f"Deserialization of class '{class_name}' is not allowed.")
@@ -119,7 +121,7 @@ class JSONSerializable:
         Args:
             filename (str): The path to the file where the object should be saved.
         """
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(self.serialize())
 
     @classmethod
@@ -133,16 +135,16 @@ class JSONSerializable:
         Returns:
             Object: The deserialized object.
         """
-        with open(filename, 'r', encoding='utf-8') as f:
+        with open(filename, "r", encoding="utf-8") as f:
             json_str = f.read()
             return cls.deserialize(json_str)
-        
+
     @classmethod
     def register_class_as_deserializable(cls, target_class: Type[T]) -> None:
         """
         Register a class as deserializable.
 
-        This method adds the target class to the set of classes that 
+        This method adds the target class to the set of classes that
         the JSONSerializable system recognizes and allows to be deserialized.
 
         Args:
