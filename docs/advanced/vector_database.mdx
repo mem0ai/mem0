@@ -2,7 +2,7 @@
 title: '💾 Vector Database'
 ---
 
-We support `Chroma` and `Elasticsearch` as two vector database. 
+We support `Chroma`, `Elasticsearch` and `Qdrant` as vector database. 
 `Chroma` is used as a default database.
 
 ### Elasticsearch
@@ -32,3 +32,32 @@ es_app = CustomApp(config)
 ```
 - Set `db_type=VectorDatabases.ELASTICSEARCH` and `es_config=ElasticsearchDBConfig(es_url='')` in `CustomAppConfig`.
 - `ElasticsearchDBConfig` accepts `es_url` as elasticsearch url or as list of nodes url with different hosts and ports. Additionally we can pass named paramaters supported by Python Elasticsearch client.
+
+
+### Qdrant
+
+In order to use `Qdrant` as vector database we need to use App type `CustomApp`. 
+
+```python
+import os
+from embedchain import CustomApp
+from embedchain.config import CustomAppConfig, QdrantDBConfig
+from embedchain.models import Providers, EmbeddingFunctions, VectorDatabases
+
+os.environ["OPENAI_API_KEY"] = 'OPENAI_API_KEY'
+
+qdrant_config = QdrantDBConfig(url='http://localhost:6333')
+config = CustomAppConfig(
+	embedding_fn=EmbeddingFunctions.OPENAI, 
+	provider=Providers.OPENAI, 
+	db_type=VectorDatabases.QDRANT, 
+	qdrant_config=qdrant_config,
+)
+qdrant_app = CustomApp(config)
+
+qdrant_app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+qdrant_app.add("https://tesla.com/elon-musk")
+qdrant_app.add("https://www.youtube.com/watch?v=MxZpaJK74Y4")
+
+qdrant_app.query("How many companies does Elon Musk run?")
+```
