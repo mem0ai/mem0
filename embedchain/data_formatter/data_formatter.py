@@ -16,9 +16,9 @@ from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.models.data_type import DataType
+from embedchain.helper_classes.json_serializable import JSONSerializable
 
-
-class DataFormatter:
+class DataFormatter(JSONSerializable):
     """
     DataFormatter is an internal utility class which abstracts the mapping for
     loaders and chunkers to the data_type entered by the user in their

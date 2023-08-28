@@ -1,4 +1,6 @@
-class BaseVectorDB:
+from embedchain.helper_classes.json_serializable import JSONSerializable
+
+class BaseVectorDB(JSONSerializable):
     """Base class for vector database."""
 
     def __init__(self):
