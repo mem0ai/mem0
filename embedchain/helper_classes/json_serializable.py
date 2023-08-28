@@ -98,8 +98,8 @@ class JSONSerializable:
         Returns:
             Object: The decoded object or the original dictionary if decoding is not possible.
         """
-        if '__class__' in dct:
-            class_name = dct.pop('__class__')
+        class_name = dct.pop('__class__', None)
+        if class_name:
             if class_name not in cls._deserializable_classes:
                 print(f"Deserialization of class '{class_name}' is not allowed.")
                 return {}
