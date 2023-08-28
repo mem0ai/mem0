@@ -1,4 +1,5 @@
 import json
+from typing import Any, Dict, Type, Union
 
 class JSONSerializable:
     """
@@ -9,9 +10,9 @@ class JSONSerializable:
     """
 
     # A set of classes that are allowed to be deserialized.
-    _deserializable_classes = set()
+    _deserializable_classes: set = set()
 
-    def serialize(self):
+    def serialize(self) -> str:
         """
         Serialize the object to a JSON-formatted string.
 
@@ -25,7 +26,7 @@ class JSONSerializable:
             return "{}"
 
     @classmethod
-    def deserialize(cls, json_str):
+    def deserialize(cls, json_str: str) -> Any:
         """
         Deserialize a JSON-formatted string to an object.
 
@@ -43,7 +44,7 @@ class JSONSerializable:
             return cls()
 
     @staticmethod
-    def _auto_encoder(obj):
+    def _auto_encoder(obj: Any) -> Union[Dict[str, Any], None]:
         """
         Automatically encode an object for JSON serialization.
 
@@ -60,7 +61,7 @@ class JSONSerializable:
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
     @classmethod
-    def _auto_decoder(cls, dct):
+    def _auto_decoder(cls, dct: Dict[str, Any]) -> Any:
         """
         Automatically decode a dictionary to an object during JSON deserialization.
 
@@ -84,7 +85,7 @@ class JSONSerializable:
                 return obj
         return dct
 
-    def save_to_file(self, filename):
+    def save_to_file(self, filename: str) -> None:
         """
         Save the serialized object to a file.
 
@@ -95,7 +96,7 @@ class JSONSerializable:
             f.write(self.serialize())
 
     @classmethod
-    def load_from_file(cls, filename):
+    def load_from_file(cls, filename: str) -> Any:
         """
         Load and deserialize an object from a file.
 
