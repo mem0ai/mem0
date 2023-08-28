@@ -1,5 +1,21 @@
 import json
-from typing import Any, Dict, Type, Union
+from typing import Any, Dict, Type, Union, TypeVar
+
+T = TypeVar('T', bound='JSONSerializable')
+
+def register_deserializable(cls: Type[T]) -> Type[T]:
+    """
+    A class decorator to register a class as deserializable.
+
+    Args:
+        cls (Type): The class to be registered.
+
+    Returns:
+        Type: The same class, after registration.
+    """
+    JSONSerializable.register_class_as_deserializable(cls)
+    return cls
+
 
 class JSONSerializable:
     """
@@ -10,6 +26,7 @@ class JSONSerializable:
     """
 
     # A set of classes that are allowed to be deserialized.
+    # Without this, you could for instance deserialize a bot in a config.
     _deserializable_classes: set = set()
 
     def serialize(self) -> str:
@@ -109,3 +126,16 @@ class JSONSerializable:
         with open(filename, 'r', encoding='utf-8') as f:
             json_str = f.read()
             return cls.deserialize(json_str)
+        
+    @classmethod
+    def register_class_as_deserializable(cls, target_class: Type[T]) -> None:
+        """
+        Register a class as deserializable.
+
+        This method adds the target class to the set of classes that 
+        the JSONSerializable system recognizes and allows to be deserialized.
+
+        Args:
+            target_class (Type): The class to be registered.
+        """
+        cls._deserializable_classes.add(target_class)
