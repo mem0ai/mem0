@@ -63,6 +63,7 @@ class JSONSerializable:
     def deserialize(cls, json_str: str) -> Any:
         """
         Deserialize a JSON-formatted string to an object.
+        If it fails, a default class is returned instead.
         Note: This *returns* an instance, it's not automatically loaded on the calling class.
 
         Example:
