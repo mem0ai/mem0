@@ -33,3 +33,22 @@ class TestJsonSerializable(unittest.TestCase):
         self.assertEqual(original_class.rng, positive_test_class.rng)
 
     # TODO: There's no reason it shouldn't work, but serialization to and from file should be tested too.
+
+    def test_registration_required(self):
+        """Test that registration is required, and that without registration the default class is returned."""
+        class SecondTestClass(JSONSerializable):
+            def __init__(self):
+                self.default = True
+
+        app = SecondTestClass()
+        # Make not default
+        app.default = False
+        # Serialize
+        serial = app.serialize()
+        # Deserialize. Due to the way errors are handled, it will not fail but return a default class.
+        app: SecondTestClass = SecondTestClass().deserialize(serial)
+        self.assertTrue(app.default)
+        # If we register and try again with the same serial, it should work
+        SecondTestClass.register_class_as_deserializable(SecondTestClass)
+        app: SecondTestClass = SecondTestClass().deserialize(serial)
+        self.assertFalse(app.default)
