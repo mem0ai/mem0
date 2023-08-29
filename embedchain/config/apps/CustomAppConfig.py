@@ -12,6 +12,8 @@ from .BaseAppConfig import BaseAppConfig
 load_dotenv()
 
 from embedchain.helper_classes.json_serializable import register_deserializable
+
+
 @register_deserializable
 class CustomAppConfig(BaseAppConfig):
     """

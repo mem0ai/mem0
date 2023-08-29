@@ -129,9 +129,7 @@ class JSONSerializable:
                 logging.error(f"`{class_name}` has no registry of allowed deserializations.")
                 return {}
             if class_name not in {cl.__name__ for cl in cls._deserializable_classes}:
-                logging.warning(
-                    f"Deserialization of class '{class_name}' is not allowed."
-                )
+                logging.warning(f"Deserialization of class '{class_name}' is not allowed.")
                 return {}
             target_class = next((cl for cl in cls._deserializable_classes if cl.__name__ == class_name), None)
             if target_class:

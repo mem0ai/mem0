@@ -1,6 +1,7 @@
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
-from embedchain.helper_classes.json_serializable import register_deserializable
+
 @register_deserializable
 class LocalTextLoader(BaseLoader):
     def load_data(self, content):

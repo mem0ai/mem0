@@ -1,9 +1,11 @@
 from embedchain import CustomApp
 from embedchain.config import AddConfig, CustomAppConfig, QueryConfig
-from embedchain.helper_classes.json_serializable import JSONSerializable
+from embedchain.helper_classes.json_serializable import (
+    JSONSerializable, register_deserializable)
 from embedchain.models import EmbeddingFunctions, Providers
 
 
+@register_deserializable
 class BaseBot(JSONSerializable):
     def __init__(self, app_config=None):
         if app_config is None:

@@ -2,9 +2,11 @@ from typing import Optional
 
 from chromadb.utils import embedding_functions
 
+from embedchain.helper_classes.json_serializable import register_deserializable
+
 from .BaseAppConfig import BaseAppConfig
 
-from embedchain.helper_classes.json_serializable import register_deserializable
+
 @register_deserializable
 class OpenSourceAppConfig(BaseAppConfig):
     """

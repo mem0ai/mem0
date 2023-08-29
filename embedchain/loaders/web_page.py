@@ -3,10 +3,11 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
-from embedchain.helper_classes.json_serializable import register_deserializable
+
 @register_deserializable
 class WebPageLoader(BaseLoader):
     def load_data(self, url):
