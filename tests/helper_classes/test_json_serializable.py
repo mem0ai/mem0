@@ -1,8 +1,10 @@
 import random
 import unittest
+from embedchain.config import AppConfig
 
 from embedchain.helper_classes.json_serializable import (
     JSONSerializable, register_deserializable)
+from embedchain import App
 
 
 class TestJsonSerializable(unittest.TestCase):
@@ -52,3 +54,15 @@ class TestJsonSerializable(unittest.TestCase):
         SecondTestClass.register_class_as_deserializable(SecondTestClass)
         app: SecondTestClass = SecondTestClass().deserialize(serial)
         self.assertFalse(app.default)
+
+    def test_recursive(self):
+        """Test recursiveness with the real app"""
+        random_id = str(random.random())
+        config = AppConfig(id=random_id)
+        # config class is set under app.config.
+        app = App(config=config)
+        # Without recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x> 
+        s = app.serialize()
+        new_app: App = App.deserialize(s)
+        # The id of the new app is the same as the first one.
+        self.assertEqual(random_id, new_app.config.id)
