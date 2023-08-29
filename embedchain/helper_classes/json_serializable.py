@@ -99,13 +99,21 @@ class JSONSerializable:
                 dct.items()
             ):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
                 try:
-                    json.dumps(value)  # Try to serialize the value.
+                    # Recursive: If the value is an instance of a subclass of JSONSerializable, 
+                    # serialize it using the JSONSerializable serialize method.
+                    if isinstance(value, JSONSerializable):
+                        serialized_value = value.serialize()
+                        # The value is stored as a serialized string.
+                        dct[key] = json.loads(serialized_value)
+                    else:
+                        json.dumps(value)  # Try to serialize the value.
                 except TypeError:
                     del dct[key]  # If it fails, remove the key-value pair from the dictionary.
 
             dct["__class__"] = obj.__class__.__name__
             return dct
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
 
     @classmethod
     def _auto_decoder(cls, dct: Dict[str, Any]) -> Any:
