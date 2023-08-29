@@ -118,13 +118,14 @@ class JSONSerializable:
             Object: The decoded object or the original dictionary if decoding is not possible.
         """
         class_name = dct.pop("__class__", None)
+        print("Class Name:",class_name)
+        for x in [cl.__name__ for cl in cls._deserializable_classes]:
+            print(x)
         if class_name:
             if not hasattr(cls, "_deserializable_classes"):  # Additional safety check
-                logging.error(f"`{class_name}` has no registry of allowed deserializations.")
-                return {}
+                raise AttributeError(f"`{class_name}` has no registry of allowed deserializations.")
             if class_name not in {cl.__name__ for cl in cls._deserializable_classes}:
-                logging.warning(f"Deserialization of class '{class_name}' is not allowed.")
-                return {}
+                raise KeyError(f"Deserialization of class `{class_name}` is not allowed.")
             target_class = next((cl for cl in cls._deserializable_classes if cl.__name__ == class_name), None)
             if target_class:
                 obj = target_class.__new__(target_class)
