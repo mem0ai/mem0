@@ -52,9 +52,6 @@ class EmbedChainPersonApp:
         return config
 
 
-from embedchain.helper_classes.json_serializable import register_deserializable
-
-
 @register_deserializable
 class PersonApp(EmbedChainPersonApp, App):
     """
@@ -69,9 +66,6 @@ class PersonApp(EmbedChainPersonApp, App):
     def chat(self, input_query, config: ChatConfig = None, dry_run=False):
         config = self.add_person_template_to_config(DEFAULT_PROMPT_WITH_HISTORY, config)
         return super().chat(input_query, config, dry_run)
-
-
-from embedchain.helper_classes.json_serializable import register_deserializable
 
 
 @register_deserializable

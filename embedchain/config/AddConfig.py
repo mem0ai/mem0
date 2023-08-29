@@ -21,9 +21,6 @@ class ChunkerConfig(BaseConfig):
         self.length_function = length_function if length_function else len
 
 
-from embedchain.helper_classes.json_serializable import register_deserializable
-
-
 @register_deserializable
 class LoaderConfig(BaseConfig):
     """
@@ -32,9 +29,6 @@ class LoaderConfig(BaseConfig):
 
     def __init__(self):
         pass
-
-
-from embedchain.helper_classes.json_serializable import register_deserializable
 
 
 @register_deserializable

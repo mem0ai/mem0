@@ -7,8 +7,6 @@ from embedchain.helper_classes.json_serializable import register_deserializable
 
 gpt4all_model = None
 
-from embedchain.helper_classes.json_serializable import register_deserializable
-
 
 @register_deserializable
 class OpenSourceApp(EmbedChain):
