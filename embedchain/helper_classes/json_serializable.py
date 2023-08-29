@@ -69,7 +69,7 @@ class JSONSerializable:
         try:
             return json.loads(json_str, object_hook=cls._auto_decoder)
         except Exception as e:
-            print(f"Deserialization error: {e}")
+            logging.error(f"Deserialization error: {e}")
             # Return a default instance in case of failure
             return cls()
 
