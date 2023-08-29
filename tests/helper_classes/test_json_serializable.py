@@ -62,7 +62,7 @@ class TestJsonSerializable(unittest.TestCase):
         config = AppConfig(id=random_id)
         # config class is set under app.config.
         app = App(config=config)
-        # Without recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x>
+        # w/o recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x>
         s = app.serialize()
         new_app: App = App.deserialize(s)
         # The id of the new app is the same as the first one.
