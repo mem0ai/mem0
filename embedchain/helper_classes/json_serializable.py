@@ -99,7 +99,7 @@ class JSONSerializable:
                 dct.items()
             ):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
                 try:
-                    # Recursive: If the value is an instance of a subclass of JSONSerializable, 
+                    # Recursive: If the value is an instance of a subclass of JSONSerializable,
                     # serialize it using the JSONSerializable serialize method.
                     if isinstance(value, JSONSerializable):
                         serialized_value = value.serialize()
@@ -113,7 +113,6 @@ class JSONSerializable:
             dct["__class__"] = obj.__class__.__name__
             return dct
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
 
     @classmethod
     def _auto_decoder(cls, dct: Dict[str, Any]) -> Any:

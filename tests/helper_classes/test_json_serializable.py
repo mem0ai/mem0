@@ -1,10 +1,10 @@
 import random
 import unittest
-from embedchain.config import AppConfig
 
+from embedchain import App
+from embedchain.config import AppConfig
 from embedchain.helper_classes.json_serializable import (
     JSONSerializable, register_deserializable)
-from embedchain import App
 
 
 class TestJsonSerializable(unittest.TestCase):
@@ -38,6 +38,7 @@ class TestJsonSerializable(unittest.TestCase):
 
     def test_registration_required(self):
         """Test that registration is required, and that without registration the default class is returned."""
+
         class SecondTestClass(JSONSerializable):
             def __init__(self):
                 self.default = True
@@ -61,7 +62,7 @@ class TestJsonSerializable(unittest.TestCase):
         config = AppConfig(id=random_id)
         # config class is set under app.config.
         app = App(config=config)
-        # Without recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x> 
+        # Without recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x>
         s = app.serialize()
         new_app: App = App.deserialize(s)
         # The id of the new app is the same as the first one.
