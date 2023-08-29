@@ -4,6 +4,9 @@ from typing import Any, Dict, Type, TypeVar, Union
 
 T = TypeVar("T", bound="JSONSerializable")
 
+# NOTE: Through inheritance, all of our classes should be children of JSONSerializable. (highest level)
+# NOTE: The @register_deserializable decorator should be added to all user facing child classes. (lowest level)
+
 
 def register_deserializable(cls: Type[T]) -> Type[T]:
     """
@@ -12,6 +15,10 @@ def register_deserializable(cls: Type[T]) -> Type[T]:
     When a class is decorated with @register_deserializable, it becomes
     a part of the set of classes that the JSONSerializable class can
     deserialize.
+
+    Deserialization is in essence loading attributes from a json file.
+    This decorator is a security measure put in place to make sure that
+    you don't load attributes that were initially part of another class.
 
     Example:
         @register_deserializable
@@ -86,12 +93,14 @@ class JSONSerializable:
         """
         if hasattr(obj, "__dict__"):
             dct = obj.__dict__.copy()
-            for key, value in list(dct.items()):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
+            for key, value in list(
+                dct.items()
+            ):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
                 try:
                     json.dumps(value)  # Try to serialize the value.
                 except TypeError:
                     del dct[key]  # If it fails, remove the key-value pair from the dictionary.
-            
+
             dct["__class__"] = obj.__class__.__name__
             return dct
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
@@ -116,7 +125,9 @@ class JSONSerializable:
                 logging.error(f"`{class_name}` has no registry of allowed deserializations.")
                 return {}
             if class_name not in cls._deserializable_classes:
-                logging.warning(f"Deserialization of class '{class_name}' is not allowed.")
+                logging.warning(
+                    f"Deserialization of class '{class_name}' is not allowed. Allowed: {cls._deserializable_classes}"
+                )
                 return {}
             target_class = next((cl for cl in cls._deserializable_classes if cl.__name__ == class_name), None)
             if target_class:
@@ -163,4 +174,8 @@ class JSONSerializable:
         Args:
             target_class (Type): The class to be registered.
         """
-        cls._deserializable_classes.add(target_class)
+        try:
+            cls._deserializable_classes.add(target_class)
+        except AttributeError:
+            cls._deserializable_classes: set = set()
+            cls._deserializable_classes.add(target_class)
