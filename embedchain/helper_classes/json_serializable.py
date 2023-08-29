@@ -44,10 +44,7 @@ class JSONSerializable:
     as well as save serialized objects to a file and load them back.
     """
 
-    def __init__(self):
-        # A set of classes that are allowed to be deserialized.
-        # Without this, you could for instance deserialize a bot in a config.
-        self._deserializable_classes: set = set()
+    _deserializable_classes = set()  # Contains classes that are whitelisted for deserialization.
 
     def serialize(self) -> str:
         """
@@ -122,10 +119,7 @@ class JSONSerializable:
         """
         class_name = dct.pop("__class__", None)
         if class_name:
-            try:
-                cls._deserializable_classes
-            except AttributeError:
-                # If this error occurs, the decorator at the very start of this file has not been added.
+            if not hasattr(cls, "_deserializable_classes"):  # Additional safety check
                 logging.error(f"`{class_name}` has no registry of allowed deserializations.")
                 return {}
             if class_name not in {cl.__name__ for cl in cls._deserializable_classes}:
@@ -168,16 +162,13 @@ class JSONSerializable:
     @classmethod
     def register_class_as_deserializable(cls, target_class: Type[T]) -> None:
         """
-        Register a class as deserializable.
+        Register a class as deserializable. This is a classmethod and globally shared.
 
         This method adds the target class to the set of classes that
-        the JSONSerializable system recognizes and allows to be deserialized.
+        can be deserialized. This is a security measure to ensure only
+        whitelisted classes are deserialized.
 
         Args:
             target_class (Type): The class to be registered.
         """
-        try:
-            cls._deserializable_classes.add(target_class)
-        except AttributeError:
-            cls._deserializable_classes: set = set()
-            cls._deserializable_classes.add(target_class)
+        cls._deserializable_classes.add(target_class)
