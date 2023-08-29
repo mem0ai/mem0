@@ -124,9 +124,9 @@ class JSONSerializable:
                 # If this error occurs, the decorator at the very start of this file has not been added.
                 logging.error(f"`{class_name}` has no registry of allowed deserializations.")
                 return {}
-            if class_name not in cls._deserializable_classes:
+            if class_name not in {cl.__name__ for cl in cls._deserializable_classes}:
                 logging.warning(
-                    f"Deserialization of class '{class_name}' is not allowed. Allowed: {cls._deserializable_classes}"
+                    f"Deserialization of class '{class_name}' is not allowed. Allowed: {[cl.__name__ for cl in cls._deserializable_classes]}"
                 )
                 return {}
             target_class = next((cl for cl in cls._deserializable_classes if cl.__name__ == class_name), None)
