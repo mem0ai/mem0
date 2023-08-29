@@ -16,9 +16,6 @@ class TestJsonSerializable(unittest.TestCase):
             def __init__(self):
                 self.rng = random.random()
 
-            def bark(self):
-                print(self.rng)
-
         original_class = TestClass()
         serial = original_class.serialize()
 
