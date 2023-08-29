@@ -2,7 +2,8 @@ from typing import Callable, Optional
 
 from embedchain.config.BaseConfig import BaseConfig
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class ChunkerConfig(BaseConfig):
     """
     Config for the chunker used in `add` method
@@ -18,7 +19,8 @@ class ChunkerConfig(BaseConfig):
         self.chunk_overlap = chunk_overlap if chunk_overlap else 0
         self.length_function = length_function if length_function else len
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class LoaderConfig(BaseConfig):
     """
     Config for the chunker used in `add` method
@@ -27,7 +29,8 @@ class LoaderConfig(BaseConfig):
     def __init__(self):
         pass
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class AddConfig(BaseConfig):
     """
     Config for the `add` method.

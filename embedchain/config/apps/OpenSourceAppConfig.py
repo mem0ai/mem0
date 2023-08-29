@@ -4,7 +4,8 @@ from chromadb.utils import embedding_functions
 
 from .BaseAppConfig import BaseAppConfig
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class OpenSourceAppConfig(BaseAppConfig):
     """
     Config to initialize an embedchain custom `OpenSourceApp` instance, with extra config options.

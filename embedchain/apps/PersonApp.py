@@ -6,8 +6,10 @@ from embedchain.config import ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import (DEFAULT_PROMPT,
                                            DEFAULT_PROMPT_WITH_HISTORY)
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 
+@register_deserializable
 class EmbedChainPersonApp:
     """
     Base class to create a person bot.
@@ -50,6 +52,10 @@ class EmbedChainPersonApp:
         return config
 
 
+from embedchain.helper_classes.json_serializable import register_deserializable
+
+
+@register_deserializable
 class PersonApp(EmbedChainPersonApp, App):
     """
     The Person app.
@@ -65,6 +71,10 @@ class PersonApp(EmbedChainPersonApp, App):
         return super().chat(input_query, config, dry_run)
 
 
+from embedchain.helper_classes.json_serializable import register_deserializable
+
+
+@register_deserializable
 class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
     """
     The Person app.

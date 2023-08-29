@@ -12,7 +12,8 @@ from embedchain.config import ElasticsearchDBConfig
 from embedchain.models.VectorDimensions import VectorDimensions
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class ElasticsearchDB(BaseVectorDB):
     def __init__(
         self,

@@ -3,10 +3,14 @@ from typing import Iterable, Union
 
 from embedchain.config import ChatConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 gpt4all_model = None
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 
+
+@register_deserializable
 class OpenSourceApp(EmbedChain):
     """
     The OpenSource app.

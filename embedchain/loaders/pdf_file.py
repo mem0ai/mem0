@@ -3,7 +3,8 @@ from langchain.document_loaders import PyPDFLoader
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class PdfFileLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a PDF file."""

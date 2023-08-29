@@ -19,7 +19,8 @@ DEFAULT_PROMPT = """
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.

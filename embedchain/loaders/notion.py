@@ -10,7 +10,8 @@ except ImportError:
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class NotionLoader(BaseLoader):
     def load_data(self, source):
         """Load data from a PDF file."""

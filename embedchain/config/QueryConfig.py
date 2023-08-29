@@ -47,7 +47,8 @@ query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 history_re = re.compile(r"\$\{*history\}*")
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class QueryConfig(BaseConfig):
     """
     Config for the `query` method.

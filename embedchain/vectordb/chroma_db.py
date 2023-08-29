@@ -16,7 +16,8 @@ from chromadb.config import Settings
 
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 

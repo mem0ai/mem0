@@ -11,7 +11,8 @@ except RuntimeError:
 
 from .BaseAppConfig import BaseAppConfig
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class AppConfig(BaseAppConfig):
     """
     Config to initialize an embedchain custom `App` instance, with extra config options.

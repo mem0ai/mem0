@@ -6,7 +6,8 @@ from bs4 import BeautifulSoup
 
 from embedchain.loaders.base_loader import BaseLoader
 
-
+from embedchain.helper_classes.json_serializable import register_deserializable
+@register_deserializable
 class DocsSiteLoader(BaseLoader):
     def __init__(self):
         self.visited_links = set()
