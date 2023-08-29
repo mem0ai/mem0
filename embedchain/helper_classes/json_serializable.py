@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any, Dict, Type, TypeVar, Union
 
 T = TypeVar("T", bound="JSONSerializable")
@@ -51,7 +52,7 @@ class JSONSerializable:
         try:
             return json.dumps(self, default=self._auto_encoder, ensure_ascii=False)
         except Exception as e:
-            print(f"Serialization error: {e}")
+            logging.error(f"Serialization error: {e}")
             return "{}"
 
     @classmethod
@@ -108,8 +109,14 @@ class JSONSerializable:
         """
         class_name = dct.pop("__class__", None)
         if class_name:
+            try:
+                cls._deserializable_classes
+            except AttributeError:
+                # If this error occurs, the decorator at the very start of this file has not been added.
+                logging.error(f"`{class_name}` has no registry of allowed deserializations.")
+                return {}
             if class_name not in cls._deserializable_classes:
-                print(f"Deserialization of class '{class_name}' is not allowed.")
+                logging.warning(f"Deserialization of class '{class_name}' is not allowed.")
                 return {}
             target_class = next((cl for cl in cls._deserializable_classes if cl.__name__ == class_name), None)
             if target_class:
