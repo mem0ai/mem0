@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.45"
+version = "0.0.48"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
@@ -85,6 +85,7 @@ python-dotenv = "^1.0.0"
 langchain = "^0.0.237"
 requests = "^2.31.0"
 openai = "^0.27.5"
+tiktoken = "^0.4.0"
 chromadb ="^0.4.2"
 youtube-transcript-api = "^0.6.1"
 beautifulsoup4 = "^4.12.2"
@@ -98,6 +99,7 @@ gpt4all = { version = "^1.0.8", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
 flask = "^2.3.3"
 twilio = "^8.5.0"
+fastapi-poe = { version = "0.0.16", optional = true }
 repo-loader = { version = "^0.2.2", optional = true }
 whats-that-code = { version = "0.2.0", optional = true }
 
@@ -118,10 +120,10 @@ streamlit = ["streamlit"]
 community = ["llama-index", "repo-loader", "whats-that-code"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
+poe = ["fastapi-poe"]
 
 [tool.poetry.group.docs.dependencies]
 
 
 
 [tool.poetry.scripts]
-
