@@ -85,6 +85,12 @@ class JSONSerializable:
         """
         if hasattr(obj, "__dict__"):
             dct = obj.__dict__.copy()
+            for key, value in list(dct.items()):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
+                try:
+                    json.dumps(value)  # Try to serialize the value.
+                except TypeError:
+                    del dct[key]  # If it fails, remove the key-value pair from the dictionary.
+            
             dct["__class__"] = obj.__class__.__name__
             return dct
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
