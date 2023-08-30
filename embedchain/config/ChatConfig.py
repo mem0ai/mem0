@@ -54,7 +54,7 @@ class ChatConfig(QueryConfig):
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
-            history=[0],
+            history=[None],
             stream=stream,
             deployment_name=deployment_name,
             system_prompt=system_prompt,
