@@ -65,6 +65,7 @@ class QueryConfig(BaseConfig):
         stream: bool = False,
         deployment_name=None,
         system_prompt: Optional[str] = None,
+        where_filter=None,
     ):
         """
         Initializes the QueryConfig instance.
@@ -85,6 +86,7 @@ class QueryConfig(BaseConfig):
         :param stream: Optional. Control if response is streamed back to user
         :param deployment_name: t.b.a.
         :param system_prompt: Optional. System prompt string.
+        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history).
         """

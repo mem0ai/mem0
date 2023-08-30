@@ -4,8 +4,7 @@ from embedchain.apps.App import App
 from embedchain.apps.OpenSourceApp import OpenSourceApp
 from embedchain.config import ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
-from embedchain.config.QueryConfig import (DEFAULT_PROMPT,
-                                           DEFAULT_PROMPT_WITH_HISTORY)
+from embedchain.config.QueryConfig import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 
 
 class EmbedChainPersonApp:
@@ -60,9 +59,9 @@ class PersonApp(EmbedChainPersonApp, App):
         config = self.add_person_template_to_config(DEFAULT_PROMPT, config)
         return super().query(input_query, config, dry_run)
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False, where_filter=None):
         config = self.add_person_template_to_config(DEFAULT_PROMPT_WITH_HISTORY, config)
-        return super().chat(input_query, config, dry_run)
+        return super().chat(input_query, config, dry_run, where_filter)
 
 
 class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):

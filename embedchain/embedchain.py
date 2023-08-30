@@ -247,16 +247,24 @@ class EmbedChain:
         """
         raise NotImplementedError
 
-    def retrieve_from_database(self, input_query, config: QueryConfig):
+    def retrieve_from_database(self, input_query, config: QueryConfig, where_filter=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
 
         :param input_query: The query to use.
         :param config: The query configuration.
+        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The content of the document that matched your query.
         """
-        where = {"app_id": self.config.id} if self.config.id is not None else {}  # optional filter
+        if where_filter is not None:
+            where = where_filter
+        elif config.where_filter is not None:
+            where = config.where_filter
+        elif self.config.id is not None:
+            where = {"app_id": self.config.id}
+        else:
+            where = {}  # optional filter
         contents = self.db.query(
             input_query=input_query,
             n_results=config.number_documents,
@@ -308,7 +316,7 @@ class EmbedChain:
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def query(self, input_query, config: QueryConfig = None, dry_run=False):
+    def query(self, input_query, config: QueryConfig = None, dry_run=False, where_filter=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -323,6 +331,7 @@ class EmbedChain:
         by the vector database's doc retrieval.
         The only thing the dry run does not consider is the cut-off due to
         the `max_tokens` parameter.
+        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
         if config is None:
@@ -333,7 +342,7 @@ class EmbedChain:
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config)
+        contexts = self.retrieve_from_database(input_query, config, where_filter)
         prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
 
@@ -359,7 +368,7 @@ class EmbedChain:
             yield chunk
         logging.info(f"Answer: {streamed_answer}")
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False, where_filter=None):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -375,6 +384,7 @@ class EmbedChain:
         by the vector database's doc retrieval.
         The only thing the dry run does not consider is the cut-off due to
         the `max_tokens` parameter.
+        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
         if config is None:
@@ -385,7 +395,7 @@ class EmbedChain:
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config)
+        contexts = self.retrieve_from_database(input_query, config, where_filter)
 
         chat_history = self.memory.load_memory_variables({})["history"]
 

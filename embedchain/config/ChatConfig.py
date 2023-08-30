@@ -36,6 +36,7 @@ class ChatConfig(QueryConfig):
         stream: bool = False,
         deployment_name=None,
         system_prompt: Optional[str] = None,
+        where_filter=None,
     ):
         """
         Initializes the ChatConfig instance.
@@ -55,6 +56,7 @@ class ChatConfig(QueryConfig):
         :param stream: Optional. Control if response is streamed back to the user
         :param deployment_name: t.b.a.
         :param system_prompt: Optional. System prompt string.
+        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
         :raises ValueError: If the template is not valid as template should contain
         $context and $query and $history
         """
@@ -75,6 +77,7 @@ class ChatConfig(QueryConfig):
             stream=stream,
             deployment_name=deployment_name,
             system_prompt=system_prompt,
+            where_filter=where_filter,
         )
 
     def set_history(self, history):
