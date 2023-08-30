@@ -1,28 +1,15 @@
 from string import Template
 from typing import Optional
+import logging
 
 from embedchain.config.QueryConfig import QueryConfig
-
-DEFAULT_PROMPT = """
-  You are a chatbot having a conversation with a human. You are given chat
-  history and context.
-  You need to answer the query considering context, chat history and your knowledge base. If you don't know the answer or the answer is neither contained in the context nor in history, then simply say "I don't know".
-
-  $context
-
-  History: $history
-
-  Query: $query
-
-  Helpful Answer:
-"""  # noqa:E501
-
-DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 
 
 class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.
+
+    DEPRECATED: Please use `QueryConfig` instead.
     """
 
     def __init__(
@@ -58,12 +45,8 @@ class ChatConfig(QueryConfig):
         :raises ValueError: If the template is not valid as template should contain
         $context and $query and $history
         """
-        if template is None:
-            template = DEFAULT_PROMPT_TEMPLATE
+        logging.warning("DEPRECATION WARNING: `ChatConfig` is deprecated in favor of `QueryConfig`. Please use `QueryConfig` in the `chat` and `query` method.")
 
-        # History is set as 0 to ensure that there is always a history, that way,
-        # there don't have to be two templates. Having two templates would make it
-        # complicated because the history is not user controlled.
         super().__init__(
             number_documents=number_documents,
             template=template,
@@ -76,12 +59,3 @@ class ChatConfig(QueryConfig):
             deployment_name=deployment_name,
             system_prompt=system_prompt,
         )
-
-    def set_history(self, history):
-        """
-        Chat history is not user provided and not set at initialization time
-
-        :param history: (string) history to set
-        """
-        self.history = history
-        return

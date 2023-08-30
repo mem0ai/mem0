@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from langchain.schema import BaseMessage
 
-from embedchain.config import ChatConfig, CustomAppConfig
+from embedchain.config import QueryConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.models import Providers
 
@@ -43,7 +43,7 @@ class CustomApp(EmbedChain):
                 "GPT4ALL needs to be instantiated with the model known, please create a new app instance instead"
             )
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
+    def get_llm_model_answer(self, prompt, config: QueryConfig):
         # TODO: Quitting the streaming response here for now.
         # Idea: https://gist.github.com/jvelezmagic/03ddf4c452d011aae36b2a0f73d72f68
         if config.stream:
@@ -71,7 +71,7 @@ class CustomApp(EmbedChain):
             raise ModuleNotFoundError(e.msg) from None
 
     @staticmethod
-    def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_openai_answer(prompt: str, config: QueryConfig) -> str:
         from langchain.chat_models import ChatOpenAI
 
         chat = ChatOpenAI(
@@ -89,7 +89,7 @@ class CustomApp(EmbedChain):
         return chat(messages).content
 
     @staticmethod
-    def _get_athrophic_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_athrophic_answer(prompt: str, config: QueryConfig) -> str:
         from langchain.chat_models import ChatAnthropic
 
         chat = ChatAnthropic(temperature=config.temperature, model=config.model)
@@ -102,7 +102,7 @@ class CustomApp(EmbedChain):
         return chat(messages).content
 
     @staticmethod
-    def _get_vertex_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_vertex_answer(prompt: str, config: QueryConfig) -> str:
         from langchain.chat_models import ChatVertexAI
 
         chat = ChatVertexAI(temperature=config.temperature, model=config.model, max_output_tokens=config.max_tokens)
@@ -115,7 +115,7 @@ class CustomApp(EmbedChain):
         return chat(messages).content
 
     @staticmethod
-    def _get_azure_openai_answer(prompt: str, config: ChatConfig) -> str:
+    def _get_azure_openai_answer(prompt: str, config: QueryConfig) -> str:
         from langchain.chat_models import AzureChatOpenAI
 
         if not config.deployment_name:

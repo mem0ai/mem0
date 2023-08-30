@@ -1,6 +1,6 @@
 import openai
 
-from embedchain.config import AppConfig, ChatConfig
+from embedchain.config import AppConfig, QueryConfig
 from embedchain.embedchain import EmbedChain
 
 
@@ -23,7 +23,7 @@ class App(EmbedChain):
 
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
+    def get_llm_model_answer(self, prompt, config: QueryConfig):
         messages = []
         if config.system_prompt:
             messages.append({"role": "system", "content": config.system_prompt})

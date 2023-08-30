@@ -61,7 +61,7 @@ class QueryConfig(BaseConfig):
         temperature=None,
         max_tokens=None,
         top_p=None,
-        history=None,
+        history: Optional[list[str]] = None,
         stream: bool = False,
         deployment_name=None,
         system_prompt: Optional[str] = None,
@@ -125,6 +125,7 @@ class QueryConfig(BaseConfig):
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
         self.stream = stream
+        self._is_chat_method = False # Only used for telemetry purposes at the moment.
 
     def validate_template(self, template: Template):
         """
@@ -141,3 +142,12 @@ class QueryConfig(BaseConfig):
                 and re.search(context_re, template.template)
                 and re.search(history_re, template.template)
             )
+
+    def set_history(self, history):
+        """
+        Chat history is not user provided and not set at initialization time
+
+        :param history: (string) history to set
+        """
+        self.history = history
+        return

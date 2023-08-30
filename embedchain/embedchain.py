@@ -15,7 +15,7 @@ from langchain.memory import ConversationBufferMemory
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
-from embedchain.config import AddConfig, ChatConfig, QueryConfig
+from embedchain.config import AddConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
@@ -289,7 +289,7 @@ class EmbedChain:
             prompt = config.template.substitute(context=context_string, query=input_query, history=config.history)
         return prompt
 
-    def get_answer_from_llm(self, prompt, config: ChatConfig):
+    def get_answer_from_llm(self, prompt, config: QueryConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -359,7 +359,7 @@ class EmbedChain:
             yield chunk
         logging.info(f"Answer: {streamed_answer}")
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, config: QueryConfig = None, dry_run=False):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -367,7 +367,7 @@ class EmbedChain:
 
         Maintains the whole conversation in memory.
         :param input_query: The query to use.
-        :param config: Optional. The `ChatConfig` instance to use as
+        :param config: Optional. The `QueryConfig` instance to use as
         configuration options.
         :param dry_run: Optional. A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
@@ -378,10 +378,15 @@ class EmbedChain:
         :return: The answer to the query.
         """
         if config is None:
-            config = ChatConfig()
+            config = QueryConfig(history=[None]) # Value must be provided for history, so that it checks the correct Template on init.
+
+        if config.history and config.history[0]:
+            logging.warning("The `chat` method handles history internally. Your provided history will be overwritten. Use the `query` method to provide custom history.")
+        
         if self.is_docs_site_instance:
             config.template = DOCS_SITE_PROMPT_TEMPLATE
             config.number_documents = 5
+
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)

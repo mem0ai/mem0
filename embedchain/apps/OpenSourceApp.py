@@ -1,7 +1,7 @@
 import logging
 from typing import Iterable, Union
 
-from embedchain.config import ChatConfig, OpenSourceAppConfig
+from embedchain.config import QueryConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
 
 gpt4all_model = None
@@ -35,7 +35,7 @@ class OpenSourceApp(EmbedChain):
         logging.info("Successfully loaded open source embedding model.")
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
+    def get_llm_model_answer(self, prompt, config: QueryConfig):
         return self._get_gpt4all_answer(prompt=prompt, config=config)
 
     @staticmethod
@@ -49,7 +49,7 @@ class OpenSourceApp(EmbedChain):
 
         return GPT4All(model)
 
-    def _get_gpt4all_answer(self, prompt: str, config: ChatConfig) -> Union[str, Iterable]:
+    def _get_gpt4all_answer(self, prompt: str, config: QueryConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
                 "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
