@@ -45,7 +45,7 @@ class ChatConfig(QueryConfig):
         :raises ValueError: If the template is not valid as template should contain
         $context and $query and $history
         """
-        logging.warning("DEPRECATION WARNING: `ChatConfig` is deprecated in favor of `QueryConfig`. Please use `QueryConfig` in the `chat` and `query` method.")
+        logging.warning("DEPRECATION WARNING: `ChatConfig` is deprecated in favor of `QueryConfig`. It's not maintained and will be removed in a future update. Please use `QueryConfig` in the `chat` and `query` method.")
 
         super().__init__(
             number_documents=number_documents,
