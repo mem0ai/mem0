@@ -93,15 +93,6 @@ def use_pysqlite3():
                 "Error:",
                 e,
             )
-        __import__("pysqlite3")
-        sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
-        # Let the user know what happened.
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        print(
-            f"{current_time} [embedchain] [INFO]",
-            "Swapped std-lib sqlite3 with pysqlite3 for ChromaDb compatibility.",
-            f"Your original version was {sqlite3.sqlite_version}.",
-        )
 
 
 def format_source(source: str, limit: int = 20) -> str:
