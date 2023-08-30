@@ -343,20 +343,25 @@ class EmbedChain:
         answer = self.get_answer_from_llm(prompt, config)
 
         # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
+        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat" if config._is_chat_method else "query",))
         thread_telemetry.start()
 
         if isinstance(answer, str):
             logging.info(f"Answer: {answer}")
+            if config._is_chat_method:
+                # Implementation of the chat method's functionality.
+                self.memory.chat_memory.add_ai_message(answer)
             return answer
         else:
-            return self._stream_query_response(answer)
+            return self._stream_query_response(answer, config)
 
-    def _stream_query_response(self, answer):
+    def _stream_query_response(self, answer, config: QueryConfig):
         streamed_answer = ""
         for chunk in answer:
             streamed_answer = streamed_answer + chunk
             yield chunk
+        if config._is_chat_method:
+            self.memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
 
     def chat(self, input_query, config: QueryConfig = None, dry_run=False):
@@ -380,52 +385,23 @@ class EmbedChain:
         if config is None:
             config = QueryConfig(history=[None]) # Value must be provided for history, so that it checks the correct Template on init.
 
-        if config.history and config.history[0]:
-            logging.warning("The `chat` method handles history internally. Your provided history will be overwritten. Use the `query` method to provide custom history.")
-        
-        if self.is_docs_site_instance:
-            config.template = DOCS_SITE_PROMPT_TEMPLATE
-            config.number_documents = 5
+        config._is_chat_method = True
 
-        k = {}
-        if self.online:
-            k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config)
+        if config.history and config.history[0]:
+            # Actually, it's only overwritten if there is history.
+            # So this is not true for the first message, but it can't hurt to show the deprecation warning.
+            logging.warning("The `chat` method handles history internally. Your provided history will be overwritten. Use the `query` method to provide custom history.")
 
         chat_history = self.memory.load_memory_variables({})["history"]
 
         if chat_history:
             config.set_history(chat_history)
 
-        prompt = self.generate_prompt(input_query, contexts, config, **k)
-        logging.info(f"Prompt: {prompt}")
+        if not dry_run:
+            # Conversation of a dry run is not added to the history
+            self.memory.chat_memory.add_user_message(input_query)
 
-        if dry_run:
-            return prompt
-
-        answer = self.get_answer_from_llm(prompt, config)
-
-        self.memory.chat_memory.add_user_message(input_query)
-
-        # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
-        thread_telemetry.start()
-
-        if isinstance(answer, str):
-            self.memory.chat_memory.add_ai_message(answer)
-            logging.info(f"Answer: {answer}")
-            return answer
-        else:
-            # this is a streamed response and needs to be handled differently.
-            return self._stream_chat_response(answer)
-
-    def _stream_chat_response(self, answer):
-        streamed_answer = ""
-        for chunk in answer:
-            streamed_answer = streamed_answer + chunk
-            yield chunk
-        self.memory.chat_memory.add_ai_message(streamed_answer)
-        logging.info(f"Answer: {streamed_answer}")
+        return self.query(input_query=input_query, config=config, dry_run=dry_run)
 
     def set_collection(self, collection_name):
         """
