@@ -259,7 +259,7 @@ class EmbedChain:
         """
         if where_filter is not None:
             where = where_filter
-        elif config.where_filter is not None:
+        elif config is not None and config.where_filter is not None:
             where = config.where_filter
         elif self.config.id is not None:
             where = {"app_id": self.config.id}
