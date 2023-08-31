@@ -28,6 +28,30 @@ class TestChromaDbHosts(unittest.TestCase):
 
         mock_client.assert_called_once_with(expected_settings)
 
+    def test_init_with_basic_auth(self):
+        """
+        Test user specified chromadb auth settings.
+        """
+        host = "test-host"
+        port = "1234"
+
+        chroma_auth_settings = {
+            "chroma_client_auth_provider": "chromadb.auth.basic.BasicAuthClientProvider",
+            "chroma_client_auth_credentials": "admin:admin"
+        }
+
+        with patch.object(chromadb, "Client") as mock_client:
+            _db = ChromaDB(host=host, port=port, embedding_fn=len, chroma_settings=chroma_auth_settings)
+
+        expected_settings = Settings(
+            chroma_server_host="test-host",
+            chroma_server_http_port="1234",
+            chroma_client_auth_provider = "chromadb.auth.basic.BasicAuthClientProvider",
+            chroma_client_auth_credentials = "admin:admin"
+        )
+
+        mock_client.assert_called_once_with(expected_settings)
+
 
 # Review this test
 class TestChromaDbHostsInit(unittest.TestCase):
