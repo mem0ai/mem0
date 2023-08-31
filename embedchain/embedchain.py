@@ -467,6 +467,23 @@ class EmbedChain(JSONSerializable):
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
+#         if config is None:
+#             config = QueryConfig()
+#         if self.is_docs_site_instance:
+#             config.template = DOCS_SITE_PROMPT_TEMPLATE
+#             config.number_documents = 5
+#         k = {}
+#         if self.online:
+#             k["web_search_result"] = self.access_search_and_get_results(input_query)
+#         contexts = self.retrieve_from_database(input_query, config)
+#         prompt = self.generate_prompt(input_query, contexts, config, **k)
+#         logging.info(f"Prompt: {prompt}")
+#
+#         import pdb; pdb.set_trace()
+#         if dry_run:
+#             return prompt
+#
+#         answer = self.get_answer_from_llm(prompt, config)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
@@ -509,6 +526,13 @@ class EmbedChain(JSONSerializable):
         thread_telemetry.start()
 
         return answer
+        # if isinstance(answer, str):
+        #     self.memory.chat_memory.add_ai_message(answer)
+        #     logging.info(f"Answer: {answer}")
+        #     return answer
+        # else:
+        #     # this is a streamed response and needs to be handled differently.
+        #     return self._stream_chat_response(answer)
 
     def set_collection_name(self, name: str):
         """
