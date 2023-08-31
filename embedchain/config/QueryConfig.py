@@ -127,6 +127,7 @@ class QueryConfig(BaseConfig):
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
         self.stream = stream
+        self.where_filter = where_filter
 
     def validate_template(self, template: Template):
         """
