@@ -23,7 +23,7 @@ class BaseAppConfig(BaseConfig):
         db_type: VectorDatabases = None,
         vector_dim: VectorDimensions = None,
         es_config: ElasticsearchDBConfig = None,
-        chroma_settings: dict = {}
+        chroma_settings: dict = {},
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -51,7 +51,7 @@ class BaseAppConfig(BaseConfig):
             vector_dim=vector_dim,
             collection_name=self.collection_name,
             es_config=es_config,
-            chroma_settings=chroma_settings
+            chroma_settings=chroma_settings,
         )
         self.id = id
         self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False

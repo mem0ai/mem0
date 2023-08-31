@@ -37,7 +37,7 @@ class TestChromaDbHosts(unittest.TestCase):
 
         chroma_auth_settings = {
             "chroma_client_auth_provider": "chromadb.auth.basic.BasicAuthClientProvider",
-            "chroma_client_auth_credentials": "admin:admin"
+            "chroma_client_auth_credentials": "admin:admin",
         }
 
         with patch.object(chromadb, "Client") as mock_client:
@@ -46,8 +46,8 @@ class TestChromaDbHosts(unittest.TestCase):
         expected_settings = Settings(
             chroma_server_host="test-host",
             chroma_server_http_port="1234",
-            chroma_client_auth_provider = "chromadb.auth.basic.BasicAuthClientProvider",
-            chroma_client_auth_credentials = "admin:admin"
+            chroma_client_auth_provider="chromadb.auth.basic.BasicAuthClientProvider",
+            chroma_client_auth_credentials="admin:admin",
         )
 
         mock_client.assert_called_once_with(expected_settings)
