@@ -26,7 +26,6 @@ from embedchain.utils import detect_datatype
 load_dotenv()
 
 ABS_PATH = os.getcwd()
-DB_DIR = os.path.join(ABS_PATH, "db")
 HOME_DIR = str(Path.home())
 CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
@@ -42,7 +41,6 @@ class EmbedChain:
         """
 
         self.config = config
-        self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
         self.db = self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
@@ -367,7 +365,7 @@ class EmbedChain:
 
         Maintains the whole conversation in memory.
         :param input_query: The query to use.
-        :param config: Optional. The `ChatConfig` instance to use as
+        :param config: Optional. The `QueryConfig` instance to use as
         configuration options.
         :param dry_run: Optional. A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
@@ -428,34 +426,36 @@ class EmbedChain:
 
         :param collection_name: The name of the collection to use.
         """
-        self.collection = self.config.db._get_or_create_collection(collection_name)
+        self.db.set_collection_name(collection_name)
+        # Create the collection if it does not exist
+        self.db._get_or_create_collection(collection_name)
+        # TODO: Check whether it is necessary to assign to the `self.collection` attribute,
+        # since the main purpose is the creation.
 
     def count(self) -> int:
         """
         Count the number of embeddings.
 
+        DEPRECATED IN FAVOR OF `db.count()`
+
         :return: The number of embeddings.
         """
+        logging.warning("DEPRECATION WARNING: Please use `db.count()` instead of `count()`.")
         return self.db.count()
 
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
         `App` does not have to be reinitialized after using this method.
+
+        DEPRECATED IN FAVOR OF `db.reset()`
         """
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
         thread_telemetry.start()
 
-        collection_name = self.collection.name
+        logging.warning("DEPRECATION WARNING: Please use `db.reset()` instead of `reset()`.")
         self.db.reset()
-        self.collection = self.config.db._get_or_create_collection(collection_name)
-        # Todo: Automatically recreating a collection with the same name cannot be the best way to handle a reset.
-        # A downside of this implementation is, if you have two instances,
-        # the other instance will not get the updated `self.collection` attribute.
-        # A better way would be to create the collection if it is called again after being reset.
-        # That means, checking if collection exists in the db-consuming methods, and creating it if it doesn't.
-        # That's an extra steps for all uses, just to satisfy a niche use case in a niche method. For now, this will do.
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
