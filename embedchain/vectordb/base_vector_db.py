@@ -1,8 +1,13 @@
+from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
+
+
 class BaseVectorDB:
     """Base class for vector database."""
 
     def __init__(self):
         self.client = self._get_or_create_db()
+        self._get_or_create_collection()
+        self.config: BaseVectorDbConfig
 
     def _get_or_create_db(self):
         """Get or create the database."""
@@ -25,3 +30,6 @@ class BaseVectorDB:
 
     def reset(self):
         raise NotImplementedError
+
+    def set_collection_name(self, name: str):
+        self.config.collection_name = name
