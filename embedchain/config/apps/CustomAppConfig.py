@@ -23,16 +23,11 @@ class CustomAppConfig(BaseAppConfig):
         embedding_fn: EmbeddingFunctions = None,
         embedding_fn_model=None,
         db=None,
-        host=None,
-        port=None,
         id=None,
-        collection_name=None,
         provider: Providers = None,
         open_source_app_config=None,
         deployment_name=None,
         collect_metrics: Optional[bool] = None,
-        db_type: VectorDatabases = None,
-        es_config: ElasticsearchDBConfig = None,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -40,10 +35,7 @@ class CustomAppConfig(BaseAppConfig):
         :param embedding_fn: Optional. Embedding function to use.
         :param embedding_fn_model: Optional. Model name to use for embedding function.
         :param db: Optional. (Vector) database to use for embeddings.
-        :param host: Optional. Hostname for the database server.
-        :param port: Optional. Port for the database server.
         :param id: Optional. ID of the app. Document metadata will have this id.
-        :param collection_name: Optional. Collection name for the database.
         :param provider: Optional. (Providers): LLM Provider to use.
         :param open_source_app_config: Optional. Config instance needed for open source apps.
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
@@ -63,14 +55,8 @@ class CustomAppConfig(BaseAppConfig):
                 embedding_function=embedding_fn, model=embedding_fn_model, deployment_name=deployment_name
             ),
             db=db,
-            host=host,
-            port=port,
             id=id,
-            collection_name=collection_name,
             collect_metrics=collect_metrics,
-            db_type=db_type,
-            vector_dim=CustomAppConfig.get_vector_dimension(embedding_function=embedding_fn),
-            es_config=es_config,
         )
 
     @staticmethod
