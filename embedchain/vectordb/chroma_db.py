@@ -4,6 +4,8 @@ from typing import Any, Dict, List
 from chromadb.errors import InvalidDimensionException
 from langchain.docstore.document import Document
 
+from embedchain.config.vectordbs.ChromaDbConfig import ChromaDbConfig
+
 try:
     import chromadb
 except RuntimeError:
@@ -11,6 +13,8 @@ except RuntimeError:
 
     use_pysqlite3()
     import chromadb
+
+from typing import Optional
 
 from chromadb.config import Settings
 
@@ -20,22 +24,20 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, db_dir=None, embedding_fn=None, host=None, port=None):
-        self.embedding_fn = embedding_fn
+    def __init__(self, config: Optional[ChromaDbConfig] = None):
+        if config:
+            self.config = config
+        else:
+            self.config = ChromaDbConfig()
 
-        if not hasattr(embedding_fn, "__call__"):
-            raise ValueError("Embedding function is not a function")
-
-        if host and port:
-            logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.settings = Settings(chroma_server_host=host, chroma_server_http_port=port)
+        if self.config.host and self.config.port:
+            logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
+            self.settings = Settings(chroma_server_host=self.config.host, chroma_server_http_port=self.config.port)
             self.client = chromadb.HttpClient(self.settings)
         else:
-            if db_dir is None:
-                db_dir = "db"
             self.settings = Settings(anonymized_telemetry=False, allow_reset=True)
             self.client = chromadb.PersistentClient(
-                path=db_dir,
+                path=self.config.db_dir,
                 settings=self.settings,
             )
         super().__init__()
@@ -48,7 +50,7 @@ class ChromaDB(BaseVectorDB):
         """Get or create the collection."""
         self.collection = self.client.get_or_create_collection(
             name=name,
-            embedding_function=self.embedding_fn,
+            embedding_function=self.config.embedding_fn,
         )
         return self.collection
 
@@ -111,8 +113,26 @@ class ChromaDB(BaseVectorDB):
         return contents
 
     def count(self) -> int:
+        """
+        Count the number of embeddings.
+
+        :return: The number of embeddings.
+        """
         return self.collection.count()
 
     def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        `App` does not have to be reinitialized after using this method.
+        """
         # Delete all data from the database
         self.client.reset()
+        # Recreate
+        self._get_or_create_collection(self.config.collection_name)
+
+        # Todo: Automatically recreating a collection with the same name cannot be the best way to handle a reset.
+        # A downside of this implementation is, if you have two instances,
+        # the other instance will not get the updated `self.collection` attribute.
+        # A better way would be to create the collection if it is called again after being reset.
+        # That means, checking if collection exists in the db-consuming methods, and creating it if it doesn't.
+        # That's an extra steps for all uses, just to satisfy a niche use case in a niche method. For now, this will do.
