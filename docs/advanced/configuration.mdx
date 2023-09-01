@@ -26,17 +26,17 @@ naval_chat_bot = App(config)
 
 # Example: define your own chunker config for `youtube_video`
 chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=100, length_function=len)
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(chunker=chunker_config))
+naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(chunker=chunker_config))
 
 add_config = AddConfig()
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", add_config)
-naval_chat_bot.add("web_page", "https://nav.al/feedback", add_config)
-naval_chat_bot.add("web_page", "https://nav.al/agi", add_config)
+naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", config=add_config)
+naval_chat_bot.add("https://nav.al/feedback", config=add_config)
+naval_chat_bot.add("https://nav.al/agi", config=add_config)
 
-naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), add_config)
+naval_chat_bot.add(("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), config=add_config)
 
 query_config = QueryConfig()
-print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config))
+print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", config=query_config))
 ```
 
 ### Custom prompt template
@@ -53,7 +53,7 @@ einstein_chat_bot = App()
 
 # Embed Wikipedia page
 page = wikipedia.page("Albert Einstein")
-einstein_chat_bot.add("text", page.content)
+einstein_chat_bot.add(page.content)
 
 # Example: use your own custom template with `$context` and `$query`
 einstein_chat_template = Template("""
@@ -68,14 +68,14 @@ einstein_chat_template = Template("""
 
         Human: $query
         Albert Einstein:""")
-query_config = QueryConfig(template=einstein_chat_template)
+query_config = QueryConfig(template=einstein_chat_template, system_prompt="You are Albert Einstein.")
 queries = [
         "Where did you complete your studies?",
         "Why did you win nobel prize?",
         "Why did you divorce your first wife?",
 ]
 for query in queries:
-        response = einstein_chat_bot.query(query, query_config)
+        response = einstein_chat_bot.query(query, config=query_config)
         print("Query: ", query)
         print("Response: ", response)
 

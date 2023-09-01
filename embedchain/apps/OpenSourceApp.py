@@ -43,8 +43,8 @@ class OpenSourceApp(EmbedChain):
         try:
             from gpt4all import GPT4All
         except ModuleNotFoundError:
-            raise ValueError(
-                "The GPT4All python package is not installed. Please install it with `pip install GPT4All`"
+            raise ModuleNotFoundError(
+                "The GPT4All python package is not installed. Please install it with `pip install embedchain[opensource]`"  # noqa E501
             ) from None
 
         return GPT4All(model)
@@ -54,6 +54,9 @@ class OpenSourceApp(EmbedChain):
             raise RuntimeError(
                 "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
             )
+
+        if config.system_prompt:
+            raise ValueError("OpenSourceApp does not support `system_prompt`")
 
         response = self.instance.generate(
             prompt=prompt,

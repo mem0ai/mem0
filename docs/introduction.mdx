@@ -7,7 +7,7 @@ description: '📝 Embedchain is a framework to easily create LLM powered bots o
 
 Embedchain abstracts the entire process of loading a dataset, chunking it, creating embeddings, and storing it in a vector database.
 
-You can add a single or multiple datasets using the .add and .add_local functions. Then, simply use the .query function to find answers from the added datasets.
+You can add a single or multiple datasets using the `.add` method. Then, simply use the `.query` method to find answers from the added datasets.
 
 If you want to create a Naval Ravikant bot with a YouTube video, a book in PDF format, two blog posts, and a question and answer pair, all you need to do is add the respective links. Embedchain will take care of the rest, creating a bot for you.
 
@@ -16,13 +16,13 @@ from embedchain import App
 
 naval_chat_bot = App()
 # Embed Online Resources
-naval_chat_bot.add("youtube_video", "https://www.youtube.com/watch?v=3qHkcs3kG44")
-naval_chat_bot.add("pdf_file", "https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
-naval_chat_bot.add("web_page", "https://nav.al/feedback")
-naval_chat_bot.add("web_page", "https://nav.al/agi")
+naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
+naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
+naval_chat_bot.add("https://nav.al/feedback")
+naval_chat_bot.add("https://nav.al/agi")
 
 # Embed Local Resources
-naval_chat_bot.add_local("qna_pair", ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
+naval_chat_bot.add(("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 
 naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
 # Answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
@@ -32,7 +32,7 @@ naval_chat_bot.query("What unique capacity does Naval argue humans possess when 
 
 Creating a chat bot over any dataset involves the following steps:
 
-1. Load the data
+1. Detect the data type and load the data
 2. Create meaningful chunks
 3. Create embeddings for each chunk
 4. Store the chunks in a vector database
@@ -53,4 +53,4 @@ The process of loading the dataset and querying involves multiple steps, each wi
 
 Embedchain takes care of all these nuances and provides a simple interface to create bots over any dataset.
 
-In the first release, we make it easier for anyone to get a chatbot over any dataset up and running in less than a minute. Just create an app instance, add the datasets using the `.add()` function, and use the `.query()` function to get the relevant answers.
+In the first release, we make it easier for anyone to get a chatbot over any dataset up and running in less than a minute. Just create an app instance, add the datasets using the `.add` method, and use the `.query` method to get the relevant answers.
