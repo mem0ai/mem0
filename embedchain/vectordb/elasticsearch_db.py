@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     from elasticsearch import Elasticsearch
@@ -16,10 +16,11 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 class ElasticsearchDB(BaseVectorDB):
     def __init__(
         self,
-        es_config: ElasticsearchDBConfig = None,
+        config: ElasticsearchDBConfig = None,
         embedding_fn: Callable[[list[str]], list[str]] = None,
         vector_dim: VectorDimensions = None,
         collection_name: str = None,
+        es_config: ElasticsearchDBConfig = None,  # Backwards compatibility
     ):
         """
         Elasticsearch as vector database
@@ -30,28 +31,25 @@ class ElasticsearchDB(BaseVectorDB):
         """
         if not hasattr(embedding_fn, "__call__"):
             raise ValueError("Embedding function is not a function")
-        if es_config is None:
+        if config is None and es_config is None:
             raise ValueError("ElasticsearchDBConfig is required")
         if vector_dim is None:
             raise ValueError("Vector Dimension is required to refer correct index and mapping")
-        if collection_name is None:
-            raise ValueError("collection name is required. It cannot be empty")
-        self.embedding_fn = embedding_fn
+        self.config = config or es_config
         self.client = Elasticsearch(es_config.ES_URL, **es_config.ES_EXTRA_PARAMS)
-        self.vector_dim = vector_dim
-        self.es_index = f"{collection_name}_{self.vector_dim}"
         index_settings = {
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "embeddings": {"type": "dense_vector", "index": False, "dims": self.vector_dim},
+                    "embeddings": {"type": "dense_vector", "index": False, "dims": self.config.vector_dim},
                 }
             }
         }
-        if not self.client.indices.exists(index=self.es_index):
+        es_index = self._get_index()
+        if not self.client.indices.exists(index=es_index):
             # create index if not exist
-            print("Creating index", self.es_index, index_settings)
-            self.client.indices.create(index=self.es_index, body=index_settings)
+            print("Creating index", es_index, index_settings)
+            self.client.indices.create(index=es_index, body=index_settings)
         super().__init__()
 
     def _get_or_create_db(self):
@@ -83,17 +81,17 @@ class ElasticsearchDB(BaseVectorDB):
         :param ids: ids of docs
         """
         docs = []
-        embeddings = self.embedding_fn(documents)
+        embeddings = self.config.embedding_fn(documents)
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
             docs.append(
                 {
-                    "_index": self.es_index,
+                    "_index": self._get_index(),
                     "_id": id,
                     "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
                 }
             )
         bulk(self.client, docs)
-        self.client.indices.refresh(index=self.es_index)
+        self.client.indices.refresh(index=self._get_index())
         return
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
@@ -103,7 +101,7 @@ class ElasticsearchDB(BaseVectorDB):
         :param n_results: no of similar documents to fetch from database
         :param where: Optional. to filter data
         """
-        input_query_vector = self.embedding_fn(input_query)
+        input_query_vector = self.config.embedding_fn(input_query)
         query_vector = input_query_vector[0]
         query = {
             "script_score": {
@@ -118,7 +116,7 @@ class ElasticsearchDB(BaseVectorDB):
             app_id = where["app_id"]
             query["script_score"]["query"]["bool"]["must"] = [{"term": {"metadata.app_id": app_id}}]
         _source = ["text"]
-        response = self.client.search(index=self.es_index, query=query, _source=_source, size=n_results)
+        response = self.client.search(index=self._get_index(), query=query, _source=_source, size=n_results)
         docs = response["hits"]["hits"]
         contents = [doc["_source"]["text"] for doc in docs]
         return contents
@@ -134,3 +132,8 @@ class ElasticsearchDB(BaseVectorDB):
         if self.client.indices.exists(index=self.es_index):
             # delete index in Es
             self.client.indices.delete(index=self.es_index)
+
+    def _get_index(self):
+        # NOTE: The method is preferred to a attribute, because if collection name changes,
+        # it's always up-to-date.
+        return f"{self.config.collection_name}_{self.config.vector_dim}"
