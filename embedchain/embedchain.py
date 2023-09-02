@@ -43,8 +43,12 @@ class EmbedChain:
         """
 
         self.config = config
+
+        # Add subclasses
+        ## Database
         # Database has support for config assignment for backwards compatibility
         self.db = db or self.config.db
+        ## Embedder
         self.embedder = embedder
         # Database needs to have access to embedder
         self.db._set_embedder(self.embedder)
