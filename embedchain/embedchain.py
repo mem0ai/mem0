@@ -34,7 +34,7 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
 class EmbedChain:
-    def __init__(self, config: BaseAppConfig, db: BaseVectorDB, embedder: Embedder):
+    def __init__(self, config: BaseAppConfig, db: BaseVectorDB = None, embedder: Embedder = None):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
@@ -47,8 +47,12 @@ class EmbedChain:
         # Add subclasses
         ## Database
         # Database has support for config assignment for backwards compatibility
+        if db is None and self.config.db is None:
+            raise ValueError("App requires Database.")
         self.db = db or self.config.db
         ## Embedder
+        if embedder is None:
+            raise ValueError("App requires Embedder.")
         self.embedder = embedder
         # Database needs to have access to embedder
         self.db._set_embedder(self.embedder)
