@@ -3,7 +3,8 @@ from typing import Iterable, Optional, Union
 
 from chromadb.utils import embedding_functions
 
-from embedchain.config import ChatConfig, ChromaDbConfig, OpenSourceAppConfig, BaseEmbedderConfig
+from embedchain.config import (BaseEmbedderConfig, ChatConfig, ChromaDbConfig,
+                               OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.GPT4ALL import GPT4AllEmbedder
 from embedchain.vectordb.chroma_db import ChromaDB

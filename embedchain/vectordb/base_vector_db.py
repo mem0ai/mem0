@@ -1,5 +1,3 @@
-from typing import Callable
-
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from embedchain.embedder.BaseEmbedder import BaseEmbedder
 

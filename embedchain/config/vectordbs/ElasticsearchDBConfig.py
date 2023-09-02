@@ -1,7 +1,6 @@
-from typing import Callable, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
-from embedchain.models.VectorDimensions import VectorDimensions
 
 
 class ElasticsearchDBConfig(BaseVectorDbConfig):

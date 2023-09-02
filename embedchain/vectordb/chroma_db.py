@@ -1,11 +1,13 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from chromadb.config import Settings
 from chromadb.errors import InvalidDimensionException
-from embedchain.embedder.BaseEmbedder import BaseEmbedder
 from langchain.docstore.document import Document
 
-from embedchain.config import ChromaDbConfig, BaseEmbedderConfig
+from embedchain.config import ChromaDbConfig
+from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 try:
     import chromadb
@@ -14,12 +16,6 @@ except RuntimeError:
 
     use_pysqlite3()
     import chromadb
-
-from typing import Optional
-
-from chromadb.config import Settings
-
-from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
 class ChromaDB(BaseVectorDB):

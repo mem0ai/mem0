@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
 from embedchain.models.VectorDimensions import VectorDimensions
