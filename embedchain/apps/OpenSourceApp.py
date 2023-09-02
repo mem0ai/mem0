@@ -7,7 +7,7 @@ from embedchain.config import ChatConfig, ChromaDbConfig, OpenSourceAppConfig
 from embedchain.config.embedder.embedder_config import EmbedderConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.embedder import Embedder
-from embedchain.vectordb import chroma_db
+from embedchain.vectordb.chroma_db import ChromaDB
 
 gpt4all_model = None
 
@@ -39,9 +39,10 @@ class OpenSourceApp(EmbedChain):
 
         logging.info("Successfully loaded open source embedding model.")
 
+        database = ChromaDB(config=chromadb_config)
         embedder = Embedder(config=EmbedderConfig(embedding_fn=OpenSourceApp.default_embedding_function()))
 
-        super().__init__(config, db=chroma_db.ChromaDB(config=chromadb_config), embedder=embedder)
+        super().__init__(config, db=database, embedder=embedder)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
         return self._get_gpt4all_answer(prompt=prompt, config=config)
