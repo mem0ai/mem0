@@ -12,6 +12,6 @@ class VertexAiEmbedder(BaseEmbedder):
         embeddings = VertexAIEmbeddings(model_name=config.model)
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
 
-        vector_dimensions = EmbeddingFunctions.GPT4ALL.value
+        vector_dimension = EmbeddingFunctions.GPT4ALL.value
 
-        super().__init__(embedding_fn=embedding_fn, vector_dimensions=vector_dimensions)
+        super().__init__(embedding_fn=embedding_fn, vector_dimension=vector_dimension)

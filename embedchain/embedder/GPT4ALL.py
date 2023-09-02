@@ -12,6 +12,6 @@ class GPT4AllEmbedder(BaseEmbedder):
         # Note: We could use langchains GPT4ALL embedding, but it's not available in all versions.
         embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=config.model)
 
-        vector_dimensions = EmbeddingFunctions.GPT4ALL.value
+        vector_dimension = EmbeddingFunctions.GPT4ALL.value
 
-        super().__init__(embedding_fn=embedding_fn, vector_dimensions=vector_dimensions)
+        super().__init__(embedding_fn=embedding_fn, vector_dimension=vector_dimension)

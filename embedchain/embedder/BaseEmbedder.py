@@ -12,11 +12,11 @@ except RuntimeError:
 class BaseEmbedder:
     """Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers."""
 
-    def __init__(self, embedding_fn: Callable[[list[str]], list[str]] = None, vector_dimensions: int = None):
+    def __init__(self, embedding_fn: Callable[[list[str]], list[str]] = None, vector_dimension: int = None):
         if not hasattr(embedding_fn, "__call__"):
             raise ValueError("Embedding function is not a function")
         self.embedding_fn = embedding_fn
-        self.vector_dimensions = vector_dimensions
+        self.vector_dimension = vector_dimension
 
     @staticmethod
     def _langchain_default_concept(embeddings: Any):
