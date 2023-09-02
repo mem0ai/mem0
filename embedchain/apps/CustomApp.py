@@ -3,11 +3,10 @@ from typing import List, Optional
 
 from langchain.schema import BaseMessage
 
-from embedchain.config import (ChatConfig, CustomAppConfig,
-                               ElasticsearchDBConfig)
+from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.BaseEmbedder import BaseEmbedder
-from embedchain.models import EmbeddingFunctions, Providers
+from embedchain.models import Providers
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 try:

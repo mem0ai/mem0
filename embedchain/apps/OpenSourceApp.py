@@ -1,8 +1,6 @@
 import logging
 from typing import Iterable, Optional, Union
 
-from chromadb.utils import embedding_functions
-
 from embedchain.config import (BaseEmbedderConfig, ChatConfig, ChromaDbConfig,
                                OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain

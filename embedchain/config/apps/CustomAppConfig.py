@@ -2,7 +2,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from embedchain.models import EmbeddingFunctions, Providers, VectorDimensions
+from embedchain.models import Providers
 
 from .BaseAppConfig import BaseAppConfig
 

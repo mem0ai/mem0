@@ -2,8 +2,6 @@ import logging
 from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.config.vectordbs import ElasticsearchDBConfig
-from embedchain.models import VectorDatabases, VectorDimensions
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
