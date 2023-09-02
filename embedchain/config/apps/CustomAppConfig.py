@@ -1,6 +1,13 @@
 from typing import Any, Optional
 
-from chromadb.api.types import Documents, Embeddings
+try:
+    from chromadb.api.types import Documents, Embeddings
+except RuntimeError:
+    from embedchain.utils import use_pysqlite3
+
+    use_pysqlite3()
+    from chromadb.api.types import Documents, Embeddings
+
 from dotenv import load_dotenv
 
 from embedchain.config.vectordbs import ElasticsearchDBConfig
