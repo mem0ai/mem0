@@ -1,7 +1,5 @@
 from typing import Optional
 
-from chromadb.utils import embedding_functions
-
 from .BaseAppConfig import BaseAppConfig
 
 
@@ -29,22 +27,6 @@ class OpenSourceAppConfig(BaseAppConfig):
 
         super().__init__(
             log_level=log_level,
-            embedding_fn=OpenSourceAppConfig.default_embedding_function(),
             id=id,
             collect_metrics=collect_metrics,
         )
-
-    @staticmethod
-    def default_embedding_function():
-        """
-        Sets embedding function to default (`all-MiniLM-L6-v2`).
-
-        :returns: The default embedding function
-        """
-        try:
-            return embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-        except ValueError as e:
-            print(e)
-            raise ModuleNotFoundError(
-                "The open source app requires extra dependencies. Install with `pip install embedchain[opensource]`"
-            ) from None
