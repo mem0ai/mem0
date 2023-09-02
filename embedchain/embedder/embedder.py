@@ -6,7 +6,7 @@ from embedchain.config.embedder.embedder_config import EmbedderConfig
 class Embedder:
     """Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers."""
 
-    def __init__(self, config: Optional[EmbedderConfig]):
+    def __init__(self, config: Optional[EmbedderConfig] = None):
         if not config:
             self.config = EmbedderConfig()
         else:
