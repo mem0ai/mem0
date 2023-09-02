@@ -1,5 +1,7 @@
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
+from typing import Callable
 
+from embedchain.embedder.embedder import Embedder
 
 class BaseVectorDB:
     """Base class for vector database."""
@@ -33,3 +35,6 @@ class BaseVectorDB:
 
     def set_collection_name(self, name: str):
         self.config.collection_name = name
+
+    def _set_embedder(self, embedder: Embedder):
+        self.embedder = embedder

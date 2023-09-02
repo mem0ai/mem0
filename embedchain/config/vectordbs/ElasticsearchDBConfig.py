@@ -9,7 +9,6 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         self,
         collection_name: Optional[str] = None,
         dir: Optional[str] = None,
-        embedding_fn: Callable[[list[str]], list[str]] = None,
         es_url: Union[str, List[str]] = None,
         vector_dim: Optional[int] = None,
         **ES_EXTRA_PARAMS: Dict[str, any],
@@ -23,4 +22,4 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         self.ES_URL = es_url
         self.ES_EXTRA_PARAMS = ES_EXTRA_PARAMS
 
-        super().__init__(embedding_fn=embedding_fn, vector_dim=vector_dim)
+        super().__init__(vector_dim=vector_dim)

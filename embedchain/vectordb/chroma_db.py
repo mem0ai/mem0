@@ -50,7 +50,7 @@ class ChromaDB(BaseVectorDB):
         """Get or create the collection."""
         self.collection = self.client.get_or_create_collection(
             name=name,
-            embedding_function=self.config.embedding_fn,
+            embedding_function=self.embedder.config.embedding_fn,
         )
         return self.collection
 
