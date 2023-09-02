@@ -9,3 +9,5 @@ class Embedder:
     def __init__(self, config: Optional[EmbedderConfig]):
         if not config:
             self.config = EmbedderConfig()
+        else:
+            self.config = config
