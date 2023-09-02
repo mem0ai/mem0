@@ -28,8 +28,7 @@ class ChromaDB(BaseVectorDB):
 
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.settings = Settings(chroma_server_host=host, chroma_server_http_port=port)
-            self.client = chromadb.HttpClient(self.settings)
+            self.client = chromadb.HttpClient(host=host, port=8000)
         else:
             if db_dir is None:
                 db_dir = "db"
