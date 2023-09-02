@@ -1,8 +1,13 @@
 import logging
-from typing import Iterable, Union
+from typing import Iterable, Optional, Union
 
-from embedchain.config import ChatConfig, OpenSourceAppConfig
+from chromadb.utils import embedding_functions
+
+from embedchain.config import ChatConfig, ChromaDbConfig, OpenSourceAppConfig
+from embedchain.config.embedder.embedder_config import EmbedderConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.embedder.embedder import Embedder
+from embedchain.vectordb import chroma_db
 
 gpt4all_model = None
 
@@ -18,7 +23,7 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: OpenSourceAppConfig = None):
+    def __init__(self, config: OpenSourceAppConfig = None, chromadb_config: Optional[ChromaDbConfig] = None):
         """
         :param config: OpenSourceAppConfig instance to load as configuration. Optional.
         `ef` defaults to open source.
@@ -33,7 +38,12 @@ class OpenSourceApp(EmbedChain):
         self.instance = OpenSourceApp._get_instance(config.model)
 
         logging.info("Successfully loaded open source embedding model.")
-        super().__init__(config)
+
+        print(type(OpenSourceApp.default_embedding_function()))
+
+        embedder = Embedder(config=EmbedderConfig(embedding_fn=OpenSourceApp.default_embedding_function()))
+
+        super().__init__(config, db=chroma_db.ChromaDB(config=chromadb_config), embedder=embedder)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
         return self._get_gpt4all_answer(prompt=prompt, config=config)
@@ -66,3 +76,18 @@ class OpenSourceApp(EmbedChain):
             temp=config.temperature,
         )
         return response
+
+    @staticmethod
+    def default_embedding_function():
+        """
+        Sets embedding function to default (`all-MiniLM-L6-v2`).
+
+        :returns: The default embedding function
+        """
+        try:
+            return embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+        except ValueError as e:
+            print(e)
+            raise ModuleNotFoundError(
+                "The open source app requires extra dependencies. Install with `pip install embedchain[opensource]`"
+            ) from None
