@@ -9,7 +9,7 @@ class BaseVectorDB:
 
     def __init__(self):
         self.client = self._get_or_create_db()
-        self._get_or_create_collection()
+        self._get_or_create_collection(self.config.collection_name)
         self.config: BaseVectorDbConfig
 
     def _get_or_create_db(self):
