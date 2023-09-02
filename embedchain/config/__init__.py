@@ -6,5 +6,6 @@ from .BaseConfig import BaseConfig  # noqa: F401
 from .ChatConfig import ChatConfig  # noqa: F401
 from .embedder.embedder_config import EmbedderConfig
 from .QueryConfig import QueryConfig  # noqa: F401
+from .vectordbs.ChromaDbConfig import ChromaDbConfig
 from .vectordbs.ElasticsearchDBConfig import \
     ElasticsearchDBConfig  # noqa: F401
