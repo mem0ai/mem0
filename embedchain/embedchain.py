@@ -33,7 +33,7 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
 class EmbedChain:
-    def __init__(self, config: BaseAppConfig, db: Optional[BaseVectorDB] = None):
+    def __init__(self, config: BaseAppConfig, db: BaseVectorDB):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
