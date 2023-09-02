@@ -37,7 +37,7 @@ class ChromaDB(BaseVectorDB):
         else:
             self.settings = Settings(anonymized_telemetry=False, allow_reset=True)
             self.client = chromadb.PersistentClient(
-                path=self.config.db_dir,
+                path=self.config.dir,
                 settings=self.settings,
             )
         super().__init__()
