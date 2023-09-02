@@ -10,8 +10,6 @@ from typing import Dict, Optional
 
 import requests
 from dotenv import load_dotenv
-from embedchain.embedder.embedder import Embedder
-from embedchain.vectordb.base_vector_db import BaseVectorDB
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -21,9 +19,11 @@ from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
+from embedchain.embedder.embedder import Embedder
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
 from embedchain.utils import detect_datatype
+from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 load_dotenv()
 

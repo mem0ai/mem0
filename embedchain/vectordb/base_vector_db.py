@@ -1,7 +1,8 @@
-from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from typing import Callable
 
+from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from embedchain.embedder.embedder import Embedder
+
 
 class BaseVectorDB:
     """Base class for vector database."""
