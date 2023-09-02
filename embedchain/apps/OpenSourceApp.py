@@ -39,8 +39,6 @@ class OpenSourceApp(EmbedChain):
 
         logging.info("Successfully loaded open source embedding model.")
 
-        print(type(OpenSourceApp.default_embedding_function()))
-
         embedder = Embedder(config=EmbedderConfig(embedding_fn=OpenSourceApp.default_embedding_function()))
 
         super().__init__(config, db=chroma_db.ChromaDB(config=chromadb_config), embedder=embedder)
