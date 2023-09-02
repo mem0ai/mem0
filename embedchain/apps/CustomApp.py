@@ -3,9 +3,18 @@ from typing import List, Optional
 
 from langchain.schema import BaseMessage
 
-from embedchain.config import ChatConfig, CustomAppConfig
+from embedchain.config import ChatConfig, CustomAppConfig, ElasticsearchDBConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.models import Providers
+from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.models import EmbeddingFunctions, Providers
+from embedchain.vectordb.base_vector_db import BaseVectorDB
+try:
+    from chromadb.api.types import Documents, Embeddings
+except RuntimeError:
+    from embedchain.utils import use_pysqlite3
+
+    use_pysqlite3()
+    from chromadb.api.types import Documents, Embeddings
 
 
 class CustomApp(EmbedChain):
@@ -18,13 +27,17 @@ class CustomApp(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: CustomAppConfig = None):
+    def __init__(self, config: CustomAppConfig = None, db: BaseVectorDB = None, embedder: BaseEmbedder = None):
         """
         :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")
+        if db is None:
+            raise ValueError("Database must be provided for custom app")
+        if embedder is None:
+            raise ValueError("Embedder must be provided for custom app")
 
         self.provider = config.provider
 

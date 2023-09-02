@@ -1,17 +1,8 @@
 from typing import Any, Optional
 
-try:
-    from chromadb.api.types import Documents, Embeddings
-except RuntimeError:
-    from embedchain.utils import use_pysqlite3
-
-    use_pysqlite3()
-    from chromadb.api.types import Documents, Embeddings
-
 from dotenv import load_dotenv
 
-from embedchain.config.vectordbs import ElasticsearchDBConfig
-from embedchain.models import (EmbeddingFunctions, Providers, VectorDatabases,
+from embedchain.models import (EmbeddingFunctions, Providers,
                                VectorDimensions)
 
 from .BaseAppConfig import BaseAppConfig
@@ -66,53 +57,7 @@ class CustomAppConfig(BaseAppConfig):
             collect_metrics=collect_metrics,
         )
 
-    @staticmethod
-    def langchain_default_concept(embeddings: Any):
-        """
-        Langchains default function layout for embeddings.
-        """
 
-        def embed_function(texts: Documents) -> Embeddings:
-            return embeddings.embed_documents(texts)
-
-        return embed_function
-
-    @staticmethod
-    def embedding_function(embedding_function: EmbeddingFunctions, model: str = None, deployment_name: str = None):
-        if not isinstance(embedding_function, EmbeddingFunctions):
-            raise ValueError(
-                f"Invalid option: '{embedding_function}'. Expecting one of the following options: {list(map(lambda x: x.value, EmbeddingFunctions))}"  # noqa: E501
-            )
-
-        if embedding_function == EmbeddingFunctions.OPENAI:
-            from langchain.embeddings import OpenAIEmbeddings
-
-            if model:
-                embeddings = OpenAIEmbeddings(model=model)
-            else:
-                if deployment_name:
-                    embeddings = OpenAIEmbeddings(deployment=deployment_name)
-                else:
-                    embeddings = OpenAIEmbeddings()
-            return CustomAppConfig.langchain_default_concept(embeddings)
-
-        elif embedding_function == EmbeddingFunctions.HUGGING_FACE:
-            from langchain.embeddings import HuggingFaceEmbeddings
-
-            embeddings = HuggingFaceEmbeddings(model_name=model)
-            return CustomAppConfig.langchain_default_concept(embeddings)
-
-        elif embedding_function == EmbeddingFunctions.VERTEX_AI:
-            from langchain.embeddings import VertexAIEmbeddings
-
-            embeddings = VertexAIEmbeddings(model_name=model)
-            return CustomAppConfig.langchain_default_concept(embeddings)
-
-        elif embedding_function == EmbeddingFunctions.GPT4ALL:
-            # Note: We could use langchains GPT4ALL embedding, but it's not available in all versions.
-            from chromadb.utils import embedding_functions
-
-            return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model)
 
     @staticmethod
     def get_vector_dimension(embedding_function: EmbeddingFunctions):

@@ -1,18 +1,11 @@
 import openai
 import os
-from embedchain.config import AppConfig, ChatConfig, ChromaDbConfig, EmbedderConfig
+from embedchain.config import AppConfig, ChatConfig, ChromaDbConfig, BaseEmbedderConfig
 from embedchain.embedchain import EmbedChain
 from typing import Optional
-from embedchain.embedder.embedder import Embedder
+from embedchain.embedder.OpenAiEmbedder import OpenAiEmbedder
 
 from embedchain.vectordb.chroma_db import ChromaDB
-try:
-    from chromadb.utils import embedding_functions
-except RuntimeError:
-    from embedchain.utils import use_pysqlite3
-
-    use_pysqlite3()
-    from chromadb.utils import embedding_functions
 
 class App(EmbedChain):
     """
@@ -32,7 +25,7 @@ class App(EmbedChain):
             config = AppConfig()
 
         database = ChromaDB(config=chromadb_config)
-        embedder = Embedder(config=EmbedderConfig(embedding_fn=App.default_embedding_function()))
+        embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
 
         super().__init__(config, db=database, embedder=embedder)
 
@@ -62,20 +55,3 @@ class App(EmbedChain):
         for line in response:
             chunk = line["choices"][0].get("delta", {}).get("content", "")
             yield chunk
-
-    @staticmethod
-    def default_embedding_function():
-        """
-        Sets embedding function to default (`text-embedding-ada-002`).
-
-        :raises ValueError: If the template is not valid as template should contain
-        $context and $query
-        :returns: The default embedding function for the app class.
-        """
-        if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
-            raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")  # noqa:E501
-        return embedding_functions.OpenAIEmbeddingFunction(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            organization_id=os.getenv("OPENAI_ORGANIZATION"),
-            model_name="text-embedding-ada-002",
-        )

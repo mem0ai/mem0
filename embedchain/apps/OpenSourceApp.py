@@ -3,10 +3,9 @@ from typing import Iterable, Optional, Union
 
 from chromadb.utils import embedding_functions
 
-from embedchain.config import ChatConfig, ChromaDbConfig, OpenSourceAppConfig
-from embedchain.config.embedder.embedder_config import EmbedderConfig
+from embedchain.config import ChatConfig, ChromaDbConfig, OpenSourceAppConfig, BaseEmbedderConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.embedder import Embedder
+from embedchain.embedder.GPT4ALL import GPT4AllEmbedder
 from embedchain.vectordb.chroma_db import ChromaDB
 
 gpt4all_model = None
@@ -40,7 +39,7 @@ class OpenSourceApp(EmbedChain):
         logging.info("Successfully loaded open source embedding model.")
 
         database = ChromaDB(config=chromadb_config)
-        embedder = Embedder(config=EmbedderConfig(embedding_fn=OpenSourceApp.default_embedding_function()))
+        embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
 
         super().__init__(config, db=database, embedder=embedder)
 
@@ -75,18 +74,3 @@ class OpenSourceApp(EmbedChain):
             temp=config.temperature,
         )
         return response
-
-    @staticmethod
-    def default_embedding_function():
-        """
-        Sets embedding function to default (`all-MiniLM-L6-v2`).
-
-        :returns: The default embedding function
-        """
-        try:
-            return embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-        except ValueError as e:
-            print(e)
-            raise ModuleNotFoundError(
-                "The open source app requires extra dependencies. Install with `pip install embedchain[opensource]`"
-            ) from None

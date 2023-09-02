@@ -2,10 +2,10 @@ import logging
 from typing import Any, Dict, List
 
 from chromadb.errors import InvalidDimensionException
-from embedchain.embedder.embedder import Embedder
+from embedchain.embedder.BaseEmbedder import BaseEmbedder
 from langchain.docstore.document import Document
 
-from embedchain.config import ChromaDbConfig, EmbedderConfig
+from embedchain.config import ChromaDbConfig, BaseEmbedderConfig
 
 try:
     import chromadb
@@ -43,7 +43,7 @@ class ChromaDB(BaseVectorDB):
             )
 
         # This is supposed to be overwritten with the _set_embedder method
-        self.embedder = Embedder(config=EmbedderConfig(embedding_fn=len))
+        self.embedder = BaseEmbedder(embedding_fn=len)
 
         super().__init__()
 
@@ -55,7 +55,7 @@ class ChromaDB(BaseVectorDB):
         """Get or create the collection."""
         self.collection = self.client.get_or_create_collection(
             name=name,
-            embedding_function=self.embedder.config.embedding_fn,
+            embedding_function=self.embedder.embedding_fn,
         )
         return self.collection
 
