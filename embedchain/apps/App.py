@@ -1,11 +1,13 @@
-import openai
-import os
-from embedchain.config import AppConfig, ChatConfig, ChromaDbConfig, BaseEmbedderConfig
-from embedchain.embedchain import EmbedChain
 from typing import Optional
-from embedchain.embedder.OpenAiEmbedder import OpenAiEmbedder
 
+import openai
+
+from embedchain.config import (AppConfig, BaseEmbedderConfig, ChatConfig,
+                               ChromaDbConfig)
+from embedchain.embedchain import EmbedChain
+from embedchain.embedder.OpenAiEmbedder import OpenAiEmbedder
 from embedchain.vectordb.chroma_db import ChromaDB
+
 
 class App(EmbedChain):
     """
