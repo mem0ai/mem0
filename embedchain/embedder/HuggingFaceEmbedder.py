@@ -14,4 +14,4 @@ class HuggingFaceEmbedder(BaseEmbedder):
 
         vector_dimensions = EmbeddingFunctions.HUGGING_FACE.value
 
-        super().__init__(embedding_fn=embedding_fn)
+        super().__init__(embedding_fn=embedding_fn, vector_dimensions=vector_dimensions)
