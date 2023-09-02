@@ -22,4 +22,4 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         self.ES_URL = es_url
         self.ES_EXTRA_PARAMS = ES_EXTRA_PARAMS
 
-        super().__init__(vector_dim=vector_dim)
+        super().__init__(collection_name=collection_name, dir=dir, vector_dim=vector_dim)
