@@ -47,7 +47,7 @@ class EmbedChain:
         # Add subclasses
         ## Database
         # Database has support for config assignment for backwards compatibility
-        if db is None and self.config.db is None:
+        if db is None and (not hasattr(self.config, "db") or self.config.db is None):
             raise ValueError("App requires Database.")
         self.db = db or self.config.db
         ## Embedder
