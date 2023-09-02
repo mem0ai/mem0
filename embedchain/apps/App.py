@@ -26,8 +26,8 @@ class App(EmbedChain):
         if config is None:
             config = AppConfig()
 
-        database = ChromaDB(config=chromadb_config)
         embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
+        database = ChromaDB(config=chromadb_config, embedder=embedder)
 
         super().__init__(config, db=database, embedder=embedder)
 

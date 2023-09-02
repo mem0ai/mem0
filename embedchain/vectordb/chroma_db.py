@@ -21,7 +21,7 @@ except RuntimeError:
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, config: Optional[ChromaDbConfig] = None):
+    def __init__(self, config: Optional[ChromaDbConfig] = None, embedder: BaseEmbedder = None):
         if config:
             self.config = config
         else:
@@ -38,10 +38,7 @@ class ChromaDB(BaseVectorDB):
                 settings=self.settings,
             )
 
-        # This is supposed to be overwritten with the _set_embedder method
-        self.embedder = BaseEmbedder(embedding_fn=len)
-
-        super().__init__()
+        super().__init__(embedder=embedder)
 
     def _get_or_create_db(self):
         """Get or create the database."""

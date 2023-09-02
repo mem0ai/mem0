@@ -37,8 +37,8 @@ class OpenSourceApp(EmbedChain):
 
         logging.info("Successfully loaded open source embedding model.")
 
-        database = ChromaDB(config=chromadb_config)
         embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
+        database = ChromaDB(config=chromadb_config, embedder=embedder)
 
         super().__init__(config, db=database, embedder=embedder)
 

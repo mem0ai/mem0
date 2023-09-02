@@ -54,8 +54,6 @@ class EmbedChain:
         if embedder is None:
             raise ValueError("App requires Embedder.")
         self.embedder = embedder
-        # Database needs to have access to embedder
-        self.db._set_embedder(self.embedder)
 
         # Attributes that aren't subclass related.
         self.user_asks = []

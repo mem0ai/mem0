@@ -1,5 +1,7 @@
 from typing import Any, Dict, List
 
+from embedchain.embedder.BaseEmbedder import BaseEmbedder
+
 try:
     from elasticsearch import Elasticsearch
     from elasticsearch.helpers import bulk
@@ -17,7 +19,7 @@ class ElasticsearchDB(BaseVectorDB):
     def __init__(
         self,
         config: ElasticsearchDBConfig = None,
-        vector_dim: VectorDimensions = None,
+        embedder: BaseEmbedder = None,
         es_config: ElasticsearchDBConfig = None,  # Backwards compatibility
     ):
         """
@@ -28,15 +30,17 @@ class ElasticsearchDB(BaseVectorDB):
         """
         if config is None and es_config is None:
             raise ValueError("ElasticsearchDBConfig is required")
-        if vector_dim is None:
-            raise ValueError("Vector Dimension is required to refer correct index and mapping")
         self.config = config or es_config
         self.client = Elasticsearch(es_config.ES_URL, **es_config.ES_EXTRA_PARAMS)
+
+        # Call parent init here because embedder is needed
+        super().__init__(embedder=embedder)
+
         index_settings = {
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "embeddings": {"type": "dense_vector", "index": False, "dims": self.config.vector_dim},
+                    "embeddings": {"type": "dense_vector", "index": False, "dims": self.embedder.vector_dimension},
                 }
             }
         }
@@ -45,7 +49,6 @@ class ElasticsearchDB(BaseVectorDB):
             # create index if not exist
             print("Creating index", es_index, index_settings)
             self.client.indices.create(index=es_index, body=index_settings)
-        super().__init__()
 
     def _get_or_create_db(self):
         return self.client
