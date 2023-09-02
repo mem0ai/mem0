@@ -2,9 +2,10 @@ import logging
 from typing import Any, Dict, List
 
 from chromadb.errors import InvalidDimensionException
+from embedchain.embedder.embedder import Embedder
 from langchain.docstore.document import Document
 
-from embedchain.config.vectordbs.ChromaDbConfig import ChromaDbConfig
+from embedchain.config import ChromaDbConfig, EmbedderConfig
 
 try:
     import chromadb
@@ -40,6 +41,10 @@ class ChromaDB(BaseVectorDB):
                 path=self.config.dir,
                 settings=self.settings,
             )
+
+        # This is supposed to be overwritten with the _set_embedder method
+        self.embedder = Embedder(config=EmbedderConfig(embedding_fn=len))
+
         super().__init__()
 
     def _get_or_create_db(self):
