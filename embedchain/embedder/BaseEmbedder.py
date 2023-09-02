@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 try:
     from chromadb.api.types import Documents, Embeddings
@@ -12,10 +12,11 @@ except RuntimeError:
 class BaseEmbedder:
     """Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers."""
 
-    def __init__(self, embedding_fn: Callable[[list[str]], list[str]] = None):
-        self.embedding_fn = embedding_fn
-        if not hasattr(self.embedding_fn, "__call__"):
+    def __init__(self, embedding_fn: Callable[[list[str]], list[str]] = None, vector_dimensions: int = None):
+        if not hasattr(embedding_fn, "__call__"):
             raise ValueError("Embedding function is not a function")
+        self.embedding_fn = embedding_fn
+        self.vector_dimensions = vector_dimensions
 
     @staticmethod
     def _langchain_default_concept(embeddings: Any):
