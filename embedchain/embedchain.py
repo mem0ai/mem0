@@ -10,6 +10,7 @@ from typing import Dict, Optional
 
 import requests
 from dotenv import load_dotenv
+from embedchain.vectordb.base_vector_db import BaseVectorDB
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferMemory
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -32,7 +33,7 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
 class EmbedChain:
-    def __init__(self, config: BaseAppConfig):
+    def __init__(self, config: BaseAppConfig, db: Optional[BaseVectorDB] = None):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
@@ -41,7 +42,7 @@ class EmbedChain:
         """
 
         self.config = config
-        self.db = self.config.db
+        self.db = db or self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
