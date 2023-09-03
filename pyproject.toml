@@ -82,7 +82,7 @@ color = true
 [tool.poetry.dependencies]
 python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
 python-dotenv = "^1.0.0"
-langchain = "^0.0.237"
+langchain = "^0.0.279"
 requests = "^2.31.0"
 openai = "^0.27.5"
 tiktoken = "^0.4.0"
