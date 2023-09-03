@@ -2,8 +2,6 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from embedchain.models import Providers
-
 from .BaseAppConfig import BaseAppConfig
 
 load_dotenv()
@@ -19,8 +17,6 @@ class CustomAppConfig(BaseAppConfig):
         log_level=None,
         db=None,
         id=None,
-        provider: Providers = None,
-        open_source_app_config=None,
         collect_metrics: Optional[bool] = None,
         collection_name: Optional[str] = None,
     ):
@@ -35,12 +31,6 @@ class CustomAppConfig(BaseAppConfig):
         :param collection_name: Optional. Default collection name.
         It's recommended to use app.set_collection_name() instead.
         """
-        if provider:
-            self.provider = provider
-        else:
-            raise ValueError("CustomApp must have a provider assigned.")
-
-        self.open_source_app_config = open_source_app_config
 
         super().__init__(
             log_level=log_level, db=db, id=id, collect_metrics=collect_metrics, collection_name=collection_name
