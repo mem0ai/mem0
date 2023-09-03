@@ -1,5 +1,7 @@
 from typing import Any, Callable
 
+from embedchain.config import BaseEmbedderConfig
+
 try:
     from chromadb.api.types import Documents, Embeddings
 except RuntimeError:
@@ -12,10 +14,18 @@ except RuntimeError:
 class BaseEmbedder:
     """Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers."""
 
-    def __init__(self, embedding_fn: Callable[[list[str]], list[str]] = None, vector_dimension: int = None):
+    def __init__(self, config: BaseEmbedderConfig):
+        if config is None:
+            self.config = BaseEmbedderConfig()
+        else:
+            self.config = config
+
+    def set_embedding_fn(self, embedding_fn: Callable[[list[str]], list[str]]):
         if not hasattr(embedding_fn, "__call__"):
             raise ValueError("Embedding function is not a function")
         self.embedding_fn = embedding_fn
+
+    def set_vector_dimension(self, vector_dimension: int):
         self.vector_dimension = vector_dimension
 
     @staticmethod
