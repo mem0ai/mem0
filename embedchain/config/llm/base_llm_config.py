@@ -61,7 +61,6 @@ class BaseLlmConfig(BaseConfig):
         temperature=None,
         max_tokens=None,
         top_p=None,
-        history=None,
         stream: bool = False,
         deployment_name=None,
         system_prompt: Optional[str] = None,
@@ -81,7 +80,6 @@ class BaseLlmConfig(BaseConfig):
         :param top_p: Optional. Controls the diversity of words. Higher values
         (closer to 1) make word selection more diverse, lower values make words less
         diverse.
-        :param history: Optional. A list of strings to consider as history.
         :param stream: Optional. Control if response is streamed back to user
         :param deployment_name: t.b.a.
         :param system_prompt: Optional. System prompt string.
@@ -93,19 +91,8 @@ class BaseLlmConfig(BaseConfig):
         else:
             self.number_documents = number_documents
 
-        if not history:
-            self.history = None
-        else:
-            if len(history) == 0:
-                self.history = None
-            else:
-                self.history = history
-
         if template is None:
-            if self.history is None:
-                template = DEFAULT_PROMPT_TEMPLATE
-            else:
-                template = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE
+            template = DEFAULT_PROMPT_TEMPLATE
 
         self.temperature = temperature if temperature else 0
         self.max_tokens = max_tokens if max_tokens else 1000
@@ -117,10 +104,8 @@ class BaseLlmConfig(BaseConfig):
         if self.validate_template(template):
             self.template = template
         else:
-            if self.history is None:
-                raise ValueError("`template` should have `query` and `context` keys")
-            else:
-                raise ValueError("`template` should have `query`, `context` and `history` keys")
+            raise ValueError("`template` should have `query` and `context` keys and potentially `history` (if used).")
+
 
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
@@ -133,11 +118,4 @@ class BaseLlmConfig(BaseConfig):
         :param template: the template to validate
         :return: Boolean, valid (true) or invalid (false)
         """
-        if self.history is None:
-            return re.search(query_re, template.template) and re.search(context_re, template.template)
-        else:
-            return (
-                re.search(query_re, template.template)
-                and re.search(context_re, template.template)
-                and re.search(history_re, template.template)
-            )
+        return re.search(query_re, template.template) and re.search(context_re, template.template)

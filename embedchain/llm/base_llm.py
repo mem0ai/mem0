@@ -18,12 +18,16 @@ class BaseLlm:
         self.memory = ConversationBufferMemory()
         self.is_docs_site_instance = False
         self.online = False
+        self.history: any = None
 
     def get_llm_model_answer(self):
         """
         Usually implemented by child class
         """
         raise NotImplementedError
+    
+    def set_history(self, history: any):
+        self.history = history
 
     def generate_prompt(self, input_query, contexts, **kwargs):
         """
@@ -40,11 +44,11 @@ class BaseLlm:
         web_search_result = kwargs.get("web_search_result", "")
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
-        if not self.config.history:
+        if not self.history:
             prompt = self.config.template.substitute(context=context_string, query=input_query)
         else:
             prompt = self.config.template.substitute(
-                context=context_string, query=input_query, history=self.config.history
+                context=context_string, query=input_query, history=self.history
             )
         return prompt
 
@@ -156,7 +160,7 @@ class BaseLlm:
         chat_history = self.memory.load_memory_variables({})["history"]
 
         if chat_history:
-            config.set_history(chat_history)
+            self.set_history(chat_history)
 
         prompt = self.generate_prompt(input_query, contexts, **k)
         logging.info(f"Prompt: {prompt}")
