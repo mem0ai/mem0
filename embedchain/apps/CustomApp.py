@@ -5,9 +5,11 @@ from langchain.schema import BaseMessage
 
 from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.models import Providers
 
 
+@register_deserializable
 class CustomApp(EmbedChain):
     """
     The custom EmbedChain app.

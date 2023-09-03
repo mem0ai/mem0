@@ -2,9 +2,12 @@ from typing import Optional
 
 from chromadb.utils import embedding_functions
 
+from embedchain.helper_classes.json_serializable import register_deserializable
+
 from .BaseAppConfig import BaseAppConfig
 
 
+@register_deserializable
 class OpenSourceAppConfig(BaseAppConfig):
     """
     Config to initialize an embedchain custom `OpenSourceApp` instance, with extra config options.
