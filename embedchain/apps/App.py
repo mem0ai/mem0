@@ -4,8 +4,10 @@ import openai
 
 from embedchain.config import AppConfig, ChatConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 
+@register_deserializable
 class App(EmbedChain):
     """
     The EmbedChain app.
