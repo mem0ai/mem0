@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Union, Optional
+from typing import Iterable, Optional, Union
 
 from embedchain.config import ChatConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
