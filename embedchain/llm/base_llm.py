@@ -5,7 +5,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base_llm_config import DOCS_SITE_PROMPT_TEMPLATE
+from embedchain.config.llm.base_llm_config import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
 
 
 class BaseLlm:
@@ -47,9 +47,19 @@ class BaseLlm:
         if not self.history:
             prompt = self.config.template.substitute(context=context_string, query=input_query)
         else:
-            prompt = self.config.template.substitute(
-                context=context_string, query=input_query, history=self.history
-            )
+            # check if it's the default template without history
+            if not self.config._validate_template_history(self.config.template) and self.config.template.template == DEFAULT_PROMPT:
+                # swap in the template with history
+                prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
+                    context=context_string, query=input_query, history=self.history
+                )
+            elif not self.config._validate_template_history(self.config.template):
+                logging.warning("Template does not include `$history` key. History is not included in prompt.")
+                prompt = self.config.template.substitute(context=context_string, query=input_query)
+            else:
+                prompt = self.config.template.substitute(
+                    context=context_string, query=input_query, history=self.history
+                )
         return prompt
 
     def _append_search_and_context(self, context, web_search_result):
@@ -158,7 +168,6 @@ class BaseLlm:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
 
         chat_history = self.memory.load_memory_variables({})["history"]
-
         if chat_history:
             self.set_history(chat_history)
 

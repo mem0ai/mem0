@@ -119,3 +119,12 @@ class BaseLlmConfig(BaseConfig):
         :return: Boolean, valid (true) or invalid (false)
         """
         return re.search(query_re, template.template) and re.search(context_re, template.template)
+
+    def _validate_template_history(self, template: Template):
+        """
+        validate the history template for history
+
+        :param template: the template to validate
+        :return: Boolean, valid (true) or invalid (false)
+        """
+        return re.search(history_re, template.template)
