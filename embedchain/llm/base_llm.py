@@ -126,12 +126,11 @@ class BaseLlm:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        if config:
-            self.config = config
+        query_config = config or self.config
 
         if self.is_docs_site_instance:
-            config.template = DOCS_SITE_PROMPT_TEMPLATE
-            config.number_documents = 5
+            query_config.template = DOCS_SITE_PROMPT_TEMPLATE
+            query_config.number_documents = 5
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
@@ -167,12 +166,11 @@ class BaseLlm:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        if config:
-            self.config = config
+        query_config = config or self.config
 
         if self.is_docs_site_instance:
-            self.config.template = DOCS_SITE_PROMPT_TEMPLATE
-            self.config.number_documents = 5
+            query_config.template = DOCS_SITE_PROMPT_TEMPLATE
+            query_config.number_documents = 5
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
