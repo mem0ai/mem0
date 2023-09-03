@@ -4,6 +4,16 @@ title: '⚙️ Custom configurations'
 
 Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
 
+## Concept
+The main `App` class is available in the following varieties: `CustomApp`, `OpenSourceApp` and `Llama2App` and `App`. The first is fully configurable, the others are opinionated in some aspects.
+
+The `App` class has three subclasses: `llm`, `db` and `embedder`. These are the core ingredients that make up an EmbedChain app.
+App plus each one of the subclasses have a `config` attribute.
+You can pass a `Config` instance as an argument during initialization to persistently configure a class.
+These configs can be imported from `embedchain.config`
+
+There are `set` methods for some things that should not (only) be set at start-up, like `app.db.set_collection_name`.
+
 ## Examples
 
 ### General
