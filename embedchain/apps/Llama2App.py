@@ -1,12 +1,8 @@
-import os
-
-from langchain.llms import Replicate
-
-from embedchain.config import AppConfig, BaseLlmConfig, CustomAppConfig
 from embedchain.apps.CustomApp import CustomApp
+from embedchain.config import AppConfig, CustomAppConfig
+from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.llm.llama2_llm import Llama2Llm
 from embedchain.vectordb.chroma_db import ChromaDB
-from embedchain.embedder.openai_embedder import OpenAiEmbedder
 
 
 class Llama2App(CustomApp):
@@ -27,4 +23,3 @@ class Llama2App(CustomApp):
             config = AppConfig()
 
         super().__init__(config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder())
-
