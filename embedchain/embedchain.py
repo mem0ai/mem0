@@ -51,9 +51,6 @@ class EmbedChain:
         if db is None and (not hasattr(self.config, "db") or self.config.db is None):
             raise ValueError("App requires Database.")
         self.db = db or self.config.db
-        # Set collection name from app config for backwards compatibility.
-        if config.collection_name:
-            self.db.set_collection_name(config.collection_name)
         ## Embedder
         if embedder is None:
             raise ValueError("App requires Embedder.")
@@ -62,6 +59,9 @@ class EmbedChain:
         # Initialize database
         self.db._set_embedder(self.embedder)
         self.db._initialize()
+        # Set collection name from app config for backwards compatibility.
+        if config.collection_name:
+            self.db.set_collection_name(config.collection_name)
 
         # Attributes that aren't subclass related.
         self.user_asks = []
@@ -257,12 +257,6 @@ class EmbedChain:
                 results["distances"][0],
             )
         ]
-
-    def get_llm_model_answer(self):
-        """
-        Usually implemented by child class
-        """
-        raise NotImplementedError
 
     def retrieve_from_database(self, input_query):
         """
