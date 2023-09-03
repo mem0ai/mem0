@@ -1,14 +1,13 @@
 from embedchain import CustomApp
 from embedchain.config import AddConfig, CustomAppConfig, LlmConfig
-from embedchain.models import EmbeddingFunctions, Providers
+from embedchain.embedder.openai_embedder import OpenAiEmbedder
+from embedchain.llm.openai_llm import OpenAiLlm
+from embedchain.vectordb.chroma_db import ChromaDB
 
 
 class BaseBot:
-    def __init__(self, app_config=None):
-        if app_config is None:
-            app_config = CustomAppConfig(embedding_fn=EmbeddingFunctions.OPENAI, provider=Providers.OPENAI)
-        self.app_config = app_config
-        self.app = CustomApp(config=self.app_config)
+    def __init__(self):
+        self.app = CustomApp(config=CustomAppConfig(), llm=OpenAiLlm(), db=ChromaDB(), embedder=OpenAiEmbedder())
 
     def add(self, data, config: AddConfig = None):
         """Add data to the bot"""
