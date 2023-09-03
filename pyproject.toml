@@ -120,7 +120,7 @@ community = ["llama-index"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 poe = ["fastapi-poe"]
-slack = ["slack-sdk", "slackeventsapi"]
+slack = ["slack-sdk"]
 
 
 
