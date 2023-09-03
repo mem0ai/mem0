@@ -29,6 +29,11 @@ class BaseLlm:
     def set_history(self, history: any):
         self.history = history
 
+    def update_history(self):
+        chat_history = self.memory.load_memory_variables({})["history"]
+        if chat_history:
+            self.set_history(chat_history)
+
     def generate_prompt(self, input_query, contexts, **kwargs):
         """
         Generates a prompt based on the given query and context, ready to be
@@ -167,9 +172,7 @@ class BaseLlm:
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
 
-        chat_history = self.memory.load_memory_variables({})["history"]
-        if chat_history:
-            self.set_history(chat_history)
+        self.update_history()
 
         prompt = self.generate_prompt(input_query, contexts, **k)
         logging.info(f"Prompt: {prompt}")
@@ -184,6 +187,11 @@ class BaseLlm:
         if isinstance(answer, str):
             self.memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
+
+            # NOTE: Adding to history before and after. This could be seen as redundant.
+            # If we change it, we have to change the tests (no big deal).
+            self.update_history()
+
             return answer
         else:
             # this is a streamed response and needs to be handled differently.
