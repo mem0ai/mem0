@@ -12,7 +12,12 @@ except RuntimeError:
 
 
 class BaseEmbedder:
-    """Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers."""
+    """
+    Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers.
+    
+    Embedding functions and vector dimensions are set based on the child class you choose.
+    To manually overwrite you can use this classes `set_...` methods.
+    """
 
     def __init__(self, config: Optional[BaseEmbedderConfig] = FileNotFoundError):
         if config is None:
