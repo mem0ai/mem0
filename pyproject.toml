@@ -122,9 +122,6 @@ elasticsearch = ["elasticsearch"]
 poe = ["fastapi-poe"]
 slack = ["slack-sdk"]
 
-
-
-
 [tool.poetry.group.docs.dependencies]
 
 
