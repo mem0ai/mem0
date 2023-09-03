@@ -22,7 +22,6 @@ class AppConfig(BaseAppConfig):
         """
         super().__init__(
             log_level=log_level,
-            embedding_fn=AppConfig.default_embedding_function(),
             id=id,
             collect_metrics=collect_metrics,
         )

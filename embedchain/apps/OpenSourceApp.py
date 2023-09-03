@@ -1,8 +1,8 @@
 import logging
 from typing import Optional
 
-from embedchain.config import (BaseEmbedderConfig, ChatConfig, ChromaDbConfig,
-                               OpenSourceAppConfig)
+from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
+                               ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder
 from embedchain.llm.gpt4all_llm import GPT4ALLLlm
@@ -31,12 +31,18 @@ class OpenSourceApp(EmbedChain):
         if not config:
             config = OpenSourceAppConfig()
 
+        if not isinstance(config, OpenSourceAppConfig):
+            raise ValueError(
+                "OpenSourceApp needs a OpenSourceAppConfig passed to it. "
+                "You can import it with `from embedchain.config import OpenSourceAppConfig`"
+            )
+
         if not config.model:
             raise ValueError("OpenSourceApp needs a model to be instantiated. Maybe you passed the wrong config type?")
 
         logging.info("Successfully loaded open source embedding model.")
 
-        llm = GPT4ALLLlm(config=ChatConfig(model="orca-mini-3b.ggmlv3.q4_0.bin"))
+        llm = GPT4ALLLlm(config=BaseLlmConfig(model="orca-mini-3b.ggmlv3.q4_0.bin"))
         embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
         database = ChromaDB(config=chromadb_config, embedder=embedder)
 

@@ -2,7 +2,7 @@ import os
 
 from langchain.llms import Replicate
 
-from embedchain.config import AppConfig, ChatConfig
+from embedchain.config import AppConfig, BaseLlmConfig
 from embedchain.embedchain import EmbedChain
 
 
@@ -27,7 +27,7 @@ class Llama2App(EmbedChain):
 
         super().__init__(config)
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig = None):
+    def get_llm_model_answer(self, prompt, config: BaseLlmConfig = None):
         # TODO: Move the model and other inputs into config
         if config.system_prompt:
             raise ValueError("Llama2App does not support `system_prompt`")

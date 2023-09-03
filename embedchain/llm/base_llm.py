@@ -5,7 +5,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
+from embedchain.config.llm.base_llm_config import DOCS_SITE_PROMPT_TEMPLATE
 
 
 class BaseLlm:

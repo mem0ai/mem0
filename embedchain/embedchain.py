@@ -14,7 +14,7 @@ from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
-from embedchain.config import AddConfig, ChatConfig, QueryConfig
+from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base_embedder import BaseEmbedder
@@ -257,7 +257,7 @@ class EmbedChain:
         """
         raise NotImplementedError
 
-    def retrieve_from_database(self, input_query, config: QueryConfig):
+    def retrieve_from_database(self, input_query):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
@@ -275,7 +275,7 @@ class EmbedChain:
 
         return contents
 
-    def query(self, input_query, config: QueryConfig = None, dry_run=False):
+    def query(self, input_query, config: BaseLlmConfig = None, dry_run=False):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -292,7 +292,7 @@ class EmbedChain:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        contexts = self.retrieve_from_database(input_query=input_query, config=config)
+        contexts = self.retrieve_from_database(input_query=input_query)
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
         # Send anonymous telemetry
@@ -301,7 +301,7 @@ class EmbedChain:
 
         return answer
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, config: BaseLlmConfig = None, dry_run=False):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -319,7 +319,7 @@ class EmbedChain:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        contexts = self.retrieve_from_database(input_query=input_query, config=config)
+        contexts = self.retrieve_from_database(input_query=input_query)
         answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
         # Send anonymous telemetry
