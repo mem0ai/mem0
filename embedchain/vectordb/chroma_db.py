@@ -14,9 +14,11 @@ except RuntimeError:
 
 from chromadb.config import Settings
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
+@register_deserializable
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
@@ -28,7 +30,7 @@ class ChromaDB(BaseVectorDB):
 
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.client = chromadb.HttpClient(host=host, port=8000)
+            self.client = chromadb.HttpClient(host=host, port=port)
         else:
             if db_dir is None:
                 db_dir = "db"

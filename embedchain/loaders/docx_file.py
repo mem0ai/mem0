@@ -1,8 +1,10 @@
 from langchain.document_loaders import Docx2txtLoader
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
 
+@register_deserializable
 class DocxFileLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a .docx file."""
