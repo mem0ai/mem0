@@ -2,20 +2,15 @@ from typing import Optional
 
 import openai
 
-from embedchain.config import ChatConfig
+from embedchain.config import BaseLlmConfig
 from embedchain.llm.base_llm import BaseLlm
 
 
 class OpenAiLlm(BaseLlm):
-    def __init__(self, config: Optional[ChatConfig] = None):
-        if config is None:
-            self.config = ChatConfig()
-        else:
-            self.config = config
+    def __init__(self, config: Optional[BaseLlmConfig] = None):
+        super().__init__(config=config)
 
-        super().__init__()
-
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
+    def get_llm_model_answer(self, prompt, config: BaseLlmConfig):
         messages = []
         if config.system_prompt:
             messages.append({"role": "system", "content": config.system_prompt})

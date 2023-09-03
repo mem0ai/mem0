@@ -1,21 +1,15 @@
 from typing import Iterable, Optional, Union
 
-from embedchain.config import ChatConfig
+from embedchain.config import BaseLlmConfig
 from embedchain.llm.base_llm import BaseLlm
 
 
 class GPT4ALLLlm(BaseLlm):
-    def __init__(self, config: Optional[ChatConfig] = None):
-        if config is None:
-            self.config = ChatConfig()
-        else:
-            self.config = config
-
+    def __init__(self, config: Optional[BaseLlmConfig] = None):
+        super().__init__(config=config)
         self.instance = GPT4ALLLlm._get_instance(config.model)
 
-        super().__init__()
-
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
+    def get_llm_model_answer(self, prompt, config: BaseLlmConfig):
         return self._get_gpt4all_answer(prompt=prompt, config=config)
 
     @staticmethod
@@ -29,7 +23,7 @@ class GPT4ALLLlm(BaseLlm):
 
         return GPT4All(model)
 
-    def _get_gpt4all_answer(self, prompt: str, config: ChatConfig) -> Union[str, Iterable]:
+    def _get_gpt4all_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
                 "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
