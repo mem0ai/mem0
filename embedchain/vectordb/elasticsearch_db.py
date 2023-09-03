@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 
-from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.embedder.base_embedder import BaseEmbedder
 
 try:
     from elasticsearch import Elasticsearch

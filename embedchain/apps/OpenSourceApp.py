@@ -4,7 +4,7 @@ from typing import Iterable, Optional, Union
 from embedchain.config import (BaseEmbedderConfig, ChatConfig, ChromaDbConfig,
                                OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.GPT4ALL import GPT4AllEmbedder
+from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder
 from embedchain.vectordb.chroma_db import ChromaDB
 
 gpt4all_model = None
