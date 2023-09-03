@@ -3,11 +3,9 @@
 import unittest
 from unittest.mock import patch
 
-from chromadb.config import Settings
-
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.vectordb.chroma_db import ChromaDB, chromadb
+from embedchain.vectordb.chroma_db import ChromaDB
 
 
 class TestChromaDbHosts(unittest.TestCase):
@@ -18,15 +16,10 @@ class TestChromaDbHosts(unittest.TestCase):
         host = "test-host"
         port = "1234"
 
-        with patch.object(chromadb, "HttpClient") as mock_client:
-            _db = ChromaDB(host=host, port=port, embedding_fn=len)
-
-        expected_settings = Settings(
-            chroma_server_host="test-host",
-            chroma_server_http_port="1234",
-        )
-
-        mock_client.assert_called_once_with(expected_settings)
+        db = ChromaDB(host=host, port=port, embedding_fn=len)
+        settings = db.client.get_settings()
+        self.assertEqual(settings.chroma_server_host, host)
+        self.assertEqual(settings.chroma_server_http_port, port)
 
 
 # Review this test
