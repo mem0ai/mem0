@@ -15,10 +15,10 @@ class BaseBot:
         config = config if config else AddConfig()
         self.app.add(data, config=config)
 
-    def query(self, query, config: QueryConfig = None):
+    def query(self, query, config: QueryConfig = None, **kwargs):
         """Query bot"""
         config = config if config else QueryConfig()
-        return self.app.query(query, config=config)
+        return self.app.query(query, config=config, **kwargs)
 
     def start(self):
         """Start the bot's functionality."""

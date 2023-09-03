@@ -4,8 +4,7 @@ from embedchain.apps.App import App
 from embedchain.apps.OpenSourceApp import OpenSourceApp
 from embedchain.config import ChatConfig, QueryConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
-from embedchain.config.QueryConfig import (DEFAULT_PROMPT,
-                                           DEFAULT_PROMPT_WITH_HISTORY)
+from embedchain.config.QueryConfig import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 
 
 class EmbedChainPersonApp:
@@ -56,13 +55,13 @@ class PersonApp(EmbedChainPersonApp, App):
     Extends functionality from EmbedChainPersonApp and App
     """
 
-    def query(self, input_query, config: QueryConfig = None, dry_run=False):
+    def query(self, input_query, config: QueryConfig = None, dry_run=False, **kwargs):
         config = self.add_person_template_to_config(DEFAULT_PROMPT, config)
-        return super().query(input_query, config, dry_run)
+        return super().query(input_query, config, dry_run, **kwargs)
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False, **kwargs):
         config = self.add_person_template_to_config(DEFAULT_PROMPT_WITH_HISTORY, config)
-        return super().chat(input_query, config, dry_run)
+        return super().chat(input_query, config, dry_run, **kwargs)
 
 
 class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
@@ -71,10 +70,10 @@ class PersonOpenSourceApp(EmbedChainPersonApp, OpenSourceApp):
     Extends functionality from EmbedChainPersonApp and OpenSourceApp
     """
 
-    def query(self, input_query, config: QueryConfig = None, dry_run=False):
+    def query(self, input_query, config: QueryConfig = None, dry_run=False, **kwargs):
         config = self.add_person_template_to_config(DEFAULT_PROMPT, config)
-        return super().query(input_query, config, dry_run)
+        return super().query(input_query, config, dry_run, **kwargs)
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False, **kwargs):
         config = self.add_person_template_to_config(DEFAULT_PROMPT_WITH_HISTORY, config)
-        return super().chat(input_query, config, dry_run)
+        return super().chat(input_query, config, dry_run, **kwargs)
