@@ -16,7 +16,7 @@ class BaseBot:
 
     def query(self, query, config: LlmConfig = None):
         """Query bot"""
-        config = config if config else LlmConfig()
+        config = config
         return self.app.query(query, config=config)
 
     def start(self):
