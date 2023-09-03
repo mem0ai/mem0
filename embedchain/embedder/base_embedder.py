@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from embedchain.config import BaseEmbedderConfig
+from embedchain.config.embedder.BaseEmbedderConfig import BaseEmbedderConfig
 
 try:
     from chromadb.api.types import Documents, Embeddings
