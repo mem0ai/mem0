@@ -46,6 +46,8 @@ class ChromaDB(BaseVectorDB):
 
     def _get_or_create_collection(self, name):
         """Get or create the collection."""
+        if not self.embedder:
+            raise ValueError("Cannot create a Chroma database collection without an embedder.")
         self.collection = self.client.get_or_create_collection(
             name=name,
             embedding_function=self.embedder.embedding_fn,
@@ -109,6 +111,10 @@ class ChromaDB(BaseVectorDB):
         results_formatted = self._format_result(result)
         contents = [result[0].page_content for result in results_formatted]
         return contents
+    
+    def set_collection_name(self, name: str):
+        self.config.collection_name = name
+        self._get_or_create_collection(self.config.collection_name)
 
     def count(self) -> int:
         """

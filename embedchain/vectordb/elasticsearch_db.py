@@ -117,6 +117,9 @@ class ElasticsearchDB(BaseVectorDB):
         docs = response["hits"]["hits"]
         contents = [doc["_source"]["text"] for doc in docs]
         return contents
+    
+    def set_collection_name(self, name: str):
+        self.config.collection_name = name
 
     def count(self) -> int:
         query = {"match_all": {}}

@@ -34,4 +34,4 @@ class BaseVectorDB:
         raise NotImplementedError
 
     def set_collection_name(self, name: str):
-        self.config.collection_name = name
+        raise NotImplementedError
