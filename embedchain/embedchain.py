@@ -241,10 +241,10 @@ class EmbedChain:
         metadatas = new_metadatas
 
         # Count before, to calculate a delta in the end.
-        chunks_before_addition = self.count()
+        chunks_before_addition = self.db.count()
 
         self.db.add(documents=documents, metadatas=metadatas, ids=ids)
-        count_new_chunks = self.count() - chunks_before_addition
+        count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 

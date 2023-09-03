@@ -35,15 +35,14 @@ class TestApp(unittest.TestCase):
             mock_retrieve.return_value = ["Test context"]
             with patch.object(self.app.llm, "get_llm_model_answer") as mock_answer:
                 mock_answer.return_value = "Test answer"
-                answer = self.app.query(input_query="Test query")
-
+                _answer = self.app.query(input_query="Test query")
 
         # Ensure retrieve_from_database was called
         mock_retrieve.assert_called_once()
 
         # Check the call arguments
         args, kwargs = mock_retrieve.call_args
-        input_query_arg = kwargs.get('input_query')
+        input_query_arg = kwargs.get("input_query")
         self.assertEqual(input_query_arg, "Test query")
         mock_answer.assert_called_once()
 

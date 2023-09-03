@@ -5,7 +5,9 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base_llm_config import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
+from embedchain.config.llm.base_llm_config import (
+    DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
+    DOCS_SITE_PROMPT_TEMPLATE)
 
 
 class BaseLlm:
@@ -25,7 +27,7 @@ class BaseLlm:
         Usually implemented by child class
         """
         raise NotImplementedError
-    
+
     def set_history(self, history: any):
         self.history = history
 
@@ -53,7 +55,10 @@ class BaseLlm:
             prompt = self.config.template.substitute(context=context_string, query=input_query)
         else:
             # check if it's the default template without history
-            if not self.config._validate_template_history(self.config.template) and self.config.template.template == DEFAULT_PROMPT:
+            if (
+                not self.config._validate_template_history(self.config.template)
+                and self.config.template.template == DEFAULT_PROMPT
+            ):
                 # swap in the template with history
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
                     context=context_string, query=input_query, history=self.history

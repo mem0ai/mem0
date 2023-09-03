@@ -106,7 +106,6 @@ class BaseLlmConfig(BaseConfig):
         else:
             raise ValueError("`template` should have `query` and `context` keys and potentially `history` (if used).")
 
-
         if not isinstance(stream, bool):
             raise ValueError("`stream` should be bool")
         self.stream = stream

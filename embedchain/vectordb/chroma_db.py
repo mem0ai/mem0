@@ -6,7 +6,6 @@ from chromadb.errors import InvalidDimensionException
 from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
-from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 try:
@@ -41,7 +40,9 @@ class ChromaDB(BaseVectorDB):
         super().__init__(config=self.config)
 
     def _initialize(self):
-        """This method is needed because `embedder` attribute needs to be set externally before it can be initialized."""
+        """
+        This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
+        """
         if not self.embedder:
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
         self._get_or_create_collection(self.config.collection_name)
@@ -52,7 +53,7 @@ class ChromaDB(BaseVectorDB):
 
     def _get_or_create_collection(self, name):
         """Get or create the collection."""
-        if not hasattr(self, 'embedder') or not self.embedder:
+        if not hasattr(self, "embedder") or not self.embedder:
             raise ValueError("Cannot create a Chroma database collection without an embedder.")
         self.collection = self.client.get_or_create_collection(
             name=name,
@@ -117,7 +118,7 @@ class ChromaDB(BaseVectorDB):
         results_formatted = self._format_result(result)
         contents = [result[0].page_content for result in results_formatted]
         return contents
-    
+
     def set_collection_name(self, name: str):
         self.config.collection_name = name
         self._get_or_create_collection(self.config.collection_name)

@@ -1,16 +1,14 @@
 import unittest
 
 from embedchain.config import ElasticsearchDBConfig
-from embedchain.vectordb.elasticsearch_db import ElasticsearchDB
 from embedchain.embedder.base_embedder import BaseEmbedder
-from embedchain.config import BaseEmbedderConfig
+from embedchain.vectordb.elasticsearch_db import ElasticsearchDB
 
 
 class TestEsDB(unittest.TestCase):
     def setUp(self):
         self.es_config = ElasticsearchDBConfig()
         self.vector_dim = 384
-
 
     def test_init_with_invalid_es_config(self):
         # Test if an exception is raised when an invalid es_config is provided
@@ -28,6 +26,4 @@ class TestEsDB(unittest.TestCase):
         # Test if an exception is raised when an invalid collection_name is provided
         self.es_config.collection_name = None
         with self.assertRaises(ValueError):
-            ElasticsearchDB(
-                es_config=self.es_config
-            )
+            ElasticsearchDB(es_config=self.es_config)

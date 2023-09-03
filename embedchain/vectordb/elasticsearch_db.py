@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-from embedchain.embedder.base_embedder import BaseEmbedder
-
 try:
     from elasticsearch import Elasticsearch
     from elasticsearch.helpers import bulk
@@ -35,7 +33,9 @@ class ElasticsearchDB(BaseVectorDB):
         super().__init__(config=self.config)
 
     def _initialize(self):
-        """This method is needed because `embedder` attribute needs to be set externally before it can be initialized."""
+        """
+        This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
+        """
         index_settings = {
             "mappings": {
                 "properties": {
@@ -118,7 +118,7 @@ class ElasticsearchDB(BaseVectorDB):
         docs = response["hits"]["hits"]
         contents = [doc["_source"]["text"] for doc in docs]
         return contents
-    
+
     def set_collection_name(self, name: str):
         self.config.collection_name = name
 

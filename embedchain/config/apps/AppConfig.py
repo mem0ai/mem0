@@ -21,9 +21,4 @@ class AppConfig(BaseAppConfig):
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         """
-        super().__init__(
-            log_level=log_level,
-            id=id,
-            collect_metrics=collect_metrics,
-            collection_name=collection_name
-        )
+        super().__init__(log_level=log_level, id=id, collect_metrics=collect_metrics, collection_name=collection_name)

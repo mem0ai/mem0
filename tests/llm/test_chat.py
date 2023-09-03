@@ -45,7 +45,7 @@ class TestApp(unittest.TestCase):
         """
         Tests that if a default template is used and it doesn't contain history,
         the default template is swapped in.
-        
+
         Also tests that a dry run does not change the history
         """
         app = App()

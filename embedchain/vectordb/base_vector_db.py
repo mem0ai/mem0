@@ -12,7 +12,7 @@ class BaseVectorDB:
     def _initialize(self):
         """
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
-        
+
         So it's can't be done in __init__ in one step.
         """
         raise NotImplementedError
@@ -23,7 +23,7 @@ class BaseVectorDB:
 
     def _get_or_create_collection(self):
         raise NotImplementedError
-    
+
     def _set_embedder(self, embedder: BaseEmbedder):
         self.embedder = embedder
 

@@ -23,13 +23,9 @@ class OpenSourceAppConfig(BaseAppConfig):
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         :param model: Optional. GPT4ALL uses the model to instantiate the class.
         So unlike `App`, it has to be provided before querying.
-        :param collection_name: Optional. Default collection name. It's recommended to use app.set_collection_name() instead.
+        :param collection_name: Optional. Default collection name.
+        It's recommended to use app.db.set_collection_name() instead.
         """
         self.model = model or "orca-mini-3b.ggmlv3.q4_0.bin"
 
-        super().__init__(
-            log_level=log_level,
-            id=id,
-            collect_metrics=collect_metrics,
-            collection_name=collection_name
-        )
+        super().__init__(log_level=log_level, id=id, collect_metrics=collect_metrics, collection_name=collection_name)

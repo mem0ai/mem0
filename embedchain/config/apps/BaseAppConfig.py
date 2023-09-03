@@ -27,7 +27,8 @@ class BaseAppConfig(BaseConfig):
         :param db_type: Optional. Initializes a default vector database of the given type.
         Using the `db` argument is preferred.
         :param es_config: Optional. elasticsearch database config to be used for connection
-        :param collection_name: Optional. Default collection name. It's recommended to use app.set_collection_name() instead.
+        :param collection_name: Optional. Default collection name.
+        It's recommended to use app.set_collection_name() instead.
         """
         self._setup_logging(log_level)
         self.id = id

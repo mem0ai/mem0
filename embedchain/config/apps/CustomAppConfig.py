@@ -32,7 +32,8 @@ class CustomAppConfig(BaseAppConfig):
         :param provider: Optional. (Providers): LLM Provider to use.
         :param open_source_app_config: Optional. Config instance needed for open source apps.
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
-        :param collection_name: Optional. Default collection name. It's recommended to use app.set_collection_name() instead.
+        :param collection_name: Optional. Default collection name.
+        It's recommended to use app.set_collection_name() instead.
         """
         if provider:
             self.provider = provider
@@ -42,9 +43,5 @@ class CustomAppConfig(BaseAppConfig):
         self.open_source_app_config = open_source_app_config
 
         super().__init__(
-            log_level=log_level,
-            db=db,
-            id=id,
-            collect_metrics=collect_metrics,
-            collection_name=collection_name
+            log_level=log_level, db=db, id=id, collect_metrics=collect_metrics, collection_name=collection_name
         )
