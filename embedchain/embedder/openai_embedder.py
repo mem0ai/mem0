@@ -19,9 +19,11 @@ except RuntimeError:
 class OpenAiEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
+        if self.config.model is None:
+            self.config.model = "text-embedding-ada-002"
 
         if self.config.deployment_name:
-            embeddings = OpenAIEmbeddings(deployment=config.deployment_name)
+            embeddings = OpenAIEmbeddings(deployment=self.config.deployment_name)
             embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
         else:
             if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
@@ -31,7 +33,7 @@ class OpenAiEmbedder(BaseEmbedder):
             embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
                 api_key=os.getenv("OPENAI_API_KEY"),
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
-                model_name=config.model,
+                model_name=self.config.model,
             )
 
         self.set_embedding_fn(embedding_fn=embedding_fn)
