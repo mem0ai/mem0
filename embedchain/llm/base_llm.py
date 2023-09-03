@@ -25,7 +25,7 @@ class BaseLlm:
         """
         raise NotImplementedError
 
-    def generate_prompt(self, input_query, contexts, config: BaseLlmConfig, **kwargs):
+    def generate_prompt(self, input_query, contexts, **kwargs):
         """
         Generates a prompt based on the given query and context, ready to be
         passed to an LLM
@@ -40,16 +40,18 @@ class BaseLlm:
         web_search_result = kwargs.get("web_search_result", "")
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
-        if not config.history:
-            prompt = config.template.substitute(context=context_string, query=input_query)
+        if not self.config.history:
+            prompt = self.config.template.substitute(context=context_string, query=input_query)
         else:
-            prompt = config.template.substitute(context=context_string, query=input_query, history=config.history)
+            prompt = self.config.template.substitute(
+                context=context_string, query=input_query, history=self.config.history
+            )
         return prompt
 
     def _append_search_and_context(self, context, web_search_result):
         return f"{context}\nWeb Search Result: {web_search_result}"
 
-    def get_answer_from_llm(self, prompt, config: BaseLlmConfig):
+    def get_answer_from_llm(self, prompt):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -59,7 +61,7 @@ class BaseLlm:
         :return: The answer.
         """
 
-        return self.get_llm_model_answer(prompt, config)
+        return self.get_llm_model_answer(prompt)
 
     def access_search_and_get_results(self, input_query):
         from langchain.tools import DuckDuckGoSearchRun
@@ -109,13 +111,13 @@ class BaseLlm:
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        prompt = self.generate_prompt(input_query, contexts, config, **k)
+        prompt = self.generate_prompt(input_query, contexts, **k)
         logging.info(f"Prompt: {prompt}")
 
         if dry_run:
             return prompt
 
-        answer = self.get_answer_from_llm(prompt, config)
+        answer = self.get_answer_from_llm(prompt)
 
         if isinstance(answer, str):
             logging.info(f"Answer: {answer}")
@@ -156,13 +158,13 @@ class BaseLlm:
         if chat_history:
             config.set_history(chat_history)
 
-        prompt = self.generate_prompt(input_query, contexts, config, **k)
+        prompt = self.generate_prompt(input_query, contexts, **k)
         logging.info(f"Prompt: {prompt}")
 
         if dry_run:
             return prompt
 
-        answer = self.get_answer_from_llm(prompt, config)
+        answer = self.get_answer_from_llm(prompt)
 
         self.memory.chat_memory.add_user_message(input_query)
 

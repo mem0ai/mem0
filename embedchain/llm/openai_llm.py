@@ -12,21 +12,21 @@ class OpenAiLlm(BaseLlm):
 
     # NOTE: This class does not use langchain. One reason is that `top_p` is not supported.
 
-    def get_llm_model_answer(self, prompt, config: BaseLlmConfig):
+    def get_llm_model_answer(self, prompt):
         messages = []
-        if config.system_prompt:
-            messages.append({"role": "system", "content": config.system_prompt})
+        if self.config.system_prompt:
+            messages.append({"role": "system", "content": self.config.system_prompt})
         messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
-            model=config.model or "gpt-3.5-turbo-0613",
+            model=self.config.model or "gpt-3.5-turbo-0613",
             messages=messages,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            stream=config.stream,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+            top_p=self.config.top_p,
+            stream=self.config.stream,
         )
 
-        if config.stream:
+        if self.config.stream:
             return self._stream_llm_model_response(response)
         else:
             return response["choices"][0]["message"]["content"]
