@@ -34,5 +34,18 @@ class CustomApp(EmbedChain):
             raise ValueError("Database must be provided for custom app. Please import from `embedchain.vectordb`.")
         if embedder is None:
             raise ValueError("Embedder must be provided for custom app. Please import from `embedchain.embedder`.")
+        
+        if not isinstance(config, CustomAppConfig):
+            raise TypeError("Config is not a `CustomAppConfig` instance. "\
+                             "Please make sure the type is right and that you are passing an instance.")
+        if not isinstance(llm, BaseLlm):
+            raise TypeError("LLM is not a `BaseLlm` instance. "\
+                             "Please make sure the type is right and that you are passing an instance.")
+        if not isinstance(db, BaseVectorDB):
+            raise TypeError("Database is not a `BaseVectorDB` instance. "\
+                             "Please make sure the type is right and that you are passing an instance.")
+        if not isinstance(embedder, BaseEmbedder):
+            raise TypeError("Embedder is not a `BaseEmbedder` instance. "\
+                             "Please make sure the type is right and that you are passing an instance.")
 
         super().__init__(config=config, llm=llm, db=db, embedder=embedder)
