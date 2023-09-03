@@ -7,10 +7,12 @@ except ImportError:
     raise ImportError("Notion requires extra dependencies. Install with `pip install embedchain[community]`") from None
 
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
 
+@register_deserializable
 class NotionLoader(BaseLoader):
     def load_data(self, source):
         """Load data from a PDF file."""

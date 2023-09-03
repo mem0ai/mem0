@@ -3,6 +3,7 @@ from string import Template
 from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
@@ -48,6 +49,7 @@ context_re = re.compile(r"\$\{*context\}*")
 history_re = re.compile(r"\$\{*history\}*")
 
 
+@register_deserializable
 class QueryConfig(BaseConfig):
     """
     Config for the `query` method.

@@ -1,9 +1,11 @@
 from langchain.document_loaders import YoutubeLoader
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
 
+@register_deserializable
 class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""

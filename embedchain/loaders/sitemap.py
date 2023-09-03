@@ -4,11 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 from bs4.builder import ParserRejectedMarkup
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.utils import is_readable
 
 
+@register_deserializable
 class SitemapLoader(BaseLoader):
     def load_data(self, sitemap_url):
         """

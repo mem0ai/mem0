@@ -14,9 +14,11 @@ except RuntimeError:
 
 from chromadb.config import Settings
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
+@register_deserializable
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
