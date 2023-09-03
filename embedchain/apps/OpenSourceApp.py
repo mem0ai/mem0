@@ -44,6 +44,6 @@ class OpenSourceApp(EmbedChain):
 
         llm = GPT4ALLLlm(config=BaseLlmConfig(model="orca-mini-3b.ggmlv3.q4_0.bin"))
         embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
-        database = ChromaDB(config=chromadb_config, embedder=embedder)
+        database = ChromaDB(config=chromadb_config)
 
         super().__init__(config, llm=llm, db=database, embedder=embedder)

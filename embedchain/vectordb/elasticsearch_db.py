@@ -18,7 +18,6 @@ class ElasticsearchDB(BaseVectorDB):
     def __init__(
         self,
         config: ElasticsearchDBConfig = None,
-        embedder: BaseEmbedder = None,
         es_config: ElasticsearchDBConfig = None,  # Backwards compatibility
     ):
         """
@@ -33,8 +32,10 @@ class ElasticsearchDB(BaseVectorDB):
         self.client = Elasticsearch(es_config.ES_URL, **es_config.ES_EXTRA_PARAMS)
 
         # Call parent init here because embedder is needed
-        super().__init__(embedder=embedder)
+        super().__init__(config=self.config)
 
+    def _initialize(self):
+        """This method is needed because `embedder` attribute needs to be set externally before it can be initialized."""
         index_settings = {
             "mappings": {
                 "properties": {

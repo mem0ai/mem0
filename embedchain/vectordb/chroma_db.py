@@ -21,7 +21,7 @@ except RuntimeError:
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, config: Optional[ChromaDbConfig] = None, embedder: BaseEmbedder = None):
+    def __init__(self, config: Optional[ChromaDbConfig] = None):
         if config:
             self.config = config
         else:
@@ -38,7 +38,13 @@ class ChromaDB(BaseVectorDB):
                 settings=self.settings,
             )
 
-        super().__init__(embedder=embedder)
+        super().__init__(config=self.config)
+
+    def _initialize(self):
+        """This method is needed because `embedder` attribute needs to be set externally before it can be initialized."""
+        if not self.embedder:
+            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+        self._get_or_create_collection(self.config.collection_name)
 
     def _get_or_create_db(self):
         """Get or create the database."""
@@ -46,7 +52,7 @@ class ChromaDB(BaseVectorDB):
 
     def _get_or_create_collection(self, name):
         """Get or create the collection."""
-        if not self.embedder:
+        if not hasattr(self, 'embedder') or not self.embedder:
             raise ValueError("Cannot create a Chroma database collection without an embedder.")
         self.collection = self.client.get_or_create_collection(
             name=name,

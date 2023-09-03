@@ -5,11 +5,17 @@ from embedchain.embedder.base_embedder import BaseEmbedder
 class BaseVectorDB:
     """Base class for vector database."""
 
-    def __init__(self, embedder: BaseEmbedder):
-        self.embedder = embedder
+    def __init__(self, config: BaseVectorDbConfig):
         self.client = self._get_or_create_db()
-        self._get_or_create_collection(self.config.collection_name)
-        self.config: BaseVectorDbConfig
+        self.config: BaseVectorDbConfig = config
+
+    def _initialize(self):
+        """
+        This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
+        
+        So it's can't be done in __init__ in one step.
+        """
+        raise NotImplementedError
 
     def _get_or_create_db(self):
         """Get or create the database."""
@@ -17,6 +23,9 @@ class BaseVectorDB:
 
     def _get_or_create_collection(self):
         raise NotImplementedError
+    
+    def _set_embedder(self, embedder: BaseEmbedder):
+        self.embedder = embedder
 
     def get(self):
         raise NotImplementedError

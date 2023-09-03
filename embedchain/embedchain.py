@@ -59,6 +59,10 @@ class EmbedChain:
             raise ValueError("App requires Embedder.")
         self.embedder = embedder
 
+        # Initialize database
+        self.db._set_embedder(self.embedder)
+        self.db._initialize()
+
         # Attributes that aren't subclass related.
         self.user_asks = []
 

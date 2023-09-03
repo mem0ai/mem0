@@ -32,6 +32,6 @@ class App(EmbedChain):
 
         llm = OpenAiLlm(config=llm_config)
         embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
-        database = ChromaDB(config=chromadb_config, embedder=embedder)
+        database = ChromaDB(config=chromadb_config)
 
         super().__init__(config, llm, db=database, embedder=embedder)
