@@ -33,15 +33,17 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
 class EmbedChain:
-    def __init__(self, config: BaseAppConfig):
+    def __init__(self, config: BaseAppConfig, system_prompt: Optional[str] = None):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param config: BaseAppConfig instance to load as configuration.
+        :param system_prompt: Optional. System prompt string.
         """
 
         self.config = config
+        self.system_prompt = system_prompt
         self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
         self.db = self.config.db
         self.user_asks = []
