@@ -1,13 +1,20 @@
 import logging
+from typing import List, Optional
 
 from langchain.memory import ConversationBufferMemory
+from langchain.schema import BaseMessage
 
-from embedchain.config import ChatConfig, QueryConfig
+from embedchain.config import BaseLlmConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
 
 
 class BaseLlm:
-    def __init__(self):
+    def __init__(self, config: Optional[BaseLlmConfig] = None):
+        if config is None:
+            self.config = BaseLlmConfig()
+        else:
+            self.config = config
+
         self.memory = ConversationBufferMemory()
         self.is_docs_site_instance = False
         self.online = False
@@ -18,7 +25,7 @@ class BaseLlm:
         """
         raise NotImplementedError
 
-    def generate_prompt(self, input_query, contexts, config: QueryConfig, **kwargs):
+    def generate_prompt(self, input_query, contexts, config: BaseLlmConfig, **kwargs):
         """
         Generates a prompt based on the given query and context, ready to be
         passed to an LLM
@@ -42,7 +49,7 @@ class BaseLlm:
     def _append_search_and_context(self, context, web_search_result):
         return f"{context}\nWeb Search Result: {web_search_result}"
 
-    def get_answer_from_llm(self, prompt, config: ChatConfig):
+    def get_answer_from_llm(self, prompt, config: BaseLlmConfig):
         """
         Gets an answer based on the given query and context by passing it
         to an LLM.
@@ -76,7 +83,7 @@ class BaseLlm:
         self.memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
 
-    def query(self, input_query, contexts, config: QueryConfig = None, dry_run=False):
+    def query(self, input_query, contexts, config: BaseLlmConfig = None, dry_run=False):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -93,8 +100,9 @@ class BaseLlm:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        if config is None:
-            config = QueryConfig()
+        if config:
+            self.config = config
+
         if self.is_docs_site_instance:
             config.template = DOCS_SITE_PROMPT_TEMPLATE
             config.number_documents = 5
@@ -115,7 +123,7 @@ class BaseLlm:
         else:
             return self._stream_query_response(answer)
 
-    def chat(self, input_query, contexts, config: ChatConfig = None, dry_run=False):
+    def chat(self, input_query, contexts, config: BaseLlmConfig = None, dry_run=False):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -133,11 +141,12 @@ class BaseLlm:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        if config is None:
-            config = ChatConfig()
+        if config:
+            self.config = config
+
         if self.is_docs_site_instance:
-            config.template = DOCS_SITE_PROMPT_TEMPLATE
-            config.number_documents = 5
+            self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+            self.config.number_documents = 5
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
@@ -164,3 +173,13 @@ class BaseLlm:
         else:
             # this is a streamed response and needs to be handled differently.
             return self._stream_chat_response(answer)
+
+    @staticmethod
+    def _get_messages(prompt: str, system_prompt: Optional[str] = None) -> List[BaseMessage]:
+        from langchain.schema import HumanMessage, SystemMessage
+
+        messages = []
+        if system_prompt:
+            messages.append(SystemMessage(content=system_prompt))
+        messages.append(HumanMessage(content=prompt))
+        return messages
