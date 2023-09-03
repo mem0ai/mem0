@@ -20,10 +20,11 @@ class CustomApp(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: CustomAppConfig = None):
+    def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
+        :param system_prompt: Optional. System prompt string.
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")
@@ -36,7 +37,7 @@ class CustomApp(EmbedChain):
             # Because these models run locally, they should have an instance running when the custom app is created
             self.open_source_app = OpenSourceApp(config=config.open_source_app_config)
 
-        super().__init__(config)
+        super().__init__(config, system_prompt)
 
     def set_llm_model(self, provider: Providers):
         self.provider = provider
@@ -52,6 +53,9 @@ class CustomApp(EmbedChain):
             raise NotImplementedError(
                 "Streaming responses have not been implemented for this model yet. Please disable."
             )
+
+        if config.system_prompt is None and self.system_prompt is not None:
+            config.system_prompt = self.system_prompt
 
         try:
             if self.provider == Providers.OPENAI:
