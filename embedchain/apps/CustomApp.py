@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 from langchain.schema import BaseMessage
 
@@ -18,10 +18,11 @@ class CustomApp(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: CustomAppConfig = None):
+    def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
+        :param system_prompt: Optional. System prompt string.
         """
         if config is None:
             raise ValueError("Config must be provided for custom app")
@@ -34,7 +35,7 @@ class CustomApp(EmbedChain):
             # Because these models run locally, they should have an instance running when the custom app is created
             self.open_source_app = OpenSourceApp(config=config.open_source_app_config)
 
-        super().__init__(config)
+        super().__init__(config, system_prompt)
 
     def set_llm_model(self, provider: Providers):
         self.provider = provider
@@ -50,6 +51,9 @@ class CustomApp(EmbedChain):
             raise NotImplementedError(
                 "Streaming responses have not been implemented for this model yet. Please disable."
             )
+
+        if config.system_prompt is None and self.system_prompt is not None:
+            config.system_prompt = self.system_prompt
 
         try:
             if self.provider == Providers.OPENAI:
@@ -68,7 +72,7 @@ class CustomApp(EmbedChain):
                 return CustomApp._get_azure_openai_answer(prompt, config)
 
         except ImportError as e:
-            raise ImportError(e.msg) from None
+            raise ModuleNotFoundError(e.msg) from None
 
     @staticmethod
     def _get_openai_answer(prompt: str, config: ChatConfig) -> str:
@@ -84,7 +88,7 @@ class CustomApp(EmbedChain):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content
 
@@ -97,7 +101,7 @@ class CustomApp(EmbedChain):
         if config.max_tokens and config.max_tokens != 1000:
             logging.warning("Config option `max_tokens` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content
 
@@ -110,7 +114,7 @@ class CustomApp(EmbedChain):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content
 
@@ -118,9 +122,13 @@ class CustomApp(EmbedChain):
     def _get_azure_openai_answer(prompt: str, config: ChatConfig) -> str:
         from langchain.chat_models import AzureChatOpenAI
 
+        if not config.deployment_name:
+            raise ValueError("Deployment name must be provided for Azure OpenAI")
+
         chat = AzureChatOpenAI(
-            deployment_name="td2",
-            model_name=config.model or "text-davinci-002",
+            deployment_name=config.deployment_name,
+            openai_api_version="2023-05-15",
+            model_name=config.model or "gpt-3.5-turbo",
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             streaming=config.stream,
@@ -129,15 +137,19 @@ class CustomApp(EmbedChain):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = CustomApp._get_messages(prompt)
+        messages = CustomApp._get_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content
 
     @staticmethod
-    def _get_messages(prompt: str) -> List[BaseMessage]:
+    def _get_messages(prompt: str, system_prompt: Optional[str] = None) -> List[BaseMessage]:
         from langchain.schema import HumanMessage, SystemMessage
 
-        return [SystemMessage(content="You are a helpful assistant."), HumanMessage(content=prompt)]
+        messages = []
+        if system_prompt:
+            messages.append(SystemMessage(content=system_prompt))
+        messages.append(HumanMessage(content=prompt))
+        return messages
 
     def _stream_llm_model_response(self, response):
         """

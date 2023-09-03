@@ -35,8 +35,8 @@ os.environ['REPLICATE_API_TOKEN'] = "REPLICATE API TOKEN"
 zuck_bot = Llama2App()
 
 # Embed your data
-zuck_bot.add("youtube_video", "https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
-zuck_bot.add("web_page", "https://en.wikipedia.org/wiki/Mark_Zuckerberg")
+zuck_bot.add("https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
+zuck_bot.add("https://en.wikipedia.org/wiki/Mark_Zuckerberg")
 
 # Nice, your bot is ready now. Start asking questions to your bot.
 zuck_bot.query("Who is Mark Zuckerberg?")
@@ -63,6 +63,7 @@ app = OpenSourceApp()
 - Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed. 📦
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
 - `OpenSourceApp` is opinionated. It uses the best open source embedding model and LLM on the market.
+- extra dependencies are required for this app type. Install them with `pip install embedchain[opensource]`.
 
 ### CustomApp
 
