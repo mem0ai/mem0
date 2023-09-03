@@ -23,7 +23,6 @@ class EcPoeBot(BaseBot, PoeBot):
             )
         except Exception as e:
             logging.error(f"Error when processing the chat history. Message is being sent without history. Error: {e}")
-        logging.warning(history)
         answer = self.handle_message(last_message, history)
         yield self.text_event(answer)
 
