@@ -9,8 +9,8 @@ class GPT4ALLLlm(BaseLlm):
         super().__init__(config=config)
         self.instance = GPT4ALLLlm._get_instance(config.model)
 
-    def get_llm_model_answer(self, prompt, config: BaseLlmConfig):
-        return self._get_gpt4all_answer(prompt=prompt, config=config)
+    def get_llm_model_answer(self, prompt):
+        return self._get_gpt4all_answer(prompt=prompt, config=self.config)
 
     @staticmethod
     def _get_instance(model):
