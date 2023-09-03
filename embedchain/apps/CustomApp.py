@@ -5,7 +5,7 @@ from langchain.schema import BaseMessage
 
 from embedchain.config import ChatConfig, CustomAppConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.models import Providers
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 

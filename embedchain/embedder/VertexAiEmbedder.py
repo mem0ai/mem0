@@ -3,7 +3,7 @@ from typing import Optional
 from langchain.embeddings import VertexAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
-from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.models import EmbeddingFunctions
 
 

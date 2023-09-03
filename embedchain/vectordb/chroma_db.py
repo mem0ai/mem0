@@ -6,7 +6,7 @@ from chromadb.errors import InvalidDimensionException
 from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
-from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 try:

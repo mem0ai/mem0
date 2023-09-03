@@ -1,5 +1,5 @@
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
-from embedchain.embedder.BaseEmbedder import BaseEmbedder
+from embedchain.embedder.base_embedder import BaseEmbedder
 
 
 class BaseVectorDB:
