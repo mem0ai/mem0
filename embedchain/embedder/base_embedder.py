@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from embedchain.config.embedder.BaseEmbedderConfig import BaseEmbedderConfig
 
@@ -14,7 +14,7 @@ except RuntimeError:
 class BaseEmbedder:
     """Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers."""
 
-    def __init__(self, config: BaseEmbedderConfig):
+    def __init__(self, config: Optional[BaseEmbedderConfig] = FileNotFoundError):
         if config is None:
             self.config = BaseEmbedderConfig()
         else:
