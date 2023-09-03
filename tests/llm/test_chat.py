@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig
+from embedchain.llm.base_llm import BaseLlm
 
 
 class TestApp(unittest.TestCase):
@@ -12,7 +13,7 @@ class TestApp(unittest.TestCase):
         self.app = App(config=AppConfig(collect_metrics=False))
 
     @patch.object(App, "retrieve_from_database", return_value=["Test context"])
-    @patch.object(App, "get_answer_from_llm", return_value="Test answer")
+    @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
     def test_chat_with_memory(self, mock_get_answer, mock_retrieve):
         """
         This test checks the functionality of the 'chat' method in the App class with respect to the chat history
@@ -31,7 +32,7 @@ class TestApp(unittest.TestCase):
         app = App()
         first_answer = app.chat("Test query 1")
         self.assertEqual(first_answer, "Test answer")
-        self.assertEqual(len(app.memory.chat_memory.messages), 2)
+        self.assertEqual(len(app.llm.memory.chat_memory.messages), 2)
         second_answer = app.chat("Test query 2")
         self.assertEqual(second_answer, "Test answer")
-        self.assertEqual(len(app.memory.chat_memory.messages), 4)
+        self.assertEqual(len(app.llm.memory.chat_memory.messages), 4)

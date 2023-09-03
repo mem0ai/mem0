@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from embedchain import App
-from embedchain.config import AppConfig, QueryConfig
+from embedchain.config import AppConfig, BaseLlmConfig
 
 
 class TestApp(unittest.TestCase):
@@ -33,13 +33,18 @@ class TestApp(unittest.TestCase):
         """
         with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
-            with patch.object(self.app, "get_llm_model_answer") as mock_answer:
+            with patch.object(self.app.llm, "get_llm_model_answer") as mock_answer:
                 mock_answer.return_value = "Test answer"
-                answer = self.app.query("Test query")
+                answer = self.app.query(input_query="Test query")
 
-        self.assertEqual(answer, "Test answer")
-        self.assertEqual(mock_retrieve.call_args[0][0], "Test query")
-        self.assertIsInstance(mock_retrieve.call_args[0][1], QueryConfig)
+
+        # Ensure retrieve_from_database was called
+        mock_retrieve.assert_called_once()
+
+        # Check the call arguments
+        args, kwargs = mock_retrieve.call_args
+        input_query_arg = kwargs.get('input_query')
+        self.assertEqual(input_query_arg, "Test query")
         mock_answer.assert_called_once()
 
     @patch("openai.ChatCompletion.create")
@@ -47,13 +52,14 @@ class TestApp(unittest.TestCase):
         mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
 
         config = AppConfig()
-        chat_config = QueryConfig(system_prompt="Test system prompt")
-        app = App(config=config)
+        chat_config = BaseLlmConfig(system_prompt="Test system prompt")
+        app = App(config=config, llm_config=chat_config)
 
-        app.get_llm_model_answer("Test query", chat_config)
+        app.llm.get_llm_model_answer("Test query")
 
         # Test systemp_prompt: Check that the 'create' method was called with the correct 'messages' argument
         messages_arg = mock_create.call_args.kwargs["messages"]
+        print(messages_arg)
         self.assertEqual(messages_arg[0]["role"], "system")
         self.assertEqual(messages_arg[0]["content"], "Test system prompt")
 
