@@ -274,7 +274,7 @@ class EmbedChain:
         )
 
         return contents
-    
+
     def query(self, input_query, config: QueryConfig = None, dry_run=False):
         """
         Queries the vector database based on the given input query.
@@ -294,7 +294,7 @@ class EmbedChain:
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config)
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
-        
+
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
         thread_telemetry.start()
@@ -319,8 +319,8 @@ class EmbedChain:
         the `max_tokens` parameter.
         :return: The answer to the query.
         """
-        context = self.retrieve_from_database(input_query=input_query, config=config)
-        answer = self.llm.chat(input_query=input_query, config=config, dry_run=dry_run)
+        contexts = self.retrieve_from_database(input_query=input_query, config=config)
+        answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))

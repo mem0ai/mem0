@@ -1,7 +1,8 @@
+from typing import Iterable, Optional, Union
+
 from embedchain.config import ChatConfig
 from embedchain.llm.base_llm import BaseLlm
-import openai
-from typing import Optional, Union, Iterable
+
 
 class GPT4ALLLlm(BaseLlm):
     def __init__(self, config: Optional[ChatConfig] = None):

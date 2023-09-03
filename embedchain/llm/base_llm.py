@@ -1,7 +1,10 @@
 import logging
+
+from langchain.memory import ConversationBufferMemory
+
 from embedchain.config import ChatConfig, QueryConfig
 from embedchain.config.QueryConfig import DOCS_SITE_PROMPT_TEMPLATE
-from langchain.memory import ConversationBufferMemory
+
 
 class BaseLlm:
     def __init__(self):
@@ -14,7 +17,7 @@ class BaseLlm:
         Usually implemented by child class
         """
         raise NotImplementedError
-    
+
     def generate_prompt(self, input_query, contexts, config: QueryConfig, **kwargs):
         """
         Generates a prompt based on the given query and context, ready to be
@@ -50,7 +53,7 @@ class BaseLlm:
         """
 
         return self.get_llm_model_answer(prompt, config)
-    
+
     def access_search_and_get_results(self, input_query):
         from langchain.tools import DuckDuckGoSearchRun
 
@@ -153,7 +156,6 @@ class BaseLlm:
         answer = self.get_answer_from_llm(prompt, config)
 
         self.memory.chat_memory.add_user_message(input_query)
-
 
         if isinstance(answer, str):
             self.memory.chat_memory.add_ai_message(answer)

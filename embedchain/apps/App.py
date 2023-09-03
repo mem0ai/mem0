@@ -1,7 +1,6 @@
 from typing import Optional
 
-from embedchain.config import (AppConfig, BaseEmbedderConfig, ChatConfig,
-                               ChromaDbConfig)
+from embedchain.config import AppConfig, BaseEmbedderConfig, ChromaDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.llm.openai_llm import OpenAiLlm

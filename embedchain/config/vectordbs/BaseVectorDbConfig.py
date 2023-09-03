@@ -1,7 +1,6 @@
 from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.models.VectorDimensions import VectorDimensions
 
 
 class BaseVectorDbConfig(BaseConfig):

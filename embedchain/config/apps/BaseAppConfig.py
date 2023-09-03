@@ -23,7 +23,8 @@ class BaseAppConfig(BaseConfig):
         :param db: Optional. (Vector) database instance to use for embeddings. Deprecated in favor of app(..., db).
         :param id: Optional. ID of the app. Document metadata will have this id.
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
-        :param db_type: Optional. Initializes a default vector database of the given type. Using the `db` argument is preferred.
+        :param db_type: Optional. Initializes a default vector database of the given type.
+        Using the `db` argument is preferred.
         :param es_config: Optional. elasticsearch database config to be used for connection
         """
         self._setup_logging(log_level)

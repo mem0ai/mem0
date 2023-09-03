@@ -1,7 +1,10 @@
+from typing import Optional
+
+import openai
+
 from embedchain.config import ChatConfig
 from embedchain.llm.base_llm import BaseLlm
-import openai
-from typing import Optional
+
 
 class OpenAiLlm(BaseLlm):
     def __init__(self, config: Optional[ChatConfig] = None):

@@ -9,14 +9,6 @@ from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.models import Providers
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
-try:
-    from chromadb.api.types import Documents, Embeddings
-except RuntimeError:
-    from embedchain.utils import use_pysqlite3
-
-    use_pysqlite3()
-    from chromadb.api.types import Documents, Embeddings
-
 
 class CustomApp(EmbedChain):
     """
