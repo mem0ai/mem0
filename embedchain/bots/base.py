@@ -1,5 +1,5 @@
 from embedchain import CustomApp
-from embedchain.config import AddConfig, CustomAppConfig, QueryConfig
+from embedchain.config import AddConfig, CustomAppConfig, LlmConfig
 from embedchain.models import EmbeddingFunctions, Providers
 
 
@@ -15,9 +15,9 @@ class BaseBot:
         config = config if config else AddConfig()
         self.app.add(data, config=config)
 
-    def query(self, query, config: QueryConfig = None):
+    def query(self, query, config: LlmConfig = None):
         """Query bot"""
-        config = config if config else QueryConfig()
+        config = config if config else LlmConfig()
         return self.app.query(query, config=config)
 
     def start(self):

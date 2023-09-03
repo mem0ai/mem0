@@ -5,8 +5,6 @@ from typing import List, Optional
 
 from fastapi_poe import PoeBot, run
 
-from embedchain.config import QueryConfig
-
 from .base import BaseBot
 
 
@@ -48,8 +46,8 @@ class EcPoeBot(BaseBot, PoeBot):
 
     def ask_bot(self, message, history: List[str]):
         try:
-            config = QueryConfig(history=history)
-            response = self.query(message, config)
+            self.app.llm.set_history(history=history)
+            response = self.query(message)
         except Exception:
             logging.exception(f"Failed to query {message}.")
             response = "An error occurred. Please try again!"
