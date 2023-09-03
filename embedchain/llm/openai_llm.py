@@ -10,6 +10,8 @@ class OpenAiLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 
+    # NOTE: This class does not use langchain. One reason is that `top_p` is not supported.
+
     def get_llm_model_answer(self, prompt, config: BaseLlmConfig):
         messages = []
         if config.system_prompt:
