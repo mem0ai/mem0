@@ -33,6 +33,27 @@ class TestApp(unittest.TestCase):
         first_answer = app.chat("Test query 1")
         self.assertEqual(first_answer, "Test answer")
         self.assertEqual(len(app.llm.memory.chat_memory.messages), 2)
+        self.assertEqual(len(app.llm.history.splitlines()), 2)
         second_answer = app.chat("Test query 2")
         self.assertEqual(second_answer, "Test answer")
         self.assertEqual(len(app.llm.memory.chat_memory.messages), 4)
+        self.assertEqual(len(app.llm.history.splitlines()), 4)
+
+    @patch.object(App, "retrieve_from_database", return_value=["Test context"])
+    @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
+    def test_template_replacement(self, mock_get_answer, mock_retrieve):
+        """
+        Tests that if a default template is used and it doesn't contain history,
+        the default template is swapped in.
+        
+        Also tests that a dry run does not change the history
+        """
+        app = App()
+        first_answer = app.chat("Test query 1")
+        self.assertEqual(first_answer, "Test answer")
+        self.assertEqual(len(app.llm.history.splitlines()), 2)
+        history = app.llm.history
+        dry_run = app.chat("Test query 2", dry_run=True)
+        self.assertIn("History:", dry_run)
+        self.assertEqual(history, app.llm.history)
+        self.assertEqual(len(app.llm.history.splitlines()), 2)
