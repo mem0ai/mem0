@@ -8,40 +8,50 @@ title: '🤖 Discord Bot'
 - Go to [https://discord.com/developers/applications/](https://discord.com/developers/applications/) and click on `New Application`.
 - Enter the name for your bot, accept the terms and click on `Create`. On the resulting page, enter the details of your bot as you like.
 - On the left sidebar, click on `Bot`. Under the heading `Privileged Gateway Intents`, toggle all 3 options to ON position. Save your changes.
-- Now click on `Reset Token` and copy the token value. Set it as `DISCORD_BOT_TOKEN` in variables.env file.
+- Now click on `Reset Token` and copy the token value. Set it as `DISCORD_BOT_TOKEN` in .env file.
 - On the left sidebar, click on `OAuth2` and go to `General`.
 - Set `Authorization Method` to `In-app Authorization`. Under `Scopes` select `bot`.
 - Under `Bot Permissions` allow the following and then click on `Save Changes`.
 ```text
-Read Messages/View Channel (under General Permissions)
 Send Messages (under Text Permissions)
-Read Message History (under Text Permissions)
-Mention everyone (under Text Permissions)
 ```
 - Now under `OAuth2` and go to `URL Generator`. Under `Scopes` select `bot`.
 - Under `Bot Permissions` set the same permissions as above.
 - Now scroll down and copy the `Generated URL`. Paste it in a browser window and select the Server where you want to add the bot.
 - Click on `Continue` and authorize the bot.
-- 🎉 The bot has been successfully added to your server.
+- 🎉 The bot has been successfully added to your server. But it's still offline.
 
-### 🐳 Docker Setup
+### Take the bot online
 
-- To setup your discord bot using docker, run the following command inside this folder using your terminal.
+1. Install embedchain python package:
+
 ```bash
-docker-compose up --build
+pip install "embedchain[discord]"
 ```
-📝 Note: The build command might take a while to install all the packages depending on your system resources.
+
+2. Launch your Discord bot:
+
+
+```bash
+python -m embedchain.bots.discord
+```
+
+If you prefer to see the question and not only the answer, run it with
+
+```bash
+python -m embedchain.bots.discord --include-question
+```
 
 ### 🚀 Usage Instructions
 
 - Go to the server where you have added your bot.
-- You can add data sources to the bot using the command:
+- You can add data sources to the bot using the slash command:
 ```text
-/ec add <data_type> <url_or_text>
+/add <data_type> <url_or_text>
 ```
-- You can ask your queries from the bot using the command:
+- You can ask your queries from the bot using the slash command:
 ```text
-/ec query <question>
+/query <question>
 ```
 📝 Note: To use the bot privately, you can message the bot directly by right clicking the bot and selecting `Message`.
 
