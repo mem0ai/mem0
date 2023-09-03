@@ -13,6 +13,7 @@ class AppConfig(BaseAppConfig):
         log_level=None,
         id=None,
         collect_metrics: Optional[bool] = None,
+        collection_name: Optional[str] = None,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -24,4 +25,5 @@ class AppConfig(BaseAppConfig):
             log_level=log_level,
             id=id,
             collect_metrics=collect_metrics,
+            collection_name=collection_name
         )

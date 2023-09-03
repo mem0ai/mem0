@@ -51,6 +51,9 @@ class EmbedChain:
         if db is None and (not hasattr(self.config, "db") or self.config.db is None):
             raise ValueError("App requires Database.")
         self.db = db or self.config.db
+        # Set collection name from app config for backwards compatibility.
+        if config.collection_name:
+            self.db.set_collection_name(config.collection_name)
         ## Embedder
         if embedder is None:
             raise ValueError("App requires Embedder.")

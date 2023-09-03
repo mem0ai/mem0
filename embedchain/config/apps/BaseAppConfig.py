@@ -16,6 +16,7 @@ class BaseAppConfig(BaseConfig):
         db: Optional[BaseVectorDB] = None,
         id=None,
         collect_metrics: bool = True,
+        collection_name: Optional[str] = None,
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -26,10 +27,12 @@ class BaseAppConfig(BaseConfig):
         :param db_type: Optional. Initializes a default vector database of the given type.
         Using the `db` argument is preferred.
         :param es_config: Optional. elasticsearch database config to be used for connection
+        :param collection_name: Optional. Default collection name. It's recommended to use app.set_collection_name() instead.
         """
         self._setup_logging(log_level)
         self.id = id
         self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False
+        self.collection_name = collection_name
 
         if db:
             self._db = db
@@ -37,6 +40,9 @@ class BaseAppConfig(BaseConfig):
                 "DEPRECATION WARNING: Please supply the database as the second parameter during app init. "
                 "Such as `app(config=config, db=db)`."
             )
+
+        if collection_name:
+            logging.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
         return
 
     def _setup_logging(self, debug_level):
