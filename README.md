@@ -71,6 +71,9 @@ For more information, please see the [contributing guidelines](CONTRIBUTING.md).
 
 For more reference, please go through [Development Guide](https://docs.embedchain.ai/contribution/dev) and [Documentation Guide](https://docs.embedchain.ai/contribution/docs).
 
+<a href="https://github.com/embedchain/embedchain/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=embedchain/embedchain" />
+</a>
 
 ## Citation
 
