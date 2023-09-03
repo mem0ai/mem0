@@ -1,3 +1,5 @@
+from typing import Optional
+
 import openai
 
 from embedchain.config import AppConfig, ChatConfig
@@ -14,19 +16,27 @@ class App(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: AppConfig = None):
+    def __init__(self, config: AppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: AppConfig instance to load as configuration. Optional.
+        :param system_prompt: System prompt string. Optional.
         """
         if config is None:
             config = AppConfig()
 
-        super().__init__(config)
+        super().__init__(config, system_prompt)
 
     def get_llm_model_answer(self, prompt, config: ChatConfig):
         messages = []
-        if config.system_prompt:
-            messages.append({"role": "system", "content": config.system_prompt})
+        system_prompt = (
+            self.system_prompt
+            if self.system_prompt is not None
+            else config.system_prompt
+            if config.system_prompt is not None
+            else None
+        )
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
             model=config.model or "gpt-3.5-turbo-0613",
