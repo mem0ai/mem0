@@ -23,6 +23,8 @@ from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
                                          IndirectDataType, SpecialDataType)
+from embedchain.models.data_type import DataType
+from embedchain.models.ClipProcessor import ClipProcessor
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -215,7 +217,7 @@ class EmbedChain(JSONSerializable):
         # Send anonymous telemetry
         if self.config.collect_metrics:
             # it's quicker to check the variable twice than to count words when they won't be submitted.
-            word_count = sum([len(document.split(" ")) for document in documents])
+            word_count = data_formatter.chunker.get_word_count(documents)
 
             extra_metadata = {"data_type": data_type.value, "word_count": word_count, "chunks_count": new_chunks}
             thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add", extra_metadata))
@@ -397,7 +399,7 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
 
-        self.db.add(documents=documents, metadatas=metadatas, ids=ids)
+        self.db.add(documents=documents, metadatas=metadatas, ids=ids, skip_embedding = (data_type == DataType.IMAGES))
         count_new_chunks = self.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
@@ -442,6 +444,7 @@ class EmbedChain(JSONSerializable):
             input_query=input_query,
             n_results=query_config.number_documents,
             where=where,
+            skip_embedding = (config.query_type == "Images")
         )
 
         return contents
@@ -467,23 +470,28 @@ class EmbedChain(JSONSerializable):
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
-#         if config is None:
-#             config = QueryConfig()
-#         if self.is_docs_site_instance:
-#             config.template = DOCS_SITE_PROMPT_TEMPLATE
-#             config.number_documents = 5
-#         k = {}
-#         if self.online:
-#             k["web_search_result"] = self.access_search_and_get_results(input_query)
-#         contexts = self.retrieve_from_database(input_query, config)
-#         prompt = self.generate_prompt(input_query, contexts, config, **k)
-#         logging.info(f"Prompt: {prompt}")
-#
-#         import pdb; pdb.set_trace()
-#         if dry_run:
-#             return prompt
-#
-#         answer = self.get_answer_from_llm(prompt, config)
+
+        # if config is None:
+        #     config = QueryConfig()
+        # if self.is_docs_site_instance:
+        #     config.template = DOCS_SITE_PROMPT_TEMPLATE
+        #     config.number_documents = 5
+        # k = {}
+        # if self.online:
+        #     k["web_search_result"] = self.access_search_and_get_results(input_query)
+        #
+        # if config.query_type == "Images":
+        #     query_embeddings = ClipProcessor.get_text_features(query=input_query)
+        #     answer = self.retrieve_from_database(query_embeddings, config)
+        # else:
+        #     contexts = self.retrieve_from_database(input_query, config)
+        #     prompt = self.generate_prompt(input_query, contexts, config, **k)
+        #     logging.info(f"Prompt: {prompt}")
+        #
+        #     if dry_run:
+        #         return prompt
+        #
+        #     answer = self.get_answer_from_llm(prompt, config)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
@@ -520,6 +528,30 @@ class EmbedChain(JSONSerializable):
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
+        # if config is None:
+        #     config = ChatConfig()
+        # if self.is_docs_site_instance:
+        #     config.template = DOCS_SITE_PROMPT_TEMPLATE
+        #     config.number_documents = 5
+        # k = {}
+        # if self.online:
+        #     k["web_search_result"] = self.access_search_and_get_results(input_query)
+        # contexts = self.retrieve_from_database(input_query, config)
+        #
+        # chat_history = self.memory.load_memory_variables({})["history"]
+        #
+        # if chat_history:
+        #     config.set_history(chat_history)
+        #
+        # prompt = self.generate_prompt(input_query, contexts, config, **k)
+        # logging.info(f"Prompt: {prompt}")
+        #
+        # if dry_run:
+        #     return prompt
+        #
+        # answer = self.get_answer_from_llm(prompt, config)
+        #
+        # self.memory.chat_memory.add_user_message(input_query)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))

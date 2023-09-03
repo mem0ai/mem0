@@ -100,9 +100,9 @@ class ElasticsearchDB(BaseVectorDB):
         ids = [doc["_id"] for doc in docs]
         return {"ids": set(ids)}
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
-        """add data in vector database
-
+    def add(self, documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool):
+        """
+        add data in vector database
         :param documents: list of texts to add
         :type documents: List[str]
         :param metadatas: list of metadata associated with docs
@@ -112,7 +112,11 @@ class ElasticsearchDB(BaseVectorDB):
         """
 
         docs = []
-        embeddings = self.embedder.embedding_fn(documents)
+        if skip_embedding:
+            embeddings = documents
+        else:
+            embeddings = self.embedder.embedding_fn(documents)
+
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
             docs.append(
                 {
@@ -124,7 +128,7 @@ class ElasticsearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
         query contents from vector data base based on vector similarity
 
@@ -137,8 +141,12 @@ class ElasticsearchDB(BaseVectorDB):
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
-        input_query_vector = self.embedder.embedding_fn(input_query)
-        query_vector = input_query_vector[0]
+        if skip_embedding:
+            query_vector = input_query
+        else:
+            input_query_vector = self.embedder.embedding_fn(input_query)
+            query_vector = input_query_vector[0]
+
         query = {
             "script_score": {
                 "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},
