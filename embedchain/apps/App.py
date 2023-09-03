@@ -1,6 +1,7 @@
 from typing import Optional
 
-from embedchain.config import AppConfig, BaseEmbedderConfig, ChromaDbConfig, BaseLlmConfig
+from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
+                               ChromaDbConfig)
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.llm.openai_llm import OpenAiLlm
@@ -17,7 +18,12 @@ class App(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: AppConfig = None, llm_config: BaseLlmConfig = None, chromadb_config: Optional[ChromaDbConfig] = None):
+    def __init__(
+        self,
+        config: AppConfig = None,
+        llm_config: BaseLlmConfig = None,
+        chromadb_config: Optional[ChromaDbConfig] = None,
+    ):
         """
         :param config: AppConfig instance to load as configuration. Optional.
         """
