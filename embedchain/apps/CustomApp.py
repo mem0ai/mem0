@@ -15,7 +15,13 @@ class CustomApp(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: CustomAppConfig = None, llm: BaseLlm = None, db: BaseVectorDB = None, embedder: BaseEmbedder = None):
+    def __init__(
+        self,
+        config: CustomAppConfig = None,
+        llm: BaseLlm = None,
+        db: BaseVectorDB = None,
+        embedder: BaseEmbedder = None,
+    ):
         """
         :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
@@ -29,6 +35,4 @@ class CustomApp(EmbedChain):
         if embedder is None:
             raise ValueError("Embedder must be provided for custom app")
 
-
         super().__init__(config=config, llm=llm, db=db, embedder=embedder)
-
