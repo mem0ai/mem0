@@ -265,6 +265,8 @@ class EmbedChain(JSONSerializable):
             where = where_filter
         elif config is not None and config.where_filter is not None:
             where = config.where_filter
+        else:
+            where = {}
 
         if self.config.id is not None:
             where.update({"app_id": self.config.id})
