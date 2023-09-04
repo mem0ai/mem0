@@ -1,12 +1,14 @@
 import logging
-from typing import Iterable, Union, Optional
+from typing import Iterable, Optional, Union
 
 from embedchain.config import ChatConfig, OpenSourceAppConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 gpt4all_model = None
 
 
+@register_deserializable
 class OpenSourceApp(EmbedChain):
     """
     The OpenSource app.
