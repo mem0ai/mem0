@@ -1,7 +1,6 @@
 from typing import Optional
 
-from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
-                               ChromaDbConfig)
+from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig, ChromaDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
@@ -25,7 +24,7 @@ class App(EmbedChain):
         config: AppConfig = None,
         llm_config: BaseLlmConfig = None,
         chromadb_config: Optional[ChromaDbConfig] = None,
-        system_prompt: Optional[str] = None
+        system_prompt: Optional[str] = None,
     ):
         """
         :param config: AppConfig instance to load as configuration. Optional.

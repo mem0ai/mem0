@@ -3,6 +3,7 @@ from typing import Optional
 from .BaseAppConfig import BaseAppConfig
 from embedchain.helper_classes.json_serializable import register_deserializable
 
+
 @register_deserializable
 class AppConfig(BaseAppConfig):
     """

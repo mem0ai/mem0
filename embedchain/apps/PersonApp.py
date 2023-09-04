@@ -4,8 +4,7 @@ from embedchain.apps.App import App
 from embedchain.apps.OpenSourceApp import OpenSourceApp
 from embedchain.config import BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
-from embedchain.config.llm.base_llm_config import (DEFAULT_PROMPT,
-                                                   DEFAULT_PROMPT_WITH_HISTORY)
+from embedchain.config.llm.base_llm_config import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
 from embedchain.helper_classes.json_serializable import register_deserializable
 
 

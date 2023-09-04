@@ -1,7 +1,12 @@
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
-
+from typing import Optional
 
 class ChromaDbConfig(BaseVectorDbConfig):
-    # At this point there's no unique configuration for chroma,
-    # so we might as well use the parent class.
-    pass
+    def __init__(
+        self,
+        collection_name: Optional[str] = None,
+        dir: Optional[str] = None,
+        host: Optional[str] = None,
+        port: Optional[str] = None,
+    ):
+        
