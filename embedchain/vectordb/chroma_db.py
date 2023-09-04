@@ -22,23 +22,31 @@ from embedchain.vectordb.base_vector_db import BaseVectorDB
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, db_dir=None, embedding_fn=None, host=None, port=None):
+    def __init__(self, db_dir=None, embedding_fn=None, host=None, port=None, chroma_settings={}):
         self.embedding_fn = embedding_fn
 
         if not hasattr(embedding_fn, "__call__"):
             raise ValueError("Embedding function is not a function")
 
+        self.settings = Settings()
+        for key, value in chroma_settings.items():
+            if hasattr(self.settings, key):
+                setattr(self.settings, key, value)
+
         if host and port:
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.client = chromadb.HttpClient(host=host, port=port)
+            self.settings.chroma_server_host = host
+            self.settings.chroma_server_http_port = port
+            self.settings.chroma_api_impl = "chromadb.api.fastapi.FastAPI"
+
         else:
             if db_dir is None:
                 db_dir = "db"
-            self.settings = Settings(anonymized_telemetry=False, allow_reset=True)
-            self.client = chromadb.PersistentClient(
-                path=db_dir,
-                settings=self.settings,
-            )
+
+            self.settings.persist_directory = db_dir
+            self.settings.is_persistent = True
+
+        self.client = chromadb.Client(self.settings)
         super().__init__()
 
     def _get_or_create_db(self):
