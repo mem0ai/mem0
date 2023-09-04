@@ -260,14 +260,15 @@ class EmbedChain(JSONSerializable):
         :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The content of the document that matched your query.
         """
+
         if where_filter is not None:
             where = where_filter
         elif config is not None and config.where_filter is not None:
             where = config.where_filter
-        elif self.config.id is not None:
-            where = {"app_id": self.config.id}
-        else:
-            where = {}  # optional filter
+
+        if self.config.id is not None:
+            where.update({"app_id": self.config.id})
+
         contents = self.db.query(
             input_query=input_query,
             n_results=config.number_documents,
