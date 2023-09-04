@@ -250,21 +250,21 @@ class EmbedChain(JSONSerializable):
         """
         raise NotImplementedError
 
-    def retrieve_from_database(self, input_query, config: QueryConfig, where_filter=None):
+    def retrieve_from_database(self, input_query, config: QueryConfig, where=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
 
         :param input_query: The query to use.
         :param config: The query configuration.
-        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
+        :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The content of the document that matched your query.
         """
 
-        if where_filter is not None:
-            where = where_filter
-        elif config is not None and config.where_filter is not None:
-            where = config.where_filter
+        if where is not None:
+            where = where
+        elif config is not None and config.where is not None:
+            where = config.where
         else:
             where = {}
 
@@ -322,7 +322,7 @@ class EmbedChain(JSONSerializable):
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def query(self, input_query, config: QueryConfig = None, dry_run=False, where_filter=None):
+    def query(self, input_query, config: QueryConfig = None, dry_run=False, where=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -337,7 +337,7 @@ class EmbedChain(JSONSerializable):
         by the vector database's doc retrieval.
         The only thing the dry run does not consider is the cut-off due to
         the `max_tokens` parameter.
-        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
+        :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
         if config is None:
@@ -348,7 +348,7 @@ class EmbedChain(JSONSerializable):
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config, where_filter)
+        contexts = self.retrieve_from_database(input_query, config, where)
         prompt = self.generate_prompt(input_query, contexts, config, **k)
         logging.info(f"Prompt: {prompt}")
 
@@ -374,7 +374,7 @@ class EmbedChain(JSONSerializable):
             yield chunk
         logging.info(f"Answer: {streamed_answer}")
 
-    def chat(self, input_query, config: ChatConfig = None, dry_run=False, where_filter=None):
+    def chat(self, input_query, config: ChatConfig = None, dry_run=False, where=None):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -390,7 +390,7 @@ class EmbedChain(JSONSerializable):
         by the vector database's doc retrieval.
         The only thing the dry run does not consider is the cut-off due to
         the `max_tokens` parameter.
-        :param where_filter: Optional. A dictionary of key-value pairs to filter the database results.
+        :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
         if config is None:
@@ -401,7 +401,7 @@ class EmbedChain(JSONSerializable):
         k = {}
         if self.online:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
-        contexts = self.retrieve_from_database(input_query, config, where_filter)
+        contexts = self.retrieve_from_database(input_query, config, where)
 
         chat_history = self.memory.load_memory_variables({})["history"]
 
