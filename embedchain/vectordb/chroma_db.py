@@ -37,6 +37,7 @@ class ChromaDB(BaseVectorDB):
             logging.info(f"Connecting to ChromaDB server: {host}:{port}")
             self.settings.chroma_server_host = host
             self.settings.chroma_server_http_port = port
+            self.settings.chroma_api_impl = "chromadb.api.fastapi.FastAPI"
 
         else:
             if db_dir is None:
@@ -44,7 +45,6 @@ class ChromaDB(BaseVectorDB):
 
             self.settings.persist_directory = db_dir
             self.settings.is_persistent = True
-            self.settings.allow_reset = True
 
         self.client = chromadb.Client(self.settings)
         super().__init__()

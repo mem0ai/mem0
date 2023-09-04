@@ -30,12 +30,14 @@ class TestChromaDbHosts(unittest.TestCase):
             "chroma_client_auth_credentials": "admin:admin",
         }
 
-        db = ChromaDB(host=host, port=port, embedding_fn=len)
+        db = ChromaDB(host=host, port=port, embedding_fn=len, chroma_settings=chroma_auth_settings)
         settings = db.client.get_settings()
         self.assertEqual(settings.chroma_server_host, host)
         self.assertEqual(settings.chroma_server_http_port, port)
-        self.assertEqual(settings.chroma_client_auth_provider, chroma_auth_settings['chroma_client_auth_provider'])
-        self.assertEqual(settings.chroma_client_auth_credentials, chroma_auth_settings['chroma_client_auth_credentials'])
+        self.assertEqual(settings.chroma_client_auth_provider, chroma_auth_settings["chroma_client_auth_provider"])
+        self.assertEqual(
+            settings.chroma_client_auth_credentials, chroma_auth_settings["chroma_client_auth_credentials"]
+        )
 
 
 # Review this test
