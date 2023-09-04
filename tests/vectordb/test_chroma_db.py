@@ -3,11 +3,9 @@
 import unittest
 from unittest.mock import patch
 
-from chromadb.config import Settings
-
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.vectordb.chroma_db import ChromaDB, chromadb
+from embedchain.vectordb.chroma_db import ChromaDB
 
 
 class TestChromaDbHosts(unittest.TestCase):
@@ -18,20 +16,12 @@ class TestChromaDbHosts(unittest.TestCase):
         host = "test-host"
         port = "1234"
 
-        with patch.object(chromadb, "Client") as mock_client:
-            _db = ChromaDB(host=host, port=port, embedding_fn=len)
-
-        expected_settings = Settings(
-            chroma_server_host="test-host",
-            chroma_server_http_port="1234",
-        )
-
-        mock_client.assert_called_once_with(expected_settings)
+        db = ChromaDB(host=host, port=port, embedding_fn=len)
+        settings = db.client.get_settings()
+        self.assertEqual(settings.chroma_server_host, host)
+        self.assertEqual(settings.chroma_server_http_port, port)
 
     def test_init_with_basic_auth(self):
-        """
-        Test user specified chromadb auth settings.
-        """
         host = "test-host"
         port = "1234"
 
@@ -40,17 +30,12 @@ class TestChromaDbHosts(unittest.TestCase):
             "chroma_client_auth_credentials": "admin:admin",
         }
 
-        with patch.object(chromadb, "Client") as mock_client:
-            _db = ChromaDB(host=host, port=port, embedding_fn=len, chroma_settings=chroma_auth_settings)
-
-        expected_settings = Settings(
-            chroma_server_host="test-host",
-            chroma_server_http_port="1234",
-            chroma_client_auth_provider="chromadb.auth.basic.BasicAuthClientProvider",
-            chroma_client_auth_credentials="admin:admin",
-        )
-
-        mock_client.assert_called_once_with(expected_settings)
+        db = ChromaDB(host=host, port=port, embedding_fn=len)
+        settings = db.client.get_settings()
+        self.assertEqual(settings.chroma_server_host, host)
+        self.assertEqual(settings.chroma_server_http_port, port)
+        self.assertEqual(settings.chroma_client_auth_provider, chroma_auth_settings['chroma_client_auth_provider'])
+        self.assertEqual(settings.chroma_client_auth_credentials, chroma_auth_settings['chroma_client_auth_credentials'])
 
 
 # Review this test
