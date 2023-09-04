@@ -31,9 +31,10 @@ class ChromaDB(BaseVectorDB):
             self.config = ChromaDbConfig()
 
         self.settings = Settings()
-        for key, value in self.config.chroma_settings.items():
-            if hasattr(self.settings, key):
-                setattr(self.settings, key, value)
+        if self.config.chroma_settings:
+            for key, value in self.config.chroma_settings.items():
+                if hasattr(self.settings, key):
+                    setattr(self.settings, key, value)
 
         if self.config.host and self.config.port:
             logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
