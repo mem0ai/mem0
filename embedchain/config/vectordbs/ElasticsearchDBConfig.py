@@ -1,8 +1,10 @@
 from typing import Dict, List, Optional, Union
 
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 
+@register_deserializable
 class ElasticsearchDBConfig(BaseVectorDbConfig):
     def __init__(
         self,

@@ -3,11 +3,13 @@ from typing import Optional
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig)
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.llm.openai_llm import OpenAiLlm
 from embedchain.vectordb.chroma_db import ChromaDB
 
 
+@register_deserializable
 class App(EmbedChain):
     """
     The EmbedChain app.
@@ -23,9 +25,11 @@ class App(EmbedChain):
         config: AppConfig = None,
         llm_config: BaseLlmConfig = None,
         chromadb_config: Optional[ChromaDbConfig] = None,
+        system_prompt: Optional[str] = None
     ):
         """
         :param config: AppConfig instance to load as configuration. Optional.
+        :param system_prompt: System prompt string. Optional.
         """
         if config is None:
             config = AppConfig()

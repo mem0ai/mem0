@@ -2,10 +2,13 @@ import logging
 from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
+from embedchain.config.vectordbs import ElasticsearchDBConfig
+from embedchain.helper_classes.json_serializable import JSONSerializable
+from embedchain.models import VectorDatabases, VectorDimensions
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
-class BaseAppConfig(BaseConfig):
+class BaseAppConfig(BaseConfig, JSONSerializable):
     """
     Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
     """
@@ -17,6 +20,7 @@ class BaseAppConfig(BaseConfig):
         id=None,
         collect_metrics: bool = True,
         collection_name: Optional[str] = None,
+        chroma_settings: dict = {},
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -29,6 +33,7 @@ class BaseAppConfig(BaseConfig):
         :param es_config: Optional. elasticsearch database config to be used for connection
         :param collection_name: Optional. Default collection name.
         It's recommended to use app.set_collection_name() instead.
+        :param chroma_settings: Optional. Chroma settings for connection.
         """
         self._setup_logging(log_level)
         self.id = id

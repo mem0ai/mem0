@@ -1,3 +1,10 @@
+import os
+from typing import Optional
+
+from langchain.llms import Replicate
+
+from embedchain.config import AppConfig, ChatConfig
+from embedchain.embedchain import EmbedChain
 from embedchain.apps.CustomApp import CustomApp
 from embedchain.config import AppConfig, CustomAppConfig
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
@@ -14,9 +21,10 @@ class Llama2App(CustomApp):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: CustomAppConfig = None):
+    def __init__(self, config: AppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: AppConfig instance to load as configuration. Optional.
+        :param system_prompt: System prompt string. Optional.
         """
 
         if config is None:

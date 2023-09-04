@@ -17,6 +17,7 @@ from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.data_formatter import DataFormatter
+from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.llm.base_llm import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
@@ -33,15 +34,17 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
 class EmbedChain:
-    def __init__(self, config: BaseAppConfig, llm: BaseLlm, db: BaseVectorDB = None, embedder: BaseEmbedder = None):
+    def __init__(self, config: BaseAppConfig, llm: BaseLlm, db: BaseVectorDB = None, embedder: BaseEmbedder = None, system_prompt: Optional[str] = None):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param config: BaseAppConfig instance to load as configuration.
+        :param system_prompt: Optional. System prompt string.
         """
 
         self.config = config
+        self.system_prompt = system_prompt
 
         # Add subclasses
         ## Llm

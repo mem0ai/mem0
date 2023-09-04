@@ -1,10 +1,12 @@
 from embedchain.config import CustomAppConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.llm.base_llm import BaseLlm
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 
+@register_deserializable
 class CustomApp(EmbedChain):
     """
     The custom EmbedChain app.
@@ -21,10 +23,12 @@ class CustomApp(EmbedChain):
         llm: BaseLlm = None,
         db: BaseVectorDB = None,
         embedder: BaseEmbedder = None,
+        system_prompt: Optional[str] = None,
     ):
         """
         :param config: Optional. `CustomAppConfig` instance to load as configuration.
         :raises ValueError: Config must be provided for custom app
+        :param system_prompt: Optional. System prompt string.
         """
         # Config is not required, it has a default
         if config is None:

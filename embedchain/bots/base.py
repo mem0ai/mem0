@@ -1,11 +1,14 @@
 from embedchain import CustomApp
 from embedchain.config import AddConfig, CustomAppConfig, LlmConfig
+from embedchain.helper_classes.json_serializable import (
+    JSONSerializable, register_deserializable)
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.llm.openai_llm import OpenAiLlm
 from embedchain.vectordb.chroma_db import ChromaDB
 
 
-class BaseBot:
+@register_deserializable
+class BaseBot(JSONSerializable):
     def __init__(self):
         self.app = CustomApp(config=CustomAppConfig(), llm=OpenAiLlm(), db=ChromaDB(), embedder=OpenAiEmbedder())
 

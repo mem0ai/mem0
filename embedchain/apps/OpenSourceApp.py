@@ -1,9 +1,10 @@
 import logging
-from typing import Optional
+from typing import Iterable, Optional, Union
 
 from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder
 from embedchain.llm.gpt4all_llm import GPT4ALLLlm
 from embedchain.vectordb.chroma_db import ChromaDB
@@ -11,6 +12,7 @@ from embedchain.vectordb.chroma_db import ChromaDB
 gpt4all_model = None
 
 
+@register_deserializable
 class OpenSourceApp(EmbedChain):
     """
     The OpenSource app.
@@ -22,10 +24,11 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: OpenSourceAppConfig = None, chromadb_config: Optional[ChromaDbConfig] = None):
+    def __init__(self, config: OpenSourceAppConfig = None, system_prompt: Optional[str] = None):
         """
         :param config: OpenSourceAppConfig instance to load as configuration. Optional.
         `ef` defaults to open source.
+        :param system_prompt: System prompt string. Optional.
         """
         logging.info("Loading open source embedding model. This may take some time...")  # noqa:E501
         if not config:
