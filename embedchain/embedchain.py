@@ -132,14 +132,16 @@ class EmbedChain(JSONSerializable):
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type.value, metadata])
-        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
+        documents, metadatas, _ids, new_chunks = self.load_and_embed(
             data_formatter.loader, data_formatter.chunker, source, metadata, source_id, dry_run
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
         if dry_run:
-            return {"chunks": documents, "metadata": _metadatas, "count": len(documents), "type": data_type}
+            data_chunks_info = {"chunks": documents, "metadata": metadatas, "count": len(documents), "type": data_type}
+            logging.debug(data_chunks_info)
+            return data_chunks_info
 
         # Send anonymous telemetry
         if self.config.collect_metrics:
