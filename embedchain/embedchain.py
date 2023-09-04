@@ -33,7 +33,7 @@ CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
-class EmbedChain:
+class EmbedChain(JSONSerializable):
     def __init__(
         self,
         config: BaseAppConfig,
