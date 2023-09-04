@@ -5,6 +5,7 @@ import signal
 import sys
 
 from embedchain import App
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 from .base import BaseBot
 
@@ -13,14 +14,14 @@ try:
     from slack_sdk import WebClient
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
-        "The required dependencies for Slack are not installed."
-        'Please install with `pip install "embedchain[slack]"`'
+        "The required dependencies for Slack are not installed." 'Please install with `pip install "embedchain[slack]"`'
     ) from None
 
 
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
 
+@register_deserializable
 class SlackBot(BaseBot):
     def __init__(self):
         self.client = WebClient(token=SLACK_BOT_TOKEN)
