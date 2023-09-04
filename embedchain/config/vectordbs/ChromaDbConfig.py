@@ -1,6 +1,7 @@
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from typing import Optional
 
+
 class ChromaDbConfig(BaseVectorDbConfig):
     def __init__(
         self,
@@ -8,5 +9,10 @@ class ChromaDbConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         host: Optional[str] = None,
         port: Optional[str] = None,
+        chroma_settings: Optional[dict] = None,
     ):
-        
+        """
+        :param chroma_settings: Optional. Chroma settings for connection.
+        """
+        self.chroma_settings = chroma_settings
+        super().__init__(collection_name=collection_name, dir=dir, host=host, port=port)

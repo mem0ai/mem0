@@ -32,39 +32,24 @@ class ChromaDB(BaseVectorDB):
         else:
             self.config = ChromaDbConfig()
 
-        if self.config.host and self.config.port:
-            logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
-            self.settings = Settings(chroma_server_host=self.config.host, chroma_server_http_port=self.config.port)
-            self.client = chromadb.HttpClient(self.settings)
-        if not hasattr(embedding_fn, "__call__"):
-            raise ValueError("Embedding function is not a function")
-
         self.settings = Settings()
-        for key, value in chroma_settings.items():
+        for key, value in self.config.chroma_settings.items():
             if hasattr(self.settings, key):
                 setattr(self.settings, key, value)
 
-        if host and port:
-            logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.settings.chroma_server_host = host
-            self.settings.chroma_server_http_port = port
+        if self.config.host and self.config.port:
+            logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
+            self.settings.chroma_server_host = self.config.host
+            self.settings.chroma_server_http_port = self.config.port
             self.settings.chroma_api_impl = "chromadb.api.fastapi.FastAPI"
-
         else:
-            if db_dir is None:
-                db_dir = "db"
+            if self.config.dir is None:
+                self.config.dir = "db"
 
-            self.settings.persist_directory = db_dir
+            self.settings.persist_directory = self.config.dir
             self.settings.is_persistent = True
 
         self.client = chromadb.Client(self.settings)
-        super().__init__()
-            self.settings = Settings(anonymized_telemetry=False, allow_reset=True)
-            self.client = chromadb.PersistentClient(
-                path=self.config.dir,
-                settings=self.settings,
-            )
-
         super().__init__(config=self.config)
 
     def _initialize(self):

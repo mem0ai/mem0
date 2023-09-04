@@ -24,7 +24,6 @@ class CustomAppConfig(BaseAppConfig):
         id=None,
         collect_metrics: Optional[bool] = None,
         collection_name: Optional[str] = None,
-        chroma_settings: dict = {},
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -36,7 +35,6 @@ class CustomAppConfig(BaseAppConfig):
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         :param collection_name: Optional. Default collection name.
         It's recommended to use app.set_collection_name() instead.
-        :param chroma_settings: Optional. Chroma settings for connection.
         """
 
         super().__init__(

@@ -20,7 +20,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         id=None,
         collect_metrics: bool = True,
         collection_name: Optional[str] = None,
-        chroma_settings: dict = {},
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -33,7 +32,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         :param es_config: Optional. elasticsearch database config to be used for connection
         :param collection_name: Optional. Default collection name.
         It's recommended to use app.set_collection_name() instead.
-        :param chroma_settings: Optional. Chroma settings for connection.
         """
         self._setup_logging(log_level)
         self.id = id
