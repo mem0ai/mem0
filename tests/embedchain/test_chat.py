@@ -59,10 +59,10 @@ class TestApp(unittest.TestCase):
             mock_retrieve.return_value = ["Test context"]
             with patch.object(self.app, "get_llm_model_answer") as mock_answer:
                 mock_answer.return_value = "Test answer"
-                answer = self.app.chat("Test query", where_filter={"attribute": "value"})
+                answer = self.app.chat("Test chat", where_filter={"attribute": "value"})
 
         self.assertEqual(answer, "Test answer")
-        self.assertEqual(mock_retrieve.call_args[0][0], "Test query")
+        self.assertEqual(mock_retrieve.call_args[0][0], "Test chat")
         self.assertEqual(mock_retrieve.call_args[0][2], {"attribute": "value"})
         mock_answer.assert_called_once()
 
@@ -89,11 +89,11 @@ class TestApp(unittest.TestCase):
             mock_retrieve.return_value = ["Test context"]
             with patch.object(self.app, "get_llm_model_answer") as mock_answer:
                 mock_answer.return_value = "Test answer"
-                queryConfig = ChatConfig(where_filter={"attribute": "value"})
-                answer = self.app.query("Test query", queryConfig)
+                chatConfig = ChatConfig(where_filter={"attribute": "value"})
+                answer = self.app.chat("Test chat", chatConfig)
 
         self.assertEqual(answer, "Test answer")
-        self.assertEqual(mock_retrieve.call_args[0][0], "Test query")
+        self.assertEqual(mock_retrieve.call_args[0][0], "Test chat")
         self.assertEqual(mock_retrieve.call_args[0][1].where_filter, {"attribute": "value"})
         self.assertIsInstance(mock_retrieve.call_args[0][1], ChatConfig)
         mock_answer.assert_called_once()
