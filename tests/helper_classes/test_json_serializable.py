@@ -59,7 +59,7 @@ class TestJsonSerializable(unittest.TestCase):
     def test_recursive(self):
         """Test recursiveness with the real app"""
         random_id = str(random.random())
-        config = AppConfig(id=random_id)
+        config = AppConfig(id=random_id, collect_metrics=False)
         # config class is set under app.config.
         app = App(config=config)
         # w/o recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x>

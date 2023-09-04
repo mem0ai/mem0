@@ -97,7 +97,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
 class TestChromaDbDuplicateHandling:
     chroma_settings = {"allow_reset": True}
     chroma_config = ChromaDbConfig(chroma_settings=chroma_settings)
-    app_config = AppConfig(collection_name=False)
+    app_config = AppConfig(collection_name=False, collect_metrics=False)
     app_with_settings = App(config=app_config, chromadb_config=chroma_config)
 
     def test_duplicates_throw_warning(self, caplog):
@@ -134,7 +134,7 @@ class TestChromaDbDuplicateHandling:
 class TestChromaDbCollection(unittest.TestCase):
     chroma_settings = {"allow_reset": True}
     chroma_config = ChromaDbConfig(chroma_settings=chroma_settings)
-    app_config = AppConfig(collection_name=False)
+    app_config = AppConfig(collection_name=False, collect_metrics=False)
     app_with_settings = App(config=app_config, chromadb_config=chroma_config)
 
     def test_init_with_default_collection(self):

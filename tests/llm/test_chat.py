@@ -29,7 +29,8 @@ class TestApp(unittest.TestCase):
         The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database', 'get_answer_from_llm' and
         'memory' methods.
         """
-        app = App()
+        config = AppConfig(collect_metrics=False)
+        app = App(config=config)
         first_answer = app.chat("Test query 1")
         self.assertEqual(first_answer, "Test answer")
         self.assertEqual(len(app.llm.memory.chat_memory.messages), 2)
@@ -48,7 +49,8 @@ class TestApp(unittest.TestCase):
 
         Also tests that a dry run does not change the history
         """
-        app = App()
+        config = AppConfig(collect_metrics=False)
+        app = App(config=config)
         first_answer = app.chat("Test query 1")
         self.assertEqual(first_answer, "Test answer")
         self.assertEqual(len(app.llm.history.splitlines()), 2)

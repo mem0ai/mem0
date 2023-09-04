@@ -50,7 +50,7 @@ class TestApp(unittest.TestCase):
     def test_query_config_app_passing(self, mock_create):
         mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
 
-        config = AppConfig()
+        config = AppConfig(collect_metrics=False)
         chat_config = BaseLlmConfig(system_prompt="Test system prompt")
         app = App(config=config, llm_config=chat_config)
 
@@ -69,7 +69,7 @@ class TestApp(unittest.TestCase):
     def test_app_passing(self, mock_create):
         mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
 
-        config = AppConfig()
+        config = AppConfig(collect_metrics=False)
         chat_config = BaseLlmConfig()
         app = App(config=config, llm_config=chat_config, system_prompt="Test system prompt")
 
