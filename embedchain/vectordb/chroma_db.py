@@ -149,7 +149,13 @@ class ChromaDB(BaseVectorDB):
         `App` does not have to be reinitialized after using this method.
         """
         # Delete all data from the database
-        self.client.reset()
+        try:
+            self.client.reset()
+        except ValueError:
+            raise ValueError(
+                "For safety reasons, resetting is disabled."
+                'Please enable it by including `chromadb_settings={"allow_reset": True}` in your ChromaDbConfig'
+            ) from None
         # Recreate
         self._get_or_create_collection(self.config.collection_name)
 
