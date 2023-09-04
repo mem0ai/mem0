@@ -133,13 +133,13 @@ class EmbedChain(JSONSerializable):
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type.value, metadata])
         documents, _metadatas, _ids, new_chunks = self.load_and_embed(
-            data_formatter.loader, data_formatter.chunker, source, metadata, source_id
+            data_formatter.loader, data_formatter.chunker, source, metadata, source_id, dry_run
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
         if dry_run:
-            return documents
+            return {"chunks": documents, "metadata": _metadatas, "count": len(documents), "type": data_type}
 
         # Send anonymous telemetry
         if self.config.collect_metrics:
@@ -174,7 +174,9 @@ class EmbedChain(JSONSerializable):
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
 
-    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, source_id=None):
+    def load_and_embed(
+        self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, source_id=None, dry_run=None
+    ):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -184,6 +186,7 @@ class EmbedChain(JSONSerializable):
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
         :param source_id: Hexadecimal hash of the source.
+        :param dry_run: Optional. A dry run returns chunks and doesn't update DB.
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         embeddings_data = chunker.create_chunks(loader, src)
@@ -212,6 +215,9 @@ class EmbedChain(JSONSerializable):
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
+
+        if dry_run:
+            return list(documents), metadatas, ids, 0
 
         # Loop though all metadatas and add extras.
         new_metadatas = []
