@@ -6,6 +6,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from embedchain.helper_classes.json_serializable import register_deserializable
+
 from .base import BaseBot
 
 intents = discord.Intents.default()
@@ -16,7 +18,6 @@ tree = app_commands.CommandTree(client)
 # Invite link example
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&permissions=2048&scope=bot
 
-from embedchain.helper_classes.json_serializable import register_deserializable
 
 @register_deserializable
 class DiscordBot(BaseBot):

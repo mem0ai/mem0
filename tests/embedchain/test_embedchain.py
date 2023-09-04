@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
-from embedchain.models import EmbeddingFunctions, Providers
 
 
 class TestChromaDbHostsLoglevel(unittest.TestCase):

@@ -48,6 +48,7 @@ query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")
 history_re = re.compile(r"\$\{*history\}*")
 
+
 @register_deserializable
 class BaseLlmConfig(BaseConfig):
     """
