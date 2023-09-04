@@ -13,7 +13,8 @@ try:
     from slack_sdk import WebClient
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
-        'The required dependencies for Slack are not installed. Please install with `pip install "embedchain[slack]"`'  # noqa E501
+        "The required dependencies for Slack are not installed."
+        'Please install with `pip install "embedchain[slack]"`'
     ) from None
 
 
