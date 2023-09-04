@@ -2,6 +2,7 @@ from string import Template
 from typing import Optional
 
 from embedchain.config.QueryConfig import QueryConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 DEFAULT_PROMPT = """
   You are a chatbot having a conversation with a human. You are given chat
@@ -20,6 +21,7 @@ DEFAULT_PROMPT = """
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 
 
+@register_deserializable
 class ChatConfig(QueryConfig):
     """
     Config for the `chat` method, inherits from `QueryConfig`.
