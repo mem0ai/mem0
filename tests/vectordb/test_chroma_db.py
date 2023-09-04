@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig, CustomAppConfig
-from embedchain.models import EmbeddingFunctions, Providers, ChromaDbConfig
+from embedchain.models import ChromaDbConfig, EmbeddingFunctions, Providers
 from embedchain.vectordb.chroma_db import ChromaDB
 
 

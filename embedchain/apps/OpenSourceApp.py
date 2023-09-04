@@ -24,7 +24,12 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: OpenSourceAppConfig = None, chromadb_config: Optional[ChromaDbConfig] = None, system_prompt: Optional[str] = None):
+    def __init__(
+        self,
+        config: OpenSourceAppConfig = None,
+        chromadb_config: Optional[ChromaDbConfig] = None,
+        system_prompt: Optional[str] = None,
+    ):
         """
         :param config: OpenSourceAppConfig instance to load as configuration. Optional.
         `ef` defaults to open source.

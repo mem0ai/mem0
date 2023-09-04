@@ -1,10 +1,12 @@
+from typing import Optional
+
 from embedchain.config import CustomAppConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base_embedder import BaseEmbedder
 from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.llm.base_llm import BaseLlm
 from embedchain.vectordb.base_vector_db import BaseVectorDB
-from typing import Optional
+
 
 @register_deserializable
 class CustomApp(EmbedChain):

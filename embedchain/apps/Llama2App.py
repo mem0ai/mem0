@@ -29,4 +29,6 @@ class Llama2App(CustomApp):
         if config is None:
             config = AppConfig()
 
-        super().__init__(config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt)
+        super().__init__(
+            config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt
+        )
