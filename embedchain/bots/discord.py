@@ -1,6 +1,6 @@
+import argparse
 import logging
 import os
-import argparse
 
 import discord
 from discord import app_commands
