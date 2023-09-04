@@ -2,8 +2,6 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from langchain.schema import HumanMessage, SystemMessage
-
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
 
@@ -60,11 +58,10 @@ class TestApp(unittest.TestCase):
 
         # Test system_prompt: Check that the 'create' method was called with the correct 'messages' argument
         messages_arg = mock_create.call_args.kwargs["messages"]
-        print(messages_arg[0].__dict__)
-        self.assertTrue(isinstance(messages_arg[0], SystemMessage))
-        self.assertEqual(messages_arg[0].content, "Test system prompt")
-        self.assertTrue(isinstance(messages_arg[1], HumanMessage))
-        self.assertEqual(messages_arg[1].content, "Test query")
+        self.assertTrue(messages_arg[0].get("role"), "system")
+        self.assertEqual(messages_arg[0].get("content"), "Test system prompt")
+        self.assertTrue(messages_arg[1].get("role"), "user")
+        self.assertEqual(messages_arg[1].get("content"), "Test query")
 
         # TODO: Add tests for other config variables
 
@@ -82,5 +79,5 @@ class TestApp(unittest.TestCase):
 
         # Test system_prompt: Check that the 'create' method was called with the correct 'messages' argument
         messages_arg = mock_create.call_args.kwargs["messages"]
-        self.assertTrue(isinstance(messages_arg[0], SystemMessage))
-        self.assertEqual(messages_arg[0].content, "Test system prompt")
+        self.assertTrue(messages_arg[0].get("role"), "system")
+        self.assertEqual(messages_arg[0].get("content"), "Test system prompt")
