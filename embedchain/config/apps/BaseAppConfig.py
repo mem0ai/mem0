@@ -5,7 +5,6 @@ from embedchain.config.BaseConfig import BaseConfig
 from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
-
 class BaseAppConfig(BaseConfig, JSONSerializable):
     """
     Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.

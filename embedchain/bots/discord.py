@@ -16,7 +16,9 @@ tree = app_commands.CommandTree(client)
 # Invite link example
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&permissions=2048&scope=bot
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 
+@register_deserializable
 class DiscordBot(BaseBot):
     def __init__(self, *args, **kwargs):
         BaseBot.__init__(self, *args, **kwargs)

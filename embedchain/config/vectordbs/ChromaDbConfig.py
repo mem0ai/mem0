@@ -1,8 +1,10 @@
 from typing import Optional
 
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 
+@register_deserializable
 class ChromaDbConfig(BaseVectorDbConfig):
     def __init__(
         self,
