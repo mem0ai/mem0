@@ -2,10 +2,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from embedchain.config.vectordbs import ElasticsearchDBConfig
 from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.models import (EmbeddingFunctions, Providers, VectorDatabases,
-                               VectorDimensions)
 
 from .BaseAppConfig import BaseAppConfig
 

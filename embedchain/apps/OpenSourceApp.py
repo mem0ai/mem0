@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional, Union
+from typing import Optional
 
 from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig, OpenSourceAppConfig)

@@ -69,7 +69,7 @@ class TestApp(unittest.TestCase):
         mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
 
         config = AppConfig()
-        chat_config = QueryConfig()
+        chat_config = BaseLlmConfig()
         app = App(config=config, system_prompt="Test system prompt")
 
         app.get_llm_model_answer("Test query", chat_config)

@@ -1,25 +1,23 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from chromadb.config import Settings
-from chromadb.errors import InvalidDimensionException
 from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 try:
     import chromadb
+    from chromadb.config import Settings
+    from chromadb.errors import InvalidDimensionException
 except RuntimeError:
     from embedchain.utils import use_pysqlite3
 
     use_pysqlite3()
     import chromadb
-
-from chromadb.config import Settings
-
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+    from chromadb.config import Settings
+    from chromadb.errors import InvalidDimensionException
 
 
 @register_deserializable

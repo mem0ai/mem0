@@ -1,7 +1,5 @@
 from typing import Optional
 
-from chromadb.utils import embedding_functions
-
 from embedchain.helper_classes.json_serializable import register_deserializable
 
 from .BaseAppConfig import BaseAppConfig
