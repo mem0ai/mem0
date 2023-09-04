@@ -17,7 +17,7 @@ class CustomApp(EmbedChain):
 
     adds(data_type, url): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
-    dry_run(query): test your prompt without consuming tokens.
+    dry_run(query): test data chunks your prompt without consuming tokens.
     """
 
     def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):
