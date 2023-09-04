@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain import App
-from embedchain.config import AppConfig, CustomAppConfig
+from embedchain.config import AppConfig, ChromaDbConfig
 from embedchain.models import EmbeddingFunctions, Providers
 
 
@@ -43,11 +43,8 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is correctly reconstructed after a reset.
         """
-        app = App(
-            CustomAppConfig(
-                provider=Providers.OPENAI, embedding_fn=EmbeddingFunctions.OPENAI, chroma_settings={"allow_reset": True}
-            )
-        )
+        config = AppConfig(log_level="DEBUG", collect_metrics=False)
+        app = App(config=config, chromadb_config=ChromaDbConfig(chroma_settings={"allow_reset": True}))
         app.reset()
 
         # Make sure the client is still healthy
