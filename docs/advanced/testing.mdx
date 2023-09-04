@@ -6,11 +6,9 @@ title: '🧪 Testing'
 
 ### Dry Run
 
-Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
+Before you consume valueable tokens, you should make sure that data chunks are properly created and the embedding you have done works and that it's receiving the correct document from the database.
 
-For this you can use the `dry_run` option in your `query` or `chat` method.
-
-Following the example above, add this to your script:
+- For `query` or `chat` method, you can add this to your script:
 
 ```python
 print(naval_chat_bot.query('Can you tell me who Naval Ravikant is?', dry_run=True))
@@ -26,4 +24,15 @@ A: Naval Ravikant is an Indian-American entrepreneur and investor.
 
 _The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed._
 
-**The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
+The dry run will still consume tokens to embed your query, but it is only **~1/15 of the prompt.**
+
+
+- For `add` method, you can add this to your script:
+
+```python
+print(naval_chat_bot.add('https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf', dry_run=True))
+
+'''
+['THE ALMANACK OF NAVAL RAVIKANT', 'GETTING RICH IS NOT JUST ABOUT LUCK; HAPPINESS IS NOT JUST A TRAIT WE ARE BORN WITH. These aspirations may seem out of reach, but building wealth and be - ing happy are skills we can learn. So what are these skills, and how do we learn them? What are the principles that should guide our efforts? What does progress really look like? Naval Ravikant is an entrepreneur, philosopher, and investor who has captivated the world with his principles for building wealth and creating long-term happiness. The Almanack of Naval Ravikant is a collection of Naval’s wisdom and experience from the last ten years, shared as a curation of his most insightful interviews and poignant reflections. This isn’t a how-to book, or a step-by-step gimmick. In - stead, through Naval’s own words, you will learn how to walk your own unique path toward a happier, wealthier life. This book has been created as a public service. It is available for free download in pdf and e-reader versions on Navalmanack.com. Naval is']
+'''
+```

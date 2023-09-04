@@ -84,6 +84,7 @@ class EmbedChain(JSONSerializable):
         data_type: Optional[DataType] = None,
         metadata: Optional[Dict] = None,
         config: Optional[AddConfig] = None,
+        dry_run=False,
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -96,6 +97,7 @@ class EmbedChain(JSONSerializable):
         :param metadata: Optional. Metadata associated with the data source.
         :param config: Optional. The `AddConfig` instance to use as configuration
         options.
+        :param dry_run: Optional. A dry run displays the chunks to ensure that the loader and chunker work as intended.
         :return: source_id, a md5-hash of the source, in hexadecimal representation.
         """
         if config is None:
@@ -135,6 +137,9 @@ class EmbedChain(JSONSerializable):
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
+
+        if dry_run:
+            return documents
 
         # Send anonymous telemetry
         if self.config.collect_metrics:
