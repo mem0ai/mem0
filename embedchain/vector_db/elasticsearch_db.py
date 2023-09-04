@@ -9,10 +9,12 @@ except ImportError:
     ) from None
 
 from embedchain.config import ElasticsearchDBConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.models.vector_dimensions import VectorDimensions
 from embedchain.vector_db.base_vector_db import BaseVectorDB
 
 
+@register_deserializable
 class ElasticsearchDB(BaseVectorDB):
     def __init__(
         self,

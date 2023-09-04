@@ -2,10 +2,11 @@ import logging
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.config.vector_dbs import elasticsearch_db_config
+from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.models import VectorDatabases, VectorDimensions
 
 
-class BaseAppConfig(BaseConfig):
+class BaseAppConfig(BaseConfig, JSONSerializable):
     """
     Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
     """

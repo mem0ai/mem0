@@ -1,9 +1,11 @@
 import hashlib
 import importlib.metadata
+import json
 import logging
 import os
 import threading
 import uuid
+from pathlib import Path
 from typing import Dict, Optional
 
 import requests
@@ -17,6 +19,7 @@ from embedchain.config import AddConfig, ChatConfig, QueryConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
 from embedchain.config.query_config import DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.data_formatter import DataFormatter
+from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
 from embedchain.utils import detect_datatype
@@ -25,30 +28,55 @@ load_dotenv()
 
 ABS_PATH = os.getcwd()
 DB_DIR = os.path.join(ABS_PATH, "db")
+HOME_DIR = str(Path.home())
+CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
-memory = ConversationBufferMemory()
 
-
-class EmbedChain:
-    def __init__(self, config: BaseAppConfig):
+class EmbedChain(JSONSerializable):
+    def __init__(self, config: BaseAppConfig, system_prompt: Optional[str] = None):
         """
         Initializes the EmbedChain instance, sets up a vector DB client and
         creates a collection.
 
         :param config: BaseAppConfig instance to load as configuration.
+        :param system_prompt: Optional. System prompt string.
         """
 
         self.config = config
+        self.system_prompt = system_prompt
         self.collection = self.config.db._get_or_create_collection(self.config.collection_name)
         self.db = self.config.db
         self.user_asks = []
         self.is_docs_site_instance = False
         self.online = False
+        self.memory = ConversationBufferMemory()
 
         # Send anonymous telemetry
         self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
+        self.u_id = self._load_or_generate_user_id()
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
+
+    def _load_or_generate_user_id(self):
+        """
+        Loads the user id from the config file if it exists, otherwise generates a new
+        one and saves it to the config file.
+        """
+        if not os.path.exists(CONFIG_DIR):
+            os.makedirs(CONFIG_DIR)
+
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+                if "user_id" in data:
+                    return data["user_id"]
+
+        u_id = str(uuid.uuid4())
+        with open(CONFIG_FILE, "w") as f:
+            json.dump({"user_id": u_id}, f)
+
+        return u_id
 
     def add(
         self,
@@ -362,8 +390,7 @@ class EmbedChain:
             k["web_search_result"] = self.access_search_and_get_results(input_query)
         contexts = self.retrieve_from_database(input_query, config)
 
-        global memory
-        chat_history = memory.load_memory_variables({})["history"]
+        chat_history = self.memory.load_memory_variables({})["history"]
 
         if chat_history:
             config.set_history(chat_history)
@@ -376,14 +403,14 @@ class EmbedChain:
 
         answer = self.get_answer_from_llm(prompt, config)
 
-        memory.chat_memory.add_user_message(input_query)
+        self.memory.chat_memory.add_user_message(input_query)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
         thread_telemetry.start()
 
         if isinstance(answer, str):
-            memory.chat_memory.add_ai_message(answer)
+            self.memory.chat_memory.add_ai_message(answer)
             logging.info(f"Answer: {answer}")
             return answer
         else:
@@ -395,7 +422,7 @@ class EmbedChain:
         for chunk in answer:
             streamed_answer = streamed_answer + chunk
             yield chunk
-        memory.chat_memory.add_ai_message(streamed_answer)
+        self.memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
 
     def set_collection(self, collection_name):
@@ -445,9 +472,11 @@ class EmbedChain:
                 "version": importlib.metadata.version(__package__ or __name__),
                 "method": method,
                 "language": "py",
+                "u_id": self.u_id,
             }
             if extra_metadata:
                 metadata.update(extra_metadata)
 
             response = requests.post(url, json={"metadata": metadata})
-            response.raise_for_status()
+            if response.status_code != 200:
+                logging.warning(f"Telemetry event failed with status code {response.status_code}")

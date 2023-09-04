@@ -10,8 +10,10 @@ except RuntimeError:
     from chromadb.utils import embedding_functions
 
 from .base_app_config import BaseAppConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 
+@register_deserializable
 class AppConfig(BaseAppConfig):
     """
     Config to initialize an embedchain custom `App` instance, with extra config options.

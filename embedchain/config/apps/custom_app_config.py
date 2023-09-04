@@ -4,6 +4,7 @@ from chromadb.api.types import Documents, Embeddings
 from dotenv import load_dotenv
 
 from embedchain.config.vector_dbs import elasticsearch_db_config
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.models import EmbeddingFunctions, Providers, VectorDatabases, VectorDimensions
 
 from .base_app_config import BaseAppConfig
@@ -11,6 +12,7 @@ from .base_app_config import BaseAppConfig
 load_dotenv()
 
 
+@register_deserializable
 class CustomAppConfig(BaseAppConfig):
     """
     Config to initialize an embedchain custom `App` instance, with extra config options.
