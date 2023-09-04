@@ -13,7 +13,10 @@ class OpenAiLlm(BaseLlm):
     # NOTE: This class does not use langchain. One reason is that `top_p` is not supported.
 
     def get_llm_model_answer(self, prompt):
-        messages = BaseLlm._get_messages(prompt=prompt, system_prompt=self.config.system_prompt)
+        messages = []
+        if self.config.system_prompt:
+            messages.append({"role": "system", "content": self.config.system_prompt})
+        messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
             model=self.config.model or "gpt-3.5-turbo-0613",
             messages=messages,
