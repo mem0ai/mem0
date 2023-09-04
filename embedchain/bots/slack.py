@@ -4,12 +4,18 @@ import os
 import signal
 import sys
 
-from flask import Flask, request
-from slack_sdk import WebClient
-
 from embedchain import App
 
 from .base import BaseBot
+
+try:
+    from flask import Flask, request
+    from slack_sdk import WebClient
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        'The required dependencies for Slack are not installed. Please install with `pip install "embedchain[slack]"`'  # noqa E501
+    ) from None
+
 
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
