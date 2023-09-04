@@ -3,10 +3,9 @@ from typing import Optional
 
 from langchain.llms import Replicate
 
-from embedchain.config import AppConfig, ChatConfig
-from embedchain.embedchain import EmbedChain
 from embedchain.apps.CustomApp import CustomApp
-from embedchain.config import AppConfig, CustomAppConfig
+from embedchain.config import AppConfig, ChatConfig, CustomAppConfig
+from embedchain.embedchain import EmbedChain
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.llm.llama2_llm import Llama2Llm
 from embedchain.vectordb.chroma_db import ChromaDB
@@ -30,4 +29,4 @@ class Llama2App(CustomApp):
         if config is None:
             config = AppConfig()
 
-        super().__init__(config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder())
+        super().__init__(config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt)

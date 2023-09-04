@@ -4,6 +4,7 @@ import os
 from typing import List, Optional
 
 from fastapi_poe import PoeBot, run
+
 from embedchain.helper_classes.json_serializable import register_deserializable
 
 from .base import BaseBot

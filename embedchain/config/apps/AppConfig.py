@@ -1,7 +1,8 @@
 from typing import Optional
 
-from .BaseAppConfig import BaseAppConfig
 from embedchain.helper_classes.json_serializable import register_deserializable
+
+from .BaseAppConfig import BaseAppConfig
 
 
 @register_deserializable

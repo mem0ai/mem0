@@ -1,5 +1,6 @@
-from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from typing import Optional
+
+from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 
 
 class ChromaDbConfig(BaseVectorDbConfig):

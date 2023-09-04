@@ -1,10 +1,10 @@
 from embedchain.config import CustomAppConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.embedder.base_embedder import BaseEmbedder
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.llm.base_llm import BaseLlm
 from embedchain.vectordb.base_vector_db import BaseVectorDB
-
+from typing import Optional
 
 @register_deserializable
 class CustomApp(EmbedChain):
@@ -62,4 +62,4 @@ class CustomApp(EmbedChain):
                 "Please make sure the type is right and that you are passing an instance."
             )
 
-        super().__init__(config=config, llm=llm, db=db, embedder=embedder)
+        super().__init__(config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)

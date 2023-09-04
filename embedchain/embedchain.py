@@ -17,8 +17,8 @@ from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.data_formatter import DataFormatter
-from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.embedder.base_embedder import BaseEmbedder
+from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.llm.base_llm import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
@@ -51,7 +51,6 @@ class EmbedChain:
         """
 
         self.config = config
-        self.system_prompt = system_prompt
 
         # Add subclasses
         ## Llm
@@ -72,6 +71,10 @@ class EmbedChain:
         # Set collection name from app config for backwards compatibility.
         if config.collection_name:
             self.db.set_collection_name(config.collection_name)
+
+        # Add variables that are "shortcuts"
+        if system_prompt:
+            self.llm.config.system_prompt = system_prompt
 
         # Attributes that aren't subclass related.
         self.user_asks = []

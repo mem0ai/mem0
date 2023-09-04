@@ -1,10 +1,11 @@
 import logging
 from typing import Iterable, Optional, Union
 
-from embedchain.config import BaseEmbedderConfig, BaseLlmConfig, ChromaDbConfig, OpenSourceAppConfig
+from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
+                               ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
-from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder
+from embedchain.helper_classes.json_serializable import register_deserializable
 from embedchain.llm.gpt4all_llm import GPT4ALLLlm
 from embedchain.vectordb.chroma_db import ChromaDB
 
@@ -23,7 +24,7 @@ class OpenSourceApp(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: OpenSourceAppConfig = None, system_prompt: Optional[str] = None):
+    def __init__(self, config: OpenSourceAppConfig = None, chromadb_config: Optional[ChromaDbConfig] = None, system_prompt: Optional[str] = None):
         """
         :param config: OpenSourceAppConfig instance to load as configuration. Optional.
         `ef` defaults to open source.
@@ -48,4 +49,4 @@ class OpenSourceApp(EmbedChain):
         embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
         database = ChromaDB(config=chromadb_config)
 
-        super().__init__(config, llm=llm, db=database, embedder=embedder)
+        super().__init__(config, llm=llm, db=database, embedder=embedder, system_prompt=system_prompt)
