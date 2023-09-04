@@ -1,6 +1,7 @@
 import os
 import unittest
 from unittest.mock import MagicMock, patch
+
 from langchain.schema import HumanMessage, SystemMessage
 
 from embedchain import App
@@ -62,6 +63,8 @@ class TestApp(unittest.TestCase):
         print(messages_arg[0].__dict__)
         self.assertTrue(isinstance(messages_arg[0], SystemMessage))
         self.assertEqual(messages_arg[0].content, "Test system prompt")
+        self.assertTrue(isinstance(messages_arg[1], HumanMessage))
+        self.assertEqual(messages_arg[1].content, "Test query")
 
         # TODO: Add tests for other config variables
 
