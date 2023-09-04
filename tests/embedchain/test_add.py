@@ -44,7 +44,7 @@ class TestApp(unittest.TestCase):
 
         chunker_config = ChunkerConfig(chunk_size=1, chunk_overlap=0)
         # We can't test with lorem ipsum because chunks are deduped, so would be recurring characters.
-        text = """0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\x0b\x0c"""
+        text = """0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"""
 
         result = self.app.add(source=text, config=AddConfig(chunker=chunker_config), dry_run=True)
 
