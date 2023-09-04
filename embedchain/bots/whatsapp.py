@@ -6,9 +6,12 @@ import sys
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
+from embedchain.helper_classes.json_serializable import register_deserializable
+
 from .base import BaseBot
 
 
+@register_deserializable
 class WhatsAppBot(BaseBot):
     def __init__(self):
         super().__init__()

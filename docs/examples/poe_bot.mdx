@@ -1,0 +1,48 @@
+---
+title: '🔮 Poe Bot'
+---
+
+### 🚀 Getting started
+
+1. Install embedchain python package:
+
+```bash
+pip install embedchain[poe]
+```
+
+2. Create a free account on [Poe](https://www.poe.com?utm_source=embedchain).
+3. Click "Create Bot" button on top left
+4. Give it a handle and an optional description.
+5. Select `Use API`.
+6. Under `API URL` enter your server or ngrok address. You can use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
+7. Copy your api key and paste it in `.env` as `POE_API_KEY`.
+8. Start the bot.
+
+```bash
+python -m embedchain.bots.poe
+```
+
+If you want to run the bot on another port, you can pass `--port option` like
+
+```bash
+python -m embedchain.bots.poe --port 5000
+```
+
+9. Click `Run check` to make sure your machine can be reached.
+10. Make sure your bot is private if that's what you want.
+11. Click `Create bot` at the bottom to finally create the bot
+12. Now you bot is created.
+
+### 💬 How to use
+
+- To include data sources, use this command:
+```text
+/add <url_or_text>
+```
+
+- You can refer the [Supported Data formats](https://docs.embedchain.ai/advanced/data_types) section to refer the supported data types in embedchain.
+
+- To ask the bot questions, just type your query:
+```text
+<your-question-here>
+```
