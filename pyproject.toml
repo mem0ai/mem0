@@ -122,7 +122,7 @@ opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 poe = ["fastapi-poe"]
 discord = ["discord"]
-slack = ["slack-sdk"]
+slack = ["slack-sdk", "flask"]
 
 [tool.poetry.group.docs.dependencies]
 
