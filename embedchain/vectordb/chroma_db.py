@@ -86,6 +86,9 @@ class ChromaDB(BaseVectorDB):
 
         return set(existing_docs["ids"])
 
+    def get_advanced(self, where):
+        return self.collection.get(where=where, limit=1)
+
     def add(self, documents: List[str], metadatas: List[object], ids: List[str]) -> Any:
         """
         add data in vector database
@@ -142,6 +145,9 @@ class ChromaDB(BaseVectorDB):
         :return: The number of embeddings.
         """
         return self.collection.count()
+
+    def delete(self, where):
+        return self.collection.delete(where=where)
 
     def reset(self):
         """
