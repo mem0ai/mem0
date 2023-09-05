@@ -34,6 +34,31 @@ class TestGeneratePrompt(unittest.TestCase):
         )
         self.assertEqual(result, expected_result)
 
+    def test_generate_prompt_with_template_with_custom_variables(self):
+        """
+        Tests that the generate_prompt method correctly formats the prompt using
+        a custom template with custom variables provided in the QueryConfig instance.
+
+        This test sets up a scenario with an input query and a list of contexts,
+        and a custom template with custom variables, and then calls generate_prompt. It checks that the
+        returned prompt correctly incorporates all the contexts and the query into
+        the format specified by the template.
+        """
+        # Setup
+        input_query = "Test query"
+        contexts = ["Context A", "Context B"]
+        template = "You are a bot. Context: ${context} - Query: ${query} - Mood: ${mood} - Helpful answer:"
+        config = QueryConfig(template=Template(template))
+
+        # Execute
+        result = self.app.generate_prompt(input_query, contexts, config, mood="sad")
+
+        # Assert
+        expected_result = (
+            "You are a bot. Context: Context A | Context B - Query: Test query - Mood: sad - Helpful answer:"
+        )
+        self.assertEqual(result, expected_result)
+
     def test_generate_prompt_with_contexts_list(self):
         """
         Tests that the generate_prompt method correctly handles a list of contexts.

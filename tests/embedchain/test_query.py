@@ -27,20 +27,29 @@ class TestApp(unittest.TestCase):
             QueryConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
+        - 'query' can take an additional variables to be used in a custom template which is passed to generate_prompt
 
         The test isolates the 'query' method behavior by mocking out 'retrieve_from_database' and
         'get_llm_model_answer' methods.
         """
         with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
-            with patch.object(self.app, "get_llm_model_answer") as mock_answer:
-                mock_answer.return_value = "Test answer"
-                answer = self.app.query("Test query")
+            with patch.object(self.app, "generate_prompt") as mock_generate_prompt:
+                mock_generate_prompt.return_value = "Test prompt"
+                with patch.object(self.app, "get_llm_model_answer") as mock_answer:
+                    mock_answer.return_value = "Test answer"
+                    answer = self.app.query("Test query", test_var="Test Var")
 
         self.assertEqual(answer, "Test answer")
         self.assertEqual(mock_retrieve.call_args[0][0], "Test query")
         self.assertIsInstance(mock_retrieve.call_args[0][1], QueryConfig)
         mock_answer.assert_called_once()
+
+        self.assertEqual(mock_generate_prompt.call_args[0][0], "Test query")
+        self.assertEqual(mock_generate_prompt.call_args[0][1], ["Test context"])
+        self.assertIsInstance(mock_generate_prompt.call_args[0][2], QueryConfig)
+        self.assertEqual(mock_generate_prompt.call_args[1]["test_var"], "Test Var")
+        mock_generate_prompt.assert_called_once()
 
     @patch("openai.ChatCompletion.create")
     def test_query_config_passing(self, mock_create):
