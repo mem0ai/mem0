@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain import App
-from embedchain.config import AppConfig
+from embedchain.config import AppConfig, ChromaDbConfig
 
 
 class TestChromaDbHostsLoglevel(unittest.TestCase):
@@ -12,8 +12,8 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
     @patch("chromadb.api.models.Collection.Collection.add")
     @patch("chromadb.api.models.Collection.Collection.get")
     @patch("embedchain.embedchain.EmbedChain.retrieve_from_database")
-    @patch("embedchain.embedchain.EmbedChain.get_answer_from_llm")
-    @patch("embedchain.embedchain.EmbedChain.get_llm_model_answer")
+    @patch("embedchain.llm.base_llm.BaseLlm.get_answer_from_llm")
+    @patch("embedchain.llm.base_llm.BaseLlm.get_llm_model_answer")
     def test_whole_app(
         self,
         _mock_get,
@@ -42,13 +42,14 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is correctly reconstructed after a reset.
         """
-        app = App()
+        config = AppConfig(log_level="DEBUG", collect_metrics=False)
+        app = App(config=config, chromadb_config=ChromaDbConfig(chroma_settings={"allow_reset": True}))
         app.reset()
 
         # Make sure the client is still healthy
         app.db.client.heartbeat()
         # Make sure the collection exists, and can be added to
-        app.collection.add(
+        app.db.collection.add(
             embeddings=[[1.1, 2.3, 3.2], [4.5, 6.9, 4.4], [1.1, 2.3, 3.2]],
             metadatas=[
                 {"chapter": "3", "verse": "16"},

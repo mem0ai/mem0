@@ -1,44 +1,63 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from chromadb.errors import InvalidDimensionException
 from langchain.docstore.document import Document
+
+from embedchain.config import ChromaDbConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.vectordb.base_vector_db import BaseVectorDB
 
 try:
     import chromadb
+    from chromadb.config import Settings
+    from chromadb.errors import InvalidDimensionException
 except RuntimeError:
     from embedchain.utils import use_pysqlite3
 
     use_pysqlite3()
     import chromadb
-
-from chromadb.config import Settings
-
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+    from chromadb.config import Settings
+    from chromadb.errors import InvalidDimensionException
 
 
+@register_deserializable
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    def __init__(self, db_dir=None, embedding_fn=None, host=None, port=None):
-        self.embedding_fn = embedding_fn
-
-        if not hasattr(embedding_fn, "__call__"):
-            raise ValueError("Embedding function is not a function")
-
-        if host and port:
-            logging.info(f"Connecting to ChromaDB server: {host}:{port}")
-            self.settings = Settings(chroma_server_host=host, chroma_server_http_port=port)
-            self.client = chromadb.HttpClient(self.settings)
+    def __init__(self, config: Optional[ChromaDbConfig] = None):
+        if config:
+            self.config = config
         else:
-            if db_dir is None:
-                db_dir = "db"
-            self.settings = Settings(anonymized_telemetry=False, allow_reset=True)
-            self.client = chromadb.PersistentClient(
-                path=db_dir,
-                settings=self.settings,
-            )
-        super().__init__()
+            self.config = ChromaDbConfig()
+
+        self.settings = Settings()
+        if self.config.chroma_settings:
+            for key, value in self.config.chroma_settings.items():
+                if hasattr(self.settings, key):
+                    setattr(self.settings, key, value)
+
+        if self.config.host and self.config.port:
+            logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
+            self.settings.chroma_server_host = self.config.host
+            self.settings.chroma_server_http_port = self.config.port
+            self.settings.chroma_api_impl = "chromadb.api.fastapi.FastAPI"
+        else:
+            if self.config.dir is None:
+                self.config.dir = "db"
+
+            self.settings.persist_directory = self.config.dir
+            self.settings.is_persistent = True
+
+        self.client = chromadb.Client(self.settings)
+        super().__init__(config=self.config)
+
+    def _initialize(self):
+        """
+        This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
+        """
+        if not self.embedder:
+            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+        self._get_or_create_collection(self.config.collection_name)
 
     def _get_or_create_db(self):
         """Get or create the database."""
@@ -46,9 +65,11 @@ class ChromaDB(BaseVectorDB):
 
     def _get_or_create_collection(self, name):
         """Get or create the collection."""
+        if not hasattr(self, "embedder") or not self.embedder:
+            raise ValueError("Cannot create a Chroma database collection without an embedder.")
         self.collection = self.client.get_or_create_collection(
             name=name,
-            embedding_function=self.embedding_fn,
+            embedding_function=self.embedder.embedding_fn,
         )
         return self.collection
 
@@ -110,9 +131,37 @@ class ChromaDB(BaseVectorDB):
         contents = [result[0].page_content for result in results_formatted]
         return contents
 
+    def set_collection_name(self, name: str):
+        self.config.collection_name = name
+        self._get_or_create_collection(self.config.collection_name)
+
     def count(self) -> int:
+        """
+        Count the number of embeddings.
+
+        :return: The number of embeddings.
+        """
         return self.collection.count()
 
     def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        `App` does not have to be reinitialized after using this method.
+        """
         # Delete all data from the database
-        self.client.reset()
+        try:
+            self.client.reset()
+        except ValueError:
+            raise ValueError(
+                "For safety reasons, resetting is disabled."
+                'Please enable it by including `chromadb_settings={"allow_reset": True}` in your ChromaDbConfig'
+            ) from None
+        # Recreate
+        self._get_or_create_collection(self.config.collection_name)
+
+        # Todo: Automatically recreating a collection with the same name cannot be the best way to handle a reset.
+        # A downside of this implementation is, if you have two instances,
+        # the other instance will not get the updated `self.collection` attribute.
+        # A better way would be to create the collection if it is called again after being reset.
+        # That means, checking if collection exists in the db-consuming methods, and creating it if it doesn't.
+        # That's an extra steps for all uses, just to satisfy a niche use case in a niche method. For now, this will do.

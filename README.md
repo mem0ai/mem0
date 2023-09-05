@@ -15,7 +15,7 @@ Book a [1-on-1 Session](https://cal.com/taranjeetio/ec) with Taranjeet, the foun
 ## 🔧 Quick install
 
 ```bash
-pip install embedchain
+pip install --upgrade embedchain
 ```
 
 ## 🔍 Demo
@@ -69,8 +69,11 @@ elon_bot.query("How many companies does Elon Musk run?")
 Contributions are welcome! Please check out the issues on the repository, and feel free to open a pull request.
 For more information, please see the [contributing guidelines](CONTRIBUTING.md).
 
-For more refrence, please go through [Development Guide](https://docs.embedchain.ai/contribution/dev) and [Documentation Guide](https://docs.embedchain.ai/contribution/docs).
+For more reference, please go through [Development Guide](https://docs.embedchain.ai/contribution/dev) and [Documentation Guide](https://docs.embedchain.ai/contribution/docs).
 
+<a href="https://github.com/embedchain/embedchain/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=embedchain/embedchain" />
+</a>
 
 ## Citation
 

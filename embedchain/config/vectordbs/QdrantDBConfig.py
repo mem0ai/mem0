@@ -1,8 +1,10 @@
 from typing import List, Union
 
 from embedchain.config.BaseConfig import BaseConfig
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 
+@register_deserializable
 class QdrantDBConfig(BaseConfig):
     """
     Config to initialize an qdrant client.

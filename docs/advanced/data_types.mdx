@@ -19,7 +19,7 @@ Otherwise, you will not know when, for instance, an invalid filepath is interpre
 To omit any issues with the data type detection, you can **force** a data_type by adding it as a `add` method argument.
 The examples below show you the keyword to force the respective `data_type`.
 
-Forcing can also be used for edge cases, such as interpreting a sitemap as a web_page, for reading it's raw text instead of following links.
+Forcing can also be used for edge cases, such as interpreting a sitemap as a web_page, for reading its raw text instead of following links.
 
 ## Remote Data Types
 
@@ -71,6 +71,15 @@ To add any doc/docx file, use the data_type as `docx`. `docx` allows remote urls
 ```python
 app.add('https://example.com/content/intro.docx', data_type="docx")
 app.add('content/intro.docx', data_type="docx")
+```
+
+### CSV file
+
+To add any csv file, use the data_type as `csv`. `csv` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+
+```python
+app.add('https://example.com/content/sheet.csv', data_type="csv")
+app.add('content/sheet.csv', data_type="csv")
 ```
 
 ### Code documentation website loader
