@@ -27,7 +27,7 @@ class ChromaDbConfig(BaseVectorDbConfig):
         :type port: Optional[str], optional
         :param chroma_settings: Chroma settings dict, defaults to None
         :type chroma_settings: Optional[dict], optional
-        """        
+        """
         """
         :param chroma_settings: Optional. Chroma settings for connection.
         """

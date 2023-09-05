@@ -18,19 +18,22 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         id: Optional[str] = None,
         collect_metrics: bool = True,
         collection_name: Optional[str] = None,
-    ):   
+    ):
         """
-        Initializes a configuration class instance for an App. Most of the configuration is done in the `App` class itself.
+        Initializes a configuration class instance for an App.
+        Most of the configuration is done in the `App` class itself.
 
         :param log_level: Debug level ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], defaults to "WARNING"
         :type log_level: str, optional
-        :param db: A database class. It is recommended to set this directly in the `App` class, not this config, defaults to None
+        :param db: A database class. It is recommended to set this directly in the `App` class, not this config,
+        defaults to None
         :type db: Optional[BaseVectorDB], optional
         :param id: ID of the app. Document metadata will have this id., defaults to None
         :type id: Optional[str], optional
         :param collect_metrics: Send anonymous telemetry to improve embedchain, defaults to True
         :type collect_metrics: Optional[bool], optional
-        :param collection_name: Default collection name. It's recommended to use app.db.set_collection_name() instead, defaults to None
+        :param collection_name: Default collection name. It's recommended to use app.db.set_collection_name() instead,
+        defaults to None
         :type collection_name: Optional[str], optional
         """
         self._setup_logging(log_level)

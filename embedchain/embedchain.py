@@ -6,11 +6,10 @@ import os
 import threading
 import uuid
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
-from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
@@ -57,7 +56,7 @@ class EmbedChain(JSONSerializable):
         :param system_prompt: System prompt to use in the llm query, defaults to None
         :type system_prompt: Optional[str], optional
         :raises ValueError: No database or embedder provided.
-        """        
+        """
 
         self.config = config
 
@@ -91,7 +90,7 @@ class EmbedChain(JSONSerializable):
         # Send anonymous telemetry
         self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
         self.u_id = self._load_or_generate_user_id()
-        # NOTE: Uncomment the next two lines when running tests to see if any test fires a telemetry event. 
+        # NOTE: Uncomment the next two lines when running tests to see if any test fires a telemetry event.
         # if (self.config.collect_metrics):
         #     raise ConnectionRefusedError("Collection of metrics should not be allowed.")
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
@@ -104,7 +103,7 @@ class EmbedChain(JSONSerializable):
 
         :return: user id
         :rtype: str
-        """        
+        """
         if not os.path.exists(CONFIG_DIR):
             os.makedirs(CONFIG_DIR)
 
@@ -120,7 +119,13 @@ class EmbedChain(JSONSerializable):
 
         return u_id
 
-    def add(self, source: Any, data_type: Optional[DataType] = None, metadata: Optional[Dict[str, Any]] = None, config: Optional[AddConfig] = None):
+    def add(
+        self,
+        source: Any,
+        data_type: Optional[DataType] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        config: Optional[AddConfig] = None,
+    ):
         """
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
@@ -128,7 +133,8 @@ class EmbedChain(JSONSerializable):
 
         :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
         :type source: Any
-        :param data_type: Automatically detected, but can be forced with this argument. The type of the data to add, defaults to None
+        :param data_type: Automatically detected, but can be forced with this argument. The type of the data to add,
+        defaults to None
         :type data_type: Optional[DataType], optional
         :param metadata: Metadata associated with the data source., defaults to None
         :type metadata: Optional[Dict[str, Any]], optional
@@ -187,7 +193,13 @@ class EmbedChain(JSONSerializable):
 
         return source_id
 
-    def add_local(self, source: Any, data_type: Optional[DataType] = None, metadata: Optional[Dict[str, Any]] = None, config: Optional[AddConfig] = None):
+    def add_local(
+        self,
+        source: Any,
+        data_type: Optional[DataType] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        config: Optional[AddConfig] = None,
+    ):
         """
         Adds the data from the given URL to the vector db.
         Loads the data, chunks it, create embedding for each chunk
@@ -198,7 +210,8 @@ class EmbedChain(JSONSerializable):
 
         :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
         :type source: Any
-        :param data_type: Automatically detected, but can be forced with this argument. The type of the data to add, defaults to None
+        :param data_type: Automatically detected, but can be forced with this argument. The type of the data to add,
+        defaults to None
         :type data_type: Optional[DataType], optional
         :param metadata: Metadata associated with the data source., defaults to None
         :type metadata: Optional[Dict[str, Any]], optional
@@ -213,14 +226,22 @@ class EmbedChain(JSONSerializable):
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
 
-    def load_and_embed(self, loader: BaseLoader, chunker: BaseChunker, src: Any, metadata: Optional[Dict[str, Any]] = None, source_id: Optional[str] = None) -> Tuple[List[str], Dict[str, Any], List[str], int]:       
+    def load_and_embed(
+        self,
+        loader: BaseLoader,
+        chunker: BaseChunker,
+        src: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        source_id: Optional[str] = None,
+    ) -> Tuple[List[str], Dict[str, Any], List[str], int]:
         """The loader to use to load the data.
 
         :param loader: The loader to use to load the data.
         :type loader: BaseLoader
         :param chunker: The chunker to use to chunk the data.
         :type chunker: BaseChunker
-        :param src: The data to be handled by the loader. Can be a URL for remote sources or local content for local loaders.
+        :param src: The data to be handled by the loader.
+        Can be a URL for remote sources or local content for local loaders.
         :type src: Any
         :param metadata: Metadata associated with the data source., defaults to None
         :type metadata: Dict[str, Any], optional
@@ -228,7 +249,7 @@ class EmbedChain(JSONSerializable):
         :type source_id: str, optional
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         :rtype: Tuple[List[str], Dict[str, Any], List[str], int]
-        """        
+        """
         embeddings_data = chunker.create_chunks(loader, src)
 
         # spread chunking results
@@ -295,7 +316,7 @@ class EmbedChain(JSONSerializable):
         :type where: _type_, optional
         :return: List of contents of the document that matched your query
         :rtype: List[str]
-        """        
+        """
         query_config = config or self.llm.config
 
         if where is not None:
@@ -316,7 +337,7 @@ class EmbedChain(JSONSerializable):
 
         return contents
 
-    def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict]=None) -> str:
+    def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict] = None) -> str:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -324,7 +345,8 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call. To persistently use a config, declare it during app init., defaults to None
+        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
@@ -343,7 +365,13 @@ class EmbedChain(JSONSerializable):
 
         return answer
 
-    def chat(self, input_query: str, config: Optional[BaseLlmConfig] = None, dry_run=False, where: Optional[Dict[str, str]] = None) -> str:
+    def chat(
+        self,
+        input_query: str,
+        config: Optional[BaseLlmConfig] = None,
+        dry_run=False,
+        where: Optional[Dict[str, str]] = None,
+    ) -> str:
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -353,7 +381,8 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call. To persistently use a config, declare it during app init., defaults to None
+        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
@@ -362,7 +391,7 @@ class EmbedChain(JSONSerializable):
         :type where: Optional[Dict[str, str]], optional
         :return: The answer to the query or the dry run result
         :rtype: str
-        """        
+        """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
@@ -380,7 +409,7 @@ class EmbedChain(JSONSerializable):
 
         :param name: Name of the collection.
         :type name: str
-        """ 
+        """
         self.db.set_collection_name(name)
         # Create the collection if it does not exist
         self.db._get_or_create_collection(name)

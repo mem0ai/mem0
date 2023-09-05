@@ -13,6 +13,6 @@ class BaseEmbedderConfig:
         :type model: Optional[str], optional
         :param deployment_name: deployment name for llm embedding model, defaults to None
         :type deployment_name: Optional[str], optional
-        """        
+        """
         self.model = model
         self.deployment_name = deployment_name

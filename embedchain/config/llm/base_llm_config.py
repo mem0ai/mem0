@@ -1,6 +1,6 @@
 import re
 from string import Template
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
 
 from embedchain.config.BaseConfig import BaseConfig
 from embedchain.helper_classes.json_serializable import register_deserializable
@@ -82,11 +82,13 @@ class BaseLlmConfig(BaseConfig):
         :type template: Optional[Template], optional
         :param model: Controls the OpenAI model used, defaults to None
         :type model: Optional[str], optional
-        :param temperature:  Controls the randomness of the model's output. Higher values (closer to 1) make output more random, lower values make it more deterministic, defaults to 0
+        :param temperature:  Controls the randomness of the model's output.
+        Higher values (closer to 1) make output more random, lower values make it more deterministic, defaults to 0
         :type temperature: float, optional
         :param max_tokens: Controls how many tokens are generated, defaults to 1000
         :type max_tokens: int, optional
-        :param top_p: Controls the diversity of words. Higher values (closer to 1) make word selection more diverse, lower values make words less diverse, defaults to 1
+        :param top_p: Controls the diversity of words. Higher values (closer to 1) make word selection more diverse,
+        defaults to 1
         :type top_p: float, optional
         :param stream: Control if response is streamed back to user, defaults to False
         :type stream: bool, optional
@@ -99,7 +101,7 @@ class BaseLlmConfig(BaseConfig):
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
-        """           
+        """
         if template is None:
             template = DEFAULT_PROMPT_TEMPLATE
 
@@ -129,7 +131,7 @@ class BaseLlmConfig(BaseConfig):
         :type template: Template
         :return: valid (true) or invalid (false)
         :rtype: bool
-        """        
+        """
         return re.search(query_re, template.template) and re.search(context_re, template.template)
 
     def _validate_template_history(self, template: Template) -> bool:
@@ -140,5 +142,5 @@ class BaseLlmConfig(BaseConfig):
         :type template: Template
         :return: valid (true) or invalid (false)
         :rtype: bool
-        """        
+        """
         return re.search(history_re, template.template)

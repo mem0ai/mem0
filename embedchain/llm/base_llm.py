@@ -1,14 +1,14 @@
 import logging
-from typing import List, Optional, Generator, Any, Dict
+from typing import Any, Dict, Generator, List, Optional
 
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage
-from embedchain.helper_classes.json_serializable import JSONSerializable
 
 from embedchain.config import BaseLlmConfig
 from embedchain.config.llm.base_llm_config import (
     DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
     DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.helper_classes.json_serializable import JSONSerializable
 
 
 class BaseLlm(JSONSerializable):
@@ -17,7 +17,7 @@ class BaseLlm(JSONSerializable):
 
         :param config: LLM configuration option class, defaults to None
         :type config: Optional[BaseLlmConfig], optional
-        """        
+        """
         if config is None:
             self.config = BaseLlmConfig()
         else:
@@ -108,7 +108,7 @@ class BaseLlm(JSONSerializable):
         :type prompt: str
         :return: The answer.
         :rtype: _type_
-        """        
+        """
         return self.get_llm_model_answer(prompt)
 
     def access_search_and_get_results(self, input_query: str):
@@ -119,7 +119,7 @@ class BaseLlm(JSONSerializable):
         :type input_query: str
         :return: Search results
         :rtype: Unknown
-        """        
+        """
         from langchain.tools import DuckDuckGoSearchRun
 
         search = DuckDuckGoSearchRun()
@@ -155,7 +155,7 @@ class BaseLlm(JSONSerializable):
         self.memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
 
-    def query(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run = False):
+    def query(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run=False):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -165,7 +165,8 @@ class BaseLlm(JSONSerializable):
         :type input_query: str
         :param contexts: Embeddings retrieved from the database to be used as context.
         :type contexts: List[str]
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call. To persistently use a config, declare it during app init., defaults to None
+        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
@@ -195,7 +196,7 @@ class BaseLlm(JSONSerializable):
         else:
             return self._stream_query_response(answer)
 
-    def chat(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run = False):
+    def chat(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run=False):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -207,7 +208,8 @@ class BaseLlm(JSONSerializable):
         :type input_query: str
         :param contexts: Embeddings retrieved from the database to be used as context.
         :type contexts: List[str]
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call. To persistently use a config, declare it during app init., defaults to None
+        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
@@ -260,7 +262,7 @@ class BaseLlm(JSONSerializable):
         :type system_prompt: Optional[str], optional
         :return: List of messages
         :rtype: List[BaseMessage]
-        """        
+        """
         from langchain.schema import HumanMessage, SystemMessage
 
         messages = []

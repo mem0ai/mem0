@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 try:
     from elasticsearch import Elasticsearch
@@ -18,19 +18,21 @@ class ElasticsearchDB(BaseVectorDB):
     """
     Elasticsearch as vector database
     """
+
     def __init__(
         self,
-        config: ElasticsearchDBConfig = None,
-        es_config: ElasticsearchDBConfig = None,  # Backwards compatibility
+        config: Optional[ElasticsearchDBConfig] = None,
+        es_config: Optional[ElasticsearchDBConfig] = None,  # Backwards compatibility
     ):
         """Elasticsearch as vector database.
 
         :param config: Elasticsearch database config, defaults to None
         :type config: ElasticsearchDBConfig, optional
-        :param es_config: `es_config` is supported as an alias for `config` (for backwards compatibility), defaults to None
+        :param es_config: `es_config` is supported as an alias for `config` (for backwards compatibility),
+        defaults to None
         :type es_config: ElasticsearchDBConfig, optional
         :raises ValueError: No config provided
-        """        
+        """
         if config is None and es_config is None:
             raise ValueError("ElasticsearchDBConfig is required")
         self.config = config or es_config
@@ -74,7 +76,7 @@ class ElasticsearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :return: ids
         :rtype: Set[str]
-        """        
+        """
         query = {"bool": {"must": [{"ids": {"values": ids}}]}}
         if "app_id" in where:
             app_id = where["app_id"]
@@ -94,7 +96,7 @@ class ElasticsearchDB(BaseVectorDB):
         :param ids: ids of docs
         :type ids: List[str]
         """
-        
+
         docs = []
         embeddings = self.config.embedding_fn(documents)
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
@@ -120,7 +122,7 @@ class ElasticsearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :return: Database contents that are the result of the query
         :rtype: List[str]
-        """        
+        """
         input_query_vector = self.config.embedding_fn(input_query)
         query_vector = input_query_vector[0]
         query = {
@@ -147,7 +149,7 @@ class ElasticsearchDB(BaseVectorDB):
 
         :param name: Name of the collection.
         :type name: str
-        """        
+        """
         self.config.collection_name = name
 
     def count(self) -> int:
@@ -156,7 +158,7 @@ class ElasticsearchDB(BaseVectorDB):
 
         :return: number of documents
         :rtype: int
-        """    
+        """
         query = {"match_all": {}}
         response = self.client.count(index=self.es_index, query=query)
         doc_count = response["count"]

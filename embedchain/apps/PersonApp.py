@@ -43,7 +43,7 @@ class EmbedChainPersonApp:
         :type config: BaseLlmConfig, optional
         :return: The `ChatConfig` instance to use as configuration options.
         :rtype: _type_
-        """        
+        """
         template = Template(self.person_prompt + " " + default_prompt)
 
         if config:

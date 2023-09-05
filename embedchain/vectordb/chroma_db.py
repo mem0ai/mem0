@@ -1,7 +1,7 @@
 import logging
-from typing import Any, Dict, List, Optional
-from chromadb import Collection, QueryResult
+from typing import Dict, List, Optional
 
+from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
@@ -30,7 +30,7 @@ class ChromaDB(BaseVectorDB):
 
         :param config: Configuration options for Chroma, defaults to None
         :type config: Optional[ChromaDbConfig], optional
-        """        
+        """
         if config:
             self.config = config
         else:
@@ -69,7 +69,7 @@ class ChromaDB(BaseVectorDB):
         """Called during initialization"""
         return self.client
 
-    def _get_or_create_collection(self, name: str) -> Collection:   
+    def _get_or_create_collection(self, name: str) -> Collection:
         """
         Get or create a named collection.
 
@@ -78,7 +78,7 @@ class ChromaDB(BaseVectorDB):
         :raises ValueError: No embedder configured.
         :return: Created collection
         :rtype: Collection
-        """         
+        """
         if not hasattr(self, "embedder") or not self.embedder:
             raise ValueError("Cannot create a Chroma database collection without an embedder.")
         self.collection = self.client.get_or_create_collection(
@@ -97,7 +97,7 @@ class ChromaDB(BaseVectorDB):
         :type where: Dict[str, any]
         :return: Existing documents.
         :rtype: List[str]
-        """        
+        """
         existing_docs = self.collection.get(
             ids=ids,
             where=where,  # optional filter
@@ -174,7 +174,7 @@ class ChromaDB(BaseVectorDB):
 
         :param name: Name of the collection.
         :type name: str
-        """ 
+        """
         self.config.collection_name = name
         self._get_or_create_collection(self.config.collection_name)
 
@@ -184,7 +184,7 @@ class ChromaDB(BaseVectorDB):
 
         :return: number of documents
         :rtype: int
-        """ 
+        """
         return self.collection.count()
 
     def reset(self):

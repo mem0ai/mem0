@@ -32,15 +32,21 @@ class OpenSourceApp(EmbedChain):
         system_prompt: Optional[str] = None,
     ):
         """
-        Initialize a new `CustomApp` instance. Since it's opinionated you don't have to choose a LLM, database and embedder. However, you can configure those.
+        Initialize a new `CustomApp` instance.
+        Since it's opinionated you don't have to choose a LLM, database and embedder.
+        However, you can configure those.
 
-        :param config: Config for the app instance. This is the most basic configuration, that does not fall into the LLM, database or embedder category, defaults to None
+        :param config: Config for the app instance. This is the most basic configuration,
+        that does not fall into the LLM, database or embedder category, defaults to None
         :type config: OpenSourceAppConfig, optional
-        :param llm_config: Allows you to configure the LLM, e.g. how many documents to return. example: `from embedchain.config import LlmConfig`, defaults to None
+        :param llm_config: Allows you to configure the LLM, e.g. how many documents to return.
+        example: `from embedchain.config import LlmConfig`, defaults to None
         :type llm_config: BaseLlmConfig, optional
-        :param chromadb_config: Allows you to configure the open source database, example: `from embedchain.config import ChromaDbConfig`, defaults to None
+        :param chromadb_config: Allows you to configure the open source database,
+        example: `from embedchain.config import ChromaDbConfig`, defaults to None
         :type chromadb_config: Optional[ChromaDbConfig], optional
-        :param system_prompt: System prompt that will be provided to the LLM as such. Please don't use for the time being, as it's not supported., defaults to None
+        :param system_prompt: System prompt that will be provided to the LLM as such.
+        Please don't use for the time being, as it's not supported., defaults to None
         :type system_prompt: Optional[str], optional
         :raises TypeError: `OpenSourceAppConfig` or `LlmConfig` invalid.
         """

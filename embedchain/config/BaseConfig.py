@@ -1,5 +1,7 @@
+from typing import Any, Dict
+
 from embedchain.helper_classes.json_serializable import JSONSerializable
-from typing import Dict, Any
+
 
 class BaseConfig(JSONSerializable):
     """

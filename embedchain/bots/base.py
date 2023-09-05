@@ -1,3 +1,5 @@
+from typing import Any
+
 from embedchain import CustomApp
 from embedchain.config import AddConfig, CustomAppConfig, LlmConfig
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
@@ -5,7 +7,6 @@ from embedchain.helper_classes.json_serializable import (
     JSONSerializable, register_deserializable)
 from embedchain.llm.openai_llm import OpenAiLlm
 from embedchain.vectordb.chroma_db import ChromaDB
-from typing import Any
 
 
 @register_deserializable
@@ -22,7 +23,7 @@ class BaseBot(JSONSerializable):
         :type data: Any
         :param config: configuration class instance, defaults to None
         :type config: AddConfig, optional
-        """        
+        """
         config = config if config else AddConfig()
         self.app.add(data, config=config)
 
@@ -36,7 +37,7 @@ class BaseBot(JSONSerializable):
         :type config: LlmConfig, optional
         :return: Answer
         :rtype: str
-        """        
+        """
         config = config
         return self.app.query(query, config=config)
 

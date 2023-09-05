@@ -11,7 +11,7 @@ class BaseVectorDB(JSONSerializable):
 
         :param config: Database configuration class instance.
         :type config: BaseVectorDbConfig
-        """        
+        """
         self.client = self._get_or_create_db()
         self.config: BaseVectorDbConfig = config
 
@@ -41,7 +41,7 @@ class BaseVectorDB(JSONSerializable):
         self.embedder = embedder
 
     def get(self):
-        """Get database embeddings by id."""        
+        """Get database embeddings by id."""
         raise NotImplementedError
 
     def add(self):
@@ -58,7 +58,7 @@ class BaseVectorDB(JSONSerializable):
 
         :return: number of documents
         :rtype: int
-        """   
+        """
         raise NotImplementedError
 
     def reset(self):

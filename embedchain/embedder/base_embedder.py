@@ -62,6 +62,7 @@ class BaseEmbedder:
         :return: embedding function
         :rtype: Callable
         """
+
         def embed_function(texts: Documents) -> Embeddings:
             return embeddings.embed_documents(texts)
 

@@ -9,6 +9,7 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
+from embedchain.config.AddConfig import ChunkerConfig, LoaderConfig
 from embedchain.helper_classes.json_serializable import JSONSerializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.csv import CsvLoader
@@ -21,7 +22,6 @@ from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.models.data_type import DataType
-from embedchain.config.AddConfig import LoaderConfig, ChunkerConfig
 
 
 class DataFormatter(JSONSerializable):
@@ -54,7 +54,7 @@ class DataFormatter(JSONSerializable):
         :raises ValueError: If an unsupported data type is provided.
         :return: The loader for the given data type.
         :rtype: BaseLoader
-        """        
+        """
         loaders = {
             DataType.YOUTUBE_VIDEO: YoutubeVideoLoader,
             DataType.PDF_FILE: PdfFileLoader,
@@ -91,7 +91,7 @@ class DataFormatter(JSONSerializable):
         :raises ValueError: If an unsupported data type is provided.
         :return: The chunker for the given data type.
         :rtype: BaseChunker
-        """        
+        """
         chunker_classes = {
             DataType.YOUTUBE_VIDEO: YoutubeVideoChunker,
             DataType.PDF_FILE: PdfFileChunker,

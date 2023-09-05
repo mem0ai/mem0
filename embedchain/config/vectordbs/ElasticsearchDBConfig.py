@@ -12,7 +12,7 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         es_url: Union[str, List[str]] = None,
         **ES_EXTRA_PARAMS: Dict[str, any],
-    ):     
+    ):
         """
         Initializes a configuration class instance for an Elasticsearch client.
 

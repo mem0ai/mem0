@@ -13,6 +13,7 @@ class WhatsAppBot(BaseBot):
     def __init__(self):
         from flask import Flask, request
         from twilio.twiml.messaging_response import MessagingResponse
+
         super().__init__()
 
     def handle_message(self, message):
