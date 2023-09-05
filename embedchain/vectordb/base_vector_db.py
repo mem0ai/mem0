@@ -26,5 +26,8 @@ class BaseVectorDB(JSONSerializable):
     def count(self):
         raise NotImplementedError
 
+    def delete(self):
+        raise NotImplementedError
+
     def reset(self):
         raise NotImplementedError
