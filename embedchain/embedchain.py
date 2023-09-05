@@ -335,7 +335,6 @@ class EmbedChain(JSONSerializable):
 
         # Create chunks
         embeddings_data = chunker.create_chunks(loader, src)
-
         # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
@@ -399,7 +398,7 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
 
-        self.db.add(documents=documents, metadatas=metadatas, ids=ids, skip_embedding = (data_type == DataType.IMAGES))
+        self.db.add(embeddings=embeddings_data["embeddings"], documents=documents, metadatas=metadatas, ids=ids, skip_embedding = (data_type == DataType.IMAGES))
         count_new_chunks = self.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
@@ -482,7 +481,7 @@ class EmbedChain(JSONSerializable):
         #
         # if config.query_type == "Images":
         #     query_embeddings = ClipProcessor.get_text_features(query=input_query)
-        #     answer = self.retrieve_from_database(query_embeddings, config)
+        #     answer = self.retrieve_from_database(query_embeddings, config)[0]
         # else:
         #     contexts = self.retrieve_from_database(input_query, config)
         #     prompt = self.generate_prompt(input_query, contexts, config, **k)

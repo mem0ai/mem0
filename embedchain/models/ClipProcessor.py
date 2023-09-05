@@ -31,7 +31,11 @@ class ClipProcessor:
 
             # pre-process image
         processed_image = preprocess(image).unsqueeze(0).to(device)
-        image_features = model.encode_image(processed_image).detach().numpy().tolist()[0]
+        with torch.no_grad():
+            image_features = model.encode_image(processed_image)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+
+        image_features = image_features.cpu().detach().numpy().tolist()[0]
         meta_data = {
             "url": image_url
         }
@@ -47,5 +51,7 @@ class ClipProcessor:
         model, preprocess = ClipProcessor.load_model()
         text = clip.tokenize(query).to(device)
         with torch.no_grad():
-            text_features = model.encode_text(text).cpu().numpy().tolist()[0]
-        return text_features
+            text_features = model.encode_text(text)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        return text_features.cpu().numpy().tolist()[0]

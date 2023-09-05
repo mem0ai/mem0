@@ -30,6 +30,7 @@ class ImagesChunker(BaseChunker):
         remote sources or local content for local loaders.
         """
         documents = []
+        embeddings = []
         ids = []
         datas = loader.load_data(src)
         metadatas = []
@@ -39,11 +40,13 @@ class ImagesChunker(BaseChunker):
             meta_data["data_type"] = self.data_type.value
             chunk_id = hashlib.sha256(meta_data["url"].encode()).hexdigest()
             ids.append(chunk_id)
-            documents.append(data["content"])
+            documents.append(meta_data["url"])
+            embeddings.append(data["content"])
             metadatas.append(meta_data)
 
         return {
             "documents": documents,
+            "embeddings": embeddings,
             "ids": ids,
             "metadatas": metadatas,
         }

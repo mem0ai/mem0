@@ -100,7 +100,7 @@ class ElasticsearchDB(BaseVectorDB):
         ids = [doc["_id"] for doc in docs]
         return {"ids": set(ids)}
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool):
+    def add(self, embeddings: List[List[float]], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool) -> Any:
         """
         add data in vector database
         :param documents: list of texts to add
@@ -112,9 +112,7 @@ class ElasticsearchDB(BaseVectorDB):
         """
 
         docs = []
-        if skip_embedding:
-            embeddings = documents
-        else:
+        if not skip_embedding:
             embeddings = self.embedder.embedding_fn(documents)
 
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
