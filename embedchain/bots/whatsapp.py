@@ -17,7 +17,7 @@ class WhatsAppBot(BaseBot):
             self.twilio = importlib.import_module("twilio")
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
-                "The required dependencies for Whatsapp are not installed. "
+                "The required dependencies for WhatsApp are not installed. "
                 'Please install with `pip install --upgrade "embedchain[whatsapp]"`'
             ) from None
         super().__init__()
