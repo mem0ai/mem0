@@ -5,7 +5,7 @@ try:
     from llama_index import download_loader
 except ImportError:
     raise ImportError(
-        "Notion requires extra dependencies. Install with `pip install --upgrade embedchain[community]`"
+        "Notion requires extra dependencies. Install with `pip install --upgrade 'embedchain[community]'`"
     ) from None
 
 
