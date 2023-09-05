@@ -12,9 +12,14 @@ from .base import BaseBot
 @register_deserializable
 class WhatsAppBot(BaseBot):
     def __init__(self):
-        self.flask = importlib.import_module("flask")
-        self.tiwlio = importlib.import_module("twilio")
-
+        try:
+            self.flask = importlib.import_module("flask")
+            self.twilio = importlib.import_module("twilio")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "The required dependencies for Whatsapp are not installed."
+                'Please install with `pip install "embedchain[whatsapp]"`'
+            ) from None
         super().__init__()
 
     def handle_message(self, message):
