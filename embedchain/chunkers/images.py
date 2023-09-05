@@ -22,9 +22,9 @@ class ImagesChunker(BaseChunker):
 
     def create_chunks(self, loader, src):
         """
-        Loads data and chunks it.
+        Loads the image(s), and creates their corresponding embedding. This creates one chunk for each image
 
-        :param loader: The loader which's `load_data` method is used to create
+        :param loader: The loader whose `load_data` method is used to create
         the raw data.
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
@@ -40,8 +40,8 @@ class ImagesChunker(BaseChunker):
             meta_data["data_type"] = self.data_type.value
             chunk_id = hashlib.sha256(meta_data["url"].encode()).hexdigest()
             ids.append(chunk_id)
-            documents.append(meta_data["url"])
-            embeddings.append(data["content"])
+            documents.append(data["content"])
+            embeddings.append(data["embedding"])
             metadatas.append(meta_data)
 
         return {

@@ -34,6 +34,7 @@ class BaseChunker(JSONSerializable):
             meta_data["data_type"] = self.data_type.value
             meta_data["doc_id"] = doc_id
             url = meta_data["url"]
+
             chunks = self.get_chunks(content)
 
             for chunk in chunks:

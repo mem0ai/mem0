@@ -20,6 +20,9 @@ class ClipProcessor:
 
     @staticmethod
     def get_image_features(image_url, model, preprocess):
+        """
+        Applies the CLIP model to evaluate the vector representation of the supplied image
+        """
         device = "cuda" if torch.cuda.is_available() else "cpu"
         try:
             # load image
@@ -40,12 +43,16 @@ class ClipProcessor:
             "url": image_url
         }
         return {
-            "content": image_features,
+            "content": image_url,
+            "embedding": image_features,
             "meta_data": meta_data
         }
 
     @staticmethod
     def get_text_features(query):
+        """
+        Applies the CLIP model to evaluate the vector representation of the supplied text
+        """
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
         model, preprocess = ClipProcessor.load_model()
