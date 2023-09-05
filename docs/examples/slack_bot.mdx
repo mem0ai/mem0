@@ -2,27 +2,25 @@
 title: '💼 Slack Bot'
 ---
 
-### 🖼️ Template Setup
+### 🖼️ Setup
 
-- Fork [this](https://replit.com/@taranjeetio/EC-Slack-Bot-Template?v=1#README.md) replit template.
-- Set your `OPENAI_API_KEY` in Secrets.
-- Create a workspace on Slack if you don't have one already by clicking [here](https://slack.com/intl/en-in/).
-- Create a new App on your Slack account by going [here](https://api.slack.com/apps).
-- Select `From Scratch`, then enter the Bot Name and select your workspace.
-- On the `Basic Information` page copy the `Signing Secret` and set it in your secrets as `SLACK_SIGNING_SECRET`.
-- On the left Sidebar, go to `OAuth and Permissions` and add the following scopes under `Bot Token Scopes`:
+1. Create a workspace on Slack if you don't have one already by clicking [here](https://slack.com/intl/en-in/).
+2. Create a new App on your Slack account by going [here](https://api.slack.com/apps).
+3. Select `From Scratch`, then enter the Bot Name and select your workspace.
+4. On the left Sidebar, go to `OAuth and Permissions` and add the following scopes under `Bot Token Scopes`:
 ```text
 app_mentions:read
 channels:history
 channels:read
 chat:write
 ```
-- Now select the option `Install to Workspace` and after it's done, copy the `Bot User OAuth Token` and set it in your secrets as `SLACK_BOT_TOKEN`.
-- Start your replit container now by clicking on `Run`.
-- On the Slack API website go to `Event Subscriptions` on the left Sidebar and turn on `Enable Events`.
-- Copy the generated server URL in replit, append `/chat` at its end and paste it in `Request URL` box.
-- After it gets verified, click on `Subscribe to bot events`, add `message.channels` Bot User Event and click on `Save Changes`.
-- Now go to your workspace, click on the bot name in the Sidebar and then add the bot to any channel you want.
+5. Now select the option `Install to Workspace` and after it's done, copy the `Bot User OAuth Token` and set it in your secrets as `SLACK_BOT_TOKEN`.
+6. Run your bot now with `python3 -m embedchain.bots.slack`
+7. Expose your bot to the internet. Default port is `5000`, which can be changed by adding `port --8080` to the startup command. You can use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
+8. On the Slack API website go to `Event Subscriptions` on the left Sidebar and turn on `Enable Events`.
+9. In `Request URL`, enter your server or ngrok address.
+10. After it gets verified, click on `Subscribe to bot events`, add `message.channels` Bot User Event and click on `Save Changes`.
+11. Now go to your workspace, right click on the bot name in the sidebar, click `view app details`, then `add this app to a channel`.
 
 ### 🚀 Usage Instructions
 

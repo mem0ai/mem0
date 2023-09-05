@@ -101,6 +101,7 @@ flask = "^2.3.3"
 twilio = "^8.5.0"
 fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
+slack-sdk = { version = "3.21.3", optional = true }
 
 
 
@@ -121,6 +122,7 @@ opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 poe = ["fastapi-poe"]
 discord = ["discord"]
+slack = ["slack-sdk", "flask"]
 
 [tool.poetry.group.docs.dependencies]
 
