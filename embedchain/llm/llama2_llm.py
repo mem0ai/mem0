@@ -6,7 +6,10 @@ from langchain.llms import Replicate
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.base_llm import BaseLlm
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 
+
+@register_deserializable
 class Llama2Llm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         if "REPLICATE_API_TOKEN" not in os.environ:

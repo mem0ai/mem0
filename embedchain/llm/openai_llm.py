@@ -5,7 +5,10 @@ import openai
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.base_llm import BaseLlm
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 
+
+@register_deserializable
 class OpenAiLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)

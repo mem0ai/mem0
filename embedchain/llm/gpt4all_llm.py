@@ -3,7 +3,10 @@ from typing import Iterable, Optional, Union
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.base_llm import BaseLlm
 
+from embedchain.helper_classes.json_serializable import register_deserializable
 
+
+@register_deserializable
 class GPT4ALLLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
