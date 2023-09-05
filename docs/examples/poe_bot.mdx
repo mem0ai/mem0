@@ -16,10 +16,12 @@ pip install "embedchain[poe]"
 5. Select `Use API`.
 6. Under `API URL` enter your server or ngrok address. You can use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
 7. Copy your api key and paste it in `.env` as `POE_API_KEY`.
-8. Now create your bot using the following code snippet
+8. You will need to set `OPENAI_API_KEY` for generating embeddings and using LLM. Copy your OpenAI API key from [here](https://platform.openai.com/account/api-keys) and paste it in `.env` as `OPENAI_API_KEY`.
+9. Now create your bot using the following code snippet.
 
 ```bash
-from embedchain import PoeBot
+# make sure that you have set OPENAI_API_KEY and POE_API_KEY in .env file
+from embedchain.bots import PoeBot
 
 poe_bot = PoeBot()
 
@@ -32,12 +34,20 @@ poe_bot.add("https://www.youtube.com/watch?v=pJQVAqmKua8")
 poe_bot.start()
 ```
 
-9. You can refer the [Supported Data formats](https://docs.embedchain.ai/advanced/data_types) section to refer the supported data types in embedchain.
+10. You can paste the above in a file called `your_script.py` and then simply do
 
-10. Click `Run check` to make sure your machine can be reached.
-11. Make sure your bot is private if that's what you want.
-12. Click `Create bot` at the bottom to finally create the bot
-13. Now you bot is created.
+```bash
+python your_script.py
+```
+
+Now your bot will start running at port `8080` by default.
+
+11. You can refer the [Supported Data formats](https://docs.embedchain.ai/advanced/data_types) section to refer the supported data types in embedchain.
+
+12. Click `Run check` to make sure your machine can be reached.
+13. Make sure your bot is private if that's what you want.
+14. Click `Create bot` at the bottom to finally create the bot
+15. Now you bot is created.
 
 ### 💬 How to use
 
