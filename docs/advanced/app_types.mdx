@@ -14,7 +14,7 @@ app = App()
 ```
 
 - `App` uses OpenAI's model, so these are paid models. 💸 You will be charged for embedding model usage and LLM usage.
-- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 - `App` is opinionated. It uses the best embedding model and LLM on the market.
 - Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
@@ -49,7 +49,7 @@ zuck_bot.query("Who owns the new threads app and when it was founded?")
 ```
 
 - `Llama2App` uses Replicate's LLM model, so these are paid models. You can get the `REPLICATE_API_TOKEN` by registering on [their website](https://replicate.com/account).
-- `Llama2App` uses OpenAI's embedding model to create embeddings for chunks. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `Llama2App` uses OpenAI's embedding model to create embeddings for chunks. Make sure that you have an OpenAI account and an API key. If you don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 
 
 ### OpenSourceApp
@@ -69,16 +69,27 @@ app = OpenSourceApp()
 
 ```python
 from embedchain import CustomApp
-from embedchain.config import CustomAppConfig
-from embedchain.models import Providers, EmbeddingFunctions
+from embedchain.config import (CustomAppConfig, ElasticsearchDBConfig,
+                               EmbedderConfig, LlmConfig)
+from embedchain.embedder.vertexai_embedder import VertexAiEmbedder
+from embedchain.llm.vertex_ai_llm import VertexAiLlm
+from embedchain.models import EmbeddingFunctions, Providers
+from embedchain.vectordb.elasticsearch_db import Elasticsearch
 
-config = CustomAppConfig(embedding_fn=EmbeddingFunctions.OPENAI, provider=Providers.OPENAI)
-app = CustomApp(config)
+# short
+app = CustomApp(llm=VertexAiLlm(), db=Elasticsearch(), embedder=VertexAiEmbedder())
+# with configs
+app = CustomApp(
+    config=CustomAppConfig(log_level="INFO"),
+    llm=VertexAiLlm(config=LlmConfig(number_documents=5)),
+    db=Elasticsearch(config=ElasticsearchDBConfig(es_url="...")),
+    embedder=VertexAiEmbedder(config=EmbedderConfig()),
+)
 ```
 
 - `CustomApp` is not opinionated.
-- Configuration required. It's for advanced users who want to mix and match different embedding models and LLMs. Configuration required.
-- while it's doing that, it's still providing abstractions through `Providers`.
+- Configuration required. It's for advanced users who want to mix and match different embedding models and LLMs.
+- while it's doing that, it's still providing abstractions by allowing you to import Classes from `embedchain.llm`, `embedchain.vectordb`, and `embedchain.embedder`.
 - paid and free/open source providers included.
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
 - Following providers are available for an LLM
@@ -87,6 +98,7 @@ app = CustomApp(config)
     - VERTEX_AI
     - GPT4ALL
     - AZURE_OPENAI
+    - LLAMA2
 - Following embedding functions are available for an embedding function
     - OPENAI
     - HUGGING_FACE
@@ -103,7 +115,7 @@ naval_chat_bot = PersonApp("name_of_person_or_character") #Like "Yoda"
 ```
 
 - `PersonApp` uses OpenAI's model, so these are paid models. 💸 You will be charged for embedding model usage and LLM usage.
-- `PersonApp` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you have don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
+- `PersonApp` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
 - Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
 
 ```python

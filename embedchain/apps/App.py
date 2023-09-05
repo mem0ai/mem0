@@ -1,10 +1,12 @@
 from typing import Optional
 
-import openai
-
-from embedchain.config import AppConfig, ChatConfig
+from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
+                               ChromaDbConfig)
 from embedchain.embedchain import EmbedChain
+from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.llm.openai_llm import OpenAiLlm
+from embedchain.vectordb.chroma_db import ChromaDB
 
 
 @register_deserializable
@@ -18,7 +20,13 @@ class App(EmbedChain):
     dry_run(query): test your prompt without consuming tokens.
     """
 
-    def __init__(self, config: AppConfig = None, system_prompt: Optional[str] = None):
+    def __init__(
+        self,
+        config: AppConfig = None,
+        llm_config: BaseLlmConfig = None,
+        chromadb_config: Optional[ChromaDbConfig] = None,
+        system_prompt: Optional[str] = None,
+    ):
         """
         :param config: AppConfig instance to load as configuration. Optional.
         :param system_prompt: System prompt string. Optional.
@@ -26,38 +34,8 @@ class App(EmbedChain):
         if config is None:
             config = AppConfig()
 
-        super().__init__(config, system_prompt)
+        llm = OpenAiLlm(config=llm_config)
+        embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
+        database = ChromaDB(config=chromadb_config)
 
-    def get_llm_model_answer(self, prompt, config: ChatConfig):
-        messages = []
-        system_prompt = (
-            self.system_prompt
-            if self.system_prompt is not None
-            else config.system_prompt
-            if config.system_prompt is not None
-            else None
-        )
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-        response = openai.ChatCompletion.create(
-            model=config.model or "gpt-3.5-turbo-0613",
-            messages=messages,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            stream=config.stream,
-        )
-
-        if config.stream:
-            return self._stream_llm_model_response(response)
-        else:
-            return response["choices"][0]["message"]["content"]
-
-    def _stream_llm_model_response(self, response):
-        """
-        This is a generator for streaming response from the OpenAI completions API
-        """
-        for line in response:
-            chunk = line["choices"][0].get("delta", {}).get("content", "")
-            yield chunk
+        super().__init__(config, llm, db=database, embedder=embedder, system_prompt=system_prompt)

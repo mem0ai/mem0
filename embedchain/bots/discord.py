@@ -1,10 +1,12 @@
+import argparse
 import logging
 import os
-import argparse
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+from embedchain.helper_classes.json_serializable import register_deserializable
 
 from .base import BaseBot
 
@@ -17,6 +19,7 @@ tree = app_commands.CommandTree(client)
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&permissions=2048&scope=bot
 
 
+@register_deserializable
 class DiscordBot(BaseBot):
     def __init__(self, *args, **kwargs):
         BaseBot.__init__(self, *args, **kwargs)
