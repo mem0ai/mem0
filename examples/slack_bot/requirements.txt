@@ -1,5 +1,0 @@
-flask==2.3.2
-slackeventsapi==3.0.1
-slacksdk==3.21.3
-python-dotenv==1.0.0
-embedchain
