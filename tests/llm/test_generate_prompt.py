@@ -2,7 +2,7 @@ import unittest
 from string import Template
 
 from embedchain import App
-from embedchain.config import AppConfig, QueryConfig
+from embedchain.config import AppConfig, BaseLlmConfig
 
 
 class TestGeneratePrompt(unittest.TestCase):
@@ -23,10 +23,11 @@ class TestGeneratePrompt(unittest.TestCase):
         input_query = "Test query"
         contexts = ["Context 1", "Context 2", "Context 3"]
         template = "You are a bot. Context: ${context} - Query: ${query} - Helpful answer:"
-        config = QueryConfig(template=Template(template))
+        config = BaseLlmConfig(template=Template(template))
+        self.app.llm.config = config
 
         # Execute
-        result = self.app.generate_prompt(input_query, contexts, config)
+        result = self.app.llm.generate_prompt(input_query, contexts)
 
         # Assert
         expected_result = (
@@ -45,10 +46,11 @@ class TestGeneratePrompt(unittest.TestCase):
         # Setup
         input_query = "Test query"
         contexts = ["Context 1", "Context 2", "Context 3"]
-        config = QueryConfig()
+        config = BaseLlmConfig()
 
         # Execute
-        result = self.app.generate_prompt(input_query, contexts, config)
+        self.app.llm.config = config
+        result = self.app.llm.generate_prompt(input_query, contexts)
 
         # Assert
         expected_result = config.template.substitute(context="Context 1 | Context 2 | Context 3", query=input_query)
@@ -58,9 +60,11 @@ class TestGeneratePrompt(unittest.TestCase):
         """
         Test the 'generate_prompt' method with QueryConfig containing a history attribute.
         """
-        config = QueryConfig(history=["Past context 1", "Past context 2"])
+        config = BaseLlmConfig()
         config.template = Template("Context: $context | Query: $query | History: $history")
-        prompt = self.app.generate_prompt("Test query", ["Test context"], config)
+        self.app.llm.config = config
+        self.app.llm.set_history(["Past context 1", "Past context 2"])
+        prompt = self.app.llm.generate_prompt("Test query", ["Test context"])
 
         expected_prompt = "Context: Test context | Query: Test query | History: ['Past context 1', 'Past context 2']"
         self.assertEqual(prompt, expected_prompt)

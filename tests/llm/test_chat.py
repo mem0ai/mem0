@@ -1,9 +1,11 @@
+
 import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch, MagicMock
 
 from embedchain import App
-from embedchain.config import AppConfig, ChatConfig
+from embedchain.config import AppConfig, BaseLlmConfig
+from embedchain.llm.base_llm import BaseLlm
 
 
 class TestApp(unittest.TestCase):
@@ -12,7 +14,7 @@ class TestApp(unittest.TestCase):
         self.app = App(config=AppConfig(collect_metrics=False))
 
     @patch.object(App, "retrieve_from_database", return_value=["Test context"])
-    @patch.object(App, "get_answer_from_llm", return_value="Test answer")
+    @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
     def test_chat_with_memory(self, mock_get_answer, mock_retrieve):
         """
         This test checks the functionality of the 'chat' method in the App class with respect to the chat history
@@ -28,13 +30,36 @@ class TestApp(unittest.TestCase):
         The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database', 'get_answer_from_llm' and
         'memory' methods.
         """
-        app = App()
+        config = AppConfig(collect_metrics=False)
+        app = App(config=config)
         first_answer = app.chat("Test query 1")
         self.assertEqual(first_answer, "Test answer")
-        self.assertEqual(len(app.memory.chat_memory.messages), 2)
+        self.assertEqual(len(app.llm.memory.chat_memory.messages), 2)
+        self.assertEqual(len(app.llm.history.splitlines()), 2)
         second_answer = app.chat("Test query 2")
         self.assertEqual(second_answer, "Test answer")
-        self.assertEqual(len(app.memory.chat_memory.messages), 4)
+        self.assertEqual(len(app.llm.memory.chat_memory.messages), 4)
+        self.assertEqual(len(app.llm.history.splitlines()), 4)
+
+    @patch.object(App, "retrieve_from_database", return_value=["Test context"])
+    @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
+    def test_template_replacement(self, mock_get_answer, mock_retrieve):
+        """
+        Tests that if a default template is used and it doesn't contain history,
+        the default template is swapped in.
+
+        Also tests that a dry run does not change the history
+        """
+        config = AppConfig(collect_metrics=False)
+        app = App(config=config)
+        first_answer = app.chat("Test query 1")
+        self.assertEqual(first_answer, "Test answer")
+        self.assertEqual(len(app.llm.history.splitlines()), 2)
+        history = app.llm.history
+        dry_run = app.chat("Test query 2", dry_run=True)
+        self.assertIn("History:", dry_run)
+        self.assertEqual(history, app.llm.history)
+        self.assertEqual(len(app.llm.history.splitlines()), 2)
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_chat_with_where_in_params(self):
@@ -57,13 +82,14 @@ class TestApp(unittest.TestCase):
         """
         with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
-            with patch.object(self.app, "get_llm_model_answer") as mock_answer:
+            with patch.object(self.app.llm, "get_llm_model_answer") as mock_answer:
                 mock_answer.return_value = "Test answer"
-                answer = self.app.chat("Test chat", where={"attribute": "value"})
+                answer = self.app.chat("Test query", where={"attribute": "value"})
 
         self.assertEqual(answer, "Test answer")
-        self.assertEqual(mock_retrieve.call_args[0][0], "Test chat")
-        self.assertEqual(mock_retrieve.call_args[0][2], {"attribute": "value"})
+        _args, kwargs = mock_retrieve.call_args
+        self.assertEqual(kwargs.get('input_query'), "Test query")
+        self.assertEqual(kwargs.get('where'), {"attribute": "value"})
         mock_answer.assert_called_once()
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
@@ -85,15 +111,15 @@ class TestApp(unittest.TestCase):
         The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database' and
         'get_llm_model_answer' methods.
         """
-        with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
-            mock_retrieve.return_value = ["Test context"]
-            with patch.object(self.app, "get_llm_model_answer") as mock_answer:
-                mock_answer.return_value = "Test answer"
-                chatConfig = ChatConfig(where={"attribute": "value"})
-                answer = self.app.chat("Test chat", chatConfig)
+        with patch.object(self.app.llm, "get_llm_model_answer") as mock_answer:
+            mock_answer.return_value = "Test answer"
+            with patch.object(self.app.db, "query") as mock_database_query:
+                mock_database_query.return_value = ["Test context"]
+                queryConfig = BaseLlmConfig(where={"attribute": "value"})
+                answer = self.app.chat("Test query", queryConfig)
 
         self.assertEqual(answer, "Test answer")
-        self.assertEqual(mock_retrieve.call_args[0][0], "Test chat")
-        self.assertEqual(mock_retrieve.call_args[0][1].where, {"attribute": "value"})
-        self.assertIsInstance(mock_retrieve.call_args[0][1], ChatConfig)
+        _args, kwargs = mock_database_query.call_args
+        self.assertEqual(kwargs.get('input_query'), "Test query")
+        self.assertEqual(kwargs.get('where'), {"attribute": "value"})
         mock_answer.assert_called_once()

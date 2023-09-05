@@ -5,7 +5,6 @@ from typing import List, Optional
 
 from fastapi_poe import PoeBot, run
 
-from embedchain.config import QueryConfig
 from embedchain.helper_classes.json_serializable import register_deserializable
 
 from .base import BaseBot
@@ -46,7 +45,6 @@ class PoeBot(BaseBot, PoeBot):
             )
         except Exception as e:
             logging.error(f"Error when processing the chat history. Message is being sent without history. Error: {e}")
-        logging.warning(history)
         answer = self.handle_message(last_message, history)
         yield self.text_event(answer)
 
@@ -69,8 +67,8 @@ class PoeBot(BaseBot, PoeBot):
 
     def ask_bot(self, message, history: List[str]):
         try:
-            config = QueryConfig(history=history)
-            response = self.query(message, config)
+            self.app.llm.set_history(history=history)
+            response = self.query(message)
         except Exception:
             logging.exception(f"Failed to query {message}.")
             response = "An error occurred. Please try again!"
