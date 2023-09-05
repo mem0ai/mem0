@@ -1,7 +1,6 @@
 from embedchain import CustomApp
 from embedchain.config import AddConfig, CustomAppConfig, QueryConfig
-from embedchain.helper_classes.json_serializable import (
-    JSONSerializable, register_deserializable)
+from embedchain.helper_classes.json_serializable import JSONSerializable, register_deserializable
 from embedchain.models import EmbeddingFunctions, Providers
 
 
