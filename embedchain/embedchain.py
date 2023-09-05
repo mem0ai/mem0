@@ -312,7 +312,7 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :param config: Optional. The `LlmConfig` instance to use as configuration options.
-        This is used for one method call. You can also assign to `app.llm.config` for persistence.
+        This is used for one method call. To persistently use a config, declare it during app init.
         :param dry_run: Optional. A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
         You can use it to test your prompt, including the context provided
@@ -340,7 +340,7 @@ class EmbedChain(JSONSerializable):
         Maintains the whole conversation in memory.
         :param input_query: The query to use.
         :param config: Optional. The `LlmConfig` instance to use as configuration options.
-        This is used for one method call. You can also assign to `app.llm.config` for persistence.
+        This is used for one method call. To persistently use a config, declare it during app init.
         :param dry_run: Optional. A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response.
         You can use it to test your prompt, including the context provided
