@@ -18,7 +18,7 @@ class WhatsAppBot(BaseBot):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for Whatsapp are not installed. "
-                'Please install with `pip install "embedchain[whatsapp]"`'
+                'Please install with `pip install --upgrade "embedchain[whatsapp]"`'
             ) from None
         super().__init__()
 
