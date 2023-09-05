@@ -3,12 +3,12 @@ from typing import List, Optional
 
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage
-from embedchain.helper_classes.json_serializable import JSONSerializable
 
 from embedchain.config import BaseLlmConfig
 from embedchain.config.llm.base_llm_config import (
     DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
     DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.helper_classes.json_serializable import JSONSerializable
 
 
 class BaseLlm(JSONSerializable):
