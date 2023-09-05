@@ -11,3 +11,4 @@ class DataType(Enum):
     TEXT = "text"
     QNA_PAIR = "qna_pair"
     NOTION = "notion"
+    CSV = "csv"

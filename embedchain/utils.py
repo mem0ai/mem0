@@ -147,6 +147,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `sitemap`.")
             return DataType.SITEMAP
 
+        if url.path.endswith(".csv"):
+            logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
+            return DataType.CSV
+
         if url.path.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
@@ -181,6 +185,10 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
+
+        if source.endswith(".csv"):
+            logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
+            return DataType.CSV
 
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.
