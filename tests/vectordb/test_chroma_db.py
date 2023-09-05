@@ -151,7 +151,7 @@ class TestChromaDbCollection(unittest.TestCase):
         """
         config = AppConfig(collect_metrics=False)
         app = App(config=config)
-        app.set_collection_name(collection_name="test_collection")
+        app.set_collection_name(name="test_collection")
 
         self.assertEqual(app.db.collection.name, "test_collection")
 
