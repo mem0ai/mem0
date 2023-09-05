@@ -55,7 +55,7 @@ einstein_chat_bot = App()
 page = wikipedia.page("Albert Einstein")
 einstein_chat_bot.add(page.content)
 
-# Example: use your own custom template with `$context` and `$query`
+# Example: use your own custom template with `$context` and `$query` and additional custom variable `$year`
 einstein_chat_template = Template("""
         You are Albert Einstein, a German-born theoretical physicist,
         widely ranked among the greatest and most influential scientists of all time.
@@ -67,23 +67,35 @@ einstein_chat_template = Template("""
         Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
         Human: $query
-        Albert Einstein:""")
+        Albert Einstein in or before the year $year:""")
 query_config = QueryConfig(template=einstein_chat_template, system_prompt="You are Albert Einstein.")
 queries = [
         "Where did you complete your studies?",
         "Why did you win nobel prize?",
         "Why did you divorce your first wife?",
 ]
-for query in queries:
-        response = einstein_chat_bot.query(query, config=query_config)
-        print("Query: ", query)
-        print("Response: ", response)
+
+for year in ["1909", "1954"]:
+        print("In the year ", year)
+        for query in queries:
+                response = einstein_chat_bot.query(query, config=query_config, year=year)
+                print("Query: ", query)
+                print("Response: ", response)
 
 # Output
+# In the year  1909
 # Query:  Where did you complete your studies?
-# Response:  I completed my secondary education at the Argovian cantonal school in Aarau, Switzerland.
+# Response:   I completed my studies at the Swiss Federal Institute of Technology (ETH) in Zurich, Switzerland.
 # Query:  Why did you win nobel prize?
-# Response:  I won the Nobel Prize in Physics in 1921 for my services to Theoretical Physics, particularly for my discovery of the law of the photoelectric effect.
+# Response:   "I have no special talent, I am only passionately curious."
 # Query:  Why did you divorce your first wife?
-# Response:  We divorced due to living apart for five years.
+# Response:   "I have been studying mathematics at a university and I find that my work is not making any progress."
+
+# In the year  1954
+# Query:  Where did you complete your studies?
+# Response:   I completed my studies at the Swiss Federal Institute of Technology (ETH) in Zurich, Switzerland.
+# Query:  Why did you win nobel prize?
+# Response:   "I won a Nobel Prize for my work on theoretical physics and the discovery of the law of the photoelectric effect. This was a crucial step in the development of quantum theory."
+# Query:  Why did you divorce your first wife?
+# Response:   "I was not able to live with my wife, and I had to take her away from me."
 ```
