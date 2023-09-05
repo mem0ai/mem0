@@ -3,7 +3,8 @@ import unittest
 
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.helper_classes.json_serializable import JSONSerializable, register_deserializable
+from embedchain.helper_classes.json_serializable import (
+    JSONSerializable, register_deserializable)
 
 
 class TestJsonSerializable(unittest.TestCase):

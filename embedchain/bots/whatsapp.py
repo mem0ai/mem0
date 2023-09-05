@@ -1,8 +1,8 @@
 import argparse
+import importlib
 import logging
 import signal
 import sys
-import importlib
 
 from embedchain.helper_classes.json_serializable import register_deserializable
 

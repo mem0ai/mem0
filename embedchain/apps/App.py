@@ -1,6 +1,7 @@
 from typing import Optional
 
-from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig, ChromaDbConfig
+from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
+                               ChromaDbConfig)
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.openai_embedder import OpenAiEmbedder
 from embedchain.helper_classes.json_serializable import register_deserializable
