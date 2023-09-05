@@ -24,6 +24,7 @@ class BaseEmbedder:
             self.config = BaseEmbedderConfig()
         else:
             self.config = config
+        self.vector_dimension: int
 
     def set_embedding_fn(self, embedding_fn: Callable[[list[str]], list[str]]):
         if not hasattr(embedding_fn, "__call__"):
