@@ -69,16 +69,27 @@ app = OpenSourceApp()
 
 ```python
 from embedchain import CustomApp
-from embedchain.config import CustomAppConfig
-from embedchain.models import Providers, EmbeddingFunctions
+from embedchain.config import (CustomAppConfig, ElasticsearchDBConfig,
+                               EmbedderConfig, LlmConfig)
+from embedchain.embedder.vertexai_embedder import VertexAiEmbedder
+from embedchain.llm.vertex_ai_llm import VertexAiLlm
+from embedchain.models import EmbeddingFunctions, Providers
+from embedchain.vectordb.elasticsearch_db import Elasticsearch
 
-config = CustomAppConfig(embedding_fn=EmbeddingFunctions.OPENAI, provider=Providers.OPENAI)
-app = CustomApp(config)
+# short
+app = CustomApp(llm=VertexAiLlm(), db=Elasticsearch(), embedder=VertexAiEmbedder())
+# with configs
+app = CustomApp(
+    config=CustomAppConfig(log_level="INFO"),
+    llm=VertexAiLlm(config=LlmConfig(number_documents=5)),
+    db=Elasticsearch(config=ElasticsearchDBConfig(es_url="...")),
+    embedder=VertexAiEmbedder(config=EmbedderConfig()),
+)
 ```
 
 - `CustomApp` is not opinionated.
-- Configuration required. It's for advanced users who want to mix and match different embedding models and LLMs. Configuration required.
-- while it's doing that, it's still providing abstractions through `Providers`.
+- Configuration required. It's for advanced users who want to mix and match different embedding models and LLMs.
+- while it's doing that, it's still providing abstractions by allowing you to import Classes from `embedchain.llm`, `embedchain.vectordb`, and `embedchain.embedder`.
 - paid and free/open source providers included.
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
 - Following providers are available for an LLM
@@ -87,6 +98,7 @@ app = CustomApp(config)
     - VERTEX_AI
     - GPT4ALL
     - AZURE_OPENAI
+    - LLAMA2
 - Following embedding functions are available for an embedding function
     - OPENAI
     - HUGGING_FACE
