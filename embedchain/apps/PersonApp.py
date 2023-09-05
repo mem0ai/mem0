@@ -60,12 +60,12 @@ class PersonApp(EmbedChainPersonApp, App):
     """
 
     def query(self, input_query, config: BaseLlmConfig = None, dry_run=False):
-        config = self.add_person_template_to_config(DEFAULT_PROMPT, config)
-        return super().query(input_query, config, dry_run)
+        config = self.add_person_template_to_config(DEFAULT_PROMPT, config, where=None)
+        return super().query(input_query, config, dry_run, where=None)
 
-    def chat(self, input_query, config: BaseLlmConfig = None, dry_run=False):
+    def chat(self, input_query, config: BaseLlmConfig = None, dry_run=False, where=None):
         config = self.add_person_template_to_config(DEFAULT_PROMPT_WITH_HISTORY, config)
-        return super().chat(input_query, config, dry_run)
+        return super().chat(input_query, config, dry_run, where)
 
 
 @register_deserializable
