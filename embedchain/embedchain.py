@@ -274,7 +274,7 @@ class EmbedChain(JSONSerializable):
             )
         ]
 
-    def retrieve_from_database(self, input_query, where=None):
+    def retrieve_from_database(self, input_query, config: Optional[BaseLlmConfig] = None, where=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
@@ -284,11 +284,12 @@ class EmbedChain(JSONSerializable):
         :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The content of the document that matched your query.
         """
+        query_config = config or self.llm.config
 
         if where is not None:
             where = where
-        elif config is not None and config.where is not None:
-            where = config.where
+        elif query_config is not None and query_config.where is not None:
+            where = query_config.where
         else:
             where = {}
 
@@ -297,13 +298,13 @@ class EmbedChain(JSONSerializable):
 
         contents = self.db.query(
             input_query=input_query,
-            n_results=self.llm.config.number_documents,
+            n_results=query_config.number_documents,
             where=where,
         )
 
         return contents
 
-    def query(self, input_query, config: BaseLlmConfig = None, dry_run=False):
+    def query(self, input_query, config: BaseLlmConfig = None, dry_run=False, where=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -321,7 +322,7 @@ class EmbedChain(JSONSerializable):
         :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
-        contexts = self.retrieve_from_database(input_query=input_query)
+        contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
         # Send anonymous telemetry
@@ -349,7 +350,7 @@ class EmbedChain(JSONSerializable):
         :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
-        contexts = self.retrieve_from_database(input_query=input_query)
+        contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
         # Send anonymous telemetry

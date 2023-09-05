@@ -109,7 +109,7 @@ class BaseLlm:
         self.memory.chat_memory.add_ai_message(streamed_answer)
         logging.info(f"Answer: {streamed_answer}")
 
-    def query(self, input_query, contexts, config: BaseLlmConfig = None, dry_run=False):
+    def query(self, input_query, contexts, config: BaseLlmConfig = None, dry_run=False, where=None):
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -124,6 +124,7 @@ class BaseLlm:
         by the vector database's doc retrieval.
         The only thing the dry run does not consider is the cut-off due to
         the `max_tokens` parameter.
+        :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
         query_config = config or self.config
@@ -148,7 +149,7 @@ class BaseLlm:
         else:
             return self._stream_query_response(answer)
 
-    def chat(self, input_query, contexts, config: BaseLlmConfig = None, dry_run=False):
+    def chat(self, input_query, contexts, config: BaseLlmConfig = None, dry_run=False, where=None):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -164,6 +165,7 @@ class BaseLlm:
         by the vector database's doc retrieval.
         The only thing the dry run does not consider is the cut-off due to
         the `max_tokens` parameter.
+        :param where: Optional. A dictionary of key-value pairs to filter the database results.
         :return: The answer to the query.
         """
         query_config = config or self.config
