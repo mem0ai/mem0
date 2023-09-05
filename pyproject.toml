@@ -98,8 +98,8 @@ torch = { version = ">=2.0.0, !=2.0.1", optional = true }
 gpt4all = { version = "1.0.8", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
 elasticsearch = { version = "^8.9.0", optional = true }
-flask = "^2.3.3"
-twilio = "^8.5.0"
+flask = { version = "^2.3.3", optional = true }
+twilio = { version = "^8.5.0", optional = true }
 fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
@@ -124,6 +124,7 @@ elasticsearch = ["elasticsearch"]
 poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
+whatsapp = ["twilio", "flask"]
 
 [tool.poetry.group.docs.dependencies]
 
