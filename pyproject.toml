@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.52"
+version = "0.0.53"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
@@ -86,7 +86,7 @@ langchain = "^0.0.279"
 requests = "^2.31.0"
 openai = "^0.27.5"
 tiktoken = "^0.4.0"
-chromadb ="^0.4.2"
+chromadb ="^0.4.8"
 youtube-transcript-api = "^0.6.1"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"

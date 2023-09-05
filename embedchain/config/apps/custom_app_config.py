@@ -34,6 +34,7 @@ class CustomAppConfig(BaseAppConfig):
         collect_metrics: Optional[bool] = None,
         db_type: VectorDatabases = None,
         es_config: elasticsearch_db_config = None,
+        chroma_settings: dict = {},
     ):
         """
         :param log_level: Optional. (String) Debug level
@@ -50,6 +51,7 @@ class CustomAppConfig(BaseAppConfig):
         :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
         :param db_type: Optional. type of Vector database to use.
         :param es_config: Optional. elasticsearch database config to be used for connection
+        :param chroma_settings: Optional. Chroma settings for connection.
         """
         if provider:
             self.provider = provider
@@ -72,6 +74,7 @@ class CustomAppConfig(BaseAppConfig):
             db_type=db_type,
             vector_dim=CustomAppConfig.get_vector_dimension(embedding_function=embedding_fn),
             es_config=es_config,
+            chroma_settings=chroma_settings,
         )
 
     @staticmethod
