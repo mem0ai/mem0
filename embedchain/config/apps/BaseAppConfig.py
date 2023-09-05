@@ -42,6 +42,7 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
                 "DEPRECATION WARNING: Please supply the database as the second parameter during app init. "
                 "Such as `app(config=config, db=db)`."
             )
+
         if collection_name:
             logging.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
         return
