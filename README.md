@@ -15,7 +15,7 @@ Book a [1-on-1 Session](https://cal.com/taranjeetio/ec) with Taranjeet, the foun
 ## 🔧 Quick install
 
 ```bash
-pip install embedchain
+pip install --upgrade embedchain
 ```
 
 ## 🔍 Demo
