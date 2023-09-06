@@ -3,11 +3,14 @@ from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
+from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.wikipedia import WikipediaChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
+from embedchain.helper_classes.json_serializable import JSONSerializable
+from embedchain.loaders.csv import CsvLoader
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
@@ -20,7 +23,7 @@ from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.models.data_type import DataType
 
 
-class DataFormatter:
+class DataFormatter(JSONSerializable):
     """
     DataFormatter is an internal utility class which abstracts the mapping for
     loaders and chunkers to the data_type entered by the user in their
@@ -48,7 +51,8 @@ class DataFormatter:
             DataType.DOCX: DocxFileLoader,
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
-            DataType.WIKIPEDIA: WikipediaLoader
+            DataType.WIKIPEDIA: WikipediaLoader,
+            DataType.CSV: CsvLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -83,7 +87,8 @@ class DataFormatter:
             DataType.WEB_PAGE: WebPageChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
-            DataType.WIKIPEDIA: WikipediaChunker
+            DataType.WIKIPEDIA: WikipediaChunker,
+            DataType.CSV: TableChunker,
         }
         if data_type in chunker_classes:
             chunker_class = chunker_classes[data_type]

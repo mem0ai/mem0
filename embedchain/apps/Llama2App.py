@@ -1,12 +1,15 @@
-import os
+from typing import Optional
 
-from langchain.llms import Replicate
+from embedchain.apps.CustomApp import CustomApp
+from embedchain.config import CustomAppConfig
+from embedchain.embedder.openai_embedder import OpenAiEmbedder
+from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.llm.llama2_llm import Llama2Llm
+from embedchain.vectordb.chroma_db import ChromaDB
 
-from embedchain.config import AppConfig, ChatConfig
-from embedchain.embedchain import EmbedChain
 
-
-class Llama2App(EmbedChain):
+@register_deserializable
+class Llama2App(CustomApp):
     """
     The EmbedChain Llama2App class.
     Has two functions: add and query.
@@ -15,24 +18,15 @@ class Llama2App(EmbedChain):
     query(query): finds answer to the given query using vector database and LLM.
     """
 
-    def __init__(self, config: AppConfig = None):
+    def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):
         """
-        :param config: AppConfig instance to load as configuration. Optional.
+        :param config: CustomAppConfig instance to load as configuration. Optional.
+        :param system_prompt: System prompt string. Optional.
         """
-        if "REPLICATE_API_TOKEN" not in os.environ:
-            raise ValueError("Please set the REPLICATE_API_TOKEN environment variable.")
 
         if config is None:
-            config = AppConfig()
+            config = CustomAppConfig()
 
-        super().__init__(config)
-
-    def get_llm_model_answer(self, prompt, config: ChatConfig = None):
-        # TODO: Move the model and other inputs into config
-        if config.system_prompt:
-            raise ValueError("Llama2App does not support `system_prompt`")
-        llm = Replicate(
-            model="a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5",
-            input={"temperature": 0.75, "max_length": 500, "top_p": 1},
+        super().__init__(
+            config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt
         )
-        return llm(prompt)

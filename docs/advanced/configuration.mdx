@@ -4,6 +4,16 @@ title: '⚙️ Custom configurations'
 
 Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
 
+## Concept
+The main `App` class is available in the following varieties: `CustomApp`, `OpenSourceApp` and `Llama2App` and `App`. The first is fully configurable, the others are opinionated in some aspects.
+
+The `App` class has three subclasses: `llm`, `db` and `embedder`. These are the core ingredients that make up an EmbedChain app.
+App plus each one of the subclasses have a `config` attribute.
+You can pass a `Config` instance as an argument during initialization to persistently configure a class.
+These configs can be imported from `embedchain.config`
+
+There are `set` methods for some things that should not (only) be set at start-up, like `app.db.set_collection_name`.
+
 ## Examples
 
 ### General
@@ -11,31 +21,31 @@ Embedchain is made to work out of the box. However, for advanced users we're als
 Here's the readme example with configuration options.
 
 ```python
-import os
 from embedchain import App
-from embedchain.config import AppConfig, AddConfig, QueryConfig, ChunkerConfig
-from chromadb.utils import embedding_functions
+from embedchain.config import AppConfig, AddConfig, LlmConfig, ChunkerConfig
 
 # Example: set the log level for debugging
 config = AppConfig(log_level="DEBUG")
 naval_chat_bot = App(config)
 
 # Example: specify a custom collection name
-config = AppConfig(collection_name="naval_chat_bot")
-naval_chat_bot = App(config)
+naval_chat_bot.db.set_collection_name("naval_chat_bot")
 
 # Example: define your own chunker config for `youtube_video`
 chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=100, length_function=len)
-naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44", AddConfig(chunker=chunker_config))
+# Example: Add your chunker config to an AddConfig to actually use it
+add_config = AddConfig(chunker=chunker_config)
+naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44", config=add_config)
 
+# Example: Reset to default
 add_config = AddConfig()
 naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", config=add_config)
 naval_chat_bot.add("https://nav.al/feedback", config=add_config)
 naval_chat_bot.add("https://nav.al/agi", config=add_config)
-
 naval_chat_bot.add(("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), config=add_config)
 
-query_config = QueryConfig()
+# Change the number of documents.
+query_config = LlmConfig(number_documents=5)
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", config=query_config))
 ```
 
@@ -44,10 +54,12 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 Here's the example of using custom prompt template with `.query`
 
 ```python
-from embedchain.config import QueryConfig
-from embedchain.embedchain import App
 from string import Template
+
 import wikipedia
+
+from embedchain import App
+from embedchain.config import LlmConfig
 
 einstein_chat_bot = App()
 
@@ -56,7 +68,8 @@ page = wikipedia.page("Albert Einstein")
 einstein_chat_bot.add(page.content)
 
 # Example: use your own custom template with `$context` and `$query`
-einstein_chat_template = Template("""
+einstein_chat_template = Template(
+    """
         You are Albert Einstein, a German-born theoretical physicist,
         widely ranked among the greatest and most influential scientists of all time.
 
@@ -67,17 +80,19 @@ einstein_chat_template = Template("""
         Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
         Human: $query
-        Albert Einstein:""")
-query_config = QueryConfig(template=einstein_chat_template, system_prompt="You are Albert Einstein.")
+        Albert Einstein:"""
+)
+# Example: Use the template, also add a system prompt.
+llm_config = LlmConfig(template=einstein_chat_template, system_prompt="You are Albert Einstein.")
 queries = [
-        "Where did you complete your studies?",
-        "Why did you win nobel prize?",
-        "Why did you divorce your first wife?",
+    "Where did you complete your studies?",
+    "Why did you win nobel prize?",
+    "Why did you divorce your first wife?",
 ]
 for query in queries:
-        response = einstein_chat_bot.query(query, config=query_config)
-        print("Query: ", query)
-        print("Response: ", response)
+    response = einstein_chat_bot.query(query, config=llm_config)
+    print("Query: ", query)
+    print("Response: ", response)
 
 # Output
 # Query:  Where did you complete your studies?
