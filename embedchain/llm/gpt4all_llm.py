@@ -1,9 +1,8 @@
 from typing import Iterable, Optional, Union
 
 from embedchain.config import BaseLlmConfig
-from embedchain.llm.base_llm import BaseLlm
-
 from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.llm.base_llm import BaseLlm
 
 
 @register_deserializable

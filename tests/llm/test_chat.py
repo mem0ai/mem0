@@ -1,7 +1,6 @@
-
 import os
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
@@ -88,8 +87,8 @@ class TestApp(unittest.TestCase):
 
         self.assertEqual(answer, "Test answer")
         _args, kwargs = mock_retrieve.call_args
-        self.assertEqual(kwargs.get('input_query'), "Test query")
-        self.assertEqual(kwargs.get('where'), {"attribute": "value"})
+        self.assertEqual(kwargs.get("input_query"), "Test query")
+        self.assertEqual(kwargs.get("where"), {"attribute": "value"})
         mock_answer.assert_called_once()
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
@@ -120,6 +119,6 @@ class TestApp(unittest.TestCase):
 
         self.assertEqual(answer, "Test answer")
         _args, kwargs = mock_database_query.call_args
-        self.assertEqual(kwargs.get('input_query'), "Test query")
-        self.assertEqual(kwargs.get('where'), {"attribute": "value"})
+        self.assertEqual(kwargs.get("input_query"), "Test query")
+        self.assertEqual(kwargs.get("where"), {"attribute": "value"})
         mock_answer.assert_called_once()
