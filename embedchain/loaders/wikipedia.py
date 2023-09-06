@@ -7,7 +7,6 @@ from embedchain.loaders.base_loader import BaseLoader
 class WikipediaLoader(BaseLoader):
     def load_data(self, title):
         """Load data from a wikipedia."""
-        output = []
 
         try:
             page = wikipedia.page(title)
@@ -18,14 +17,15 @@ class WikipediaLoader(BaseLoader):
             logging.error(f"PageError: {e}")
             page = None
 
-        if page is not None:
-            meta_data = {
-                "url": page.url,
-                "title": page.title
-            }
-            output.append({
-                "content": page.content,
-                "meta_data": meta_data,
-            })
+        if page is None:
+            raise ValueError("No page found")
 
-        return output
+        meta_data = {
+            "url": page.url,
+            "title": page.title
+        }
+        return [{
+            "content": page.content,
+            "meta_data": meta_data,
+        }]
+        
