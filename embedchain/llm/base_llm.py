@@ -131,7 +131,7 @@ class BaseLlm(JSONSerializable):
         query_config = config or self.config
 
         # In case of a query on Image, we want to skip querying the LLM, and directly return the context
-        if self._bypass_querying_llm(config):
+        if self._bypass_querying_llm():
             return contexts
 
         if self.is_docs_site_instance:
@@ -218,7 +218,7 @@ class BaseLlm(JSONSerializable):
         return messages
 
     # We want to by-pass querying LLM models in case of an Image Search
-    def _bypass_querying_llm(self, config: BaseLlmConfig):
-        if config.query_type == "Images":
+    def _bypass_querying_llm(self):
+        if self.config.query_type == "Images":
             return True
         return False
