@@ -7,7 +7,6 @@ from chromadb.config import Settings
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
-from embedchain.models import EmbeddingFunctions, Providers
 from embedchain.vectordb.chroma_db import ChromaDB
 
 
@@ -86,7 +85,6 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
         """
-        config = AppConfig(log_level="DEBUG")
 
         _app = App(config=AppConfig(collect_metrics=False))
 
