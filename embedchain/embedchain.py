@@ -399,7 +399,7 @@ class EmbedChain(JSONSerializable):
         chunks_before_addition = self.count()
 
         self.db.add(embeddings=embeddings_data["embeddings"], documents=documents, metadatas=metadatas, ids=ids, skip_embedding = (data_type == DataType.IMAGES))
-        count_new_chunks = self.count() - chunks_before_addition
+        count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
@@ -439,6 +439,8 @@ class EmbedChain(JSONSerializable):
         if self.config.id is not None:
             where.update({"app_id": self.config.id})
 
+        # We cannot query the database with the input query in case of an image search. This is because we need
+        # to bring down both the image and text to the same dimension to be able to compare them.
         db_query = input_query
         if config.query_type == "Images":
             db_query = ClipProcessor.get_text_features(query=input_query)
@@ -509,43 +511,12 @@ class EmbedChain(JSONSerializable):
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
-        # if config is None:
-        #     config = ChatConfig()
-        # if self.is_docs_site_instance:
-        #     config.template = DOCS_SITE_PROMPT_TEMPLATE
-        #     config.number_documents = 5
-        # k = {}
-        # if self.online:
-        #     k["web_search_result"] = self.access_search_and_get_results(input_query)
-        # contexts = self.retrieve_from_database(input_query, config)
-        #
-        # chat_history = self.memory.load_memory_variables({})["history"]
-        #
-        # if chat_history:
-        #     config.set_history(chat_history)
-        #
-        # prompt = self.generate_prompt(input_query, contexts, config, **k)
-        # logging.info(f"Prompt: {prompt}")
-        #
-        # if dry_run:
-        #     return prompt
-        #
-        # answer = self.get_answer_from_llm(prompt, config)
-        #
-        # self.memory.chat_memory.add_user_message(input_query)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
         thread_telemetry.start()
 
         return answer
-        # if isinstance(answer, str):
-        #     self.memory.chat_memory.add_ai_message(answer)
-        #     logging.info(f"Answer: {answer}")
-        #     return answer
-        # else:
-        #     # this is a streamed response and needs to be handled differently.
-        #     return self._stream_chat_response(answer)
 
     def set_collection_name(self, name: str):
         """

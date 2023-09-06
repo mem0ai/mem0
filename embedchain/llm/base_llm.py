@@ -130,7 +130,7 @@ class BaseLlm(JSONSerializable):
         """
         query_config = config or self.config
 
-        # In case of a query on Image, we want to skip
+        # In case of a query on Image, we want to skip querying the LLM, and directly return the context
         if self._bypass_querying_llm(config):
             return contexts
 
@@ -217,7 +217,7 @@ class BaseLlm(JSONSerializable):
         messages.append(HumanMessage(content=prompt))
         return messages
 
-    # We want to by pass querying LLM models in case of an Image Search
+    # We want to by-pass querying LLM models in case of an Image Search
     def _bypass_querying_llm(self, config: BaseLlmConfig):
         if config.query_type == "Images":
             return True
