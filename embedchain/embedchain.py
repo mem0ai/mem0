@@ -439,8 +439,12 @@ class EmbedChain(JSONSerializable):
         if self.config.id is not None:
             where.update({"app_id": self.config.id})
 
+        db_query = input_query
+        if config.query_type == "Images":
+            db_query = ClipProcessor.get_text_features(query=input_query)
+
         contents = self.db.query(
-            input_query=input_query,
+            input_query=db_query,
             n_results=query_config.number_documents,
             where=where,
             skip_embedding = (config.query_type == "Images")
@@ -469,28 +473,6 @@ class EmbedChain(JSONSerializable):
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
-
-        # if config is None:
-        #     config = QueryConfig()
-        # if self.is_docs_site_instance:
-        #     config.template = DOCS_SITE_PROMPT_TEMPLATE
-        #     config.number_documents = 5
-        # k = {}
-        # if self.online:
-        #     k["web_search_result"] = self.access_search_and_get_results(input_query)
-        #
-        # if config.query_type == "Images":
-        #     query_embeddings = ClipProcessor.get_text_features(query=input_query)
-        #     answer = self.retrieve_from_database(query_embeddings, config)[0]
-        # else:
-        #     contexts = self.retrieve_from_database(input_query, config)
-        #     prompt = self.generate_prompt(input_query, contexts, config, **k)
-        #     logging.info(f"Prompt: {prompt}")
-        #
-        #     if dry_run:
-        #         return prompt
-        #
-        #     answer = self.get_answer_from_llm(prompt, config)
 
         # Send anonymous telemetry
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
