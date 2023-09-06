@@ -113,7 +113,7 @@ class TestApp(unittest.TestCase):
         baseLlmConfig = BaseLlmConfig()
         baseLlmConfig.query_type = "Images"
         baseLlm = BaseLlm(baseLlmConfig)
-        self.assertEqual(baseLlm._bypass_querying_llm(), True)
+        self.assertEqual(baseLlm._bypass_querying_llm(baseLlmConfig), True)
 
         baseLlmConfig.query_type = "Text"
-        self.assertEqual(baseLlm._bypass_querying_llm(), False)
+        self.assertEqual(baseLlm._bypass_querying_llm(baseLlmConfig), False)

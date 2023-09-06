@@ -52,4 +52,8 @@ class ImagesChunker(BaseChunker):
         }
 
     def get_word_count(self, documents):
+        """
+        The number of chunks and the corresponding word count for an image is fixed to 1, as 1 embedding is created for
+        each image
+        """
         return 1
