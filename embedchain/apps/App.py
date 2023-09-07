@@ -12,12 +12,13 @@ from embedchain.vectordb.chroma_db import ChromaDB
 @register_deserializable
 class App(EmbedChain):
     """
-    The EmbedChain app.
-    Has two functions: add and query.
+    The EmbedChain app in it's simplest and most straightforward form.
+    An opinionated choice of LLM, vector database and embedding model.
 
-    adds(data_type, url): adds the data from the given URL to the vector db.
+    Methods:
+    add(source, data_type): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
-    dry_run(query): test your prompt without consuming tokens.
+    chat(query): finds answer to the given query using vector database and LLM, with conversation history.
     """
 
     def __init__(
@@ -28,8 +29,20 @@ class App(EmbedChain):
         system_prompt: Optional[str] = None,
     ):
         """
-        :param config: AppConfig instance to load as configuration. Optional.
-        :param system_prompt: System prompt string. Optional.
+        Initialize a new `CustomApp` instance. You only have a few choices to make.
+
+        :param config: Config for the app instance.
+        This is the most basic configuration, that does not fall into the LLM, database or embedder category,
+        defaults to None
+        :type config: AppConfig, optional
+        :param llm_config: Allows you to configure the LLM, e.g. how many documents to return,
+        example: `from embedchain.config import LlmConfig`, defaults to None
+        :type llm_config: BaseLlmConfig, optional
+        :param chromadb_config: Allows you to configure the vector database,
+        example: `from embedchain.config import ChromaDbConfig`, defaults to None
+        :type chromadb_config: Optional[ChromaDbConfig], optional
+        :param system_prompt: System prompt that will be provided to the LLM as such, defaults to None
+        :type system_prompt: Optional[str], optional
         """
         if config is None:
             config = AppConfig()
