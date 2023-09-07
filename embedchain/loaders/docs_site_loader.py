@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from urllib.parse import urljoin, urlparse
 
@@ -99,4 +100,8 @@ class DocsSiteLoader(BaseLoader):
         output = []
         for u in all_urls:
             output.extend(self._load_data_from_url(u))
-        return output
+        doc_id = hashlib.sha256((" ".join(all_urls) + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": output,
+        }
