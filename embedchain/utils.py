@@ -138,6 +138,10 @@ def detect_datatype(source: Any) -> DataType:
         if url.netloc in {"notion.so", "notion.site"}:
             logging.debug(f"Source of `{formatted_source}` detected as `notion`.")
             return DataType.NOTION
+        
+        if url.netloc in {"en.wikipedia.org"}:
+            logging.debug(f"Source of `{formatted_source}` detected as `wikipedia`.")
+            return DataType.WIKIPEDIA
 
         if url.path.endswith(".pdf"):
             logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
