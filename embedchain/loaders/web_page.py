@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 import requests
@@ -63,10 +64,13 @@ class WebPageLoader(BaseLoader):
         meta_data = {
             "url": url,
         }
-
-        return [
-            {
-                "content": content,
-                "meta_data": meta_data,
-            }
-        ]
+        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        return  {
+            "doc_id": doc_id,
+            "data": [
+                {
+                    "content": content,
+                    "meta_data": meta_data,
+                }
+            ],
+        }
