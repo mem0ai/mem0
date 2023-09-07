@@ -23,10 +23,10 @@ class BaseChunker(JSONSerializable):
         ids = []
         idMap = {}
         data_result = loader.load_data(src)
-        datas = data_result["datas"]
+        data_records = data_result["data"]
         doc_id = data_result["doc_id"]
         metadatas = []
-        for data in datas:
+        for data in data_records:
             content = data["content"]
 
             meta_data = data["meta_data"]

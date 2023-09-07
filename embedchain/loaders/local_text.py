@@ -15,7 +15,7 @@ class LocalTextLoader(BaseLoader):
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
             "doc_id": doc_id,
-            "datas": [
+            "data": [
                 {
                     "content": content,
                     "meta_data": meta_data,
