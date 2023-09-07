@@ -42,5 +42,13 @@ class AddConfig(BaseConfig):
         chunker: Optional[ChunkerConfig] = None,
         loader: Optional[LoaderConfig] = None,
     ):
+        """
+        Initializes a configuration class instance for the `add` method.
+
+        :param chunker: Chunker config, defaults to None
+        :type chunker: Optional[ChunkerConfig], optional
+        :param loader: Loader config, defaults to None
+        :type loader: Optional[LoaderConfig], optional
+        """
         self.loader = loader
         self.chunker = chunker
