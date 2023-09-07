@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import logging
 import signal
 import sys
@@ -11,8 +12,14 @@ from .base import BaseBot
 @register_deserializable
 class WhatsAppBot(BaseBot):
     def __init__(self):
-        from flask import Flask, request
-        from twilio.twiml.messaging_response import MessagingResponse
+        try:
+            self.flask = importlib.import_module("flask")
+            self.twilio = importlib.import_module("twilio")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "The required dependencies for WhatsApp are not installed. "
+                'Please install with `pip install --upgrade "embedchain[whatsapp]"`'
+            ) from None
         super().__init__()
 
     def handle_message(self, message):
@@ -41,7 +48,7 @@ class WhatsAppBot(BaseBot):
         return response
 
     def start(self, host="0.0.0.0", port=5000, debug=True):
-        app = Flask(__name__)
+        app = self.flask.Flask(__name__)
 
         def signal_handler(sig, frame):
             logging.info("\nGracefully shutting down the WhatsAppBot...")
@@ -51,9 +58,9 @@ class WhatsAppBot(BaseBot):
 
         @app.route("/chat", methods=["POST"])
         def chat():
-            incoming_message = request.values.get("Body", "").lower()
+            incoming_message = self.flask.request.values.get("Body", "").lower()
             response = self.handle_message(incoming_message)
-            twilio_response = MessagingResponse()
+            twilio_response = self.twilio.twiml.messaging_response.MessagingResponse()
             twilio_response.message(response)
             return str(twilio_response)
 

@@ -1,7 +1,5 @@
 from typing import Optional
 
-from chromadb.utils import embedding_functions
-
 from embedchain.helper_classes.json_serializable import register_deserializable
 
 from .BaseAppConfig import BaseAppConfig
@@ -15,48 +13,28 @@ class OpenSourceAppConfig(BaseAppConfig):
 
     def __init__(
         self,
-        log_level=None,
-        host=None,
-        port=None,
-        id=None,
-        collection_name=None,
+        log_level: str = "WARNING",
+        id: Optional[str] = None,
         collect_metrics: Optional[bool] = None,
-        model=None,
+        model: str = "orca-mini-3b.ggmlv3.q4_0.bin",
+        collection_name: Optional[str] = None,
     ):
         """
-        :param log_level: Optional. (String) Debug level
-        ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
-        :param id: Optional. ID of the app. Document metadata will have this id.
-        :param collection_name: Optional. Collection name for the database.
-        :param host: Optional. Hostname for the database server.
-        :param port: Optional. Port for the database server.
-        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
-        :param model: Optional. GPT4ALL uses the model to instantiate the class.
-        So unlike `App`, it has to be provided before querying.
+        Initializes a configuration class instance for an Open Source App.
+
+        :param log_level: Debug level ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], defaults to "WARNING"
+        :type log_level: str, optional
+        :param id: ID of the app. Document metadata will have this id., defaults to None
+        :type id: Optional[str], optional
+        :param collect_metrics: Send anonymous telemetry to improve embedchain, defaults to True
+        :type collect_metrics: Optional[bool], optional
+        :param model: GPT4ALL uses the model to instantiate the class.
+        Unlike `App`, it has to be provided before querying, defaults to "orca-mini-3b.ggmlv3.q4_0.bin"
+        :type model: str, optional
+        :param collection_name: Default collection name. It's recommended to use app.db.set_collection_name() instead,
+        defaults to None
+        :type collection_name: Optional[str], optional
         """
         self.model = model or "orca-mini-3b.ggmlv3.q4_0.bin"
 
-        super().__init__(
-            log_level=log_level,
-            embedding_fn=OpenSourceAppConfig.default_embedding_function(),
-            host=host,
-            port=port,
-            id=id,
-            collection_name=collection_name,
-            collect_metrics=collect_metrics,
-        )
-
-    @staticmethod
-    def default_embedding_function():
-        """
-        Sets embedding function to default (`all-MiniLM-L6-v2`).
-
-        :returns: The default embedding function
-        """
-        try:
-            return embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-        except ValueError as e:
-            print(e)
-            raise ModuleNotFoundError(
-                "The open source app requires extra dependencies. Install with `pip install embedchain[opensource]`"
-            ) from None
+        super().__init__(log_level=log_level, id=id, collect_metrics=collect_metrics, collection_name=collection_name)
