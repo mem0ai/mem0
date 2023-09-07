@@ -1,6 +1,7 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
+from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
@@ -25,6 +26,11 @@ class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
     def __init__(self, config: Optional[ChromaDbConfig] = None):
+        """Initialize a new ChromaDB instance
+
+        :param config: Configuration options for Chroma, defaults to None
+        :type config: Optional[ChromaDbConfig], optional
+        """
         if config:
             self.config = config
         else:
@@ -60,11 +66,19 @@ class ChromaDB(BaseVectorDB):
         self._get_or_create_collection(self.config.collection_name)
 
     def _get_or_create_db(self):
-        """Get or create the database."""
+        """Called during initialization"""
         return self.client
 
-    def _get_or_create_collection(self, name):
-        """Get or create the collection."""
+    def _get_or_create_collection(self, name: str) -> Collection:
+        """
+        Get or create a named collection.
+
+        :param name: Name of the collection
+        :type name: str
+        :raises ValueError: No embedder configured.
+        :return: Created collection
+        :rtype: Collection
+        """
         if not hasattr(self, "embedder") or not self.embedder:
             raise ValueError("Cannot create a Chroma database collection without an embedder.")
         self.collection = self.client.get_or_create_collection(
@@ -76,8 +90,13 @@ class ChromaDB(BaseVectorDB):
     def get(self, ids: List[str], where: Dict[str, any]) -> List[str]:
         """
         Get existing doc ids present in vector database
-        :param ids: list of doc ids to check for existance
+
+        :param ids: list of doc ids to check for existence
+        :type ids: List[str]
         :param where: Optional. to filter data
+        :type where: Dict[str, any]
+        :return: Existing documents.
+        :rtype: List[str]
         """
         existing_docs = self.collection.get(
             ids=ids,
@@ -86,16 +105,28 @@ class ChromaDB(BaseVectorDB):
 
         return set(existing_docs["ids"])
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]) -> Any:
+    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
         """
-        add data in vector database
-        :param documents: list of texts to add
-        :param metadatas: list of metadata associated with docs
-        :param ids: ids of docs
+        Add vectors to chroma database
+
+        :param documents: Documents
+        :type documents: List[str]
+        :param metadatas: Metadatas
+        :type metadatas: List[object]
+        :param ids: ids
+        :type ids: List[str]
         """
         self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
 
-    def _format_result(self, results):
+    def _format_result(self, results: QueryResult) -> list[tuple[Document, float]]:
+        """
+        Format Chroma results
+
+        :param results: ChromaDB query results to format.
+        :type results: QueryResult
+        :return: Formatted results
+        :rtype: list[tuple[Document, float]]
+        """
         return [
             (Document(page_content=result[0], metadata=result[1] or {}), result[2])
             for result in zip(
@@ -107,11 +138,17 @@ class ChromaDB(BaseVectorDB):
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
         """
-        query contents from vector data base based on vector similarity
+        Query contents from vector data base based on vector similarity
+
         :param input_query: list of query string
+        :type input_query: List[str]
         :param n_results: no of similar documents to fetch from database
-        :param where: Optional. to filter data
+        :type n_results: int
+        :param where: to filter data
+        :type where: Dict[str, any]
+        :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query.
+        :rtype: List[str]
         """
         try:
             result = self.collection.query(
@@ -132,21 +169,27 @@ class ChromaDB(BaseVectorDB):
         return contents
 
     def set_collection_name(self, name: str):
+        """
+        Set the name of the collection. A collection is an isolated space for vectors.
+
+        :param name: Name of the collection.
+        :type name: str
+        """
         self.config.collection_name = name
         self._get_or_create_collection(self.config.collection_name)
 
     def count(self) -> int:
         """
-        Count the number of embeddings.
+        Count number of documents/chunks embedded in the database.
 
-        :return: The number of embeddings.
+        :return: number of documents
+        :rtype: int
         """
         return self.collection.count()
 
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
-        `App` does not have to be reinitialized after using this method.
         """
         # Delete all data from the database
         try:

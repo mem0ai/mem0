@@ -12,10 +12,11 @@ from embedchain.vectordb.chroma_db import ChromaDB
 class Llama2App(CustomApp):
     """
     The EmbedChain Llama2App class.
-    Has two functions: add and query.
 
-    adds(data_type, url): adds the data from the given URL to the vector db.
+    Methods:
+    add(source, data_type): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
+    chat(query): finds answer to the given query using vector database and LLM, with conversation history.
     """
 
     def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):

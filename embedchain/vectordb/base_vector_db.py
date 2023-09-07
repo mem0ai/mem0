@@ -7,6 +7,11 @@ class BaseVectorDB(JSONSerializable):
     """Base class for vector database."""
 
     def __init__(self, config: BaseVectorDbConfig):
+        """Initialize the database. Save the config and client as an attribute.
+
+        :param config: Database configuration class instance.
+        :type config: BaseVectorDbConfig
+        """
         self.client = self._get_or_create_db()
         self.config: BaseVectorDbConfig = config
 
@@ -23,25 +28,50 @@ class BaseVectorDB(JSONSerializable):
         raise NotImplementedError
 
     def _get_or_create_collection(self):
+        """Get or create a named collection."""
         raise NotImplementedError
 
     def _set_embedder(self, embedder: BaseEmbedder):
+        """
+        The database needs to access the embedder sometimes, with this method you can persistently set it.
+
+        :param embedder: Embedder to be set as the embedder for this database.
+        :type embedder: BaseEmbedder
+        """
         self.embedder = embedder
 
     def get(self):
+        """Get database embeddings by id."""
         raise NotImplementedError
 
     def add(self):
+        """Add to database"""
         raise NotImplementedError
 
     def query(self):
+        """Query contents from vector data base based on vector similarity"""
         raise NotImplementedError
 
-    def count(self):
+    def count(self) -> int:
+        """
+        Count number of documents/chunks embedded in the database.
+
+        :return: number of documents
+        :rtype: int
+        """
         raise NotImplementedError
 
     def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        """
         raise NotImplementedError
 
     def set_collection_name(self, name: str):
+        """
+        Set the name of the collection. A collection is an isolated space for vectors.
+
+        :param name: Name of the collection.
+        :type name: str
+        """
         raise NotImplementedError
