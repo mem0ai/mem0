@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "CommonJS",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": "embedchain",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationDir": "types",
+    "esModuleInterop": true
+  },
+  "include": ["embedchain/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
