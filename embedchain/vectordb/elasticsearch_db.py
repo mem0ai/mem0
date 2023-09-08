@@ -5,7 +5,7 @@ try:
     from elasticsearch.helpers import bulk
 except ImportError:
     raise ImportError(
-        "Elasticsearch requires extra dependencies. Install with `pip install embedchain[elasticsearch]`"
+        "Elasticsearch requires extra dependencies. Install with `pip install --upgrade embedchain[elasticsearch]`"
     ) from None
 
 from embedchain.config import ElasticsearchDBConfig

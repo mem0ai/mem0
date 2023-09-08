@@ -22,7 +22,7 @@ class GPT4ALLLlm(BaseLlm):
             from gpt4all import GPT4All
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
-                "The GPT4All python package is not installed. Please install it with `pip install embedchain[opensource]`"  # noqa E501
+                "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501
             ) from None
 
         return GPT4All(model_name=model)
