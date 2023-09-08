@@ -4,7 +4,9 @@ import os
 try:
     from llama_index import download_loader
 except ImportError:
-    raise ImportError("Notion requires extra dependencies. Install with `pip install embedchain[community]`") from None
+    raise ImportError(
+        "Notion requires extra dependencies. Install with `pip install --upgrade embedchain[community]`"
+    ) from None
 
 
 from embedchain.helper_classes.json_serializable import register_deserializable
