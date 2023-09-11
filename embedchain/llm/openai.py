@@ -8,7 +8,7 @@ from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class OpenAiLlm(BaseLlm):
+class OpenAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 

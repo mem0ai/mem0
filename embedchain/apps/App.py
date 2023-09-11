@@ -5,7 +5,7 @@ from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.openai import OpenAiEmbedder
 from embedchain.helper.json_serializable import register_deserializable
-from embedchain.llm.openai import OpenAiLlm
+from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.chroma import ChromaDB
 
 
@@ -47,7 +47,7 @@ class App(EmbedChain):
         if config is None:
             config = AppConfig()
 
-        llm = OpenAiLlm(config=llm_config)
+        llm = OpenAILlm(config=llm_config)
         embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
         database = ChromaDB(config=chromadb_config)
 

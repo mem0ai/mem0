@@ -7,12 +7,12 @@ from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class AzureOpenAiLlm(BaseLlm):
+class AzureOpenAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
-        return AzureOpenAiLlm._get_azure_openai_answer(prompt=prompt, config=self.config)
+        return AzureOpenAILlm._get_azure_openai_answer(prompt=prompt, config=self.config)
 
     @staticmethod
     def _get_azure_openai_answer(prompt: str, config: BaseLlmConfig) -> str:
