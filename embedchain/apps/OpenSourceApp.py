@@ -1,7 +1,8 @@
 import logging
 from typing import Optional
 
-from embedchain.config import BaseEmbedderConfig, BaseLlmConfig, ChromaDbConfig, OpenSourceAppConfig
+from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
+                               ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
 from embedchain.helper.json_serializable import register_deserializable
