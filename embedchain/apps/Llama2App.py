@@ -2,10 +2,10 @@ from typing import Optional
 
 from embedchain.apps.CustomApp import CustomApp
 from embedchain.config import CustomAppConfig
-from embedchain.embedder.openai_embedder import OpenAiEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.llama2_llm import Llama2Llm
-from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.llama2 import Llama2Llm
+from embedchain.vectordb.chroma import ChromaDB
 
 
 @register_deserializable

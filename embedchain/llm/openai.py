@@ -3,12 +3,12 @@ from typing import Optional
 import openai
 
 from embedchain.config import BaseLlmConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.base_llm import BaseLlm
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class OpenAiLlm(BaseLlm):
+class OpenAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 

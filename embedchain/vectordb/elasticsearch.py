@@ -9,8 +9,8 @@ except ImportError:
     ) from None
 
 from embedchain.config import ElasticsearchDBConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.vectordb.base import BaseVectorDB
 
 
 @register_deserializable

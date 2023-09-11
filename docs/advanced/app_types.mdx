@@ -71,10 +71,10 @@ app = OpenSourceApp()
 from embedchain import CustomApp
 from embedchain.config import (CustomAppConfig, ElasticsearchDBConfig,
                                EmbedderConfig, LlmConfig)
-from embedchain.embedder.vertexai_embedder import VertexAiEmbedder
-from embedchain.llm.vertex_ai_llm import VertexAiLlm
+from embedchain.embedder.vertexai import VertexAiEmbedder
+from embedchain.llm.vertex_ai import VertexAiLlm
 from embedchain.models import EmbeddingFunctions, Providers
-from embedchain.vectordb.elasticsearch_db import Elasticsearch
+from embedchain.vectordb.elasticsearch import Elasticsearch
 
 # short
 app = CustomApp(llm=VertexAiLlm(), db=Elasticsearch(), embedder=VertexAiEmbedder())

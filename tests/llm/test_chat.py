@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
-from embedchain.llm.base_llm import BaseLlm
+from embedchain.llm.base import BaseLlm
 
 
 class TestApp(unittest.TestCase):

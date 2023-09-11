@@ -3,7 +3,7 @@ from typing import Optional
 from chromadb.utils import embedding_functions
 
 from embedchain.config import BaseEmbedderConfig
-from embedchain.embedder.base_embedder import BaseEmbedder
+from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import EmbeddingFunctions
 
 

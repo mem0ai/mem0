@@ -3,7 +3,7 @@ from string import Template
 from typing import Any, Dict, Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.

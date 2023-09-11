@@ -2,10 +2,10 @@ from typing import Optional
 
 from embedchain.config import CustomAppConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.base_embedder import BaseEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.base_llm import BaseLlm
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.embedder.base import BaseEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.base import BaseLlm
+from embedchain.vectordb.base import BaseVectorDB
 
 
 @register_deserializable
@@ -35,7 +35,7 @@ class CustomApp(EmbedChain):
         :param config: Config for the app instance. This is the most basic configuration,
         that does not fall into the LLM, database or embedder category, defaults to None
         :type config: Optional[CustomAppConfig], optional
-        :param llm: LLM Class instance. example: `from embedchain.llm.openai_llm import OpenAiLlm`, defaults to None
+        :param llm: LLM Class instance. example: `from embedchain.llm.openai import OpenAILlm`, defaults to None
         :type llm: BaseLlm
         :param db: The database to use for storing and retrieving embeddings,
         example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to None

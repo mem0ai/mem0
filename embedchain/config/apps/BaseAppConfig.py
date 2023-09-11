@@ -2,8 +2,8 @@ import logging
 from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.helper_classes.json_serializable import JSONSerializable
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.vectordb.base import BaseVectorDB
 
 
 class BaseAppConfig(BaseConfig, JSONSerializable):
