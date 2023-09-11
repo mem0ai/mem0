@@ -5,8 +5,8 @@ from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.vectordb.base import BaseVectorDB
 
 try:
     import chromadb

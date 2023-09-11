@@ -3,10 +3,10 @@ from typing import Optional
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig)
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.openai_embedder import OpenAiEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.openai_llm import OpenAiLlm
-from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.openai import OpenAILlm
+from embedchain.vectordb.chroma import ChromaDB
 
 
 @register_deserializable
@@ -47,7 +47,7 @@ class App(EmbedChain):
         if config is None:
             config = AppConfig()
 
-        llm = OpenAiLlm(config=llm_config)
+        llm = OpenAILlm(config=llm_config)
         embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
         database = ChromaDB(config=chromadb_config)
 

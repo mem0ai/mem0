@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 
 @register_deserializable
