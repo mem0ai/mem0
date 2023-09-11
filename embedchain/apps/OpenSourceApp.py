@@ -4,10 +4,10 @@ from typing import Optional
 from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.gpt4all_llm import GPT4ALLLlm
-from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.embedder.gpt4all import GPT4AllEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.gpt4all import GPT4ALLLlm
+from embedchain.vectordb.chroma import ChromaDB
 
 gpt4all_model = None
 
