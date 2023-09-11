@@ -1,12 +1,11 @@
 from typing import Optional
 
-from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
-                               ChromaDbConfig)
+from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig, ChromaDbConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.openai_embedder import OpenAiEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.openai_llm import OpenAiLlm
-from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.openai import OpenAiLlm
+from embedchain.vectordb.chroma import ChromaDB
 
 
 @register_deserializable

@@ -7,7 +7,7 @@ from chromadb.config import Settings
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
-from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.vectordb.chroma import ChromaDB
 
 
 class TestChromaDbHosts(unittest.TestCase):
