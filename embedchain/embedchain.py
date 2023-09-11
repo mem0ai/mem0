@@ -16,13 +16,13 @@ from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.data_formatter import DataFormatter
-from embedchain.embedder.base_embedder import BaseEmbedder
-from embedchain.helper_classes.json_serializable import JSONSerializable
-from embedchain.llm.base_llm import BaseLlm
+from embedchain.embedder.base import BaseEmbedder
+from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
 from embedchain.utils import detect_datatype
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.vectordb.base import BaseVectorDB
 
 load_dotenv()
 

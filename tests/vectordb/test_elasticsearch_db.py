@@ -1,8 +1,8 @@
 import unittest
 
 from embedchain.config import ElasticsearchDBConfig
-from embedchain.embedder.base_embedder import BaseEmbedder
-from embedchain.vectordb.elasticsearch_db import ElasticsearchDB
+from embedchain.embedder.base import BaseEmbedder
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 
 class TestEsDB(unittest.TestCase):
