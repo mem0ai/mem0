@@ -4,7 +4,7 @@ from typing import Optional
 from langchain.embeddings import OpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
-from embedchain.embedder.base_embedder import BaseEmbedder
+from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import EmbeddingFunctions
 
 try:
