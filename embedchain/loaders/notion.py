@@ -2,7 +2,7 @@ import logging
 import os
 
 try:
-    from llama_index import download_loader
+    from llama_hub.notion.base import NotionPageReader
 except ImportError:
     raise ImportError(
         "Notion requires extra dependencies. Install with `pip install --upgrade embedchain[community]`"
@@ -18,8 +18,6 @@ from embedchain.utils import clean_string
 class NotionLoader(BaseLoader):
     def load_data(self, source):
         """Load data from a PDF file."""
-
-        NotionPageReader = download_loader("NotionPageReader")
 
         # Reformat Id to match notion expectation
         id = source[-32:]
