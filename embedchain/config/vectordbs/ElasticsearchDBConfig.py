@@ -40,7 +40,7 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
             not self.ES_EXTRA_PARAMS.get("api_key")
             and not self.ES_EXTRA_PARAMS.get("basic_auth")
             and not self.ES_EXTRA_PARAMS.get("bearer_auth")
+            and not self.ES_EXTRA_PARAMS.get("http_auth")
         ):
             self.ES_EXTRA_PARAMS["api_key"] = os.environ.get("ELASTICSEARCH_API_KEY")
-
         super().__init__(collection_name=collection_name, dir=dir)
