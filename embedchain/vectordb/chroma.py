@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -105,9 +105,7 @@ class ChromaDB(BaseVectorDB):
             args["where"] = where
         if limit:
             args["limit"] = limit
-        return self.collection.get(
-            **args
-        )
+        return self.collection.get(**args)
 
     def get_advanced(self, where):
         return self.collection.get(where=where, limit=1)

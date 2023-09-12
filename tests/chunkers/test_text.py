@@ -76,5 +76,5 @@ class MockLoader:
                     "content": src,
                     "meta_data": {"url": "none"},
                 }
-            ]
+            ],
         }

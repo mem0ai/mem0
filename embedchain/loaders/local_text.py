@@ -20,5 +20,5 @@ class LocalTextLoader(BaseLoader):
                     "content": content,
                     "meta_data": meta_data,
                 }
-            ]
+            ],
         }

@@ -39,9 +39,9 @@ class NotionLoader(BaseLoader):
         return {
             "doc_id": doc_id,
             "data": [
-            {
-                "content": text,
-                "meta_data": {"url": f"notion-{formatted_id}"},
-            }
-        ],
+                {
+                    "content": text,
+                    "meta_data": {"url": f"notion-{formatted_id}"},
+                }
+            ],
         }

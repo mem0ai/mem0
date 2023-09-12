@@ -66,7 +66,7 @@ class WebPageLoader(BaseLoader):
         }
         content = content
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
-        return  {
+        return {
             "doc_id": doc_id,
             "data": [
                 {
