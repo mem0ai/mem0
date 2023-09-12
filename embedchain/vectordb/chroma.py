@@ -182,6 +182,8 @@ class ChromaDB(BaseVectorDB):
         :param name: Name of the collection.
         :type name: str
         """
+        if not isinstance(name, str):
+            raise TypeError("Collection name must be a string")
         self.config.collection_name = name
         self._get_or_create_collection(self.config.collection_name)
 

@@ -156,6 +156,8 @@ class ElasticsearchDB(BaseVectorDB):
         :param name: Name of the collection.
         :type name: str
         """
+        if not isinstance(name, str):
+            raise TypeError("Collection name must be a string")
         self.config.collection_name = name
 
     def count(self) -> int:
