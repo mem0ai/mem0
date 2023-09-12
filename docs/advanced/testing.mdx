@@ -6,11 +6,9 @@ title: '🧪 Testing'
 
 ### Dry Run
 
-Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
+Before you consume valueable tokens, you should make sure that data chunks are properly created and the embedding you have done works and that it's receiving the correct document from the database.
 
-For this you can use the `dry_run` option in your `query` or `chat` method.
-
-Following the example above, add this to your script:
+- For `query` or `chat` method, you can add this to your script:
 
 ```python
 print(naval_chat_bot.query('Can you tell me who Naval Ravikant is?', dry_run=True))
@@ -26,4 +24,17 @@ A: Naval Ravikant is an Indian-American entrepreneur and investor.
 
 _The embedding is confirmed to work as expected. It returns the right document, even if the question is asked slightly different. No prompt tokens have been consumed._
 
-**The dry run will still consume tokens to embed your query, but it is only ~1/15 of the prompt.**
+The dry run will still consume tokens to embed your query, but it is only **~1/15 of the prompt.**
+
+
+- For `add` method, you can add this to your script:
+
+```python
+print(naval_chat_bot.add('https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf', dry_run=True))
+
+'''
+{'chunks': ['THE ALMANACK OF NAVAL RAVIKANT', 'GETTING RICH IS NOT JUST ABOUT LUCK;', 'HAPPINESS IS NOT JUST A TRAIT WE ARE'], 'metadata': [{'source': 'C:\\Users\\Dev\\AppData\\Local\\Temp\\tmp3g5mjoiz\\tmp.pdf', 'page': 0, 'url': 'https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf', 'data_type': 'pdf_file'}, {'source': 'C:\\Users\\Dev\\AppData\\Local\\Temp\\tmp3g5mjoiz\\tmp.pdf', 'page': 2, 'url': 'https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf', 'data_type': 'pdf_file'}, {'source': 'C:\\Users\\Dev\\AppData\\Local\\Temp\\tmp3g5mjoiz\\tmp.pdf', 'page': 2, 'url': 'https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf', 'data_type': 'pdf_file'}], 'count': 7358, 'type': <DataType.PDF_FILE: 'pdf_file'>}
+
+# less items to show for readability
+'''
+```
