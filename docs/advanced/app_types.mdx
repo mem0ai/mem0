@@ -63,7 +63,7 @@ app = OpenSourceApp()
 - Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed. 📦
 - Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
 - `OpenSourceApp` is opinionated. It uses the best open source embedding model and LLM on the market.
-- extra dependencies are required for this app type. Install them with `pip install embedchain[opensource]`.
+- extra dependencies are required for this app type. Install them with `pip install --upgrade embedchain[opensource]`.
 
 ### CustomApp
 
@@ -71,10 +71,10 @@ app = OpenSourceApp()
 from embedchain import CustomApp
 from embedchain.config import (CustomAppConfig, ElasticsearchDBConfig,
                                EmbedderConfig, LlmConfig)
-from embedchain.embedder.vertexai_embedder import VertexAiEmbedder
-from embedchain.llm.vertex_ai_llm import VertexAiLlm
+from embedchain.embedder.vertexai import VertexAiEmbedder
+from embedchain.llm.vertex_ai import VertexAiLlm
 from embedchain.models import EmbeddingFunctions, Providers
-from embedchain.vectordb.elasticsearch_db import Elasticsearch
+from embedchain.vectordb.elasticsearch import Elasticsearch
 
 # short
 app = CustomApp(llm=VertexAiLlm(), db=Elasticsearch(), embedder=VertexAiEmbedder())

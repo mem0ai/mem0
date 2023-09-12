@@ -2,8 +2,8 @@ import logging
 from typing import Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.helper_classes.json_serializable import JSONSerializable
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.vectordb.base import BaseVectorDB
 
 
 class BaseAppConfig(BaseConfig, JSONSerializable):
@@ -13,23 +13,28 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
 
     def __init__(
         self,
-        log_level=None,
+        log_level: str = "WARNING",
         db: Optional[BaseVectorDB] = None,
-        id=None,
+        id: Optional[str] = None,
         collect_metrics: bool = True,
         collection_name: Optional[str] = None,
     ):
         """
-        :param log_level: Optional. (String) Debug level
-        ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].
-        :param db: Optional. (Vector) database instance to use for embeddings. Deprecated in favor of app(..., db).
-        :param id: Optional. ID of the app. Document metadata will have this id.
-        :param collect_metrics: Defaults to True. Send anonymous telemetry to improve embedchain.
-        :param db_type: Optional. Initializes a default vector database of the given type.
-        Using the `db` argument is preferred.
-        :param es_config: Optional. elasticsearch database config to be used for connection
-        :param collection_name: Optional. Default collection name.
-        It's recommended to use app.set_collection_name() instead.
+        Initializes a configuration class instance for an App.
+        Most of the configuration is done in the `App` class itself.
+
+        :param log_level: Debug level ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], defaults to "WARNING"
+        :type log_level: str, optional
+        :param db: A database class. It is recommended to set this directly in the `App` class, not this config,
+        defaults to None
+        :type db: Optional[BaseVectorDB], optional
+        :param id: ID of the app. Document metadata will have this id., defaults to None
+        :type id: Optional[str], optional
+        :param collect_metrics: Send anonymous telemetry to improve embedchain, defaults to True
+        :type collect_metrics: Optional[bool], optional
+        :param collection_name: Default collection name. It's recommended to use app.db.set_collection_name() instead,
+        defaults to None
+        :type collection_name: Optional[str], optional
         """
         self._setup_logging(log_level)
         self.id = id

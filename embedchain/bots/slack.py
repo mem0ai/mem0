@@ -5,7 +5,7 @@ import signal
 import sys
 
 from embedchain import App
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 from .base import BaseBot
 
@@ -14,7 +14,8 @@ try:
     from slack_sdk import WebClient
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
-        "The required dependencies for Slack are not installed." 'Please install with `pip install "embedchain[slack]"`'
+        "The required dependencies for Slack are not installed."
+        'Please install with `pip install --upgrade "embedchain[slack]"`'
     ) from None
 
 

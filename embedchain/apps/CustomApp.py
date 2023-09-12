@@ -2,35 +2,51 @@ from typing import Optional
 
 from embedchain.config import CustomAppConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.base_embedder import BaseEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.base_llm import BaseLlm
-from embedchain.vectordb.base_vector_db import BaseVectorDB
+from embedchain.embedder.base import BaseEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.base import BaseLlm
+from embedchain.vectordb.base import BaseVectorDB
 
 
 @register_deserializable
 class CustomApp(EmbedChain):
     """
-    The custom EmbedChain app.
-    Has two functions: add and query.
+    Embedchain's custom app allows for most flexibility.
 
-    adds(data_type, url): adds the data from the given URL to the vector db.
+    You can craft your own mix of various LLMs, vector databases and embedding model/functions.
+
+    Methods:
+    add(source, data_type): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
-    dry_run(query): test your prompt without consuming tokens.
+    chat(query): finds answer to the given query using vector database and LLM, with conversation history.
     """
 
     def __init__(
         self,
-        config: CustomAppConfig = None,
+        config: Optional[CustomAppConfig] = None,
         llm: BaseLlm = None,
         db: BaseVectorDB = None,
         embedder: BaseEmbedder = None,
         system_prompt: Optional[str] = None,
     ):
         """
-        :param config: Optional. `CustomAppConfig` instance to load as configuration.
-        :raises ValueError: Config must be provided for custom app
-        :param system_prompt: Optional. System prompt string.
+        Initialize a new `CustomApp` instance. You have to choose a LLM, database and embedder.
+
+        :param config: Config for the app instance. This is the most basic configuration,
+        that does not fall into the LLM, database or embedder category, defaults to None
+        :type config: Optional[CustomAppConfig], optional
+        :param llm: LLM Class instance. example: `from embedchain.llm.openai import OpenAILlm`, defaults to None
+        :type llm: BaseLlm
+        :param db: The database to use for storing and retrieving embeddings,
+        example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to None
+        :type db: BaseVectorDB
+        :param embedder: The embedder (embedding model and function) use to calculate embeddings.
+        example: `from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder`, defaults to None
+        :type embedder: BaseEmbedder
+        :param system_prompt: System prompt that will be provided to the LLM as such, defaults to None
+        :type system_prompt: Optional[str], optional
+        :raises ValueError: LLM, database or embedder has not been defined.
+        :raises TypeError: LLM, database or embedder is not a valid class instance.
         """
         # Config is not required, it has a default
         if config is None:

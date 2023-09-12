@@ -1,10 +1,11 @@
 import random
 import unittest
+from string import Template
 
 from embedchain import App
-from embedchain.config import AppConfig
-from embedchain.helper_classes.json_serializable import (
-    JSONSerializable, register_deserializable)
+from embedchain.config import AppConfig, BaseLlmConfig
+from embedchain.helper.json_serializable import (JSONSerializable,
+                                                 register_deserializable)
 
 
 class TestJsonSerializable(unittest.TestCase):
@@ -69,3 +70,11 @@ class TestJsonSerializable(unittest.TestCase):
         self.assertEqual(random_id, new_app.config.id)
         # We have proven that a nested class (app.config) can be serialized and deserialized just the same.
         # TODO: test deeper recursion
+
+    def test_special_subclasses(self):
+        """Test special subclasses that are not serializable by default."""
+        # Template
+        config = BaseLlmConfig(template=Template("My custom template with $query, $context and $history."))
+        s = config.serialize()
+        new_config: BaseLlmConfig = BaseLlmConfig.deserialize(s)
+        self.assertEqual(config.template.template, new_config.template.template)
