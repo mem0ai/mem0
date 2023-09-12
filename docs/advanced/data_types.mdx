@@ -102,6 +102,14 @@ app.add("my-page-cfbc134ca6464fc980d0391613959196", "notion")
 app.add("https://www.notion.so/my-page-cfbc134ca6464fc980d0391613959196", "notion")
 ```
 
+### Mdx file
+
+To add any mdx file to your app, use the data_type (first argument to `.add()` method) as `mdx`. Note that this supports support mdx file present on machine, so this should be a file path. Eg:
+
+```python
+app.add('path/to/file.mdx', data_type='mdx')
+```
+
 ## Local Data Types
 
 ### Text

@@ -1,6 +1,7 @@
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
@@ -17,6 +18,7 @@ from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
+from embedchain.loaders.mdx import MdxLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
@@ -65,6 +67,7 @@ class DataFormatter(JSONSerializable):
             DataType.SITEMAP: SitemapLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
             DataType.CSV: CsvLoader,
+            DataType.MDX: MdxLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -103,6 +106,7 @@ class DataFormatter(JSONSerializable):
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
             DataType.CSV: TableChunker,
+            DataType.MDX: MdxChunker,
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]
