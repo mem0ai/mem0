@@ -52,8 +52,6 @@ from embedchain.embedder.openai import OpenAiEmbedder
 from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
-os.environ["OPENAI_API_KEY"] = "OPENAI_API_KEY"
-
 es_config = ElasticsearchDBConfig() # pass named parameters supported by elasticsearch-py
 
 es_app = CustomApp(
