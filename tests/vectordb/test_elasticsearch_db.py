@@ -20,4 +20,3 @@ class TestEsDB(unittest.TestCase):
         # Test if an exception is raised when an invalid es_config is provided
         with self.assertRaises(TypeError):
             ElasticsearchDB(es_config={"ES_URL": "some_url", "valid es_config": False})
-
