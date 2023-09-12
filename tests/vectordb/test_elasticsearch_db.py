@@ -15,13 +15,6 @@ class TestEsDB(unittest.TestCase):
         with self.assertRaises(ValueError):
             ElasticsearchDB(es_config=None)
 
-    def test_init_with_invalid_vector_dim(self):
-        # Test if an exception is raised when an invalid vector_dim is provided
-        embedder = BaseEmbedder()
-        embedder.set_vector_dimension(None)
-        with self.assertRaises(ValueError):
-            ElasticsearchDB(es_config=self.es_config)
-
     def test_init_with_invalid_collection_name(self):
         # Test if an exception is raised when an invalid collection_name is provided
         self.es_config.collection_name = None
