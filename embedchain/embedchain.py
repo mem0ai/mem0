@@ -317,7 +317,6 @@ class EmbedChain(JSONSerializable):
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
-<<<<<<< HEAD
     def load_and_embed_v2(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, source_id=None):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
@@ -412,10 +411,7 @@ class EmbedChain(JSONSerializable):
             )
         ]
 
-    def retrieve_from_database(self, input_query, config: Optional[BaseLlmConfig] = None, where=None):
-=======
     def retrieve_from_database(self, input_query: str, config: Optional[BaseLlmConfig] = None, where=None) -> List[str]:
->>>>>>> main
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
