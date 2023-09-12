@@ -37,6 +37,11 @@ class ElasticsearchDB(BaseVectorDB):
         if config is None and es_config is None:
             self.config = ElasticsearchDBConfig()
         else:
+            if not isinstance(config, ElasticsearchDBConfig):
+                raise TypeError(
+                    "config is not a `ElasticsearchDBConfig` instance. "
+                    "Please make sure the type is right and that you are passing an instance."
+                )
             self.config = config or es_config
         self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
 
