@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Optional, Union
 
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
@@ -28,5 +29,13 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         # self, es_url: Union[str, List[str]] = None, **ES_EXTRA_PARAMS: Dict[str, any]):
         self.ES_URL = es_url
         self.ES_EXTRA_PARAMS = ES_EXTRA_PARAMS
+        # Load API key from .env if it's not explicitly passed.
+        # Can only set one of 'api_key', 'basic_auth', and 'bearer_auth'
+        if (
+            not self.ES_EXTRA_PARAMS.get("api_key")
+            and not self.ES_EXTRA_PARAMS.get("basic_auth")
+            and not self.ES_EXTRA_PARAMS.get("bearer_auth")
+        ):
+            self.ES_EXTRA_PARAMS["api_key"] = os.environ.get("ELASTICSEARCH_API_KEY")
 
         super().__init__(collection_name=collection_name, dir=dir)
