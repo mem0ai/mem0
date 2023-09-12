@@ -87,7 +87,10 @@ class ElasticsearchDB(BaseVectorDB):
         :return: ids
         :rtype: Set[str]
         """
-        query = {"bool": {"must": [{"ids": {"values": ids}}]}}
+        if ids:
+            query = {"bool": {"must": [{"ids": {"values": ids}}]}}
+        else:
+            query = {"bool": {"must": []}}
         if "app_id" in where:
             app_id = where["app_id"]
             query["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
@@ -95,7 +98,7 @@ class ElasticsearchDB(BaseVectorDB):
         response = self.client.search(index=self._get_index(), query=query, _source=False, size=limit)
         docs = response["hits"]["hits"]
         ids = [doc["_id"] for doc in docs]
-        return set(ids)
+        return {"ids": set(ids)}
 
     def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
         """add data in vector database
