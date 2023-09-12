@@ -242,7 +242,7 @@ class EmbedChain(JSONSerializable):
         src: Any,
         metadata: Optional[Dict[str, Any]] = None,
         source_id: Optional[str] = None,
-        dry_run = False
+        dry_run=False,
     ) -> Tuple[List[str], Dict[str, Any], List[str], int]:
         """The loader to use to load the data.
 
@@ -320,14 +320,14 @@ class EmbedChain(JSONSerializable):
         return list(documents), metadatas, ids, count_new_chunks
 
     def load_and_embed_v2(
-            self,
-            loader: BaseLoader,
-            chunker: BaseChunker,
-            src: Any,
-            metadata: Optional[Dict[str, Any]] = None,
-            source_id: Optional[str] = None,
-            dry_run = False
-        ):
+        self,
+        loader: BaseLoader,
+        chunker: BaseChunker,
+        src: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        source_id: Optional[str] = None,
+        dry_run=False,
+    ):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -364,9 +364,7 @@ class EmbedChain(JSONSerializable):
         # this means that doc content has changed.
         if existing_doc_id and existing_doc_id != new_doc_id:
             print("Doc content has changed. Recomputing chunks and embeddings intelligently.")
-            self.db.delete({
-                "doc_id": existing_doc_id
-            })
+            self.db.delete({"doc_id": existing_doc_id})
 
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}

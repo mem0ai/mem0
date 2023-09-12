@@ -43,7 +43,4 @@ class SitemapLoader(BaseLoader):
                     logging.warning(f"Page is not readable (too many invalid characters): {link}")
             except ParserRejectedMarkup as e:
                 logging.error(f"Failed to parse {link}: {e}")
-        return {
-            "doc_id": doc_id,
-            "data": [data[0] for data in output]
-        }
+        return {"doc_id": doc_id, "data": [data[0] for data in output]}
