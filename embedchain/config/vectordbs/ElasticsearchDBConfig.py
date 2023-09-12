@@ -28,6 +28,11 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         """
         # self, es_url: Union[str, List[str]] = None, **ES_EXTRA_PARAMS: Dict[str, any]):
         self.ES_URL = es_url or os.environ.get("ELASTICSEARCH_URL")
+        if not self.ES_URL:
+            raise AttributeError(
+                "Elasticsearch needs a URL attribute, "
+                "this can either be passed to `ElasticsearchDBConfig` or as `ELASTICSEARCH_URL` in `.env`"
+            )
         self.ES_EXTRA_PARAMS = ES_EXTRA_PARAMS
         # Load API key from .env if it's not explicitly passed.
         # Can only set one of 'api_key', 'basic_auth', and 'bearer_auth'
