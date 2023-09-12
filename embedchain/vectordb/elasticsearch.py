@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Optional, Set
 
 try:
@@ -36,6 +37,15 @@ class ElasticsearchDB(BaseVectorDB):
         if config is None and es_config is None:
             raise ValueError("ElasticsearchDBConfig is required")
         self.config = config or es_config
+
+        # Load API key from .env if it's not explicitly passed.
+        # Can only set one of 'api_key', 'basic_auth', and 'bearer_auth'
+        if (
+            not self.config.ES_EXTRA_PARAMS.get("api_key")
+            and not self.config.ES_EXTRA_PARAMS.get("basic_auth")
+            and not self.config.ES_EXTRA_PARAMS.get("bearer_auth")
+        ):
+            self.config.ES_EXTRA_PARAMS["api_key"] = os.environ.get("ELASTICSEARCH_API_KEY")
         self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
 
         # Call parent init here because embedder is needed
