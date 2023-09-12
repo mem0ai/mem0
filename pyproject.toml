@@ -91,7 +91,7 @@ youtube-transcript-api = "^0.6.1"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"
 pytube = "^15.0.0"
-llama-index = { version = "^0.7.21", optional = true }
+llama-hub = { version = "^0.0.29", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = ">=2.0.0, !=2.0.1", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
@@ -118,7 +118,7 @@ isort = "^5.12.0"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
-community = ["llama-index"]
+community = ["llama-hub"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 poe = ["fastapi-poe"]
