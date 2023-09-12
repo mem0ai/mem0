@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Dict, List, Optional, Set
 
 try:
@@ -70,7 +69,9 @@ class ElasticsearchDB(BaseVectorDB):
     def _get_or_create_collection(self, name):
         """Note: nothing to return here. Discuss later"""
 
-    def get(self, ids: List[str], where: Dict[str, any]) -> Set[str]:
+    def get(
+        self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
+    ) -> Set[str]:
         """
         Get existing doc ids present in vector database
 
@@ -85,7 +86,8 @@ class ElasticsearchDB(BaseVectorDB):
         if "app_id" in where:
             app_id = where["app_id"]
             query["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
-        response = self.client.search(index=self.es_index, query=query, _source=False)
+
+        response = self.client.search(index=self._get_index(), query=query, _source=False, size=limit)
         docs = response["hits"]["hits"]
         ids = [doc["_id"] for doc in docs]
         return set(ids)
