@@ -318,7 +318,15 @@ class EmbedChain(JSONSerializable):
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
-    def load_and_embed_v2(self, loader: BaseLoader, chunker: BaseChunker, src, metadata=None, source_id=None):
+    def load_and_embed_v2(
+            self,
+            loader: BaseLoader,
+            chunker: BaseChunker,
+            src: Any,
+            metadata: Optional[Dict[str, Any]] = None,
+            source_id: Optional[str] = None,
+            dry_run = False
+        ):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
 
@@ -331,7 +339,7 @@ class EmbedChain(JSONSerializable):
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         existing_embeddings_data = self.db.get_advanced({
-            "url": "local",
+            "url": src,
         })
         try:
             existing_doc_id = existing_embeddings_data.get("metadatas", [])[0]["doc_id"]
