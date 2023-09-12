@@ -36,8 +36,9 @@ class ElasticsearchDB(BaseVectorDB):
         :raises ValueError: No config provided
         """
         if config is None and es_config is None:
-            raise ValueError("ElasticsearchDBConfig is required")
-        self.config = config or es_config
+            self.config = ElasticsearchDBConfig()
+        else:
+            self.config = config or es_config
         self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
 
         # Call parent init here because embedder is needed
