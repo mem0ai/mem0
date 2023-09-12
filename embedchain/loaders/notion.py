@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 
@@ -34,10 +35,13 @@ class NotionLoader(BaseLoader):
 
         # Clean text
         text = clean_string(raw_text)
-
-        return [
+        doc_id = hashlib.sha256((text + source).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": [
             {
                 "content": text,
                 "meta_data": {"url": f"notion-{formatted_id}"},
             }
-        ]
+        ],
+        }
