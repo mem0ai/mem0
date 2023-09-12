@@ -180,7 +180,7 @@ class EmbedChain(JSONSerializable):
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type.value, metadata])
-        documents, metadatas, _ids, new_chunks = self.load_and_embed(
+        documents, metadatas, _ids, new_chunks = self.load_and_embed_v2(
             data_formatter.loader, data_formatter.chunker, source, metadata, source_id, dry_run
         )
         if data_type in {DataType.DOCS_SITE}:
@@ -272,10 +272,11 @@ class EmbedChain(JSONSerializable):
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
-        existing_ids = self.db.get(
+        db_result = self.db.get(
             ids=ids,
             where=where,  # optional filter
         )
+        existing_ids = set(db_result["ids"])
 
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
@@ -338,9 +339,12 @@ class EmbedChain(JSONSerializable):
         :param source_id: Hexadecimal hash of the source.
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
-        existing_embeddings_data = self.db.get_advanced({
-            "url": src,
-        })
+        existing_embeddings_data = self.db.get(
+            where={
+                "url": src,
+            },
+            limit=1,
+        )
         try:
             existing_doc_id = existing_embeddings_data.get("metadatas", [])[0]["doc_id"]
         except Exception:
@@ -367,10 +371,11 @@ class EmbedChain(JSONSerializable):
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
-        existing_ids = self.db.get(
+        db_result = self.db.get(
             ids=ids,
             where=where,  # optional filter
         )
+        existing_ids = set(db_result["ids"])
 
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}

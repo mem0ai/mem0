@@ -87,7 +87,7 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: List[str], where: Dict[str, Any]) -> List[str]:
+    def get(self, ids=None, where=None, limit=None):
         """
         Get existing doc ids present in vector database
 
@@ -98,12 +98,16 @@ class ChromaDB(BaseVectorDB):
         :return: Existing documents.
         :rtype: List[str]
         """
-        existing_docs = self.collection.get(
-            ids=ids,
-            where=where,  # optional filter
+        args = {}
+        if ids:
+            args["ids"] = ids
+        if where:
+            args["where"] = where
+        if limit:
+            args["limit"] = limit
+        return self.collection.get(
+            **args
         )
-
-        return set(existing_docs["ids"])
 
     def get_advanced(self, where):
         return self.collection.get(where=where, limit=1)

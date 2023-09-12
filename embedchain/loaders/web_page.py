@@ -64,6 +64,7 @@ class WebPageLoader(BaseLoader):
         meta_data = {
             "url": url,
         }
+        content = content
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return  {
             "doc_id": doc_id,
