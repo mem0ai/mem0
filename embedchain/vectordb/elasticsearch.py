@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Dict, List, Optional, Set
 
@@ -55,6 +56,7 @@ class ElasticsearchDB(BaseVectorDB):
         """
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
+        logging.info(self.client.info())
         index_settings = {
             "mappings": {
                 "properties": {
