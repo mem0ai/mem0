@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from embedchain import App
-from embedchain.config import AppConfig, AddConfig, ChunkerConfig
+from embedchain.config import AddConfig, AppConfig, ChunkerConfig
 from embedchain.models.data_type import DataType
 
 
