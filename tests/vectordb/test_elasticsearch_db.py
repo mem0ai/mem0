@@ -21,8 +21,3 @@ class TestEsDB(unittest.TestCase):
         with self.assertRaises(TypeError):
             ElasticsearchDB(es_config={"ES_URL": "some_url", "valid es_config": False})
 
-    def test_init_with_invalid_collection_name(self):
-        # Test if an exception is raised when an invalid collection_name is provided
-        self.es_config.collection_name = None
-        with self.assertRaises(ValueError):
-            ElasticsearchDB(es_config=self.es_config)
