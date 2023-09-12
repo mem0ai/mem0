@@ -36,7 +36,7 @@ class ElasticsearchDB(BaseVectorDB):
         if config is None and es_config is None:
             raise ValueError("ElasticsearchDBConfig is required")
         self.config = config or es_config
-        self.client = Elasticsearch(es_config.ES_URL, **es_config.ES_EXTRA_PARAMS)
+        self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
 
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
