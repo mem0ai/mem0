@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
+from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
@@ -334,7 +335,7 @@ class EmbedChain(JSONSerializable):
         })
         try:
             existing_doc_id = existing_embeddings_data.get("metadatas", [])[0]["doc_id"]
-        except Exception as e:
+        except Exception:
             existing_doc_id = None
         embeddings_data = chunker.create_chunks(loader, src)
 

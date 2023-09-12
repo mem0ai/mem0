@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -87,14 +87,14 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: List[str], where: Dict[str, any]) -> List[str]:
+    def get(self, ids: List[str], where: Dict[str, Any]) -> List[str]:
         """
         Get existing doc ids present in vector database
 
         :param ids: list of doc ids to check for existence
         :type ids: List[str]
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
+        :type where: Dict[str, Any]
         :return: Existing documents.
         :rtype: List[str]
         """
@@ -139,7 +139,7 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, Any]) -> List[str]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -148,7 +148,7 @@ class ChromaDB(BaseVectorDB):
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: Dict[str, Any]
         :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query.
         :rtype: List[str]
