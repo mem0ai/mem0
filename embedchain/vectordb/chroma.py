@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -87,25 +87,32 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: List[str], where: Dict[str, any]) -> List[str]:
+    def get(self, ids=None, where=None, limit=None):
         """
         Get existing doc ids present in vector database
 
         :param ids: list of doc ids to check for existence
         :type ids: List[str]
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
+        :type where: Dict[str, Any]
         :return: Existing documents.
         :rtype: List[str]
         """
-        existing_docs = self.collection.get(
-            ids=ids,
-            where=where,  # optional filter
+        args = {}
+        if ids:
+            args["ids"] = ids
+        if where:
+            args["where"] = where
+        if limit:
+            args["limit"] = limit
+        return self.collection.get(
+            **args
         )
 
-        return set(existing_docs["ids"])
+    def get_advanced(self, where):
+        return self.collection.get(where=where, limit=1)
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+    def add(self, documents: List[str], metadatas: List[object], ids: List[str]) -> Any:
         """
         Add vectors to chroma database
 
@@ -136,7 +143,7 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, Any]) -> List[str]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -145,7 +152,7 @@ class ChromaDB(BaseVectorDB):
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: Dict[str, Any]
         :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query.
         :rtype: List[str]
@@ -186,6 +193,9 @@ class ChromaDB(BaseVectorDB):
         :rtype: int
         """
         return self.collection.count()
+
+    def delete(self, where):
+        return self.collection.delete(where=where)
 
     def reset(self):
         """
