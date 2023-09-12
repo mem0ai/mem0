@@ -1,5 +1,5 @@
-import unittest
 import os
+import unittest
 
 from embedchain.config import ElasticsearchDBConfig
 from embedchain.vectordb.elasticsearch import ElasticsearchDB
