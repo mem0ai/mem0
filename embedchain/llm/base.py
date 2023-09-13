@@ -66,9 +66,16 @@ class BaseLlm(JSONSerializable):
         web_search_result = kwargs.get("web_search_result", "")
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
-        if not self.history:
-            prompt = self.config.template.substitute(context=context_string, query=input_query)
-        else:
+
+        template_contains_history = self.config._validate_template_history(self.config.template)
+        if template_contains_history:
+            # Template contains history
+            # If there is no history yet, we insert `- no history -`
+            prompt = self.config.template.substitute(
+                context=context_string, query=input_query, history=self.history or "- no history -"
+            )
+        elif self.history and not template_contains_history:
+            # History is present, but not included in the template.
             # check if it's the default template without history
             if (
                 not self.config._validate_template_history(self.config.template)
@@ -78,13 +85,15 @@ class BaseLlm(JSONSerializable):
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
                     context=context_string, query=input_query, history=self.history
                 )
-            elif not self.config._validate_template_history(self.config.template):
-                logging.warning("Template does not include `$history` key. History is not included in prompt.")
-                prompt = self.config.template.substitute(context=context_string, query=input_query)
             else:
-                prompt = self.config.template.substitute(
-                    context=context_string, query=input_query, history=self.history
+                # If we can't swap in the default, we still proceed but tell users that the history is ignored.
+                logging.warning(
+                    "Your bot contains a history, but template does not include `$history` key. History is ignored."
                 )
+                prompt = self.config.template.substitute(context=context_string, query=input_query)
+        else:
+            # basic use case, no history.
+            prompt = self.config.template.substitute(context=context_string, query=input_query)
         return prompt
 
     def _append_search_and_context(self, context: str, web_search_result: str) -> str:
