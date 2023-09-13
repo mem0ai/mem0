@@ -283,6 +283,8 @@ class EmbedChain(JSONSerializable):
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
 
             if not data_dict:
+                if len(src) > 50:
+                    src = src[:50] + "..."
                 print(f"All data from {src} already exists in the database.")
                 # Make sure to return a matching return type
                 return [], [], [], 0
@@ -380,6 +382,8 @@ class EmbedChain(JSONSerializable):
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
 
             if not data_dict:
+                if len(src) > 50:
+                    src = src[:50] + "..."
                 print(f"All data from {src} already exists in the database.")
                 # Make sure to return a matching return type
                 return [], [], [], 0
