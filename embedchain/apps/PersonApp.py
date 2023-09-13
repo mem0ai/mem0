@@ -6,7 +6,7 @@ from embedchain.config import BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.llm.base_llm_config import (DEFAULT_PROMPT,
                                                    DEFAULT_PROMPT_WITH_HISTORY)
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 
 @register_deserializable
@@ -19,7 +19,14 @@ class EmbedChainPersonApp:
     :param config: BaseAppConfig instance to load as configuration.
     """
 
-    def __init__(self, person, config: BaseAppConfig = None):
+    def __init__(self, person: str, config: BaseAppConfig = None):
+        """Initialize a new person app
+
+        :param person: Name of the person that's imitated.
+        :type person: str
+        :param config: Configuration class instance, defaults to None
+        :type config: BaseAppConfig, optional
+        """
         self.person = person
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
         super().__init__(config)
@@ -30,9 +37,12 @@ class EmbedChainPersonApp:
         if yes it adds the person prompt to it and return the updated config
         else it creates a config object with the default prompt added to the person prompt
 
-        :param default_prompt: it is the default prompt for query or chat methods
-        :param config: Optional. The `ChatConfig` instance to use as
-        configuration options.
+        :param default_prompt:  it is the default prompt for query or chat methods
+        :type default_prompt: str
+        :param config: _description_, defaults to None
+        :type config: BaseLlmConfig, optional
+        :return: The `ChatConfig` instance to use as configuration options.
+        :rtype: _type_
         """
         template = Template(self.person_prompt + " " + default_prompt)
 

@@ -69,9 +69,12 @@ class MockLoader:
         Mock loader that returns a list of data dictionaries.
         Adjust this method to return different data for testing.
         """
-        return [
-            {
-                "content": src,
-                "meta_data": {"url": "none"},
-            }
-        ]
+        return {
+            "doc_id": "123",
+            "data": [
+                {
+                    "content": src,
+                    "meta_data": {"url": "none"},
+                }
+            ],
+        }

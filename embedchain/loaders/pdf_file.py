@@ -1,6 +1,8 @@
+import hashlib
+
 from langchain.document_loaders import PyPDFLoader
 
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
@@ -10,7 +12,8 @@ class PdfFileLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a PDF file."""
         loader = PyPDFLoader(url)
-        output = []
+        data = []
+        all_content = []
         pages = loader.load_and_split()
         if not len(pages):
             raise ValueError("No data found")
@@ -19,10 +22,15 @@ class PdfFileLoader(BaseLoader):
             content = clean_string(content)
             meta_data = page.metadata
             meta_data["url"] = url
-            output.append(
+            data.append(
                 {
                     "content": content,
                     "meta_data": meta_data,
                 }
             )
-        return output
+            all_content.append(content)
+        doc_id = hashlib.sha256((" ".join(all_content) + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": data,
+        }

@@ -1,9 +1,9 @@
 import re
 from string import Template
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from embedchain.config.BaseConfig import BaseConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 DEFAULT_PROMPT = """
   Use the following pieces of context to answer the query at the end.
@@ -57,51 +57,59 @@ class BaseLlmConfig(BaseConfig):
 
     def __init__(
         self,
-        number_documents=None,
-        template: Template = None,
-        model=None,
-        temperature=None,
-        max_tokens=None,
-        top_p=None,
+        number_documents: int = 1,
+        template: Optional[Template] = None,
+        model: Optional[str] = None,
+        temperature: float = 0,
+        max_tokens: int = 1000,
+        top_p: float = 1,
         stream: bool = False,
-        deployment_name=None,
+        deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        where=None,
+        where: Dict[str, Any] = None,
     ):
         """
-        Initializes the QueryConfig instance.
+        Initializes a configuration class instance for the LLM.
 
-        :param number_documents: Number of documents to pull from the database as
-        context.
-        :param template: Optional. The `Template` instance to use as a template for
-        prompt.
-        :param model: Optional. Controls the OpenAI model used.
-        :param temperature: Optional. Controls the randomness of the model's output.
-        Higher values (closer to 1) make output more random, lower values make it more
-        deterministic.
-        :param max_tokens: Optional. Controls how many tokens are generated.
-        :param top_p: Optional. Controls the diversity of words. Higher values
-        (closer to 1) make word selection more diverse, lower values make words less
-        diverse.
-        :param stream: Optional. Control if response is streamed back to user
-        :param deployment_name: t.b.a.
-        :param system_prompt: Optional. System prompt string.
-        :param where: Optional. A dictionary of key-value pairs to filter the database results.
+        Takes the place of the former `QueryConfig` or `ChatConfig`.
+        Use `LlmConfig` as an alias to `BaseLlmConfig`.
+
+        :param number_documents:  Number of documents to pull from the database as
+        context, defaults to 1
+        :type number_documents: int, optional
+        :param template:  The `Template` instance to use as a template for
+        prompt, defaults to None
+        :type template: Optional[Template], optional
+        :param model: Controls the OpenAI model used, defaults to None
+        :type model: Optional[str], optional
+        :param temperature:  Controls the randomness of the model's output.
+        Higher values (closer to 1) make output more random, lower values make it more deterministic, defaults to 0
+        :type temperature: float, optional
+        :param max_tokens: Controls how many tokens are generated, defaults to 1000
+        :type max_tokens: int, optional
+        :param top_p: Controls the diversity of words. Higher values (closer to 1) make word selection more diverse,
+        defaults to 1
+        :type top_p: float, optional
+        :param stream: Control if response is streamed back to user, defaults to False
+        :type stream: bool, optional
+        :param deployment_name: t.b.a., defaults to None
+        :type deployment_name: Optional[str], optional
+        :param system_prompt: System prompt string, defaults to None
+        :type system_prompt: Optional[str], optional
+        :param where: A dictionary of key-value pairs to filter the database results., defaults to None
+        :type where: Dict[str, Any], optional
         :raises ValueError: If the template is not valid as template should
-        contain $context and $query (and optionally $history).
+        contain $context and $query (and optionally $history)
+        :raises ValueError: Stream is not boolean
         """
-        if number_documents is None:
-            self.number_documents = 1
-        else:
-            self.number_documents = number_documents
-
         if template is None:
             template = DEFAULT_PROMPT_TEMPLATE
 
-        self.temperature = temperature if temperature else 0
-        self.max_tokens = max_tokens if max_tokens else 1000
+        self.number_documents = number_documents
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         self.model = model
-        self.top_p = top_p if top_p else 1
+        self.top_p = top_p
         self.deployment_name = deployment_name
         self.system_prompt = system_prompt
 
@@ -115,20 +123,24 @@ class BaseLlmConfig(BaseConfig):
         self.stream = stream
         self.where = where
 
-    def validate_template(self, template: Template):
+    def validate_template(self, template: Template) -> bool:
         """
         validate the template
 
         :param template: the template to validate
-        :return: Boolean, valid (true) or invalid (false)
+        :type template: Template
+        :return: valid (true) or invalid (false)
+        :rtype: bool
         """
         return re.search(query_re, template.template) and re.search(context_re, template.template)
 
-    def _validate_template_history(self, template: Template):
+    def _validate_template_history(self, template: Template) -> bool:
         """
-        validate the history template for history
+        validate the template with history
 
         :param template: the template to validate
-        :return: Boolean, valid (true) or invalid (false)
+        :type template: Template
+        :return: valid (true) or invalid (false)
+        :rtype: bool
         """
         return re.search(history_re, template.template)

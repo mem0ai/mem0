@@ -1,6 +1,6 @@
 import hashlib
 
-from embedchain.helper_classes.json_serializable import JSONSerializable
+from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.models.data_type import DataType
 
 
@@ -22,14 +22,17 @@ class BaseChunker(JSONSerializable):
         documents = []
         ids = []
         idMap = {}
-        datas = loader.load_data(src)
+        data_result = loader.load_data(src)
+        data_records = data_result["data"]
+        doc_id = data_result["doc_id"]
         metadatas = []
-        for data in datas:
+        for data in data_records:
             content = data["content"]
 
             meta_data = data["meta_data"]
             # add data type to meta data to allow query using data type
             meta_data["data_type"] = self.data_type.value
+            meta_data["doc_id"] = doc_id
             url = meta_data["url"]
 
             chunks = self.get_chunks(content)
@@ -45,6 +48,7 @@ class BaseChunker(JSONSerializable):
             "documents": documents,
             "ids": ids,
             "metadatas": metadatas,
+            "doc_id": doc_id,
         }
 
     def get_chunks(self, content):

@@ -2,20 +2,21 @@ from typing import Optional
 
 from embedchain.apps.CustomApp import CustomApp
 from embedchain.config import CustomAppConfig
-from embedchain.embedder.openai_embedder import OpenAiEmbedder
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.llama2_llm import Llama2Llm
-from embedchain.vectordb.chroma_db import ChromaDB
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.llama2 import Llama2Llm
+from embedchain.vectordb.chroma import ChromaDB
 
 
 @register_deserializable
 class Llama2App(CustomApp):
     """
     The EmbedChain Llama2App class.
-    Has two functions: add and query.
 
-    adds(data_type, url): adds the data from the given URL to the vector db.
+    Methods:
+    add(source, data_type): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
+    chat(query): finds answer to the given query using vector database and LLM, with conversation history.
     """
 
     def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):

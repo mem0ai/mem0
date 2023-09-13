@@ -1,4 +1,6 @@
-from embedchain.helper_classes.json_serializable import register_deserializable
+import hashlib
+
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
 
@@ -8,12 +10,17 @@ class LocalQnaPairLoader(BaseLoader):
         """Load data from a local QnA pair."""
         question, answer = content
         content = f"Q: {question}\nA: {answer}"
+        url = "local"
         meta_data = {
-            "url": "local",
+            "url": url,
         }
-        return [
-            {
-                "content": content,
-                "meta_data": meta_data,
-            }
-        ]
+        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": [
+                {
+                    "content": content,
+                    "meta_data": meta_data,
+                }
+            ],
+        }

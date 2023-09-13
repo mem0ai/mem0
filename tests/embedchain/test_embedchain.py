@@ -10,13 +10,11 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
     os.environ["OPENAI_API_KEY"] = "test_key"
 
     @patch("chromadb.api.models.Collection.Collection.add")
-    @patch("chromadb.api.models.Collection.Collection.get")
     @patch("embedchain.embedchain.EmbedChain.retrieve_from_database")
-    @patch("embedchain.llm.base_llm.BaseLlm.get_answer_from_llm")
-    @patch("embedchain.llm.base_llm.BaseLlm.get_llm_model_answer")
+    @patch("embedchain.llm.base.BaseLlm.get_answer_from_llm")
+    @patch("embedchain.llm.base.BaseLlm.get_llm_model_answer")
     def test_whole_app(
         self,
-        _mock_get,
         _mock_add,
         _mock_ec_retrieve_from_database,
         _mock_get_answer_from_llm,

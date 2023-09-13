@@ -1,7 +1,7 @@
 from typing import Optional
 
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 
 @register_deserializable
@@ -14,6 +14,20 @@ class ChromaDbConfig(BaseVectorDbConfig):
         port: Optional[str] = None,
         chroma_settings: Optional[dict] = None,
     ):
+        """
+        Initializes a configuration class instance for ChromaDB.
+
+        :param collection_name: Default name for the collection, defaults to None
+        :type collection_name: Optional[str], optional
+        :param dir: Path to the database directory, where the database is stored, defaults to None
+        :type dir: Optional[str], optional
+        :param host: Database connection remote host. Use this if you run Embedchain as a client, defaults to None
+        :type host: Optional[str], optional
+        :param port: Database connection remote port. Use this if you run Embedchain as a client, defaults to None
+        :type port: Optional[str], optional
+        :param chroma_settings: Chroma settings dict, defaults to None
+        :type chroma_settings: Optional[dict], optional
+        """
         """
         :param chroma_settings: Optional. Chroma settings for connection.
         """
