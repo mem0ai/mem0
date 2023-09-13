@@ -61,7 +61,7 @@ elon_bot = App()
 
 # Embed online resources
 elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
-elon_bot.add("https://tesla.com/elon-musk")
+elon_bot.add("https://www.forbes.com/profile/elon-musk")
 elon_bot.add("https://www.youtube.com/watch?v=MxZpaJK74Y4")
 
 # Query the bot
