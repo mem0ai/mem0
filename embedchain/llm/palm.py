@@ -1,14 +1,19 @@
 import os
+from importlib.util import find_spec
 from typing import Optional
 
 from embedchain.config import BaseLlmConfig
-from embedchain.helper_classes.json_serializable import register_deserializable
-from embedchain.llm.base_llm import BaseLlm
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
 class PalmLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
+        if find_spec("google.generativeai") is None:
+            raise ModuleNotFoundError(
+                "The google-generativeai python package is not installed. Please install it with `pip install --upgrade embedchain[palm]`"  # noqa E501
+            )
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
