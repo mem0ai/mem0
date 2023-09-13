@@ -204,7 +204,7 @@ class BaseLlm(JSONSerializable):
         finally:
             if config:
                 # Restore previous config
-                self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)      
+                self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)
 
     def chat(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run=False):
         """
