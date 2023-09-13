@@ -51,6 +51,8 @@ class BaseEmbedder:
         :param vector_dimension: vector dimension size
         :type vector_dimension: int
         """
+        if not isinstance(vector_dimension, int):
+            raise TypeError("vector dimension must be int")
         self.vector_dimension = vector_dimension
 
     @staticmethod

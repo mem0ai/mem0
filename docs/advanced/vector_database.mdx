@@ -5,30 +5,66 @@ title: '💾 Vector Database'
 We support `Chroma` and `Elasticsearch` as two vector database. 
 `Chroma` is used as a default database.
 
-### Elasticsearch
-In order to use `Elasticsearch` as vector database we need to use App type `CustomApp`. 
+## Elasticsearch
+
+### Minimal Example
+
+In order to use `Elasticsearch` as vector database we need to use App type `CustomApp`.
+
+1. Set the environment variables in a `.env` file.
+```
+OPENAI_API_KEY=sk-SECRETKEY
+ELASTICSEARCH_API_KEY=SECRETKEY==
+ELASTICSEARCH_URL=https://secret-domain.europe-west3.gcp.cloud.es.io:443
+```
+Please note that the key needs certain privileges. For testing you can just toggle off `restrict privileges` under `/app/management/security/api_keys/` in your web interface.
+
+2. Load the app
+```python
+from embedchain import CustomApp
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.llm.openai import OpenAILlm
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
+
+es_app = CustomApp(
+    llm=OpenAILlm(),
+    embedder=OpenAiEmbedder(),
+    db=ElasticsearchDB(),
+)
+```
+
+### More custom settings
+
+You can get a URL for elasticsearch in the cloud, or run it locally. 
+The following example shows you how to configure embedchain to work with a locally running elasticsearch.
+
+Instead of using an API key, we use http login credentials. The localhost url can be defined in .env or in the config.
+
 ```python
 import os
+
 from embedchain import CustomApp
 from embedchain.config import CustomAppConfig, ElasticsearchDBConfig
-from embedchain.models import Providers, EmbeddingFunctions, VectorDatabases
-
-os.environ["OPENAI_API_KEY"] = 'OPENAI_API_KEY'
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.llm.openai import OpenAILlm
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 es_config = ElasticsearchDBConfig(
-	# elasticsearch url or list of nodes url with different hosts and ports.
-	es_url='http://localhost:9200',
-	# pass named parameters supported by Python Elasticsearch client
-	ca_certs="/path/to/http_ca.crt",
-	basic_auth=("username", "password")
+    # elasticsearch url or list of nodes url with different hosts and ports.
+    es_url='https://localhost:9200',
+    # pass named parameters supported by Python Elasticsearch client
+    http_auth=("elastic", "secret"),
+    ca_certs="~/binaries/elasticsearch-8.7.0/config/certs/http_ca.crt" # your cert path
+    # verify_certs=False # Alternative, if you aren't using certs
+) # pass named parameters supported by elasticsearch-py
+
+es_app = CustomApp(
+    config=CustomAppConfig(log_level="INFO"),
+    llm=OpenAILlm(),
+    embedder=OpenAiEmbedder(),
+    db=ElasticsearchDB(config=es_config),
 )
-config = CustomAppConfig(
-	embedding_fn=EmbeddingFunctions.OPENAI, 
-	provider=Providers.OPENAI, 
-	db_type=VectorDatabases.ELASTICSEARCH, 
-	es_config=es_config,
-)
-es_app = CustomApp(config)
 ```
-- Set `db_type=VectorDatabases.ELASTICSEARCH` and `es_config=ElasticsearchDBConfig(es_url='')` in `CustomAppConfig`.
-- `ElasticsearchDBConfig` accepts `es_url` as elasticsearch url or as list of nodes url with different hosts and ports. Additionally we can pass named parameters supported by Python Elasticsearch client.
+3. This should log your connection details to the console.
+4. Alternatively to a URL, you `ElasticsearchDBConfig` accepts `es_url` as a list of nodes url with different hosts and ports.
+5. Additionally we can pass named parameters supported by Python Elasticsearch client.

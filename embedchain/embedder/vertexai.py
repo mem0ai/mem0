@@ -4,7 +4,7 @@ from langchain.embeddings import VertexAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.models import EmbeddingFunctions
+from embedchain.models import VectorDimensions
 
 
 class VertexAiEmbedder(BaseEmbedder):
@@ -15,5 +15,5 @@ class VertexAiEmbedder(BaseEmbedder):
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
         self.set_embedding_fn(embedding_fn=embedding_fn)
 
-        vector_dimension = EmbeddingFunctions.VERTEX_AI.value
+        vector_dimension = VectorDimensions.VERTEX_AI.value
         self.set_vector_dimension(vector_dimension=vector_dimension)
