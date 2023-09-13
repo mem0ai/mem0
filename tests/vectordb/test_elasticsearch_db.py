@@ -7,11 +7,15 @@ from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 class TestEsDB(unittest.TestCase):
     def setUp(self):
-        self.es_config = ElasticsearchDBConfig()
+        self.es_config = ElasticsearchDBConfig(es_url="http://mock-url.net")
         self.vector_dim = 384
 
     def test_init_without_url(self):
-        del os.environ["ELASTICSEARCH_URL"]
+        # Make sure it's not loaded from env
+        try:
+            del os.environ["ELASTICSEARCH_URL"]
+        except KeyError:
+            pass
         # Test if an exception is raised when an invalid es_config is provided
         with self.assertRaises(AttributeError):
             ElasticsearchDB()
