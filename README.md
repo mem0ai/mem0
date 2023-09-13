@@ -11,7 +11,7 @@ Embedchain is a framework to easily create LLM powered bots over any dataset. If
 
 ## Community
 
-* Join embedchain community on slack by accpeting [this invite](https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw)
+* Join embedchain community on slack by accepting [this invite](https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw)
 
 ## 🤝 Schedule a 1-on-1 Session
 
