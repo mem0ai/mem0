@@ -61,12 +61,12 @@ elon_bot = App()
 
 # Embed online resources
 elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
-elon_bot.add("https://tesla.com/elon-musk")
+elon_bot.add("https://www.forbes.com/profile/elon-musk")
 elon_bot.add("https://www.youtube.com/watch?v=MxZpaJK74Y4")
 
 # Query the bot
-elon_bot.query("How many companies does Elon Musk run?")
-# Answer: Elon Musk runs four companies: Tesla, SpaceX, Neuralink, and The Boring Company
+elon_bot.query("How many companies does Elon Musk run and name those?")
+# Answer: Elon Musk currently runs several companies. As of my knowledge, he is the CEO and lead designer of SpaceX, the CEO and product architect of Tesla, Inc., the CEO and founder of Neuralink, and the CEO and founder of The Boring Company. However, please note that this information may change over time, so it's always good to verify the latest updates.
 ```
 
 ## 🤝 Contributing
