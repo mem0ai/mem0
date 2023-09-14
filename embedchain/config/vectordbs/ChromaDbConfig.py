@@ -13,6 +13,7 @@ class ChromaDbConfig(BaseVectorDbConfig):
         host: Optional[str] = None,
         port: Optional[str] = None,
         chroma_settings: Optional[dict] = None,
+        allow_reset=False,
     ):
         """
         Initializes a configuration class instance for ChromaDB.
@@ -27,9 +28,10 @@ class ChromaDbConfig(BaseVectorDbConfig):
         :type port: Optional[str], optional
         :param chroma_settings: Chroma settings dict, defaults to None
         :type chroma_settings: Optional[dict], optional
+        :param allow_reset: Resets the database. defaults to False
+        :type allow_reset: bool
         """
-        """
-        :param chroma_settings: Optional. Chroma settings for connection.
-        """
+
         self.chroma_settings = chroma_settings
+        self.allow_reset = allow_reset
         super().__init__(collection_name=collection_name, dir=dir, host=host, port=port)
