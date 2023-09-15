@@ -26,10 +26,10 @@ class ChromaDbConfig(BaseVectorDbConfig):
         :type host: Optional[str], optional
         :param port: Database connection remote port. Use this if you run Embedchain as a client, defaults to None
         :type port: Optional[str], optional
-        :param chroma_settings: Chroma settings dict, defaults to None
-        :type chroma_settings: Optional[dict], optional
         :param allow_reset: Resets the database. defaults to False
         :type allow_reset: bool
+        :param chroma_settings: Chroma settings dict, defaults to None
+        :type chroma_settings: Optional[dict], optional
         """
 
         self.chroma_settings = chroma_settings
