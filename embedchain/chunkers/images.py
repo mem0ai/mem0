@@ -32,9 +32,11 @@ class ImagesChunker(BaseChunker):
         documents = []
         embeddings = []
         ids = []
-        datas = loader.load_data(src)
+        data_result = loader.load_data(src)
+        data_records = data_result["data"]
+        doc_id = data_result["doc_id"]
         metadatas = []
-        for data in datas:
+        for data in data_records:
             meta_data = data["meta_data"]
             # add data type to meta data to allow query using data type
             meta_data["data_type"] = self.data_type.value
@@ -42,6 +44,7 @@ class ImagesChunker(BaseChunker):
             ids.append(chunk_id)
             documents.append(data["content"])
             embeddings.append(data["embedding"])
+            meta_data["doc_id"] = doc_id
             metadatas.append(meta_data)
 
         return {
@@ -49,6 +52,7 @@ class ImagesChunker(BaseChunker):
             "embeddings": embeddings,
             "ids": ids,
             "metadatas": metadatas,
+            "doc_id": doc_id,
         }
 
     def get_word_count(self, documents):

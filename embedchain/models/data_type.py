@@ -46,4 +46,4 @@ class DataType(Enum):
     CSV = IndirectDataType.CSV.value
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
-    IMAGES = IndirectDataType.IMAGES
+    IMAGES = IndirectDataType.IMAGES.value

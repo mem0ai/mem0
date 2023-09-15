@@ -1,11 +1,8 @@
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
-<<<<<<< HEAD
 from embedchain.chunkers.mdx import MdxChunker
-=======
 from embedchain.chunkers.images import ImagesChunker
->>>>>>> a145cfd (Add images support)
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker

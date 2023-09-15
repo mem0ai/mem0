@@ -32,7 +32,7 @@ class ClipProcessor:
         except UnidentifiedImageError:
             raise UnidentifiedImageError("The supplied file is not an image`")
 
-            # pre-process image
+        # pre-process image
         processed_image = preprocess(image).unsqueeze(0).to(device)
         with torch.no_grad():
             image_features = model.encode_image(processed_image)

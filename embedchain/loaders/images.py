@@ -1,5 +1,6 @@
 import os
 import logging
+import hashlib
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.ClipProcessor import ClipProcessor
 
@@ -16,9 +17,7 @@ class ImagesLoader(BaseLoader):
         # load model and image preprocessing
         model, preprocess = ClipProcessor.load_model()
         if os.path.isfile(image_url):
-            return [
-                ClipProcessor.get_image_features(image_url, model, preprocess)
-            ]
+            data = [ClipProcessor.get_image_features(image_url, model, preprocess)]
         else:
             data = []
             for filename in os.listdir(image_url):
@@ -28,4 +27,11 @@ class ImagesLoader(BaseLoader):
                 except Exception as e:
                     # Log the file that was not loaded
                     logging.exception("Failed to load the file {}. Exception {}".format(filepath, e))
-            return data
+        # Get the metadata like Size, Last Modified and Last Created timestamps
+        image_path_metadata = [str(os.path.getsize(image_url)), str(os.path.getmtime(image_url)),
+                               str(os.path.getctime(image_url))]
+        doc_id = hashlib.sha256((" ".join(image_path_metadata) + image_url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": data,
+        }
