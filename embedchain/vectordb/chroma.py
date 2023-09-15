@@ -209,7 +209,7 @@ class ChromaDB(BaseVectorDB):
             self.client.reset()
         except ValueError:
             raise ValueError(
-                "For safety reasons, resetting is disabled."
+                "For safety reasons, resetting is disabled. "
                 "Please enable it by setting `allow_reset=True` in your ChromaDbConfig"
             ) from None
         # Recreate

@@ -12,8 +12,8 @@ class ChromaDbConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         host: Optional[str] = None,
         port: Optional[str] = None,
-        chroma_settings: Optional[dict] = None,
         allow_reset=False,
+        chroma_settings: Optional[dict] = None,
     ):
         """
         Initializes a configuration class instance for ChromaDB.
