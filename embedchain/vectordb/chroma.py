@@ -37,6 +37,7 @@ class ChromaDB(BaseVectorDB):
             self.config = ChromaDbConfig()
 
         self.settings = Settings()
+        self.settings.allow_reset = self.config.allow_reset
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():
                 if hasattr(self.settings, key):
@@ -208,8 +209,8 @@ class ChromaDB(BaseVectorDB):
             self.client.reset()
         except ValueError:
             raise ValueError(
-                "For safety reasons, resetting is disabled."
-                'Please enable it by including `chromadb_settings={"allow_reset": True}` in your ChromaDbConfig'
+                "For safety reasons, resetting is disabled. "
+                "Please enable it by setting `allow_reset=True` in your ChromaDbConfig"
             ) from None
         # Recreate
         self._get_or_create_collection(self.config.collection_name)
