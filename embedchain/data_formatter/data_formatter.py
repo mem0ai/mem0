@@ -102,7 +102,7 @@ class DataFormatter(JSONSerializable):
             DataType.QNA_PAIR: QnaPairChunker,
             DataType.TEXT: TextChunker,
             DataType.DOCX: DocxFileChunker,
-            DataType.WEB_PAGE: WebPageChunker,
+            DataType.SITEMAP: WebPageChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
             DataType.NOTION: NotionChunker,
             DataType.CSV: TableChunker,
