@@ -1,8 +1,9 @@
+import hashlib
 import logging
 import os
 
 try:
-    from llama_index import download_loader
+    from llama_hub.notion.base import NotionPageReader
 except ImportError:
     raise ImportError(
         "Notion requires extra dependencies. Install with `pip install --upgrade embedchain[community]`"
@@ -19,8 +20,6 @@ class NotionLoader(BaseLoader):
     def load_data(self, source):
         """Load data from a PDF file."""
 
-        NotionPageReader = download_loader("NotionPageReader")
-
         # Reformat Id to match notion expectation
         id = source[-32:]
         formatted_id = f"{id[:8]}-{id[8:12]}-{id[12:16]}-{id[16:20]}-{id[20:]}"
@@ -36,10 +35,13 @@ class NotionLoader(BaseLoader):
 
         # Clean text
         text = clean_string(raw_text)
-
-        return [
-            {
-                "content": text,
-                "meta_data": {"url": f"notion-{formatted_id}"},
-            }
-        ]
+        doc_id = hashlib.sha256((text + source).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": [
+                {
+                    "content": text,
+                    "meta_data": {"url": f"notion-{formatted_id}"},
+                }
+            ],
+        }

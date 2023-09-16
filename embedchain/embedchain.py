@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
+from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
@@ -20,7 +21,8 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import DataType
+from embedchain.models.data_type import (DataType, DirectDataType,
+                                         IndirectDataType, SpecialDataType)
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -125,6 +127,7 @@ class EmbedChain(JSONSerializable):
         data_type: Optional[DataType] = None,
         metadata: Optional[Dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
+        dry_run=False,
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -141,6 +144,8 @@ class EmbedChain(JSONSerializable):
         :param config: The `AddConfig` instance to use as configuration options., defaults to None
         :type config: Optional[AddConfig], optional
         :raises ValueError: Invalid data type
+        :param dry_run: Optional. A dry run displays the chunks to ensure that the loader and chunker work as intended.
+        deafaults to False
         :return: source_id, a md5-hash of the source, in hexadecimal representation.
         :rtype: str
         """
@@ -176,11 +181,16 @@ class EmbedChain(JSONSerializable):
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type.value, metadata])
-        documents, _metadatas, _ids, new_chunks = self.load_and_embed(
-            data_formatter.loader, data_formatter.chunker, source, metadata, source_id
+        documents, metadatas, _ids, new_chunks = self.load_and_embed_v2(
+            data_formatter.loader, data_formatter.chunker, source, metadata, source_id, dry_run
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
+
+        if dry_run:
+            data_chunks_info = {"chunks": documents, "metadata": metadatas, "count": len(documents), "type": data_type}
+            logging.debug(f"Dry run info : {data_chunks_info}")
+            return data_chunks_info
 
         # Send anonymous telemetry
         if self.config.collect_metrics:
@@ -233,6 +243,7 @@ class EmbedChain(JSONSerializable):
         src: Any,
         metadata: Optional[Dict[str, Any]] = None,
         source_id: Optional[str] = None,
+        dry_run=False,
     ) -> Tuple[List[str], Dict[str, Any], List[str], int]:
         """The loader to use to load the data.
 
@@ -247,6 +258,8 @@ class EmbedChain(JSONSerializable):
         :type metadata: Dict[str, Any], optional
         :param source_id: Hexadecimal hash of the source., defaults to None
         :type source_id: str, optional
+        :param dry_run: Optional. A dry run returns chunks and doesn't update DB.
+        :type dry_run: bool, defaults to False
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         :rtype: Tuple[List[str], Dict[str, Any], List[str], int]
         """
@@ -260,22 +273,29 @@ class EmbedChain(JSONSerializable):
         # get existing ids, and discard doc if any common id exist.
         where = {"app_id": self.config.id} if self.config.id is not None else {}
         # where={"url": src}
-        existing_ids = self.db.get(
+        db_result = self.db.get(
             ids=ids,
             where=where,  # optional filter
         )
+        existing_ids = set(db_result["ids"])
 
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
 
             if not data_dict:
-                print(f"All data from {src} already exists in the database.")
+                src_copy = src
+                if len(src_copy) > 50:
+                    src_copy = src[:50] + "..."
+                print(f"All data from {src_copy} already exists in the database.")
                 # Make sure to return a matching return type
                 return [], [], [], 0
 
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
+
+        if dry_run:
+            return list(documents), metadatas, ids, 0
 
         # Loop though all metadatas and add extras.
         new_metadatas = []
@@ -302,6 +322,150 @@ class EmbedChain(JSONSerializable):
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
+
+    def load_and_embed_v2(
+        self,
+        loader: BaseLoader,
+        chunker: BaseChunker,
+        src: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        source_id: Optional[str] = None,
+        dry_run=False,
+    ):
+        """
+        Loads the data from the given URL, chunks it, and adds it to database.
+
+        :param loader: The loader to use to load the data.
+        :param chunker: The chunker to use to chunk the data.
+        :param src: The data to be handled by the loader. Can be a URL for
+        remote sources or local content for local loaders.
+        :param metadata: Optional. Metadata associated with the data source.
+        :param source_id: Hexadecimal hash of the source.
+        :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
+        """
+        # Find existing embeddings for the source
+        # Depending on the data type, existing embeddings are checked for.
+        if chunker.data_type.value in [item.value for item in DirectDataType]:
+            # DirectDataTypes can't be updated.
+            # Think of a text:
+            #   Either it's the same, then it won't change, so it's not an update.
+            #   Or it's different, then it will be added as a new text.
+            existing_doc_id = None
+        elif chunker.data_type.value in [item.value for item in IndirectDataType]:
+            # These types have a indirect source reference
+            # As long as the reference is the same, they can be updated.
+            existing_embeddings_data = self.db.get(
+                where={
+                    "url": src,
+                },
+                limit=1,
+            )
+            try:
+                existing_doc_id = existing_embeddings_data.get("metadatas", [])[0]["doc_id"]
+            except Exception:
+                existing_doc_id = None
+        elif chunker.data_type.value in [item.value for item in SpecialDataType]:
+            # These types don't contain indirect references.
+            # Through custom logic, they can be attributed to a source and be updated.
+            if chunker.data_type == DataType.QNA_PAIR:
+                # QNA_PAIRs update the answer if the question already exists.
+                existing_embeddings_data = self.db.get(
+                    where={
+                        "question": src[0],
+                    },
+                    limit=1,
+                )
+                try:
+                    existing_doc_id = existing_embeddings_data.get("metadatas", [])[0]["doc_id"]
+                except Exception:
+                    existing_doc_id = None
+            else:
+                raise NotImplementedError(
+                    f"SpecialDataType {chunker.data_type} must have a custom logic to check for existing data"
+                )
+        else:
+            raise TypeError(
+                f"{chunker.data_type} is type {type(chunker.data_type)}. "
+                "When it should be  DirectDataType, IndirectDataType or SpecialDataType."
+            )
+
+        # Create chunks
+        embeddings_data = chunker.create_chunks(loader, src)
+
+        # spread chunking results
+        documents = embeddings_data["documents"]
+        metadatas = embeddings_data["metadatas"]
+        ids = embeddings_data["ids"]
+        new_doc_id = embeddings_data["doc_id"]
+
+        if existing_doc_id and existing_doc_id == new_doc_id:
+            print("Doc content has not changed. Skipping creating chunks and embeddings")
+            return [], [], [], 0
+
+        # this means that doc content has changed.
+        if existing_doc_id and existing_doc_id != new_doc_id:
+            print("Doc content has changed. Recomputing chunks and embeddings intelligently.")
+            self.db.delete({"doc_id": existing_doc_id})
+
+        # get existing ids, and discard doc if any common id exist.
+        where = {"app_id": self.config.id} if self.config.id is not None else {}
+        # where={"url": src}
+        db_result = self.db.get(
+            ids=ids,
+            where=where,  # optional filter
+        )
+        existing_ids = set(db_result["ids"])
+
+        if len(existing_ids):
+            data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
+            data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
+
+            if not data_dict:
+                src_copy = src
+                if len(src_copy) > 50:
+                    src_copy = src[:50] + "..."
+                print(f"All data from {src_copy} already exists in the database.")
+                # Make sure to return a matching return type
+                return [], [], [], 0
+
+            ids = list(data_dict.keys())
+            documents, metadatas = zip(*data_dict.values())
+
+        # Loop though all metadatas and add extras.
+        new_metadatas = []
+        for m in metadatas:
+            # Add app id in metadatas so that they can be queried on later
+            if self.config.id:
+                m["app_id"] = self.config.id
+
+            # Add hashed source
+            m["hash"] = source_id
+
+            # Note: Metadata is the function argument
+            if metadata:
+                # Spread whatever is in metadata into the new object.
+                m.update(metadata)
+
+            new_metadatas.append(m)
+        metadatas = new_metadatas
+
+        # Count before, to calculate a delta in the end.
+        chunks_before_addition = self.count()
+
+        self.db.add(documents=documents, metadatas=metadatas, ids=ids)
+        count_new_chunks = self.count() - chunks_before_addition
+        print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
+        return list(documents), metadatas, ids, count_new_chunks
+
+    def _format_result(self, results):
+        return [
+            (Document(page_content=result[0], metadata=result[1] or {}), result[2])
+            for result in zip(
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+            )
+        ]
 
     def retrieve_from_database(self, input_query: str, config: Optional[BaseLlmConfig] = None, where=None) -> List[str]:
         """

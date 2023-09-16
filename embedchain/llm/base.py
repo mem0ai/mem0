@@ -66,9 +66,16 @@ class BaseLlm(JSONSerializable):
         web_search_result = kwargs.get("web_search_result", "")
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
-        if not self.history:
-            prompt = self.config.template.substitute(context=context_string, query=input_query)
-        else:
+
+        template_contains_history = self.config._validate_template_history(self.config.template)
+        if template_contains_history:
+            # Template contains history
+            # If there is no history yet, we insert `- no history -`
+            prompt = self.config.template.substitute(
+                context=context_string, query=input_query, history=self.history or "- no history -"
+            )
+        elif self.history and not template_contains_history:
+            # History is present, but not included in the template.
             # check if it's the default template without history
             if (
                 not self.config._validate_template_history(self.config.template)
@@ -78,13 +85,15 @@ class BaseLlm(JSONSerializable):
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
                     context=context_string, query=input_query, history=self.history
                 )
-            elif not self.config._validate_template_history(self.config.template):
-                logging.warning("Template does not include `$history` key. History is not included in prompt.")
-                prompt = self.config.template.substitute(context=context_string, query=input_query)
             else:
-                prompt = self.config.template.substitute(
-                    context=context_string, query=input_query, history=self.history
+                # If we can't swap in the default, we still proceed but tell users that the history is ignored.
+                logging.warning(
+                    "Your bot contains a history, but template does not include `$history` key. History is ignored."
                 )
+                prompt = self.config.template.substitute(context=context_string, query=input_query)
+        else:
+            # basic use case, no history.
+            prompt = self.config.template.substitute(context=context_string, query=input_query)
         return prompt
 
     def _append_search_and_context(self, context: str, web_search_result: str) -> str:
@@ -174,27 +183,37 @@ class BaseLlm(JSONSerializable):
         :return: The answer to the query or the dry run result
         :rtype: str
         """
-        query_config = config or self.config
+        try:
+            if config:
+                # A config instance passed to this method will only be applied temporarily, for one call.
+                # So we will save the previous config and restore it at the end of the execution.
+                # For this we use the serializer.
+                prev_config = self.config.serialize()
+                self.config = config
 
-        if self.is_docs_site_instance:
-            query_config.template = DOCS_SITE_PROMPT_TEMPLATE
-            query_config.number_documents = 5
-        k = {}
-        if self.online:
-            k["web_search_result"] = self.access_search_and_get_results(input_query)
-        prompt = self.generate_prompt(input_query, contexts, **k)
-        logging.info(f"Prompt: {prompt}")
+            if self.is_docs_site_instance:
+                self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+                self.config.number_documents = 5
+            k = {}
+            if self.online:
+                k["web_search_result"] = self.access_search_and_get_results(input_query)
+            prompt = self.generate_prompt(input_query, contexts, **k)
+            logging.info(f"Prompt: {prompt}")
 
-        if dry_run:
-            return prompt
+            if dry_run:
+                return prompt
 
-        answer = self.get_answer_from_llm(prompt)
+            answer = self.get_answer_from_llm(prompt)
 
-        if isinstance(answer, str):
-            logging.info(f"Answer: {answer}")
-            return answer
-        else:
-            return self._stream_query_response(answer)
+            if isinstance(answer, str):
+                logging.info(f"Answer: {answer}")
+                return answer
+            else:
+                return self._stream_query_response(answer)
+        finally:
+            if config:
+                # Restore previous config
+                self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)
 
     def chat(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run=False):
         """
@@ -217,39 +236,49 @@ class BaseLlm(JSONSerializable):
         :return: The answer to the query or the dry run result
         :rtype: str
         """
-        query_config = config or self.config
+        try:
+            if config:
+                # A config instance passed to this method will only be applied temporarily, for one call.
+                # So we will save the previous config and restore it at the end of the execution.
+                # For this we use the serializer.
+                prev_config = self.config.serialize()
+                self.config = config
 
-        if self.is_docs_site_instance:
-            query_config.template = DOCS_SITE_PROMPT_TEMPLATE
-            query_config.number_documents = 5
-        k = {}
-        if self.online:
-            k["web_search_result"] = self.access_search_and_get_results(input_query)
+            if self.is_docs_site_instance:
+                self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+                self.config.number_documents = 5
+            k = {}
+            if self.online:
+                k["web_search_result"] = self.access_search_and_get_results(input_query)
 
-        self.update_history()
-
-        prompt = self.generate_prompt(input_query, contexts, **k)
-        logging.info(f"Prompt: {prompt}")
-
-        if dry_run:
-            return prompt
-
-        answer = self.get_answer_from_llm(prompt)
-
-        self.memory.chat_memory.add_user_message(input_query)
-
-        if isinstance(answer, str):
-            self.memory.chat_memory.add_ai_message(answer)
-            logging.info(f"Answer: {answer}")
-
-            # NOTE: Adding to history before and after. This could be seen as redundant.
-            # If we change it, we have to change the tests (no big deal).
             self.update_history()
 
-            return answer
-        else:
-            # this is a streamed response and needs to be handled differently.
-            return self._stream_chat_response(answer)
+            prompt = self.generate_prompt(input_query, contexts, **k)
+            logging.info(f"Prompt: {prompt}")
+
+            if dry_run:
+                return prompt
+
+            answer = self.get_answer_from_llm(prompt)
+
+            self.memory.chat_memory.add_user_message(input_query)
+
+            if isinstance(answer, str):
+                self.memory.chat_memory.add_ai_message(answer)
+                logging.info(f"Answer: {answer}")
+
+                # NOTE: Adding to history before and after. This could be seen as redundant.
+                # If we change it, we have to change the tests (no big deal).
+                self.update_history()
+
+                return answer
+            else:
+                # this is a streamed response and needs to be handled differently.
+                return self._stream_chat_response(answer)
+        finally:
+            if config:
+                # Restore previous config
+                self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)
 
     @staticmethod
     def _get_messages(prompt: str, system_prompt: Optional[str] = None) -> List[BaseMessage]:

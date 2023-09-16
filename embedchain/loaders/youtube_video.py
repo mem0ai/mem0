@@ -1,3 +1,5 @@
+import hashlib
+
 from langchain.document_loaders import YoutubeLoader
 
 from embedchain.helper.json_serializable import register_deserializable
@@ -18,10 +20,15 @@ class YoutubeVideoLoader(BaseLoader):
         content = clean_string(content)
         meta_data = doc[0].metadata
         meta_data["url"] = url
+
         output.append(
             {
                 "content": content,
                 "meta_data": meta_data,
             }
         )
-        return output
+        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": output,
+        }

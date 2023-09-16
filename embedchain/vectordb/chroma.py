@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -37,6 +37,7 @@ class ChromaDB(BaseVectorDB):
             self.config = ChromaDbConfig()
 
         self.settings = Settings()
+        self.settings.allow_reset = self.config.allow_reset
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():
                 if hasattr(self.settings, key):
@@ -87,25 +88,32 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: List[str], where: Dict[str, any]) -> List[str]:
+    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
         :param ids: list of doc ids to check for existence
         :type ids: List[str]
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
+        :type where: Dict[str, Any]
+        :param limit: Optional. maximum number of documents
+        :type limit: Optional[int]
         :return: Existing documents.
         :rtype: List[str]
         """
-        existing_docs = self.collection.get(
-            ids=ids,
-            where=where,  # optional filter
-        )
+        args = {}
+        if ids:
+            args["ids"] = ids
+        if where:
+            args["where"] = where
+        if limit:
+            args["limit"] = limit
+        return self.collection.get(**args)
 
-        return set(existing_docs["ids"])
+    def get_advanced(self, where):
+        return self.collection.get(where=where, limit=1)
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+    def add(self, documents: List[str], metadatas: List[object], ids: List[str]) -> Any:
         """
         Add vectors to chroma database
 
@@ -136,7 +144,7 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, Any]) -> List[str]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -145,7 +153,7 @@ class ChromaDB(BaseVectorDB):
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: Dict[str, Any]
         :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query.
         :rtype: List[str]
@@ -175,6 +183,8 @@ class ChromaDB(BaseVectorDB):
         :param name: Name of the collection.
         :type name: str
         """
+        if not isinstance(name, str):
+            raise TypeError("Collection name must be a string")
         self.config.collection_name = name
         self._get_or_create_collection(self.config.collection_name)
 
@@ -187,6 +197,9 @@ class ChromaDB(BaseVectorDB):
         """
         return self.collection.count()
 
+    def delete(self, where):
+        return self.collection.delete(where=where)
+
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
@@ -196,8 +209,8 @@ class ChromaDB(BaseVectorDB):
             self.client.reset()
         except ValueError:
             raise ValueError(
-                "For safety reasons, resetting is disabled."
-                'Please enable it by including `chromadb_settings={"allow_reset": True}` in your ChromaDbConfig'
+                "For safety reasons, resetting is disabled. "
+                "Please enable it by setting `allow_reset=True` in your ChromaDbConfig"
             ) from None
         # Recreate
         self._get_or_create_collection(self.config.collection_name)

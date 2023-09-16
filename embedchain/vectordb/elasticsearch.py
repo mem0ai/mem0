@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, Set
 
 try:
@@ -34,9 +35,15 @@ class ElasticsearchDB(BaseVectorDB):
         :raises ValueError: No config provided
         """
         if config is None and es_config is None:
-            raise ValueError("ElasticsearchDBConfig is required")
-        self.config = config or es_config
-        self.client = Elasticsearch(es_config.ES_URL, **es_config.ES_EXTRA_PARAMS)
+            self.config = ElasticsearchDBConfig()
+        else:
+            if not isinstance(config, ElasticsearchDBConfig):
+                raise TypeError(
+                    "config is not a `ElasticsearchDBConfig` instance. "
+                    "Please make sure the type is right and that you are passing an instance."
+                )
+            self.config = config or es_config
+        self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
 
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
@@ -45,6 +52,7 @@ class ElasticsearchDB(BaseVectorDB):
         """
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
+        logging.info(self.client.info())
         index_settings = {
             "mappings": {
                 "properties": {
@@ -66,7 +74,9 @@ class ElasticsearchDB(BaseVectorDB):
     def _get_or_create_collection(self, name):
         """Note: nothing to return here. Discuss later"""
 
-    def get(self, ids: List[str], where: Dict[str, any]) -> Set[str]:
+    def get(
+        self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
+    ) -> Set[str]:
         """
         Get existing doc ids present in vector database
 
@@ -77,14 +87,18 @@ class ElasticsearchDB(BaseVectorDB):
         :return: ids
         :rtype: Set[str]
         """
-        query = {"bool": {"must": [{"ids": {"values": ids}}]}}
+        if ids:
+            query = {"bool": {"must": [{"ids": {"values": ids}}]}}
+        else:
+            query = {"bool": {"must": []}}
         if "app_id" in where:
             app_id = where["app_id"]
             query["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
-        response = self.client.search(index=self.es_index, query=query, _source=False)
+
+        response = self.client.search(index=self._get_index(), query=query, _source=False, size=limit)
         docs = response["hits"]["hits"]
         ids = [doc["_id"] for doc in docs]
-        return set(ids)
+        return {"ids": set(ids)}
 
     def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
         """add data in vector database
@@ -150,6 +164,8 @@ class ElasticsearchDB(BaseVectorDB):
         :param name: Name of the collection.
         :type name: str
         """
+        if not isinstance(name, str):
+            raise TypeError("Collection name must be a string")
         self.config.collection_name = name
 
     def count(self) -> int:
@@ -181,4 +197,4 @@ class ElasticsearchDB(BaseVectorDB):
         """
         # NOTE: The method is preferred to an attribute, because if collection name changes,
         # it's always up-to-date.
-        return f"{self.config.collection_name}_{self.embedder.vector_dimension}"
+        return f"{self.config.collection_name}_{self.embedder.vector_dimension}".lower()

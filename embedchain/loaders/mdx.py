@@ -5,10 +5,11 @@ from embedchain.loaders.base_loader import BaseLoader
 
 
 @register_deserializable
-class LocalTextLoader(BaseLoader):
-    def load_data(self, content):
-        """Load data from a local text file."""
-        url = "local"
+class MdxLoader(BaseLoader):
+    def load_data(self, url):
+        """Load data from a mdx file."""
+        with open(url, "r", encoding="utf-8") as infile:
+            content = infile.read()
         meta_data = {
             "url": url,
         }

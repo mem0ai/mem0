@@ -1,4 +1,5 @@
 import csv
+import hashlib
 from io import StringIO
 from urllib.parse import urlparse
 
@@ -34,7 +35,7 @@ class CsvLoader(BaseLoader):
     def load_data(content):
         """Load a csv file with headers. Each line is a document"""
         result = []
-
+        lines = []
         with CsvLoader._get_file_content(content) as file:
             first_line = file.readline()
             delimiter = CsvLoader._detect_delimiter(first_line)
@@ -42,5 +43,7 @@ class CsvLoader(BaseLoader):
             reader = csv.DictReader(file, delimiter=delimiter)
             for i, row in enumerate(reader):
                 line = ", ".join([f"{field}: {value}" for field, value in row.items()])
+                lines.append(line)
                 result.append({"content": line, "meta_data": {"url": content, "row": i + 1}})
-        return result
+        doc_id = hashlib.sha256((content + " ".join(lines)).encode()).hexdigest()
+        return {"doc_id": doc_id, "data": result}

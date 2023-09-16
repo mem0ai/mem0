@@ -5,7 +5,7 @@ from langchain.embeddings import OpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.models import EmbeddingFunctions
+from embedchain.models import VectorDimensions
 
 try:
     from chromadb.utils import embedding_functions
@@ -37,4 +37,4 @@ class OpenAiEmbedder(BaseEmbedder):
             )
 
         self.set_embedding_fn(embedding_fn=embedding_fn)
-        self.set_vector_dimension(vector_dimension=EmbeddingFunctions.OPENAI.value)
+        self.set_vector_dimension(vector_dimension=VectorDimensions.OPENAI.value)
