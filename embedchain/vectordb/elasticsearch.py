@@ -62,12 +62,12 @@ class ElasticsearchDB(BaseVectorDB):
         """Called during initialization"""
         return self.client
 
-    def _get_or_create_collection(self, name: Optional[str]):
+    def _get_or_create_collection(self, name: Optional[str] = None):
         """
         Get or create a collection (index).
 
-        :param name: Name of the collection
-        :type name: str
+        :param name: Name of the collection, defaults to None
+        :type name: Optional[str], optional
         """
         # A few differences to the Chroma implementation. No return.
 
