@@ -338,14 +338,14 @@ class EmbedChain(JSONSerializable):
         elif chunker.data_type.value in [item.value for item in IndirectDataType]:
             # These types have a indirect source reference
             # As long as the reference is the same, they can be updated.
-            existing_embedding_ids = self.db.get(
+            existing_embedding = self.db.get(
                 where={
                     "url": src,
                 },
                 limit=1,
             )
-            if len(existing_embedding_ids) > 0:
-                return existing_embedding_ids[0]
+            if existing_embedding.get('ids') and len(existing_embedding.get('ids')) > 0:
+                return existing_embedding.get('ids')[0]
             else:
                 return None
         elif chunker.data_type.value in [item.value for item in SpecialDataType]:
@@ -353,14 +353,14 @@ class EmbedChain(JSONSerializable):
             # Through custom logic, they can be attributed to a source and be updated.
             if chunker.data_type == DataType.QNA_PAIR:
                 # QNA_PAIRs update the answer if the question already exists.
-                existing_embedding_ids = self.db.get(
+                existing_embedding = self.db.get(
                     where={
                         "question": src[0],
                     },
                     limit=1,
                 )
-                if len(existing_embedding_ids) > 0:
-                    return existing_embedding_ids[0]
+                if existing_embedding.get('ids') and len(existing_embedding.get('ids')) > 0:
+                    return existing_embedding.get('ids')[0]
                 else:
                     return None
             else:

@@ -1,6 +1,7 @@
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
+from typing import Dict, Set
 
 
 class BaseVectorDB(JSONSerializable):
@@ -40,7 +41,7 @@ class BaseVectorDB(JSONSerializable):
         """
         self.embedder = embedder
 
-    def get(self):
+    def get(self) -> Dict[str, Set[str]]:
         """Get existing doc ids present in vector database."""
         raise NotImplementedError
 

@@ -76,7 +76,7 @@ class ElasticsearchDB(BaseVectorDB):
 
     def get(
         self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
-    ) -> Set[str]:
+    ) -> Dict[str, Set[str]]:
         """
         Get existing doc ids present in vector database
 
@@ -84,8 +84,8 @@ class ElasticsearchDB(BaseVectorDB):
         :type ids: List[str]
         :param where: to filter data
         :type where: Dict[str, any]
-        :return: ids
-        :rtype: Set[str]
+        :return: dict with ids
+        :rtype: Dict[str, Set[str]]
         """
         if ids:
             query = {"bool": {"must": [{"ids": {"values": ids}}]}}
