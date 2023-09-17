@@ -179,6 +179,17 @@ class ElasticsearchDB(BaseVectorDB):
         response = self.client.count(index=self._get_index(), query=query)
         doc_count = response["count"]
         return doc_count
+    
+    def delete(self, where: Dict[str, any]):
+        """Delete documents that based on a search filter.
+
+        :param where: Where filter to find items to delete.
+        :type where: Dict[str, any]
+        """
+        self.client.delete_by_query(index=self._get_index(), body=where)
+
+    def delete_id(self, id: str):
+        self.client.delete(index=self._get_index(), id=id)
 
     def reset(self):
         """
