@@ -53,6 +53,29 @@ class ElasticsearchDB(BaseVectorDB):
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
         logging.info(self.client.info())
+        if not self.client.indices.exists(index=self._get_index()):
+            # create index if not exist
+            self._get_or_create_collection()
+
+
+    def _get_or_create_db(self):
+        """Called during initialization"""
+        return self.client
+
+    def _get_or_create_collection(self, name: Optional[str]):
+        """
+        Get or create a collection (index).
+
+        :param name: Name of the collection
+        :type name: str
+        """
+        # A few differences to the Chroma implementation. No return.
+
+        # Name argument for signature parity with Chroma.
+        if name:
+            self.set_collection_name(name)
+
+        es_index = self._get_index()
         index_settings = {
             "mappings": {
                 "properties": {
@@ -61,18 +84,8 @@ class ElasticsearchDB(BaseVectorDB):
                 }
             }
         }
-        es_index = self._get_index()
-        if not self.client.indices.exists(index=es_index):
-            # create index if not exist
-            print("Creating index", es_index, index_settings)
-            self.client.indices.create(index=es_index, body=index_settings)
-
-    def _get_or_create_db(self):
-        """Called during initialization"""
-        return self.client
-
-    def _get_or_create_collection(self, name):
-        """Note: nothing to return here. Discuss later"""
+        print("Creating index", es_index, index_settings)
+        self.client.indices.create(index=es_index, body=index_settings)
 
     def get(
         self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
@@ -206,6 +219,8 @@ class ElasticsearchDB(BaseVectorDB):
         if self.client.indices.exists(index=self._get_index()):
             # delete index in Es
             self.client.indices.delete(index=self._get_index())
+            # Recreate (see Chroma's reset method for thoughts)
+            self._get_or_create_collection()
 
     def _get_index(self) -> str:
         """Get the Elasticsearch index for a collection
