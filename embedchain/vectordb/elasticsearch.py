@@ -189,6 +189,12 @@ class ElasticsearchDB(BaseVectorDB):
         self.client.delete_by_query(index=self._get_index(), body=where)
 
     def delete_id(self, id: str):
+        """
+        Delete an id from the database.
+
+        :param id: `doc_id` to delete
+        :type id: str
+        """
         self.client.delete(index=self._get_index(), id=id)
 
     def reset(self):
