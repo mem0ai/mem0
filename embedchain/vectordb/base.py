@@ -49,7 +49,11 @@ class BaseVectorDB(JSONSerializable):
         raise NotImplementedError
 
     def delete(self):
-        """Delete entries from database"""
+        """Delete entries from database using a filter"""
+        raise NotImplementedError
+    
+    def delete_id(self):
+        """Delete entry with a specific id from database"""
         raise NotImplementedError
 
     def query(self):
