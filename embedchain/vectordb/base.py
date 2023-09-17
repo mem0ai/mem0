@@ -41,7 +41,7 @@ class BaseVectorDB(JSONSerializable):
         self.embedder = embedder
 
     def get(self):
-        """Get database embeddings by id."""
+        """Get existing doc ids present in vector database."""
         raise NotImplementedError
 
     def add(self):

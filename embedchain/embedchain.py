@@ -6,7 +6,7 @@ import os
 import threading
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from dotenv import load_dotenv
@@ -323,7 +323,7 @@ class EmbedChain(JSONSerializable):
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
     
-    def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
+    def _get_existing_doc_id(self, chunker: BaseChunker, src: Any) -> Union[None, str]:
         """
         Get id of existing document for a given source, based on the data type
         """
@@ -338,14 +338,14 @@ class EmbedChain(JSONSerializable):
         elif chunker.data_type.value in [item.value for item in IndirectDataType]:
             # These types have a indirect source reference
             # As long as the reference is the same, they can be updated.
-            existing_embeddings_data = self.db.get(
+            existing_embedding_ids = self.db.get(
                 where={
                     "url": src,
                 },
                 limit=1,
             )
-            if len(existing_embeddings_data.get("metadatas", [])) > 0:
-                return existing_embeddings_data["metadatas"][0]["doc_id"]
+            if len(existing_embedding_ids) > 0:
+                return existing_embedding_ids[0]
             else:
                 return None
         elif chunker.data_type.value in [item.value for item in SpecialDataType]:
@@ -353,14 +353,14 @@ class EmbedChain(JSONSerializable):
             # Through custom logic, they can be attributed to a source and be updated.
             if chunker.data_type == DataType.QNA_PAIR:
                 # QNA_PAIRs update the answer if the question already exists.
-                existing_embeddings_data = self.db.get(
+                existing_embedding_ids = self.db.get(
                     where={
                         "question": src[0],
                     },
                     limit=1,
                 )
-                if len(existing_embeddings_data.get("metadatas", [])) > 0:
-                    return existing_embeddings_data["metadatas"][0]["doc_id"]
+                if len(existing_embedding_ids) > 0:
+                    return existing_embedding_ids[0]
                 else:
                     return None
             else:

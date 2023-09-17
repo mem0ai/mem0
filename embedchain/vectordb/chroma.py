@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -88,7 +88,7 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None) -> Set[str]:
         """
         Get existing doc ids present in vector database
 
@@ -108,7 +108,10 @@ class ChromaDB(BaseVectorDB):
             args["where"] = where
         if limit:
             args["limit"] = limit
-        return self.collection.get(**args)
+
+        results = self.collection.get(**args)
+        ids = [metadata['doc_id'] for metadata in results['metadatas']]
+        return {"ids": set(ids)}
 
     def get_advanced(self, where):
         return self.collection.get(where=where, limit=1)
