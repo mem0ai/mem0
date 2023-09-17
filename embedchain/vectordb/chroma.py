@@ -197,8 +197,13 @@ class ChromaDB(BaseVectorDB):
         """
         return self.collection.count()
 
-    def delete(self, where):
-        return self.collection.delete(where=where)
+    def delete(self, where: Dict[str, any]):
+        """Delete documents that based on a search filter.
+
+        :param where: Where filter to find items to delete.
+        :type where: Dict[str, any]
+        """
+        self.collection.delete(where=where)
 
     def reset(self):
         """
