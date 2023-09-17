@@ -205,6 +205,16 @@ class ChromaDB(BaseVectorDB):
         """
         self.collection.delete(where=where)
 
+    def delete_id(self, id: str):
+        """
+        Delete an id from the database.
+
+        :param id: `doc_id` to delete
+        :type id: str
+        """
+        # This function is needeed because not all databases support the where filter to delete ids.
+        self.collection.delete(where={"doc_id": id})
+
     def reset(self):
         """
         Resets the database. Deletes all embeddings irreversibly.
