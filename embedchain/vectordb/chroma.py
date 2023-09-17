@@ -88,7 +88,9 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None) -> Dict[str, Set[str]]:
+    def get(
+        self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
+    ) -> Dict[str, Set[str]]:
         """
         Get existing doc ids present in vector database
 
@@ -110,7 +112,7 @@ class ChromaDB(BaseVectorDB):
             args["limit"] = limit
 
         results = self.collection.get(**args)
-        ids = [metadata['doc_id'] for metadata in results['metadatas']]
+        ids = [metadata["doc_id"] for metadata in results["metadatas"]]
         return {"ids": set(ids)}
 
     def get_advanced(self, where):

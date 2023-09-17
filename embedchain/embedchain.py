@@ -322,7 +322,7 @@ class EmbedChain(JSONSerializable):
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
-    
+
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any) -> Union[None, str]:
         """
         Get id of existing document for a given source, based on the data type
@@ -344,8 +344,8 @@ class EmbedChain(JSONSerializable):
                 },
                 limit=1,
             )
-            if existing_embedding.get('ids') and len(existing_embedding.get('ids')) > 0:
-                return list(existing_embedding.get('ids'))[0]
+            if existing_embedding.get("ids") and len(existing_embedding.get("ids")) > 0:
+                return list(existing_embedding.get("ids"))[0]
             else:
                 return None
         elif chunker.data_type.value in [item.value for item in SpecialDataType]:
@@ -359,8 +359,8 @@ class EmbedChain(JSONSerializable):
                     },
                     limit=1,
                 )
-                if existing_embedding.get('ids') and len(existing_embedding.get('ids')) > 0:
-                    return list(existing_embedding.get('ids'))[0]
+                if existing_embedding.get("ids") and len(existing_embedding.get("ids")) > 0:
+                    return list(existing_embedding.get("ids"))[0]
                 else:
                     return None
             else:

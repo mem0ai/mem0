@@ -1,7 +1,8 @@
+from typing import Dict, Set
+
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
-from typing import Dict, Set
 
 
 class BaseVectorDB(JSONSerializable):
@@ -52,7 +53,7 @@ class BaseVectorDB(JSONSerializable):
     def delete(self):
         """Delete entries from database using a filter"""
         raise NotImplementedError
-    
+
     def delete_id(self):
         """Delete entry with a specific id from database"""
         raise NotImplementedError

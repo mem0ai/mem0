@@ -57,7 +57,6 @@ class ElasticsearchDB(BaseVectorDB):
             # create index if not exist
             self._get_or_create_collection()
 
-
     def _get_or_create_db(self):
         """Called during initialization"""
         return self.client
@@ -192,7 +191,7 @@ class ElasticsearchDB(BaseVectorDB):
         response = self.client.count(index=self._get_index(), query=query)
         doc_count = response["count"]
         return doc_count
-    
+
     def delete(self, where: Dict[str, any]):
         """
         Delete documents that based on a search filter.
