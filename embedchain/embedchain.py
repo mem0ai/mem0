@@ -345,7 +345,6 @@ class EmbedChain(JSONSerializable):
                 limit=1,
             )
             if existing_embedding.get('ids') and len(existing_embedding.get('ids')) > 0:
-                print(existing_embedding)
                 return list(existing_embedding.get('ids'))[0]
             else:
                 return None
