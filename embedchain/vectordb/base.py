@@ -47,6 +47,10 @@ class BaseVectorDB(JSONSerializable):
     def add(self):
         """Add to database"""
         raise NotImplementedError
+    
+    def delete(self):
+        """Delete entries from database"""
+        raise NotImplementedError    
 
     def query(self):
         """Query contents from vector data base based on vector similarity"""
