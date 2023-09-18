@@ -26,11 +26,10 @@ class PalmLlm(BaseLlm):
 
         from langchain.chat_models import ChatGooglePalm
 
-        model = "models/chat-bison-001"
-        if (config is not None) and (config.model is not None):
-            model = config.model
+        if not config.model:
+            config.model = "models/chat-bison-001"
 
-        chat = ChatGooglePalm(temperature=config.temperature, top_p=config.top_p, model_name=model)
+        chat = ChatGooglePalm(temperature=config.temperature, top_p=config.top_p, model_name=config.model)
         messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content

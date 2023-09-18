@@ -20,11 +20,10 @@ class PalmEmbedder(BaseEmbedder):
         if os.getenv("GOOGLE_API_KEY") is None:
             raise ValueError("GOOGLE_API_KEY environment variables not provided")
 
-        model = "models/embedding-gecko-001"
-        if (config is not None) and (config.model is not None):
-            model = config.model
+        if not self.config.model:
+            self.config.model = "models/embedding-gecko-001"
 
-        embeddings = GooglePalmEmbeddings(model_name=model)
+        embeddings = GooglePalmEmbeddings(model_name=self.config.model)
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
 
         self.set_embedding_fn(embedding_fn=embedding_fn)
