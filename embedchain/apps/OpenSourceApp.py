@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from embedchain.apps import App
+from embedchain.apps.App import App
 from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
@@ -14,7 +14,7 @@ gpt4all_model = None
 
 
 @register_deserializable
-class OpenSourceApp(EmbedChain):
+class OpenSourceApp(App):
     """
     The embedchain Open Source App.
     Comes preconfigured with the best open source LLM, embedding model, database.
@@ -62,7 +62,7 @@ class OpenSourceApp(EmbedChain):
             "`OpenSourceApp` will be removed in a future release."
         )
 
-        App(
+        super().__init__(
             config=config,
             llm=GPT4ALLLlm(config=llm_config),
             db=ChromaDB(config=chromadb_config),

@@ -11,7 +11,7 @@ from embedchain.vectordb.base import BaseVectorDB
 
 
 @register_deserializable
-class CustomApp(EmbedChain):
+class CustomApp(App):
     """
     Embedchain's custom app allows for most flexibility.
 
@@ -60,5 +60,4 @@ class CustomApp(EmbedChain):
             "DEPRECATION WARNING: Please use `App` instead of `CustomApp`."
             "`CustomApp` will be removed in a future release."
         )
-
-        App(config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
+        super().__init__(config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)

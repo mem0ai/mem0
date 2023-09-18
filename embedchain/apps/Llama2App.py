@@ -9,7 +9,7 @@ from embedchain.llm.llama2 import Llama2Llm
 
 
 @register_deserializable
-class Llama2App(CustomApp):
+class Llama2App(App):
     """
     The EmbedChain Llama2App class.
 
@@ -35,4 +35,4 @@ class Llama2App(CustomApp):
             "`Llama2App` will be removed in a future release."
         )
 
-        App(config=config, llm=Llama2Llm(), system_prompt=system_prompt)
+        super().__init__(config=config, llm=Llama2Llm(), system_prompt=system_prompt)

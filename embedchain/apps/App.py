@@ -75,7 +75,7 @@ class App(EmbedChain):
             db_config = chromadb_config
 
         # Type check configs
-        if not isinstance(config, AppConfig):
+        if config and not isinstance(config, AppConfig):
             raise TypeError(
                 "Config is not a `AppConfig` instance. "
                 "Please make sure the type is right and that you are passing an instance."
