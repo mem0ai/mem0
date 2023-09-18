@@ -135,6 +135,69 @@ import os
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 ```
 
+### Full Configuration Examples
+
+Embedchain previously offered fully configured classes, namely `App`, `OpenSourceApp`, `CustomApp` and `Llama2App`.
+We deprecated these apps. The reason for this decision was that it was hard to switch from to a different LLM, embedder or vector db, if you one day decided that that's what you want to do.
+The new app allows drop-in replacements, such as changing `App(llm=OpenAiLlm())` to `App(llm=Llama2Llm())`.
+
+To make the switch to our new, fully configurable app easier, we provide you with full examples for what the old classes would look like implemented as a new app.
+You can swap these in, and if you decide you want to try a different model one day, you don't have to rewrite your whole bot.
+
+#### App
+App without any configuration is still using the best options available, so you can keep using:
+
+```python
+from embedchain import App
+
+app = App()
+```
+
+#### OpenSourceApp
+
+Use this snippet to run an open source app.
+
+```python
+from embedchain import App
+from embedchain.llm.gpt4all import GPT4ALLLlm
+from embedchain.embedder.gpt4all import GPT4AllEmbedder
+from embedchain.vectordb.chroma import ChromaDB
+
+app = App(llm=GPT4ALLLlm(), embedder=GPT4AllEmbedder(), db=ChromaDB())
+```
+
+#### Llama2App
+```python
+from embedchain import App
+from embedchain.llm.llama2 import Llama2Llm
+
+app = App(llm=Llama2Llm())
+```
+
+#### CustomApp
+
+Every app is a custom app now.
+If you were previously using a `CustomApp`, you can now just change it to `App`.
+
+Here's one example, what you could do if we combined everything shown on this page.
+
+```python
+from embedchain import App
+from embedchain.config import ElasticsearchDBConfig, EmbedderConfig, LlmConfig
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.llm.llama2 import Llama2Llm
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
+
+app = App(
+    llm=Llama2Llm(),
+    llm_config=LlmConfig(number_documents=3, temperature=0),
+    embedder=OpenAiEmbedder(),
+    embedder_config=EmbedderConfig(model="text-embedding-ada-002"),
+    db=ElasticsearchDB(),
+    db_config=ElasticsearchDBConfig(),
+)
+```
+
 ### Compatibility with other apps
 
 - If there is any other app instance in your script or app, you can change the import as
