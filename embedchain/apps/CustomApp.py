@@ -3,7 +3,6 @@ from typing import Optional
 
 from embedchain.apps.App import App
 from embedchain.config import CustomAppConfig
-from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
