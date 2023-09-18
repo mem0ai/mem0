@@ -37,27 +37,38 @@ class App(EmbedChain):
         system_prompt: Optional[str] = None,
     ):
         """
-        Initialize a new `CustomApp` instance.
+        Initialize a new `App` instance.
 
-        :param config: Config for the app instance.
-        This is the most basic configuration, that does not fall into the LLM, database or embedder category,
-        defaults to None
-        :type config: AppConfig, optional
+        :param config: Config for the app instance., defaults to None
+        :type config: Optional[AppConfig], optional
+        :param llm:  LLM Class instance. example: `from embedchain.llm.openai import OpenAILlm`, defaults to OpenAiLlm
+        :type llm: BaseLlm, optional
         :param llm_config: Allows you to configure the LLM, e.g. how many documents to return,
         example: `from embedchain.config import LlmConfig`, defaults to None
-        :type llm_config: BaseLlmConfig, optional
-        :param chromadb_config: Allows you to configure the vector database,
+        :type llm_config: Optional[BaseLlmConfig], optional
+        :param db: The database to use for storing and retrieving embeddings,
+        example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to ChromaDb
+        :type db: BaseVectorDB, optional
+        :param db_config: Allows you to configure the vector database,
         example: `from embedchain.config import ChromaDbConfig`, defaults to None
+        :type db_config: Optional[BaseVectorDbConfig], optional
+        :param embedder: The embedder (embedding model and function) use to calculate embeddings.
+        example: `from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder`, defaults to OpenAiEmbedder
+        :type embedder: BaseEmbedder, optional
+        :param embedder_config: Allows you to configure the Embedder. example: `from embedchain.config import BaseEmbedderConfig`, defaults to None
+        :type embedder_config: Optional[BaseEmbedderConfig], optional
+        :param chromadb_config: Deprecated alias of `db_config`, defaults to None
         :type chromadb_config: Optional[ChromaDbConfig], optional
         :param system_prompt: System prompt that will be provided to the LLM as such, defaults to None
         :type system_prompt: Optional[str], optional
-        """
+        :raises TypeError: LLM, database or embedder or their config is not a valid class instance.
+        """        
         # Overwrite deprecated arguments
         if chromadb_config:
             logging.warning("DEPRECATION WARNING: Please use `db_config` argument instead of `chromadb_config`. `chromadb_config` will be removed in a future release.")
             db_config = chromadb_config
 
-        # Check configs
+        # Type check configs
         if not isinstance(config, AppConfig):
             raise TypeError(
                 "Config is not a `AppConfig` instance. "
