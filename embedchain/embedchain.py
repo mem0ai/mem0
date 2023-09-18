@@ -21,8 +21,7 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import (DataType, DirectDataType,
-                                         IndirectDataType, SpecialDataType)
+from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -294,9 +293,6 @@ class EmbedChain(JSONSerializable):
             ids = list(data_dict.keys())
             documents, metadatas = zip(*data_dict.values())
 
-        if dry_run:
-            return list(documents), metadatas, ids, 0
-
         # Loop though all metadatas and add extras.
         new_metadatas = []
         for m in metadatas:
@@ -315,6 +311,9 @@ class EmbedChain(JSONSerializable):
             new_metadatas.append(m)
         metadatas = new_metadatas
 
+        if dry_run:
+            return list(documents), metadatas, ids, 0
+
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
@@ -322,7 +321,7 @@ class EmbedChain(JSONSerializable):
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
-    
+
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
         Get id of existing document for a given source, based on the data type
@@ -391,6 +390,8 @@ class EmbedChain(JSONSerializable):
         remote sources or local content for local loaders.
         :param metadata: Optional. Metadata associated with the data source.
         :param source_id: Hexadecimal hash of the source.
+        :param dry_run: Optional. A dry run returns chunks and doesn't update DB.
+        :type dry_run: bool, defaults to False
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         existing_doc_id = self._get_existing_doc_id(chunker=chunker, src=src)
@@ -454,6 +455,9 @@ class EmbedChain(JSONSerializable):
 
             new_metadatas.append(m)
         metadatas = new_metadatas
+
+        if dry_run:
+            return list(documents), metadatas, ids, 0
 
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
