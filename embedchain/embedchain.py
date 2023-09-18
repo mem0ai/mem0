@@ -98,6 +98,16 @@ class EmbedChain(JSONSerializable):
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
 
+    @property
+    def collect_metrics(self):
+        return self.config.collect_metrics
+
+    @collect_metrics.setter
+    def collect_metrics(self, value):
+        if not isinstance(value, bool):
+            raise ValueError(f"Boolean value expected but got {type(value)}.")
+        self.config.collect_metrics = value
+
     def _load_or_generate_user_id(self) -> str:
         """
         Loads the user id from the config file if it exists, otherwise generates a new
