@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from embedchain.apps import App
 from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig, OpenSourceAppConfig)
 from embedchain.embedchain import EmbedChain
@@ -22,6 +23,9 @@ class OpenSourceApp(EmbedChain):
     add(source, data_type): adds the data from the given URL to the vector db.
     query(query): finds answer to the given query using vector database and LLM.
     chat(query): finds answer to the given query using vector database and LLM, with conversation history.
+
+    .. deprecated:: 0.0.59
+    Use `App` instead.
     """
 
     def __init__(
@@ -35,6 +39,9 @@ class OpenSourceApp(EmbedChain):
         Initialize a new `CustomApp` instance.
         Since it's opinionated you don't have to choose a LLM, database and embedder.
         However, you can configure those.
+
+        .. deprecated:: 0.0.59
+        Use `App` instead.
 
         :param config: Config for the app instance. This is the most basic configuration,
         that does not fall into the LLM, database or embedder category, defaults to None
@@ -50,29 +57,15 @@ class OpenSourceApp(EmbedChain):
         :type system_prompt: Optional[str], optional
         :raises TypeError: `OpenSourceAppConfig` or `LlmConfig` invalid.
         """
-        logging.info("Loading open source embedding model. This may take some time...")  # noqa:E501
-        if not config:
-            config = OpenSourceAppConfig()
+        logging.warning(
+            "DEPRECATION WARNING: Please use `App` instead of `OpenSourceApp`."
+            "`OpenSourceApp` will be removed in a future release."
+        )
 
-        if not isinstance(config, OpenSourceAppConfig):
-            raise TypeError(
-                "OpenSourceApp needs a OpenSourceAppConfig passed to it. "
-                "You can import it with `from embedchain.config import OpenSourceAppConfig`"
-            )
-
-        if not llm_config:
-            llm_config = BaseLlmConfig(model="orca-mini-3b.ggmlv3.q4_0.bin")
-        elif not isinstance(llm_config, BaseLlmConfig):
-            raise TypeError(
-                "The LlmConfig passed to OpenSourceApp is invalid. "
-                "You can import it with `from embedchain.config import LlmConfig`"
-            )
-        elif not llm_config.model:
-            llm_config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
-
-        llm = GPT4ALLLlm(config=llm_config)
-        embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
-        logging.error("Successfully loaded open source embedding model.")
-        database = ChromaDB(config=chromadb_config)
-
-        super().__init__(config, llm=llm, db=database, embedder=embedder, system_prompt=system_prompt)
+        App(
+            config=config,
+            llm=GPT4ALLLlm(config=llm_config),
+            db=ChromaDB(config=chromadb_config),
+            embedder=GPT4AllEmbedder(),
+            system_prompt=system_prompt,
+        )
