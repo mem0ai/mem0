@@ -60,6 +60,7 @@ class OpenSourceApp(App):
         logging.warning(
             "DEPRECATION WARNING: Please use `App` instead of `OpenSourceApp`."
             "`OpenSourceApp` will be removed in a future release."
+            "Please refer to https://docs.embedchain.ai/advanced/app_types#customapp for instructions."
         )
 
         super().__init__(

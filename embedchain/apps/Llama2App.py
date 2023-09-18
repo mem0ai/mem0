@@ -31,8 +31,9 @@ class Llama2App(App):
         :param system_prompt: System prompt string. Optional.
         """
         logging.warning(
-            "DEPRECATION WARNING: Please use `App` instead of `Llama2App`."
-            "`Llama2App` will be removed in a future release."
+            "DEPRECATION WARNING: Please use `App` instead of `Llama2App`. "
+            "`Llama2App` will be removed in a future release. "
+            "Please refer to https://docs.embedchain.ai/advanced/app_types#llama2app for instructions."
         )
 
         super().__init__(config=config, llm=Llama2Llm(), system_prompt=system_prompt)

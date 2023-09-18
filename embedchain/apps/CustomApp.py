@@ -57,7 +57,8 @@ class CustomApp(App):
         :raises TypeError: LLM, database or embedder is not a valid class instance.
         """
         logging.warning(
-            "DEPRECATION WARNING: Please use `App` instead of `CustomApp`."
-            "`CustomApp` will be removed in a future release."
+            "DEPRECATION WARNING: Please use `App` instead of `CustomApp`. "
+            "`CustomApp` will be removed in a future release. "
+            "Please refer to https://docs.embedchain.ai/advanced/app_types#opensourceapp for instructions."
         )
         super().__init__(config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
