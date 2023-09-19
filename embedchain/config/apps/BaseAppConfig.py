@@ -62,6 +62,9 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
         repaired = False
+        if not hasattr(self, 'log_level'):
+            self.log_level = "WARNING"
+            repaired = True
         if not hasattr(self, 'logger') or not self.logger:
             self._setup_logging(self.log_level)
             repaired = True
