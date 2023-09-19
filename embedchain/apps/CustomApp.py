@@ -61,6 +61,9 @@ class CustomApp(EmbedChain):
             app_config = config
             config = None
 
+        if config and (app_config or llm or db or embedder or system_prompt):
+            raise ValueError("You cannot use a yaml and a class based config simultaneously. We are working on this.")
+
         # Config is not required, it has a default
         if app_config is None:
             app_config = CustomAppConfig()

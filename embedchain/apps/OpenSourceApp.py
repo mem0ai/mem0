@@ -62,6 +62,9 @@ class OpenSourceApp(EmbedChain):
             app_config = config
             config = None
 
+        if config and (app_config or llm_config or chromadb_config or system_prompt):
+            raise ValueError("You cannot use a yaml and a class based config simultaneously. We are working on this.")
+
         logging.info("Loading open source embedding model. This may take some time...")  # noqa:E501
         if not app_config:
             app_config = OpenSourceAppConfig()
