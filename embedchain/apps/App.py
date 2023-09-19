@@ -34,7 +34,8 @@ class App(EmbedChain):
         Initialize a new `CustomApp` instance. You only have a few choices to make.
 
         :param config: Path to a yaml config that you can use to configure whole app.
-        You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
+        You can generate a template in your working directory with `App.generate_default_config()`,
+        defaults to `config.yaml`.
         :type config: str
         :param app_config: Config for the app instance.
         This is the most basic configuration, that does not fall into the LLM, database or embedder category,

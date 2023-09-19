@@ -25,7 +25,8 @@ class Llama2App(CustomApp):
     ):
         """
         :param config: Path to a yaml config that you can use to configure whole app.
-        You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
+        You can generate a template in your working directory with `App.generate_default_config()`,
+        defaults to `config.yaml`.
         :type config: str
         :param app_config: CustomAppConfig instance to load as configuration. Optional.
         :param system_prompt: System prompt string. Optional.
