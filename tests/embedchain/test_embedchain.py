@@ -58,3 +58,11 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         )
 
         app.reset()
+
+    def test_argument_swap(self):
+        """
+        Test if swapping config and app_config works.
+        """
+        app_config = AppConfig(collect_metrics=False)
+        app = App(config=app_config)
+        self.assertFalse(app.collect_metrics)
