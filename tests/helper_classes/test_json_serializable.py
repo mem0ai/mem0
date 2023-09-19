@@ -1,6 +1,6 @@
+import json
 import random
 import unittest
-import json
 from string import Template
 
 from embedchain import App
@@ -45,15 +45,15 @@ class TestJsonSerializable(unittest.TestCase):
             """Recursively retrieves vars() for all attributes of an object up to a specified depth."""
             if depth <= 0:
                 return str(type(obj))  # or some other representation when max depth is reached
-            
+
             if isinstance(obj, (str, int, float, bool, type(None))):
                 return obj
 
             if isinstance(obj, list):
-                return [get_nested_vars(item, depth=depth-1) for item in obj]
+                return [get_nested_vars(item, depth=depth - 1) for item in obj]
 
             if isinstance(obj, dict):
-                return {key: get_nested_vars(value, depth=depth-1) for key, value in obj.items()}
+                return {key: get_nested_vars(value, depth=depth - 1) for key, value in obj.items()}
 
             if isinstance(obj, set):
                 return list(obj)  # Convert the set to a list for JSON serialization
@@ -61,7 +61,7 @@ class TestJsonSerializable(unittest.TestCase):
             try:
                 attributes = vars(obj).copy()  # Use copy to prevent modifying the original object
                 for attr, value in attributes.items():
-                    attributes[attr] = get_nested_vars(value, depth=depth-1)
+                    attributes[attr] = get_nested_vars(value, depth=depth - 1)
                 return attributes
             except TypeError:
                 return obj
@@ -75,7 +75,7 @@ class TestJsonSerializable(unittest.TestCase):
         app = App.deserialize(serial)
         new_vars = get_nested_vars(app)
 
-        IGNORED = { 'config' : ['logger'], 'llm' : ['memory']}
+        IGNORED = {"config": ["logger"], "llm": ["memory"]}
 
         for key, value in original_vars.items():
             for k, vs in IGNORED.items():
@@ -85,11 +85,11 @@ class TestJsonSerializable(unittest.TestCase):
 
             try:
                 original_string = json.dumps(value, sort_keys=True)
-            except:
+            except Exception:
                 original_string = ""
             try:
                 new_string = json.dumps(new_vars.get(key, {}), sort_keys=True)
-            except:
+            except Exception:
                 new_string = ""
             self.assertEqual(original_string, new_string)
 

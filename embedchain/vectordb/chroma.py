@@ -49,13 +49,13 @@ class ChromaDB(BaseVectorDB):
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
         repaired = False
-        if not hasattr(self, 'settings'):
+        if not hasattr(self, "settings"):
             self._set_settings()
             repaired = True
-        if not hasattr(self, 'client'):
+        if not hasattr(self, "client"):
             self.client = chromadb.Client(self.settings)
             repaired = True
-        if not hasattr(self, 'collections'):
+        if not hasattr(self, "collections"):
             self._get_or_create_collection(self.config.collection_name)
             repaired = True
         return repaired
@@ -91,7 +91,7 @@ class ChromaDB(BaseVectorDB):
             embedding_function=self.embedder.embedding_fn,
         )
         return self.collection
-    
+
     def _set_settings(self):
         """Create a Chroma settings object based on the config"""
         self.config: ChromaDbConfig

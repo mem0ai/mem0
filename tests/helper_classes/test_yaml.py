@@ -2,8 +2,9 @@ import copy
 import json
 import tempfile
 import unittest
-from embedchain.config import AppConfig
+
 from embedchain import App
+from embedchain.config import AppConfig
 
 
 class TestYaml(unittest.TestCase):
@@ -11,7 +12,7 @@ class TestYaml(unittest.TestCase):
         """
         Test if sanitization and desanitization lead back to the initial result
         """
-        
+
         app = App(AppConfig(collect_metrics=False))
 
         data = json.loads(app.serialize())
