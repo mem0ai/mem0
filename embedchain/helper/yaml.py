@@ -34,8 +34,9 @@ class Yaml(JSONSerializable):
         example: `from embedchain import App; App.generate_default_config()`
         """
         from embedchain import App
+        from embedchain.config import AppConfig
 
-        App().save()
+        App(AppConfig(collect_metrics=False)).save()
 
     def load(self, filename: str = "config.yaml") -> None:
         """
