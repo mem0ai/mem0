@@ -36,10 +36,12 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         defaults to None
         :type collection_name: Optional[str], optional
         """
-        self._setup_logging(log_level)
+        self.log_level = log_level
+        self._setup_logging(self.log_level)
         self.id = id
         self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False
         self.collection_name = collection_name
+        
 
         if db:
             self._db = db
@@ -51,6 +53,19 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         if collection_name:
             logging.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
         return
+    
+    def repair(self):
+        """
+        Repair object after deserialization.
+        """
+        # This method exists because embedchain can only serialize attributes,
+        # and only those that are part of it.
+        # This method regenerates the non-serializable parts from the serialized config.
+        repaired = False
+        if not hasattr(self, 'logger') or not self.logger:
+            self._setup_logging(self.log_level)
+            repaired = True
+        return repaired
 
     def _setup_logging(self, debug_level):
         level = logging.WARNING  # Default level
