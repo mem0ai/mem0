@@ -171,3 +171,6 @@ db
 .idea/
 
 .DS_Store
+
+# Default yaml config
+config.yaml
