@@ -61,8 +61,11 @@ class EmbedChain(Yaml, JSONSerializable):
         :type system_prompt: Optional[str], optional
         :raises ValueError: No database or embedder provided.
         """
-        if config and self._auto_load(config):
-            return
+        if config:
+            auto_loaded = self._auto_load(config)
+            if auto_loaded:
+                logging.info(f"auto loaded config: {config}")
+                return
 
         self.config = app_config
 
