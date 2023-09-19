@@ -1,8 +1,10 @@
 from typing import Optional
 
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helper.json_serializable import (JSONSerializable,
+                                                 register_deserializable)
 
 
+@register_deserializable
 class BaseEmbedderConfig(JSONSerializable):
     def __init__(self, model: Optional[str] = None, deployment_name: Optional[str] = None):
         """
