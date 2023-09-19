@@ -119,7 +119,7 @@ class TestChromaDbDuplicateHandling:
         # Start with a clean app
         self.app_with_settings.reset()
 
-        app = App(app_app_config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
         app.db.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         app.set_collection_name("test_collection_2")
