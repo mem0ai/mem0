@@ -4,6 +4,8 @@ from typing import Dict
 
 import yaml
 
+from embedchain.helper.json_serializable import JSONSerializable
+
 
 def sanitize(data: Dict[str, str]) -> Dict[str, str]:
     """
@@ -54,7 +56,26 @@ def sanitize(data: Dict[str, str]) -> Dict[str, str]:
     return data
 
 
-class Yaml:
+def desanitize(data: Dict[str, str]) -> Dict[str, str]:
+    # Move attributes from 'session' back to the top level
+    session_data = data.pop("session", {})
+    for key, value in session_data.items():
+        data[key] = value
+
+    # Recreate basic class
+    data["__class__"] = "AppConfig"
+
+    # DB Embedder = Embedder
+    data["db"]["embedder"] = data["embedder"]
+
+    # Restore BaseConfigNames
+    data["llm"]["config"]["__class__"] = "BaseLlmConfig"
+    data["embedder"]["config"]["__class__"] = "BaseEmbedderConfig"
+
+    return data
+
+
+class Yaml(JSONSerializable):
     def save(self, filename: str = "config.yaml"):
         """
         Save the current state of the app to a reusable YAML file, where you can change config options.
@@ -83,3 +104,22 @@ class Yaml:
         from embedchain import App
 
         App().save()
+
+    def load(self, filename: str = "config.yaml") -> None:
+        """
+        Loads a yaml config file and updates the apps state in-place.
+
+        :param filename: path fo the yaml file, defaults to "config.yaml"
+        :type filename: str, optional
+        """
+        with open(filename, "r") as file:
+            data = yaml.safe_load(file)
+
+        # Desanitize
+        desanitized_data = desanitize(data)
+
+        # Convert dictionary back to a string to leverage App.deserialize
+        data_str = json.dumps(desanitized_data)
+
+        # Deserialize in-place
+        self.deserialize_in_place(data_str)
