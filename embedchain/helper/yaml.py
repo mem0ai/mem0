@@ -113,7 +113,10 @@ class Yaml(JSONSerializable):
             data[key] = value
 
         # Recreate basic class
-        data["__class__"] = "AppConfig"
+        data["__class__"] = "App"
+
+        # Restore collection name
+        data["config"]["collection_name"] = None
 
         # DB Embedder = Embedder
         data["db"]["embedder"] = data["embedder"]
