@@ -7,10 +7,12 @@ from embedchain.llm.base import BaseLlm
 
 @register_deserializable
 class GPT4AllLlm(BaseLlm):
+    DEFAULT_MODEL = "orca-mini-3b.ggmlv3.q4_0.bin"
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
         if self.config.model is None:
-            self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
+            self.config.model = GPT4AllLlm.DEFAULT_MODEL
         self.instance = GPT4AllLlm._get_instance(self.config.model)
 
     def repair(self):
@@ -21,7 +23,10 @@ class GPT4AllLlm(BaseLlm):
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
         repaired = False
-        if not hasattr(self, 'instance'):
+        if not hasattr(self.config, "model") or self.config.model is None:
+            self.config.model = GPT4AllLlm.DEFAULT_MODEL
+            repaired = True
+        if not hasattr(self, "instance"):
             self.instance = GPT4AllLlm._get_instance(self.config.model)
             repaired = True
         return repaired
@@ -38,7 +43,7 @@ class GPT4AllLlm(BaseLlm):
                 "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501
             ) from None
 
-        return GPT4All(model_name=model)
+        return GPT4All(model_name=model or GPT4AllLlm.DEFAULT_MODEL)
 
     def _get_gpt4all_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:

@@ -8,8 +8,12 @@ from embedchain.llm.base import BaseLlm
 
 @register_deserializable
 class AzureOpenAILlm(BaseLlm):
+    DEFAULT_MODEL = "gpt-3.5-turbo"
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
+        if self.config.model is None:
+            self.config.model = AzureOpenAILlm.DEFAULT_MODEL
 
     def get_llm_model_answer(self, prompt):
         return AzureOpenAILlm._get_azure_openai_answer(prompt=prompt, config=self.config)
@@ -24,7 +28,7 @@ class AzureOpenAILlm(BaseLlm):
         chat = AzureChatOpenAI(
             deployment_name=config.deployment_name,
             openai_api_version="2023-05-15",
-            model_name=config.model or "gpt-3.5-turbo",
+            model_name=config.model or AzureOpenAILlm.DEFAULT_MODEL,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             streaming=config.stream,

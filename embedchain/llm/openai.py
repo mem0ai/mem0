@@ -9,11 +9,13 @@ from embedchain.llm.base import BaseLlm
 
 @register_deserializable
 class OpenAILlm(BaseLlm):
+    DEFAULT_MODEL = "gpt-3.5-turbo-0613"
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         if config is None:
             config = BaseLlmConfig()
         if config.model is None:
-            config.model = "gpt-3.5-turbo-0613"
+            config.model = OpenAILlm.DEFAULT_MODEL
         super().__init__(config=config)
 
     # NOTE: This class does not use langchain. One reason is that `top_p` is not supported.
@@ -24,7 +26,7 @@ class OpenAILlm(BaseLlm):
             messages.append({"role": "system", "content": self.config.system_prompt})
         messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(
-            model=self.config.model,
+            model=self.config.model or OpenAILlm.DEFAULT_MODEL,
             messages=messages,
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,

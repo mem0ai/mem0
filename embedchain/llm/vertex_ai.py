@@ -8,8 +8,13 @@ from embedchain.llm.base import BaseLlm
 
 @register_deserializable
 class VertexAiLlm(BaseLlm):
+    # FIXME: Assign default model
+    DEFAULT_MODEL = None
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
+        if self.config.model is None:
+            self.config.model = VertexAiLlm.DEFAULT_MODEL
 
     def get_llm_model_answer(self, prompt):
         return VertexAiLlm._get_athrophic_answer(prompt=prompt, config=self.config)
@@ -18,7 +23,7 @@ class VertexAiLlm(BaseLlm):
     def _get_athrophic_answer(prompt: str, config: BaseLlmConfig) -> str:
         from langchain.chat_models import ChatVertexAI
 
-        chat = ChatVertexAI(temperature=config.temperature, model=config.model)
+        chat = ChatVertexAI(temperature=config.temperature, model=config.model or VertexAiLlm.DEFAULT_MODEL)
 
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
