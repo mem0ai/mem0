@@ -41,7 +41,7 @@ class BaseEmbedder(JSONSerializable):
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
         repaired = False
-        if not hasattr(self, 'embedding_fn'):
+        if not hasattr(self, "embedding_fn"):
             self.embedding_fn = self._get_embedding_fn()
             repaired = True
         return repaired
