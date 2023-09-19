@@ -107,6 +107,14 @@ class Yaml(JSONSerializable):
 
     @staticmethod
     def desanitize(data: Dict[str, str]) -> Dict[str, str]:
+        """
+        Reverts sanitation
+
+        :param data: sanitized serialized json data
+        :type data: Dict[str, str]
+        :return: serialized json data
+        :rtype: Dict[str, str]
+        """
         # Move attributes from 'session' back to the top level
         session_data = data.pop("session", {})
         for key, value in session_data.items():
