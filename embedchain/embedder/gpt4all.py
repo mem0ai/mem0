@@ -4,9 +4,11 @@ from chromadb.utils import embedding_functions
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.models import VectorDimensions
 
 
+@register_deserializable
 class GPT4AllEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         # Note: We could use langchains GPT4ALL embedding, but it's not available in all versions.

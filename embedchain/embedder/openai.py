@@ -5,6 +5,7 @@ from langchain.embeddings import OpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.models import VectorDimensions
 
 try:
@@ -16,6 +17,7 @@ except RuntimeError:
     from chromadb.utils import embedding_functions
 
 
+@register_deserializable
 class OpenAiEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)

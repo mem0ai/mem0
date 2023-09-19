@@ -4,9 +4,11 @@ from langchain.embeddings import HuggingFaceEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.models import VectorDimensions
 
 
+@register_deserializable
 class HuggingFaceEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
