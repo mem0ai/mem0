@@ -88,3 +88,16 @@ class TestJsonSerializable(unittest.TestCase):
         # Deserialize
         app.db.config = App.deserialize(original_serial)
         self.assertEqual(app.db.config.serialize(), original_serial)
+
+    def test_deserialize_in_place(self):
+        """Tests that deserialization works in place."""
+        app = App()
+        original_serial = app.serialize()
+
+        # meanwhile, change something
+        app.db.set_collection_name("new-test-collection")
+        # This change should not be part of the app,
+        # after it has been deserialized back to the original state.
+
+        app.deserialize_in_place(original_serial)
+        self.assertEqual(original_serial, app.serialize())
