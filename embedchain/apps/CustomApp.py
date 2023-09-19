@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from embedchain.config import CustomAppConfig
@@ -23,6 +24,7 @@ class CustomApp(EmbedChain):
 
     def __init__(
         self,
+        load: str = "config.yaml",
         config: Optional[CustomAppConfig] = None,
         llm: BaseLlm = None,
         db: BaseVectorDB = None,
@@ -32,6 +34,9 @@ class CustomApp(EmbedChain):
         """
         Initialize a new `CustomApp` instance. You have to choose a LLM, database and embedder.
 
+        :param load: Path to a yaml config that you can use to configure whole app.
+        You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
+        :type load: str
         :param config: Config for the app instance. This is the most basic configuration,
         that does not fall into the LLM, database or embedder category, defaults to None
         :type config: Optional[CustomAppConfig], optional
@@ -48,6 +53,14 @@ class CustomApp(EmbedChain):
         :raises ValueError: LLM, database or embedder has not been defined.
         :raises TypeError: LLM, database or embedder is not a valid class instance.
         """
+        if isinstance(load, CustomAppConfig):
+            logging.warning(
+                "The signature of this function has changed. `config` is now the second argument for `CustomApp`."
+                "We are swapping them for you, but we won't do this forever, please update your code."
+            )
+            config = load
+            load = None
+
         # Config is not required, it has a default
         if config is None:
             config = CustomAppConfig()
@@ -80,4 +93,4 @@ class CustomApp(EmbedChain):
                 "Please make sure the type is right and that you are passing an instance."
             )
 
-        super().__init__(config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
+        super().__init__(load, config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)

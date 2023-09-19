@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
@@ -23,14 +24,18 @@ class App(EmbedChain):
 
     def __init__(
         self,
-        config: AppConfig = None,
-        llm_config: BaseLlmConfig = None,
+        load: str = "config.yaml",
+        config: Optional[AppConfig] = None,
+        llm_config: Optional[BaseLlmConfig] = None,
         chromadb_config: Optional[ChromaDbConfig] = None,
         system_prompt: Optional[str] = None,
     ):
         """
         Initialize a new `CustomApp` instance. You only have a few choices to make.
 
+        :param load: Path to a yaml config that you can use to configure whole app.
+        You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
+        :type load: str
         :param config: Config for the app instance.
         This is the most basic configuration, that does not fall into the LLM, database or embedder category,
         defaults to None
@@ -44,6 +49,14 @@ class App(EmbedChain):
         :param system_prompt: System prompt that will be provided to the LLM as such, defaults to None
         :type system_prompt: Optional[str], optional
         """
+        if isinstance(load, AppConfig):
+            logging.warning(
+                "The signature of this function has changed. `config` is now the second argument for `App`."
+                "We are swapping them for you, but we won't do this forever, please update your code."
+            )
+            config = load
+            load = None
+
         if config is None:
             config = AppConfig()
 
@@ -51,4 +64,4 @@ class App(EmbedChain):
         embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
         database = ChromaDB(config=chromadb_config)
 
-        super().__init__(config, llm, db=database, embedder=embedder, system_prompt=system_prompt)
+        super().__init__(load, config, llm, db=database, embedder=embedder, system_prompt=system_prompt)

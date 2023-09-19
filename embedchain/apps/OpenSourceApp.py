@@ -26,6 +26,7 @@ class OpenSourceApp(EmbedChain):
 
     def __init__(
         self,
+        load: str = "config.yaml",
         config: OpenSourceAppConfig = None,
         llm_config: BaseLlmConfig = None,
         chromadb_config: Optional[ChromaDbConfig] = None,
@@ -36,6 +37,9 @@ class OpenSourceApp(EmbedChain):
         Since it's opinionated you don't have to choose a LLM, database and embedder.
         However, you can configure those.
 
+        :param load: Path to a yaml config that you can use to configure whole app.
+        You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
+        :type load: str
         :param config: Config for the app instance. This is the most basic configuration,
         that does not fall into the LLM, database or embedder category, defaults to None
         :type config: OpenSourceAppConfig, optional
@@ -50,6 +54,14 @@ class OpenSourceApp(EmbedChain):
         :type system_prompt: Optional[str], optional
         :raises TypeError: `OpenSourceAppConfig` or `LlmConfig` invalid.
         """
+        if isinstance(load, OpenSourceAppConfig):
+            logging.warning(
+                "The signature of this function has changed. `config` is now the second argument for `OpenSourceApp`."
+                "We are swapping them for you, but we won't do this forever, please update your code."
+            )
+            config = load
+            load = None
+
         logging.info("Loading open source embedding model. This may take some time...")  # noqa:E501
         if not config:
             config = OpenSourceAppConfig()
@@ -75,4 +87,4 @@ class OpenSourceApp(EmbedChain):
         logging.error("Successfully loaded open source embedding model.")
         database = ChromaDB(config=chromadb_config)
 
-        super().__init__(config, llm=llm, db=database, embedder=embedder, system_prompt=system_prompt)
+        super().__init__(load, config, llm=llm, db=database, embedder=embedder, system_prompt=system_prompt)

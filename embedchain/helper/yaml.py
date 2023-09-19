@@ -58,12 +58,21 @@ class Yaml(JSONSerializable):
         # Deserialize in-place
         self.deserialize_in_place(data_str)
 
-    def _auto_load(self, filename: str = "config.yaml"):
+    def _auto_load(self, filename: str = "config.yaml") -> bool:
+        """
+        Automatically load a config file if it is present in the specific directory and return the success state.
+
+        :param filename: path fo the yaml file, defaults to "config.yaml"
+        :type filename: str, optional
+        :return: whether the config was loaded successfully
+        :rtype: bool
+        """
+        
         if not path.isfile(filename):
             return False
 
         try:
-            self.load()
+            self.load(filename=filename)
             return True
         except Exception as e:
             logging.error(f"Error loading `{filename}`: {e}")

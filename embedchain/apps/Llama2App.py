@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from embedchain.apps.CustomApp import CustomApp
@@ -19,15 +20,26 @@ class Llama2App(CustomApp):
     chat(query): finds answer to the given query using vector database and LLM, with conversation history.
     """
 
-    def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):
+    def __init__(self, load: str = "config.yaml", config: CustomAppConfig = None, system_prompt: Optional[str] = None):
         """
+        :param load: Path to a yaml config that you can use to configure whole app.
+        You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
+        :type load: str
         :param config: CustomAppConfig instance to load as configuration. Optional.
         :param system_prompt: System prompt string. Optional.
         """
+
+        if isinstance(load, CustomAppConfig):
+            logging.warning(
+                "The signature of this function has changed. `config` is now the second argument for `Llama2App`."
+                "We are swapping them for you, but we won't do this forever, please update your code."
+            )
+            config = load
+            load = None
 
         if config is None:
             config = CustomAppConfig()
 
         super().__init__(
-            config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt
+            load, config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt
         )
