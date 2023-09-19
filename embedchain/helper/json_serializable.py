@@ -83,6 +83,20 @@ class JSONSerializable:
             # Return a default instance in case of failure
             return cls()
 
+    def deserialize_in_place(self, s: str) -> None:
+        """
+        Deserializes in place.
+        This means that the calling class is updated, normally a new instance would be returned.
+
+        :param s: A JSON string representation of an object.
+        :type s: str
+        """
+        new_app = self.deserialize(s)
+
+        # Copy attributes from the new object to the current object
+        for attr, value in vars(new_app).items():
+            setattr(self, attr, value)
+
     @staticmethod
     def _auto_encoder(obj: Any) -> Union[Dict[str, Any], None]:
         """
