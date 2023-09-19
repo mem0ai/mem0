@@ -16,8 +16,10 @@ class GPT4AllEmbedder(BaseEmbedder):
         if self.config.model is None:
             self.config.model = "all-MiniLM-L6-v2"
 
-        embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=self.config.model)
-        self.set_embedding_fn(embedding_fn=embedding_fn)
+        self.set_embedding_fn(embedding_fn=self._get_embedding_fn())
 
         vector_dimension = VectorDimensions.GPT4ALL.value
         self.set_vector_dimension(vector_dimension=vector_dimension)
+
+    def _get_embedding_fn(self):
+        return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=self.config.model)

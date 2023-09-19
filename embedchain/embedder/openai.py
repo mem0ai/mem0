@@ -24,9 +24,14 @@ class OpenAiEmbedder(BaseEmbedder):
         if self.config.model is None:
             self.config.model = "text-embedding-ada-002"
 
+        self.set_embedding_fn(embedding_fn=self._get_embedding_fn())
+        self.set_vector_dimension(vector_dimension=VectorDimensions.OPENAI.value)
+
+    def _get_embedding_fn(self):
         if self.config.deployment_name:
             embeddings = OpenAIEmbeddings(deployment=self.config.deployment_name)
             embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
+            return embedding_fn
         else:
             if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:
                 raise ValueError(
@@ -37,6 +42,4 @@ class OpenAiEmbedder(BaseEmbedder):
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name=self.config.model,
             )
-
-        self.set_embedding_fn(embedding_fn=embedding_fn)
-        self.set_vector_dimension(vector_dimension=VectorDimensions.OPENAI.value)
+            return embedding_fn

@@ -33,6 +33,13 @@ class BaseEmbedder(JSONSerializable):
             self.config = config
         self.vector_dimension: int
 
+    def repair(self):
+        if not hasattr(self, 'embedding_fn'):
+            self.embedding_fn = self._get_embedding_fn()
+
+    def _get_embedding_fn(self):
+        raise NotImplementedError()
+
     def set_embedding_fn(self, embedding_fn: Callable[[list[str]], list[str]]):
         """
         Set or overwrite the embedding function to be used by the database to store and retrieve documents.
