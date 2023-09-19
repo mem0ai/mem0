@@ -34,6 +34,12 @@ class BaseEmbedder(JSONSerializable):
         self.vector_dimension: int
 
     def repair(self):
+        """
+        Repair object after deserialization.
+        """
+        # This method exists because embedchain can only serialize attributes,
+        # and only those that are part of it.
+        # This method regenerates the non-serializable parts from the serialized config.
         if not hasattr(self, 'embedding_fn'):
             self.embedding_fn = self._get_embedding_fn()
 
