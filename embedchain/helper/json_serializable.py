@@ -55,7 +55,7 @@ class JSONSerializable:
             str: A JSON string representation of the object.
         """
         try:
-            return json.dumps(self, default=self._auto_encoder, ensure_ascii=False)
+            return json.dumps(self, default=self._auto_encoder, ensure_ascii=False, sort_keys=True)
         except Exception as e:
             logging.error(f"Serialization error: {e}")
             return "{}"
@@ -167,7 +167,9 @@ class JSONSerializable:
                         # elif value["__type__"] == "SomeOtherType":
                         #     value = SomeOtherType.some_constructor(value["data"])
                     default_value = getattr(target_class, key, None)
-                    setattr(obj, key, value or default_value)
+                    # FIXME: default values don't seem to work properly.
+                    # For instance VectorDbConfig returns None for all.
+                    setattr(obj, key, value if value is not None else default_value)
                 return obj
         return dct
 
