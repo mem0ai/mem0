@@ -18,7 +18,7 @@ class Yaml(JSONSerializable):
         data = json.loads(self.serialize())
 
         # Sanitize
-        sanitized_data = Yaml.sanitize(data)
+        sanitized_data = Yaml._sanitize_serial(data)
 
         with open(filename, "w") as file:
             yaml.dump(sanitized_data, file, default_flow_style=False)
@@ -48,7 +48,7 @@ class Yaml(JSONSerializable):
             data = yaml.safe_load(file)
 
         # Desanitize
-        desanitized_data = Yaml.desanitize(data)
+        desanitized_data = Yaml._desanitize_serial(data)
 
         # Convert dictionary back to a string to leverage App.deserialize
         data_str = json.dumps(desanitized_data)
@@ -57,7 +57,7 @@ class Yaml(JSONSerializable):
         self.deserialize_in_place(data_str)
 
     @staticmethod
-    def sanitize(data: Dict[str, str]) -> Dict[str, str]:
+    def _sanitize_serial(data: Dict[str, str]) -> Dict[str, str]:
         """
         Optimize for human use by removing parts that are:
         1. duplicates
@@ -106,7 +106,7 @@ class Yaml(JSONSerializable):
         return data
 
     @staticmethod
-    def desanitize(data: Dict[str, str]) -> Dict[str, str]:
+    def _desanitize_serial(data: Dict[str, str]) -> Dict[str, str]:
         """
         Reverts sanitation
 
