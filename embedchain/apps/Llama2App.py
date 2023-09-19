@@ -20,26 +20,33 @@ class Llama2App(CustomApp):
     chat(query): finds answer to the given query using vector database and LLM, with conversation history.
     """
 
-    def __init__(self, load: str = "config.yaml", config: CustomAppConfig = None, system_prompt: Optional[str] = None):
+    def __init__(
+        self, config: str = "config.yaml", app_config: CustomAppConfig = None, system_prompt: Optional[str] = None
+    ):
         """
-        :param load: Path to a yaml config that you can use to configure whole app.
+        :param config: Path to a yaml config that you can use to configure whole app.
         You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
-        :type load: str
-        :param config: CustomAppConfig instance to load as configuration. Optional.
+        :type config: str
+        :param app_config: CustomAppConfig instance to load as configuration. Optional.
         :param system_prompt: System prompt string. Optional.
         """
 
-        if isinstance(load, CustomAppConfig):
+        if isinstance(config, CustomAppConfig):
             logging.warning(
                 "The signature of this function has changed. `config` is now the second argument for `Llama2App`."
                 "We are swapping them for you, but we won't do this forever, please update your code."
             )
-            config = load
-            load = None
+            app_config = config
+            config = None
 
-        if config is None:
-            config = CustomAppConfig()
+        if app_config is None:
+            app_config = CustomAppConfig()
 
         super().__init__(
-            load, config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt
+            config=config,
+            app_config=app_config,
+            llm=Llama2Llm(),
+            db=ChromaDB(),
+            embedder=OpenAiEmbedder(),
+            system_prompt=system_prompt,
         )

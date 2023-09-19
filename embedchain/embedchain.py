@@ -38,8 +38,8 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 class EmbedChain(Yaml, JSONSerializable):
     def __init__(
         self,
-        load: Optional[str],
-        config: BaseAppConfig,
+        config: str,
+        app_config: BaseAppConfig,
         llm: BaseLlm,
         db: BaseVectorDB = None,
         embedder: BaseEmbedder = None,
@@ -61,10 +61,10 @@ class EmbedChain(Yaml, JSONSerializable):
         :type system_prompt: Optional[str], optional
         :raises ValueError: No database or embedder provided.
         """
-        if load and self._auto_load(load):
+        if config and self._auto_load(config):
             return
 
-        self.config = config
+        self.config = app_config
 
         # Add subclasses
         ## Llm

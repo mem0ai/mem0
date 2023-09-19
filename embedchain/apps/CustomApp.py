@@ -24,8 +24,8 @@ class CustomApp(EmbedChain):
 
     def __init__(
         self,
-        load: str = "config.yaml",
-        config: Optional[CustomAppConfig] = None,
+        config: str = "config.yaml",
+        app_config: Optional[CustomAppConfig] = None,
         llm: BaseLlm = None,
         db: BaseVectorDB = None,
         embedder: BaseEmbedder = None,
@@ -34,12 +34,12 @@ class CustomApp(EmbedChain):
         """
         Initialize a new `CustomApp` instance. You have to choose a LLM, database and embedder.
 
-        :param load: Path to a yaml config that you can use to configure whole app.
+        :param config: Path to a yaml config that you can use to configure whole app.
         You can generate a template in your working directory with `App.generate_default_config()`, defaults to `config.yaml`.
-        :type load: str
-        :param config: Config for the app instance. This is the most basic configuration,
+        :type config: str
+        :param app_config: Config for the app instance. This is the most basic configuration,
         that does not fall into the LLM, database or embedder category, defaults to None
-        :type config: Optional[CustomAppConfig], optional
+        :type app_config: Optional[CustomAppConfig], optional
         :param llm: LLM Class instance. example: `from embedchain.llm.openai import OpenAILlm`, defaults to None
         :type llm: BaseLlm
         :param db: The database to use for storing and retrieving embeddings,
@@ -53,17 +53,17 @@ class CustomApp(EmbedChain):
         :raises ValueError: LLM, database or embedder has not been defined.
         :raises TypeError: LLM, database or embedder is not a valid class instance.
         """
-        if isinstance(load, CustomAppConfig):
+        if isinstance(config, CustomAppConfig):
             logging.warning(
                 "The signature of this function has changed. `config` is now the second argument for `CustomApp`."
                 "We are swapping them for you, but we won't do this forever, please update your code."
             )
-            config = load
-            load = None
+            app_config = config
+            config = None
 
         # Config is not required, it has a default
-        if config is None:
-            config = CustomAppConfig()
+        if app_config is None:
+            app_config = CustomAppConfig()
 
         if llm is None:
             raise ValueError("LLM must be provided for custom app. Please import from `embedchain.llm`.")
@@ -93,4 +93,6 @@ class CustomApp(EmbedChain):
                 "Please make sure the type is right and that you are passing an instance."
             )
 
-        super().__init__(load, config=config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
+        super().__init__(
+            config=config, app_config=app_config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt
+        )
