@@ -76,6 +76,7 @@ class JSONSerializable:
         Returns:
             Object: The deserialized object.
         """
+        return json.loads(json_str, object_hook=cls._auto_decoder)
         try:
             return json.loads(json_str, object_hook=cls._auto_decoder)
         except Exception as e:
@@ -173,8 +174,9 @@ class JSONSerializable:
                 
                 # Check if 'repair' method exists in the obj and run it if it does
                 if hasattr(obj, "repair") and callable(getattr(obj, "repair")):
-                    print("called on", obj)
-                    obj.repair()
+                    repaired = obj.repair()
+                    if repaired:
+                        logging.info(f"Repaired {obj}")
                 
                 return obj
         return dct

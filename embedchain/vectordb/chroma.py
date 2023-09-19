@@ -48,12 +48,17 @@ class ChromaDB(BaseVectorDB):
         # This method exists because embedchain can only serialize attributes,
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
+        repaired = False
         if not hasattr(self, 'settings'):
             self._set_settings()
+            repaired = True
         if not hasattr(self, 'client'):
             self.client = chromadb.Client(self.settings)
+            repaired = True
         if not hasattr(self, 'collections'):
             self._get_or_create_collection(self.config.collection_name)
+            repaired = True
+        return repaired
 
     def _initialize(self):
         """

@@ -40,8 +40,11 @@ class BaseEmbedder(JSONSerializable):
         # This method exists because embedchain can only serialize attributes,
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
+        repaired = False
         if not hasattr(self, 'embedding_fn'):
             self.embedding_fn = self._get_embedding_fn()
+            repaired = True
+        return repaired
 
     def _get_embedding_fn(self):
         raise NotImplementedError()
