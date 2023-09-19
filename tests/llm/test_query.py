@@ -10,7 +10,7 @@ class TestApp(unittest.TestCase):
     os.environ["OPENAI_API_KEY"] = "test_key"
 
     def setUp(self):
-        self.app = App(config=AppConfig(collect_metrics=False))
+        self.app = App(app_config=AppConfig(collect_metrics=False))
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_query(self):

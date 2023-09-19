@@ -10,7 +10,7 @@ from embedchain.llm.base import BaseLlm
 class TestApp(unittest.TestCase):
     def setUp(self):
         os.environ["OPENAI_API_KEY"] = "test_key"
-        self.app = App(config=AppConfig(collect_metrics=False))
+        self.app = App(app_config=AppConfig(collect_metrics=False))
 
     @patch.object(App, "retrieve_from_database", return_value=["Test context"])
     @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")

@@ -72,7 +72,7 @@ class TestChromaDbHostsNone(unittest.TestCase):
         Test if the `App` instance is initialized without default hosts and ports.
         """
 
-        _app = App(config=AppConfig(collect_metrics=False))
+        _app = App(app_config=AppConfig(collect_metrics=False))
 
         called_settings: Settings = mock_client.call_args[0][0]
         self.assertEqual(called_settings.chroma_server_host, None)
@@ -86,7 +86,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
         """
 
-        _app = App(config=AppConfig(collect_metrics=False))
+        _app = App(app_config=AppConfig(collect_metrics=False))
 
         self.assertEqual(mock_client.call_args[0][0].chroma_server_host, None)
         self.assertEqual(mock_client.call_args[0][0].chroma_server_http_port, None)
@@ -95,7 +95,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
 class TestChromaDbDuplicateHandling:
     chroma_config = ChromaDbConfig(allow_reset=True)
     app_config = AppConfig(collection_name=False, collect_metrics=False)
-    app_with_settings = App(config=app_config, chromadb_config=chroma_config)
+    app_with_settings = App(app_config=app_config, chromadb_config=chroma_config)
 
     def test_duplicates_throw_warning(self, caplog):
         """
@@ -104,7 +104,7 @@ class TestChromaDbDuplicateHandling:
         # Start with a clean app
         self.app_with_settings.reset()
 
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.db.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         app.db.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         assert "Insert of existing embedding ID: 0" in caplog.text
@@ -119,7 +119,7 @@ class TestChromaDbDuplicateHandling:
         # Start with a clean app
         self.app_with_settings.reset()
 
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_app_config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
         app.db.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         app.set_collection_name("test_collection_2")
@@ -131,13 +131,13 @@ class TestChromaDbDuplicateHandling:
 class TestChromaDbCollection(unittest.TestCase):
     chroma_config = ChromaDbConfig(allow_reset=True)
     app_config = AppConfig(collection_name=False, collect_metrics=False)
-    app_with_settings = App(config=app_config, chromadb_config=chroma_config)
+    app_with_settings = App(app_config=app_config, chromadb_config=chroma_config)
 
     def test_init_with_default_collection(self):
         """
         Test if the `App` instance is initialized with the correct default collection name.
         """
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
 
         self.assertEqual(app.db.collection.name, "embedchain_store")
 
@@ -155,7 +155,7 @@ class TestChromaDbCollection(unittest.TestCase):
         """
         Test if the `App` collection is correctly switched using the `set_collection_name` method.
         """
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection")
 
         self.assertEqual(app.db.collection.name, "test_collection")
@@ -167,7 +167,7 @@ class TestChromaDbCollection(unittest.TestCase):
         # Start with a clean app
         self.app_with_settings.reset()
 
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
         # Collection should be empty when created
         self.assertEqual(app.db.count(), 0)
@@ -193,12 +193,12 @@ class TestChromaDbCollection(unittest.TestCase):
         # Start with a clean app
         self.app_with_settings.reset()
 
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
         app.db.collection.add(embeddings=[[0, 0, 0]], ids=["0"])
         del app
 
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
         self.assertEqual(app.db.count(), 1)
 

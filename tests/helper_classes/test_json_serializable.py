@@ -66,7 +66,7 @@ class TestJsonSerializable(unittest.TestCase):
             except TypeError:
                 return obj
 
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         original_vars = get_nested_vars(app)
 
         serial = app.serialize()
@@ -138,7 +138,7 @@ class TestJsonSerializable(unittest.TestCase):
 
     def test_values_with_false_default(self):
         """Values with a `false` default should not be deserialized as null."""
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         original_serial = app.db.config.serialize()
         # allow_reset is false
 
@@ -148,7 +148,7 @@ class TestJsonSerializable(unittest.TestCase):
 
     def test_deserialize_in_place(self):
         """Tests that deserialization works in place."""
-        app = App(config=AppConfig(collect_metrics=False))
+        app = App(app_config=AppConfig(collect_metrics=False))
         app.s_id = 0
 
         original_serial = app.serialize()
