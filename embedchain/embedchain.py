@@ -60,6 +60,8 @@ class EmbedChain(Yaml, JSONSerializable):
         :type system_prompt: Optional[str], optional
         :raises ValueError: No database or embedder provided.
         """
+        if self._auto_load():
+            return
 
         self.config = config
 
@@ -98,6 +100,16 @@ class EmbedChain(Yaml, JSONSerializable):
         #     raise ConnectionRefusedError("Collection of metrics should not be allowed.")
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
         thread_telemetry.start()
+
+    def repair(self):
+        """
+        Repair object after deserialization.
+        """
+        # This method exists because embedchain can only serialize attributes,
+        # and only those that are part of it.
+        # This method regenerates the non-serializable parts from the serialized config.
+        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
+        self.u_id = self._load_or_generate_user_id()
 
     @property
     def collect_metrics(self):

@@ -1,5 +1,6 @@
 import json
 import logging
+from os import path
 from typing import Dict
 
 import yaml
@@ -56,6 +57,18 @@ class Yaml(JSONSerializable):
 
         # Deserialize in-place
         self.deserialize_in_place(data_str)
+
+    def _auto_load(self):
+        DEFAULT_PATH = "config.yaml"
+        if not path.isfile(DEFAULT_PATH):
+            return
+
+        try:
+            self.load()
+            return True
+        except Exception as e:
+            logging.error(f"Error loading `{DEFAULT_PATH}`: {e}")
+            return False
 
     @staticmethod
     def _sanitize_serial(data: Dict[str, str]) -> Dict[str, str]:
