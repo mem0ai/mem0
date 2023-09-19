@@ -36,27 +36,24 @@ class ChromaDB(BaseVectorDB):
         else:
             self.config = ChromaDbConfig()
 
-        self.settings = Settings()
-        self.settings.allow_reset = self.config.allow_reset
-        if self.config.chroma_settings:
-            for key, value in self.config.chroma_settings.items():
-                if hasattr(self.settings, key):
-                    setattr(self.settings, key, value)
-
-        if self.config.host and self.config.port:
-            logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
-            self.settings.chroma_server_host = self.config.host
-            self.settings.chroma_server_http_port = self.config.port
-            self.settings.chroma_api_impl = "chromadb.api.fastapi.FastAPI"
-        else:
-            if self.config.dir is None:
-                self.config.dir = "db"
-
-            self.settings.persist_directory = self.config.dir
-            self.settings.is_persistent = True
+        self._set_settings()
 
         self.client = chromadb.Client(self.settings)
         super().__init__(config=self.config)
+
+    def repair(self):
+        """
+        Repair object after deserialization.
+        """
+        # This method exists because embedchain can only serialize attributes,
+        # and only those that are part of it.
+        # This method regenerates the non-serializable parts from the serialized config.
+        if not hasattr(self, 'settings'):
+            self._set_settings()
+        if not hasattr(self, 'client'):
+            self.client = chromadb.Client(self.settings)
+        if not hasattr(self, 'collections'):
+            self._get_or_create_collection(self.config.collection_name)
 
     def _initialize(self):
         """
@@ -82,11 +79,35 @@ class ChromaDB(BaseVectorDB):
         """
         if not hasattr(self, "embedder") or not self.embedder:
             raise ValueError("Cannot create a Chroma database collection without an embedder.")
+        if not hasattr(self.embedder, "embedding_fn"):
+            self.embedder.repair()
         self.collection = self.client.get_or_create_collection(
             name=name,
             embedding_function=self.embedder.embedding_fn,
         )
         return self.collection
+    
+    def _set_settings(self):
+        """Create a Chroma settings object based on the config"""
+        self.config: ChromaDbConfig
+        self.settings = Settings()
+        self.settings.allow_reset = self.config.allow_reset
+        if self.config.chroma_settings:
+            for key, value in self.config.chroma_settings.items():
+                if hasattr(self.settings, key):
+                    setattr(self.settings, key, value)
+
+        if self.config.host and self.config.port:
+            logging.info(f"Connecting to ChromaDB server: {self.config.host}:{self.config.port}")
+            self.settings.chroma_server_host = self.config.host
+            self.settings.chroma_server_http_port = self.config.port
+            self.settings.chroma_api_impl = "chromadb.api.fastapi.FastAPI"
+        else:
+            if self.config.dir is None:
+                self.config.dir = "db"
+
+            self.settings.persist_directory = self.config.dir
+            self.settings.is_persistent = True
 
     def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
         """
