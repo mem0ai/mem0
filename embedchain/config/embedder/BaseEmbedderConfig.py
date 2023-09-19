@@ -1,7 +1,6 @@
 from typing import Optional
 
-from embedchain.helper.json_serializable import (JSONSerializable,
-                                                 register_deserializable)
+from embedchain.helper.json_serializable import JSONSerializable
 
 
 class BaseEmbedderConfig(JSONSerializable):
