@@ -1,10 +1,10 @@
 from typing import Optional
 
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import (JSONSerializable,
+                                                 register_deserializable)
 
 
-@register_deserializable
-class BaseEmbedderConfig:
+class BaseEmbedderConfig(JSONSerializable):
     def __init__(self, model: Optional[str] = None, deployment_name: Optional[str] = None):
         """
         Initialize a new instance of an embedder config class.

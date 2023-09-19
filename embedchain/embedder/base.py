@@ -1,6 +1,7 @@
 from typing import Any, Callable, Optional
 
 from embedchain.config.embedder.BaseEmbedderConfig import BaseEmbedderConfig
+from embedchain.helper.json_serializable import JSONSerializable
 
 try:
     from chromadb.api.types import Documents, Embeddings
@@ -11,7 +12,7 @@ except RuntimeError:
     from chromadb.api.types import Documents, Embeddings
 
 
-class BaseEmbedder:
+class BaseEmbedder(JSONSerializable):
     """
     Class that manages everything regarding embeddings. Including embedding function, loaders and chunkers.
 
