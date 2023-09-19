@@ -171,13 +171,13 @@ class JSONSerializable:
                     # FIXME: default values don't seem to work properly.
                     # For instance VectorDbConfig returns None for all.
                     setattr(obj, key, value if value is not None else default_value)
-                
+
                 # Check if 'repair' method exists in the obj and run it if it does
                 if hasattr(obj, "repair") and callable(getattr(obj, "repair")):
                     repaired = obj.repair()
                     if repaired:
                         logging.info(f"Repaired {obj}")
-                
+
                 return obj
         return dct
 
