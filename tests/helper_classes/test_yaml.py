@@ -37,8 +37,15 @@ class TestYaml(unittest.TestCase):
         """
 
         app = App(AppConfig(collect_metrics=False))
+        app.s_id = 0
         original_serial = app.serialize()
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=True) as tmp:
             app.save(tmp.name)
             app.load(tmp.name)
+            
+        # Loading a yaml config should not copy the s_id (unlike raw serialization)
+        self.assertNotEqual(app.s_id, 0)
+        # Manually set so the next test doesn't fail
+        app.s_id = 0
+
         self.assertEqual(original_serial, app.serialize())

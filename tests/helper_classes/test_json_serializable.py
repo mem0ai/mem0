@@ -76,6 +76,7 @@ class TestJsonSerializable(unittest.TestCase):
         new_vars = get_nested_vars(app)
 
         IGNORED = {"config": ["logger"], "llm": ["memory"]}
+        # s_id is not ignored because raw serialization should save it too.
 
         for key, value in original_vars.items():
             for k, vs in IGNORED.items():
@@ -148,6 +149,7 @@ class TestJsonSerializable(unittest.TestCase):
     def test_deserialize_in_place(self):
         """Tests that deserialization works in place."""
         app = App(config=AppConfig(collect_metrics=False))
+        app.s_id = 0
 
         original_serial = app.serialize()
 
@@ -157,4 +159,5 @@ class TestJsonSerializable(unittest.TestCase):
         # after it has been deserialized back to the original state.
 
         app.deserialize_in_place(original_serial)
+        app.s_id = 0
         self.assertEqual(original_serial, app.serialize())
