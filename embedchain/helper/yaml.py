@@ -56,6 +56,12 @@ def sanitize(data: Dict[str, str]) -> Dict[str, str]:
 
 class Yaml:
     def save(self, filename: str = "config.yaml"):
+        """
+        Save the current state of the app to a reusable YAML file, where you can change config options.
+
+        :param filename: path for the generated yaml file, defaults to "config.yaml"
+        :type filename: str, optional
+        """
         data = json.loads(self.serialize())
 
         # Sanitize
