@@ -84,7 +84,7 @@ class TestJsonSerializable(unittest.TestCase):
         app = App()
         original_serial = app.db.config.serialize()
         # allow_reset is false
-        
+
         # Deserialize
         app.db.config = App.deserialize(original_serial)
         self.assertEqual(app.db.config.serialize(), original_serial)

@@ -1,8 +1,11 @@
-import unittest
-from embedchain import App
-import json
 import copy
+import json
 import tempfile
+import unittest
+
+from embedchain import App
+
+
 class TestYaml(unittest.TestCase):
     def test_sanitize_desanitize(self):
         """
@@ -12,7 +15,7 @@ class TestYaml(unittest.TestCase):
 
         data = json.loads(app.serialize())
         data_copy = copy.deepcopy(data)
-        
+
         sanitized_data = app._sanitize_serial(data_copy)
 
         desanitized_data = app._desanitize_serial(sanitized_data)
