@@ -83,8 +83,8 @@ class EmbedChain(Yaml, JSONSerializable):
         self.db._set_embedder(self.embedder)
         self.db._initialize()
         # Set collection name from app config for backwards compatibility.
-        if config.collection_name:
-            self.db.set_collection_name(config.collection_name)
+        if app_config.collection_name:
+            self.db.set_collection_name(app_config.collection_name)
 
         # Add variables that are "shortcuts"
         if system_prompt:
