@@ -19,6 +19,7 @@ from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helper.yaml import Yaml
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
@@ -34,7 +35,7 @@ CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
-class EmbedChain(JSONSerializable):
+class EmbedChain(JSONSerializable, Yaml):
     def __init__(
         self,
         config: BaseAppConfig,
@@ -332,7 +333,7 @@ class EmbedChain(JSONSerializable):
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
-    
+
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
         Get id of existing document for a given source, based on the data type
