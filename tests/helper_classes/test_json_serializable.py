@@ -78,3 +78,13 @@ class TestJsonSerializable(unittest.TestCase):
         s = config.serialize()
         new_config: BaseLlmConfig = BaseLlmConfig.deserialize(s)
         self.assertEqual(config.template.template, new_config.template.template)
+
+    def test_values_with_false_default(self):
+        """Values with a `false` default should not be deserialized as null."""
+        app = App()
+        original_serial = app.db.config.serialize()
+        # allow_reset is false
+        
+        # Deserialize
+        app.db.config = App.deserialize(original_serial)
+        self.assertEqual(app.db.config.serialize(), original_serial)
