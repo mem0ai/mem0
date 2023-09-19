@@ -6,7 +6,7 @@ from embedchain.config import (BaseEmbedderConfig, BaseLlmConfig,
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
 from embedchain.helper.json_serializable import register_deserializable
-from embedchain.llm.gpt4all import GPT4ALLLlm
+from embedchain.llm.gpt4all import GPT4AllLlm
 from embedchain.vectordb.chroma import ChromaDB
 
 gpt4all_model = None
@@ -70,7 +70,7 @@ class OpenSourceApp(EmbedChain):
         elif not llm_config.model:
             llm_config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
 
-        llm = GPT4ALLLlm(config=llm_config)
+        llm = GPT4AllLlm(config=llm_config)
         embedder = GPT4AllEmbedder(config=BaseEmbedderConfig(model="all-MiniLM-L6-v2"))
         logging.error("Successfully loaded open source embedding model.")
         database = ChromaDB(config=chromadb_config)

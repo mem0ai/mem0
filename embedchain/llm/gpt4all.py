@@ -6,12 +6,12 @@ from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class GPT4ALLLlm(BaseLlm):
+class GPT4AllLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
         if self.config.model is None:
             self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
-        self.instance = GPT4ALLLlm._get_instance(self.config.model)
+        self.instance = GPT4AllLlm._get_instance(self.config.model)
 
     def get_llm_model_answer(self, prompt):
         return self._get_gpt4all_answer(prompt=prompt, config=self.config)
