@@ -76,7 +76,6 @@ class JSONSerializable:
         Returns:
             Object: The deserialized object.
         """
-        return json.loads(json_str, object_hook=cls._auto_decoder)
         try:
             return json.loads(json_str, object_hook=cls._auto_decoder)
         except Exception as e:
