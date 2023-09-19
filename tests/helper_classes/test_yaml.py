@@ -2,7 +2,7 @@ import unittest
 from embedchain import App
 import json
 import copy
-
+import tempfile
 class TestYaml(unittest.TestCase):
     def test_sanitize_desanitize(self):
         """
@@ -25,3 +25,15 @@ class TestYaml(unittest.TestCase):
             if key in IGNORED_KEYS:
                 continue
             self.assertEqual(desanitized_data.get(key), value)
+
+    def test_save_load(self):
+        """
+        Test that an app state can be saved and loaded.
+        """
+
+        app = App()
+        original_serial = app.serialize()
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=True) as tmp:
+            app.save(tmp.name)
+            app.load(tmp.name)
+        self.assertEqual(original_serial, app.serialize())
