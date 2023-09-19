@@ -113,10 +113,10 @@ class EmbedChain(Yaml, JSONSerializable):
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
         repaired = False
-        if not hasattr(self, 's_id') or self.s_id is None:
+        if not hasattr(self, "s_id") or self.s_id is None:
             self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
             repaired = True
-        if not hasattr(self, 'u_id') or self.s_id is None:
+        if not hasattr(self, "u_id") or self.s_id is None:
             self.u_id = self._load_or_generate_user_id()
             repaired = True
         return repaired

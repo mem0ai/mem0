@@ -41,7 +41,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         self.id = id
         self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False
         self.collection_name = collection_name
-        
 
         if db:
             self._db = db
@@ -53,7 +52,7 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         if collection_name:
             logging.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
         return
-    
+
     def repair(self):
         """
         Repair object after deserialization.
@@ -62,10 +61,10 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         # and only those that are part of it.
         # This method regenerates the non-serializable parts from the serialized config.
         repaired = False
-        if not hasattr(self, 'log_level'):
+        if not hasattr(self, "log_level"):
             self.log_level = "WARNING"
             repaired = True
-        if not hasattr(self, 'logger') or not self.logger:
+        if not hasattr(self, "logger") or not self.logger:
             self._setup_logging(self.log_level)
             repaired = True
         return repaired
