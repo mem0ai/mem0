@@ -67,7 +67,7 @@ class Yaml(JSONSerializable):
         :return: whether the config was loaded successfully
         :rtype: bool
         """
-        
+
         if not path.isfile(filename):
             return False
 
