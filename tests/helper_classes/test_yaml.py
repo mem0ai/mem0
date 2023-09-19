@@ -2,7 +2,7 @@ import copy
 import json
 import tempfile
 import unittest
-
+from embedchain.config import AppConfig
 from embedchain import App
 
 
@@ -11,7 +11,8 @@ class TestYaml(unittest.TestCase):
         """
         Test if sanitization and desanitization lead back to the initial result
         """
-        app = App()
+        
+        app = App(AppConfig(collect_metrics=False))
 
         data = json.loads(app.serialize())
         data_copy = copy.deepcopy(data)
@@ -34,7 +35,7 @@ class TestYaml(unittest.TestCase):
         Test that an app state can be saved and loaded.
         """
 
-        app = App()
+        app = App(AppConfig(collect_metrics=False))
         original_serial = app.serialize()
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=True) as tmp:
             app.save(tmp.name)
