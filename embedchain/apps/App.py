@@ -59,7 +59,10 @@ class App(EmbedChain):
             config = None
 
         if config and (app_config or llm_config or chromadb_config or system_prompt):
-            raise ValueError("You cannot use a yaml and a class based config simultaneously. We are working on this.")
+            raise ValueError(
+                "You cannot use a yaml and a class based config simultaneously. "
+                "Either remove the class arguments or ignore the yaml file with `App(config=None)`"
+            )
 
         if app_config is None:
             app_config = AppConfig()
