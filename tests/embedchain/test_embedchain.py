@@ -41,7 +41,9 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         Test if the `App` instance is correctly reconstructed after a reset.
         """
         app_config = AppConfig(log_level="DEBUG", collect_metrics=False)
-        app = App(config=None, app_config=app_config, chromadb_config=ChromaDbConfig(chroma_settings={"allow_reset": True}))
+        app = App(
+            config=None, app_config=app_config, chromadb_config=ChromaDbConfig(chroma_settings={"allow_reset": True})
+        )
         app.reset()
 
         # Make sure the client is still healthy

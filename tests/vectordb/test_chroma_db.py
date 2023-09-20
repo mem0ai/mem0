@@ -260,7 +260,11 @@ class TestChromaDbCollection(unittest.TestCase):
 
         # Create four apps.
         # app1, which we are about to reset, shares an app with one, and an id with the other, none with the last.
-        app1 = App(config=None, app_config=AppConfig(id="new_app_id_1", collect_metrics=False), chromadb_config=self.chroma_config)
+        app1 = App(
+            config=None,
+            app_config=AppConfig(id="new_app_id_1", collect_metrics=False),
+            chromadb_config=self.chroma_config,
+        )
         app1.set_collection_name("one_collection")
         app2 = App(config=None, app_config=AppConfig(id="new_app_id_2", collect_metrics=False))
         app2.set_collection_name("one_collection")
@@ -279,9 +283,18 @@ class TestChromaDbCollection(unittest.TestCase):
         app1.reset()
 
         # Reinstantiate app2-4, app1 doesn't have to be reinstantiated (PR #319)
-        app2 = App(config=None, app_config=AppConfig(collection_name="one_collection", id="new_app_id_2", collect_metrics=False))
-        app3 = App(config=None, app_config=AppConfig(collection_name="three_collection", id="new_app_id_3", collect_metrics=False))
-        app4 = App(config=None, app_config=AppConfig(collection_name="four_collection", id="new_app_id_3", collect_metrics=False))
+        app2 = App(
+            config=None,
+            app_config=AppConfig(collection_name="one_collection", id="new_app_id_2", collect_metrics=False),
+        )
+        app3 = App(
+            config=None,
+            app_config=AppConfig(collection_name="three_collection", id="new_app_id_3", collect_metrics=False),
+        )
+        app4 = App(
+            config=None,
+            app_config=AppConfig(collection_name="four_collection", id="new_app_id_3", collect_metrics=False),
+        )
 
         # All should be empty
         self.assertEqual(app1.count(), 0)
