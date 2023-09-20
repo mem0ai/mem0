@@ -13,7 +13,7 @@ class TestYaml(unittest.TestCase):
         Test if sanitization and desanitization lead back to the initial result
         """
 
-        app = App(AppConfig(collect_metrics=False))
+        app = App(config=None, app_config=AppConfig(collect_metrics=False))
 
         data = json.loads(app.serialize())
         data_copy = copy.deepcopy(data)
@@ -36,7 +36,7 @@ class TestYaml(unittest.TestCase):
         Test that an app state can be saved and loaded.
         """
 
-        app = App(AppConfig(collect_metrics=False))
+        app = App(config=None, app_config=AppConfig(collect_metrics=False))
         app.s_id = 0
         original_serial = app.serialize()
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=True) as tmp:

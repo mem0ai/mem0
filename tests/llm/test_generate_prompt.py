@@ -7,7 +7,7 @@ from embedchain.config import AppConfig, BaseLlmConfig
 
 class TestGeneratePrompt(unittest.TestCase):
     def setUp(self):
-        self.app = App(app_config=AppConfig(collect_metrics=False))
+        self.app = App(config=None, app_config=AppConfig(collect_metrics=False))
 
     def test_generate_prompt_with_template(self):
         """

@@ -66,7 +66,7 @@ class TestJsonSerializable(unittest.TestCase):
             except TypeError:
                 return obj
 
-        app = App(app_config=AppConfig(collect_metrics=False))
+        app = App(config=None, app_config=AppConfig(collect_metrics=False))
         original_vars = get_nested_vars(app)
 
         serial = app.serialize()
@@ -117,9 +117,9 @@ class TestJsonSerializable(unittest.TestCase):
     def test_recursive(self):
         """Test recursiveness with the real app"""
         random_id = str(random.random())
-        config = AppConfig(id=random_id, collect_metrics=False)
+        app_config = AppConfig(id=random_id, collect_metrics=False)
         # config class is set under app.config.
-        app = App(config=config)
+        app = App(config=None, app_config=app_config)
         # w/o recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x>
         s = app.serialize()
         new_app: App = App.deserialize(s)
@@ -138,7 +138,7 @@ class TestJsonSerializable(unittest.TestCase):
 
     def test_values_with_false_default(self):
         """Values with a `false` default should not be deserialized as null."""
-        app = App(app_config=AppConfig(collect_metrics=False))
+        app = App(config=None, app_config=AppConfig(collect_metrics=False))
         original_serial = app.db.config.serialize()
         # allow_reset is false
 
@@ -148,7 +148,7 @@ class TestJsonSerializable(unittest.TestCase):
 
     def test_deserialize_in_place(self):
         """Tests that deserialization works in place."""
-        app = App(app_config=AppConfig(collect_metrics=False))
+        app = App(config=None, app_config=AppConfig(collect_metrics=False))
         app.s_id = 0
 
         original_serial = app.serialize()

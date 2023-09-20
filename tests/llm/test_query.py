@@ -10,7 +10,7 @@ class TestApp(unittest.TestCase):
     os.environ["OPENAI_API_KEY"] = "test_key"
 
     def setUp(self):
-        self.app = App(app_config=AppConfig(collect_metrics=False))
+        self.app = App(config=None, app_config=AppConfig(collect_metrics=False))
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_query(self):
@@ -50,9 +50,9 @@ class TestApp(unittest.TestCase):
     def test_query_config_app_passing(self, mock_create):
         mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
 
-        config = AppConfig(collect_metrics=False)
+        app_config = AppConfig(collect_metrics=False)
         chat_config = BaseLlmConfig(system_prompt="Test system prompt")
-        app = App(config=config, llm_config=chat_config)
+        app = App(config=None, app_config=app_config, llm_config=chat_config)
 
         app.llm.get_llm_model_answer("Test query")
 
@@ -69,9 +69,9 @@ class TestApp(unittest.TestCase):
     def test_app_passing(self, mock_create):
         mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
 
-        config = AppConfig(collect_metrics=False)
+        app_config = AppConfig(collect_metrics=False)
         chat_config = BaseLlmConfig()
-        app = App(config=config, llm_config=chat_config, system_prompt="Test system prompt")
+        app = App(config=None, app_config=app_config, llm_config=chat_config, system_prompt="Test system prompt")
 
         self.assertEqual(app.llm.config.system_prompt, "Test system prompt")
 
