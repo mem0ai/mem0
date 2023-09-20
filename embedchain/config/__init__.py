@@ -11,3 +11,4 @@ from .llm.base_llm_config import BaseLlmConfig
 from .llm.base_llm_config import BaseLlmConfig as LlmConfig
 from .vectordbs.ChromaDbConfig import ChromaDbConfig
 from .vectordbs.ElasticsearchDBConfig import ElasticsearchDBConfig
+from .vectordbs.WeaviateDbConfig import WeaviateDbConfig
