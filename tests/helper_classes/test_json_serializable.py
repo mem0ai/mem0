@@ -75,23 +75,31 @@ class TestJsonSerializable(unittest.TestCase):
         app = App.deserialize(serial)
         new_vars = get_nested_vars(app)
 
-        IGNORED = {"config": ["logger"], "llm": ["memory"]}
+        IGNORED = {"llm": ["memory"]}
         # s_id is not ignored because raw serialization should save it too.
 
         for key, value in original_vars.items():
+            new_value = new_vars.get(key, {})
+
             for k, vs in IGNORED.items():
                 if key == k:
                     for v in vs:
-                        del value[v]
+                        try:
+                            del value[v]
+                        except KeyError:
+                            pass
 
             try:
                 original_string = json.dumps(value, sort_keys=True)
             except Exception:
                 original_string = ""
             try:
-                new_string = json.dumps(new_vars.get(key, {}), sort_keys=True)
+                new_string = json.dumps(new_value, sort_keys=True)
             except Exception:
                 new_string = ""
+            # Uncomment for debugging
+            # print(key, original_string)
+            # print(key, new_string)
             self.assertEqual(original_string, new_string)
 
     def test_registration_required(self):
