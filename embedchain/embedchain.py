@@ -21,8 +21,7 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import (DataType, DirectDataType,
-                                         IndirectDataType, SpecialDataType)
+from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -107,6 +106,16 @@ class EmbedChain(JSONSerializable):
         if not isinstance(value, bool):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.config.collect_metrics = value
+
+    @property
+    def online(self):
+        return self.llm.online
+
+    @online.setter
+    def online(self, value):
+        if not isinstance(value, bool):
+            raise ValueError(f"Boolean value expected but got {type(value)}.")
+        self.llm.online = value
 
     def _load_or_generate_user_id(self) -> str:
         """
@@ -332,7 +341,7 @@ class EmbedChain(JSONSerializable):
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
-    
+
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
         Get id of existing document for a given source, based on the data type
