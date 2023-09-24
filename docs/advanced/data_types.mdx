@@ -82,6 +82,8 @@ app.add('https://example.com/content/sheet.csv', data_type="csv")
 app.add('content/sheet.csv', data_type="csv")
 ```
 
+Note: There is a size limit allowed for csv file beyond which it can throw error. This limit is set by the LLMs. Please consider chunking large csv files into smaller csv files.
+
 ### Code documentation website loader
 
 To add any code documentation website as a loader, use the data_type as `docs_site`. Eg:
