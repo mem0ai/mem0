@@ -107,6 +107,16 @@ class EmbedChain(JSONSerializable):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.config.collect_metrics = value
 
+    @property
+    def online(self):
+        return self.llm.online
+
+    @online.setter
+    def online(self, value):
+        if not isinstance(value, bool):
+            raise ValueError(f"Boolean value expected but got {type(value)}.")
+        self.llm.online = value
+
     def _load_or_generate_user_id(self) -> str:
         """
         Loads the user id from the config file if it exists, otherwise generates a new
