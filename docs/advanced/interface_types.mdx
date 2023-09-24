@@ -43,11 +43,11 @@ Dry Run is an option in the `add`, `query` and `chat` methods that allows the us
 
 - You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Supports both OpenAI model and OpenSourceApp. 📊
 
-- To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
+- To use this, instantiate a `LlmConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
 
 ```python
 app = App()
-query_config = QueryConfig(stream = True)
+query_config = LlmConfig(stream = True)
 resp = app.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config)
 
 for chunk in resp:
