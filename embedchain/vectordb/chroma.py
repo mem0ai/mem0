@@ -37,6 +37,7 @@ class ChromaDB(BaseVectorDB):
             self.config = ChromaDbConfig()
 
         self.settings = Settings()
+        self.settings.allow_reset = self.config.allow_reset
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():
                 if hasattr(self.settings, key):
@@ -87,7 +88,7 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids=None, where=None, limit=None):
+    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
@@ -95,6 +96,8 @@ class ChromaDB(BaseVectorDB):
         :type ids: List[str]
         :param where: Optional. to filter data
         :type where: Dict[str, Any]
+        :param limit: Optional. maximum number of documents
+        :type limit: Optional[int]
         :return: Existing documents.
         :rtype: List[str]
         """
@@ -180,6 +183,8 @@ class ChromaDB(BaseVectorDB):
         :param name: Name of the collection.
         :type name: str
         """
+        if not isinstance(name, str):
+            raise TypeError("Collection name must be a string")
         self.config.collection_name = name
         self._get_or_create_collection(self.config.collection_name)
 
@@ -204,8 +209,8 @@ class ChromaDB(BaseVectorDB):
             self.client.reset()
         except ValueError:
             raise ValueError(
-                "For safety reasons, resetting is disabled."
-                'Please enable it by including `chromadb_settings={"allow_reset": True}` in your ChromaDbConfig'
+                "For safety reasons, resetting is disabled. "
+                "Please enable it by setting `allow_reset=True` in your ChromaDbConfig"
             ) from None
         # Recreate
         self._get_or_create_collection(self.config.collection_name)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.57"
+version = "0.0.58"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
@@ -91,6 +91,7 @@ youtube-transcript-api = "^0.6.1"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"
 pytube = "^15.0.0"
+duckduckgo-search = "^3.8.5"
 llama-hub = { version = "^0.0.29", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = ">=2.0.0, !=2.0.1", optional = true }

@@ -93,8 +93,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
 
 
 class TestChromaDbDuplicateHandling:
-    chroma_settings = {"allow_reset": True}
-    chroma_config = ChromaDbConfig(chroma_settings=chroma_settings)
+    chroma_config = ChromaDbConfig(allow_reset=True)
     app_config = AppConfig(collection_name=False, collect_metrics=False)
     app_with_settings = App(config=app_config, chromadb_config=chroma_config)
 
@@ -130,8 +129,7 @@ class TestChromaDbDuplicateHandling:
 
 
 class TestChromaDbCollection(unittest.TestCase):
-    chroma_settings = {"allow_reset": True}
-    chroma_config = ChromaDbConfig(chroma_settings=chroma_settings)
+    chroma_config = ChromaDbConfig(allow_reset=True)
     app_config = AppConfig(collection_name=False, collect_metrics=False)
     app_with_settings = App(config=app_config, chromadb_config=chroma_config)
 
@@ -172,21 +170,21 @@ class TestChromaDbCollection(unittest.TestCase):
         app = App(config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
         # Collection should be empty when created
-        self.assertEqual(app.count(), 0)
+        self.assertEqual(app.db.count(), 0)
 
         app.db.collection.add(embeddings=[0, 0, 0], ids=["0"])
         # After adding, should contain one item
-        self.assertEqual(app.count(), 1)
+        self.assertEqual(app.db.count(), 1)
 
         app.set_collection_name("test_collection_2")
         # New collection is empty
-        self.assertEqual(app.count(), 0)
+        self.assertEqual(app.db.count(), 0)
 
         # Adding to new collection should not effect existing collection
         app.db.collection.add(embeddings=[0, 0, 0], ids=["0"])
         app.set_collection_name("test_collection_1")
         # Should still be 1, not 2.
-        self.assertEqual(app.count(), 1)
+        self.assertEqual(app.db.count(), 1)
 
     def test_collections_are_persistent(self):
         """
@@ -202,7 +200,7 @@ class TestChromaDbCollection(unittest.TestCase):
 
         app = App(config=AppConfig(collect_metrics=False))
         app.set_collection_name("test_collection_1")
-        self.assertEqual(app.count(), 1)
+        self.assertEqual(app.db.count(), 1)
 
     def test_parallel_collections(self):
         """
