@@ -48,11 +48,22 @@ async def add(ctx, data_type: str, *, url_or_text: str):
 async def query(ctx, *, question: str):
     print(f"User: {ctx.author.name}, Query: {question}")
     try:
-        response = chat_bot.chat(question)
+        response = chat_bot.query(question)
         await send_response(ctx, response)
     except Exception as e:
         await send_response(ctx, "An error occurred. Please try again!")
         print("Error occurred during 'query' command:", e)
+
+
+@bot.command()
+async def chat(ctx, *, question: str):
+    print(f"User: {ctx.author.name}, Query: {question}")
+    try:
+        response = chat_bot.chat(question)
+        await send_response(ctx, response)
+    except Exception as e:
+        await send_response(ctx, "An error occurred. Please try again!")
+        print("Error occurred during 'chat' command:", e)
 
 
 async def send_response(ctx, message):
