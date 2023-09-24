@@ -20,12 +20,16 @@ naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
 naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
 naval_chat_bot.add("https://nav.al/feedback")
 naval_chat_bot.add("https://nav.al/agi")
+naval_chat_bot.add("The Meanings of Life", 'text', metadata={'chapter': 'philosphy'})
 
 # Embed Local Resources
 naval_chat_bot.add(("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."))
 
 naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?")
 # Answer: Naval argues that humans possess the unique capacity to understand explanations or concepts to the maximum extent possible in this physical reality.
+
+# with where context filter
+naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", where={'chapter': 'philosophy'})
 ```
 
 ## 🚀 How it works?
