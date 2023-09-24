@@ -24,7 +24,7 @@ class TestApp(unittest.TestCase):
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            QueryConfig.
+            LlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
 
@@ -94,7 +94,7 @@ class TestApp(unittest.TestCase):
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            QueryConfig.
+            LlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
 
@@ -125,7 +125,7 @@ class TestApp(unittest.TestCase):
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            QueryConfig.
+            LlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
 
@@ -137,8 +137,8 @@ class TestApp(unittest.TestCase):
             mock_answer.return_value = "Test answer"
             with patch.object(self.app.db, "query") as mock_database_query:
                 mock_database_query.return_value = ["Test context"]
-                queryConfig = BaseLlmConfig(where={"attribute": "value"})
-                answer = self.app.query("Test query", queryConfig)
+                llm_config = BaseLlmConfig(where={"attribute": "value"})
+                answer = self.app.query("Test query", llm_config)
 
         self.assertEqual(answer, "Test answer")
         _args, kwargs = mock_database_query.call_args
