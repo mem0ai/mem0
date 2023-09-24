@@ -19,7 +19,7 @@ Otherwise, you will not know when, for instance, an invalid filepath is interpre
 To omit any issues with the data type detection, you can **force** a data_type by adding it as a `add` method argument.
 The examples below show you the keyword to force the respective `data_type`.
 
-Forcing can also be used for edge cases, such as interpreting a sitemap as a web_page, for reading it's raw text instead of following links.
+Forcing can also be used for edge cases, such as interpreting a sitemap as a web_page, for reading its raw text instead of following links.
 
 ## Remote Data Types
 
@@ -73,6 +73,17 @@ app.add('https://example.com/content/intro.docx', data_type="docx")
 app.add('content/intro.docx', data_type="docx")
 ```
 
+### CSV file
+
+To add any csv file, use the data_type as `csv`. `csv` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+
+```python
+app.add('https://example.com/content/sheet.csv', data_type="csv")
+app.add('content/sheet.csv', data_type="csv")
+```
+
+Note: There is a size limit allowed for csv file beyond which it can throw error. This limit is set by the LLMs. Please consider chunking large csv files into smaller csv files.
+
 ### Code documentation website loader
 
 To add any code documentation website as a loader, use the data_type as `docs_site`. Eg:
@@ -82,7 +93,7 @@ app.add("https://docs.embedchain.ai/", data_type="docs_site")
 ```
 
 ### Notion
-To use notion you must install the extra dependencies with `pip install embedchain[notion]`.
+To use notion you must install the extra dependencies with `pip install --upgrade embedchain[notion]`.
 
 To load a notion page, use the data_type as `notion`. Since it is hard to automatically detect, forcing this is advised.
 The next argument must **end** with the `notion page id`. The id is a 32-character string. Eg:
@@ -91,6 +102,14 @@ The next argument must **end** with the `notion page id`. The id is a 32-charact
 app.add("cfbc134ca6464fc980d0391613959196", "notion")
 app.add("my-page-cfbc134ca6464fc980d0391613959196", "notion")
 app.add("https://www.notion.so/my-page-cfbc134ca6464fc980d0391613959196", "notion")
+```
+
+### Mdx file
+
+To add any mdx file to your app, use the data_type (first argument to `.add()` method) as `mdx`. Note that this supports support mdx file present on machine, so this should be a file path. Eg:
+
+```python
+app.add('path/to/file.mdx', data_type='mdx')
 ```
 
 ## Local Data Types

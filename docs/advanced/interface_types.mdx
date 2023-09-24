@@ -19,7 +19,7 @@ print(naval_chat_bot.query("What unique capacity does Naval argue humans possess
 
 ### Chat Interface
 
-- This interface is chat interface where it remembers previous conversation. Right now it remembers 5 conversation by default. 💬
+- This interface is a chat interface that remembers previous conversations. Right now it remembers 5 conversations by default. 💬
 
 - To use this, call `.chat` function to get the answer for any query.
 
@@ -36,18 +36,18 @@ print(naval_chat_bot.chat("what did the author say about happiness?"))
 
 #### Dry Run
 
-Dry Run is an option in the `query` and `chat` methods that allows the user to not send their constructed prompt to the LLM, to save money. It's used for [testing](/advanced/testing#dry-run).
+Dry Run is an option in the `add`, `query` and `chat` methods that allows the user to display the data chunks and their constructed prompt which is not sent to the LLM, to save money. It's used for [testing](/advanced/testing#dry-run).
 
 
 ### Stream Response
 
 - You can add config to your query method to stream responses like ChatGPT does. You would require a downstream handler to render the chunk in your desirable format. Supports both OpenAI model and OpenSourceApp. 📊
 
-- To use this, instantiate a `QueryConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
+- To use this, instantiate a `LlmConfig` or `ChatConfig` object with `stream=True`. Then pass it to the `.chat()` or `.query()` method. The following example iterates through the chunks and prints them as they appear.
 
 ```python
 app = App()
-query_config = QueryConfig(stream = True)
+query_config = LlmConfig(stream = True)
 resp = app.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", query_config)
 
 for chunk in resp:

@@ -1,6 +1,8 @@
+import hashlib
+
 from langchain.document_loaders import Docx2txtLoader
 
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
 
@@ -15,4 +17,8 @@ class DocxFileLoader(BaseLoader):
         meta_data = data[0].metadata
         meta_data["url"] = "local"
         output.append({"content": content, "meta_data": meta_data})
-        return output
+        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": output,
+        }

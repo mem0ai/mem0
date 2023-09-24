@@ -1,9 +1,10 @@
+import hashlib
 import logging
 
 import requests
 from bs4 import BeautifulSoup
 
-from embedchain.helper_classes.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
@@ -63,10 +64,14 @@ class WebPageLoader(BaseLoader):
         meta_data = {
             "url": url,
         }
-
-        return [
-            {
-                "content": content,
-                "meta_data": meta_data,
-            }
-        ]
+        content = content
+        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": [
+                {
+                    "content": content,
+                    "meta_data": meta_data,
+                }
+            ],
+        }

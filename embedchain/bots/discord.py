@@ -2,11 +2,20 @@ import argparse
 import logging
 import os
 
-import discord
-from discord import app_commands
-from discord.ext import commands
+from embedchain.helper.json_serializable import register_deserializable
 
 from .base import BaseBot
+
+try:
+    import discord
+    from discord import app_commands
+    from discord.ext import commands
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "The required dependencies for Discord are not installed."
+        'Please install with `pip install "embedchain[discord]"`'
+    ) from None
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -17,6 +26,7 @@ tree = app_commands.CommandTree(client)
 # https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&permissions=2048&scope=bot
 
 
+@register_deserializable
 class DiscordBot(BaseBot):
     def __init__(self, *args, **kwargs):
         BaseBot.__init__(self, *args, **kwargs)
