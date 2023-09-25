@@ -40,3 +40,4 @@ class OpenAILlm(BaseLlm):
         for line in response:
             chunk = line["choices"][0].get("delta", {}).get("content", "")
             yield chunk
+ 
