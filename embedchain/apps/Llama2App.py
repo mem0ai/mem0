@@ -1,6 +1,6 @@
 from typing import Optional
 
-from embedchain.apps.CustomApp import CustomApp
+from embedchain.apps.custom_app import CustomApp
 from embedchain.config import CustomAppConfig
 from embedchain.embedder.openai import OpenAiEmbedder
 from embedchain.helper.json_serializable import register_deserializable
