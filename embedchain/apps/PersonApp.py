@@ -1,7 +1,7 @@
 from string import Template
 
 from embedchain.apps.App import App
-from embedchain.apps.OpenSourceApp import OpenSourceApp
+from embedchain.apps.open_source_app import OpenSourceApp
 from embedchain.config import BaseLlmConfig
 from embedchain.config.apps.BaseAppConfig import BaseAppConfig
 from embedchain.config.llm.base_llm_config import (DEFAULT_PROMPT,
