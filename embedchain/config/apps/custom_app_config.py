@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
-from .BaseAppConfig import BaseAppConfig
+from .base_app_config import BaseAppConfig
 
 load_dotenv()
 

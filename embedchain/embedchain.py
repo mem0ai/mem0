@@ -15,7 +15,7 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
-from embedchain.config.apps.BaseAppConfig import BaseAppConfig
+from embedchain.config.apps.base_app_config import BaseAppConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable

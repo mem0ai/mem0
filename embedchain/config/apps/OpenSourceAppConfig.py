@@ -2,7 +2,7 @@ from typing import Optional
 
 from embedchain.helper.json_serializable import register_deserializable
 
-from .BaseAppConfig import BaseAppConfig
+from .base_app_config import BaseAppConfig
 
 
 @register_deserializable
