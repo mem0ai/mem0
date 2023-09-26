@@ -191,7 +191,7 @@ class EmbedChain(JSONSerializable):
 
         data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type.value, metadata])
-        documents, metadatas, _ids, new_chunks = self.load_and_embed_v2(
+        documents, metadatas, _ids, new_chunks = self.load_and_embed(
             data_formatter.loader, data_formatter.chunker, source, metadata, source_id, dry_run
         )
         if data_type in {DataType.DOCS_SITE}:
@@ -297,7 +297,7 @@ class EmbedChain(JSONSerializable):
                 "When it should be  DirectDataType, IndirectDataType or SpecialDataType."
             )
 
-    def load_and_embed_v2(
+    def load_and_embed(
         self,
         loader: BaseLoader,
         chunker: BaseChunker,
