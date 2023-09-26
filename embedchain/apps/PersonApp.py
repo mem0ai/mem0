@@ -3,7 +3,7 @@ from string import Template
 from embedchain.apps.App import App
 from embedchain.apps.open_source_app import OpenSourceApp
 from embedchain.config import BaseLlmConfig
-from embedchain.config.apps.BaseAppConfig import BaseAppConfig
+from embedchain.config.apps.base_app_config import BaseAppConfig
 from embedchain.config.llm.base_llm_config import (DEFAULT_PROMPT,
                                                    DEFAULT_PROMPT_WITH_HISTORY)
 from embedchain.helper.json_serializable import register_deserializable
