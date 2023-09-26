@@ -2,7 +2,7 @@ import os
 import logging
 import hashlib
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.ClipProcessor import ClipProcessor
+from embedchain.models.clip_processor import ClipProcessor
 
 
 class ImagesLoader(BaseLoader):
