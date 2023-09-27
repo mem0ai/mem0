@@ -3,7 +3,7 @@
 from .AddConfig import AddConfig, ChunkerConfig
 from .apps.app_config import AppConfig
 from .apps.custom_app_config import CustomAppConfig
-from .apps.OpenSourceAppConfig import OpenSourceAppConfig
+from .apps.open_source_app_config import OpenSourceAppConfig
 from .BaseConfig import BaseConfig
 from .embedder.BaseEmbedderConfig import BaseEmbedderConfig
 from .embedder.BaseEmbedderConfig import BaseEmbedderConfig as EmbedderConfig
