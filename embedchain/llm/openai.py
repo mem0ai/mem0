@@ -1,5 +1,8 @@
 from typing import Optional
 
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
+
 from embedchain.config import BaseLlmConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -19,9 +22,6 @@ class OpenAILlm(BaseLlm):
             return response.content
 
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain.chat_models import ChatOpenAI
-        from langchain.schema import HumanMessage, SystemMessage
-
         messages = []
         if config.system_prompt:
             messages.append(SystemMessage(content=config.system_prompt))
