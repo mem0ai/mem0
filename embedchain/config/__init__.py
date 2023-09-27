@@ -1,6 +1,6 @@
 # flake8: noqa: F401
 
-from .AddConfig import AddConfig, ChunkerConfig
+from .add_config import AddConfig, ChunkerConfig
 from .apps.app_config import AppConfig
 from .apps.custom_app_config import CustomAppConfig
 from .apps.open_source_app_config import OpenSourceAppConfig
