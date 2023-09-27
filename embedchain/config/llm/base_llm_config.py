@@ -2,7 +2,7 @@ import re
 from string import Template
 from typing import Any, Dict, Optional
 
-from embedchain.config.BaseConfig import BaseConfig
+from embedchain.config.base_config import BaseConfig
 from embedchain.helper.json_serializable import register_deserializable
 
 DEFAULT_PROMPT = """
