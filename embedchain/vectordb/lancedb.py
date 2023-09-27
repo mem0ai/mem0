@@ -1,46 +1,52 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
-from lancedb import connect, create_table, delete, open_table
+try:
+    from lancedb import lancedb
+    from lancedb import connect, create_table, delete, open_table
+except ImportError:
+    raise ImportError(
+        "LanceDb requirese extra dependencies. Install with `pip install --upgrade embedchain[lancedb]`"
+            ) from None
 
+from embedchain.config import LanceDBConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
+
 @register_deserializable
 class LanceDb(BaseVectorDB):
-    """Vector database using LanceDB"""
     """
-    Example:
-    ..code - block:: python
-
-    db = lancedb.connect('./lancedb')
-    table = db.open_table('my_table')
-    vectorstore = LanceDB(table, embedding_function)
-    vectorstore.add_texts(['text1', 'text2'])
-    result = vectorstore.similarity_search('text1') """
+    LanceDB as vector database
+    """
 
     def __init__(
-            self,
-            uri: str,
-            table_name: str = "lance_table",
-            **kwargs: Any,
-    ) -> None:
-        """Initialize a new LanceDB connection"""
-        try:
-            import lancedb
-        except ImportError:
-            raise ImportError(
-            "could not import lancedb python package. "
-            "please install it with `pip install lancedb`."
-        )
-        if not isinstance(connection, lancedb.db.LanceTable):
-            raise ValueError(
-                "connection should be an instance of lancedb.db.LanceTable, ",
-                f"got{type(connection)}"
-            )
-        self.connection = lancedb.connect(uri)
-        self.uri = uri
-        self.table_name = table_name
+        self,
+        config: Optional[LanceDBConfig] = None,
+        ld_config: Optional[LanceDBConfig] = None,  #Backwards compatibility
+    ):
+        """Initialize a new LanceDB connection
+
+        :param config: LanceDB database config, defaults to None
+        :type config: LanceDBConfig, optional
+        :param ld_config: `ld_config` is supported as an alias for `config` (for backwards compatibility),
+         defaults to None
+        :type ld_config: ElasticsearchDBConfig, optional
+        :raises ValueError: No config provided
+        """
+        if config is None and ld_config is None:
+            self.config = LanceDBConfig()
+        else:
+            if not isinstance(config, LanceDBConfig):
+                raise TypeError(
+                    "Config is not a `lancedbconfig` instance. "
+                    "Please make sure the type is right and that you are passing an instance. "
+                )
+            self.config = config or ld_config
+        self.connection = LanceDb(self.config.LD_URI, **self.config.LD_EXTRA_PARAMS)
+
+        #call parent init here because embedder is needed
+        super().__init__(config=self.config)
 
     def _initialize(self):
         """
@@ -56,12 +62,7 @@ class LanceDb(BaseVectorDB):
 
         :param documents: Documents
         :type documents: List[str]
-        :type metadatas: Metadatas
-        :type metadatas: List[object]
-        :param ids: ids
-        :type ids: List[str]
         """
-
         if self.table_name in self.connection.table_names():
             tbl = self.connection.open_table(self.table_name)
             tbl.add(documents)
@@ -69,6 +70,7 @@ class LanceDb(BaseVectorDB):
             self.connection.create_table(self.table_name, documents)
 
     def delete(self, where) -> None:
+        """ Delete the table """
         return self.connection.delete(where=where)
 
 
@@ -87,3 +89,21 @@ class LanceDb(BaseVectorDB):
         :rtype: table
         """
         return self.create_table(name, data)
+
+    def query(self, input_query: List[str], n_results: int, where: DIct[str, any]) -> List[str]:
+        """
+        Query contents from vector database based on vector similarity 
+
+        :param input_query: list of query string
+        :type input_query: List[str]
+        :param n_results: no of similar documents to fetch from database
+        :type n_results: int
+        :param where: Optional to filter data
+        :type where: Dict[str, any]
+        :return: Database contents that are the result of the query
+        :rtype: List[str]
+        """
+
+        # TODO
+
+        
