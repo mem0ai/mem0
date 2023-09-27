@@ -1,6 +1,6 @@
 from string import Template
 
-from embedchain.apps.App import App
+from embedchain.apps.app import App
 from embedchain.apps.open_source_app import OpenSourceApp
 from embedchain.config import BaseLlmConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
