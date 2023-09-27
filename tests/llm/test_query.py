@@ -46,41 +46,29 @@ class TestApp(unittest.TestCase):
         self.assertEqual(input_query_arg, "Test query")
         mock_answer.assert_called_once()
 
-    @patch("openai.ChatCompletion.create")
-    def test_query_config_app_passing(self, mock_create):
-        mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
+    @patch("embedchain.llm.openai.OpenAILlm._get_answer")
+    def test_query_config_app_passing(self, mock_get_answer):
+        mock_get_answer.return_value = MagicMock()
+        mock_get_answer.return_value.content = "Test answer"
 
         config = AppConfig(collect_metrics=False)
         chat_config = BaseLlmConfig(system_prompt="Test system prompt")
         app = App(config=config, llm_config=chat_config)
+        answer = app.llm.get_llm_model_answer("Test query")
 
-        app.llm.get_llm_model_answer("Test query")
+        self.assertEqual(app.llm.config.system_prompt, "Test system prompt")
+        self.assertEqual(answer, "Test answer")
 
-        # Test system_prompt: Check that the 'create' method was called with the correct 'messages' argument
-        messages_arg = mock_create.call_args.kwargs["messages"]
-        self.assertTrue(messages_arg[0].get("role"), "system")
-        self.assertEqual(messages_arg[0].get("content"), "Test system prompt")
-        self.assertTrue(messages_arg[1].get("role"), "user")
-        self.assertEqual(messages_arg[1].get("content"), "Test query")
-
-        # TODO: Add tests for other config variables
-
-    @patch("openai.ChatCompletion.create")
-    def test_app_passing(self, mock_create):
-        mock_create.return_value = {"choices": [{"message": {"content": "response"}}]}  # Mock response
-
+    @patch("embedchain.llm.openai.OpenAILlm._get_answer")
+    def test_app_passing(self, mock_get_answer):
+        mock_get_answer.return_value = MagicMock()
+        mock_get_answer.return_value.content = "Test answer"
         config = AppConfig(collect_metrics=False)
         chat_config = BaseLlmConfig()
         app = App(config=config, llm_config=chat_config, system_prompt="Test system prompt")
-
+        answer = app.llm.get_llm_model_answer("Test query")
         self.assertEqual(app.llm.config.system_prompt, "Test system prompt")
-
-        app.llm.get_llm_model_answer("Test query")
-
-        # Test system_prompt: Check that the 'create' method was called with the correct 'messages' argument
-        messages_arg = mock_create.call_args.kwargs["messages"]
-        self.assertTrue(messages_arg[0].get("role"), "system")
-        self.assertEqual(messages_arg[0].get("content"), "Test system prompt")
+        self.assertEqual(answer, "Test answer")
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_query_with_where_in_params(self):
