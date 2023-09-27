@@ -39,6 +39,10 @@
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot", "examples/poe_bot"]
     },
     {
+      "group": "Integration",
+      "pages": ["integration/langsmith"]
+    },
+    {
       "group": "Contribution Guidelines",
       "pages": ["contribution/dev", "contribution/docs"]
     }

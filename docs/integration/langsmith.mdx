@@ -1,0 +1,51 @@
+---
+title: '🛠️ LangSmith'
+description: 'Integrate with Langsmith to debug and monitor your LLM app'
+---
+
+Embedchain now supports integration with [LangSmith](https://www.langchain.com/langsmith).
+
+To use langsmith, you need to do the following steps
+
+1. Have an account on langsmith and keep the environment variables in handy
+2. Set the environments variables in your app so that embedchain has context about it.
+3. Just use embedchain and everything will be logged to LangSmith, so that you can better test and monitor your application.
+
+Lets cover each step in detail.
+
+* First make sure that you a LangSmith account created and have all the necessary variables handy. LangSmith has a [good documentation](https://docs.smith.langchain.com/) on how to get started with their service.
+
+* Once you have the account setup, we will need the following environment variables
+
+```bash
+export LANGCHAIN_TRACING_V2=true
+export LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+export LANGCHAIN_API_KEY=<your-api-key>
+export LANGCHAIN_PROJECT=<your-project>  # if not specified, defaults to "default"
+```
+
+If you are using Python, you can use the following code to set environment variables
+
+```python
+import os
+
+os.environ['LANGCHAIN_TRACING_V2'] = 'true'
+os.environ['LANGCHAIN_ENDPOINT'] = 'https://api.smith.langchain.com'
+os.environ['LANGCHAIN_API_KEY'] = <your-api-key>
+os.environ['LANGCHAIN_PROJECT] = <your-project>
+```
+
+* Now create an app using embedchain and everything will be automatically visible in the LangSmith
+
+
+```python
+from embedchain import App
+
+app = App()
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+app.query("How many companies did Elon found?")
+```
+
+* Now the entire log for this will be visible in langsmith.
+
+<img src="/images/langsmith.png"/>
