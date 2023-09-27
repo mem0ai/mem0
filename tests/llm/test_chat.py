@@ -63,21 +63,7 @@ class TestApp(unittest.TestCase):
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_chat_with_where_in_params(self):
         """
-        This test checks the functionality of the 'chat' method in the App class.
-        It simulates a scenario where the 'retrieve_from_database' method returns a context list based on
-        a where filter and 'get_llm_model_answer' returns an expected answer string.
-
-        The 'chat' method is expected to call 'retrieve_from_database' with the where filter  and
-        'get_llm_model_answer' methods appropriately and return the right answer.
-
-        Key assumptions tested:
-        - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            QueryConfig.
-        - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
-        - 'chat' method returns the value it received from 'get_llm_model_answer'.
-
-        The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database' and
-        'get_llm_model_answer' methods.
+        Test where filter
         """
         with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
@@ -99,11 +85,11 @@ class TestApp(unittest.TestCase):
         a where filter and 'get_llm_model_answer' returns an expected answer string.
 
         The 'chat' method is expected to call 'retrieve_from_database' with the where filter specified
-        in the QueryConfig and 'get_llm_model_answer' methods appropriately and return the right answer.
+        in the LlmConfig and 'get_llm_model_answer' methods appropriately and return the right answer.
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            QueryConfig.
+            LLmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'chat' method returns the value it received from 'get_llm_model_answer'.
 
@@ -114,8 +100,8 @@ class TestApp(unittest.TestCase):
             mock_answer.return_value = "Test answer"
             with patch.object(self.app.db, "query") as mock_database_query:
                 mock_database_query.return_value = ["Test context"]
-                queryConfig = BaseLlmConfig(where={"attribute": "value"})
-                answer = self.app.chat("Test query", queryConfig)
+                llm_config = BaseLlmConfig(where={"attribute": "value"})
+                answer = self.app.chat("Test query", llm_config)
 
         self.assertEqual(answer, "Test answer")
         _args, kwargs = mock_database_query.call_args

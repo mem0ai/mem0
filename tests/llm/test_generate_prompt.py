@@ -12,7 +12,7 @@ class TestGeneratePrompt(unittest.TestCase):
     def test_generate_prompt_with_template(self):
         """
         Tests that the generate_prompt method correctly formats the prompt using
-        a custom template provided in the QueryConfig instance.
+        a custom template provided in the LlmConfig instance.
 
         This test sets up a scenario with an input query and a list of contexts,
         and a custom template, and then calls generate_prompt. It checks that the
@@ -58,7 +58,7 @@ class TestGeneratePrompt(unittest.TestCase):
 
     def test_generate_prompt_with_history(self):
         """
-        Test the 'generate_prompt' method with QueryConfig containing a history attribute.
+        Test the 'generate_prompt' method with LlmConfig containing a history attribute.
         """
         config = BaseLlmConfig()
         config.template = Template("Context: $context | Query: $query | History: $history")
