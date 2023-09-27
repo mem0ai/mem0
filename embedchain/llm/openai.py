@@ -21,6 +21,7 @@ class OpenAILlm(BaseLlm):
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         from langchain.chat_models import ChatOpenAI
         from langchain.schema import HumanMessage, SystemMessage
+
         messages = []
         if config.system_prompt:
             messages.append(SystemMessage(content=config.system_prompt))
@@ -34,14 +35,10 @@ class OpenAILlm(BaseLlm):
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
-            from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-            chat = ChatOpenAI(
-                **kwargs,
-                streaming=config.stream,
-                callbacks=[StreamingStdOutCallbackHandler()],
-            )
+            from langchain.callbacks.streaming_stdout import \
+                StreamingStdOutCallbackHandler
+
+            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=[StreamingStdOutCallbackHandler()])
         else:
-            chat = ChatOpenAI(
-                **kwargs,
-            )
+            chat = ChatOpenAI(**kwargs)
         return chat(messages)
