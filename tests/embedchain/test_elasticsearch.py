@@ -1,86 +1,132 @@
 import unittest
+from unittest.mock import Mock
 
-try:
-    from elasticsearch import Elasticsearch
-    from elasticsearch.helpers import bulk
-except ImportError:
-    raise ImportError(
-        "Elasticsearch requires extra dependencies. Install with `pip install --upgrade embedchain[elasticsearch]`"
-    ) from None
 
-from embedchain.config import ElasticsearchDBConfig
-from embedchain.vectordb.elasticsearch_db import ElasticsearchDB
+
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 class TestElasticsearchDB(unittest.TestCase):
 
-    def setUp(self):
-        self.es_config = ElasticsearchDBConfig(ES_URL="http://localhost:9200")
-        self.db = ElasticsearchDB(config=self.es_config)
+    db = ElasticsearchDB()
+    mock_es = Mock()
+
 
     def tearDown(self):
-        # Clean up any test data in Elasticsearch
-        if self.db.client.indices.exists(index=self.db._get_index()):
-            self.db.client.indices.delete(index=self.db._get_index())
+        # Reset mock after each test
+        self.mock_es.reset_mock()
 
     def test_initialize(self):
         # Ensure that the Elasticsearch index is created during initialization
-        self.assertTrue(self.db.client.indices.exists(index=self.db._get_index()))
+        self.mock_es.indices.exists.return_value = False
+        self.db._initialize()
+        self.mock_es.indices.create.assert_called_with(
+            index=self.db._get_index(),
+            body={
+                "mappings": {
+                    "properties": {
+                        "text": {"type": "text"},
+                        "embeddings": {"type": "dense_vector", "index": False, "dims": 300},  
+                    }
+                }
+            }
+        )
 
-    def test_add_and_get(self):
-        # Add documents to the database and then retrieve them
-        documents = ["document1", "document2", "document3"]
-        metadatas = [{"app_id": "app1"}, {"app_id": "app2"}, {"app_id": "app1"}]
-        ids = ["1", "2", "3"]
-        self.db.add(documents, metadatas, ids)
+    def test_get_or_create_db(self):
+        # Test that _get_or_create_db returns the client
+        result = self.db._get_or_create_db()
+        self.assertEqual(result, self.mock_es)
 
-        # Test getting documents by IDs
-        retrieved_ids = self.db.get(ids=ids)["ids"]
-        self.assertEqual(retrieved_ids, set(ids))
+    def test_get_or_create_collection(self):
+        # Test that _get_or_create_collection returns None and does not call Elasticsearch
+        result = self.db._get_or_create_collection("collection_name")
+        self.assertIsNone(result)
+        self.mock_es.indices.create.assert_not_called()
 
-        # Test getting documents by metadata
-        retrieved_ids = self.db.get(where={"app_id": "app1"})["ids"]
-        self.assertEqual(retrieved_ids, {"1", "3"})
+    def test_add(self):
+        self.mock_es.bulk.return_value = None
+
+        # Call the `add()` method.
+        self.db.add(
+            ["document1", "document2", "document3"],
+            ["metadata1", "metadata2", "metadata3"],
+            ["1", "2", "3"])
+
+        # Assert that the Elasticsearch client was called with the expected arguments.
+        self.mock_es.bulk.assert_called_once_with([
+            {
+                "_index": self.db._get_index(),
+                "_id": "1",
+                "_source": {"text": "document1", "metadata": "metadata1", "embeddings": "embedding1"},
+            },
+            {
+                "_index": self.db._get_index(),
+                "_id": "2",
+                "_source": {"text": "document2", "metadata": "metadata2", "embeddings": "embedding2"},
+            },
+            {
+                "_index": self.db._get_index(),
+                "_id": "3",
+                "_source": {"text": "document3", "metadata": "metadata3", "embeddings": "embedding3"},
+            },
+        ])
+
 
     def test_query(self):
-        # Add documents to the database
-        documents = ["document1", "document2", "document3"]
-        metadatas = [{"app_id": "app1"}, {"app_id": "app2"}, {"app_id": "app1"}]
-        ids = ["1", "2", "3"]
-        self.db.add(documents, metadatas, ids)
-
-        # Perform a query
+        # Test the query method
         input_query = ["query"]
         where = {"app_id": "app1"}
         n_results = 2
-        results = self.db.query(input_query, n_results, where)
-        
-        # Ensure that the results are a list of strings
-        self.assertIsInstance(results, list)
-        self.assertTrue(all(isinstance(result, str) for result in results))
-    
-    def test_count(self):
-        # Add documents to the database
-        documents = ["document1", "document2", "document3"]
-        metadatas = [{"app_id": "app1"}, {"app_id": "app2"}, {"app_id": "app1"}]
-        ids = ["1", "2", "3"]
-        self.db.add(documents, metadatas, ids)
 
-        # Check the count of documents
+        self.mock_es.search.return_value = {
+            "hits": {
+                "hits": [
+                    {"_source": {"text": "result1"}},
+                    {"_source": {"text": "result2"}},
+                ]
+            }
+        }
+
+        results = self.db.query(input_query, n_results, where)
+
+        self.assertEqual(results, ["result1", "result2"])
+        self.mock_es.search.assert_called_once_with(
+            index=self.db._get_index(),
+            query={
+                "script_score": {
+                    "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},
+                    "script": {
+                        "source": "cosineSimilarity(params.input_query_vector, 'embeddings') + 1.0",
+                        "params": {"input_query_vector": "query"},  # Use the provided query directly
+                    },
+                }
+            },
+            _source=["text"],
+            size=n_results,
+        )
+
+    def test_set_collection_name(self):
+        # Test the set_collection_name method
+        self.db.set_collection_name("new_collection")
+        self.assertEqual(self.db.config.collection_name, "new_collection")
+
+    def test_count(self):
+        # Test the count method
+        self.mock_es.count.return_value = {"count": 42}
         count = self.db.count()
-        self.assertEqual(count, 3)
+        self.assertEqual(count, 42)
+        self.mock_es.count.assert_called_once_with(index=self.db._get_index(), query={"match_all": {}})
 
     def test_reset(self):
-        # Add documents to the database
-        documents = ["document1", "document2", "document3"]
-        metadatas = [{"app_id": "app1"}, {"app_id": "app2"}, {"app_id": "app1"}]
-        ids = ["1", "2", "3"]
-        self.db.add(documents, metadatas, ids)
-
-        # Reset the database
+        # Test the reset method
         self.db.reset()
+        self.mock_es.indices.delete.assert_called_once_with(index=self.db._get_index())
 
-        # Check that the Elasticsearch index no longer exists
-        self.assertFalse(self.db.client.indices.exists(index=self.db._get_index()))
+    def test_get_index(self):
+        # Test the _get_index method
+        self.db.config.collection_name = "test_collection"
+        self.db.embedder.vector_dimension = 300
+        index = self.db._get_index()
+        self.assertEqual(index, "test_collection_300")
 
 if __name__ == '__main__':
     unittest.main()
