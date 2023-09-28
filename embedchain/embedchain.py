@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from embedchain.app.app import App
+from embedchain import App
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
