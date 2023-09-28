@@ -7,8 +7,19 @@ PROJECT_NAME := embedchain
 .PHONY: install format lint clean test ci_lint ci_test
 
 install:
-	$(PIP) install --upgrade pip
-	$(PIP) install -e .[dev]
+	poetry install
+
+install_es:
+	poetry install --extras elasticsearch
+
+install_opensearch:
+	poetry install --extras opensearch
+
+shell:
+	poetry shell
+
+py_shell:
+	poetry run python
 
 format:
 	$(PYTHON) -m black .
