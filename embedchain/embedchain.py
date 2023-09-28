@@ -390,6 +390,7 @@ class EmbedChain(JSONSerializable):
 
             new_metadatas.append(m)
         metadatas = new_metadatas
+
         if dry_run:
             return list(documents), metadatas, ids, 0
 
