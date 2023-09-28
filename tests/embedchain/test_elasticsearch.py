@@ -6,7 +6,6 @@ from elasticsearch import Elasticsearch
 from embedchain.config import ElasticsearchDBConfig
 from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 class TestElasticsearchDB(unittest.TestCase):
 
