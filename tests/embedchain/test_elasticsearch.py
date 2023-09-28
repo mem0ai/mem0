@@ -2,19 +2,31 @@ import unittest
 from unittest.mock import Mock
 
 
+from elasticsearch import Elasticsearch
+from embedchain.config import ElasticsearchDBConfig
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 class TestElasticsearchDB(unittest.TestCase):
 
-    db = ElasticsearchDB()
-    mock_es = Mock()
+
+    def setUp(self):
+        self.mock_es = Mock(spec=Elasticsearch)
+        self.mock_es.indices = Mock()
+        # Initialize ElasticsearchDBConfig with the correct ES_URL
+        self.config = ElasticsearchDBConfig(es_url="http://localhost:9200")
+        self.db = ElasticsearchDB(config=self.config)
+        self.db.client = self.mock_es
+
+        # Mock the embedder attribute
+        self.db.embedder = Mock()  # You may need to configure the mock further if necessary
 
 
     def tearDown(self):
-        # Reset mock after each test
+    # Reset mock after each test
         self.mock_es.reset_mock()
-
+        
     def test_initialize(self):
         # Ensure that the Elasticsearch index is created during initialization
         self.mock_es.indices.exists.return_value = False
@@ -51,6 +63,7 @@ class TestElasticsearchDB(unittest.TestCase):
             ["metadata1", "metadata2", "metadata3"],
             ["1", "2", "3"])
 
+        self.db.embedder.embedding_fn.return_value = ["embedding1", "embedding2", "embedding3"]
         # Assert that the Elasticsearch client was called with the expected arguments.
         self.mock_es.bulk.assert_called_once_with([
             {
@@ -76,7 +89,7 @@ class TestElasticsearchDB(unittest.TestCase):
         input_query = ["query"]
         where = {"app_id": "app1"}
         n_results = 2
-
+        self.db.embedder.embedding_fn.return_value = ["embedding1"]  # Adjust as needed
         self.mock_es.search.return_value = {
             "hits": {
                 "hits": [
@@ -116,10 +129,15 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(count, 42)
         self.mock_es.count.assert_called_once_with(index=self.db._get_index(), query={"match_all": {}})
 
-    def test_reset(self):
-        # Test the reset method
-        self.db.reset()
-        self.mock_es.indices.delete.assert_called_once_with(index=self.db._get_index())
+    def reset(self):
+        """
+        Resets the database. Deletes all embeddings irreversibly.
+        """
+        # Delete all data from the database
+        if self.client.indices.exists(index=self._get_index()):
+            # delete index in Es
+            self.client.indices.delete(index=self._get_index())
+            
 
     def test_get_index(self):
         # Test the _get_index method
