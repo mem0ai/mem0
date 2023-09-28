@@ -12,10 +12,10 @@ class AzureOpenAILlm(BaseLlm):
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
-        return AzureOpenAILlm._get_azure_openai_answer(prompt=prompt, config=self.config)
+        return AzureOpenAILlm._get_answer(prompt=prompt, config=self.config)
 
     @staticmethod
-    def _get_azure_openai_answer(prompt: str, config: BaseLlmConfig) -> str:
+    def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         from langchain.chat_models import AzureChatOpenAI
 
         if not config.deployment_name:
