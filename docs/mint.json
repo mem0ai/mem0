@@ -19,6 +19,10 @@
     {
       "name": "Discord",
       "url": "https://discord.gg/6PzXDgEjG5"
+    },
+    {
+      "name":"Slack",
+      "url":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
     }
   ],
   "topbarCtaButton": {
@@ -39,6 +43,10 @@
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot", "examples/poe_bot"]
     },
     {
+      "group": "Integration",
+      "pages": ["integration/langsmith"]
+    },
+    {
       "group": "Contribution Guidelines",
       "pages": ["contribution/dev", "contribution/docs"]
     }
@@ -48,7 +56,8 @@
     "twitter": "https://twitter.com/embedchain",
     "github": "https://github.com/embedchain/embedchain",
     "linkedin": "https://www.linkedin.com/company/embedchain",
-    "website": "https://embedchain.ai"
+    "website": "https://embedchain.ai",
+    "slack":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
   },
   "backgroundImage": "/background.png",
   "isWhiteLabeled": true
