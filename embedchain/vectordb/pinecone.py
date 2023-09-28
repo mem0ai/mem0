@@ -172,6 +172,4 @@ class PineconeDB(BaseVectorDB):
         :return: Pinecone index
         :rtype: str
         """
-        # NOTE: The method is preferred to an attribute, because if collection name changes,
-        # it's always up-to-date.
         return f"{self.config.collection_name}-{VectorDimensions.OPENAI.value}".lower().replace("_", "-")
