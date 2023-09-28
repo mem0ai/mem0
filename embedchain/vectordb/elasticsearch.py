@@ -76,7 +76,7 @@ class ElasticsearchDB(BaseVectorDB):
 
     def get(
         self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
-    ) -> Set[str]:
+    ):
         """
         Get existing doc ids present in vector database
 

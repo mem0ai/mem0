@@ -390,7 +390,6 @@ class EmbedChain(JSONSerializable):
 
             new_metadatas.append(m)
         metadatas = new_metadatas
-
         if dry_run:
             return list(documents), metadatas, ids, 0
 
@@ -399,7 +398,6 @@ class EmbedChain(JSONSerializable):
 
         self.db.add(documents=documents, metadatas=metadatas, ids=ids)
         count_new_chunks = self.count() - chunks_before_addition
-        print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
     def _format_result(self, results):
