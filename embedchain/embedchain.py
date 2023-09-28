@@ -61,6 +61,7 @@ class EmbedChain(JSONSerializable):
         """
 
         self.config = config
+        self.app = App()
 
         # Add subclasses
         ## Llm
@@ -547,9 +548,8 @@ class EmbedChain(JSONSerializable):
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
         thread_telemetry.start()
 
-        app = App()
         logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `App.reset()`.")
-        app.db.reset()
+        self.app.db.reset()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
