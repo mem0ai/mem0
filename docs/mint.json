@@ -19,6 +19,10 @@
     {
       "name": "Discord",
       "url": "https://discord.gg/6PzXDgEjG5"
+    },
+    {
+      "name":"Slack",
+      "url":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
     }
   ],
   "topbarCtaButton": {
@@ -52,7 +56,8 @@
     "twitter": "https://twitter.com/embedchain",
     "github": "https://github.com/embedchain/embedchain",
     "linkedin": "https://www.linkedin.com/company/embedchain",
-    "website": "https://embedchain.ai"
+    "website": "https://embedchain.ai",
+    "slack":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
   },
   "backgroundImage": "/background.png",
   "isWhiteLabeled": true
