@@ -396,7 +396,8 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
 
-        self.db.add(embeddings=embeddings_data["embeddings"], documents=documents, metadatas=metadatas, ids=ids, skip_embedding = (chunker.data_type == DataType.IMAGES))
+        self.db.add(embeddings=embeddings_data["embeddings"], documents=documents, metadatas=metadatas, ids=ids,
+                    skip_embedding = (chunker.data_type == DataType.IMAGES))
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks

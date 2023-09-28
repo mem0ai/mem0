@@ -113,7 +113,8 @@ class ChromaDB(BaseVectorDB):
     def get_advanced(self, where):
         return self.collection.get(where=where, limit=1)
 
-    def add(self, embeddings: List[List[float]], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool) -> Any:
+    def add(self, embeddings: List[List[float]], documents: List[str], metadatas: List[object],
+            ids: List[str], skip_embedding: bool) -> Any:
         """
         Add vectors to chroma database
 

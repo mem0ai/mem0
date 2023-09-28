@@ -1,5 +1,4 @@
 import unittest
-import hashlib
 
 from embedchain.chunkers.images import ImagesChunker
 from embedchain.config import ChunkerConfig
@@ -36,6 +35,7 @@ class TestImageChunker(unittest.TestCase):
         document = [["ab cd", "ef gh"], ["ij kl", "mn op"]]
         result = chunker.get_word_count(document)
         self.assertEqual(result, 1)
+
 
 class MockLoader:
     def load_data(self, src):
