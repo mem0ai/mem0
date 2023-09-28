@@ -63,7 +63,9 @@ class ChromaDB(BaseVectorDB):
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
         if not self.embedder:
-            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+            raise ValueError(
+                "Embedder not set. Please set an embedder with `_set_embedder()` function before initialization."
+            )
         self._get_or_create_collection(self.config.collection_name)
 
     def _get_or_create_db(self):

@@ -2,7 +2,7 @@ from typing import Optional
 
 from embedchain.apps.custom_app import CustomApp
 from embedchain.config import CustomAppConfig
-from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.llama2 import Llama2Llm
 from embedchain.vectordb.chroma import ChromaDB
@@ -29,5 +29,5 @@ class Llama2App(CustomApp):
             config = CustomAppConfig()
 
         super().__init__(
-            config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAiEmbedder(), system_prompt=system_prompt
+            config=config, llm=Llama2Llm(), db=ChromaDB(), embedder=OpenAIEmbedder(), system_prompt=system_prompt
         )

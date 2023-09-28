@@ -3,7 +3,7 @@ from typing import Optional
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig)
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.chroma import ChromaDB
@@ -48,7 +48,7 @@ class App(EmbedChain):
             config = AppConfig()
 
         llm = OpenAILlm(config=llm_config)
-        embedder = OpenAiEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
+        embedder = OpenAIEmbedder(config=BaseEmbedderConfig(model="text-embedding-ada-002"))
         database = ChromaDB(config=chromadb_config)
 
         super().__init__(config, llm, db=database, embedder=embedder, system_prompt=system_prompt)

@@ -98,6 +98,7 @@ torch = { version = ">=2.0.0, !=2.0.1", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
 gpt4all = { version = "1.0.8", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
+opensearch-py = { version = "2.3.1", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
 flask = { version = "^2.3.3", optional = true }
 twilio = { version = "^8.5.0", optional = true }
@@ -123,6 +124,7 @@ streamlit = ["streamlit"]
 community = ["llama-hub"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
+opensearch = ["opensearch-py"]
 poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
