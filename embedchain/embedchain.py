@@ -61,16 +61,13 @@ class EmbedChain(JSONSerializable):
         """
 
         self.config = config
-
-        # Add subclasses
-        ## Llm
+        # Llm
         self.llm = llm
-        ## Database
         # Database has support for config assignment for backwards compatibility
         if db is None and (not hasattr(self.config, "db") or self.config.db is None):
             raise ValueError("App requires Database.")
         self.db = db or self.config.db
-        ## Embedder
+        # Embedder
         if embedder is None:
             raise ValueError("App requires Embedder.")
         self.embedder = embedder
@@ -256,7 +253,6 @@ class EmbedChain(JSONSerializable):
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
 
-
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
         Get id of existing document for a given source, based on the data type
@@ -395,10 +391,10 @@ class EmbedChain(JSONSerializable):
             return list(documents), metadatas, ids, 0
 
         # Count before, to calculate a delta in the end.
-        chunks_before_addition = self.count()
+        chunks_before_addition = self.db.count()
 
         self.db.add(documents=documents, metadatas=metadatas, ids=ids)
-        count_new_chunks = self.count() - chunks_before_addition
+        count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
