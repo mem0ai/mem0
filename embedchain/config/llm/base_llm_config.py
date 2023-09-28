@@ -67,6 +67,8 @@ class BaseLlmConfig(BaseConfig):
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: Dict[str, Any] = None,
+        endpoint_url: Optional[str] = None,
+        repetition_penalty: Optional[float] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -98,6 +100,10 @@ class BaseLlmConfig(BaseConfig):
         :type system_prompt: Optional[str], optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
         :type where: Dict[str, Any], optional
+        :param endpoint_url: Model endpoint url, specifically used for OctoAI LLMs
+        :type endpoint_url: str, optional
+        :param repetition_penalty: Repetition penalty for LLMs
+        :type repetition_penalty: float, optional
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
@@ -122,6 +128,8 @@ class BaseLlmConfig(BaseConfig):
             raise ValueError("`stream` should be bool")
         self.stream = stream
         self.where = where
+        self.endpoint_url = endpoint_url
+        self.repetition_penalty = repetition_penalty
 
     def validate_template(self, template: Template) -> bool:
         """
