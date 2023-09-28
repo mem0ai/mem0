@@ -57,4 +57,4 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
             ids=["id1", "id2", "id3"],
         )
 
-        app.reset()
+        app.db.reset()

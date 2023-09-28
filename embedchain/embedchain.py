@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from embedchain import App
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
@@ -548,8 +547,7 @@ class EmbedChain(JSONSerializable):
         thread_telemetry.start()
 
         logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `App.reset()`.")
-        app = App()
-        app.db.reset()
+        self.db.reset()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
