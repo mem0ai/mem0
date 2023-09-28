@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 from tenacity import retry, stop_after_attempt, wait_fixed
 
+from embedchain.app.app import App
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
@@ -21,8 +22,7 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import (DataType, DirectDataType,
-                                         IndirectDataType, SpecialDataType)
+from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -255,7 +255,6 @@ class EmbedChain(JSONSerializable):
             "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."  # noqa: E501
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
-
 
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
@@ -549,7 +548,8 @@ class EmbedChain(JSONSerializable):
         thread_telemetry.start()
 
         logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `App.reset()`.")
-        self.db.reset()
+        app = App()
+        app.reset()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
