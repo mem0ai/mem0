@@ -42,7 +42,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
         """
         config = AppConfig(log_level="DEBUG", collect_metrics=False)
         app = App(config=config, chromadb_config=ChromaDbConfig(chroma_settings={"allow_reset": True}))
-        app.reset()
+        app.db.reset()
 
         # Make sure the client is still healthy
         app.db.client.heartbeat()
