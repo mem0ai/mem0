@@ -144,6 +144,11 @@ class OpenSearchDB(BaseVectorDB):
             http_auth=self.config.http_auth,
             use_ssl=True,
         )
+
+        pre_filter = {"match_all": {}}  # default
+        if "app_id" in where:
+            app_id = where["app_id"]
+            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id": app_id}}]}}
         docs = docsearch.similarity_search(
             input_query,
             search_type="script_scoring",
@@ -151,6 +156,8 @@ class OpenSearchDB(BaseVectorDB):
             vector_field="embeddings",
             text_field="text",
             metadata_field="metadata",
+            pre_filter=pre_filter,
+            k=n_results,
         )
         contents = [doc.page_content for doc in docs]
         return contents
