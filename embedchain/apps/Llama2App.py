@@ -17,13 +17,13 @@ class Llama2App(App):
     query(query): finds answer to the given query using vector database and LLM.
     chat(query): finds answer to the given query using vector database and LLM, with conversation history.
 
-    .. deprecated:: 0.0.59
+    .. deprecated:: 0.0.64
     Use `App` instead.
     """
 
     def __init__(self, config: CustomAppConfig = None, system_prompt: Optional[str] = None):
         """
-        .. deprecated:: 0.0.59
+        .. deprecated:: 0.0.64
         Use `App` instead.
 
         :param config: CustomAppConfig instance to load as configuration. Optional.

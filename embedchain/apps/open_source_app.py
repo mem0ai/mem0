@@ -23,7 +23,7 @@ class OpenSourceApp(App):
     query(query): finds answer to the given query using vector database and LLM.
     chat(query): finds answer to the given query using vector database and LLM, with conversation history.
 
-    .. deprecated:: 0.0.59
+    .. deprecated:: 0.0.64
     Use `App` instead.
     """
 
@@ -39,7 +39,7 @@ class OpenSourceApp(App):
         Since it's opinionated you don't have to choose a LLM, database and embedder.
         However, you can configure those.
 
-        .. deprecated:: 0.0.59
+        .. deprecated:: 0.0.64
         Use `App` instead.
 
         :param config: Config for the app instance. This is the most basic configuration,
