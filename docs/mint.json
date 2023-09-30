@@ -87,6 +87,12 @@
         "contribution/python",
         "contribution/javascript"
       ]
+    },
+    {
+      "group": "Product",
+      "pages": [
+        "product/release-notes"
+      ]
     }
 
   ],
