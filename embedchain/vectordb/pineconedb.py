@@ -1,4 +1,3 @@
-import logging
 import os
 from typing import Dict, List, Optional, Set
 
@@ -9,7 +8,7 @@ except ImportError:
         "Pinecone requires extra dependencies. Install with `pip install --upgrade embedchain[pinecone]`"
     ) from None
 
-from embedchain.config.vectordbs.PineconeDbConfig import PineconeDbConfig
+from embedchain.config.vectordb.pinecone import PineconeDbConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -116,7 +115,7 @@ class PineconeDb(BaseVectorDB):
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
         """
-        query contents from vector data base based on vector similarity
+        query contents from vector database based on vector similarity
 
         :param input_query: list of query string
         :type input_query: List[str]
