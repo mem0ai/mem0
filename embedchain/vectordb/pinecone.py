@@ -11,7 +11,6 @@ except ImportError:
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
-from embedchain.models.vector_dimensions import VectorDimensions
 
 
 @register_deserializable
@@ -172,4 +171,4 @@ class PineconeDB(BaseVectorDB):
         :return: Pinecone index
         :rtype: str
         """
-        return f"{self.config.collection_name}-{VectorDimensions.OPENAI.value}".lower().replace("_", "-")
+        return f"{self.config.collection_name}-{self.config.dimension}".lower().replace("_", "-")
