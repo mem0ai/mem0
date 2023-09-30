@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from embedchain.apps.App import App
+from embedchain.apps.app import App
 from embedchain.config import CustomAppConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import register_deserializable

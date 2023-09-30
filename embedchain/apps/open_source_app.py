@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from embedchain.apps.App import App
+from embedchain.apps.app import App
 from embedchain.config import (BaseLlmConfig, ChromaDbConfig,
                                OpenSourceAppConfig)
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
