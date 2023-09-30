@@ -191,7 +191,7 @@ class BaseLlm(JSONSerializable):
                 prev_config = self.config.serialize()
                 self.config = config
 
-            if config.query_type == "Images":
+            if config is not None and config.query_type == "Images":
                 return contexts
 
             if self.is_docs_site_instance:

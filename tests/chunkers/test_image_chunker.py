@@ -19,12 +19,11 @@ class TestImageChunker(unittest.TestCase):
         image_path = "./tmp/image.jpeg"
         result = chunker.create_chunks(MockLoader(), image_path)
 
-        expected_chunks = {
-            "documents": [image_path],
-            "embeddings": ["embedding"],
-            "ids": ["140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe"],
-            'metadatas': [{'data_type': 'images', 'url': 'none'}],
-        }
+        expected_chunks = {'doc_id': '123',
+                           'documents': [image_path],
+                           'embeddings': ['embedding'],
+                           'ids': ['140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe'],
+                           'metadatas': [{'data_type': 'images', 'doc_id': '123', 'url': 'none'}]}
         self.assertEqual(expected_chunks, result)
 
     def test_word_count(self):
@@ -43,10 +42,13 @@ class MockLoader:
         Mock loader that returns a list of data dictionaries.
         Adjust this method to return different data for testing.
         """
-        return [
-            {
-                "content": src,
-                "embedding": "embedding",
-                "meta_data": {"url": "none"},
-            }
-        ]
+        return {
+            "doc_id": "123",
+            "data": [
+                {
+                    "content": src,
+                    "embedding": "embedding",
+                    "meta_data": {"url": "none"},
+                }
+            ],
+        }

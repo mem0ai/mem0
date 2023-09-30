@@ -21,8 +21,8 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.clip_processor import ClipProcessor
-from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
+from embedchain.models.data_type import (DataType, DirectDataType,
+                                         IndirectDataType, SpecialDataType)
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -396,8 +396,8 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.count()
 
-        self.db.add(embeddings=embeddings_data["embeddings"], documents=documents, metadatas=metadatas, ids=ids,
-                    skip_embedding = (chunker.data_type == DataType.IMAGES))
+        self.db.add(embeddings=embeddings_data.get("embeddings", None), documents=documents, metadatas=metadatas,
+                    ids=ids, skip_embedding = (chunker.data_type == DataType.IMAGES))
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
@@ -442,6 +442,9 @@ class EmbedChain(JSONSerializable):
         # to bring down both the image and text to the same dimension to be able to compare them.
         db_query = input_query
         if config.query_type == "Images":
+            # We import the clip processor here to make sure the package is not dependent on clip dependency even if the
+            # image dataset is not being used
+            from embedchain.models.clip_processor import ClipProcessor
             db_query = ClipProcessor.get_text_features(query=input_query)
 
         contents = self.db.query(

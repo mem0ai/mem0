@@ -2,7 +2,6 @@ import os
 import logging
 import hashlib
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.clip_processor import ClipProcessor
 
 
 class ImagesLoader(BaseLoader):
@@ -15,6 +14,7 @@ class ImagesLoader(BaseLoader):
         :param image_url: The URL from which the images are to be loaded
         """
         # load model and image preprocessing
+        from embedchain.models.clip_processor import ClipProcessor
         model, preprocess = ClipProcessor.load_model()
         if os.path.isfile(image_url):
             data = [ClipProcessor.get_image_features(image_url, model, preprocess)]
