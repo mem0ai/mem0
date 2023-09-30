@@ -32,7 +32,7 @@
   "navigation": [
     {
       "group": "Get started",
-      "pages": ["get-start/quickstart", "get-start/introduction"]
+      "pages": ["get-start/quickstart", "get-start/introduction", "get-start/faq"]
     },
     {
       "group": "Advanced",
