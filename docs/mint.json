@@ -79,8 +79,14 @@
       "pages": ["integration/langsmith"]
     },
     {
-      "group": "Contribution Guidelines",
-      "pages": ["contribution/dev", "contribution/docs"]
+      "group": "Contribute",
+      "pages": [
+        "contribution/guidelines",
+        "contribution/dev",
+        "contribution/docs",
+        "contribution/python",
+        "contribution/javascript"
+      ]
     }
 
   ],
