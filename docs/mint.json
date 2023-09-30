@@ -37,7 +37,7 @@
 
     {
       "group": "Advanced",
-      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database", "advanced/showcase"]
+      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database"]
     },
     {
       "group": "Data Sources",
@@ -66,6 +66,13 @@
     {
       "group": "Examples",
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot", "examples/poe_bot"]
+    },
+    {
+      "group": "Community",
+      "pages": [
+        "community/connect-with-us",
+        "community/showcase"
+      ]
     },
     {
       "group": "Integration",
