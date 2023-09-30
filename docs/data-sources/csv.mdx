@@ -1,0 +1,14 @@
+---
+title: 'CSV'
+---
+
+### CSV file
+
+To add any csv file, use the data_type as `csv`. `csv` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+
+```python
+app.add('https://example.com/content/sheet.csv', data_type="csv")
+app.add('content/sheet.csv', data_type="csv")
+```
+
+Note: There is a size limit allowed for csv file beyond which it can throw error. This limit is set by the LLMs. Please consider chunking large csv files into smaller csv files.
