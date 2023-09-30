@@ -1,6 +1,6 @@
 from typing import Optional
 
-from embedchain.config.BaseConfig import BaseConfig
+from embedchain.config.base_config import BaseConfig
 
 
 class BaseVectorDbConfig(BaseConfig):
