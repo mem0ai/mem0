@@ -10,7 +10,7 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
-from embedchain.config.AddConfig import ChunkerConfig, LoaderConfig
+from embedchain.config.add_config import ChunkerConfig, LoaderConfig
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.csv import CsvLoader

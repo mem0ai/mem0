@@ -16,7 +16,7 @@ except RuntimeError:
     from chromadb.utils import embedding_functions
 
 
-class OpenAiEmbedder(BaseEmbedder):
+class OpenAIEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
         if self.config.model is None:

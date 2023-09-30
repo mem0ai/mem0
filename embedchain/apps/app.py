@@ -5,8 +5,7 @@ from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig)
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
-from embedchain.embedder.base import BaseEmbedder
-from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
@@ -122,5 +121,4 @@ class App(EmbedChain):
                 "Embedder is not a `BaseEmbedder` instance. "
                 "Please make sure the type is right and that you are passing an instance."
             )
-
         super().__init__(config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
