@@ -12,10 +12,10 @@ class AntrophicLlm(BaseLlm):
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
-        return AntrophicLlm._get_athrophic_answer(prompt=prompt, config=self.config)
+        return AntrophicLlm._get_answer(prompt=prompt, config=self.config)
 
     @staticmethod
-    def _get_athrophic_answer(prompt: str, config: BaseLlmConfig) -> str:
+    def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         from langchain.chat_models import ChatAnthropic
 
         chat = ChatAnthropic(temperature=config.temperature, model=config.model)
