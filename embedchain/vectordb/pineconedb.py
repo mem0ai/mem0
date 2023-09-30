@@ -12,7 +12,6 @@ except ImportError:
 from embedchain.config.vectordbs.PineconeDbConfig import PineconeDbConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
-from embedchain.models.vector_dimensions import VectorDimensions
 
 
 @register_deserializable
@@ -62,8 +61,8 @@ class PineconeDb(BaseVectorDB):
         if indexes is None or self.index_name not in indexes:
             pinecone.create_index(
                 name=self.index_name,
-                metric='cosine',
-                dimension=VectorDimensions.OPENAI.value
+                metric=self.config.metric,
+                dimension=self.config.dimension
             )
         return pinecone.Index(self.index_name)
 
@@ -80,7 +79,11 @@ class PineconeDb(BaseVectorDB):
         :return: ids
         :rtype: Set[str]
         """
-        results = self.make_search_by_vector(None, where, max(1, self.count()))
+        zero_vector = []
+        for i in range(self.config.dimension):
+            zero_vector.append(0)
+
+        results = self.client.query(vector=zero_vector, top_k=max(1, self.count()), filter=where)
         ids = set()
 
         for result in results["matches"]:
@@ -169,13 +172,4 @@ class PineconeDb(BaseVectorDB):
         :return: Pinecone index
         :rtype: str
         """
-        return f"{self.config.collection_name}-{VectorDimensions.OPENAI.value}".lower().replace("_", "-")
-
-    # READ BY QUERY SIMILARITY: Searches the Pinecone index using a vector query.
-    def make_search_by_vector(self, vector, where, top_k=100):
-        if vector is None:
-            vector = []
-            for i in range(VectorDimensions.OPENAI.value):
-                vector.append(0)
-        results = self.client.query(vector=vector, top_k=top_k, filter=where)
-        return results
+        return f"{self.config.collection_name}-{self.config.dimension}".lower().replace("_", "-")

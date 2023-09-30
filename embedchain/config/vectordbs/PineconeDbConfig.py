@@ -10,5 +10,9 @@ class PineconeDbConfig(BaseVectorDbConfig):
             self,
             collection_name: Optional[str] = None,
             dir: Optional[str] = None,
+            dimension: Optional[int] = 1536,
+            metric: Optional[str] = "cosine"
     ):
+        self.dimension = dimension
+        self.metric = metric
         super().__init__(collection_name=collection_name, dir=dir)
