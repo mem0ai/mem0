@@ -34,9 +34,34 @@
       "group": "Get started",
       "pages": ["get-start/quickstart", "get-start/introduction", "get-start/faq"]
     },
+
     {
       "group": "Advanced",
-      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/adding_data", "advanced/data_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database", "advanced/showcase"]
+      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database", "advanced/showcase"]
+    },
+    {
+      "group": "Data Sources",
+      "pages": [
+        "data-sources/how-to-add-data",
+        "data-sources/data-type-handling",
+        {
+          "group": "Supported Data Sources",
+          "pages": [
+            "data-sources/csv",
+            "data-sources/docs-site",
+            "data-sources/docx",
+            "data-sources/mdx",
+            "data-sources/notion",
+            "data-sources/pdf-file",
+            "data-sources/qna",
+            "data-sources/sitemap",
+            "data-sources/text",
+            "data-sources/web-page",
+            "data-sources/youtube-video"
+          ]
+        },
+        "data-sources/request-new-format"
+      ]
     },
     {
       "group": "Examples",
@@ -52,6 +77,7 @@
     }
 
   ],
+
   "footerSocials": {
     "twitter": "https://twitter.com/embedchain",
     "github": "https://github.com/embedchain/embedchain",
