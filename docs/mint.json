@@ -31,8 +31,8 @@
   },
   "navigation": [
     {
-      "group": "Getting started",
-      "pages": ["quickstart", "introduction"]
+      "group": "Get started",
+      "pages": ["get-start/quickstart", "get-start/introduction"]
     },
     {
       "group": "Advanced",
