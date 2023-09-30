@@ -9,6 +9,6 @@ from .embedder.base import BaseEmbedderConfig
 from .embedder.base import BaseEmbedderConfig as EmbedderConfig
 from .llm.base_llm_config import BaseLlmConfig
 from .llm.base_llm_config import BaseLlmConfig as LlmConfig
-from .vectordb.chroma import ChromaDbConfig
-from .vectordb.elasticsearch import ElasticsearchDBConfig
-from .vectordb.opensearch import OpenSearchDBConfig
+from .vector_db.chroma import ChromaDbConfig
+from .vector_db.elasticsearch import ElasticsearchDBConfig
+from .vector_db.opensearch import OpenSearchDBConfig
