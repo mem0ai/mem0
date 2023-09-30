@@ -5,6 +5,7 @@ from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig)
 from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
+from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -54,7 +55,7 @@ class App(EmbedChain):
         example: `from embedchain.config import ChromaDbConfig`, defaults to None
         :type db_config: Optional[BaseVectorDbConfig], optional
         :param embedder: The embedder (embedding model and function) use to calculate embeddings.
-        example: `from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder`, defaults to OpenAiEmbedder
+        example: `from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder`, defaults to OpenAIEmbedder
         :type embedder: BaseEmbedder, optional
         :param embedder_config: Allows you to configure the Embedder.
         example: `from embedchain.config import BaseEmbedderConfig`, defaults to None
@@ -103,7 +104,7 @@ class App(EmbedChain):
         if db is None:
             db = ChromaDB(config=db_config)
         if embedder is None:
-            embedder = OpenAiEmbedder(config=embedder_config)
+            embedder = OpenAIEmbedder(config=embedder_config)
 
         # Type check assignments
         if not isinstance(llm, BaseLlm):
