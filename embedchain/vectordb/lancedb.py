@@ -1,17 +1,21 @@
 import logging
 from typing import Any, Dict, List, Optional, Set
 
+from lancedb import connect, create_table, Table
+from langchain.docstore.document import Document
+
+from embedchain.config import LanceDBConfig
+from embedchain.helper.json_serializable import register_deserializable
+from embedchain.vectordb.base import BaseVectorDB
+
+
 try:
-    from lancedb import lancedb
+    import lancedb
     from lancedb import connect, create_table, delete, open_table
 except ImportError:
     raise ImportError(
         "LanceDb requirese extra dependencies. Install with `pip install --upgrade embedchain[lancedb]`"
             ) from None
-
-from embedchain.config import LanceDBConfig
-from embedchain.helper.json_serializable import register_deserializable
-from embedchain.vectordb.base import BaseVectorDB
 
 
 @register_deserializable
@@ -23,29 +27,20 @@ class LanceDb(BaseVectorDB):
     def __init__(
         self,
         config: Optional[LanceDBConfig] = None,
-        ld_config: Optional[LanceDBConfig] = None,  #Backwards compatibility
     ):
         """Initialize a new LanceDB connection
 
         :param config: LanceDB database config, defaults to None
         :type config: LanceDBConfig, optional
-        :param ld_config: `ld_config` is supported as an alias for `config` (for backwards compatibility),
-         defaults to None
-        :type ld_config: ElasticsearchDBConfig, optional
-        :raises ValueError: No config provided
-        """
-        if config is None and ld_config is None:
-            self.config = LanceDBConfig()
-        else:
-            if not isinstance(config, LanceDBConfig):
-                raise TypeError(
-                    "Config is not a `lancedbconfig` instance. "
-                    "Please make sure the type is right and that you are passing an instance. "
-                )
-            self.config = config or ld_config
-        self.connection = LanceDb(self.config.LD_URI, **self.config.LD_EXTRA_PARAMS)
 
-        #call parent init here because embedder is needed
+        """
+
+        if config:
+            self.config = config
+        else:
+            self.config = LanceDBConfig()
+
+        self.connection = lancedb.connect(self.config.uri, **self.config.kwargs)
         super().__init__(config=self.config)
 
     def _initialize(self):
@@ -53,8 +48,30 @@ class LanceDb(BaseVectorDB):
         this method is needed because 'embedder' attribute needs to be externally set
         """
         if not self.embedder:
-            raise ValueError("Embedder not set")
-        self._get_or_create_table(self.table_name)
+            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+        self._get_or_create_collection(self.config.table_name)
+
+    def _get_or_create_db(self):
+        """called during initalization"""
+        return self.connection
+
+    def _get_or_create_collection(self, name: str) -> Table:
+        """
+        get or create a named table
+
+        :param name: Name of the table
+        :type name: str
+        :raises ValueError: No Embedder configured
+        :return: created table
+        :rtype: Table
+        """
+        if not hasattr(self, "embedder") or not self.embedder:
+            raise ValueError("Cannot create a LanceDB database Table without an embedder.")
+        self.table = self.connect.get_or_create_collection(
+            name=name,
+            embedding_function=self.embedder.embedding_fn,
+            )
+        return self.table
 
     def add(self, documents: List[str]) -> Any:
         """
@@ -69,41 +86,30 @@ class LanceDb(BaseVectorDB):
         else:
             self.connection.create_table(self.table_name, documents)
 
-    def delete(self, where) -> None:
-        """ Delete the table """
-        return self.connection.delete(where=where)
 
-
-    def _get_or_create_db(self):
-        """called during initalization"""
-        return self.connection
-
-    def _get_or_create_table(self, name: str) -> table:
-        """
-        get or create a named table
-
-        :param name: Name of the table
-        :type name: str
-
-        :return: created table
-        :rtype: table
-        """
-        return self.create_table(name, data)
-
-    def query(self, input_query: List[str], n_results: int, where: DIct[str, any]) -> List[str]:
+    def query(self, input_query: List[str], where: Dict[str, any]) -> List[str]:
         """
         Query contents from vector database based on vector similarity 
 
-        :param input_query: list of query string
+        :param input_query: list of query string 
         :type input_query: List[str]
-        :param n_results: no of similar documents to fetch from database
-        :type n_results: int
         :param where: Optional to filter data
         :type where: Dict[str, any]
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
+        result = self.table.search(query=input_query, vector_column_name=where)
+        return result
 
-        # TODO
+
+
+    def delete(self, where) -> None:
+        """ Delete something from the table 
+
+        :param where: Documents
+        :type where: str
+
+        """
+        return self.connection.delete(where=where)
 
         
