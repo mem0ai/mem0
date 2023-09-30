@@ -114,15 +114,19 @@ class PineconeDB(BaseVectorDB):
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
-        query contents from vector database based on vector similarity
-        :param input_query: list of query string
-        :type input_query: List[str]
-        :param n_results: no of similar documents to fetch from database
-        :type n_results: int
-        :param where: Optional. to filter data
-        :type where: Dict[str, any]
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+                query contents from vector database based on vector similarity
+        <<<<<<< HEAD:embedchain/vectordb/pinecone.py
+        =======
+
+        >>>>>>> 62356ac (Changed module name):embedchain/vectordb/pineconedb.py
+                :param input_query: list of query string
+                :type input_query: List[str]
+                :param n_results: no of similar documents to fetch from database
+                :type n_results: int
+                :param where: Optional. to filter data
+                :type where: Dict[str, any]
+                :return: Database contents that are the result of the query
+                :rtype: List[str]
         """
         if not skip_embedding:
             query_vector = self.embedder.embedding_fn([input_query])[0]
