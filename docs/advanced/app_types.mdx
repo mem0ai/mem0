@@ -96,11 +96,11 @@ The following vector databases are supported by Embedchain:
 - ChromaDB
 - Elasticsearch
 
-You can choose one by importing it from `embedchain.vectordb`. E.g.:
+You can choose one by importing it from `embedchain.vector_db`. E.g.:
 
 ```python
 from embedchain import App
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 
 app = App(db=ElasticsearchDB())
 ```
@@ -113,7 +113,7 @@ These vary greatly between the different vector databases.
 
 ```python
 from embedchain import App
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 from embedchain.config import ElasticsearchDBConfig
 
 app = App(db=ElasticsearchDB(), db_config=ElasticsearchDBConfig())
@@ -161,7 +161,7 @@ Use this snippet to run an open source app.
 from embedchain import App
 from embedchain.llm.gpt4all import GPT4ALLLlm
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.chroma import ChromaDB
 
 app = App(llm=GPT4ALLLlm(), embedder=GPT4AllEmbedder(), db=ChromaDB())
 ```
@@ -186,7 +186,7 @@ from embedchain import App
 from embedchain.config import ElasticsearchDBConfig, EmbedderConfig, LlmConfig
 from embedchain.embedder.openai import OpenAiEmbedder
 from embedchain.llm.llama2 import Llama2Llm
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 
 app = App(
     llm=Llama2Llm(),

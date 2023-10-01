@@ -6,7 +6,7 @@ from embedchain.config import CustomAppConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import BaseVectorDB
 
 
 @register_deserializable
@@ -45,7 +45,7 @@ class CustomApp(App):
         :param llm: LLM Class instance. example: `from embedchain.llm.openai import OpenAILlm`, defaults to None
         :type llm: BaseLlm
         :param db: The database to use for storing and retrieving embeddings,
-        example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to None
+        example: `from embedchain.vector_db.chroma_db import ChromaDb`, defaults to None
         :type db: BaseVectorDB
         :param embedder: The embedder (embedding model and function) use to calculate embeddings.
         example: `from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder`, defaults to None

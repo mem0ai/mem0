@@ -10,8 +10,8 @@ from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.base import BaseVectorDB
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.base import BaseVectorDB
+from embedchain.vector_db.chroma import ChromaDB
 
 
 @register_deserializable
@@ -49,7 +49,7 @@ class App(EmbedChain):
         example: `from embedchain.config import LlmConfig`, defaults to None
         :type llm_config: Optional[BaseLlmConfig], optional
         :param db: The database to use for storing and retrieving embeddings,
-        example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to ChromaDb
+        example: `from embedchain.vector_db.chroma_db import ChromaDb`, defaults to ChromaDb
         :type db: BaseVectorDB, optional
         :param db_config: Allows you to configure the vector database,
         example: `from embedchain.config import ChromaDbConfig`, defaults to None

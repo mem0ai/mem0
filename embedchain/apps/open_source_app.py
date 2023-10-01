@@ -7,7 +7,7 @@ from embedchain.config import (BaseLlmConfig, ChromaDbConfig,
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.gpt4all import GPT4ALLLlm
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.chroma import ChromaDB
 
 gpt4all_model = None
 

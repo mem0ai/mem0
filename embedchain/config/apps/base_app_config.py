@@ -3,7 +3,7 @@ from typing import Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helper.json_serializable import JSONSerializable
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import BaseVectorDB
 
 
 class BaseAppConfig(BaseConfig, JSONSerializable):

@@ -21,8 +21,8 @@ import type {
   Method,
   RemoteInput,
 } from './models';
-import { ChromaDB } from './vectordb';
-import type { BaseVectorDB } from './vectordb/BaseVectorDb';
+import { ChromaDB } from './vector_db';
+import type { BaseVectorDB } from './vector_db/BaseVectorDb';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

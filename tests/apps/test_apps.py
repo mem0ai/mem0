@@ -5,8 +5,8 @@ from embedchain import App, CustomApp, Llama2App, OpenSourceApp
 from embedchain.config import ChromaDbConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.llm.base import BaseLlm
-from embedchain.vectordb.base import BaseVectorDB
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.base import BaseVectorDB
+from embedchain.vector_db.chroma import ChromaDB
 
 
 class TestApps(unittest.TestCase):

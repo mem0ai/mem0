@@ -24,7 +24,7 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
                                          IndirectDataType, SpecialDataType)
 from embedchain.utils import detect_datatype
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import BaseVectorDB
 
 load_dotenv()
 

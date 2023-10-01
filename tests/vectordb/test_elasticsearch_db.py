@@ -2,7 +2,7 @@ import os
 import unittest
 
 from embedchain.config import ElasticsearchDBConfig
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 
 
 class TestEsDB(unittest.TestCase):
