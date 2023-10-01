@@ -30,13 +30,7 @@ class TestApp(unittest.TestCase):
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_add_sitemap(self):
         """
-        This test checks the functionality of the 'add' method in the App class.
-        It begins by simulating the addition of a web page with a specific URL to the application instance.
-        The 'add' method is expected to append the input type and URL to the 'user_asks' attribute of the App instance.
-        By asserting that 'user_asks' is updated correctly after the 'add' method is called, we can confirm that the
-        method is working as intended.
-        The Collection.add method from the chromadb library is mocked during this test to isolate the behavior of the
-        'add' method.
+        In addition to the test_add function, this test checks that sitemaps can be added with the correct data type.
         """
         self.app.add("https://www.google.com/sitemap.xml", metadata={"meta": "meta-data"})
         self.assertEqual(self.app.user_asks, [["https://www.google.com/sitemap.xml", "sitemap", {"meta": "meta-data"}]])

@@ -9,7 +9,7 @@ from embedchain.helper.json_serializable import register_deserializable
 
 @register_deserializable
 class SitemapChunker(BaseChunker):
-    """Chunker for web page."""
+    """Chunker for sitemap."""
 
     def __init__(self, config: Optional[ChunkerConfig] = None):
         if config is None:
