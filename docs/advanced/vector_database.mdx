@@ -24,7 +24,7 @@ Please note that the key needs certain privileges. For testing you can just togg
 from embedchain import CustomApp
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 
 es_app = CustomApp(
     llm=OpenAILlm(),
@@ -47,7 +47,7 @@ from embedchain import CustomApp
 from embedchain.config import CustomAppConfig, ElasticsearchDBConfig
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 
 es_config = ElasticsearchDBConfig(
     # elasticsearch url or list of nodes url with different hosts and ports.
@@ -87,7 +87,7 @@ from embedchain import CustomApp
 from embedchain.config import OpenSearchDBConfig
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.opensearch import OpenSearchDB
+from embedchain.vector_db.opensearch import OpenSearchDB
 
 opensearch_url = "https://localhost:9200"
 http_auth = ("username", "password")

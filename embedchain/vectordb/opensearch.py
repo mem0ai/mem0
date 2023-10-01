@@ -14,11 +14,11 @@ from langchain.vectorstores import OpenSearchVectorSearch
 
 from embedchain.config import OpenSearchDBConfig
 from embedchain.helper.json_serializable import register_deserializable
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import Basevector_db
 
 
 @register_deserializable
-class OpenSearchDB(BaseVectorDB):
+class OpenSearchDB(Basevector_db):
     """
     OpenSearch as vector database
     """

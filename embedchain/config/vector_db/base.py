@@ -3,7 +3,7 @@ from typing import Optional
 from embedchain.config.base_config import BaseConfig
 
 
-class BaseVectorDbConfig(BaseConfig):
+class Basevector_dbConfig(BaseConfig):
     def __init__(
         self,
         collection_name: Optional[str] = None,

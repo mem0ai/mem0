@@ -24,7 +24,7 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
                                          IndirectDataType, SpecialDataType)
 from embedchain.utils import detect_datatype
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import Basevector_db
 
 load_dotenv()
 
@@ -39,7 +39,7 @@ class EmbedChain(JSONSerializable):
         self,
         config: BaseAppConfig,
         llm: BaseLlm,
-        db: BaseVectorDB = None,
+        db: Basevector_db = None,
         embedder: BaseEmbedder = None,
         system_prompt: Optional[str] = None,
     ):
@@ -52,7 +52,7 @@ class EmbedChain(JSONSerializable):
         :param llm: Instance of the LLM you want to use.
         :type llm: BaseLlm
         :param db: Instance of the Database to use, defaults to None
-        :type db: BaseVectorDB, optional
+        :type db: Basevector_db, optional
         :param embedder: instance of the embedder to use, defaults to None
         :type embedder: BaseEmbedder, optional
         :param system_prompt: System prompt to use in the llm query, defaults to None

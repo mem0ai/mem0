@@ -6,7 +6,7 @@ from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import (JSONSerializable,
                                                  register_deserializable)
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.chroma import ChromaDB
 
 
 @register_deserializable

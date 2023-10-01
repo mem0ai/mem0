@@ -1,13 +1,13 @@
 import type { Collection } from 'chromadb';
 import { ChromaClient, OpenAIEmbeddingFunction } from 'chromadb';
 
-import { BaseVectorDB } from './BaseVectorDb';
+import { Basevector_db } from './Basevector_db';
 
 const embedder = new OpenAIEmbeddingFunction({
   openai_api_key: process.env.OPENAI_API_KEY ?? '',
 });
 
-class ChromaDB extends BaseVectorDB {
+class ChromaDB extends Basevector_db {
   client: ChromaClient | undefined;
 
   collection: Collection | null = null;

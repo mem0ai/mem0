@@ -6,7 +6,7 @@ from langchain.docstore.document import Document
 
 from embedchain.config import ChromaDbConfig
 from embedchain.helper.json_serializable import register_deserializable
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import Basevector_db
 
 try:
     import chromadb
@@ -22,7 +22,7 @@ except RuntimeError:
 
 
 @register_deserializable
-class ChromaDB(BaseVectorDB):
+class ChromaDB(Basevector_db):
     """Vector database using ChromaDB."""
 
     def __init__(self, config: Optional[ChromaDbConfig] = None):

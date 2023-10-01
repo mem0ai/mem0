@@ -21,8 +21,8 @@ import type {
   Method,
   RemoteInput,
 } from './models';
-import { ChromaDB } from './vectordb';
-import type { BaseVectorDB } from './vectordb/BaseVectorDb';
+import { ChromaDB } from './vector_db';
+import type { Basevector_db } from './vector_db/Basevector_db';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -42,7 +42,7 @@ class EmbedChain {
 
   sId: string; // sessionId
 
-  constructor(db?: BaseVectorDB, collectMetrics: boolean = true) {
+  constructor(db?: Basevector_db, collectMetrics: boolean = true) {
     if (!db) {
       this.initApp = this.setupChroma();
     } else {
@@ -68,7 +68,7 @@ class EmbedChain {
     }
   }
 
-  async setupOther(db: BaseVectorDB): Promise<void> {
+  async setupOther(db: Basevector_db): Promise<void> {
     await db.initDb;
     // TODO: Figure out how we can initialize an unknown database.
     // this.dbClient = db.client;

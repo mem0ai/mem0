@@ -11,11 +11,11 @@ except ImportError:
 
 from embedchain.config import ElasticsearchDBConfig
 from embedchain.helper.json_serializable import register_deserializable
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import Basevector_db
 
 
 @register_deserializable
-class ElasticsearchDB(BaseVectorDB):
+class ElasticsearchDB(Basevector_db):
     """
     Elasticsearch as vector database
     """

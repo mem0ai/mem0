@@ -1,4 +1,4 @@
-class BaseVectorDB {
+class Basevector_db {
   initDb: Promise<void>;
 
   constructor() {
@@ -11,4 +11,4 @@ class BaseVectorDB {
   }
 }
 
-export { BaseVectorDB };
+export { Basevector_db };

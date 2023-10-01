@@ -3,15 +3,15 @@ from typing import Optional
 
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChromaDbConfig)
-from embedchain.config.vectordb.base import BaseVectorDbConfig
+from embedchain.config.vector_db.base import Basevector_dbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.base import BaseVectorDB
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.base import Basevector_db
+from embedchain.vector_db.chroma import ChromaDB
 
 
 @register_deserializable
@@ -31,8 +31,8 @@ class App(EmbedChain):
         config: Optional[AppConfig] = None,
         llm: BaseLlm = None,
         llm_config: Optional[BaseLlmConfig] = None,
-        db: BaseVectorDB = None,
-        db_config: Optional[BaseVectorDbConfig] = None,
+        db: Basevector_db = None,
+        db_config: Optional[Basevector_dbConfig] = None,
         embedder: BaseEmbedder = None,
         embedder_config: Optional[BaseEmbedderConfig] = None,
         chromadb_config: Optional[ChromaDbConfig] = None,
@@ -49,11 +49,11 @@ class App(EmbedChain):
         example: `from embedchain.config import LlmConfig`, defaults to None
         :type llm_config: Optional[BaseLlmConfig], optional
         :param db: The database to use for storing and retrieving embeddings,
-        example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to ChromaDb
-        :type db: BaseVectorDB, optional
+        example: `from embedchain.vector_db.chroma_db import ChromaDb`, defaults to ChromaDb
+        :type db: Basevector_db, optional
         :param db_config: Allows you to configure the vector database,
         example: `from embedchain.config import ChromaDbConfig`, defaults to None
-        :type db_config: Optional[BaseVectorDbConfig], optional
+        :type db_config: Optional[Basevector_dbConfig], optional
         :param embedder: The embedder (embedding model and function) use to calculate embeddings.
         example: `from embedchain.embedder.gpt4all_embedder import GPT4AllEmbedder`, defaults to OpenAIEmbedder
         :type embedder: BaseEmbedder, optional
@@ -85,9 +85,9 @@ class App(EmbedChain):
                 "`llm_config` is not a `BaseLlmConfig` instance. "
                 "Please make sure the type is right and that you are passing an instance."
             )
-        if db_config and not isinstance(db_config, BaseVectorDbConfig):
+        if db_config and not isinstance(db_config, Basevector_dbConfig):
             raise TypeError(
-                "`db_config` is not a `BaseVectorDbConfig` instance. "
+                "`db_config` is not a `Basevector_dbConfig` instance. "
                 "Please make sure the type is right and that you are passing an instance."
             )
         if embedder_config and not isinstance(embedder_config, BaseEmbedderConfig):
@@ -112,9 +112,9 @@ class App(EmbedChain):
                 "LLM is not a `BaseLlm` instance. "
                 "Please make sure the type is right and that you are passing an instance."
             )
-        if not isinstance(db, BaseVectorDB):
+        if not isinstance(db, Basevector_db):
             raise TypeError(
-                "Database is not a `BaseVectorDB` instance. "
+                "Database is not a `Basevector_db` instance. "
                 "Please make sure the type is right and that you are passing an instance."
             )
         if not isinstance(embedder, BaseEmbedder):

@@ -1,11 +1,11 @@
 from typing import Optional
 
-from embedchain.config.vectordb.base import BaseVectorDbConfig
+from embedchain.config.vector_db.base import Basevector_dbConfig
 from embedchain.helper.json_serializable import register_deserializable
 
 
 @register_deserializable
-class ChromaDbConfig(BaseVectorDbConfig):
+class ChromaDbConfig(Basevector_dbConfig):
     def __init__(
         self,
         collection_name: Optional[str] = None,
