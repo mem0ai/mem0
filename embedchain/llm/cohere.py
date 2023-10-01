@@ -1,3 +1,4 @@
+import importlib
 import os
 from typing import Optional
 
@@ -13,6 +14,15 @@ class CohereLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         if "COHERE_API_KEY" not in os.environ:
             raise ValueError("Please set the COHERE_API_KEY environment variable.")
+
+        try:
+            importlib.import_module("cohere")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "The required dependencies for Cohere are not installed."
+                'Please install with `pip install --upgrade "embedchain[cohere]"`'
+            ) from None
+
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
