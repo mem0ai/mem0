@@ -12,3 +12,4 @@ from .llm.base_llm_config import BaseLlmConfig as LlmConfig
 from .vectordb.chroma import ChromaDbConfig
 from .vectordb.elasticsearch import ElasticsearchDBConfig
 from .vectordb.opensearch import OpenSearchDBConfig
+from .vectordb.redis import RedisDBConfig
