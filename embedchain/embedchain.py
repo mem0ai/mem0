@@ -544,7 +544,7 @@ class EmbedChain(JSONSerializable):
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
         thread_telemetry.start()
 
-        logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `App.reset()`.")
+        logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `app.db.reset()`.")
         self.db.reset()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
