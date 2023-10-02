@@ -10,7 +10,7 @@ class GPT4ALLLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
         if self.config.model is None:
-            self.config.model = "orca-mini-3b.ggmlv3.q4_0"
+            self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
 
     def get_llm_model_answer(self, prompt):
@@ -26,10 +26,11 @@ class GPT4ALLLlm(BaseLlm):
             ) from None
 
         return GPT4All(
+            temp=BaseLlmConfig().temperature,
             allow_download=True,
             model=model,
             n_threads=8,
-            max_tokens=200,
+            max_tokens=BaseLlmConfig().max_tokens,
             n_parts=8,
             backend="llama",
             seed=0,
