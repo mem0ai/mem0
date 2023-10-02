@@ -521,17 +521,19 @@ class EmbedChain(JSONSerializable):
         # TODO: Check whether it is necessary to assign to the `self.collection` attribute,
         # since the main purpose is the creation.
 
-    def count(self) -> int:
-        """
-        Count the number of embeddings.
-
-        DEPRECATED IN FAVOR OF `db.count()`
-
-        :return: The number of embeddings.
-        :rtype: int
-        """
-        logging.warning("DEPRECATION WARNING: Please use `app.db.count()` instead of `app.count()`.")
+    def db.count(self) -> int:
         return self.db.count()
+  
+        # """
+        # Count the number of embeddings.
+
+        # DEPRECATED IN FAVOR OF `db.count()`
+
+        # :return: The number of embeddings.
+        # :rtype: int
+        # """
+        # logging.warning("DEPRECATION WARNING: Please use `app.db.count()` instead of `app.count()`.")
+  
 
     def reset(self):
         """
