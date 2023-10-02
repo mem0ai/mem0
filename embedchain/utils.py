@@ -128,8 +128,7 @@ def detect_datatype(source: Any) -> DataType:
     formatted_source = format_source(str(source), 30)
 
     if url:
-        from langchain.document_loaders.youtube import \
-            ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
+        from langchain.document_loaders.youtube import ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
 
         if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
@@ -143,9 +142,13 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
             return DataType.PDF_FILE
 
-        if url.path.endswith(".xml"):
+        if url.path.endswith("sitemap.xml"):
             logging.debug(f"Source of `{formatted_source}` detected as `sitemap`.")
             return DataType.SITEMAP
+
+        if url.path.endswith(".xml"):
+            logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
+            return DataType.XML
 
         if url.path.endswith(".csv"):
             logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
