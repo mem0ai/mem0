@@ -10,7 +10,7 @@ class GPT4ALLLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
         if self.config.model is None:
-            self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
+            self.config.model = "orca-mini-3b.ggmlv3.q4_0"
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
 
     def get_llm_model_answer(self, prompt):
@@ -19,13 +19,27 @@ class GPT4ALLLlm(BaseLlm):
     @staticmethod
     def _get_instance(model):
         try:
-            from gpt4all import GPT4All
+            from langchain.llms import GPT4All
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
-                "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`" # noqa E501
+                "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501
             ) from None
 
-        return GPT4All(model_name=model)
+        return GPT4All(
+            allow_download=True,
+            model=model,
+            n_threads=8,
+            max_tokens=200,
+            n_parts=8,
+            backend="llama",
+            seed=0,
+            f16_kv=False,
+            n_batch=8,
+            embedding=False,
+            logits_all=False,
+            vocab_only=False,
+            use_mlock=False,
+        )
 
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
@@ -36,11 +50,5 @@ class GPT4ALLLlm(BaseLlm):
         if config.system_prompt:
             raise ValueError("OpenSourceApp does not support `system_prompt`")
 
-        response = self.instance.generate(
-            prompt=prompt,
-            streaming=config.stream,
-            top_p=config.top_p,
-            max_tokens=config.max_tokens,
-            temp=config.temperature,
-        )
+        response = self.get_answer_from_llm(prompt=prompt)
         return response
