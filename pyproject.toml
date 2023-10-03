@@ -106,7 +106,7 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 docx2txt = "^0.8"
-
+weaviate-client = "^3.24.1"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -129,6 +129,7 @@ poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
+weaviate = ["weaviate-client"]
 
 [tool.poetry.group.docs.dependencies]
 

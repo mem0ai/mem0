@@ -439,7 +439,6 @@ class EmbedChain(JSONSerializable):
             n_results=query_config.number_documents,
             where=where,
         )
-
         return contents
 
     def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict] = None) -> str:
