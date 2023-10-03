@@ -1,6 +1,6 @@
 from typing import Optional
 
-from embedchain.config.vectordbs.BaseVectorDbConfig import BaseVectorDbConfig
+from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.helper.json_serializable import register_deserializable
 
 

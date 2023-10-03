@@ -19,6 +19,10 @@
     {
       "name": "Discord",
       "url": "https://discord.gg/6PzXDgEjG5"
+    },
+    {
+      "name":"Slack",
+      "url":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
     }
   ],
   "topbarCtaButton": {
@@ -27,32 +31,78 @@
   },
   "navigation": [
     {
-      "group": "Getting started",
-      "pages": ["quickstart", "introduction"]
+      "group": "Get started",
+      "pages": ["get-start/quickstart", "get-start/introduction", "get-start/faq"]
     },
+
     {
       "group": "Advanced",
-      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/adding_data", "advanced/data_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database", "advanced/showcase"]
+      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database"]
+    },
+    {
+      "group": "Data Sources",
+      "pages": [
+        "data-sources/how-to-add-data",
+        "data-sources/data-type-handling",
+        {
+          "group": "Supported Data Sources",
+          "pages": [
+            "data-sources/csv",
+            "data-sources/docs-site",
+            "data-sources/docx",
+            "data-sources/mdx",
+            "data-sources/notion",
+            "data-sources/pdf-file",
+            "data-sources/qna",
+            "data-sources/sitemap",
+            "data-sources/text",
+            "data-sources/web-page",
+            "data-sources/youtube-video"
+          ]
+        },
+        "data-sources/request-new-format"
+      ]
     },
     {
       "group": "Examples",
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot", "examples/poe_bot"]
     },
     {
+      "group": "Community",
+      "pages": [
+        "community/connect-with-us",
+        "community/showcase"
+      ]
+    },
+    {
       "group": "Integration",
       "pages": ["integration/langsmith"]
     },
     {
-      "group": "Contribution Guidelines",
-      "pages": ["contribution/dev", "contribution/docs"]
+      "group": "Contribute",
+      "pages": [
+        "contribution/guidelines",
+        "contribution/dev",
+        "contribution/docs",
+        "contribution/python",
+        "contribution/javascript"
+      ]
+    },
+    {
+      "group": "Product",
+      "pages": [
+        "product/release-notes"
+      ]
     }
 
   ],
+
   "footerSocials": {
     "twitter": "https://twitter.com/embedchain",
     "github": "https://github.com/embedchain/embedchain",
     "linkedin": "https://www.linkedin.com/company/embedchain",
-    "website": "https://embedchain.ai"
+    "website": "https://embedchain.ai",
+    "slack":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
   },
   "backgroundImage": "/background.png",
   "isWhiteLabeled": true
