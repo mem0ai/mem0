@@ -1,5 +1,5 @@
 # Variables
-PYTHON := python3
+PYTHON := python
 PIP := $(PYTHON) -m pip
 PROJECT_NAME := embedchain
 

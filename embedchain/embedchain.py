@@ -256,7 +256,6 @@ class EmbedChain(JSONSerializable):
         )
         return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
 
-
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
         Get id of existing document for a given source, based on the data type
