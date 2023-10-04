@@ -22,9 +22,6 @@ jobs:
         run: pip install poetry==1.4.2
       - name: Install dependencies
         run: poetry install --all-extras
-      # TODO: Remove depdendency on github repository
-      - name: Install CLIP from github
-        run: pip install git+https://github.com/openai/CLIP.git#a1d0717
       - name: Lint with ruff
         run: make ci_lint
       - name: Test with pytest
