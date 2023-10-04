@@ -23,6 +23,7 @@ class IndirectDataType(Enum):
     NOTION = "notion"
     CSV = "csv"
     MDX = "mdx"
+    IMAGES = "images"
 
 
 class SpecialDataType(Enum):
@@ -45,3 +46,4 @@ class DataType(Enum):
     CSV = IndirectDataType.CSV.value
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
+    IMAGES = IndirectDataType.IMAGES.value
