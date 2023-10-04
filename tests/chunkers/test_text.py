@@ -62,6 +62,15 @@ class TestTextChunker(unittest.TestCase):
 
         self.assertEqual(len(documents), len(text))
 
+    def test_word_count(self):
+        chunker_config = ChunkerConfig(chunk_size=1, chunk_overlap=0, length_function=len)
+        chunker = TextChunker(config=chunker_config)
+        chunker.set_data_type(DataType.TEXT)
+
+        document = ["ab cd", "ef gh"]
+        result = chunker.get_word_count(document)
+        self.assertEqual(result, 4)
+
 
 class MockLoader:
     def load_data(self, src):

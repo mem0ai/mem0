@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.64"
+version = "0.0.65"
 description = "embedchain is a framework to easily create LLM powered bots over any dataset"
 authors = ["Taranjeet Singh"]
 license = "Apache License"
@@ -107,8 +107,9 @@ discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 docx2txt = "^0.8"
 pinecone-client = "^2.2.4"
-
-
+clip = {git = "https://github.com/openai/CLIP.git#a1d0717", optional = true}
+ftfy = { version = "6.1.1", optional = true }
+regex = { version = "2023.8.8", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -119,6 +120,7 @@ pytest-mock = "^3.10.0"
 pytest-env = "^0.8.1"
 click = "^8.1.3"
 isort = "^5.12.0"
+pytest-cov = "^4.1.0"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
@@ -130,7 +132,11 @@ poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
+<<<<<<< HEAD
 pinecone = ["pinecone-client"]
+=======
+images = ["torch", "ftfy", "regex", "clip"]
+>>>>>>> d0af018b8dba9c8b2421d4a9774ebb60669e7549
 
 [tool.poetry.group.docs.dependencies]
 
