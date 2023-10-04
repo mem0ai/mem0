@@ -4,7 +4,7 @@ try:
     from PIL import Image, UnidentifiedImageError
 except ImportError:
     raise ImportError(
-        "Images requires extra dependencies. Install with `pip install 'embedchain[images]' git+https://github.com/openai/CLIP.git#a1d0717`"
+        "Images requires extra dependencies. Install with `pip install 'embedchain[images]' git+https://github.com/openai/CLIP.git#a1d0717`"  # noqa: E501
     ) from None
 
 MODEL_NAME = "ViT-B/32"
