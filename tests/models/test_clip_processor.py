@@ -5,7 +5,8 @@ import urllib
 import pytest
 from PIL import Image
 
-from embedchain.models.clip_processor import ClipProcessor
+# TODO: Uncomment after fixing clip dependency issue
+# from embedchain.models.clip_processor import ClipProcessor
 
 
 class TestClipProcessor:
