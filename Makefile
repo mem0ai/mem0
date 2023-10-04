@@ -9,6 +9,9 @@ PROJECT_NAME := embedchain
 install:
 	poetry install
 
+install_all:
+	poetry install --all-extras
+
 install_es:
 	poetry install --extras elasticsearch
 

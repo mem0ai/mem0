@@ -67,7 +67,7 @@ class BaseLlmConfig(BaseConfig):
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: Dict[str, Any] = None,
-        query_type: Optional[str] = None
+        query_type: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.

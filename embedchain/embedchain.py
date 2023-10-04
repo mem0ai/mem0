@@ -392,8 +392,13 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
-        self.db.add(embeddings=embeddings_data.get("embeddings", None), documents=documents, metadatas=metadatas,
-                    ids=ids, skip_embedding = (chunker.data_type == DataType.IMAGES))
+        self.db.add(
+            embeddings=embeddings_data.get("embeddings", None),
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids,
+            skip_embedding=(chunker.data_type == DataType.IMAGES),
+        )
         count_new_chunks = self.db.count() - chunks_before_addition
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
@@ -437,17 +442,18 @@ class EmbedChain(JSONSerializable):
         # We cannot query the database with the input query in case of an image search. This is because we need
         # to bring down both the image and text to the same dimension to be able to compare them.
         db_query = input_query
-        if config.query_type == "Images":
+        if hasattr(config, "query_type") and config.query_type == "Images":
             # We import the clip processor here to make sure the package is not dependent on clip dependency even if the
             # image dataset is not being used
             from embedchain.models.clip_processor import ClipProcessor
+
             db_query = ClipProcessor.get_text_features(query=input_query)
 
         contents = self.db.query(
             input_query=db_query,
             n_results=query_config.number_documents,
             where=where,
-            skip_embedding = (config.query_type == "Images")
+            skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
         )
 
         return contents

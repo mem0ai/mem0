@@ -197,21 +197,29 @@ class TestChromaDbCollection(unittest.TestCase):
         # Collection should be empty when created
         self.assertEqual(self.app_with_settings.db.count(), 0)
 
-        self.app_with_settings.db.add(embeddings=[[0, 0, 0]], documents=["document"], metadatas=[{"value": "somevalue"}], ids=["id"], skip_embedding=True)
+        self.app_with_settings.db.add(
+            embeddings=[[0, 0, 0]],
+            documents=["document"],
+            metadatas=[{"value": "somevalue"}],
+            ids=["id"],
+            skip_embedding=True,
+        )
         # After adding, should contain one item
         self.assertEqual(self.app_with_settings.db.count(), 1)
 
         # Validate if the get utility of the database is working as expected
         data = self.app_with_settings.db.get(["id"], limit=1)
-        expected_value = {'documents': ['document'],
-                          'embeddings': None,
-                          'ids': ['id'],
-                          'metadatas': [{'value': 'somevalue'}]}
+        expected_value = {
+            "documents": ["document"],
+            "embeddings": None,
+            "ids": ["id"],
+            "metadatas": [{"value": "somevalue"}],
+        }
         self.assertEqual(data, expected_value)
 
         # Validate if the query utility of the database is working as expected
         data = self.app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=1, skip_embedding=True)
-        expected_value = ['document']
+        expected_value = ["document"]
         self.assertEqual(data, expected_value)
 
     def test_collections_are_persistent(self):

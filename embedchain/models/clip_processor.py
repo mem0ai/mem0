@@ -1,6 +1,6 @@
 try:
-    import torch
     import clip
+    import torch
     from PIL import Image, UnidentifiedImageError
 except ImportError:
     raise ImportError("Images requires extra dependencies. Install with `pip install embedchain[images]`") from None
@@ -39,14 +39,8 @@ class ClipProcessor:
             image_features /= image_features.norm(dim=-1, keepdim=True)
 
         image_features = image_features.cpu().detach().numpy().tolist()[0]
-        meta_data = {
-            "url": image_url
-        }
-        return {
-            "content": image_url,
-            "embedding": image_features,
-            "meta_data": meta_data
-        }
+        meta_data = {"url": image_url}
+        return {"content": image_url, "embedding": image_features, "meta_data": meta_data}
 
     @staticmethod
     def get_text_features(query):

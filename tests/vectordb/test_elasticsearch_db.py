@@ -4,11 +4,11 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig, ElasticsearchDBConfig
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
+
 
 class TestEsDB(unittest.TestCase):
-
     @patch("embedchain.vectordb.elasticsearch.Elasticsearch")
     def test_setUp(self, mock_client):
         self.db = ElasticsearchDB(config=ElasticsearchDBConfig(es_url="https://localhost:9200"))
@@ -37,17 +37,11 @@ class TestEsDB(unittest.TestCase):
         # Add the data to the database.
         self.db.add(embeddings, documents, metadatas, ids, skip_embedding=False)
 
-        search_response = {"hits":
-            {"hits":
-                [
-                    {
-                        "_source": {"text": "This is a document."},
-                        "_score": 0.9
-                    },
-                    {
-                        "_source": {"text": "This is another document."},
-                        "_score": 0.8
-                    }
+        search_response = {
+            "hits": {
+                "hits": [
+                    {"_source": {"text": "This is a document."}, "_score": 0.9},
+                    {"_source": {"text": "This is another document."}, "_score": 0.8},
                 ]
             }
         }
@@ -80,17 +74,11 @@ class TestEsDB(unittest.TestCase):
         # Add the data to the database.
         self.db.add(embeddings, documents, metadatas, ids, skip_embedding=True)
 
-        search_response = {"hits":
-            {"hits":
-                [
-                    {
-                        "_source": {"text": "This is a document."},
-                        "_score": 0.9
-                    },
-                    {
-                        "_source": {"text": "This is another document."},
-                        "_score": 0.8
-                    }
+        search_response = {
+            "hits": {
+                "hits": [
+                    {"_source": {"text": "This is a document."}, "_score": 0.9},
+                    {"_source": {"text": "This is another document."}, "_score": 0.8},
                 ]
             }
         }
