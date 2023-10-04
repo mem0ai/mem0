@@ -107,6 +107,8 @@ discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 docx2txt = "^0.8"
 clip = {git = "https://github.com/openai/CLIP.git#a1d0717", optional = true}
+ftfy = { version = "6.1.1", optional = true }
+regex = { version = "2023.8.8", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

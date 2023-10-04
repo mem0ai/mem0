@@ -21,7 +21,6 @@ class ClipProcessorTest(unittest.TestCase):
     def test_get_image_features(self):
         # Clone the image to a temporary folder.
         with tempfile.TemporaryDirectory() as tmp_dir:
-
             urllib.request.urlretrieve(
                 'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
                 "image.jpg")
