@@ -268,14 +268,16 @@ class EmbedChain(JSONSerializable):
         elif chunker.data_type.value in [item.value for item in IndirectDataType]:
             # These types have a indirect source reference
             # As long as the reference is the same, they can be updated.
-            existing_embeddings_data = self.db.get(
-                where={
-                    "url": src,
-                },
+            where = {"url": src}
+            if self.config.id is not None:
+                where.update({"app_id": self.config.id})
+
+            existing_embeddings = self.db.get(
+                where=where,
                 limit=1,
             )
-            if len(existing_embeddings_data.get("metadatas", [])) > 0:
-                return existing_embeddings_data["metadatas"][0]["doc_id"]
+            if len(existing_embeddings.get("metadatas", [])) > 0:
+                return existing_embeddings["metadatas"][0]["doc_id"]
             else:
                 return None
         elif chunker.data_type.value in [item.value for item in SpecialDataType]:
@@ -283,14 +285,16 @@ class EmbedChain(JSONSerializable):
             # Through custom logic, they can be attributed to a source and be updated.
             if chunker.data_type == DataType.QNA_PAIR:
                 # QNA_PAIRs update the answer if the question already exists.
-                existing_embeddings_data = self.db.get(
-                    where={
-                        "question": src[0],
-                    },
+                where = {"question": src[0]}
+                if self.config.id is not None:
+                    where.update({"app_id": self.config.id})
+
+                existing_embeddings = self.db.get(
+                    where=where,
                     limit=1,
                 )
-                if len(existing_embeddings_data.get("metadatas", [])) > 0:
-                    return existing_embeddings_data["metadatas"][0]["doc_id"]
+                if len(existing_embeddings.get("metadatas", [])) > 0:
+                    return existing_embeddings["metadatas"][0]["doc_id"]
                 else:
                     return None
             else:
@@ -326,9 +330,10 @@ class EmbedChain(JSONSerializable):
         :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
         """
         existing_doc_id = self._get_existing_doc_id(chunker=chunker, src=src)
+        app_id = self.config.id if self.config is not None else None
 
         # Create chunks
-        embeddings_data = chunker.create_chunks(loader, src)
+        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id)
         # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
@@ -345,12 +350,11 @@ class EmbedChain(JSONSerializable):
             self.db.delete({"doc_id": existing_doc_id})
 
         # get existing ids, and discard doc if any common id exist.
-        where = {"app_id": self.config.id} if self.config.id is not None else {}
-        # where={"url": src}
-        db_result = self.db.get(
-            ids=ids,
-            where=where,  # optional filter
-        )
+        where = {"url": src}
+        if self.config.id is not None:
+            where.update({"metadata.app_id": self.config.id})
+
+        db_result = self.db.get(ids=ids, where=where)  # optional filter
         existing_ids = set(db_result["ids"])
 
         if len(existing_ids):
