@@ -1,13 +1,14 @@
+import os
 import tempfile
 import unittest
-import os
 import urllib
+
 from PIL import Image
+
 from embedchain.models.clip_processor import ClipProcessor
 
 
 class ClipProcessorTest(unittest.TestCase):
-
     def test_load_model(self):
         # Test that the `load_model()` method loads the CLIP model and image preprocessing correctly.
         model, preprocess = ClipProcessor.load_model()
@@ -21,9 +22,7 @@ class ClipProcessorTest(unittest.TestCase):
     def test_get_image_features(self):
         # Clone the image to a temporary folder.
         with tempfile.TemporaryDirectory() as tmp_dir:
-            urllib.request.urlretrieve(
-                'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
-                "image.jpg")
+            urllib.request.urlretrieve("https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg", "image.jpg")
 
             image = Image.open("image.jpg")
             image.save(os.path.join(tmp_dir, "image.jpg"))
