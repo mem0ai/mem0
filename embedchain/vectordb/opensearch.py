@@ -85,19 +85,29 @@ class OpenSearchDB(BaseVectorDB):
         :return: ids
         :type: Set[str]
         """
+        query = {}
         if ids:
-            query = {"query": {"bool": {"must": [{"ids": {"values": ids}}]}}}
+            query["query"] = {"bool": {"must": [{"ids": {"values": ids}}]}}
         else:
-            query = {"query": {"bool": {"must": []}}}
+            query["query"] = {"bool": {"must": []}}
+
         if "app_id" in where:
             app_id = where["app_id"]
             query["query"]["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
 
         # OpenSearch syntax is different from Elasticsearch
-        response = self.client.search(index=self._get_index(), body=query, _source=False, size=limit)
+        response = self.client.search(index=self._get_index(), body=query, _source=True, size=limit)
         docs = response["hits"]["hits"]
         ids = [doc["_id"] for doc in docs]
-        return {"ids": set(ids)}
+        doc_ids = [doc["_source"]["metadata"]["doc_id"] for doc in docs]
+
+        # Result is modified for compatibility with other vector databases
+        # TODO: Add method in vector database to return result in a standard format
+        result = {"ids": ids, "metadatas": []}
+
+        for doc_id in doc_ids:
+            result["metadatas"].append({"doc_id": doc_id})
+        return result
 
     def add(
         self, embeddings: List[str], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool
@@ -203,6 +213,14 @@ class OpenSearchDB(BaseVectorDB):
         if self.client.indices.exists(index=self._get_index()):
             # delete index in Es
             self.client.indices.delete(index=self._get_index())
+
+    def delete(self, where):
+        """Deletes a document from the OpenSearch index"""
+        if "doc_id" not in where:
+            raise ValueError("doc_id is required to delete a document")
+
+        query = {"query": {"bool": {"must": [{"term": {"metadata.doc_id": where["doc_id"]}}]}}}
+        self.client.delete_by_query(index=self._get_index(), body=query)
 
     def _get_index(self) -> str:
         """Get the OpenSearch index for a collection
