@@ -99,18 +99,25 @@ class OpenSearchDB(BaseVectorDB):
         ids = [doc["_id"] for doc in docs]
         return {"ids": set(ids)}
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+    def add(
+        self, embeddings: List[str], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool
+    ):
         """add data in vector database
 
+        :param embeddings: list of embeddings to add
+        :type embeddings: List[str]
         :param documents: list of texts to add
         :type documents: List[str]
         :param metadatas: list of metadata associated with docs
         :type metadatas: List[object]
         :param ids: ids of docs
         :type ids: List[str]
+        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
+        :type skip_embedding: bool
         """
 
         docs = []
+        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
             docs.append(
@@ -123,7 +130,7 @@ class OpenSearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
         query contents from vector data base based on vector similarity
 
@@ -133,9 +140,12 @@ class OpenSearchDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
+        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
+        :type skip_embedding: bool
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
+        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
         docsearch = OpenSearchVectorSearch(
             index_name=self._get_index(),
