@@ -66,3 +66,6 @@ class BaseChunker(JSONSerializable):
         self.data_type = data_type
 
         # TODO: This should be done during initialization. This means it has to be done in the child classes.
+
+    def get_word_count(self, documents):
+        return sum([len(document.split(" ")) for document in documents])

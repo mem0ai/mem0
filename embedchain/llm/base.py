@@ -191,6 +191,9 @@ class BaseLlm(JSONSerializable):
                 prev_config = self.config.serialize()
                 self.config = config
 
+            if config is not None and config.query_type == "Images":
+                return contexts
+
             if self.is_docs_site_instance:
                 self.config.template = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
