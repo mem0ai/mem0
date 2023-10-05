@@ -24,7 +24,6 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
-from embedchain import App
 
 load_dotenv()
 
@@ -547,11 +546,9 @@ class EmbedChain(JSONSerializable):
         thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
         thread_telemetry.start()
 
-        app = App()
-        app.db.reset()
         logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `App.reset()`.")
 
-        self.db.reset()
+        self.db
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
