@@ -106,7 +106,6 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 docx2txt = "^0.8"
-clip = {git = "https://github.com/openai/CLIP.git#a1d0717", optional = true}
 pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
@@ -133,7 +132,7 @@ poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
-images = ["torch", "ftfy", "regex", "clip", "pillow", "torchvision"]
+images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 
 [tool.poetry.group.docs.dependencies]
 
