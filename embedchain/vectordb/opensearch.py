@@ -93,7 +93,7 @@ class OpenSearchDB(BaseVectorDB):
 
         if "app_id" in where:
             app_id = where["app_id"]
-            query["query"]["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
+            query["query"]["bool"]["must"].append({"term": {"metadata.app_id.keyword": app_id}})
 
         # OpenSearch syntax is different from Elasticsearch
         response = self.client.search(index=self._get_index(), body=query, _source=True, size=limit)
@@ -168,7 +168,7 @@ class OpenSearchDB(BaseVectorDB):
         pre_filter = {"match_all": {}}  # default
         if "app_id" in where:
             app_id = where["app_id"]
-            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id": app_id}}]}}
+            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id.keyword": app_id}}]}}
         docs = docsearch.similarity_search(
             input_query,
             search_type="script_scoring",
