@@ -352,7 +352,7 @@ class EmbedChain(JSONSerializable):
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
         if self.config.id is not None:
-            where.update({"metadata.app_id": self.config.id})
+            where["app_id"] = self.config.id
 
         db_result = self.db.get(ids=ids, where=where)  # optional filter
         existing_ids = set(db_result["ids"])
