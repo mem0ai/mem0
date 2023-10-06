@@ -18,11 +18,13 @@ class IndirectDataType(Enum):
     PDF_FILE = "pdf_file"
     WEB_PAGE = "web_page"
     SITEMAP = "sitemap"
+    XML = "xml"
     DOCX = "docx"
     DOCS_SITE = "docs_site"
     NOTION = "notion"
     CSV = "csv"
     MDX = "mdx"
+    IMAGES = "images"
 
 
 class SpecialDataType(Enum):
@@ -39,9 +41,11 @@ class DataType(Enum):
     PDF_FILE = IndirectDataType.PDF_FILE.value
     WEB_PAGE = IndirectDataType.WEB_PAGE.value
     SITEMAP = IndirectDataType.SITEMAP.value
+    XML = IndirectDataType.XML.value
     DOCX = IndirectDataType.DOCX.value
     DOCS_SITE = IndirectDataType.DOCS_SITE.value
     NOTION = IndirectDataType.NOTION.value
     CSV = IndirectDataType.CSV.value
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
+    IMAGES = IndirectDataType.IMAGES.value
