@@ -9,6 +9,7 @@ from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
+from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config import AddConfig
 from embedchain.config.add_config import ChunkerConfig, LoaderConfig
@@ -24,6 +25,7 @@ from embedchain.loaders.mdx import MdxLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
+from embedchain.loaders.xml import XmlLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 from embedchain.models.data_type import DataType
 
@@ -67,6 +69,7 @@ class DataFormatter(JSONSerializable):
             DataType.TEXT: LocalTextLoader,
             DataType.DOCX: DocxFileLoader,
             DataType.SITEMAP: SitemapLoader,
+            DataType.XML: XmlLoader,
             DataType.DOCS_SITE: DocsSiteLoader,
             DataType.CSV: CsvLoader,
             DataType.MDX: MdxLoader,
@@ -110,6 +113,7 @@ class DataFormatter(JSONSerializable):
             DataType.CSV: TableChunker,
             DataType.MDX: MdxChunker,
             DataType.IMAGES: ImagesChunker,
+            DataType.XML: XmlChunker,
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]
