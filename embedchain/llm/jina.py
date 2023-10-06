@@ -10,19 +10,15 @@ from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class JinaLLm(BaseLlm):
+class JinaLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         if "JINACHAT_API_KEY" not in os.environ:
             raise ValueError("Please set the JINACHAT_API_KEY environment variable.")
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
-        response = JinaLLm._get_answer(prompt, self.config)
-
-        if self.config.stream:
-            return response
-        else:
-            return response.content
+        response = JinaLlm._get_answer(prompt, self.config)
+        return response
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
@@ -43,4 +39,4 @@ class JinaLLm(BaseLlm):
             chat = JinaChat(**kwargs, streaming=config.stream, callbacks=[StreamingStdOutCallbackHandler()])
         else:
             chat = JinaChat(**kwargs)
-        return chat(messages)
+        return chat(messages).content
