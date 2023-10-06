@@ -36,9 +36,8 @@ class SitemapLoader(BaseLoader):
         for link in links:
             try:
                 each_load_data = web_page_loader.load_data(link)
-
-                if is_readable(each_load_data[0].get("content")):
-                    output.append(each_load_data)
+                if is_readable(each_load_data.get("data")[0].get("content")):
+                    output.append(each_load_data.get("data"))
                 else:
                     logging.warning(f"Page is not readable (too many invalid characters): {link}")
             except ParserRejectedMarkup as e:
