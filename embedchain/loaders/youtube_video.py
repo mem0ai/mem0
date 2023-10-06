@@ -11,7 +11,7 @@ from embedchain.utils import clean_string
 class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True)
+        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True,**self.config.as_dict())
         doc = loader.load()
         output = []
         if not len(doc):

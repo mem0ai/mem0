@@ -27,8 +27,8 @@ class LoaderConfig(BaseConfig):
     Config for the chunker used in `add` method
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, language:Optional[str] = "en"):
+        self.language = language
 
 
 @register_deserializable

@@ -75,7 +75,7 @@ class DataFormatter(JSONSerializable):
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
             loader_class: type = loaders[data_type]
-            loader: BaseLoader = loader_class()
+            loader: BaseLoader = loader_class(config=config)
             return loader
         elif data_type in lazy_loaders:
             if data_type == DataType.NOTION:
