@@ -6,6 +6,7 @@ from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
+from embedchain.chunkers.sitemap import SitemapChunker
 from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
@@ -109,6 +110,7 @@ class DataFormatter(JSONSerializable):
             DataType.TEXT: TextChunker,
             DataType.DOCX: DocxFileChunker,
             DataType.DOCS_SITE: DocsSiteChunker,
+            DataType.SITEMAP: SitemapChunker,
             DataType.NOTION: NotionChunker,
             DataType.CSV: TableChunker,
             DataType.MDX: MdxChunker,
