@@ -115,8 +115,14 @@ class ChromaDB(BaseVectorDB):
     def get_advanced(self, where):
         return self.collection.get(where=where, limit=1)
 
-    def add(self, embeddings: List[List[float]], documents: List[str], metadatas: List[object],
-            ids: List[str], skip_embedding: bool) -> Any:
+    def add(
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ) -> Any:
         """
         Add vectors to chroma database
 
@@ -184,7 +190,7 @@ class ChromaDB(BaseVectorDB):
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
                 e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database." # noqa E501
+                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
             ) from None
         results_formatted = self._format_result(result)
         contents = [result[0].page_content for result in results_formatted]

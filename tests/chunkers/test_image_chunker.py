@@ -17,13 +17,16 @@ class TestImageChunker(unittest.TestCase):
         chunker.set_data_type(DataType.IMAGES)
 
         image_path = "./tmp/image.jpeg"
-        result = chunker.create_chunks(MockLoader(), image_path)
+        app_id = "app1"
+        result = chunker.create_chunks(MockLoader(), image_path, app_id=app_id)
 
-        expected_chunks = {'doc_id': '123',
-                           'documents': [image_path],
-                           'embeddings': ['embedding'],
-                           'ids': ['140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe'],
-                           'metadatas': [{'data_type': 'images', 'doc_id': '123', 'url': 'none'}]}
+        expected_chunks = {
+            "doc_id": f"{app_id}--123",
+            "documents": [image_path],
+            "embeddings": ["embedding"],
+            "ids": ["140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe"],
+            "metadatas": [{"data_type": "images", "doc_id": f"{app_id}--123", "url": "none"}],
+        }
         self.assertEqual(expected_chunks, result)
 
     def test_chunks_with_default_config(self):
@@ -35,13 +38,16 @@ class TestImageChunker(unittest.TestCase):
         chunker.set_data_type(DataType.IMAGES)
 
         image_path = "./tmp/image.jpeg"
-        result = chunker.create_chunks(MockLoader(), image_path)
+        app_id = "app1"
+        result = chunker.create_chunks(MockLoader(), image_path, app_id=app_id)
 
-        expected_chunks = {'doc_id': '123',
-                           'documents': [image_path],
-                           'embeddings': ['embedding'],
-                           'ids': ['140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe'],
-                           'metadatas': [{'data_type': 'images', 'doc_id': '123', 'url': 'none'}]}
+        expected_chunks = {
+            "doc_id": f"{app_id}--123",
+            "documents": [image_path],
+            "embeddings": ["embedding"],
+            "ids": ["140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe"],
+            "metadatas": [{"data_type": "images", "doc_id": f"{app_id}--123", "url": "none"}],
+        }
         self.assertEqual(expected_chunks, result)
 
     def test_word_count(self):
