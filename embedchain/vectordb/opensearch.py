@@ -85,32 +85,49 @@ class OpenSearchDB(BaseVectorDB):
         :return: ids
         :type: Set[str]
         """
+        query = {}
         if ids:
-            query = {"query": {"bool": {"must": [{"ids": {"values": ids}}]}}}
+            query["query"] = {"bool": {"must": [{"ids": {"values": ids}}]}}
         else:
-            query = {"query": {"bool": {"must": []}}}
+            query["query"] = {"bool": {"must": []}}
+
         if "app_id" in where:
             app_id = where["app_id"]
-            query["query"]["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
+            query["query"]["bool"]["must"].append({"term": {"metadata.app_id.keyword": app_id}})
 
         # OpenSearch syntax is different from Elasticsearch
-        response = self.client.search(index=self._get_index(), body=query, _source=False, size=limit)
+        response = self.client.search(index=self._get_index(), body=query, _source=True, size=limit)
         docs = response["hits"]["hits"]
         ids = [doc["_id"] for doc in docs]
-        return {"ids": set(ids)}
+        doc_ids = [doc["_source"]["metadata"]["doc_id"] for doc in docs]
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+        # Result is modified for compatibility with other vector databases
+        # TODO: Add method in vector database to return result in a standard format
+        result = {"ids": ids, "metadatas": []}
+
+        for doc_id in doc_ids:
+            result["metadatas"].append({"doc_id": doc_id})
+        return result
+
+    def add(
+        self, embeddings: List[str], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool
+    ):
         """add data in vector database
 
+        :param embeddings: list of embeddings to add
+        :type embeddings: List[str]
         :param documents: list of texts to add
         :type documents: List[str]
         :param metadatas: list of metadata associated with docs
         :type metadatas: List[object]
         :param ids: ids of docs
         :type ids: List[str]
+        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
+        :type skip_embedding: bool
         """
 
         docs = []
+        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
             docs.append(
@@ -123,7 +140,7 @@ class OpenSearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
         query contents from vector data base based on vector similarity
 
@@ -133,9 +150,12 @@ class OpenSearchDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
+        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
+        :type skip_embedding: bool
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
+        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
         docsearch = OpenSearchVectorSearch(
             index_name=self._get_index(),
@@ -148,7 +168,7 @@ class OpenSearchDB(BaseVectorDB):
         pre_filter = {"match_all": {}}  # default
         if "app_id" in where:
             app_id = where["app_id"]
-            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id": app_id}}]}}
+            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id.keyword": app_id}}]}}
         docs = docsearch.similarity_search(
             input_query,
             search_type="script_scoring",
@@ -193,6 +213,14 @@ class OpenSearchDB(BaseVectorDB):
         if self.client.indices.exists(index=self._get_index()):
             # delete index in Es
             self.client.indices.delete(index=self._get_index())
+
+    def delete(self, where):
+        """Deletes a document from the OpenSearch index"""
+        if "doc_id" not in where:
+            raise ValueError("doc_id is required to delete a document")
+
+        query = {"query": {"bool": {"must": [{"term": {"metadata.doc_id": where["doc_id"]}}]}}}
+        self.client.delete_by_query(index=self._get_index(), body=query)
 
     def _get_index(self) -> str:
         """Get the OpenSearch index for a collection

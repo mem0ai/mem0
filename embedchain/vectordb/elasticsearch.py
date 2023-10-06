@@ -100,8 +100,14 @@ class ElasticsearchDB(BaseVectorDB):
         ids = [doc["_id"] for doc in docs]
         return {"ids": set(ids)}
 
-    def add(self, embeddings: List[List[float]], documents: List[str], metadatas: List[object],
-            ids: List[str], skip_embedding: bool) -> Any:
+    def add(
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ) -> Any:
         """
         add data in vector database
         :param documents: list of texts to add
