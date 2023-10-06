@@ -111,5 +111,4 @@ class LanceDb(BaseVectorDB):
 
         """
         return self.connection.delete(where=where)
-
-        
+  
