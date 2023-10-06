@@ -34,7 +34,7 @@ class HuggingFaceHubLlm(BaseLlm):
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         model_kwargs = {
             "temperature": config.temperature or 0.1,
-            "max_tokens": config.max_tokens,
+            "max_new_tokens": config.max_tokens,
         }
 
         if config.top_p > 0.0 and config.top_p < 1.0:
