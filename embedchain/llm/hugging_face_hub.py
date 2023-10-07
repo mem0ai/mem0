@@ -12,8 +12,8 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class HuggingFaceHubLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "HUGGINGFACEHUB_API_TOKEN" not in os.environ:
-            raise ValueError("Please set the HUGGINGFACEHUB_API_TOKEN environment variable.")
+        if "HUGGINGFACEHUB_ACCESS_TOKEN" not in os.environ:
+            raise ValueError("Please set the HUGGINGFACEHUB_ACCESS_TOKEN environment variable.")
 
         try:
             importlib.import_module("huggingface_hub")
@@ -43,7 +43,7 @@ class HuggingFaceHubLlm(BaseLlm):
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
 
         llm = HuggingFaceHub(
-            huggingfacehub_api_token=os.environ["HUGGINGFACEHUB_API_TOKEN"],
+            huggingfacehub_api_token=os.environ["HUGGINGFACEHUB_ACCESS_TOKEN"],
             repo_id=config.model or "google/flan-t5-xxl",
             model_kwargs=model_kwargs,
         )
