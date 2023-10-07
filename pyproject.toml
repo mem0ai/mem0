@@ -112,7 +112,6 @@ pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
-mock = "^5.1.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

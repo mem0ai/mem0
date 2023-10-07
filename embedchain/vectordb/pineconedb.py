@@ -1,5 +1,6 @@
 import os
-from typing import Dict, List, Optional, Set
+import copy
+from typing import Dict, List, Optional
 
 try:
     import pinecone
@@ -16,10 +17,10 @@ from embedchain.vectordb.base import BaseVectorDB
 @register_deserializable
 class PineconeDb(BaseVectorDB):
     BATCH_SIZE = 100
+
     """
     Pinecone as vector database
     """
-
     def __init__(
         self,
         config: Optional[PineconeDbConfig] = None,
@@ -103,7 +104,7 @@ class PineconeDb(BaseVectorDB):
         if embeddings is None:
             embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-            metadata["text"] = text
+            metadata["text"] = copy.copy(text)
             docs.append(
                 {
                     "id": id,
