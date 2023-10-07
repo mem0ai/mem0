@@ -1,5 +1,5 @@
-import os
 import copy
+import os
 from typing import Dict, List, Optional
 
 try:
@@ -21,6 +21,7 @@ class PineconeDb(BaseVectorDB):
     """
     Pinecone as vector database
     """
+
     def __init__(
         self,
         config: Optional[PineconeDbConfig] = None,
