@@ -544,15 +544,7 @@ class EmbedChain(JSONSerializable):
     def db.count(self) -> int:
         return self.db.count()
   
-        # """
-        # Count the number of embeddings.
-
-        # DEPRECATED IN FAVOR OF `db.count()`
-
-        # :return: The number of embeddings.
-        # :rtype: int
-        # """
-        # logging.warning("DEPRECATION WARNING: Please use `app.db.count()` instead of `app.count()`.")
+       
   
 
     def reset(self):
