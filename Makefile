@@ -4,10 +4,13 @@ PIP := $(PYTHON) -m pip
 PROJECT_NAME := embedchain
 
 # Targets
-.PHONY: install format lint clean test ci_lint ci_test
+.PHONY: install format lint clean test ci_lint ci_test coverage
 
 install:
 	poetry install
+
+install_all:
+	poetry install --all-extras
 
 install_es:
 	poetry install --extras elasticsearch
@@ -39,3 +42,6 @@ ci_lint:
 
 ci_test:
 	poetry run pytest
+
+coverage:
+	poetry run pytest --cov=$(PROJECT_NAME) --cov-report=xml

@@ -6,8 +6,9 @@
 [![Twitter](https://img.shields.io/twitter/follow/embedchain)](https://twitter.com/embedchain)
 [![Substack](https://img.shields.io/badge/Substack-%23006f5c.svg?logo=substack)](https://embedchain.substack.com/)
 [![Open in Colab](https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667)](https://colab.research.google.com/drive/138lMWhENGeEu7Q1-6lNbNTHGLZXBBz_B?usp=sharing)
+[![codecov](https://codecov.io/gh/embedchain/embedchain/graph/badge.svg?token=EMRRHZXW1Q)](https://codecov.io/gh/embedchain/embedchain)
 
-Embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchainjs)
+Embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchain/tree/main/embedchain-js)
 
 ## Community
 
@@ -27,7 +28,7 @@ pip install --upgrade embedchain
 
 Try out embedchain in your browser:
 
-[![Open in Colab](https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667)](https://colab.research.google.com/drive/138lMWhENGeEu7Q1-6lNbNTHGLZXBBz_B?usp=sharing)
+[![Open in Colab](https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667)](https://colab.research.google.com/drive/17ON1LPonnXAtLaZEebnOktstB_1cJJmh?usp=sharing)
 
 ## 📖 Documentation
 
@@ -35,7 +36,7 @@ The documentation for embedchain can be found at [docs.embedchain.ai](https://do
 
 ## 💻 Usage
 
-Embedchain empowers you to create chatbot models similar to ChatGPT, using your own evolving dataset.
+Embedchain empowers you to create ChatGPT like apps, on your own dynamic dataset.
 
 ### Data Types Supported
 
@@ -45,7 +46,9 @@ Embedchain empowers you to create chatbot models similar to ChatGPT, using your 
 * Sitemap
 * Doc file
 * Code documentation website loader
-* Notion
+* Notion and many more.
+
+You can find the full list of data types on [our documentation](https://docs.embedchain.ai/data-sources/csv).
 
 ### Queries
 
@@ -62,7 +65,7 @@ elon_bot = App()
 # Embed online resources
 elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
 elon_bot.add("https://www.forbes.com/profile/elon-musk")
-elon_bot.add("https://www.youtube.com/watch?v=MxZpaJK74Y4")
+elon_bot.add("https://www.youtube.com/watch?v=RcYjXbSJBN8")
 
 # Query the bot
 elon_bot.query("How many companies does Elon Musk run and name those?")
@@ -86,7 +89,7 @@ If you utilize this repository, please consider citing it with:
 
 ```
 @misc{embedchain,
-  author = {Taranjeet Singh},
+  author = {Taranjeet Singh, Deshraj Yadav},
   title = {Embedchain: Framework to easily create LLM powered bots over any dataset},
   year = {2023},
   publisher = {GitHub},
