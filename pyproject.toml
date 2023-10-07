@@ -121,6 +121,7 @@ regex = { version = "2023.8.8", optional = true }
 huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = "2.3.1"
 pinecone-client = "^2.2.4"
+
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pre-commit = "^3.2.2"
@@ -132,6 +133,7 @@ click = "^8.1.3"
 isort = "^5.12.0"
 pytest-cov = "^4.1.0"
 responses = "^0.23.3"
+mock = "^5.1.0"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]

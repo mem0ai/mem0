@@ -70,7 +70,7 @@ class PineconeDB(BaseVectorDB):
         """
         Get existing doc ids present in vector database
 
-        :param ids: _list of doc ids to check for existance
+        :param ids: _list of doc ids to check for existence
         :type ids: List[str]
         :param where: to filter data
         :type where: Dict[str, any]
@@ -85,7 +85,14 @@ class PineconeDB(BaseVectorDB):
                 existing_ids.extend(batch_existing_ids)
         return {"ids": existing_ids}
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+    def add(
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ):
         """add data in vector database
 
         :param documents: list of texts to add
@@ -114,19 +121,17 @@ class PineconeDB(BaseVectorDB):
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
-                query contents from vector database based on vector similarity
-        <<<<<<< HEAD:embedchain/vectordb/pinecone.py
-        =======
-
-        >>>>>>> 62356ac (Changed module name):embedchain/vectordb/pineconedb.py
-                :param input_query: list of query string
-                :type input_query: List[str]
-                :param n_results: no of similar documents to fetch from database
-                :type n_results: int
-                :param where: Optional. to filter data
-                :type where: Dict[str, any]
-                :return: Database contents that are the result of the query
-                :rtype: List[str]
+        query contents from vector database based on vector similarity
+        :param input_query: list of query string
+        :type input_query: List[str]
+        :param n_results: no of similar documents to fetch from database
+        :type n_results: int
+        :param where: Optional. to filter data
+        :type where: Dict[str, any]
+        :param skip_embedding: Optional. if True, input_query is already embedded
+        :type skip_embedding: bool
+        :return: Database contents that are the result of the query
+        :rtype: List[str]
         """
         if not skip_embedding:
             query_vector = self.embedder.embedding_fn([input_query])[0]

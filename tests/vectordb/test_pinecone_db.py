@@ -1,5 +1,6 @@
-from unittest import mock
 from unittest.mock import patch
+
+import mock
 
 from embedchain import App
 from embedchain.config import AppConfig
