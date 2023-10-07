@@ -128,8 +128,7 @@ def detect_datatype(source: Any) -> DataType:
     formatted_source = format_source(str(source), 30)
 
     if url:
-        from langchain.document_loaders.youtube import \
-            ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
+        from langchain.document_loaders.youtube import ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
 
         if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
@@ -189,6 +188,10 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".csv"):
             logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
+
+        if source.endswith(".xml"):
+            logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
+            return DataType.XML
 
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.
