@@ -106,15 +106,12 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 docx2txt = "^0.8"
-<<<<<<< HEAD
 pinecone-client = "^2.2.4"
-clip = {git = "https://github.com/openai/CLIP.git#a1d0717", optional = true}
-=======
 pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
->>>>>>> ea76868d65304ce8a85755d037c7d5d9f36a7ada
 ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
+mock = "^5.1.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

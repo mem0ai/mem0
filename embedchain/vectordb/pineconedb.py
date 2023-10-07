@@ -15,13 +15,14 @@ from embedchain.vectordb.base import BaseVectorDB
 
 @register_deserializable
 class PineconeDb(BaseVectorDB):
+    BATCH_SIZE = 100
     """
     Pinecone as vector database
     """
 
     def __init__(
-            self,
-            config: Optional[PineconeDbConfig] = None,
+        self,
+        config: Optional[PineconeDbConfig] = None,
     ):
         """Pinecone as vector database.
 
@@ -58,38 +59,36 @@ class PineconeDb(BaseVectorDB):
         self.index_name = self._get_index_name()
         indexes = pinecone.list_indexes()
         if indexes is None or self.index_name not in indexes:
-            pinecone.create_index(
-                name=self.index_name,
-                metric=self.config.metric,
-                dimension=self.config.dimension
-            )
+            pinecone.create_index(name=self.index_name, metric=self.config.metric, dimension=self.config.dimension)
         return pinecone.Index(self.index_name)
 
-    def get(
-            self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
-    ):
+    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
-        :param ids: _list of doc ids to check for existance
+        :param ids: _list of doc ids to check for existence
         :type ids: List[str]
         :param where: to filter data
         :type where: Dict[str, any]
         :return: ids
         :rtype: Set[str]
         """
-        zero_vector = []
-        for i in range(self.config.dimension):
-            zero_vector.append(0)
-
-        results = self.client.query(vector=zero_vector, top_k=max(1, self.count()), filter=where)
         ids = set()
+        for id in ids:
+            result = self.client.query(ids=id)
+            if result["matches"] is not None and result["matches"] != []:
+                ids.add(id)
 
-        for result in results["matches"]:
-            ids.add(result["id"])
         return {"ids": ids}
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+    def add(
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ):
         """add data in vector database
 
         :param documents: list of texts to add
@@ -101,7 +100,8 @@ class PineconeDb(BaseVectorDB):
         """
 
         docs = []
-        embeddings = self.embedder.embedding_fn(documents)
+        if embeddings is None:
+            embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
             metadata["text"] = text
             docs.append(
@@ -111,9 +111,11 @@ class PineconeDb(BaseVectorDB):
                     "metadata": metadata,
                 }
             )
-        self.client.upsert(docs)
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+        for i in range(0, len(docs), self.BATCH_SIZE):
+            self.client.upsert(docs[i : i + self.BATCH_SIZE])
+
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
         query contents from vector database based on vector similarity
 
@@ -126,9 +128,11 @@ class PineconeDb(BaseVectorDB):
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
-        input_query_vector = self.embedder.embedding_fn(input_query)
-        query_vector = input_query_vector[0]
-        contents = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True,)
+        if not skip_embedding:
+            query_vector = self.embedder.embedding_fn([input_query])[0]
+        else:
+            query_vector = input_query
+        contents = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True)
         embeddings = list(map(lambda content: content["metadata"]["text"], contents["matches"]))
         return embeddings
 
