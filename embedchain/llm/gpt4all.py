@@ -14,7 +14,7 @@ class GPT4ALLLlm(BaseLlm):
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
 
     def get_llm_model_answer(self, prompt):
-        return self._get_gpt4all_answer(prompt=prompt, config=self.config)
+        return self._get_answer(prompt=prompt, config=self.config)
 
     @staticmethod
     def _get_instance(model):
@@ -27,7 +27,7 @@ class GPT4ALLLlm(BaseLlm):
 
         return GPT4All(model_name=model)
 
-    def _get_gpt4all_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
+    def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
                 "OpenSourceApp does not support switching models at runtime. Please create a new app instance."

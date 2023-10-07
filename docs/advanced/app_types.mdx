@@ -4,108 +4,120 @@ title: '📱 App types'
 
 ## App Types
 
-We have three types of App.
+Embedchain supports a variety of LLMs, embedding functions/models and vector databases.
 
-### App
+Our app gives you full control over which components you want to use, you can mix and match them to your hearts content.
+
+<Tip>
+Out of the box, if you just use `app = App()`, Embedchain uses what we believe to be the best configuration available. This might include paid/proprietary components. Currently, this is
+
+* LLM: OpenAi (gpt-3.5-turbo)
+* Embedder: OpenAi (text-embedding-ada-002)
+* Database: ChromaDB
+</Tip>
+
+### LLM
+
+#### Choosing an LLM
+
+The following LLM providers are supported by Embedchain:
+- OPENAI
+- ANTHPROPIC
+- VERTEX_AI
+- GPT4ALL
+- AZURE_OPENAI
+- LLAMA2
+
+You can choose one by importing it from `embedchain.llm`. E.g.:
 
 ```python
 from embedchain import App
-app = App()
+from embedchain.llm.llama2 import Llama2Llm
+
+app = App(llm=Llama2Llm())
 ```
 
-- `App` uses OpenAI's model, so these are paid models. 💸 You will be charged for embedding model usage and LLM usage.
-- `App` uses OpenAI's embedding model to create embeddings for chunks and ChatGPT API as LLM to get answer given the relevant docs. Make sure that you have an OpenAI account and an API key. If you don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
-- `App` is opinionated. It uses the best embedding model and LLM on the market.
-- Once you have the API key, set it in an environment variable called `OPENAI_API_KEY`
+#### Configuration
+
+The LLMs can be configured by passing an LlmConfig object.
+
+The config options can be found [here](/advanced/query_configuration#llmconfig)
 
 ```python
-import os
-os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+from embedchain import App
+from embedchain.llm.llama2 import Llama2Llm
+from embedchain.config import LlmConfig
+
+app = App(llm=Llama2Llm(), llm_config=LlmConfig(number_documents=3, temperature=0))
 ```
 
-### Llama2App
+### Embedder
+
+#### Choosing an Embedder
+
+The following providers for embedding functions are supported by Embedchain:
+- OPENAI
+- HUGGING_FACE
+- VERTEX_AI
+- GPT4ALL
+- AZURE_OPENAI
+
+You can choose one by importing it from `embedchain.embedder`. E.g.:
 
 ```python
-import os
-
-from embedchain import Llama2App
-
-os.environ['REPLICATE_API_TOKEN'] = "REPLICATE API TOKEN"
-
-zuck_bot = Llama2App()
-
-# Embed your data
-zuck_bot.add("https://www.youtube.com/watch?v=Ff4fRgnuFgQ")
-zuck_bot.add("https://en.wikipedia.org/wiki/Mark_Zuckerberg")
-
-# Nice, your bot is ready now. Start asking questions to your bot.
-zuck_bot.query("Who is Mark Zuckerberg?")
-# Answer: Mark Zuckerberg is an American internet entrepreneur and business magnate. He is the co-founder and CEO of Facebook. Born in 1984, he dropped out of Harvard University to focus on his social media platform, which has since grown to become one of the largest and most influential technology companies in the world.
-
-# Enable web search for your bot
-zuck_bot.online = True # enable internet access for the bot
-zuck_bot.query("Who owns the new threads app and when it was founded?")
-# Answer: Based on the context provided, the new Threads app is owned by Meta, the parent company of Facebook, Instagram, and WhatsApp.
-```
-
-- `Llama2App` uses Replicate's LLM model, so these are paid models. You can get the `REPLICATE_API_TOKEN` by registering on [their website](https://replicate.com/account).
-- `Llama2App` uses OpenAI's embedding model to create embeddings for chunks. Make sure that you have an OpenAI account and an API key. If you don't have an API key, you can create one by visiting [this link](https://platform.openai.com/account/api-keys).
-
-
-### OpenSourceApp
-
-```python
-from embedchain import OpenSourceApp
-app = OpenSourceApp()
-```
-
-- `OpenSourceApp` uses open source embedding and LLM model. It uses `all-MiniLM-L6-v2` from Sentence Transformers library as the embedding model and `gpt4all` as the LLM.
-- Here there is no need to setup any api keys. You just need to install embedchain package and these will get automatically installed. 📦
-- Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
-- `OpenSourceApp` is opinionated. It uses the best open source embedding model and LLM on the market.
-- extra dependencies are required for this app type. Install them with `pip install --upgrade embedchain[opensource]`.
-
-### CustomApp
-
-```python
-from embedchain import CustomApp
-from embedchain.config import (CustomAppConfig, ElasticsearchDBConfig,
-                               EmbedderConfig, LlmConfig)
+from embedchain import App
 from embedchain.embedder.vertexai import VertexAiEmbedder
-from embedchain.llm.vertex_ai import VertexAiLlm
-from embedchain.models import EmbeddingFunctions, Providers
-from embedchain.vectordb.elasticsearch import Elasticsearch
 
-# short
-app = CustomApp(llm=VertexAiLlm(), db=Elasticsearch(), embedder=VertexAiEmbedder())
-# with configs
-app = CustomApp(
-    config=CustomAppConfig(log_level="INFO"),
-    llm=VertexAiLlm(config=LlmConfig(number_documents=5)),
-    db=Elasticsearch(config=ElasticsearchDBConfig(es_url="...")),
-    embedder=VertexAiEmbedder(config=EmbedderConfig()),
-)
+app = App(embedder=VertexAiEmbedder())
 ```
 
-- `CustomApp` is not opinionated.
-- Configuration required. It's for advanced users who want to mix and match different embedding models and LLMs.
-- while it's doing that, it's still providing abstractions by allowing you to import Classes from `embedchain.llm`, `embedchain.vectordb`, and `embedchain.embedder`.
-- paid and free/open source providers included.
-- Once you have imported and instantiated the app, every functionality from here onwards is the same for either type of app. 📚
-- Following providers are available for an LLM
-    - OPENAI
-    - ANTHPROPIC
-    - VERTEX_AI
-    - GPT4ALL
-    - AZURE_OPENAI
-    - LLAMA2
-- Following embedding functions are available for an embedding function
-    - OPENAI
-    - HUGGING_FACE
-    - VERTEX_AI
-    - GPT4ALL
-    - AZURE_OPENAI
+#### Configuration
 
+The LLMs can be configured by passing an EmbedderConfig object.
+
+```python
+from embedchain import App
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.config import EmbedderConfig
+
+app = App(embedder=OpenAiEmbedder(), embedder_config=EmbedderConfig(model="text-embedding-ada-002"))
+```
+
+<Tip>
+You can also pass an `LlmConfig` instance directly to the `query` or `chat` method.
+This creates a temporary config for that request alone, so you could, for example, use a different model (from the same provider) or get more context documents for a specific query.
+</Tip>
+
+### Vector Database
+
+#### Choosing a Vector Database
+
+The following vector databases are supported by Embedchain:
+- ChromaDB
+- Elasticsearch
+
+You can choose one by importing it from `embedchain.vectordb`. E.g.:
+
+```python
+from embedchain import App
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
+
+app = App(db=ElasticsearchDB())
+```
+
+#### Configuration
+
+The vector databases can be configured by passing a specific config object.
+
+These vary greatly between the different vector databases.
+
+```python
+from embedchain import App
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.config import ElasticsearchDBConfig
+
+app = App(db=ElasticsearchDB(), db_config=ElasticsearchDBConfig())
+```
 
 ### PersonApp
 
@@ -123,18 +135,79 @@ import os
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 ```
 
-#### Compatibility with other apps
+### Full Configuration Examples
+
+Embedchain previously offered fully configured classes, namely `App`, `OpenSourceApp`, `CustomApp` and `Llama2App`.
+We deprecated these apps. The reason for this decision was that it was hard to switch from to a different LLM, embedder or vector db, if you one day decided that that's what you want to do.
+The new app allows drop-in replacements, such as changing `App(llm=OpenAiLlm())` to `App(llm=Llama2Llm())`.
+
+To make the switch to our new, fully configurable app easier, we provide you with full examples for what the old classes would look like implemented as a new app.
+You can swap these in, and if you decide you want to try a different model one day, you don't have to rewrite your whole bot.
+
+#### App
+App without any configuration is still using the best options available, so you can keep using:
+
+```python
+from embedchain import App
+
+app = App()
+```
+
+#### OpenSourceApp
+
+Use this snippet to run an open source app.
+
+```python
+from embedchain import App
+from embedchain.llm.gpt4all import GPT4ALLLlm
+from embedchain.embedder.gpt4all import GPT4AllEmbedder
+from embedchain.vectordb.chroma import ChromaDB
+
+app = App(llm=GPT4ALLLlm(), embedder=GPT4AllEmbedder(), db=ChromaDB())
+```
+
+#### Llama2App
+```python
+from embedchain import App
+from embedchain.llm.llama2 import Llama2Llm
+
+app = App(llm=Llama2Llm())
+```
+
+#### CustomApp
+
+Every app is a custom app now.
+If you were previously using a `CustomApp`, you can now just change it to `App`.
+
+Here's one example, what you could do if we combined everything shown on this page.
+
+```python
+from embedchain import App
+from embedchain.config import ElasticsearchDBConfig, EmbedderConfig, LlmConfig
+from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.llm.llama2 import Llama2Llm
+from embedchain.vectordb.elasticsearch import ElasticsearchDB
+
+app = App(
+    llm=Llama2Llm(),
+    llm_config=LlmConfig(number_documents=3, temperature=0),
+    embedder=OpenAiEmbedder(),
+    embedder_config=EmbedderConfig(model="text-embedding-ada-002"),
+    db=ElasticsearchDB(),
+    db_config=ElasticsearchDBConfig(),
+)
+```
+
+### Compatibility with other apps
 
 - If there is any other app instance in your script or app, you can change the import as
 
 ```python
 from embedchain import App as EmbedChainApp
-from embedchain import OpenSourceApp as EmbedChainOSApp
 from embedchain import PersonApp as EmbedChainPersonApp
 
 # or
 
 from embedchain import App as ECApp
-from embedchain import OpenSourceApp as ECOSApp
 from embedchain import PersonApp as ECPApp
 ```

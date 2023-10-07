@@ -2,7 +2,7 @@
 title: '💾 Vector Database'
 ---
 
-We support `Chroma` and `Elasticsearch` as two vector database. 
+We support `Chroma`, `Elasticsearch` and `OpenSearch` as vector databases.
 `Chroma` is used as a default database.
 
 ## Elasticsearch
@@ -22,13 +22,13 @@ Please note that the key needs certain privileges. For testing you can just togg
 2. Load the app
 ```python
 from embedchain import CustomApp
-from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
 es_app = CustomApp(
     llm=OpenAILlm(),
-    embedder=OpenAiEmbedder(),
+    embedder=OpenAIEmbedder(),
     db=ElasticsearchDB(),
 )
 ```
@@ -45,7 +45,7 @@ import os
 
 from embedchain import CustomApp
 from embedchain.config import CustomAppConfig, ElasticsearchDBConfig
-from embedchain.embedder.openai import OpenAiEmbedder
+from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.elasticsearch import ElasticsearchDB
 
@@ -61,10 +61,58 @@ es_config = ElasticsearchDBConfig(
 es_app = CustomApp(
     config=CustomAppConfig(log_level="INFO"),
     llm=OpenAILlm(),
-    embedder=OpenAiEmbedder(),
+    embedder=OpenAIEmbedder(),
     db=ElasticsearchDB(config=es_config),
 )
 ```
 3. This should log your connection details to the console.
 4. Alternatively to a URL, you `ElasticsearchDBConfig` accepts `es_url` as a list of nodes url with different hosts and ports.
 5. Additionally we can pass named parameters supported by Python Elasticsearch client.
+
+
+## OpenSearch 🔍
+
+To use OpenSearch as a vector database with a CustomApp, follow these simple steps:
+
+1. Set the `OPENAI_API_KEY` environment variable:
+
+```
+OPENAI_API_KEY=sk-xxxx
+```
+
+2. Define the OpenSearch configuration in your Python code:
+
+```python
+from embedchain import CustomApp
+from embedchain.config import OpenSearchDBConfig
+from embedchain.embedder.openai import OpenAIEmbedder
+from embedchain.llm.openai import OpenAILlm
+from embedchain.vectordb.opensearch import OpenSearchDB
+
+opensearch_url = "https://localhost:9200"
+http_auth = ("username", "password")
+
+db_config = OpenSearchDBConfig(
+    opensearch_url=opensearch_url,
+    http_auth=http_auth,
+    collection_name="embedchain-app",
+    use_ssl=True,
+    timeout=30,
+)
+db = OpenSearchDB(config=db_config)
+```
+
+2. Instantiate the app and add data:
+
+```python
+app = CustomApp(llm=OpenAILlm(), embedder=OpenAIEmbedder(), db=db)
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+app.add("https://www.forbes.com/profile/elon-musk")
+app.add("https://www.britannica.com/biography/Elon-Musk")
+```
+
+3. You're all set! Start querying using the following command:
+
+```python
+app.query("What is the net worth of Elon Musk?")
+```

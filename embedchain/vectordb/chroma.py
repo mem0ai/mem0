@@ -63,7 +63,9 @@ class ChromaDB(BaseVectorDB):
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
         if not self.embedder:
-            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+            raise ValueError(
+                "Embedder not set. Please set an embedder with `_set_embedder()` function before initialization."
+            )
         self._get_or_create_collection(self.config.collection_name)
 
     def _get_or_create_db(self):
@@ -113,7 +115,14 @@ class ChromaDB(BaseVectorDB):
     def get_advanced(self, where):
         return self.collection.get(where=where, limit=1)
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]) -> Any:
+    def add(
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ) -> Any:
         """
         Add vectors to chroma database
 
@@ -124,7 +133,10 @@ class ChromaDB(BaseVectorDB):
         :param ids: ids
         :type ids: List[str]
         """
-        self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
+        if skip_embedding:
+            self.collection.add(embeddings=embeddings, documents=documents, metadatas=metadatas, ids=ids)
+        else:
+            self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
 
     def _format_result(self, results: QueryResult) -> list[tuple[Document, float]]:
         """
@@ -144,7 +156,7 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, Any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -159,19 +171,27 @@ class ChromaDB(BaseVectorDB):
         :rtype: List[str]
         """
         try:
-            result = self.collection.query(
-                query_texts=[
-                    input_query,
-                ],
-                n_results=n_results,
-                where=where,
-            )
+            if skip_embedding:
+                result = self.collection.query(
+                    query_embeddings=[
+                        input_query,
+                    ],
+                    n_results=n_results,
+                    where=where,
+                )
+            else:
+                result = self.collection.query(
+                    query_texts=[
+                        input_query,
+                    ],
+                    n_results=n_results,
+                    where=where,
+                )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
                 e.message()
                 + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
             ) from None
-
         results_formatted = self._format_result(result)
         contents = [result[0].page_content for result in results_formatted]
         return contents

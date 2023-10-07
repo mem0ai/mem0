@@ -28,6 +28,14 @@ class TestApp(unittest.TestCase):
         self.assertEqual(self.app.user_asks, [["https://example.com", "web_page", {"meta": "meta-data"}]])
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
+    def test_add_sitemap(self):
+        """
+        In addition to the test_add function, this test checks that sitemaps can be added with the correct data type.
+        """
+        self.app.add("https://www.google.com/sitemap.xml", metadata={"meta": "meta-data"})
+        self.assertEqual(self.app.user_asks, [["https://www.google.com/sitemap.xml", "sitemap", {"meta": "meta-data"}]])
+
+    @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_add_forced_type(self):
         """
         Test that you can also force a data_type with `add`.
