@@ -1,13 +1,13 @@
 try:
-    from sentence_transformers import SentenceTransformer
-    import torch
     from PIL import Image, UnidentifiedImageError
+    from sentence_transformers import SentenceTransformer
 except ImportError:
     raise ImportError(
-        "Images requires extra dependencies. Install with `pip install 'embedchain[images]' git+https://github.com/openai/CLIP.git#a1d0717`"  # noqa: E501
+        "Images requires extra dependencies. Install with `pip install 'embedchain[images]'"
     ) from None
 
 MODEL_NAME = "clip-ViT-B-32"
+
 
 class ClipProcessor:
     @staticmethod
