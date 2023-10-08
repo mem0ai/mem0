@@ -1,4 +1,5 @@
 import os
+import copy
 from typing import Dict, List, Optional, Set
 
 try:
@@ -75,6 +76,10 @@ class WeaviateDb(BaseVectorDB):
                             "name": "metadata",
                             "dataType": [self.index_name + "_" + "Metadata"],
                         },
+                        {
+                            "name": "text",
+                            "dataType": ["text"],
+                        },
                     ]
                 }, {
                     "class": self.index_name + "_" + "Metadata",
@@ -94,11 +99,7 @@ class WeaviateDb(BaseVectorDB):
                         {
                             "name": "hash",
                             "dataType": ["text"],
-                        },
-                        {
-                            "name": "text",
-                            "dataType": ["text"],
-                        },
+                        }
                     ]
                 }]
             }
@@ -161,10 +162,11 @@ class WeaviateDb(BaseVectorDB):
         self.client.batch.configure(batch_size=100)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
             for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-                metadata["text"] = text
+                metadata["text"] = copy.copy(text)
                 doc = {
                     "identifier": id,
                     "values": embedding,
+                    "text": copy.copy(text)
                 }
                 uuid = self.client.data_object.create(data_object=doc, class_name=self.index_name)
                 metadata_uuid = self.client.data_object.create(data_object=metadata,
@@ -205,19 +207,21 @@ class WeaviateDb(BaseVectorDB):
             if default_filter_params.keys().__contains__("id"):
                 default_filter_params["identifier"] = default_filter_params.get("id", None)
 
-            results = (self.client.query.get(self.index_name, ["identifier", "values", "metadata"])
+            results = (self.client.query.get(self.index_name, ["identifier", "values", "metadata", "text"])
                        .with_where(default_filter_params)
                        .with_near_vector(content={'vector': query_vector})
                        .with_limit(n_results)
                        .do())
 
         else:
-            results = (self.client.query.get(self.index_name, ["identifier", "values"])
+            results = (self.client.query.get(self.index_name, ["identifier", "values", "text"])
                        .with_near_vector(content={'vector': query_vector})
                        .with_limit(n_results)
                        .do())
-
-        return results["data"]["Get"].get(self.index_name)[0]
+        matched_tokens = []
+        for result in results["data"]["Get"].get(self.index_name):
+            matched_tokens.append(result["text"])
+        return matched_tokens
 
     def set_collection_name(self, name: str):
         """
@@ -247,7 +251,11 @@ class WeaviateDb(BaseVectorDB):
         Resets the database. Deletes all embeddings irreversibly.
         """
         # Delete all data from the database
-        self.client.batch.delete_objects(self.index_name)
+        self.client.batch.delete_objects(self.index_name, where={
+            'path': ['identifier'],
+            'operator': 'Like',
+            'valueText': '.*'
+        })
 
     # Weaviate internally by default capitalizes the class name
     def _get_index_name(self) -> str:
