@@ -73,33 +73,9 @@ class WeaviateDb(BaseVectorDB):
                             "dataType": ["number[]"],
                         },
                         {
-                            "name": "metadata",
-                            "dataType": [self.index_name + "_" + "Metadata"],
-                        },
-                        {
                             "name": "text",
                             "dataType": ["text"],
                         },
-                    ]
-                }, {
-                    "class": self.index_name + "_" + "Metadata",
-                    "properties": [
-                        {
-                            "name": "url",
-                            "dataType": ["text"],
-                        },
-                        {
-                            "name": "data_type",
-                            "dataType": ["text"],
-                        },
-                        {
-                            "name": "doc_id",
-                            "dataType": ["text"],
-                        },
-                        {
-                            "name": "hash",
-                            "dataType": ["text"],
-                        }
                     ]
                 }]
             }
@@ -122,7 +98,7 @@ class WeaviateDb(BaseVectorDB):
         keys = list(where.keys() if where is not None else [])
         values = list(where.values() if where is not None else [])
 
-        if where is not None and ("id" in keys or "values" in keys or "metadata" in keys):
+        if where is not None and ("id" in keys or "values" in keys or "text" in keys):
             default_filter_params = {
                 "path": keys,
                 "operator": "Equal",
@@ -135,7 +111,7 @@ class WeaviateDb(BaseVectorDB):
 
             results = (
                 self.client.query
-                .get(self.index_name, ["identifier", "values", "metadata"])
+                .get(self.index_name, ["identifier", "values", "text"])
                 .with_where(default_filter_params)
                 .with_limit(limit)
                 .do()
@@ -159,25 +135,16 @@ class WeaviateDb(BaseVectorDB):
         """
 
         embeddings = self.embedder.embedding_fn(documents)
-        self.client.batch.configure(batch_size=100)  # Configure batch
+        self.client.batch.configure(batch_size=100, timeout_retries=3)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
-            for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-                metadata["text"] = copy.copy(text)
+            for id, text, embedding in zip(ids, documents, embeddings):
                 doc = {
                     "identifier": id,
                     "values": embedding,
                     "text": copy.copy(text)
                 }
-                uuid = self.client.data_object.create(data_object=doc, class_name=self.index_name)
-                metadata_uuid = self.client.data_object.create(data_object=metadata,
-                                                               class_name=self.index_name + "_" + "Metadata")
-                batch.add_reference(
-                    from_object_uuid=uuid,
-                    from_object_class_name=self.index_name,
-                    from_property_name="metadata",
-                    to_object_uuid=metadata_uuid,
-                    to_object_class_name=self.index_name + "_" + "Metadata"
-                )
+                batch.add_data_object(data_object=doc, class_name=self.index_name)
+                # self.client.data_object.create(data_object=doc, class_name=self.index_name)
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
         """
@@ -196,7 +163,7 @@ class WeaviateDb(BaseVectorDB):
 
         keys = list(where.keys() if where is not None else [])
         values = list(where.values() if where is not None else [])
-        if where is not None and ("id" in keys or "values" in keys or "metadata" in keys):
+        if where is not None and ("id" in keys or "values" in keys or "text" in keys):
             default_filter_params = {
                 "path": keys,
                 "operator": "Equal",
@@ -207,7 +174,7 @@ class WeaviateDb(BaseVectorDB):
             if default_filter_params.keys().__contains__("id"):
                 default_filter_params["identifier"] = default_filter_params.get("id", None)
 
-            results = (self.client.query.get(self.index_name, ["identifier", "values", "metadata", "text"])
+            results = (self.client.query.get(self.index_name, ["identifier", "values", "text"])
                        .with_where(default_filter_params)
                        .with_near_vector(content={'vector': query_vector})
                        .with_limit(n_results)
