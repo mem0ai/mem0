@@ -14,6 +14,7 @@ class ZillizDBConfig(BaseVectorDbConfig):
         uri: Optional[str] = None,
         token: Optional[str] = None,
         vector_dim: Optional[str] = None,
+        metric_type: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the vector database.
@@ -41,6 +42,10 @@ class ZillizDBConfig(BaseVectorDbConfig):
                 "this can either be passed to `ZILLIZ_CLOUD_TOKEN` or as `ZILLIZ_CLOUD_TOKEN` in `.env`,"
                 "if having a username and password, pass it in the form 'username:password' to `ZILLIZ_CLOUD_TOKEN`"
             )
+
+        self.metric_type = metric_type
+        if not self.metric_type:
+            self.metric_type = "L2"
 
         self.vector_dim = vector_dim
         super().__init__(collection_name=collection_name, dir=dir)

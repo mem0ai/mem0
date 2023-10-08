@@ -5,11 +5,12 @@ from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
+    import pymilvus
     from pymilvus import MilvusClient
     from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 except ImportError:
     raise ImportError(
-        "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[pymilvus]`"
+        "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[milvus]`"
     ) from None
 
 
@@ -77,7 +78,7 @@ class ZillizVectorDB(BaseVectorDB):
 
             index = {
                 "index_type": "AUTOINDEX",
-                "metric_type": "L2",
+                "metric_type": self.config.metric_type,
             }
             self.collection.create_index("vector", index)
         return self.collection

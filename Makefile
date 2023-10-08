@@ -19,7 +19,7 @@ install_opensearch:
 	poetry install --extras opensearch
 
 install_milvus:
-	poetry install --extras pymilvus
+	poetry install --extras milvus
 	
 shell:
 	poetry shell
