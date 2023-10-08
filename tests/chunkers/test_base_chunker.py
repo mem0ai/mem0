@@ -1,5 +1,5 @@
-import unittest
 import hashlib
+import unittest
 from unittest.mock import MagicMock
 
 from embedchain.chunkers.base_chunker import BaseChunker
