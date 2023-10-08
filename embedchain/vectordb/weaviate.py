@@ -1,6 +1,6 @@
-import os
 import copy
-from typing import Dict, List, Optional, Set
+import os
+from typing import Dict, List, Optional
 
 try:
     import weaviate
@@ -17,14 +17,14 @@ from embedchain.vectordb.base import BaseVectorDB
 @register_deserializable
 class WeaviateDb(BaseVectorDB):
     """
-    Pinecone as vector database
+    Weaviate as vector database
     """
 
     def __init__(
-            self,
-            config: Optional[WeaviateDbConfig] = None,
+        self,
+        config: Optional[WeaviateDbConfig] = None,
     ):
-        """Pinecone as vector database.
+        """Weaviate as vector database.
         :param config: Weaviate database config, defaults to None
         :type config: WeaviateDbConfig, optional
         :raises ValueError: No config provided
@@ -41,9 +41,7 @@ class WeaviateDb(BaseVectorDB):
         self.client = weaviate.Client(
             url=os.environ.get("WEAVIATE_ENDPOINT"),
             auth_client_secret=weaviate.AuthApiKey(api_key=os.environ.get("WEAVIATE_API_KEY")),
-            additional_headers={
-                "X-OpenAI-Api-Key": os.environ.get("OPENAI_API_KEY")
-            }
+            additional_headers={"X-OpenAI-Api-Key": os.environ.get("OPENAI_API_KEY")},
         )
 
         # Call parent init here because embedder is needed
@@ -61,30 +59,30 @@ class WeaviateDb(BaseVectorDB):
         if not self.client.schema.exists(self.index_name):
             # id is a reserved field in Weaviate, hence we had to change the name of the id field to identifier
             class_obj = {
-                "classes": [{
-                    "class": self.index_name,
-                    "properties": [
-                        {
-                            "name": "identifier",
-                            "dataType": ["text"],
-                        },
-                        {
-                            "name": "values",
-                            "dataType": ["number[]"],
-                        },
-                        {
-                            "name": "text",
-                            "dataType": ["text"],
-                        },
-                    ]
-                }]
+                "classes": [
+                    {
+                        "class": self.index_name,
+                        "properties": [
+                            {
+                                "name": "identifier",
+                                "dataType": ["text"],
+                            },
+                            {
+                                "name": "values",
+                                "dataType": ["number[]"],
+                            },
+                            {
+                                "name": "text",
+                                "dataType": ["text"],
+                            },
+                        ],
+                    }
+                ]
             }
 
             self.client.schema.create(class_obj)
 
-    def get(
-            self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
-    ):
+    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
         :param ids: _list of doc ids to check for existance
@@ -99,19 +97,14 @@ class WeaviateDb(BaseVectorDB):
         values = list(where.values() if where is not None else [])
 
         if where is not None and ("id" in keys or "values" in keys or "text" in keys):
-            default_filter_params = {
-                "path": keys,
-                "operator": "Equal",
-                "valueTextArray": values
-            }
+            default_filter_params = {"path": keys, "operator": "Equal", "valueTextArray": values}
             default_filter_params.update(where)
 
             if default_filter_params.keys().__contains__("id"):
                 default_filter_params["identifier"] = default_filter_params.get("id", None)
 
             results = (
-                self.client.query
-                .get(self.index_name, ["identifier", "values", "text"])
+                self.client.query.get(self.index_name, ["identifier", "values", "text"])
                 .with_where(default_filter_params)
                 .with_limit(limit)
                 .do()
@@ -124,29 +117,37 @@ class WeaviateDb(BaseVectorDB):
             ids.append(result["id"])
         return {"ids": ids}
 
-    def add(self, documents: List[str], metadatas: List[object], ids: List[str]):
+    def add(
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ):
         """add data in vector database
+        :param embeddings: list of embeddings for the corresponding documents to be added
+        :type documents: List[List[float]]
         :param documents: list of texts to add
         :type documents: List[str]
         :param metadatas: list of metadata associated with docs
         :type metadatas: List[object]
         :param ids: ids of docs
         :type ids: List[str]
+        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
+        generated or not
+        :type skip_embedding: bool
         """
 
-        embeddings = self.embedder.embedding_fn(documents)
+        if not skip_embedding:
+            embeddings = self.embedder.embedding_fn(documents)
         self.client.batch.configure(batch_size=100, timeout_retries=3)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
             for id, text, embedding in zip(ids, documents, embeddings):
-                doc = {
-                    "identifier": id,
-                    "values": embedding,
-                    "text": copy.copy(text)
-                }
+                doc = {"identifier": id, "values": embedding, "text": copy.copy(text)}
                 batch.add_data_object(data_object=doc, class_name=self.index_name)
-                # self.client.data_object.create(data_object=doc, class_name=self.index_name)
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any]) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -155,36 +156,41 @@ class WeaviateDb(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
+        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
+        generated or not
+        :type skip_embedding: bool
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
-        input_query_vector = self.embedder.embedding_fn(input_query)
-        query_vector = input_query_vector[0]
+        if not skip_embedding:
+            query_vector = self.embedder.embedding_fn(input_query)[0]
+        else:
+            query_vector = input_query
 
         keys = list(where.keys() if where is not None else [])
         values = list(where.values() if where is not None else [])
         if where is not None and ("id" in keys or "values" in keys or "text" in keys):
-            default_filter_params = {
-                "path": keys,
-                "operator": "Equal",
-                "valueTextArray": values
-            }
+            default_filter_params = {"path": keys, "operator": "Equal", "valueTextArray": values}
             default_filter_params.update(where)
 
             if default_filter_params.keys().__contains__("id"):
                 default_filter_params["identifier"] = default_filter_params.get("id", None)
 
-            results = (self.client.query.get(self.index_name, ["identifier", "values", "text"])
-                       .with_where(default_filter_params)
-                       .with_near_vector(content={'vector': query_vector})
-                       .with_limit(n_results)
-                       .do())
+            results = (
+                self.client.query.get(self.index_name, ["identifier", "values", "text"])
+                .with_where(default_filter_params)
+                .with_near_vector(content={"vector": query_vector})
+                .with_limit(n_results)
+                .do()
+            )
 
         else:
-            results = (self.client.query.get(self.index_name, ["identifier", "values", "text"])
-                       .with_near_vector(content={'vector': query_vector})
-                       .with_limit(n_results)
-                       .do())
+            results = (
+                self.client.query.get(self.index_name, ["identifier", "values", "text"])
+                .with_near_vector(content={"vector": query_vector})
+                .with_limit(n_results)
+                .do()
+            )
         matched_tokens = []
         for result in results["data"]["Get"].get(self.index_name):
             matched_tokens.append(result["text"])
@@ -218,16 +224,14 @@ class WeaviateDb(BaseVectorDB):
         Resets the database. Deletes all embeddings irreversibly.
         """
         # Delete all data from the database
-        self.client.batch.delete_objects(self.index_name, where={
-            'path': ['identifier'],
-            'operator': 'Like',
-            'valueText': '.*'
-        })
+        self.client.batch.delete_objects(
+            self.index_name, where={"path": ["identifier"], "operator": "Like", "valueText": ".*"}
+        )
 
     # Weaviate internally by default capitalizes the class name
     def _get_index_name(self) -> str:
-        """Get the Pinecone index for a collection
-        :return: Pinecone index
+        """Get the Weaviate index for a collection
+        :return: Weaviate index
         :rtype: str
         """
         return f"{self.config.collection_name}_{self.embedder.vector_dimension}".capitalize()
