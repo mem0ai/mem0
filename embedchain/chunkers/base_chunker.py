@@ -10,7 +10,7 @@ class BaseChunker(JSONSerializable):
         self.text_splitter = text_splitter
         self.data_type = None
 
-    def create_chunks(self, loader, src):
+    def create_chunks(self, loader, src, app_id=None):
         """
         Loads data and chunks it.
 
@@ -18,13 +18,18 @@ class BaseChunker(JSONSerializable):
         the raw data.
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
+        :param app_id: App id used to generate the doc_id.
         """
         documents = []
-        ids = []
+        chunk_ids = []
         idMap = {}
         data_result = loader.load_data(src)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]
+        # Prefix app_id in the document id if app_id is not None to
+        # distinguish between different documents stored in the same
+        # elasticsearch or opensearch index
+        doc_id = f"{app_id}--{doc_id}" if app_id is not None else doc_id
         metadatas = []
         for data in data_records:
             content = data["content"]
@@ -41,12 +46,12 @@ class BaseChunker(JSONSerializable):
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
                 if idMap.get(chunk_id) is None:
                     idMap[chunk_id] = True
-                    ids.append(chunk_id)
+                    chunk_ids.append(chunk_id)
                     documents.append(chunk)
                     metadatas.append(meta_data)
         return {
             "documents": documents,
-            "ids": ids,
+            "ids": chunk_ids,
             "metadatas": metadatas,
             "doc_id": doc_id,
         }
@@ -66,3 +71,6 @@ class BaseChunker(JSONSerializable):
         self.data_type = data_type
 
         # TODO: This should be done during initialization. This means it has to be done in the child classes.
+
+    def get_word_count(self, documents):
+        return sum([len(document.split(" ")) for document in documents])
