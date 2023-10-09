@@ -36,7 +36,7 @@ The documentation for embedchain can be found at [docs.embedchain.ai](https://do
 
 ## 💻 Usage
 
-Embedchain empowers you to create chatbot models similar to ChatGPT, using your own evolving dataset.
+Embedchain empowers you to create ChatGPT like apps, on your own dynamic dataset.
 
 ### Data Types Supported
 
@@ -46,7 +46,9 @@ Embedchain empowers you to create chatbot models similar to ChatGPT, using your 
 * Sitemap
 * Doc file
 * Code documentation website loader
-* Notion
+* Notion and many more.
+
+You can find the full list of data types on [our documentation](https://docs.embedchain.ai/data-sources/csv).
 
 ### Queries
 
@@ -87,7 +89,7 @@ If you utilize this repository, please consider citing it with:
 
 ```
 @misc{embedchain,
-  author = {Taranjeet Singh},
+  author = {Taranjeet Singh, Deshraj Yadav},
   title = {Embedchain: Framework to easily create LLM powered bots over any dataset},
   year = {2023},
   publisher = {GitHub},

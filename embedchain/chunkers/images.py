@@ -20,7 +20,7 @@ class ImagesChunker(BaseChunker):
         )
         super().__init__(image_splitter)
 
-    def create_chunks(self, loader, src):
+    def create_chunks(self, loader, src, app_id=None):
         """
         Loads the image(s), and creates their corresponding embedding. This creates one chunk for each image
 
@@ -35,6 +35,7 @@ class ImagesChunker(BaseChunker):
         data_result = loader.load_data(src)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]
+        doc_id = f"{app_id}--{doc_id}" if app_id is not None else doc_id
         metadatas = []
         for data in data_records:
             meta_data = data["meta_data"]
