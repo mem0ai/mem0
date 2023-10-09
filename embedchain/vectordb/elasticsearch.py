@@ -110,12 +110,16 @@ class ElasticsearchDB(BaseVectorDB):
     ) -> Any:
         """
         add data in vector database
+        :param embeddings: list of embeddings to add
+        :type embeddings: List[List[str]]
         :param documents: list of texts to add
         :type documents: List[str]
         :param metadatas: list of metadata associated with docs
         :type metadatas: List[object]
         :param ids: ids of docs
         :type ids: List[str]
+        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
+        :type skip_embedding: bool
         """
 
         docs = []
@@ -143,6 +147,8 @@ class ElasticsearchDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
+        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
+        :type skip_embedding: bool
         :return: Database contents that are the result of the query
         :rtype: List[str]
         """
