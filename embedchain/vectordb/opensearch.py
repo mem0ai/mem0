@@ -110,8 +110,8 @@ class OpenSearchDB(BaseVectorDB):
         return result
 
     def add(
-        self, embeddings: List[List[str]], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool
-    ):
+        self, embeddings: List[List[str]], documents: List[str], metadatas: List[object], ids: List[str],
+            skip_embedding: bool):
         """add data in vector database
 
         :param embeddings: list of embeddings to add
