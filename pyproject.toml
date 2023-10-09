@@ -105,6 +105,7 @@ twilio = { version = "^8.5.0", optional = true }
 fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
+cohere = { version = "^4.27", optional= true }
 docx2txt = "^0.8"
 unstructured = {extras = ["local-inference"], version = "^0.10.18"}
 pillow = { version = "10.0.1", optional = true }
@@ -134,6 +135,7 @@ discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
 images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
+cohere = ["cohere"]
 
 [tool.poetry.group.docs.dependencies]
 
