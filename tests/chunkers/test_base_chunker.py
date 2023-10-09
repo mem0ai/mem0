@@ -1,68 +1,84 @@
 import hashlib
-import unittest
+import pytest
 from unittest.mock import MagicMock
-
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.models.data_type import DataType
 
 
-class TestBaseChunker(unittest.TestCase):
-    test_doc_id = "DocID"
+@pytest.fixture
+def text_splitter_mock():
+    return MagicMock()
 
-    def setUp(self):
-        self.text_splitter = MagicMock()
-        self.chunker = BaseChunker(self.text_splitter)
-        self.loader = MagicMock()
-        self.app_id = "test_app"
-        self.data_type = DataType.TEXT
-        self.chunker.set_data_type(self.data_type)
 
-    def test_create_chunks(self):
-        self.text_splitter.split_text.return_value = ["Chunk 1", "Chunk 2"]
-        self.loader.load_data.return_value = {
-            "data": [{"content": "Content 1", "meta_data": {"url": "URL 1"}}],
-            "doc_id": TestBaseChunker.test_doc_id,
-        }
+@pytest.fixture
+def loader_mock():
+    return MagicMock()
 
-        result = self.chunker.create_chunks(self.loader, "test_src", self.app_id)
-        expected_ids = [
-            hashlib.sha256(("Chunk 1" + "URL 1").encode()).hexdigest(),
-            hashlib.sha256(("Chunk 2" + "URL 1").encode()).hexdigest(),
-        ]
 
-        self.assertEqual(result["documents"], ["Chunk 1", "Chunk 2"])
-        self.assertEqual(result["ids"], expected_ids)
-        self.assertEqual(
-            result["metadatas"],
-            [
-                {
-                    "url": "URL 1",
-                    "data_type": self.data_type.value,
-                    "doc_id": f"{self.app_id}--{TestBaseChunker.test_doc_id}",
-                },
-                {
-                    "url": "URL 1",
-                    "data_type": self.data_type.value,
-                    "doc_id": f"{self.app_id}--{TestBaseChunker.test_doc_id}",
-                },
-            ],
-        )
-        self.assertEqual(result["doc_id"], f"{self.app_id}--{TestBaseChunker.test_doc_id}")
+@pytest.fixture
+def app_id():
+    return "test_app"
 
-    def test_get_chunks(self):
-        self.text_splitter.split_text.return_value = ["Chunk 1", "Chunk 2"]
 
-        content = "This is a test content."
-        result = self.chunker.get_chunks(content)
+@pytest.fixture
+def data_type():
+    return DataType.TEXT
 
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result, ["Chunk 1", "Chunk 2"])
 
-    def test_set_data_type(self):
-        self.chunker.set_data_type(DataType.MDX)
-        self.assertEqual(self.chunker.data_type, DataType.MDX)
+@pytest.fixture
+def chunker(text_splitter_mock, data_type):
+    text_splitter = text_splitter_mock
+    chunker = BaseChunker(text_splitter)
+    chunker.set_data_type(data_type)
+    return chunker
 
-    def test_get_word_count(self):
-        documents = ["This is a test.", "Another test."]
-        result = self.chunker.get_word_count(documents)
-        self.assertEqual(result, 6)
+
+def test_create_chunks(chunker, text_splitter_mock, loader_mock, app_id, data_type):
+    text_splitter_mock.split_text.return_value = ["Chunk 1", "Chunk 2"]
+    loader_mock.load_data.return_value = {
+        "data": [{"content": "Content 1", "meta_data": {"url": "URL 1"}}],
+        "doc_id": "DocID",
+    }
+
+    result = chunker.create_chunks(loader_mock, "test_src", app_id)
+    expected_ids = [
+        hashlib.sha256(("Chunk 1" + "URL 1").encode()).hexdigest(),
+        hashlib.sha256(("Chunk 2" + "URL 1").encode()).hexdigest(),
+    ]
+
+    assert result["documents"] == ["Chunk 1", "Chunk 2"]
+    assert result["ids"] == expected_ids
+    assert result["metadatas"] == [
+        {
+            "url": "URL 1",
+            "data_type": data_type.value,
+            "doc_id": f"{app_id}--DocID",
+        },
+        {
+            "url": "URL 1",
+            "data_type": data_type.value,
+            "doc_id": f"{app_id}--DocID",
+        },
+    ]
+    assert result["doc_id"] == f"{app_id}--DocID"
+
+
+def test_get_chunks(chunker, text_splitter_mock):
+    text_splitter_mock.split_text.return_value = ["Chunk 1", "Chunk 2"]
+
+    content = "This is a test content."
+    result = chunker.get_chunks(content)
+
+    assert len(result) == 2
+    assert result == ["Chunk 1", "Chunk 2"]
+
+
+def test_set_data_type(chunker):
+    chunker.set_data_type(DataType.MDX)
+    assert chunker.data_type == DataType.MDX
+
+
+def test_get_word_count(chunker):
+    documents = ["This is a test.", "Another test."]
+    result = chunker.get_word_count(documents)
+    assert result == 6

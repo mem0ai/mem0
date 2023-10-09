@@ -1,27 +1,28 @@
 import hashlib
-import unittest
-from unittest.mock import mock_open, patch
-
+import pytest
+from unittest.mock import patch, mock_open
 from embedchain.loaders.mdx import MdxLoader
 
 
-class TestMdxLoader(unittest.TestCase):
-    def test_load_data(self):
-        # Mock open function to simulate file reading
-        mock_content = "Sample MDX Content"
-        with patch("builtins.open", mock_open(read_data=mock_content)):
-            loader = MdxLoader()
+@pytest.fixture
+def mdx_loader():
+    return MdxLoader()
 
-            url = "mock_file.mdx"
-            result = loader.load_data(url)
 
-            self.assertIn("doc_id", result)
-            self.assertIn("data", result)
+def test_load_data(mdx_loader):
+    mock_content = "Sample MDX Content"
 
-            self.assertEqual(result["data"][0]["content"], mock_content)
+    # Mock open function to simulate file reading
+    with patch("builtins.open", mock_open(read_data=mock_content)):
+        url = "mock_file.mdx"
+        result = mdx_loader.load_data(url)
 
-            self.assertEqual(result["data"][0]["meta_data"]["url"], url)
+        assert "doc_id" in result
+        assert "data" in result
 
-            expected_doc_id = hashlib.sha256((mock_content + url).encode()).hexdigest()
+        assert result["data"][0]["content"] == mock_content
 
-            self.assertEqual(result["doc_id"], expected_doc_id)
+        assert result["data"][0]["meta_data"]["url"] == url
+
+        expected_doc_id = hashlib.sha256((mock_content + url).encode()).hexdigest()
+        assert result["doc_id"] == expected_doc_id
