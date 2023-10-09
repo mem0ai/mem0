@@ -126,12 +126,16 @@ class ChromaDB(BaseVectorDB):
         """
         Add vectors to chroma database
 
+        :param embeddings: list of embeddings to add
+        :type embeddings: List[List[str]]
         :param documents: Documents
         :type documents: List[str]
         :param metadatas: Metadatas
         :type metadatas: List[object]
         :param ids: ids
         :type ids: List[str]
+        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
+        :type skip_embedding: bool
         """
         if skip_embedding:
             self.collection.add(embeddings=embeddings, documents=documents, metadatas=metadatas, ids=ids)
@@ -158,7 +162,7 @@ class ChromaDB(BaseVectorDB):
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
-        Query contents from vector data base based on vector similarity
+        Query contents from vector database based on vector similarity
 
         :param input_query: list of query string
         :type input_query: List[str]
@@ -166,6 +170,8 @@ class ChromaDB(BaseVectorDB):
         :type n_results: int
         :param where: to filter data
         :type where: Dict[str, Any]
+        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
+        :type skip_embedding: bool
         :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query.
         :rtype: List[str]

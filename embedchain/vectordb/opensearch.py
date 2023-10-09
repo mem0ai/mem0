@@ -110,12 +110,12 @@ class OpenSearchDB(BaseVectorDB):
         return result
 
     def add(
-        self, embeddings: List[str], documents: List[str], metadatas: List[object], ids: List[str], skip_embedding: bool
-    ):
+        self, embeddings: List[List[str]], documents: List[str], metadatas: List[object], ids: List[str],
+            skip_embedding: bool):
         """add data in vector database
 
         :param embeddings: list of embeddings to add
-        :type embeddings: List[str]
+        :type embeddings: List[List[str]]
         :param documents: list of texts to add
         :type documents: List[str]
         :param metadatas: list of metadata associated with docs
@@ -127,8 +127,8 @@ class OpenSearchDB(BaseVectorDB):
         """
 
         docs = []
-        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
-        embeddings = self.embedder.embedding_fn(documents)
+        if not skip_embedding:
+            embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
             docs.append(
                 {
