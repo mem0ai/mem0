@@ -552,21 +552,6 @@ class EmbedChain(JSONSerializable):
         logging.warning("DEPRECATION WARNING: Please use `app.db.count()` instead of `app.count()`.")
         return self.db.count()
 
-    def reset(self):
-        """
-        Resets the database. Deletes all embeddings irreversibly.
-        `App` does not have to be reinitialized after using this method.
-
-        DEPRECATED IN FAVOR OF `db.reset()`
-        """
-        # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
-        thread_telemetry.start()
-
-        logging.warning("DEPRECATION WARNING: Please use `app.db.reset()` instead of `App.reset()`.")
-
-        return self.db.reset()
-
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
         """
