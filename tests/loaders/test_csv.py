@@ -2,6 +2,7 @@ import csv
 import os
 import pathlib
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -84,3 +85,29 @@ def test_load_data_with_file_uri(delimiter):
 
         # Cleaning up the temporary file
         os.unlink(tmpfile.name)
+
+
+@pytest.mark.parametrize("content", ["ftp://example.com", "sftp://example.com", "mailto://example.com"])
+def test_get_file_content(content):
+    with pytest.raises(ValueError):
+        loader = CsvLoader()
+        loader._get_file_content(content)
+
+
+@pytest.mark.parametrize("content", ["http://example.com", "https://example.com"])
+def test_get_file_content_http(content):
+    """
+    Test _get_file_content method of CsvLoader for http and https URLs
+    """
+
+    with patch("requests.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.text = "Name,Age,Occupation\nAlice,28,Engineer\nBob,35,Doctor\nCharlie,22,Student"
+        mock_get.return_value = mock_response
+
+        loader = CsvLoader()
+        file_content = loader._get_file_content(content)
+
+        mock_get.assert_called_once_with(content)
+        mock_response.raise_for_status.assert_called_once()
+        assert file_content.read() == mock_response.text
