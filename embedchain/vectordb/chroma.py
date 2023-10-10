@@ -37,7 +37,7 @@ class ChromaDB(BaseVectorDB):
             self.config = ChromaDbConfig()
 
         self.settings = Settings()
-        self.settings.allow_reset = self.config.allow_reset
+        self.settings.allow_reset = self.config.allow_reset if hasattr(self.config, "allow_reset") else False
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():
                 if hasattr(self.settings, key):
@@ -71,6 +71,17 @@ class ChromaDB(BaseVectorDB):
     def _get_or_create_db(self):
         """Called during initialization"""
         return self.client
+
+    def _generate_where_clause(self, where: Dict[str, any]) -> str:
+        # If only one filter is supplied, return it as is
+        # (no need to wrap in $and based on chroma docs)
+        if len(where.keys()) == 1:
+            return where
+        where_filters = []
+        for k, v in where.items():
+            if isinstance(v, str):
+                where_filters.append({k: v})
+        return {"$and": where_filters}
 
     def _get_or_create_collection(self, name: str) -> Collection:
         """
@@ -107,13 +118,14 @@ class ChromaDB(BaseVectorDB):
         if ids:
             args["ids"] = ids
         if where:
-            args["where"] = where
+            args["where"] = self._generate_where_clause(where)
         if limit:
             args["limit"] = limit
         return self.collection.get(**args)
 
     def get_advanced(self, where):
-        return self.collection.get(where=where, limit=1)
+        where_clause = self._generate_where_clause(where)
+        return self.collection.get(where=where_clause, limit=1)
 
     def add(
         self,

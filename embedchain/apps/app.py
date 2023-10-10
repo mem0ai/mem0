@@ -1,8 +1,8 @@
-import logging
 from typing import Optional
 
-from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
-                               ChromaDbConfig)
+import yaml
+
+from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
@@ -35,7 +35,6 @@ class App(EmbedChain):
         db_config: Optional[BaseVectorDbConfig] = None,
         embedder: BaseEmbedder = None,
         embedder_config: Optional[BaseEmbedderConfig] = None,
-        chromadb_config: Optional[ChromaDbConfig] = None,
         system_prompt: Optional[str] = None,
     ):
         """
@@ -60,20 +59,10 @@ class App(EmbedChain):
         :param embedder_config: Allows you to configure the Embedder.
         example: `from embedchain.config import BaseEmbedderConfig`, defaults to None
         :type embedder_config: Optional[BaseEmbedderConfig], optional
-        :param chromadb_config: Deprecated alias of `db_config`, defaults to None
-        :type chromadb_config: Optional[ChromaDbConfig], optional
         :param system_prompt: System prompt that will be provided to the LLM as such, defaults to None
         :type system_prompt: Optional[str], optional
         :raises TypeError: LLM, database or embedder or their config is not a valid class instance.
         """
-        # Overwrite deprecated arguments
-        if chromadb_config:
-            logging.warning(
-                "DEPRECATION WARNING: Please use `db_config` argument instead of `chromadb_config`."
-                "`chromadb_config` will be removed in a future release."
-            )
-            db_config = chromadb_config
-
         # Type check configs
         if config and not isinstance(config, AppConfig):
             raise TypeError(
@@ -123,3 +112,23 @@ class App(EmbedChain):
                 "Please make sure the type is right and that you are passing an instance."
             )
         super().__init__(config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
+
+    @classmethod
+    def from_config(cls, yaml_path: str):
+        """
+        Instantiate an App object from a YAML configuration file.
+
+        :param yaml_file_path: Path to the YAML configuration file.
+        :type yaml_file_path: str
+        :return: An instance of the App class.
+        :rtype: App
+        """
+        with open(yaml_path, "r") as file:
+            config_data = yaml.safe_load(file)
+
+        app_config = AppConfig(**config_data.get("config", {}))
+        llm_config = BaseLlmConfig(**config_data.get("llm", {}))
+        db_config = BaseVectorDbConfig(**config_data.get("db", {}))
+        embedder_config = BaseEmbedderConfig(**config_data.get("embedder", {}))
+
+        return cls(config=app_config, llm_config=llm_config, db_config=db_config, embedder_config=embedder_config)

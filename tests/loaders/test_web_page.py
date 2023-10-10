@@ -1,6 +1,8 @@
 import hashlib
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from embedchain.loaders.web_page import WebPageLoader
 
 
