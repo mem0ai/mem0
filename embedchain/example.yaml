@@ -1,0 +1,31 @@
+config:
+  id: 'my-app'
+  collection_name: 'my-collection-name'
+  collect_metrics: true
+  # log_level: 'WARN'
+
+llm:
+  number_documents: 1
+  template: null
+  model: null
+  temperature: 0
+  max_tokens: 1000
+  top_p: 1
+  stream: false
+  deployment_name: null
+  system_prompt: null
+  where: null
+  query_type: null
+
+db:
+  # provider: chroma
+  # collection_name: 'my-collection-name'
+  dir: db
+  # host: null
+  # port: null
+  # allow_reset: false
+
+# embedder:
+#   # provider: openai
+#   model: 'gpt-2'
+#   deployment_name: null
