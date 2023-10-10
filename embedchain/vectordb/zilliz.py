@@ -30,18 +30,16 @@ class ZillizVectorDB(BaseVectorDB):
         else:
             self.config = config
 
-        try:
-            self.client = MilvusClient(
-                uri=self.config.uri,
-                token=self.config.token,
-            )
 
-            self.connection = connections.connect(
+        self.client = MilvusClient(
                 uri=self.config.uri,
                 token=self.config.token,
-            )
-        except Exception:
-            raise ValueError("Credentials Provided are not Valid")
+        )
+
+        self.connection = connections.connect(
+                uri=self.config.uri,
+                token=self.config.token,
+        )
 
         super().__init__(config=self.config)
 
@@ -69,8 +67,8 @@ class ZillizVectorDB(BaseVectorDB):
         else:
             fields = [
                 FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
-                FieldSchema(name="doc", dtype=DataType.VARCHAR, max_length=2048),
-                FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=self.embedder.vector_dimension),
+                FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=2048),
+                FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.embedder.vector_dimension),
             ]
 
             schema = CollectionSchema(fields, enable_dynamic_field=True)
@@ -80,7 +78,7 @@ class ZillizVectorDB(BaseVectorDB):
                 "index_type": "AUTOINDEX",
                 "metric_type": self.config.metric_type,
             }
-            self.collection.create_index("vector", index)
+            self.collection.create_index("embeddings", index)
         return self.collection
 
     def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
@@ -121,7 +119,7 @@ class ZillizVectorDB(BaseVectorDB):
             embeddings = self.embedder.embedding_fn(documents)
 
         for id, doc, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-            data = {**metadata, "id": id, "doc": doc, "vector": embedding}
+            data = {**metadata, "id": id, "text": doc, "embeddings": embedding}
             self.client.insert(collection_name=self.config.collection_name, data=data)
 
         self.collection.load()
@@ -152,7 +150,7 @@ class ZillizVectorDB(BaseVectorDB):
                 collection_name=self.config.collection_name,
                 data=query_vector,
                 limit=n_results,
-                output_fields=["doc"],
+                output_fields=["text"],
             )
 
         else:
@@ -163,12 +161,12 @@ class ZillizVectorDB(BaseVectorDB):
                 collection_name=self.config.collection_name,
                 data=[query_vector],
                 limit=n_results,
-                output_fields=["doc"],
+                output_fields=["text"],
             )
 
         doc_list = []
         for query in query_result:
-            doc_list.append(query[0]["entity"]["doc"])
+            doc_list.append(query[0]["entity"]["text"])
 
         return doc_list
 

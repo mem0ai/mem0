@@ -43,9 +43,7 @@ class ZillizDBConfig(BaseVectorDbConfig):
                 "if having a username and password, pass it in the form 'username:password' to `ZILLIZ_CLOUD_TOKEN`"
             )
 
-        self.metric_type = metric_type
-        if not self.metric_type:
-            self.metric_type = "L2"
+        self.metric_type = metric_type if metric_type else "L2"
 
         self.vector_dim = vector_dim
         super().__init__(collection_name=collection_name, dir=dir)
