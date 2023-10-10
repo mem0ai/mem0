@@ -2,7 +2,6 @@ config:
   id: 'my-app'
   collection_name: 'my-collection-name'
   collect_metrics: true
-  # log_level: 'WARN'
 
 llm:
   number_documents: 1
@@ -18,12 +17,8 @@ llm:
   query_type: null
 
 db:
-  # provider: chroma
-  # collection_name: 'my-collection-name'
   dir: db
-  # host: null
-  # port: null
-  # allow_reset: false
+  chroma_settings: {}
 
 # embedder:
 #   # provider: openai
