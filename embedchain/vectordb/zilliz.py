@@ -141,6 +141,9 @@ class ZillizVectorDB(BaseVectorDB):
         :rtype: List[str]
         """
 
+        if self.collection.is_empty:
+            return []
+
         if not isinstance(where, str):
             where = None
 
