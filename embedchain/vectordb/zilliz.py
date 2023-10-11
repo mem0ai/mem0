@@ -5,7 +5,6 @@ from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
-    import pymilvus
     from pymilvus import MilvusClient
     from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 except ImportError:
