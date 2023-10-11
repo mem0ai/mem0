@@ -3,11 +3,9 @@
 import os
 
 import pytest
-import unittest
 from unittest import mock
 from unittest.mock import patch, Mock
 
-import embedchain
 from embedchain.config import ZillizDBConfig
 from embedchain.vectordb.zilliz import ZillizVectorDB
 
@@ -39,7 +37,7 @@ class TestZillizVectorDBConfig:
 
         with pytest.raises(AttributeError):
             ZillizDBConfig()
- 
+
     @mock.patch.dict(os.environ, {"ZILLIZ_CLOUD_URI": "mocked_uri", "ZILLIZ_CLOUD_TOKEN": "mocked_token"})
     def test_init_without_token(self):
         """
@@ -59,14 +57,15 @@ class TestZillizVectorDB:
     def mock_config(self, mocker):
         return mocker.Mock(spec=ZillizDBConfig())
 
-    @patch('embedchain.vectordb.zilliz.MilvusClient', autospec=True)
-    @patch('embedchain.vectordb.zilliz.connections.connect', autospec=True)
+    @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
+    @patch("embedchain.vectordb.zilliz.connections.connect", autospec=True)
     def test_zilliz_vector_db_setup(self, mock_connect, mock_client, mock_config):
         """
         Test if the `ZillizVectorDB` instance is initialized with the correct uri and token values.
         """
         # Create an instance of ZillizVectorDB with the mock config
-        zilliz_db = ZillizVectorDB(config=mock_config)
+        # zilliz_db = ZillizVectorDB(config=mock_config)
+        ZillizVectorDB(config=mock_config)
 
         # Assert that the MilvusClient and connections.connect were called
         mock_client.assert_called_once_with(uri=mock_config.uri, token=mock_config.token)
@@ -82,7 +81,7 @@ class TestZillizDBCollection:
     @pytest.fixture
     def mock_embedder(self, mocker):
         return mocker.Mock()
-        
+
     @mock.patch.dict(os.environ, {"ZILLIZ_CLOUD_URI": "mocked_uri", "ZILLIZ_CLOUD_TOKEN": "mocked_token"})
     def test_init_with_default_collection(self):
         """
@@ -101,13 +100,12 @@ class TestZillizDBCollection:
         # Create a ZillizDBConfig instance with mocked values
 
         expected_collection = "test_collection"
-        db_config = ZillizDBConfig(collection_name='test_collection')
+        db_config = ZillizDBConfig(collection_name="test_collection")
 
         assert db_config.collection_name == expected_collection
 
-
-    @patch('embedchain.vectordb.zilliz.MilvusClient', autospec=True)
-    @patch('embedchain.vectordb.zilliz.connections', autospec=True)
+    @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
+    @patch("embedchain.vectordb.zilliz.connections", autospec=True)
     def test_query_with_skip_embedding(self, mock_connect, mock_client, mock_config):
         """
         Test if the `ZillizVectorDB` instance is takes in the query with skip_embeddings.
@@ -115,10 +113,13 @@ class TestZillizDBCollection:
         # Create an instance of ZillizVectorDB with mock config
         zilliz_db = ZillizVectorDB(config=mock_config)
 
+        # Add a 'collection' attribute to the ZillizVectorDB instance for testing
+        zilliz_db.collection = Mock(is_empty=False)  # Mock the 'collection' object
+
         assert zilliz_db.client == mock_client()
 
         # Mock the MilvusClient search method
-        with patch.object(zilliz_db.client, 'search') as mock_search:
+        with patch.object(zilliz_db.client, "search") as mock_search:
             # Mock the search result
             mock_search.return_value = [[{"entity": {"text": "result_doc"}}]]
 
@@ -136,20 +137,25 @@ class TestZillizDBCollection:
             # Assert that the query result matches the expected result
             assert query_result == ["result_doc"]
 
-    @patch('embedchain.vectordb.zilliz.MilvusClient', autospec=True)
-    @patch('embedchain.vectordb.zilliz.connections', autospec=True)
+    @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
+    @patch("embedchain.vectordb.zilliz.connections", autospec=True)
     def test_query_without_skip_embedding(self, mock_connect, mock_client, mock_embedder, mock_config):
         """
         Test if the `ZillizVectorDB` instance is takes in the query without skip_embeddings.
         """
         # Create an instance of ZillizVectorDB with mock config
         zilliz_db = ZillizVectorDB(config=mock_config)
-        zilliz_db.embedder = mock_embedder
+
+        # Add a 'embedder' attribute to the ZillizVectorDB instance for testing
+        zilliz_db.embedder = mock_embedder # Mock the 'collection' object
+
+        # Add a 'collection' attribute to the ZillizVectorDB instance for testing
+        zilliz_db.collection = Mock(is_empty=False)  # Mock the 'collection' object
 
         assert zilliz_db.client == mock_client()
 
         # Mock the MilvusClient search method
-        with patch.object(zilliz_db.client, 'search') as mock_search:
+        with patch.object(zilliz_db.client, "search") as mock_search:
             # Mock the embedding function
             mock_embedder.embedding_fn.return_value = ["query_vector"]
 

@@ -29,15 +29,14 @@ class ZillizVectorDB(BaseVectorDB):
         else:
             self.config = config
 
-
         self.client = MilvusClient(
-                uri=self.config.uri,
-                token=self.config.token,
+            uri=self.config.uri,
+            token=self.config.token,
         )
 
         self.connection = connections.connect(
-                uri=self.config.uri,
-                token=self.config.token,
+            uri=self.config.uri,
+            token=self.config.token,
         )
 
         super().__init__(config=self.config)
