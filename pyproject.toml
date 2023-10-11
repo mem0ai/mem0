@@ -113,6 +113,7 @@ torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
 huggingface_hub = { version = "^0.17.3", optional = true }
+pymilvus = "2.3.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -139,6 +140,7 @@ whatsapp = ["twilio", "flask"]
 images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
+milvus = ["pymilvus"]
 
 [tool.poetry.group.docs.dependencies]
 

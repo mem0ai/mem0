@@ -5,3 +5,4 @@ class VectorDatabases(Enum):
     CHROMADB = "CHROMADB"
     ELASTICSEARCH = "ELASTICSEARCH"
     OPENSEARCH = "OPENSEARCH"
+    ZILLIZ = "ZILLIZ"
