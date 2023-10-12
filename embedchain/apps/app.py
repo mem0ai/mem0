@@ -7,6 +7,7 @@ from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
+from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
@@ -118,17 +119,27 @@ class App(EmbedChain):
         """
         Instantiate an App object from a YAML configuration file.
 
-        :param yaml_file_path: Path to the YAML configuration file.
-        :type yaml_file_path: str
+        :param yaml_path: Path to the YAML configuration file.
+        :type yaml_path: str
         :return: An instance of the App class.
         :rtype: App
         """
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
-        app_config = AppConfig(**config_data.get("config", {}))
-        llm_config = BaseLlmConfig(**config_data.get("llm", {}))
-        db_config = BaseVectorDbConfig(**config_data.get("db", {}))
-        embedder_config = BaseEmbedderConfig(**config_data.get("embedder", {}))
+        app_config_data = config_data.get("app", {})
+        llm_config_data = config_data.get("llm", {})
+        db_config_data = config_data.get("vectordb", {})
+        embedder_config_data = config_data.get("embedder", {})
 
-        return cls(config=app_config, llm_config=llm_config, db_config=db_config, embedder_config=embedder_config)
+        app_config = AppConfig(**app_config_data.get("config", {}))
+
+        llm_provider = llm_config_data.get("provider", "openai")
+        llm = LlmFactory.create(llm_provider, llm_config_data.get("config", {}))
+
+        db_provider = db_config_data.get("provider", "chroma")
+        db = VectorDBFactory.create(db_provider, db_config_data.get("config", {}))
+
+        embedder_provider = embedder_config_data.get("provider", "openai")
+        embedder = EmbedderFactory.create(embedder_provider, embedder_config_data.get("config", {}))
+        return cls(config=app_config, llm=llm, db=db, embedder=embedder)
