@@ -20,7 +20,7 @@ install_opensearch:
 
 install_milvus:
 	poetry install --extras milvus
-	
+
 shell:
 	poetry shell
 
