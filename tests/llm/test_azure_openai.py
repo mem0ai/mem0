@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from embedchain.llm.azure_openai import AzureOpenAILlm
-from embedchain.config import BaseLlmConfig
+
+import pytest
 from langchain.schema import HumanMessage, SystemMessage
+
+from embedchain.config import BaseLlmConfig
+from embedchain.llm.azure_openai import AzureOpenAILlm
 
 
 @pytest.fixture
