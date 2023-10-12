@@ -36,6 +36,26 @@ class TestApp(unittest.TestCase):
         self.assertEqual(self.app.user_asks, [["https://www.google.com/sitemap.xml", "sitemap", {"meta": "meta-data"}]])
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
+    def test_add_qna_pair(self):
+        """
+        In addition to the test_add function, this test checks that qna_pairs can be added with the correct data type.
+        """
+        self.app.add(
+            ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."),
+            metadata={"meta": "meta-data"},
+        )
+        self.assertEqual(
+            self.app.user_asks,
+            [
+                [
+                    ("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."),
+                    "qna_pair",
+                    {"meta": "meta-data"},
+                ]
+            ],
+        )
+
+    @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_add_forced_type(self):
         """
         Test that you can also force a data_type with `add`.
