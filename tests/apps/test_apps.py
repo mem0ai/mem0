@@ -175,7 +175,12 @@ class TestAppFromConfig:
         assert app.embedder.config.model == embedder_config["model"]
         assert app.embedder.config.deployment_name == embedder_config["deployment_name"]
 
-    def test_from_opensearch_config(self):
+    def test_from_opensearch_config(self, mocker):
+        mock_opensearch = mocker.Mock()
+        mock_opensearch.indices.exists.return_value = True
+        mock_opensearch.info.return_value = {"version": {"distribution": "mock_distribution", "number": "mock_number"}}
+        mocker.patch("opensearchpy.OpenSearch", autospec=True, return_value=mock_opensearch)
+
         yaml_path = "embedchain/yaml/opensearch.yaml"
         config_data = self.load_config_data(yaml_path)
 
