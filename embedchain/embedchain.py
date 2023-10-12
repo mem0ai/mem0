@@ -351,6 +351,12 @@ class EmbedChain(JSONSerializable):
 
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
+        # If necessary override the "url" value, otherwise `where` will fail validation checks,
+        # due to the wrong type.
+        if chunker.data_type.value in [item.value for item in SpecialDataType]:
+            # Handle "url" differently, because "src" is a tuple in the case of a QNA_PAIR
+            if chunker.data_type == DataType.QNA_PAIR:
+                where = {"url": src[0]}
         if self.config.id is not None:
             where["app_id"] = self.config.id
 
