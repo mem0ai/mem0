@@ -110,8 +110,13 @@ class OpenSearchDB(BaseVectorDB):
         return result
 
     def add(
-        self, embeddings: List[List[str]], documents: List[str], metadatas: List[object], ids: List[str],
-            skip_embedding: bool):
+        self,
+        embeddings: List[List[str]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
+    ):
         """add data in vector database
 
         :param embeddings: list of embeddings to add
@@ -162,7 +167,8 @@ class OpenSearchDB(BaseVectorDB):
             embedding_function=embeddings,
             opensearch_url=f"{self.config.opensearch_url}",
             http_auth=self.config.http_auth,
-            use_ssl=True,
+            use_ssl=hasattr(self.config, "use_ssl") and self.config.use_ssl,
+            verify_certs=hasattr(self.config, "verify_certs") and self.config.verify_certs,
         )
 
         pre_filter = {"match_all": {}}  # default

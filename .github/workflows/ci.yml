@@ -23,9 +23,9 @@ jobs:
       - name: Install dependencies
         run: poetry install --all-extras
       - name: Lint with ruff
-        run: make ci_lint
+        run: make lint
       - name: Test with pytest
-        run: make ci_test
+        run: make test
       - name: Generate coverage report
         run: make coverage
       - name: Upload coverage reports to Codecov

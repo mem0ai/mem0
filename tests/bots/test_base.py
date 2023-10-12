@@ -1,8 +1,10 @@
 import os
-import pytest
-from embedchain.config import AddConfig, BaseLlmConfig
-from embedchain.bots.base import BaseBot
 from unittest.mock import patch
+
+import pytest
+
+from embedchain.bots.base import BaseBot
+from embedchain.config import AddConfig, BaseLlmConfig
 
 
 @pytest.fixture

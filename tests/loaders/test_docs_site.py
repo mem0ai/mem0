@@ -1,7 +1,9 @@
 import hashlib
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from requests import Response
+
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 
 

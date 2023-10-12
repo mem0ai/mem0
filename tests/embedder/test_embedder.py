@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import MagicMock
-from embedchain.embedder.base import BaseEmbedder
-from embedchain.config.embedder.base import BaseEmbedderConfig
+
+import pytest
 from chromadb.api.types import Documents, Embeddings
+
+from embedchain.config.embedder.base import BaseEmbedderConfig
+from embedchain.embedder.base import BaseEmbedder
 
 
 @pytest.fixture

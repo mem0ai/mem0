@@ -1,6 +1,8 @@
 import hashlib
-import pytest
 from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 
 

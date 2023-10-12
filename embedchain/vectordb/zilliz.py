@@ -5,8 +5,8 @@ from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
-    from pymilvus import MilvusClient
-    from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
+    from pymilvus import (Collection, CollectionSchema, DataType, FieldSchema,
+                          MilvusClient, connections, utility)
 except ImportError:
     raise ImportError(
         "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[milvus]`"

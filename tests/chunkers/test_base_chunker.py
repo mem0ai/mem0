@@ -1,6 +1,8 @@
 import hashlib
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.models.data_type import DataType
 

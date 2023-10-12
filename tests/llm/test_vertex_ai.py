@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from embedchain.llm.vertex_ai import VertexAiLlm
-from embedchain.config import BaseLlmConfig
+
+import pytest
 from langchain.schema import HumanMessage, SystemMessage
+
+from embedchain.config import BaseLlmConfig
+from embedchain.llm.vertex_ai import VertexAiLlm
 
 
 @pytest.fixture

@@ -1,13 +1,14 @@
 # ruff: noqa: E501
 
 import os
+from unittest import mock
+from unittest.mock import Mock, patch
 
 import pytest
-from unittest import mock
-from unittest.mock import patch, Mock
 
 from embedchain.config import ZillizDBConfig
 from embedchain.vectordb.zilliz import ZillizVectorDB
+
 
 # to run tests, provide the URI and TOKEN in .env file
 class TestZillizVectorDBConfig:
@@ -50,6 +51,7 @@ class TestZillizVectorDBConfig:
         # Test if an exception is raised when ZILLIZ_CLOUD_TOKEN is missing
         with pytest.raises(AttributeError):
             ZillizDBConfig()
+
 
 class TestZillizVectorDB:
     @pytest.fixture
@@ -147,7 +149,7 @@ class TestZillizDBCollection:
         zilliz_db = ZillizVectorDB(config=mock_config)
 
         # Add a 'embedder' attribute to the ZillizVectorDB instance for testing
-        zilliz_db.embedder = mock_embedder # Mock the 'collection' object
+        zilliz_db.embedder = mock_embedder  # Mock the 'collection' object
 
         # Add a 'collection' attribute to the ZillizVectorDB instance for testing
         zilliz_db.collection = Mock(is_empty=False)  # Mock the 'collection' object
