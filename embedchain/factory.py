@@ -13,7 +13,7 @@ class LlmFactory:
         "azure_openai": "embedchain.llm.azure_openai.AzureOpenAILlm",
         "cohere": "embedchain.llm.cohere.CohereLlm",
         "gpt4all": "embedchain.llm.gpt4all.GPT4ALLLlm",
-        "hugging_face_llm": "embedchain.llm.hugging_face_llm.HuggingFaceLlm",
+        "huggingface": "embedchain.llm.huggingface.HuggingFaceLlm",
         "jina": "embedchain.llm.jina.JinaLlm",
         "llama2": "embedchain.llm.llama2.Llama2Llm",
         "openai": "embedchain.llm.openai.OpenAILlm",
@@ -43,7 +43,7 @@ class EmbedderFactory:
     provider_to_class = {
         "gpt4all": "embedchain.embedder.gpt4all.GPT4AllEmbedder",
         "huggingface": "embedchain.embedder.huggingface.HuggingFaceEmbedder",
-        "vertexai": "embedchain.embedder.vertexai.VertexAiEmbedder",
+        "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
     }
     provider_to_config_class = {
