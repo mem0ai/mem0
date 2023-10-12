@@ -1,6 +1,8 @@
 import hashlib
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from embedchain.loaders.docx_file import DocxFileLoader
 
 

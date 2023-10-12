@@ -28,19 +28,25 @@ class TestChromaDbHosts(unittest.TestCase):
         host = "test-host"
         port = "1234"
 
-        chroma_auth_settings = {
-            "chroma_client_auth_provider": "chromadb.auth.basic.BasicAuthClientProvider",
-            "chroma_client_auth_credentials": "admin:admin",
+        chroma_config = {
+            "host": host,
+            "port": port,
+            "chroma_settings": {
+                "chroma_client_auth_provider": "chromadb.auth.basic.BasicAuthClientProvider",
+                "chroma_client_auth_credentials": "admin:admin",
+            },
         }
 
-        config = ChromaDbConfig(host=host, port=port, chroma_settings=chroma_auth_settings)
+        config = ChromaDbConfig(**chroma_config)
         db = ChromaDB(config=config)
         settings = db.client.get_settings()
         self.assertEqual(settings.chroma_server_host, host)
         self.assertEqual(settings.chroma_server_http_port, port)
-        self.assertEqual(settings.chroma_client_auth_provider, chroma_auth_settings["chroma_client_auth_provider"])
         self.assertEqual(
-            settings.chroma_client_auth_credentials, chroma_auth_settings["chroma_client_auth_credentials"]
+            settings.chroma_client_auth_provider, chroma_config["chroma_settings"]["chroma_client_auth_provider"]
+        )
+        self.assertEqual(
+            settings.chroma_client_auth_credentials, chroma_config["chroma_settings"]["chroma_client_auth_credentials"]
         )
 
 
@@ -55,9 +61,9 @@ class TestChromaDbHostsInit(unittest.TestCase):
         port = "1234"
 
         config = AppConfig(collect_metrics=False)
-        chromadb_config = ChromaDbConfig(host=host, port=port)
+        db_config = ChromaDbConfig(host=host, port=port)
 
-        _app = App(config, chromadb_config=chromadb_config)
+        _app = App(config, db_config=db_config)
 
         called_settings: Settings = mock_client.call_args[0][0]
 
@@ -95,7 +101,7 @@ class TestChromaDbHostsLoglevel(unittest.TestCase):
 class TestChromaDbDuplicateHandling:
     chroma_config = ChromaDbConfig(allow_reset=True)
     app_config = AppConfig(collection_name=False, collect_metrics=False)
-    app_with_settings = App(config=app_config, chromadb_config=chroma_config)
+    app_with_settings = App(config=app_config, db_config=chroma_config)
 
     def test_duplicates_throw_warning(self, caplog):
         """
@@ -131,7 +137,7 @@ class TestChromaDbDuplicateHandling:
 class TestChromaDbCollection(unittest.TestCase):
     chroma_config = ChromaDbConfig(allow_reset=True)
     app_config = AppConfig(collection_name=False, collect_metrics=False)
-    app_with_settings = App(config=app_config, chromadb_config=chroma_config)
+    app_with_settings = App(config=app_config, db_config=chroma_config)
 
     def test_init_with_default_collection(self):
         """
@@ -296,7 +302,7 @@ class TestChromaDbCollection(unittest.TestCase):
 
         # Create four apps.
         # app1, which we are about to reset, shares an app with one, and an id with the other, none with the last.
-        app1 = App(AppConfig(id="new_app_id_1", collect_metrics=False), chromadb_config=self.chroma_config)
+        app1 = App(AppConfig(id="new_app_id_1", collect_metrics=False), db_config=self.chroma_config)
         app1.set_collection_name("one_collection")
         app2 = App(AppConfig(id="new_app_id_2", collect_metrics=False))
         app2.set_collection_name("one_collection")
