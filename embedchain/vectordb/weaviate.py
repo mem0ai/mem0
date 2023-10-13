@@ -94,11 +94,8 @@ class WeaviateDb(BaseVectorDB):
 
         results = (
             self.client.query.get(self.index_name, ["identifier"])
-            .with_where({
-                "path": ["identifier"],
-                "operator": "ContainsAny",
-                "valueText": ids
-            }).do()
+            .with_where({"path": ["identifier"], "operator": "ContainsAny", "valueText": ids})
+            .do()
         )
 
         existing_ids = []

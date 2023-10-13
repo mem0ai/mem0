@@ -35,10 +35,6 @@ class TestWeaviateDb(unittest.TestCase):
                             "dataType": ["text"],
                         },
                         {
-                            "name": "values",
-                            "dataType": ["number[]"],
-                        },
-                        {
                             "name": "text",
                             "dataType": ["text"],
                         },
@@ -94,8 +90,9 @@ class TestWeaviateDb(unittest.TestCase):
         # Check if the document was added to the database.
         weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=100, timeout_retries=3)
         weaviate_client_batch_enter_mock.add_data_object.assert_called_once_with(
-            data_object={"identifier": ids[0], "values": embeddings[0], "text": documents[0]},
+            data_object={"identifier": ids[0], "text": documents[0]},
             class_name="Embedchain_store_1526",
+            vector=embeddings[0],
         )
 
     @patch("embedchain.vectordb.weaviate.weaviate")
@@ -117,11 +114,9 @@ class TestWeaviateDb(unittest.TestCase):
         # Query for the document.
         db.query(input_query=["This is a test document."], n_results=1, where={}, skip_embedding=True)
 
-        weaviate_client_query_mock.get.assert_called_once_with(
-            "Embedchain_store_1526", ["identifier", "values", "text"]
-        )
+        weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1526", ["text"])
         weaviate_client_query_get_mock.with_near_vector.assert_called_once_with(
-            content={"vector": ["This is a test document."]}
+            {"vector": ["This is a test document."]}
         )
 
     @patch("embedchain.vectordb.weaviate.weaviate")
