@@ -68,10 +68,6 @@ class WeaviateDb(BaseVectorDB):
                                 "dataType": ["text"],
                             },
                             {
-                                "name": "values",
-                                "dataType": ["number[]"],
-                            },
-                            {
                                 "name": "text",
                                 "dataType": ["text"],
                             },
@@ -93,29 +89,22 @@ class WeaviateDb(BaseVectorDB):
         :rtype: Set[str]
         """
 
-        keys = list(where.keys() if where is not None else [])
-        values = list(where.values() if where is not None else [])
+        if ids is None or len(ids) == 0:
+            return {"ids": []}
 
-        if where is not None and ("id" in keys or "values" in keys or "text" in keys):
-            default_filter_params = {"path": keys, "operator": "Equal", "valueTextArray": values}
-            default_filter_params.update(where)
+        results = (
+            self.client.query.get(self.index_name, ["identifier"])
+            .with_where({
+                "path": ["identifier"],
+                "operator": "ContainsAny",
+                "valueText": ids
+            }).do()
+        )
 
-            if default_filter_params.keys().__contains__("id"):
-                default_filter_params["identifier"] = default_filter_params.get("id", None)
-
-            results = (
-                self.client.query.get(self.index_name, ["identifier", "values", "text"])
-                .with_where(default_filter_params)
-                .with_limit(limit)
-                .do()
-            )
-        else:
-            results = {"data": {"Get": {}}}
-
-        ids = []
+        existing_ids = []
         for result in results["data"]["Get"].get(self.index_name, []):
-            ids.append(result["id"])
-        return {"ids": ids}
+            existing_ids.append(result["identifier"])
+        return {"ids": existing_ids}
 
     def add(
         self,
@@ -142,10 +131,12 @@ class WeaviateDb(BaseVectorDB):
         if not skip_embedding:
             embeddings = self.embedder.embedding_fn(documents)
         self.client.batch.configure(batch_size=100, timeout_retries=3)  # Configure batch
+        new_documents = []
         with self.client.batch as batch:  # Initialize a batch process
             for id, text, embedding in zip(ids, documents, embeddings):
-                doc = {"identifier": id, "values": embedding, "text": copy.copy(text)}
-                batch.add_data_object(data_object=doc, class_name=self.index_name)
+                doc = {"identifier": id, "text": text}
+                new_documents.append(copy.deepcopy(doc))
+                batch.add_data_object(data_object=copy.deepcopy(doc), class_name=self.index_name, vector=embedding)
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
@@ -169,7 +160,7 @@ class WeaviateDb(BaseVectorDB):
 
         keys = list(where.keys() if where is not None else [])
         values = list(where.values() if where is not None else [])
-        if where is not None and ("id" in keys or "values" in keys or "text" in keys):
+        if where is not None and ("id" in keys or "text" in keys):
             default_filter_params = {"path": keys, "operator": "Equal", "valueTextArray": values}
             default_filter_params.update(where)
 
@@ -177,17 +168,17 @@ class WeaviateDb(BaseVectorDB):
                 default_filter_params["identifier"] = default_filter_params.get("id", None)
 
             results = (
-                self.client.query.get(self.index_name, ["identifier", "values", "text"])
+                self.client.query.get(self.index_name, ["identifier", "text"])
                 .with_where(default_filter_params)
-                .with_near_vector(content={"vector": query_vector})
+                .with_near_vector({"vector": query_vector})
                 .with_limit(n_results)
                 .do()
             )
 
         else:
             results = (
-                self.client.query.get(self.index_name, ["identifier", "values", "text"])
-                .with_near_vector(content={"vector": query_vector})
+                self.client.query.get(self.index_name, ["text"])
+                .with_near_vector({"vector": query_vector})
                 .with_limit(n_results)
                 .do()
             )
