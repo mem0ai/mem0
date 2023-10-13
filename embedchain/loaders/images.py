@@ -16,15 +16,15 @@ class ImagesLoader(BaseLoader):
         # load model and image preprocessing
         from embedchain.models.clip_processor import ClipProcessor
 
-        model, preprocess = ClipProcessor.load_model()
+        model = ClipProcessor.load_model()
         if os.path.isfile(image_url):
-            data = [ClipProcessor.get_image_features(image_url, model, preprocess)]
+            data = [ClipProcessor.get_image_features(image_url, model)]
         else:
             data = []
             for filename in os.listdir(image_url):
                 filepath = os.path.join(image_url, filename)
                 try:
-                    data.append(ClipProcessor.get_image_features(filepath, model, preprocess))
+                    data.append(ClipProcessor.get_image_features(filepath, model))
                 except Exception as e:
                     # Log the file that was not loaded
                     logging.exception("Failed to load the file {}. Exception {}".format(filepath, e))

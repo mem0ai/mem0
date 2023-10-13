@@ -83,6 +83,10 @@ For more reference, please go through [Development Guide](https://docs.embedchai
   <img src="https://contrib.rocks/image?repo=embedchain/embedchain" />
 </a>
 
+## Telemetry
+
+We collect anonymous usage metrics to enhance our package's quality and user experience. This includes data like feature usage frequency and system info, but never personal details. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the `app.config.collect_metrics = False` in the code. We prioritize data security and don't share this data externally.
+
 ## Citation
 
 If you utilize this repository, please consider citing it with:
