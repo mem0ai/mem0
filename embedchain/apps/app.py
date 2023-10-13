@@ -1,7 +1,6 @@
 from typing import Optional
 
 import yaml
-
 from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
