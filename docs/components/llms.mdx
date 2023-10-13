@@ -1,6 +1,5 @@
 ---
 title: 🤖 Large language models (LLMs)
-description: 'Supported large language models'
 ---
 
 ## Overview
@@ -18,8 +17,6 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Llama2" href="#llama2"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
 </CardGroup>
-
-<Snippet file="missing-llm-tip.mdx" />
 
 ## OpenAI
 
@@ -50,9 +47,6 @@ os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from openai.yaml file
 app = App.from_config(yaml_path="openai.yaml")
-
-app.add("https://en.wikipedia.org/wiki/OpenAI")
-app.query("What is OpenAI?")
 ```
 
 ```yaml openai.yaml
