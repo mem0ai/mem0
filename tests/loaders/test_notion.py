@@ -1,7 +1,9 @@
 import hashlib
 import os
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from embedchain.loaders.notion import NotionLoader
 
 

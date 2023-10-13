@@ -1,5 +1,7 @@
 import hashlib
+
 import pytest
+
 from embedchain.loaders.local_text import LocalTextLoader
 
 

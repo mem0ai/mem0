@@ -1,7 +1,7 @@
 import importlib
 import os
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.hugging_face_hub import HuggingFaceHubLlm
