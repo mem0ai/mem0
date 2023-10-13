@@ -78,7 +78,7 @@ class PineconeDb(BaseVectorDB):
         existing_ids = list()
         if ids is not None:
             for i in range(0, len(ids), 1000):
-                result = self.client.fetch(ids=ids[i:i+1000])
+                result = self.client.fetch(ids=ids[i : i + 1000])
                 batch_existing_ids = list(result.get("vectors").keys())
                 existing_ids.extend(batch_existing_ids)
 
