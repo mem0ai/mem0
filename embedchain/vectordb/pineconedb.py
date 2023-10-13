@@ -75,13 +75,14 @@ class PineconeDb(BaseVectorDB):
         :return: ids
         :rtype: Set[str]
         """
-        ids = set()
-        for id in ids:
-            result = self.client.query(ids=id)
-            if result["matches"] is not None and result["matches"] != []:
-                ids.add(id)
+        existing_ids = list()
+        if ids is not None:
+            for i in range(0, len(ids), 1000):
+                result = self.client.fetch(ids=ids[i:i+1000])
+                batch_existing_ids = list(result.get("vectors").keys())
+                existing_ids.extend(batch_existing_ids)
 
-        return {"ids": ids}
+        return {"ids": existing_ids}
 
     def add(
         self,
@@ -100,17 +101,16 @@ class PineconeDb(BaseVectorDB):
         :param ids: ids of docs
         :type ids: List[str]
         """
-
         docs = []
         if embeddings is None:
             embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-            metadata["text"] = copy.copy(text)
+            metadata["text"] = text
             docs.append(
                 {
                     "id": id,
                     "values": embedding,
-                    "metadata": metadata,
+                    "metadata": copy.deepcopy(metadata),
                 }
             )
 
