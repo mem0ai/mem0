@@ -10,10 +10,10 @@ from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class HuggingFaceHubLlm(BaseLlm):
+class HuggingFaceLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "HUGGINGFACEHUB_ACCESS_TOKEN" not in os.environ:
-            raise ValueError("Please set the HUGGINGFACEHUB_ACCESS_TOKEN environment variable.")
+        if "HUGGINGFACE_ACCESS_TOKEN" not in os.environ:
+            raise ValueError("Please set the HUGGINGFACE_ACCESS_TOKEN environment variable.")
 
         try:
             importlib.import_module("huggingface_hub")
@@ -27,8 +27,8 @@ class HuggingFaceHubLlm(BaseLlm):
 
     def get_llm_model_answer(self, prompt):
         if self.config.system_prompt:
-            raise ValueError("HuggingFaceHubLlm does not support `system_prompt`")
-        return HuggingFaceHubLlm._get_answer(prompt=prompt, config=self.config)
+            raise ValueError("HuggingFaceLlm does not support `system_prompt`")
+        return HuggingFaceLlm._get_answer(prompt=prompt, config=self.config)
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
@@ -43,7 +43,7 @@ class HuggingFaceHubLlm(BaseLlm):
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
 
         llm = HuggingFaceHub(
-            huggingfacehub_api_token=os.environ["HUGGINGFACEHUB_ACCESS_TOKEN"],
+            huggingfacehub_api_token=os.environ["HUGGINGFACE_ACCESS_TOKEN"],
             repo_id=config.model or "google/flan-t5-xxl",
             model_kwargs=model_kwargs,
         )

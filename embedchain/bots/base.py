@@ -1,7 +1,7 @@
 from typing import Any
 
 from embedchain import App
-from embedchain.config import AddConfig, AppConfig, LlmConfig
+from embedchain.config import AddConfig, AppConfig, BaseLlmConfig
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.helper.json_serializable import (JSONSerializable,
                                                  register_deserializable)
@@ -27,14 +27,14 @@ class BaseBot(JSONSerializable):
         config = config if config else AddConfig()
         self.app.add(data, config=config)
 
-    def query(self, query: str, config: LlmConfig = None) -> str:
+    def query(self, query: str, config: BaseLlmConfig = None) -> str:
         """
         Query the bot
 
         :param query: the user query
         :type query: str
         :param config: configuration class instance, defaults to None
-        :type config: LlmConfig, optional
+        :type config: BaseLlmConfig, optional
         :return: Answer
         :rtype: str
         """

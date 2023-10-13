@@ -73,7 +73,6 @@ class BaseLlmConfig(BaseConfig):
         Initializes a configuration class instance for the LLM.
 
         Takes the place of the former `QueryConfig` or `ChatConfig`.
-        Use `LlmConfig` as an alias to `BaseLlmConfig`.
 
         :param number_documents:  Number of documents to pull from the database as
         context, defaults to 1
@@ -114,6 +113,9 @@ class BaseLlmConfig(BaseConfig):
         self.deployment_name = deployment_name
         self.system_prompt = system_prompt
         self.query_type = query_type
+
+        if type(template) is str:
+            template = Template(template)
 
         if self.validate_template(template):
             self.template = template

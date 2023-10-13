@@ -17,12 +17,12 @@
       "url": "https://twitter.com/embedchain"
     },
     {
-      "name": "Discord",
-      "url": "https://discord.gg/6PzXDgEjG5"
-    },
-    {
       "name":"Slack",
       "url":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
+    },
+    {
+      "name": "Discord",
+      "url": "https://discord.gg/6PzXDgEjG5"
     }
   ],
   "topbarCtaButton": {
@@ -32,20 +32,18 @@
   "navigation": [
     {
       "group": "Get started",
-      "pages": ["get-start/quickstart", "get-start/introduction", "get-start/faq"]
-    },
-
-    {
-      "group": "Advanced",
-      "pages": ["advanced/app_types", "advanced/interface_types", "advanced/query_configuration", "advanced/configuration", "advanced/testing", "advanced/vector_database"]
+      "pages": ["get-started/quickstart", "get-started/introduction", "get-started/faq"]
     },
     {
-      "group": "Data Sources",
+      "group": "Components",
+      "pages": ["components/llms", "components/embedding-models", "components/vector-databases"]
+    },
+    {
+      "group": "Data sources",
       "pages": [
-        "data-sources/how-to-add-data",
-        "data-sources/data-type-handling",
+        "data-sources/overview",
         {
-          "group": "Supported Data Sources",
+          "group": "Supported data sources",
           "pages": [
             "data-sources/csv",
             "data-sources/docs-site",
@@ -60,8 +58,12 @@
             "data-sources/youtube-video"
           ]
         },
-        "data-sources/request-new-format"
+        "data-sources/data-type-handling"
       ]
+    },
+    {
+      "group": "Advanced",
+      "pages": ["advanced/configuration"]
     },
     {
       "group": "Examples",
@@ -75,7 +77,7 @@
       ]
     },
     {
-      "group": "Integration",
+      "group": "Integrations",
       "pages": ["integration/langsmith"]
     },
     {
@@ -98,12 +100,14 @@
   ],
 
   "footerSocials": {
-    "twitter": "https://twitter.com/embedchain",
-    "github": "https://github.com/embedchain/embedchain",
-    "linkedin": "https://www.linkedin.com/company/embedchain",
     "website": "https://embedchain.ai",
-    "slack":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
+    "github": "https://github.com/embedchain/embedchain",
+    "slack":"https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw",
+    "discord": "https://discord.gg/6PzXDgEjG5",
+    "twitter": "https://twitter.com/embedchain",
+    "linkedin": "https://www.linkedin.com/company/embedchain"
   },
   "backgroundImage": "/background.png",
-  "isWhiteLabeled": true
+  "isWhiteLabeled": true,
+  "feedback.thumbsRating": true
 }

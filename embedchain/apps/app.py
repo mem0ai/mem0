@@ -46,7 +46,7 @@ class App(EmbedChain):
         :param llm:  LLM Class instance. example: `from embedchain.llm.openai import OpenAILlm`, defaults to OpenAiLlm
         :type llm: BaseLlm, optional
         :param llm_config: Allows you to configure the LLM, e.g. how many documents to return,
-        example: `from embedchain.config import LlmConfig`, defaults to None
+        example: `from embedchain.config import BaseLlmConfig`, defaults to None
         :type llm_config: Optional[BaseLlmConfig], optional
         :param db: The database to use for storing and retrieving embeddings,
         example: `from embedchain.vectordb.chroma_db import ChromaDb`, defaults to ChromaDb
