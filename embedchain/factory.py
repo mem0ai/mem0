@@ -20,9 +20,9 @@ class LlmFactory:
         "vertexai": "embedchain.llm.vertex_ai.VertexAILlm",
     }
     provider_to_config_class = {
-        "embedchain": "embedchain.config.llm.base_llm_config.BaseLlmConfig",
-        "openai": "embedchain.config.llm.base_llm_config.BaseLlmConfig",
-        "anthropic": "embedchain.config.llm.base_llm_config.BaseLlmConfig",
+        "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
+        "openai": "embedchain.config.llm.base.BaseLlmConfig",
+        "anthropic": "embedchain.config.llm.base.BaseLlmConfig",
     }
 
     @classmethod

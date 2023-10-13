@@ -24,7 +24,7 @@ class TestApp(unittest.TestCase):
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            LlmConfig.
+            BaseLlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
 
@@ -82,7 +82,7 @@ class TestApp(unittest.TestCase):
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            LlmConfig.
+            BaseLlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
 
@@ -113,7 +113,7 @@ class TestApp(unittest.TestCase):
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            LlmConfig.
+            BaseLlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'query' method returns the value it received from 'get_llm_model_answer'.
 

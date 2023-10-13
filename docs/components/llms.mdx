@@ -260,10 +260,7 @@ Setup Google Cloud Platform application credentials by following the instruction
 <CodeGroup>
 
 ```python main.py
-import os
 from embedchain import App
-
-os.environ["REPLICATE_API_TOKEN"] = "xxx"
 
 # load llm configuration from vertexai.yaml file
 app = App.from_config(yaml_path="vertexai.yaml")
