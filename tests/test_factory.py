@@ -34,12 +34,12 @@ class TestFactories:
                 {"model": "sentence-transformers/all-mpnet-base-v2"},
                 embedchain.embedder.huggingface.HuggingFaceEmbedder,
             ),
-            ("vertexai", {"model": "textembedding-gecko"}, embedchain.embedder.vertexai.VertexAiEmbedder),
+            ("vertexai", {"model": "textembedding-gecko"}, embedchain.embedder.vertexai.VertexAIEmbedder),
             ("openai", {}, embedchain.embedder.openai.OpenAIEmbedder),
         ],
     )
     def test_embedder_factory_create(self, mocker, provider_name, config_data, expected_class):
-        mocker.patch("embedchain.embedder.vertexai.VertexAiEmbedder", autospec=True)
+        mocker.patch("embedchain.embedder.vertexai.VertexAIEmbedder", autospec=True)
         embedder_instance = EmbedderFactory.create(provider_name, config_data)
         assert isinstance(embedder_instance, expected_class)
 

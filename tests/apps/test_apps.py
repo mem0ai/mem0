@@ -111,7 +111,7 @@ class TestAppFromConfig:
             return yaml.safe_load(file)
 
     def test_from_chroma_config(self):
-        yaml_path = "embedchain/yaml/chroma.yaml"
+        yaml_path = "configs/chroma.yaml"
         config_data = self.load_config_data(yaml_path)
 
         app = App.from_config(yaml_path)
@@ -144,7 +144,7 @@ class TestAppFromConfig:
         assert app.embedder.config.deployment_name == embedder_config["deployment_name"]
 
     def test_from_opensource_config(self):
-        yaml_path = "embedchain/yaml/opensource.yaml"
+        yaml_path = "configs/opensource.yaml"
         config_data = self.load_config_data(yaml_path)
 
         app = App.from_config(yaml_path)

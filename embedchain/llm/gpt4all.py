@@ -30,11 +30,11 @@ class GPT4ALLLlm(BaseLlm):
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
-                "OpenSourceApp does not support switching models at runtime. Please create a new app instance."
+                "GPT4ALLLlm does not support switching models at runtime. Please create a new app instance."
             )
 
         if config.system_prompt:
-            raise ValueError("OpenSourceApp does not support `system_prompt`")
+            raise ValueError("GPT4ALLLlm does not support `system_prompt`")
 
         response = self.instance.generate(
             prompt=prompt,

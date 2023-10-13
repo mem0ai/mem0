@@ -1,0 +1,68 @@
+---
+title: ❓ FAQs
+description: 'Collections of all the frequently asked questions'
+---
+
+#### How to use GPT-4 as the LLM model?
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['OPENAI_API_KEY'] = 'xxx'
+
+# load llm configuration from gpt4.yaml file
+app = App.from_config(yaml_path="gpt4.yaml")
+```
+
+```yaml gpt4.yaml
+llm:
+  provider: openai
+  model: 'gpt-4'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+```
+
+</CodeGroup>
+
+#### I don't have OpenAI credits. How can I use some open source model?
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['OPENAI_API_KEY'] = 'xxx'
+
+# load llm configuration from opensource.yaml file
+app = App.from_config(yaml_path="opensource.yaml")
+```
+
+```yaml opensource.yaml
+llm:
+  provider: gpt4all
+  model: 'orca-mini-3b.ggmlv3.q4_0.bin'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: gpt4all
+  config:
+    model: 'all-MiniLM-L6-v2'
+```
+</CodeGroup>
+
+#### How to contact support?
+
+If docs aren't sufficient, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

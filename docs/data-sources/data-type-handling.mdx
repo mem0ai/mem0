@@ -1,18 +1,16 @@
 ---
-title: 'Data Type Handling'
+title: 'Data type handling'
 ---
 
 ## Automatic data type detection
+
 The add method automatically tries to detect the data_type, based on your input for the source argument. So `app.add('https://www.youtube.com/watch?v=dQw4w9WgXcQ')` is enough to embed a YouTube video.
 
 This detection is implemented for all formats. It is based on factors such as whether it's a URL, a local file, the source data type, etc.
 
 ### Debugging automatic detection
 
-
-Set `log_level=DEBUG` (in [AppConfig](http://localhost:3000/advanced/query_configuration#appconfig)) and make sure it's working as intended.
-
-Otherwise, you will not know when, for instance, an invalid filepath is interpreted as raw text instead.
+Set `log_level: DEBUG` in the config yaml to debug if the data type detection is done right or not. Otherwise, you will not know when, for instance, an invalid filepath is interpreted as raw text instead.
 
 ### Forcing a data type
 
@@ -21,7 +19,7 @@ The examples below show you the keyword to force the respective `data_type`.
 
 Forcing can also be used for edge cases, such as interpreting a sitemap as a web_page, for reading its raw text instead of following links.
 
-## Remote Data Types
+## Remote data types
 
 <Tip>
 **Use local files in remote data types**
@@ -32,7 +30,7 @@ You can pass local files by formatting the path using the `file:` [URI scheme](h
 
 ## Reusing a vector database
 
-Default behavior is to create a persistent vector DB in the directory **./db**. You can split your application into two Python scripts: one to create a local vector DB and the other to reuse this local persistent vector DB. This is useful when you want to index hundreds of documents and separately implement a chat interface.
+Default behavior is to create a persistent vector db in the directory **./db**. You can split your application into two Python scripts: one to create a local vector db and the other to reuse this local persistent vector db. This is useful when you want to index hundreds of documents and separately implement a chat interface.
 
 Create a local index:
 

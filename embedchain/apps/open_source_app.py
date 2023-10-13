@@ -46,7 +46,7 @@ class OpenSourceApp(App):
         that does not fall into the LLM, database or embedder category, defaults to None
         :type config: OpenSourceAppConfig, optional
         :param llm_config: Allows you to configure the LLM, e.g. how many documents to return.
-        example: `from embedchain.config import LlmConfig`, defaults to None
+        example: `from embedchain.config import BaseLlmConfig`, defaults to None
         :type llm_config: BaseLlmConfig, optional
         :param chromadb_config: Allows you to configure the open source database,
         example: `from embedchain.config import ChromaDbConfig`, defaults to None
@@ -54,7 +54,7 @@ class OpenSourceApp(App):
         :param system_prompt: System prompt that will be provided to the LLM as such.
         Please don't use for the time being, as it's not supported., defaults to None
         :type system_prompt: Optional[str], optional
-        :raises TypeError: `OpenSourceAppConfig` or `LlmConfig` invalid.
+        :raises TypeError: `OpenSourceAppConfig` or `BaseLlmConfig` invalid.
         """
         logging.warning(
             "DEPRECATION WARNING: Please use `App` instead of `OpenSourceApp`."

@@ -1,10 +1,15 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.69"
-description = "embedchain is a framework to easily create LLM powered bots over any dataset"
-authors = ["Taranjeet Singh"]
+version = "0.0.70"
+description = "Embedchain is a framework to easily create LLM powered apps over any dataset"
+authors = ["Taranjeet Singh, Deshraj Yadav"]
 license = "Apache License"
 readme = "README.md"
+exclude = [
+    "db",
+    "configs",
+    "notebooks"
+]
 
 [build-system]
 requires = ["setuptools", "wheel"]
@@ -36,7 +41,7 @@ exclude = [
     "build",
     "dist",
     "node_modules",
-    "venv",
+    "venv"
 ]
 line-length = 120
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

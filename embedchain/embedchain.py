@@ -470,7 +470,7 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
@@ -506,7 +506,7 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to

@@ -85,11 +85,11 @@ class TestApp(unittest.TestCase):
         a where filter and 'get_llm_model_answer' returns an expected answer string.
 
         The 'chat' method is expected to call 'retrieve_from_database' with the where filter specified
-        in the LlmConfig and 'get_llm_model_answer' methods appropriately and return the right answer.
+        in the BaseLlmConfig and 'get_llm_model_answer' methods appropriately and return the right answer.
 
         Key assumptions tested:
         - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
-            LLmConfig.
+            BaseLlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'chat' method returns the value it received from 'get_llm_model_answer'.
 

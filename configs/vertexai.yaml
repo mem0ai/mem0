@@ -1,0 +1,6 @@
+llm:
+  provider: vertexai
+  model: 'chat-bison'
+  config:
+    temperature: 0.5
+    top_p: 0.5
