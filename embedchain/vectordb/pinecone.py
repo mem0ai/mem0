@@ -102,7 +102,6 @@ class PineconeDB(BaseVectorDB):
         :param ids: ids of docs
         :type ids: List[str]
         """
-
         docs = []
         print("Adding documents to Pinecone...")
 
