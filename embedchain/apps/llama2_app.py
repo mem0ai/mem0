@@ -8,9 +8,9 @@ from embedchain.llm.llama2 import Llama2Llm
 
 
 @register_deserializable
-class Llama2App(App):
+class llama2_app(App):
     """
-    The EmbedChain Llama2App class.
+    The EmbedChain llama2_app class.
 
     Methods:
     add(source, data_type): adds the data from the given URL to the vector db.
@@ -30,8 +30,8 @@ class Llama2App(App):
         :param system_prompt: System prompt string. Optional.
         """
         logging.warning(
-            "DEPRECATION WARNING: Please use `App` instead of `Llama2App`. "
-            "`Llama2App` will be removed in a future release. "
+            "DEPRECATION WARNING: Please use `App` instead of `llama2_app`. "
+            "`llama2_app` will be removed in a future release. "
             "Please refer to https://docs.embedchain.ai/advanced/app_types#llama2app for instructions."
         )
 
