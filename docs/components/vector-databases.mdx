@@ -25,10 +25,10 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
 from embedchain import App
 
 # load chroma configuration from yaml file
-app = App.from_config(yaml_path="chroma-config-1.yaml")
+app = App.from_config(yaml_path="config1.yaml")
 ```
 
-```yaml chroma-config-1.yaml
+```yaml config1.yaml
 vectordb:
   provider: chroma
   config:
@@ -37,7 +37,7 @@ vectordb:
     allow_reset: true
 ```
 
-```yaml chroma-config-2.yaml
+```yaml config2.yaml
 vectordb:
   provider: chroma
   config:
@@ -52,16 +52,22 @@ vectordb:
 
 ## Elasticsearch
 
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[elasticsearch]'
+```
+
 <CodeGroup>
 
 ```python main.py
 from embedchain import App
 
 # load elasticsearch configuration from yaml file
-app = App.from_config(yaml_path="elasticsearch.yaml")
+app = App.from_config(yaml_path="config.yaml")
 ```
 
-```yaml elasticsearch.yaml
+```yaml config.yaml
 vectordb:
   provider: elasticsearch
   config:
@@ -74,16 +80,22 @@ vectordb:
 
 ## OpenSearch
 
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[opensearch]'
+```
+
 <CodeGroup>
 
 ```python main.py
 from embedchain import App
 
 # load opensearch configuration from yaml file
-app = App.from_config(yaml_path="opensearch.yaml")
+app = App.from_config(yaml_path="config.yaml")
 ```
 
-```yaml opensearch.yaml
+```yaml config.yaml
 vectordb:
   provider: opensearch
   config:
@@ -101,16 +113,22 @@ vectordb:
 
 ## Zilliz
 
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[milvus]'
+```
+
 <CodeGroup>
 
 ```python main.py
 from embedchain import App
 
 # load zilliz configuration from yaml file
-app = App.from_config(yaml_path="zilliz.yaml")
+app = App.from_config(yaml_path="config.yaml")
 ```
 
-```yaml zilliz.yaml
+```yaml config.yaml
 vectordb:
   provider: zilliz
   config:
