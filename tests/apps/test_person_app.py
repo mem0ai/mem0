@@ -1,7 +1,8 @@
 import pytest
+
 from embedchain.apps.app import App
 from embedchain.apps.person_app import PersonApp, PersonOpenSourceApp
-from embedchain.config import BaseLlmConfig, AppConfig
+from embedchain.config import AppConfig, BaseLlmConfig
 from embedchain.config.llm.base import DEFAULT_PROMPT
 
 
