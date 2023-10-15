@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.70"
+version = "0.0.71"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = ["Taranjeet Singh, Deshraj Yadav"]
 license = "Apache License"
@@ -120,7 +120,6 @@ ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
 huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = "2.3.1"
-pinecone-client = "^2.2.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -150,7 +149,6 @@ images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
 milvus = ["pymilvus"]
-pinecone = ["pinecone-client"]
 
 [tool.poetry.group.docs.dependencies]
 
