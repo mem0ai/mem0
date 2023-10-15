@@ -1,9 +1,11 @@
 import os
+
 import pytest
 import yaml
 
 from embedchain import App, CustomApp, Llama2App, OpenSourceApp
-from embedchain.config import AddConfig, AppConfig, BaseEmbedderConfig, BaseLlmConfig, ChromaDbConfig
+from embedchain.config import (AddConfig, AppConfig, BaseEmbedderConfig,
+                               BaseLlmConfig, ChromaDbConfig)
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.llm.base import BaseLlm
 from embedchain.vectordb.base import BaseVectorDB, BaseVectorDbConfig

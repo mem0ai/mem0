@@ -2,8 +2,9 @@ from string import Template
 
 from embedchain.apps.app import App
 from embedchain.apps.open_source_app import OpenSourceApp
-from embedchain.config import BaseLlmConfig, AppConfig
-from embedchain.config.llm.base import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY
+from embedchain.config import AppConfig, BaseLlmConfig
+from embedchain.config.llm.base import (DEFAULT_PROMPT,
+                                        DEFAULT_PROMPT_WITH_HISTORY)
 from embedchain.helper.json_serializable import register_deserializable
 
 

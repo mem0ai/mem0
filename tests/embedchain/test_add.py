@@ -1,5 +1,7 @@
 import os
+
 import pytest
+
 from embedchain import App
 from embedchain.config import AddConfig, AppConfig, ChunkerConfig
 from embedchain.models.data_type import DataType

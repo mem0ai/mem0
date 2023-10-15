@@ -1,8 +1,9 @@
 import argparse
+
 import pytest
+from fastapi_poe.types import ProtocolMessage, QueryRequest
 
 from embedchain.bots.poe import PoeBot, start_command
-from fastapi_poe.types import QueryRequest, ProtocolMessage
 
 
 @pytest.fixture
