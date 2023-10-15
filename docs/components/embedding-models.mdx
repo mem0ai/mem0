@@ -27,14 +27,14 @@ from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
-# load embedding model configuration from openai.yaml file
-app = App.from_config(yaml_path="openai.yaml")
+# load embedding model configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
 
 app.add("https://en.wikipedia.org/wiki/OpenAI")
 app.query("What is OpenAI?")
 ```
 
-```yaml openai.yaml
+```yaml config.yaml
 embedder:
   provider: openai
   config:
@@ -52,11 +52,11 @@ GPT4All supports generating high quality embeddings of arbitrary length document
 ```python main.py
 from embedchain import App
 
-# load embedding model configuration from gpt4all.yaml file
-app = App.from_config(yaml_path="gpt4all.yaml")
+# load embedding model configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
 ```
 
-```yaml gpt4all.yaml
+```yaml config.yaml
 llm:
   provider: gpt4all
   model: 'orca-mini-3b.ggmlv3.q4_0.bin'
@@ -83,11 +83,11 @@ Hugging Face supports generating embeddings of arbitrary length documents of tex
 ```python main.py
 from embedchain import App
 
-# load embedding model configuration from huggingface.yaml file
-app = App.from_config(yaml_path="huggingface.yaml")
+# load embedding model configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
 ```
 
-```yaml huggingface.yaml
+```yaml config.yaml
 llm:
   provider: huggingface
   model: 'google/flan-t5-xxl'
@@ -114,11 +114,11 @@ Embedchain supports Google's VertexAI embeddings model through a simple interfac
 ```python main.py
 from embedchain import App
 
-# load embedding model configuration from vertexai.yaml file
-app = App.from_config(yaml_path="vertexai.yaml")
+# load embedding model configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
 ```
 
-```yaml vertexai.yaml
+```yaml config.yaml
 llm:
   provider: vertexai
   model: 'chat-bison'

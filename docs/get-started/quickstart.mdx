@@ -3,6 +3,8 @@ title: '🚀 Quickstart'
 description: '💡 Start building LLM powered apps under 30 seconds'
 ---
 
+Embedchain is a Data Platform for LLMs - load, index, retrieve, and sync any unstructured data. Using embedchain, you can easily create LLM powered apps over any data. 
+
 Install embedchain python package:
 
 ```bash
@@ -20,9 +22,11 @@ app = App()
   </Step>
   <Step title="🗃️ Add data sources">
 ```python
-# Embed online resources
+# Add different data sources
 elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
 elon_bot.add("https://www.forbes.com/profile/elon-musk")
+# You can also add local data sources such as pdf, csv files etc.
+# elon_bot.add("/path/to/file.pdf")
 ```
   </Step>
   <Step title="💬 Query or chat on your data and get answers">
@@ -42,9 +46,11 @@ from embedchain import App
 os.environ["OPENAI_API_KEY"] = "xxx"
 elon_bot = App()
 
-# Embed online resources
+# Add different data sources
 elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
 elon_bot.add("https://www.forbes.com/profile/elon-musk")
+# You can also add local data sources such as pdf, csv files etc.
+# elon_bot.add("/path/to/file.pdf")
 
 response = elon_bot.query("What is the net worth of Elon Musk today?")
 print(response)

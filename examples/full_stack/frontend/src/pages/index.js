@@ -28,7 +28,7 @@ export default function Home() {
             Welcome to Embedchain Playground
           </h1>
           <p className="mb-6 text-lg font-normal text-gray-500 lg:text-xl">
-            embedchain is a framework to easily create LLM powered bots over any
+            Embedchain is a Data Platform for LLMs - Load, index, retrieve, and sync any unstructured data
             dataset
           </p>
         </div>

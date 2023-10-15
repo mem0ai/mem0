@@ -25,7 +25,7 @@ llm:
 vectordb:
   provider: chroma
   config:
-    collection_name: 'full-stack-app'
+    collection_name: 'my-collection-name'
     dir: db
     allow_reset: true
 
