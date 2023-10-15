@@ -339,7 +339,6 @@ class EmbedChain(JSONSerializable):
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         new_doc_id = embeddings_data["doc_id"]
-
         if existing_doc_id and existing_doc_id == new_doc_id:
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
@@ -404,7 +403,6 @@ class EmbedChain(JSONSerializable):
             skip_embedding=(chunker.data_type == DataType.IMAGES),
         )
         count_new_chunks = self.db.count() - chunks_before_addition
-        print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
     def _format_result(self, results):
