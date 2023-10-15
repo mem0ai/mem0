@@ -179,4 +179,4 @@ class PineconeDB(BaseVectorDB):
         :return: Pinecone index
         :rtype: str
         """
-        return f"{self.config.collection_name}-{self.config.dimension}".lower().replace("_", "-")
+        return f"{self.config.collection_name}-{self.config.vector_dimension}".lower().replace("_", "-")

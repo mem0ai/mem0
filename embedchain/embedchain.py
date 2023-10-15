@@ -21,7 +21,8 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
+from embedchain.models.data_type import (DataType, DirectDataType,
+                                         IndirectDataType, SpecialDataType)
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -394,7 +395,13 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
-        self.db.add(documents=documents, metadatas=metadatas, ids=ids)
+        self.db.add(
+            embeddings=embeddings_data.get("embeddings", None),
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids,
+            skip_embedding=(chunker.data_type == DataType.IMAGES),
+        )
         count_new_chunks = self.db.count() - chunks_before_addition
 
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))

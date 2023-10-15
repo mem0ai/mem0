@@ -4,30 +4,30 @@ from unittest.mock import patch
 from embedchain import App
 from embedchain.config import AppConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.vectordb.pineconedb import PineconeDb
+from embedchain.vectordb.pinecone import PineconeDB
 
 
-class TestPineconeDb:
-    @patch("embedchain.vectordb.pineconedb.pinecone")
+class TestPinecone:
+    @patch("embedchain.vectordb.pinecone.pinecone")
     def test_init(self, pinecone_mock):
-        """Test that the PineconeDb can be initialized."""
-        # Create a PineconeDb instance
-        PineconeDb()
+        """Test that the PineconeDB can be initialized."""
+        # Create a PineconeDB instance
+        PineconeDB()
 
         # Assert that the Pinecone client was initialized
         pinecone_mock.init.assert_called_once()
         pinecone_mock.list_indexes.assert_called_once()
         pinecone_mock.Index.assert_called_once()
 
-    @patch("embedchain.vectordb.pineconedb.pinecone")
+    @patch("embedchain.vectordb.pinecone.pinecone")
     def test_set_embedder(self, pinecone_mock):
         """Test that the embedder can be set."""
 
         # Set the embedder
         embedder = BaseEmbedder()
 
-        # Create a PineconeDb instance
-        db = PineconeDb()
+        # Create a PineconeDB instance
+        db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=embedder)
 
@@ -35,7 +35,7 @@ class TestPineconeDb:
         assert db.embedder == embedder
         pinecone_mock.init.assert_called_once()
 
-    @patch("embedchain.vectordb.pineconedb.pinecone")
+    @patch("embedchain.vectordb.pinecone.pinecone")
     def test_add_documents(self, pinecone_mock):
         """Test that documents can be added to the database."""
         pinecone_client_mock = pinecone_mock.Index.return_value
@@ -46,7 +46,7 @@ class TestPineconeDb:
         vectors = [[0, 0, 0], [1, 1, 1]]
         embedding_function.return_value = vectors
         # Create a PineconeDb instance
-        db = PineconeDb()
+        db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=base_embedder)
 
@@ -63,7 +63,7 @@ class TestPineconeDb:
         # Assert that the Pinecone client was called to upsert the documents
         pinecone_client_mock.upsert.assert_called_once_with(expected_pinecone_upsert_args)
 
-    @patch("embedchain.vectordb.pineconedb.pinecone")
+    @patch("embedchain.vectordb.pinecone.pinecone")
     def test_query_documents(self, pinecone_mock):
         """Test that documents can be queried from the database."""
         pinecone_client_mock = pinecone_mock.Index.return_value
@@ -73,8 +73,8 @@ class TestPineconeDb:
         base_embedder.set_embedding_fn(embedding_function)
         vectors = [[0, 0, 0]]
         embedding_function.return_value = vectors
-        # Create a PineconeDb instance
-        db = PineconeDb()
+        # Create a PineconeDB instance
+        db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=base_embedder)
 
@@ -88,11 +88,11 @@ class TestPineconeDb:
             vector=db.embedder.embedding_fn(input_query)[0], top_k=n_results, filter={}, include_metadata=True
         )
 
-    @patch("embedchain.vectordb.pineconedb.pinecone")
+    @patch("embedchain.vectordb.pinecone.pinecone")
     def test_reset(self, pinecone_mock):
         """Test that the database can be reset."""
         # Create a PineconeDb instance
-        db = PineconeDb()
+        db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=BaseEmbedder())
 
