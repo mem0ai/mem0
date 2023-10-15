@@ -4,7 +4,7 @@ import yaml
 
 from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig
 from embedchain.config.vectordb.base import BaseVectorDbConfig
-from embedchain.embedchain import EmbedChain
+from embedchain.embedchain_core import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
