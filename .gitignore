@@ -76,7 +76,7 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+*.yaml
 
 # IPython
 profile_default/
@@ -171,3 +171,6 @@ db
 .idea/
 
 .DS_Store
+
+notebooks/*.yaml
+.ipynb_checkpoints/
