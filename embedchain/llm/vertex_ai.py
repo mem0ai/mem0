@@ -7,15 +7,15 @@ from embedchain.llm.base import BaseLlm
 
 
 @register_deserializable
-class VertexAiLlm(BaseLlm):
+class VertexAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
-        return VertexAiLlm._get_athrophic_answer(prompt=prompt, config=self.config)
+        return VertexAILlm._get_answer(prompt=prompt, config=self.config)
 
     @staticmethod
-    def _get_athrophic_answer(prompt: str, config: BaseLlmConfig) -> str:
+    def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         from langchain.chat_models import ChatVertexAI
 
         chat = ChatVertexAI(temperature=config.temperature, model=config.model)

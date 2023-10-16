@@ -1,0 +1,292 @@
+---
+title: 🤖 Large language models (LLMs)
+---
+
+## Overview
+
+Embedchain comes with built-in support for various popular large language models. We handle the complexity of integrating these models for you, allowing you to easily customize your language model interactions through a user-friendly interface.
+
+<CardGroup cols={4}>
+  <Card title="OpenAI" href="#openai"></Card>
+  <Card title="Azure OpenAI" href="#azure-openai"></Card>
+  <Card title="Anthropic" href="#anthropic"></Card>
+  <Card title="Cohere" href="#cohere"></Card>
+  <Card title="GPT4All" href="#gpt4all"></Card>
+  <Card title="JinaChat" href="#jinachat"></Card>
+  <Card title="Hugging Face" href="#hugging-face"></Card>
+  <Card title="Llama2" href="#llama2"></Card>
+  <Card title="Vertex AI" href="#vertex-ai"></Card>
+</CardGroup>
+
+## OpenAI
+
+To use OpenAI LLM models, you have to set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+Once you have obtained the key, you can use it like this:
+
+```python
+import os
+from embedchain import App
+
+os.environ['OPENAI_API_KEY'] = 'xxx'
+
+app = App()
+app.add("https://en.wikipedia.org/wiki/OpenAI")
+app.query("What is OpenAI?")
+```
+
+If you are looking to configure the different parameters of the LLM, you can do so by loading the app using a [yaml config](https://github.com/embedchain/embedchain/blob/main/configs/chroma.yaml) file.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['OPENAI_API_KEY'] = 'xxx'
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: openai
+  model: 'gpt-3.5-turbo'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+```
+
+</CodeGroup>
+
+
+## Azure OpenAI
+
+_Coming soon_
+
+## Anthropic
+
+To use anthropic's model, please set the `ANTHROPIC_API_KEY` which you find on their [Account Settings Page](https://console.anthropic.com/account/keys).
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["ANTHROPIC_API_KEY"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: anthropic
+  model: 'claude-instant-1'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+```
+
+</CodeGroup>
+
+## Cohere
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[cohere]'
+```
+
+Set the `COHERE_API_KEY` as environment variable which you can find on their [Account settings page](https://dashboard.cohere.com/api-keys).
+
+Once you have the API key, you are all set to use it with Embedchain.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["COHERE_API_KEY"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: cohere
+  model: large
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+```
+
+</CodeGroup>
+
+## GPT4ALL
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[opensource]'
+```
+
+GPT4all is a free-to-use, locally running, privacy-aware chatbot. No GPU or internet required. You can use this with Embedchain using the following code:
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: gpt4all
+  model: 'orca-mini-3b.ggmlv3.q4_0.bin'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: gpt4all
+  config:
+    model: 'all-MiniLM-L6-v2'
+```
+</CodeGroup>
+
+
+## JinaChat
+
+First, set `JINACHAT_API_KEY` in environment variable which you can obtain from [their platform](https://chat.jina.ai/api).
+
+Once you have the key, load the app using the config yaml file:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["JINACHAT_API_KEY"] = "xxx"
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: jina
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+```
+</CodeGroup>
+
+
+## Hugging Face
+
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[huggingface_hub]'
+```
+
+First, set `HUGGINGFACE_ACCESS_TOKEN` in environment variable which you can obtain from [their platform](https://huggingface.co/settings/tokens).
+
+Once you have the token, load the app using the config yaml file:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: huggingface
+  model: 'google/flan-t5-xxl'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 0.5
+    stream: false
+```
+</CodeGroup>
+
+## Llama2
+
+Llama2 is integrated through [Replicate](https://replicate.com/).  Set `REPLICATE_API_TOKEN` in environment variable which you can obtain from [their platform](https://replicate.com/account/api-tokens).
+
+Once you have the token, load the app using the config yaml file:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["REPLICATE_API_TOKEN"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: llama2
+  model: 'a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 0.5
+    stream: false
+```
+</CodeGroup>
+
+## Vertex AI
+
+Setup Google Cloud Platform application credentials by following the instruction on [GCP](https://cloud.google.com/docs/authentication/external/set-up-adc). Once setup is done, use the following code to create an app using VertexAI as provider:
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load llm configuration from config.yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: vertexai
+  model: 'chat-bison'
+  config:
+    temperature: 0.5
+    top_p: 0.5
+```
+</CodeGroup>
+
+<br/ >
+<Snippet file="missing-llm-tip.mdx" />

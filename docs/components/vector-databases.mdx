@@ -1,0 +1,176 @@
+---
+title: 🗄️ Vector databases
+---
+
+## Overview
+
+Utilizing a vector database alongside Embedchain is a seamless process. All you need to do is configure it within the YAML configuration file. We've provided examples for each supported database below:
+
+<CardGroup cols={4}>
+  <Card title="ChromaDB" href="#chromadb"></Card>
+  <Card title="Elasticsearch" href="#elasticsearch"></Card>
+  <Card title="OpenSearch" href="#opensearch"></Card>
+  <Card title="Zilliz" href="#zilliz"></Card>
+  <Card title="LanceDB" href="#lancedb"></Card>
+  <Card title="Pinecone" href="#pinecone"></Card>
+  <Card title="Qdrant" href="#qdrant"></Card>
+  <Card title="Weaviate" href="#weaviate"></Card>
+</CardGroup>
+
+## ChromaDB
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load chroma configuration from yaml file
+app = App.from_config(yaml_path="config1.yaml")
+```
+
+```yaml config1.yaml
+vectordb:
+  provider: chroma
+  config:
+    collection_name: 'my-collection'
+    dir: db
+    allow_reset: true
+```
+
+```yaml config2.yaml
+vectordb:
+  provider: chroma
+  config:
+    collection_name: 'my-collection'
+    host: localhost
+    port: 5200
+    allow_reset: true
+```
+
+</CodeGroup>
+
+
+## Elasticsearch
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[elasticsearch]'
+```
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load elasticsearch configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: elasticsearch
+  config:
+    collection_name: 'es-index'
+    es_url: http://localhost:9200
+    allow_reset: true
+    api_key: xxx
+```
+</CodeGroup>
+
+## OpenSearch
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[opensearch]'
+```
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load opensearch configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: opensearch
+  config:
+    opensearch_url: 'https://localhost:9200'
+    http_auth:
+      - admin
+      - admin
+    vector_dimension: 1536
+    collection_name: 'my-app'
+    use_ssl: false
+    verify_certs: false
+```
+
+</CodeGroup>
+
+## Zilliz
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[milvus]'
+```
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load zilliz configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: zilliz
+  config:
+    collection_name: 'zilliz-app'
+    uri: https://xxxx.api.gcp-region.zillizcloud.com
+    token: xxx
+    vector_dim: 1536
+    metric_type: L2
+```
+
+</CodeGroup>
+
+## LanceDB
+
+_Coming soon_
+
+## Pinecone
+
+In order to use Pinecone as vector database, set the environment variables `PINECONE_API_KEY` and `PINECONE_ENV` which you can find on [Pinecone dashboard](https://app.pinecone.io/).
+
+```python main.py
+from embedchain import App
+
+# load pinecone configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: pinecone
+  config:
+    metric: cosine
+    vector_dimension: 1536
+    collection_name: my-pinecone-index
+```
+
+## Qdrant
+
+_Coming soon_
+
+## Weaviate
+
+_Coming soon_
+
+<Snippet file="missing-vector-db-tip.mdx" />

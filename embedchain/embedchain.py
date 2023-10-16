@@ -339,7 +339,6 @@ class EmbedChain(JSONSerializable):
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         new_doc_id = embeddings_data["doc_id"]
-
         if existing_doc_id and existing_doc_id == new_doc_id:
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
@@ -404,6 +403,7 @@ class EmbedChain(JSONSerializable):
             skip_embedding=(chunker.data_type == DataType.IMAGES),
         )
         count_new_chunks = self.db.count() - chunks_before_addition
+
         print((f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}"))
         return list(documents), metadatas, ids, count_new_chunks
 
@@ -470,7 +470,7 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
@@ -506,7 +506,7 @@ class EmbedChain(JSONSerializable):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to

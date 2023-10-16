@@ -1,10 +1,15 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.67"
-description = "embedchain is a framework to easily create LLM powered bots over any dataset"
-authors = ["Taranjeet Singh"]
+version = "0.0.71"
+description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
+authors = ["Taranjeet Singh, Deshraj Yadav"]
 license = "Apache License"
 readme = "README.md"
+exclude = [
+    "db",
+    "configs",
+    "notebooks"
+]
 
 [build-system]
 requires = ["setuptools", "wheel"]
@@ -36,7 +41,7 @@ exclude = [
     "build",
     "dist",
     "node_modules",
-    "venv",
+    "venv"
 ]
 line-length = 120
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
@@ -105,11 +110,16 @@ twilio = { version = "^8.5.0", optional = true }
 fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
+cohere = { version = "^4.27", optional= true }
 docx2txt = "^0.8"
+pinecone-client = "^2.2.4"
+unstructured = {extras = ["local-inference"], version = "^0.10.18"}
 pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
+huggingface_hub = { version = "^0.17.3", optional = true }
+pymilvus = "2.3.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -121,6 +131,8 @@ pytest-env = "^0.8.1"
 click = "^8.1.3"
 isort = "^5.12.0"
 pytest-cov = "^4.1.0"
+responses = "^0.23.3"
+mock = "^5.1.0"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
@@ -132,7 +144,11 @@ poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
+pinecone = ["pinecone-client"]
 images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
+huggingface_hub=["huggingface_hub"]
+cohere = ["cohere"]
+milvus = ["pymilvus"]
 
 [tool.poetry.group.docs.dependencies]
 

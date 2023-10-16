@@ -1,0 +1,58 @@
+---
+title: '🚀 Quickstart'
+description: '💡 Start building LLM powered apps under 30 seconds'
+---
+
+Embedchain is a Data Platform for LLMs - load, index, retrieve, and sync any unstructured data. Using embedchain, you can easily create LLM powered apps over any data. 
+
+Install embedchain python package:
+
+```bash
+pip install embedchain
+```
+
+Creating an app involves 3 steps:
+
+<Steps>
+  <Step title="⚙️ Import app instance">
+```python
+from embedchain import App
+app = App()
+```
+  </Step>
+  <Step title="🗃️ Add data sources">
+```python
+# Add different data sources
+elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
+elon_bot.add("https://www.forbes.com/profile/elon-musk")
+# You can also add local data sources such as pdf, csv files etc.
+# elon_bot.add("/path/to/file.pdf")
+```
+  </Step>
+  <Step title="💬 Query or chat on your data and get answers">
+```python
+elon_bot.query("What is the net worth of Elon Musk today?")
+# Answer: The net worth of Elon Musk today is $258.7 billion.
+```
+  </Step>
+</Steps>
+
+Putting it together, you can run your first app using the following code. Make sure to set the `OPENAI_API_KEY` 🔑 environment variable in the code.
+
+```python
+import os
+from embedchain import App
+
+os.environ["OPENAI_API_KEY"] = "xxx"
+elon_bot = App()
+
+# Add different data sources
+elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
+elon_bot.add("https://www.forbes.com/profile/elon-musk")
+# You can also add local data sources such as pdf, csv files etc.
+# elon_bot.add("/path/to/file.pdf")
+
+response = elon_bot.query("What is the net worth of Elon Musk today?")
+print(response)
+# Answer: The net worth of Elon Musk today is $258.7 billion.
+```

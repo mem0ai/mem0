@@ -190,6 +190,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
 
+        if source.endswith(".xml"):
+            logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
+            return DataType.XML
+
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.
         raise ValueError(

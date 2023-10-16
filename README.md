@@ -8,7 +8,7 @@
 [![Open in Colab](https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667)](https://colab.research.google.com/drive/138lMWhENGeEu7Q1-6lNbNTHGLZXBBz_B?usp=sharing)
 [![codecov](https://codecov.io/gh/embedchain/embedchain/graph/badge.svg?token=EMRRHZXW1Q)](https://codecov.io/gh/embedchain/embedchain)
 
-Embedchain is a framework to easily create LLM powered bots over any dataset. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchain/tree/main/embedchain-js)
+Embedchain is a Data Platform for LLMs - load, index, retrieve, and sync any unstructured data. Using embedchain, you can easily create LLM powered apps over any data. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchain/tree/main/embedchain-js)
 
 ## Community
 
@@ -83,6 +83,10 @@ For more reference, please go through [Development Guide](https://docs.embedchai
   <img src="https://contrib.rocks/image?repo=embedchain/embedchain" />
 </a>
 
+## Telemetry
+
+We collect anonymous usage metrics to enhance our package's quality and user experience. This includes data like feature usage frequency and system info, but never personal details. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the `app.config.collect_metrics = False` in the code. We prioritize data security and don't share this data externally.
+
 ## Citation
 
 If you utilize this repository, please consider citing it with:
@@ -90,7 +94,7 @@ If you utilize this repository, please consider citing it with:
 ```
 @misc{embedchain,
   author = {Taranjeet Singh, Deshraj Yadav},
-  title = {Embedchain: Framework to easily create LLM powered bots over any dataset},
+  title = {Embedchain: Data platform for LLMs - load, index, retrieve, and sync any unstructured data},
   year = {2023},
   publisher = {GitHub},
   journal = {GitHub repository},
