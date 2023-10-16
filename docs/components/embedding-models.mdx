@@ -8,6 +8,7 @@ Embedchain supports several embedding models from the following providers:
 
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
+  <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
@@ -42,6 +43,45 @@ embedder:
 ```
 
 </CodeGroup>
+
+## Azure OpenAI
+
+To use Azure OpenAI embedding model, you have to set some of the azure openai related environment variables as given in the code block below:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["OPENAI_API_TYPE"] = "azure"
+os.environ["OPENAI_API_BASE"] = "https://xxx.openai.azure.com/"
+os.environ["OPENAI_API_KEY"] = "xxx"
+os.environ["OPENAI_API_VERSION"] = "xxx"
+
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: azure_openai
+  model: gpt-35-turbo
+  config:
+    deployment_name: your_llm_deployment_name
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: azure_openai
+  config:
+    model: text-embedding-ada-002
+    deployment_name: you_embedding_model_deployment_name
+```
+</CodeGroup>
+
+You can find the list of models and deployment name on the [Azure OpenAI Platform](https://oai.azure.com/portal).
 
 ## GPT4ALL
 

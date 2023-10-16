@@ -119,10 +119,16 @@ Install related dependencies using the following command:
 pip install --upgrade 'embedchain[milvus]'
 ```
 
+Set the Zilliz environment variables `ZILLIZ_CLOUD_URI` and `ZILLIZ_CLOUD_TOKEN` which you can find it on their [cloud platform](https://cloud.zilliz.com/).
+
 <CodeGroup>
 
 ```python main.py
+import os
 from embedchain import App
+
+os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
+os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
 
 # load zilliz configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -147,7 +153,15 @@ _Coming soon_
 
 ## Pinecone
 
+Install pinecone related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[pinecone]'
+```
+
 In order to use Pinecone as vector database, set the environment variables `PINECONE_API_KEY` and `PINECONE_ENV` which you can find on [Pinecone dashboard](https://app.pinecone.io/).
+
+<CodeGroup>
 
 ```python main.py
 from embedchain import App
@@ -164,6 +178,8 @@ vectordb:
     vector_dimension: 1536
     collection_name: my-pinecone-index
 ```
+
+</CodeGroup>
 
 ## Qdrant
 
