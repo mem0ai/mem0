@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.71"
+version = "0.0.72"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = ["Taranjeet Singh, Deshraj Yadav"]
 license = "Apache License"
