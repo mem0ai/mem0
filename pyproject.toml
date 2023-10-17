@@ -90,13 +90,13 @@ python-dotenv = "^1.0.0"
 langchain = "^0.0.279"
 requests = "^2.31.0"
 openai = "^0.27.5"
-tiktoken = "^0.4.0"
+tiktoken = { version="^0.4.0", optional=true }
 chromadb ="^0.4.8"
-youtube-transcript-api = "^0.6.1"
-beautifulsoup4 = "^4.12.2"
-pypdf = "^3.11.0"
-pytube = "^15.0.0"
-duckduckgo-search = "^3.8.5"
+youtube-transcript-api = { version="^0.6.1", optional=true }
+beautifulsoup4 = { version="^4.12.2", optional=true }
+pypdf = { version="^3.11.0", optional=true }
+pytube = { version="^15.0.0", optional=true }
+duckduckgo-search = { version="^3.8.5", optional=true }
 llama-hub = { version = "^0.0.29", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.0.0", optional = true }
@@ -111,15 +111,15 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^4.27", optional= true }
-docx2txt = "^0.8"
-pinecone-client = "^2.2.4"
-unstructured = {extras = ["local-inference"], version = "^0.10.18"}
+docx2txt = { version="^0.8", optional=true }
+pinecone-client = { version = "^2.2.4", optional = true }
+unstructured = {extras = ["local-inference"], version = "^0.10.18", optional=true}
 pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
 huggingface_hub = { version = "^0.17.3", optional = true }
-pymilvus = "2.3.1"
+pymilvus = { version="2.3.1", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -149,6 +149,16 @@ images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
 milvus = ["pymilvus"]
+dataloaders=[
+    "youtube-transcripts-api",
+    "beautifulsoup4",
+    "pypdf",
+    "pytube",
+    "duckduckgo-search",
+    "docx2txt",
+    "unstructured",
+    "sentence-transformers",
+]
 
 [tool.poetry.group.docs.dependencies]
 

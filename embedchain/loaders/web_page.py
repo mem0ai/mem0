@@ -2,7 +2,13 @@ import hashlib
 import logging
 
 import requests
-from bs4 import BeautifulSoup
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    raise ImportError(
+        'Webpage requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+    ) from None
 
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader

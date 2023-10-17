@@ -2,8 +2,14 @@ import hashlib
 import logging
 
 import requests
-from bs4 import BeautifulSoup
-from bs4.builder import ParserRejectedMarkup
+
+try:
+    from bs4 import BeautifulSoup
+    from bs4.builder import ParserRejectedMarkup
+except ImportError:
+    raise ImportError(
+        'Sitemap requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+    ) from None
 
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
