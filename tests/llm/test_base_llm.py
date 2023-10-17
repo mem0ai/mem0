@@ -1,5 +1,5 @@
 import pytest
-
+from string import Template
 from embedchain.llm.base import BaseLlm, BaseLlmConfig
 
 
@@ -12,6 +12,18 @@ def base_llm():
 def test_is_get_llm_model_answer_not_implemented(base_llm):
     with pytest.raises(NotImplementedError):
         base_llm.get_llm_model_answer()
+
+
+def test_is_stream_bool():
+    with pytest.raises(ValueError):
+        config = BaseLlmConfig(stream="test value")
+        BaseLlm(config=config)
+
+
+def test_template_string_gets_converted_to_Template_instance():
+    config = BaseLlmConfig(template="test value $query $context")
+    llm = BaseLlm(config=config)
+    assert isinstance(llm.config.template, Template)
 
 
 def test_is_get_llm_model_answer_implemented():
