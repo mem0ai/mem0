@@ -129,8 +129,12 @@ class BaseLlm(JSONSerializable):
         :return: Search results
         :rtype: Unknown
         """
-        from langchain.tools import DuckDuckGoSearchRun
-
+        try:
+            from langchain.tools import DuckDuckGoSearchRun
+        except ImportError:
+            raise ImportError(
+                'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+            ) from None
         search = DuckDuckGoSearchRun()
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
