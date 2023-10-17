@@ -75,6 +75,7 @@ class DataFormatter(JSONSerializable):
             DataType.CSV: CsvLoader,
             DataType.MDX: MdxLoader,
             DataType.IMAGES: ImagesLoader,
+            DataType.USF: UnstructuredLoader
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -116,6 +117,8 @@ class DataFormatter(JSONSerializable):
             DataType.MDX: MdxChunker,
             DataType.IMAGES: ImagesChunker,
             DataType.XML: XmlChunker,
+            DataType.USF: UnstructuredLoader
+
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]
