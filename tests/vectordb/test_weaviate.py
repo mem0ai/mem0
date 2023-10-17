@@ -125,13 +125,13 @@ class TestWeaviateDb(unittest.TestCase):
         # Check if the document was added to the database.
         weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=100, timeout_retries=3)
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"text": documents[0]}, class_name="Embedchain_store_1526_metadata"
+            data_object={"text": documents[0]}, class_name="Embedchain_store_1526_metadata", vector=embeddings[0]
         )
 
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
             data_object={"identifier": ids[0], "text": documents[0]},
             class_name="Embedchain_store_1526",
-            vector=embeddings[0],
+            vector=embeddings[0]
         )
 
     @patch("embedchain.vectordb.weaviate.weaviate")
