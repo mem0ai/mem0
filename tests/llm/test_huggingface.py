@@ -59,5 +59,3 @@ def test_hugging_face_mock(huggingface_llm_config, mocker):
 
     assert answer == "Test answer"
     mock_llm_instance.assert_called_once_with("Test query")
-    mock_llm_instance.assert_called_once_with("Test query")
-    mock_llm_instance.assert_called_once_with("Test query")
