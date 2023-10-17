@@ -155,7 +155,9 @@ dataloaders=[
     "pypdf",
     "pytube",
     "duckduckgo-search",
-    "docx2txt"
+    "docx2txt",
+    "unstructured",
+    "sentence-transformers",
 ]
 
 [tool.poetry.group.docs.dependencies]
