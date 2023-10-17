@@ -13,13 +13,9 @@ class OpenAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt) -> str:
         response = OpenAILlm._get_answer(prompt, self.config)
-
-        if self.config.stream:
-            return response
-        else:
-            return response.content
+        return response
 
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         messages = []
@@ -35,10 +31,9 @@ class OpenAILlm(BaseLlm):
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
-            from langchain.callbacks.streaming_stdout import \
-                StreamingStdOutCallbackHandler
+            from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
             chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=[StreamingStdOutCallbackHandler()])
         else:
             chat = ChatOpenAI(**kwargs)
-        return chat(messages)
+        return chat(messages).content

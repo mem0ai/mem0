@@ -104,6 +104,19 @@ class TestConfigForAppComponents:
 
         assert isinstance(embedder_config, BaseEmbedderConfig)
 
+    def test_components_raises_type_error_if_not_proper_instances(self):
+        wrong_llm = "wrong_llm"
+        with pytest.raises(TypeError):
+            App(llm=wrong_llm)
+
+        wrong_db = "wrong_db"
+        with pytest.raises(TypeError):
+            App(db=wrong_db)
+
+        wrong_embedder = "wrong_embedder"
+        with pytest.raises(TypeError):
+            App(embedder=wrong_embedder)
+
 
 class TestAppFromConfig:
     def load_config_data(self, yaml_path):
