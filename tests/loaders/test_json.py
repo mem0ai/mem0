@@ -1,16 +1,19 @@
 import hashlib
 from unittest.mock import patch
-from embedchain.loaders.json import JsonLoader
-from langchain.document_loaders.json_loader import JSONLoader
+
 from langchain.docstore.document import Document
+from langchain.document_loaders.json_loader import JSONLoader
+
+from embedchain.loaders.json import JsonLoader
+
 
 def test_load_data():
     mock_document = [
-        Document(page_content= "content1", metadata={"seq_num": 1}),
-        Document(page_content= "content2", metadata={"seq_num": 2})
+        Document(page_content="content1", metadata={"seq_num": 1}),
+        Document(page_content="content2", metadata={"seq_num": 2}),
     ]
-    with patch.object(JSONLoader, 'load', return_value=mock_document):
-        content = 'temp.json'
+    with patch.object(JSONLoader, "load", return_value=mock_document):
+        content = "temp.json"
 
         result = JsonLoader.load_data(content)
 
@@ -18,20 +21,8 @@ def test_load_data():
         assert "data" in result
 
         expected_data = [
-            {
-                "content": "content1",
-                "meta_data": {
-                    "url": content,
-                    "row": 1
-                }
-            },
-            {
-                "content": "content2",
-                "meta_data": {
-                    "url": content,
-                    "row": 2
-                }
-            }
+            {"content": "content1", "meta_data": {"url": content, "row": 1}},
+            {"content": "content2", "meta_data": {"url": content, "row": 2}},
         ]
 
         assert result["data"] == expected_data
