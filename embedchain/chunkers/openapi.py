@@ -3,6 +3,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config.add_config import ChunkerConfig
 
+
 class OpenAPIChunker(BaseChunker):
     def __init__(self, config: ChunkerConfig | None = None):
         if config is None:

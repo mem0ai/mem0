@@ -4,8 +4,8 @@ from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.images import ImagesChunker
 from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
-from embedchain.chunkers.openapi import OpenAPIChunker
 from embedchain.chunkers.notion import NotionChunker
+from embedchain.chunkers.openapi import OpenAPIChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
@@ -127,7 +127,7 @@ class DataFormatter(JSONSerializable):
             DataType.XML: XmlChunker,
             DataType.UNSTRUCTURED: UnstructuredFileChunker,
             DataType.JSON: JSONChunker,
-            DataType.OPENAPI: OpenAPIChunker
+            DataType.OPENAPI: OpenAPIChunker,
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]
