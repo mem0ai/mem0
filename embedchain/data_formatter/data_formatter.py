@@ -5,6 +5,7 @@ from embedchain.chunkers.images import ImagesChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
+from embedchain.chunkers.unstructured_file import UnstructuredFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
 from embedchain.chunkers.table import TableChunker
@@ -117,7 +118,7 @@ class DataFormatter(JSONSerializable):
             DataType.MDX: MdxChunker,
             DataType.IMAGES: ImagesChunker,
             DataType.XML: XmlChunker,
-            DataType.USF: UnstructuredLoader
+            DataType.USF: UnstructuredFileChunker
 
         }
         if data_type in chunker_classes:
