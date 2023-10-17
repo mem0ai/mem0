@@ -350,6 +350,10 @@ class EmbedChain(JSONSerializable):
 
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
+        # if data type is qna_pair, we check for question
+        if chunker.data_type == DataType.QNA_PAIR:
+            where = {"question": src[0]}
+
         if self.config.id is not None:
             where["app_id"] = self.config.id
 
