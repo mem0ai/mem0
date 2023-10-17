@@ -355,7 +355,6 @@ class EmbedChain(JSONSerializable):
 
         db_result = self.db.get(ids=ids, where=where)  # optional filter
         existing_ids = set(db_result["ids"])
-
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
@@ -432,7 +431,6 @@ class EmbedChain(JSONSerializable):
         :rtype: List[str]
         """
         query_config = config or self.llm.config
-
         if where is not None:
             where = where
         elif query_config is not None and query_config.where is not None:

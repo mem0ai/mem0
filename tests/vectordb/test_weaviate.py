@@ -29,6 +29,7 @@ class TestWeaviateDb(unittest.TestCase):
             "classes": [
                 {
                     "class": "Embedchain_store_1526",
+                    "vectorizer": "none",
                     "properties": [
                         {
                             "name": "identifier",
@@ -38,8 +39,42 @@ class TestWeaviateDb(unittest.TestCase):
                             "name": "text",
                             "dataType": ["text"],
                         },
+                        {
+                            "name": "metadata",
+                            "dataType": ["Embedchain_store_1526_metadata"],
+                        },
                     ],
-                }
+                },
+                {
+                    "class": "Embedchain_store_1526_metadata",
+                    "vectorizer": "none",
+                    "properties": [
+                        {
+                            "name": "data_type",
+                            "dataType": ["text"],
+                        },
+                        {
+                            "name": "doc_id",
+                            "dataType": ["text"],
+                        },
+                        {
+                            "name": "url",
+                            "dataType": ["text"],
+                        },
+                        {
+                            "name": "hash",
+                            "dataType": ["text"],
+                        },
+                        {
+                            "name": "app_id",
+                            "dataType": ["text"],
+                        },
+                        {
+                            "name": "text",
+                            "dataType": ["text"],
+                        },
+                    ],
+                },
             ]
         }
 
@@ -89,7 +124,11 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Check if the document was added to the database.
         weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=100, timeout_retries=3)
-        weaviate_client_batch_enter_mock.add_data_object.assert_called_once_with(
+        weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
+            data_object={"text": documents[0]}, class_name="Embedchain_store_1526_metadata"
+        )
+
+        weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
             data_object={"identifier": ids[0], "text": documents[0]},
             class_name="Embedchain_store_1526",
             vector=embeddings[0],

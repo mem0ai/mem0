@@ -20,6 +20,8 @@ class WeaviateDB(BaseVectorDB):
     Weaviate as vector database
     """
 
+    BATCH_SIZE = 100
+
     def __init__(
         self,
         config: Optional[WeaviateDBConfig] = None,
@@ -57,12 +59,15 @@ class WeaviateDB(BaseVectorDB):
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
         self.index_name = self._get_index_name()
+        self.metadata_keys = {"data_type", "doc_id", "url", "hash", "app_id", "text"}
         if not self.client.schema.exists(self.index_name):
             # id is a reserved field in Weaviate, hence we had to change the name of the id field to identifier
+            # The none vectorizer is crucial as we have our own custom embedding function
             class_obj = {
                 "classes": [
                     {
                         "class": self.index_name,
+                        "vectorizer": "none",
                         "properties": [
                             {
                                 "name": "identifier",
@@ -72,8 +77,42 @@ class WeaviateDB(BaseVectorDB):
                                 "name": "text",
                                 "dataType": ["text"],
                             },
+                            {
+                                "name": "metadata",
+                                "dataType": [self.index_name + "_metadata"],
+                            },
                         ],
-                    }
+                    },
+                    {
+                        "class": self.index_name + "_metadata",
+                        "vectorizer": "none",
+                        "properties": [
+                            {
+                                "name": "data_type",
+                                "dataType": ["text"],
+                            },
+                            {
+                                "name": "doc_id",
+                                "dataType": ["text"],
+                            },
+                            {
+                                "name": "url",
+                                "dataType": ["text"],
+                            },
+                            {
+                                "name": "hash",
+                                "dataType": ["text"],
+                            },
+                            {
+                                "name": "app_id",
+                                "dataType": ["text"],
+                            },
+                            {
+                                "name": "text",
+                                "dataType": ["text"],
+                            },
+                        ],
+                    },
                 ]
             }
 
@@ -93,15 +132,24 @@ class WeaviateDB(BaseVectorDB):
         if ids is None or len(ids) == 0:
             return {"ids": []}
 
-        results = (
-            self.client.query.get(self.index_name, ["identifier"])
-            .with_where({"path": ["identifier"], "operator": "ContainsAny", "valueText": ids})
-            .do()
-        )
-
         existing_ids = []
-        for result in results["data"]["Get"].get(self.index_name, []):
-            existing_ids.append(result["identifier"])
+        cursor = None
+        has_iterated_once = False
+        while cursor is not None or not has_iterated_once:
+            has_iterated_once = True
+            results = self._query_with_cursor(
+                self.client.query.get(self.index_name, ["identifier"])
+                .with_additional(["id"])
+                .with_limit(self.BATCH_SIZE),
+                cursor,
+            )
+            fetched_results = results["data"]["Get"].get(self.index_name, [])
+            if len(fetched_results) == 0:
+                break
+            for result in fetched_results:
+                existing_ids.append(result["identifier"])
+                cursor = result["_additional"]["id"]
+
         return {"ids": existing_ids}
 
     def add(
@@ -129,13 +177,21 @@ class WeaviateDB(BaseVectorDB):
         print("Adding documents to Weaviate...")
         if not skip_embedding:
             embeddings = self.embedder.embedding_fn(documents)
-        self.client.batch.configure(batch_size=100, timeout_retries=3)  # Configure batch
-        new_documents = []
+        self.client.batch.configure(batch_size=self.BATCH_SIZE, timeout_retries=3)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
-            for id, text, embedding in zip(ids, documents, embeddings):
+            for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
                 doc = {"identifier": id, "text": text}
-                new_documents.append(copy.deepcopy(doc))
-                batch.add_data_object(data_object=copy.deepcopy(doc), class_name=self.index_name, vector=embedding)
+                updated_metadata = {"text": text}
+                if metadata is not None:
+                    updated_metadata.update(**metadata)
+
+                obj_uuid = batch.add_data_object(
+                    data_object=copy.deepcopy(doc), class_name=self.index_name, vector=embedding
+                )
+                metadata_uuid = batch.add_data_object(
+                    data_object=copy.deepcopy(updated_metadata), class_name=self.index_name + "_metadata"
+                )
+                batch.add_reference(obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata")
 
     def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
         """
@@ -153,27 +209,33 @@ class WeaviateDB(BaseVectorDB):
         :rtype: List[str]
         """
         if not skip_embedding:
-            query_vector = self.embedder.embedding_fn(input_query)[0]
+            query_vector = self.embedder.embedding_fn([input_query])[0]
         else:
             query_vector = input_query
-
-        keys = list(where.keys() if where is not None else [])
-        values = list(where.values() if where is not None else [])
-        if where is not None and ("id" in keys or "text" in keys):
-            default_filter_params = {"path": keys, "operator": "Equal", "valueTextArray": values}
-            default_filter_params.update(where)
-
-            if default_filter_params.keys().__contains__("id"):
-                default_filter_params["identifier"] = default_filter_params.get("id", None)
+        keys = set(where.keys() if where is not None else set())
+        if len(keys.intersection(self.metadata_keys)) != 0:
+            weaviate_where_operands = []
+            for key in keys:
+                if key in self.metadata_keys:
+                    weaviate_where_operands.append(
+                        {
+                            "path": ["metadata", self.index_name + "_metadata", key],
+                            "operator": "Equal",
+                            "valueText": where.get(key),
+                        }
+                    )
+            if len(weaviate_where_operands) == 1:
+                weaviate_where_clause = weaviate_where_operands[0]
+            else:
+                weaviate_where_clause = {"operator": "And", "operands": weaviate_where_operands}
 
             results = (
-                self.client.query.get(self.index_name, ["identifier", "text"])
-                .with_where(default_filter_params)
+                self.client.query.get(self.index_name, ["text"])
+                .with_where(weaviate_where_clause)
                 .with_near_vector({"vector": query_vector})
                 .with_limit(n_results)
                 .do()
             )
-
         else:
             results = (
                 self.client.query.get(self.index_name, ["text"])
@@ -184,6 +246,7 @@ class WeaviateDB(BaseVectorDB):
         matched_tokens = []
         for result in results["data"]["Get"].get(self.index_name):
             matched_tokens.append(result["text"])
+
         return matched_tokens
 
     def set_collection_name(self, name: str):
@@ -225,3 +288,9 @@ class WeaviateDB(BaseVectorDB):
         :rtype: str
         """
         return f"{self.config.collection_name}_{self.embedder.vector_dimension}".capitalize()
+
+    def _query_with_cursor(self, query, cursor):
+        if cursor is not None:
+            query.with_after(cursor)
+        results = query.do()
+        return results
