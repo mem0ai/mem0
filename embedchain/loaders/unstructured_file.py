@@ -1,7 +1,7 @@
 import hashlib
 
 try:
-    from langchain.document_loaders import PyPDFLoader
+    from langchain.document_loaders import UnstructuredFileLoader
 except ImportError:
     raise ImportError(
         'PDF File requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
@@ -12,10 +12,10 @@ from embedchain.utils import clean_string
 
 
 @register_deserializable
-class PdfFileLoader(BaseLoader):
+class UnstructuredLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a PDF file."""
-        loader = PyPDFLoader(url)
+        loader = UnstructuredFileLoader(url)
         data = []
         all_content = []
         pages = loader.load_and_split()
