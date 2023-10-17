@@ -4,17 +4,17 @@ import pytest
 from langchain.schema import HumanMessage, SystemMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.llm.vertex_ai import VertexAiLlm
+from embedchain.llm.vertex_ai import VertexAILlm
 
 
 @pytest.fixture
 def vertexai_llm():
     config = BaseLlmConfig(temperature=0.6, model="vertexai_model", system_prompt="System Prompt")
-    return VertexAiLlm(config)
+    return VertexAILlm(config)
 
 
 def test_get_llm_model_answer(vertexai_llm):
-    with patch.object(VertexAiLlm, "_get_answer", return_value="Test Response") as mock_method:
+    with patch.object(VertexAILlm, "_get_answer", return_value="Test Response") as mock_method:
         prompt = "Test Prompt"
         response = vertexai_llm.get_llm_model_answer(prompt)
         assert response == "Test Response"

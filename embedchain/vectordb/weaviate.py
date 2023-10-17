@@ -6,23 +6,23 @@ try:
     import weaviate
 except ImportError:
     raise ImportError(
-        "Weaviate requires extra dependencies. Install with `pip install --upgrade embedchain[weaviate]`"
+        "Weaviate requires extra dependencies. Install with `pip install --upgrade 'embedchain[weaviate]'`"
     ) from None
 
-from embedchain.config.vectordb.weaviate import WeaviateDbConfig
+from embedchain.config.vectordb.weaviate import WeaviateDBConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 
 @register_deserializable
-class WeaviateDb(BaseVectorDB):
+class WeaviateDB(BaseVectorDB):
     """
     Weaviate as vector database
     """
 
     def __init__(
         self,
-        config: Optional[WeaviateDbConfig] = None,
+        config: Optional[WeaviateDBConfig] = None,
     ):
         """Weaviate as vector database.
         :param config: Weaviate database config, defaults to None
@@ -30,9 +30,9 @@ class WeaviateDb(BaseVectorDB):
         :raises ValueError: No config provided
         """
         if config is None:
-            self.config = WeaviateDbConfig()
+            self.config = WeaviateDBConfig()
         else:
-            if not isinstance(config, WeaviateDbConfig):
+            if not isinstance(config, WeaviateDBConfig):
                 raise TypeError(
                     "config is not a `WeaviateDbConfig` instance. "
                     "Please make sure the type is right and that you are passing an instance."
@@ -42,6 +42,7 @@ class WeaviateDb(BaseVectorDB):
             url=os.environ.get("WEAVIATE_ENDPOINT"),
             auth_client_secret=weaviate.AuthApiKey(api_key=os.environ.get("WEAVIATE_API_KEY")),
             additional_headers={"X-OpenAI-Api-Key": os.environ.get("OPENAI_API_KEY")},
+            **self.config.extra_params,
         )
 
         # Call parent init here because embedder is needed
@@ -125,6 +126,7 @@ class WeaviateDb(BaseVectorDB):
         :type skip_embedding: bool
         """
 
+        print("Adding documents to Weaviate...")
         if not skip_embedding:
             embeddings = self.embedder.embedding_fn(documents)
         self.client.batch.configure(batch_size=100, timeout_retries=3)  # Configure batch

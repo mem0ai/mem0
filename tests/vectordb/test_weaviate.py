@@ -4,7 +4,7 @@ from unittest.mock import patch
 from embedchain import App
 from embedchain.config import AppConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.vectordb.weaviate import WeaviateDb
+from embedchain.vectordb.weaviate import WeaviateDB
 
 
 class TestWeaviateDb(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestWeaviateDb(unittest.TestCase):
         embedder.set_vector_dimension(1526)
 
         # Create a Weaviate instance
-        db = WeaviateDb()
+        db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=embedder)
 
@@ -57,7 +57,7 @@ class TestWeaviateDb(unittest.TestCase):
         embedder.set_vector_dimension(1526)
 
         # Create a Weaviate instance
-        db = WeaviateDb()
+        db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=embedder)
 
@@ -76,7 +76,7 @@ class TestWeaviateDb(unittest.TestCase):
         embedder.set_vector_dimension(1526)
 
         # Create a Weaviate instance
-        db = WeaviateDb()
+        db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=embedder)
 
@@ -107,7 +107,7 @@ class TestWeaviateDb(unittest.TestCase):
         embedder.set_vector_dimension(1526)
 
         # Create a Weaviate instance
-        db = WeaviateDb()
+        db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=embedder)
 
@@ -130,7 +130,7 @@ class TestWeaviateDb(unittest.TestCase):
         embedder.set_vector_dimension(1526)
 
         # Create a Weaviate instance
-        db = WeaviateDb()
+        db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedder=embedder)
 

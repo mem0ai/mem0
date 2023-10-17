@@ -4,101 +4,72 @@ title: '⚙️ Custom configurations'
 
 Embedchain is made to work out of the box. However, for advanced users we're also offering configuration options. All of these configuration options are optional and have sane defaults.
 
-## Concept
-The main `App` class is available in the following varieties: `CustomApp`, `OpenSourceApp` and `Llama2App` and `App`. The first is fully configurable, the others are opinionated in some aspects.
+You can configure different components of your app (`llm`, `embedding model`, or `vector database`) through a simple yaml configuration that Embedchain offers. Here is a generic full-stack example of the yaml config:
 
-The `App` class has three subclasses: `llm`, `db` and `embedder`. These are the core ingredients that make up an EmbedChain app.
-App plus each one of the subclasses have a `config` attribute.
-You can pass a `Config` instance as an argument during initialization to persistently configure a class.
-These configs can be imported from `embedchain.config`
+```yaml
+app:
+  config:
+    id: 'full-stack-app'
 
-There are `set` methods for some things that should not (only) be set at start-up, like `app.db.set_collection_name`.
+llm:
+  provider: openai
+  model: 'gpt-3.5-turbo'
+  config:
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+    template: |
+      Use the following pieces of context to answer the query at the end.
+      If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
-## Examples
+      $context
 
-### General
+      Query: $query
 
-Here's the readme example with configuration options.
+      Helpful Answer:
+    system_prompt: |
+      Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.
 
-```python
-from embedchain import App
-from embedchain.config import AppConfig, AddConfig, LlmConfig, ChunkerConfig
+vectordb:
+  provider: chroma
+  config:
+    collection_name: 'full-stack-app'
+    dir: db
+    allow_reset: true
 
-# Example: set the log level for debugging
-config = AppConfig(log_level="DEBUG")
-naval_chat_bot = App(config)
-
-# Example: specify a custom collection name
-naval_chat_bot.db.set_collection_name("naval_chat_bot")
-
-# Example: define your own chunker config for `youtube_video`
-chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=100, length_function=len)
-# Example: Add your chunker config to an AddConfig to actually use it
-add_config = AddConfig(chunker=chunker_config)
-naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44", config=add_config)
-
-# Example: Reset to default
-add_config = AddConfig()
-naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf", config=add_config)
-naval_chat_bot.add("https://nav.al/feedback", config=add_config)
-naval_chat_bot.add("https://nav.al/agi", config=add_config)
-naval_chat_bot.add(("Who is Naval Ravikant?", "Naval Ravikant is an Indian-American entrepreneur and investor."), config=add_config)
-
-# Change the number of documents.
-query_config = LlmConfig(number_documents=5)
-print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?", config=query_config))
+embedder:
+  provider: openai
+  config:
+    model: 'text-embedding-ada-002'
 ```
 
-### Custom prompt template
+Alright, let's dive into what each key means in the yaml config above:
 
-Here's the example of using custom prompt template with `.query`
+1. `app` Section:
+    - `config`:
+        - `id` (String): The ID or name of your full-stack application.
+2. `llm` Section:
+    - `provider` (String): The provider for the language model, which is set to 'openai'. You can find the full list of llm providers in [our docs](/components/llms).
+    - `model` (String): The specific model being used, 'gpt-3.5-turbo'.
+    - `config`:
+        - `temperature` (Float): Controls the randomness of the model's output. A higher value (closer to 1) makes the output more random.
+        - `max_tokens` (Integer): Controls how many tokens are used in the response.
+        - `top_p` (Float): Controls the diversity of word selection. A higher value (closer to 1) makes word selection more diverse.
+        - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
+        - `template` (String): A custom template for the prompt that the model uses to generate responses.
+        - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
+3. `vectordb` Section:
+    - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
+    - `config`:
+        - `collection_name` (String): The initial collection name for the database, set to 'full-stack-app'.
+        - `dir` (String): The directory for the database, set to 'db'.
+        - `allow_reset` (Boolean): Indicates whether resetting the database is allowed, set to true.
+4. `embedder` Section:
+    - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
+    - `config`:
+        - `model` (String): The specific model used for text embedding, 'text-embedding-ada-002'.
 
-```python
-from string import Template
+If you have questions about the configuration above, please feel free to reach out to us using one of the following methods:
 
-import wikipedia
-
-from embedchain import App
-from embedchain.config import LlmConfig
-
-einstein_chat_bot = App()
-
-# Embed Wikipedia page
-page = wikipedia.page("Albert Einstein")
-einstein_chat_bot.add(page.content)
-
-# Example: use your own custom template with `$context` and `$query`
-einstein_chat_template = Template(
-    """
-        You are Albert Einstein, a German-born theoretical physicist,
-        widely ranked among the greatest and most influential scientists of all time.
-
-        Use the following information about Albert Einstein to respond to
-        the human's query acting as Albert Einstein.
-        Context: $context
-
-        Keep the response brief. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
-        Human: $query
-        Albert Einstein:"""
-)
-# Example: Use the template, also add a system prompt.
-llm_config = LlmConfig(template=einstein_chat_template, system_prompt="You are Albert Einstein.")
-queries = [
-    "Where did you complete your studies?",
-    "Why did you win nobel prize?",
-    "Why did you divorce your first wife?",
-]
-for query in queries:
-    response = einstein_chat_bot.query(query, config=llm_config)
-    print("Query: ", query)
-    print("Response: ", response)
-
-# Output
-# Query:  Where did you complete your studies?
-# Response:  I completed my secondary education at the Argovian cantonal school in Aarau, Switzerland.
-# Query:  Why did you win nobel prize?
-# Response:  I won the Nobel Prize in Physics in 1921 for my services to Theoretical Physics, particularly for my discovery of the law of the photoelectric effect.
-# Query:  Why did you divorce your first wife?
-# Response:  We divorced due to living apart for five years.
-```
+<Snippet file="get-help.mdx" />

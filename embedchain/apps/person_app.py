@@ -2,10 +2,9 @@ from string import Template
 
 from embedchain.apps.app import App
 from embedchain.apps.open_source_app import OpenSourceApp
-from embedchain.config import BaseLlmConfig
-from embedchain.config.apps.base_app_config import BaseAppConfig
-from embedchain.config.llm.base_llm_config import (DEFAULT_PROMPT,
-                                                   DEFAULT_PROMPT_WITH_HISTORY)
+from embedchain.config import AppConfig, BaseLlmConfig
+from embedchain.config.llm.base import (DEFAULT_PROMPT,
+                                        DEFAULT_PROMPT_WITH_HISTORY)
 from embedchain.helper.json_serializable import register_deserializable
 
 
@@ -16,16 +15,16 @@ class EmbedChainPersonApp:
     This bot behaves and speaks like a person.
 
     :param person: name of the person, better if its a well known person.
-    :param config: BaseAppConfig instance to load as configuration.
+    :param config: AppConfig instance to load as configuration.
     """
 
-    def __init__(self, person: str, config: BaseAppConfig = None):
+    def __init__(self, person: str, config: AppConfig = None):
         """Initialize a new person app
 
         :param person: Name of the person that's imitated.
         :type person: str
         :param config: Configuration class instance, defaults to None
-        :type config: BaseAppConfig, optional
+        :type config: AppConfig, optional
         """
         self.person = person
         self.person_prompt = f"You are {person}. Whatever you say, you will always say in {person} style."  # noqa:E501
@@ -70,7 +69,7 @@ class PersonApp(EmbedChainPersonApp, App):
     """
 
     def query(self, input_query, config: BaseLlmConfig = None, dry_run=False):
-        config = self.add_person_template_to_config(DEFAULT_PROMPT, config, where=None)
+        config = self.add_person_template_to_config(DEFAULT_PROMPT, config)
         return super().query(input_query, config, dry_run, where=None)
 
     def chat(self, input_query, config: BaseLlmConfig = None, dry_run=False, where=None):
