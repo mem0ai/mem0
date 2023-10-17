@@ -14,7 +14,7 @@ from embedchain.utils import clean_string
 @register_deserializable
 class UnstructuredLoader(BaseLoader):
     def load_data(self, url):
-        """Load data from a PDF file."""
+        """Load data from a Unstructured file."""
         loader = UnstructuredFileLoader(url)
         data = []
         all_content = []
