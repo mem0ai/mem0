@@ -43,7 +43,6 @@ class WeaviateDB(BaseVectorDB):
         self.client = weaviate.Client(
             url=os.environ.get("WEAVIATE_ENDPOINT"),
             auth_client_secret=weaviate.AuthApiKey(api_key=os.environ.get("WEAVIATE_API_KEY")),
-            additional_headers={"X-OpenAI-Api-Key": os.environ.get("OPENAI_API_KEY")},
             **self.config.extra_params,
         )
 
@@ -189,7 +188,9 @@ class WeaviateDB(BaseVectorDB):
                     data_object=copy.deepcopy(doc), class_name=self.index_name, vector=embedding
                 )
                 metadata_uuid = batch.add_data_object(
-                    data_object=copy.deepcopy(updated_metadata), class_name=self.index_name + "_metadata"
+                    data_object=copy.deepcopy(updated_metadata),
+                    class_name=self.index_name + "_metadata",
+                    vector=embedding,
                 )
                 batch.add_reference(obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata")
 
