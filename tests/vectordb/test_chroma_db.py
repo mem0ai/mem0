@@ -228,6 +228,40 @@ class TestChromaDbCollection(unittest.TestCase):
         expected_value = ["document"]
         self.assertEqual(data, expected_value)
 
+    def test_add_with_invalid_inputs(self):
+        """
+        Test add fails with invalid inputs
+        """
+        # Start with a clean app
+        self.app_with_settings.reset()
+        # app = App(config=AppConfig(collect_metrics=False), db=db)
+
+        # Collection should be empty when created
+        self.assertEqual(self.app_with_settings.db.count(), 0)
+
+        with self.assertRaises(ValueError):
+            self.app_with_settings.db.add(
+                embeddings=[[0, 0, 0]],
+                documents=["document", "document2"],
+                metadatas=[{"value": "somevalue"}],
+                ids=["id"],
+                skip_embedding=True,
+            )
+        # After adding, should contain no item
+        self.assertEqual(self.app_with_settings.db.count(), 0)
+
+        with self.assertRaises(ValueError):
+            self.app_with_settings.db.add(
+                embeddings=None,
+                documents=["document", "document2"],
+                metadatas=[{"value": "somevalue"}],
+                ids=["id"],
+                skip_embedding=True,
+            )
+
+        # After adding, should contain no item
+        self.assertEqual(self.app_with_settings.db.count(), 0)
+
     def test_collections_are_persistent(self):
         """
         Test that a collection can be picked up later.
