@@ -111,6 +111,7 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^4.27", optional= true }
+weaviate-client = { version = "^3.24.1", optional= true }
 docx2txt = { version="^0.8", optional=true }
 pinecone-client = { version = "^2.2.4", optional = true }
 unstructured = {extras = ["local-inference"], version = "^0.10.18", optional=true}
@@ -145,6 +146,7 @@ poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
+weaviate = ["weaviate-client"]
 pinecone = ["pinecone-client"]
 images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]

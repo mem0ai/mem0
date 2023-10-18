@@ -72,12 +72,14 @@ class VectorDBFactory:
         "elasticsearch": "embedchain.vectordb.elasticsearch.ElasticsearchDB",
         "opensearch": "embedchain.vectordb.opensearch.OpenSearchDB",
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
+        "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
         "elasticsearch": "embedchain.config.vectordb.elasticsearch.ElasticsearchDBConfig",
         "opensearch": "embedchain.config.vectordb.opensearch.OpenSearchDBConfig",
         "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
+        "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
     }
 
     @classmethod
