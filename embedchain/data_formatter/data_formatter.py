@@ -21,7 +21,7 @@ from embedchain.loaders.csv import CsvLoader
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
 from embedchain.loaders.images import ImagesLoader
-from embedchain.loaders.json import JsonLoader
+from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.mdx import MdxLoader
