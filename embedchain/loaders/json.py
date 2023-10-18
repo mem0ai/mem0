@@ -7,7 +7,7 @@ from embedchain.loaders.base_loader import BaseLoader
 langchain_json_jq_schema = 'to_entries | map("\(.key): \(.value|tostring)") | .[]'
 
 
-class JsonLoader(BaseLoader):
+class JSONLoader(BaseLoader):
     @staticmethod
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
