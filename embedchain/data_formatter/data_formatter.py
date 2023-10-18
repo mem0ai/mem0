@@ -29,6 +29,7 @@ from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.xml import XmlLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
+from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.models.data_type import DataType
 
 
