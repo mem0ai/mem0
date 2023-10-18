@@ -77,7 +77,7 @@ class DataFormatter(JSONSerializable):
             DataType.CSV: CsvLoader,
             DataType.MDX: MdxLoader,
             DataType.IMAGES: ImagesLoader,
-            DataType.JSON: JsonLoader,
+            DataType.JSON: JSONLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
