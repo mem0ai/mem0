@@ -350,12 +350,15 @@ class EmbedChain(JSONSerializable):
 
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
+        # if data type is qna_pair, we check for question
+        if chunker.data_type == DataType.QNA_PAIR:
+            where = {"question": src[0]}
+
         if self.config.id is not None:
             where["app_id"] = self.config.id
 
         db_result = self.db.get(ids=ids, where=where)  # optional filter
         existing_ids = set(db_result["ids"])
-
         if len(existing_ids):
             data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
             data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
@@ -432,7 +435,6 @@ class EmbedChain(JSONSerializable):
         :rtype: List[str]
         """
         query_config = config or self.llm.config
-
         if where is not None:
             where = where
         elif query_config is not None and query_config.where is not None:
@@ -459,7 +461,6 @@ class EmbedChain(JSONSerializable):
             where=where,
             skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
         )
-
         return contents
 
     def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict] = None) -> str:

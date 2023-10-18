@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.72"
+version = "0.0.73"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = ["Taranjeet Singh, Deshraj Yadav"]
 license = "Apache License"
@@ -111,6 +111,7 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^4.27", optional= true }
+weaviate-client = { version = "^3.24.1", optional= true }
 docx2txt = { version="^0.8", optional=true }
 pinecone-client = { version = "^2.2.4", optional = true }
 unstructured = {extras = ["local-inference"], version = "^0.10.18", optional=true}
@@ -119,8 +120,10 @@ torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
 regex = { version = "2023.8.8", optional = true }
 huggingface_hub = { version = "^0.17.3", optional = true }
-pymilvus = { version="2.3.1", optional = true }
-jq = ">=1.6.0"
+pymilvus = { version = "2.3.1", optional = true }
+google-cloud-aiplatform = { version = "^1.26.1", optional = true }
+replicate = { version = "^0.15.4", optional = true }
+jq = { version=">=1.6.0", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -134,6 +137,7 @@ isort = "^5.12.0"
 pytest-cov = "^4.1.0"
 responses = "^0.23.3"
 mock = "^5.1.0"
+pytest-asyncio = "^0.21.1"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
@@ -145,6 +149,7 @@ poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
+weaviate = ["weaviate-client"]
 pinecone = ["pinecone-client"]
 images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]
@@ -159,7 +164,10 @@ dataloaders=[
     "docx2txt",
     "unstructured",
     "sentence-transformers",
+    "jq",
 ]
+vertexai = ["google-cloud-aiplatform"]
+llama2 = ["replicate"]
 
 [tool.poetry.group.docs.dependencies]
 
