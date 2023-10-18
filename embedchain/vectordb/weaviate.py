@@ -36,7 +36,7 @@ class WeaviateDB(BaseVectorDB):
         else:
             if not isinstance(config, WeaviateDBConfig):
                 raise TypeError(
-                    "config is not a `WeaviateDbConfig` instance. "
+                    "config is not a `WeaviateDBConfig` instance. "
                     "Please make sure the type is right and that you are passing an instance."
                 )
             self.config = config
