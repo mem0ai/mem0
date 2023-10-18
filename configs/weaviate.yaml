@@ -2,4 +2,4 @@ vectordb:
   provider: weaviate
   config:
     dir: db
-    collection_name: my-weaviate-index
+    collection_name: my_weaviate_index
