@@ -25,7 +25,8 @@ class IndirectDataType(Enum):
     CSV = "csv"
     MDX = "mdx"
     IMAGES = "images"
-    USF = 'USF'
+    UNSTRUCTURED = 'unstructured'
+    JSON = "json"
 
 
 class SpecialDataType(Enum):
@@ -50,4 +51,5 @@ class DataType(Enum):
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
     IMAGES = IndirectDataType.IMAGES.value
-    USF = IndirectDataType.USF.value
+    UNSTRUCTURED = IndirectDataType.UNSTRUCTURED.value
+    JSON = IndirectDataType.JSON.value
