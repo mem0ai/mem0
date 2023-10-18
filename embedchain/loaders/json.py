@@ -13,7 +13,7 @@ class JSONLoader(BaseLoader):
         """Load a json file. Each data point is a key value pair."""
         data = []
         data_content = []
-        loader = JSONLoader(content, text_content=False, jq_schema=langchain_json_jq_schema)
+        loader = LcJSONLoader(content, text_content=False, jq_schema=langchain_json_jq_schema)
         docs = loader.load()
         for doc in docs:
             meta_data = doc.metadata
