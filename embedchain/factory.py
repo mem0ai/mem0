@@ -73,6 +73,7 @@ class VectorDBFactory:
         "opensearch": "embedchain.vectordb.opensearch.OpenSearchDB",
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
+        "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
@@ -80,6 +81,7 @@ class VectorDBFactory:
         "opensearch": "embedchain.config.vectordb.opensearch.OpenSearchDBConfig",
         "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
         "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
+        "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
     }
 
     @classmethod
