@@ -16,6 +16,10 @@ from embedchain.vectordb.base import BaseVectorDB
 
 
 class QdrantDB(BaseVectorDB):
+    """
+    Qdrant as vector database
+    """
+
     BATCH_SIZE = 10
 
     def __init__(
@@ -68,8 +72,15 @@ class QdrantDB(BaseVectorDB):
     def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
-        :param ids: list of doc ids to check for existence
-        :param where: Optional. to filter data
+
+        :param ids: _list of doc ids to check for existence
+        :type ids: List[str]
+        :param where: to filter data
+        :type where: Dict[str, any]
+        :param limit: The number of entries to be fetched
+        :type limit: Optional int, defaults to None
+        :return: All the existing IDs
+        :rtype: Set[str]
         """
         if ids is None or len(ids) == 0:
             return {"ids": []}
@@ -88,7 +99,7 @@ class QdrantDB(BaseVectorDB):
             for key in keys.intersection(self.metadata_keys):
                 qdrant_must_filters.append(
                     models.FieldCondition(
-                        key="payload.metadata.{}".format(key),
+                        key="metadata.{}".format(key),
                         match=models.MatchValue(
                             value=where.get(key),
                         ),
@@ -97,13 +108,12 @@ class QdrantDB(BaseVectorDB):
 
         offset = 0
         existing_ids = []
-        while True:
+        while offset is not None:
             response = self.client.scroll(collection_name=self.collection_name, scroll_filter=models
                                           .Filter(must=qdrant_must_filters), offset=offset, limit=self.BATCH_SIZE)
-            if len(response[0]) == 0:
-                break
-            for doc in response[0]["result"]:
-                existing_ids.append(doc["id"])
+            offset = response[1]
+            for doc in response[0]:
+                existing_ids.append(doc.payload["identifier"])
         return {"ids": existing_ids}
 
     def add(
@@ -114,11 +124,18 @@ class QdrantDB(BaseVectorDB):
             ids: List[str],
             skip_embedding: bool
     ):
-        """
-        add data in vector database
+        """add data in vector database
+        :param embeddings: list of embeddings for the corresponding documents to be added
+        :type documents: List[List[float]]
         :param documents: list of texts to add
+        :type documents: List[str]
         :param metadatas: list of metadata associated with docs
+        :type metadatas: List[object]
         :param ids: ids of docs
+        :type ids: List[str]
+        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
+        generated or not
+        :type skip_embedding: bool
         """
         if not skip_embedding:
             embeddings = self.embedder.embedding_fn(documents)
@@ -147,8 +164,16 @@ class QdrantDB(BaseVectorDB):
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
+        :type input_query: List[str]
         :param n_results: no of similar documents to fetch from database
+        :type n_results: int
         :param where: Optional. to filter data
+        :type where: Dict[str, any]
+        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
+        generated or not
+        :type skip_embedding: bool
+        :return: Database contents that are the result of the query
+        :rtype: List[str]
         """
         if not skip_embedding:
             query_vector = self.embedder.embedding_fn([input_query])[0]
