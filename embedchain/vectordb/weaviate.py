@@ -28,7 +28,7 @@ class WeaviateDB(BaseVectorDB):
     ):
         """Weaviate as vector database.
         :param config: Weaviate database config, defaults to None
-        :type config: WeaviateDbConfig, optional
+        :type config: WeaviateDBConfig, optional
         :raises ValueError: No config provided
         """
         if config is None:
