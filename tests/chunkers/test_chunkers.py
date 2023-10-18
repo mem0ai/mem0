@@ -1,5 +1,6 @@
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
@@ -10,7 +11,6 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
-from embedchain.chunkers.json import JSONChunker
 from embedchain.config.add_config import ChunkerConfig
 
 chunker_config = ChunkerConfig(chunk_size=500, chunk_overlap=0, length_function=len)

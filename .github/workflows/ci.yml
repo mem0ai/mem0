@@ -24,9 +24,7 @@ jobs:
         run: poetry install --all-extras
       - name: Lint with ruff
         run: make lint
-      - name: Test with pytest
-        run: make test
-      - name: Generate coverage report
+      - name: Run tests and generate coverage report
         run: make coverage
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
@@ -34,4 +32,3 @@ jobs:
           file: coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
