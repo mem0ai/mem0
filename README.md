@@ -72,6 +72,34 @@ elon_bot.query("How many companies does Elon Musk run and name those?")
 # Answer: Elon Musk currently runs several companies. As of my knowledge, he is the CEO and lead designer of SpaceX, the CEO and product architect of Tesla, Inc., the CEO and founder of Neuralink, and the CEO and founder of The Boring Company. However, please note that this information may change over time, so it's always good to verify the latest updates.
 ```
 
+## Examples
+
+| LLM          	| Google Colab 	| Replit      	|
+|--------------	|--------------	|-------------	|
+| OpenAI       	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/openai.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/openai)	|
+| Anthropic    	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/anthropic.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/anthropic)	|
+| Azure OpenAI 	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/azure-openai.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/azureopenai)	|
+| VertexAI     	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/vertex_ai.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/vertexai)	|
+| Cohere       	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/cohere.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/cohere)	|
+| Hugging Face 	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/hugging_face_hub.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/huggingface)	|
+| JinaChat     	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/jina.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/jina)	|
+| GPT4All      	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/gpt4all.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/gpt4all)	|
+| Llama2       	| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/llama2.ipynb) 	| [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/llama2)	|
+
+| Embedder | Google Colab | Replit
+|---------|----------|--------|
+| OpenAI | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/openai.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/openai) |
+| VertexAI | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/vertex_ai.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/vertexai) |
+| GPT4All | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/gpt4all.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/gpt4all) |
+| Hugging Face | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/hugging_face_hub.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/huggingface) |
+
+| Vector DB | Google Colab | Replit
+|---------|----------|--------|
+| ChromaDB | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/chromadb.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/chromadb) |
+| Elasticsearch |[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/elasticsearch.ipynb)  | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/elasticsearch) |
+| Opensearch | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/opensearch.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/opensearch) |
+| Pinecone | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/pinecone.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit)](https://replit.com/@taranjeetio/pinecone) |
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please check out the issues on the repository, and feel free to open a pull request.
