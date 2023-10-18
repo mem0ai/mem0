@@ -1,6 +1,6 @@
 import hashlib
 
-from langchain.document_loaders.json_loader import JSONLoader
+from langchain.document_loaders.json_loader import JSONLoader as LcJSONLoader
 
 from embedchain.loaders.base_loader import BaseLoader
 
