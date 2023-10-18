@@ -79,7 +79,7 @@ class DataFormatter(JSONSerializable):
             DataType.CSV: CsvLoader,
             DataType.MDX: MdxLoader,
             DataType.IMAGES: ImagesLoader,
-            DataType.UNSTRUCTURED: UnstructuredLoader
+            DataType.UNSTRUCTURED: UnstructuredLoader,
             DataType.JSON: JSONLoader,
         }
         lazy_loaders = {DataType.NOTION}
@@ -122,7 +122,7 @@ class DataFormatter(JSONSerializable):
             DataType.MDX: MdxChunker,
             DataType.IMAGES: ImagesChunker,
             DataType.XML: XmlChunker,
-            DataType.UNSTRUCTURED: UnstructuredFileChunker
+            DataType.UNSTRUCTURED: UnstructuredFileChunker,
             DataType.JSON: JSONChunker,
         }
         if data_type in chunker_classes:
