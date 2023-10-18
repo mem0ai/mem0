@@ -12,7 +12,7 @@ def test_load_data():
         Document(page_content="content1", metadata={"seq_num": 1}),
         Document(page_content="content2", metadata={"seq_num": 2}),
     ]
-    with patch.object(JSONLoader, "load", return_value=mock_document):
+    with patch.object(LcJSONLoader, "load", return_value=mock_document):
         content = "temp.json"
 
         result = JsonLoader.load_data(content)
