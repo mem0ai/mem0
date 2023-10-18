@@ -10,6 +10,7 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
+from embedchain.chunkers.json import JSONChunker
 from embedchain.config.add_config import ChunkerConfig
 
 chunker_config = ChunkerConfig(chunk_size=500, chunk_overlap=0, length_function=len)
@@ -27,6 +28,7 @@ chunker_common_config = {
     WebPageChunker: {"chunk_size": 500, "chunk_overlap": 0, "length_function": len},
     XmlChunker: {"chunk_size": 500, "chunk_overlap": 50, "length_function": len},
     YoutubeVideoChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
+    JSONChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

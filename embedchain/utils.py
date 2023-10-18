@@ -155,6 +155,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
+        if url.path.endswith(".json"):
+            logging.debug(f"Source of `{formatted_source}` detected as `json_file`.")
+            return DataType.JSON
+
         if "docs" in url.netloc or ("docs" in url.path and url.scheme != "file"):
             # `docs_site` detection via path is not accepted for local filesystem URIs,
             # because that would mean all paths that contain `docs` are now doc sites, which is too aggressive.
@@ -193,6 +197,10 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".xml"):
             logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
             return DataType.XML
+
+        if source.endswith(".json"):
+            logging.debug(f"Source of `{formatted_source}` detected as `json`.")
+            return DataType.JSON
 
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.

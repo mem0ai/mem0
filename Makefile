@@ -38,7 +38,7 @@ lint:
 	poetry run ruff .
 
 test:
-	poetry run pytest
+	poetry run pytest $(file)
 
 coverage:
 	poetry run pytest --cov=$(PROJECT_NAME) --cov-report=xml
