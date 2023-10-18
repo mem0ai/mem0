@@ -11,11 +11,13 @@ class OpenAPILoader(BaseLoader):
         """Load yaml file of openapi. Each pair is a document."""
         data = []
         file_path = content
+        data_content = []
         with open(file_path, "r") as file:
             yaml_data = yaml.load(file, Loader=yaml.Loader)
             for i, (key, value) in enumerate(yaml_data.items()):
-                content_data = f"{key}: {value}"
+                string_data = f"{key}: {value}"
                 meta_data = {"url": file_path, "row": i + 1}
-                data.append({"content": content_data, "meta_data": meta_data})
-        doc_id = hashlib.sha256((content + content_data).encode()).hexdigest()
+                data.append({"content": string_data, "meta_data": meta_data})
+                data_content.append(string_data)
+        doc_id = hashlib.sha256((content + ", ".join(data_content)).encode()).hexdigest()
         return {"doc_id": doc_id, "data": data}
