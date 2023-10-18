@@ -8,7 +8,7 @@ from embedchain.helper.json_serializable import register_deserializable
 
 
 @register_deserializable
-class JsonChunker(BaseChunker):
+class JSONChunker(BaseChunker):
     """Chunker for json."""
 
     def __init__(self, config: Optional[ChunkerConfig] = None):
