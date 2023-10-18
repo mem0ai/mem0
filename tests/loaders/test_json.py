@@ -2,7 +2,7 @@ import hashlib
 from unittest.mock import patch
 
 from langchain.docstore.document import Document
-from langchain.document_loaders.json_loader import JSONLoader
+from langchain.document_loaders.json_loader import JSONLoader as LcJSONLoader
 
 from embedchain.loaders.json import JSONLoader
 
