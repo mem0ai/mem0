@@ -119,7 +119,7 @@ class DataFormatter(JSONSerializable):
             DataType.MDX: MdxChunker,
             DataType.IMAGES: ImagesChunker,
             DataType.XML: XmlChunker,
-            DataType.JSON: JsonChunker,
+            DataType.JSON: JSONChunker,
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]
