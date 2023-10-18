@@ -1,3 +1,4 @@
+import importlib
 import os
 from typing import Optional
 
@@ -6,6 +7,14 @@ from langchain.llms import Replicate
 from embedchain.config import BaseLlmConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
+
+try:
+    importlib.import_module("replicate")
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "The required dependencies for Llama2 are not installed."
+        'Please install with `pip install --upgrade "embedchain[llama2]"`'
+    ) from None
 
 
 @register_deserializable

@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ from embedchain.llm.anthropic import AnthropicLlm
 
 @pytest.fixture
 def anthropic_llm():
+    os.environ["ANTHROPIC_API_KEY"] = "test_api_key"
     config = BaseLlmConfig(temperature=0.5, model="gpt2")
     return AnthropicLlm(config)
 
@@ -31,7 +33,9 @@ def test_get_answer(anthropic_llm):
 
         assert response == "Test Response"
         mock_chat.assert_called_once_with(
-            temperature=anthropic_llm.config.temperature, model=anthropic_llm.config.model
+            anthropic_api_key="test_api_key",
+            temperature=anthropic_llm.config.temperature,
+            model=anthropic_llm.config.model,
         )
         mock_chat_instance.assert_called_once_with(
             anthropic_llm._get_messages(prompt, system_prompt=anthropic_llm.config.system_prompt)
@@ -60,6 +64,8 @@ def test_get_answer_max_tokens_is_provided(anthropic_llm, caplog):
         response = anthropic_llm._get_answer(prompt, config)
 
         assert response == "Test Response"
-        mock_chat.assert_called_once_with(temperature=config.temperature, model=config.model)
+        mock_chat.assert_called_once_with(
+            anthropic_api_key="test_api_key", temperature=config.temperature, model=config.model
+        )
 
         assert "Config option `max_tokens` is not supported by this model." in caplog.text
