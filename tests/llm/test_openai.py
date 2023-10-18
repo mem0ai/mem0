@@ -1,8 +1,10 @@
 import os
+
 import pytest
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.openai import OpenAILlm
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 
 @pytest.fixture

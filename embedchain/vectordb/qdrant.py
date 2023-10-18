@@ -1,13 +1,13 @@
 import copy
 import os
-from typing import Dict, List, Optional
 import uuid
+from typing import Dict, List, Optional
 
 try:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, VectorParams
     from qdrant_client.http import models
     from qdrant_client.http.models import Batch
+    from qdrant_client.models import Distance, VectorParams
 except ImportError:
     raise ImportError("Qdrant requires extra dependencies. Install with `pip install embedchain[qdrant]`") from None
 
@@ -22,10 +22,7 @@ class QdrantDB(BaseVectorDB):
 
     BATCH_SIZE = 10
 
-    def __init__(
-            self,
-            config: QdrantDBConfig = None
-    ):
+    def __init__(self, config: QdrantDBConfig = None):
         """
         Qdrant as vector database
         :param config. Qdrant database config to be used for connection
@@ -54,13 +51,16 @@ class QdrantDB(BaseVectorDB):
         self.metadata_keys = {"data_type", "doc_id", "url", "hash", "app_id", "text"}
         all_collections = self.client.get_collections()
         collection_names = [collection.name for collection in all_collections.collections]
-        if not self.collection_name in collection_names:
+        if self.collection_name not in collection_names:
             self.client.recreate_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=self.embedder.vector_dimension, distance=Distance.COSINE,
-                                            hnsw_config=self.config.hnsw_config,
-                                            quantization_config=self.config.quantization_config,
-                                            on_disk=self.config.on_disk),
+                vectors_config=VectorParams(
+                    size=self.embedder.vector_dimension,
+                    distance=Distance.COSINE,
+                    hnsw_config=self.config.hnsw_config,
+                    quantization_config=self.config.quantization_config,
+                    on_disk=self.config.on_disk,
+                ),
             )
 
     def _get_or_create_db(self):
@@ -109,20 +109,24 @@ class QdrantDB(BaseVectorDB):
         offset = 0
         existing_ids = []
         while offset is not None:
-            response = self.client.scroll(collection_name=self.collection_name, scroll_filter=models
-                                          .Filter(must=qdrant_must_filters), offset=offset, limit=self.BATCH_SIZE)
+            response = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=models.Filter(must=qdrant_must_filters),
+                offset=offset,
+                limit=self.BATCH_SIZE,
+            )
             offset = response[1]
             for doc in response[0]:
                 existing_ids.append(doc.payload["identifier"])
         return {"ids": existing_ids}
 
     def add(
-            self,
-            embeddings: List[List[float]],
-            documents: List[str],
-            metadatas: List[object],
-            ids: List[str],
-            skip_embedding: bool
+        self,
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[object],
+        ids: List[str],
+        skip_embedding: bool,
     ):
         """add data in vector database
         :param embeddings: list of embeddings for the corresponding documents to be added
@@ -145,18 +149,14 @@ class QdrantDB(BaseVectorDB):
         for id, document, metadata in zip(ids, documents, metadatas):
             metadata["text"] = document
             qdrant_ids.append(str(uuid.uuid4()))
-            payloads.append({
-                "identifier": id,
-                "text": document,
-                "metadata": copy.deepcopy(metadata)
-            })
+            payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
         for i in range(0, len(qdrant_ids), self.BATCH_SIZE):
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=Batch(
-                    ids=qdrant_ids[i: i + self.BATCH_SIZE],
-                    payloads=payloads[i: i + self.BATCH_SIZE],
-                    vectors=embeddings[i: i + self.BATCH_SIZE],
+                    ids=qdrant_ids[i : i + self.BATCH_SIZE],
+                    payloads=payloads[i : i + self.BATCH_SIZE],
+                    vectors=embeddings[i : i + self.BATCH_SIZE],
                 ),
             )
 
@@ -193,9 +193,12 @@ class QdrantDB(BaseVectorDB):
                         ),
                     )
                 )
-        results = self.client.search(collection_name=self.collection_name,
-                                     query_filter=models.Filter(must=qdrant_must_filters), query_vector=query_vector,
-                                     limit=n_results)
+        results = self.client.search(
+            collection_name=self.collection_name,
+            query_filter=models.Filter(must=qdrant_must_filters),
+            query_vector=query_vector,
+            limit=n_results,
+        )
         response = []
         for result in results:
             response.append(result.payload.get("text", ""))
