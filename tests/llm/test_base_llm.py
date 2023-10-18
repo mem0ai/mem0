@@ -1,5 +1,7 @@
-import pytest
 from string import Template
+
+import pytest
+
 from embedchain.llm.base import BaseLlm, BaseLlmConfig
 
 

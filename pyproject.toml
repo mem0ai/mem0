@@ -85,7 +85,7 @@ exclude = '''
 color = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+python = ">=3.9,<3.13"
 python-dotenv = "^1.0.0"
 langchain = "^0.0.279"
 requests = "^2.31.0"
@@ -114,6 +114,7 @@ cohere = { version = "^4.27", optional= true }
 weaviate-client = { version = "^3.24.1", optional= true }
 docx2txt = { version="^0.8", optional=true }
 pinecone-client = { version = "^2.2.4", optional = true }
+qdrant-client = { version = "1.6.3", optional = true }
 unstructured = {extras = ["local-inference"], version = "^0.10.18", optional=true}
 pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
@@ -151,6 +152,7 @@ slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
 weaviate = ["weaviate-client"]
 pinecone = ["pinecone-client"]
+qdrant = ["qdrant-client"]
 images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]

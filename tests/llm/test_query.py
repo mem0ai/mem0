@@ -1,6 +1,8 @@
 import os
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
 

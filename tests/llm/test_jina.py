@@ -1,8 +1,10 @@
 import os
+
 import pytest
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.jina import JinaLlm
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 
 @pytest.fixture

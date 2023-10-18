@@ -183,12 +183,29 @@ vectordb:
 
 ## Qdrant
 
-_Coming soon_
+In order to use Qdrant as a vector database, set the environment variables `QDRANT_URL` and `QDRANT_API_KEY` which you can find on [Qdrant Dashboard](https://cloud.qdrant.io/).
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+# load qdrant configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: qdrant
+  config:
+    collection_name: my_qdrant_index
+```
+</CodeGroup>
 
 ## Weaviate
 
 In order to use Weaviate as a vector database, set the environment variables `WEAVIATE_ENDPOINT` and `WEAVIATE_API_KEY` which you can find on [Weaviate dashboard](https://console.weaviate.cloud/dashboard).
 
+<CodeGroup>
 ```python main.py
 from embedchain import App
 
@@ -202,6 +219,6 @@ vectordb:
   config:
     collection_name: my_weaviate_index
 ```
-
+</CodeGroup>
 
 <Snippet file="missing-vector-db-tip.mdx" />
