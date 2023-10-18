@@ -6,6 +6,7 @@ from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
+from embedchain.chunkers.unstructured_file import UnstructuredFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
 from embedchain.chunkers.table import TableChunker
@@ -30,6 +31,7 @@ from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.xml import XmlLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
+from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.models.data_type import DataType
 
 
@@ -77,6 +79,7 @@ class DataFormatter(JSONSerializable):
             DataType.CSV: CsvLoader,
             DataType.MDX: MdxLoader,
             DataType.IMAGES: ImagesLoader,
+            DataType.UNSTRUCTURED: UnstructuredLoader,
             DataType.JSON: JSONLoader,
         }
         lazy_loaders = {DataType.NOTION}
@@ -119,6 +122,7 @@ class DataFormatter(JSONSerializable):
             DataType.MDX: MdxChunker,
             DataType.IMAGES: ImagesChunker,
             DataType.XML: XmlChunker,
+            DataType.UNSTRUCTURED: UnstructuredFileChunker,
             DataType.JSON: JSONChunker,
         }
         if data_type in chunker_classes:

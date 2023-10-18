@@ -47,7 +47,8 @@ Embedchain empowers you to create ChatGPT like apps, on your own dynamic dataset
 * Doc file
 * JSON file
 * Code documentation website loader
-* Notion and many more.
+* Notion
+* Unstructured file loader and many more
 
 You can find the full list of data types on [our documentation](https://docs.embedchain.ai/data-sources/csv).
 
