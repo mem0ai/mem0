@@ -32,7 +32,7 @@
   "navigation": [
     {
       "group": "Get started",
-      "pages": ["get-started/quickstart", "get-started/introduction", "get-started/faq"]
+      "pages": ["get-started/quickstart", "get-started/introduction", "get-started/faq", "get-started/examples"]
     },
     {
       "group": "Components",
