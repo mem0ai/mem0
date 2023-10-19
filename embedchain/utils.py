@@ -230,7 +230,7 @@ def detect_datatype(source: Any) -> DataType:
                     return DataType.OPENAPI
                 else:
                     logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'")
-                    raise
+                    raise ValueError("Invalid YAML data. Check 'https://spec.openapis.org/oas/v3.1.0', make sure to add all the required params")
 
         if source.endswith(".json"):
             logging.debug(f"Source of `{formatted_source}` detected as `json`.")
