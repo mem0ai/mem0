@@ -52,8 +52,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: openai
-  model: 'gpt-3.5-turbo'
   config:
+    model: 'gpt-3.5-turbo'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -84,8 +84,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: azure_openai
-  model: gpt-35-turbo
   config:
+    model: gpt-35-turbo
     deployment_name: your_llm_deployment_name
     temperature: 0.5
     max_tokens: 1000
@@ -121,8 +121,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: anthropic
-  model: 'claude-instant-1'
   config:
+    model: 'claude-instant-1'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -158,8 +158,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: cohere
-  model: large
   config:
+    model: large
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -189,8 +189,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: gpt4all
-  model: 'orca-mini-3b.ggmlv3.q4_0.bin'
   config:
+    model: 'orca-mini-3b.ggmlv3.q4_0.bin'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -261,8 +261,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: huggingface
-  model: 'google/flan-t5-xxl'
   config:
+    model: 'google/flan-t5-xxl'
     temperature: 0.5
     max_tokens: 1000
     top_p: 0.5
@@ -291,8 +291,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: llama2
-  model: 'a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5'
   config:
+    model: 'a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5'
     temperature: 0.5
     max_tokens: 1000
     top_p: 0.5
@@ -316,8 +316,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: vertexai
-  model: 'chat-bison'
   config:
+    model: 'chat-bison'
     temperature: 0.5
     top_p: 0.5
 ```
