@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -191,7 +191,7 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str, str]]:
         """
         Query contents from vector database based on vector similarity
 
@@ -231,7 +231,11 @@ class ChromaDB(BaseVectorDB):
                 " embeddings, is used to retrieve an embedding from the database."
             ) from None
         results_formatted = self._format_result(result)
-        contents = [result[0].page_content for result in results_formatted]
+        contents = []
+        for result in results_formatted:
+            content_metadata = result[0].metadata
+            content_source = content_metadata.get("url", "Source not found.")
+            contents.append((content_source, result[0].page_content))
         return contents
 
     def set_collection_name(self, name: str):
