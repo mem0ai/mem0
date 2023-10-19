@@ -114,6 +114,11 @@ def detect_datatype(source: Any) -> DataType:
     :return: data_type string
     """
     from urllib.parse import urlparse
+    import requests, yaml
+    
+    def is_openapi_yaml(yaml_content):
+        # currently the following two fields are required in openapi spec yaml config
+        return "openapi" in yaml_content and "info" in yaml_content
 
     try:
         if not isinstance(source, str):
@@ -156,8 +161,18 @@ def detect_datatype(source: Any) -> DataType:
             return DataType.DOCX
 
         if url.path.endswith(".yaml"):
-            logging.debug(f"Source of `{formatted_source}` detected as `yaml`.")
-            return DataType.OPENAPI
+            try:
+                response = requests.get(source)
+                response.raise_for_status()
+                yaml_content = yaml.safe_load(response.text)
+                if is_openapi_yaml(yaml_content):
+                    logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
+                    return DataType.OPENAPI
+                else:
+                    logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'")
+                    raise
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Error fetching URL {formatted_source}: {e}")
 
         if url.path.endswith(".json"):
             logging.debug(f"Source of `{formatted_source}` detected as `json_file`.")
@@ -203,8 +218,14 @@ def detect_datatype(source: Any) -> DataType:
             return DataType.XML
 
         if source.endswith(".yaml"):
-            logging.debug(f"Source of `{formatted_source}` detected as `yaml`.")
-            return DataType.OPENAPI
+            with open(source, "r") as file:
+                yaml_content = yaml.safe_load(file)
+                if is_openapi_yaml(yaml_content):
+                    logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
+                    return DataType.OPENAPI
+                else:
+                    logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'")
+                    raise
 
         if source.endswith(".json"):
             logging.debug(f"Source of `{formatted_source}` detected as `json`.")
