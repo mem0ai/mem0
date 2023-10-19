@@ -3,7 +3,7 @@ import os
 import pytest
 import yaml
 
-from embedchain import App, CustomApp, Llama2App, OpenSourceApp
+from embedchain import App
 from embedchain.config import (AddConfig, AppConfig, BaseEmbedderConfig,
                                BaseLlmConfig, ChromaDbConfig)
 from embedchain.embedder.base import BaseEmbedder
@@ -18,47 +18,10 @@ def app():
     return App()
 
 
-@pytest.fixture
-def custom_app():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
-    return CustomApp()
-
-
-@pytest.fixture
-def opensource_app():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
-    return OpenSourceApp()
-
-
-@pytest.fixture
-def llama2_app():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
-    os.environ["REPLICATE_API_TOKEN"] = "-"
-    return Llama2App()
-
-
 def test_app(app):
     assert isinstance(app.llm, BaseLlm)
     assert isinstance(app.db, BaseVectorDB)
     assert isinstance(app.embedder, BaseEmbedder)
-
-
-def test_custom_app(custom_app):
-    assert isinstance(custom_app.llm, BaseLlm)
-    assert isinstance(custom_app.db, BaseVectorDB)
-    assert isinstance(custom_app.embedder, BaseEmbedder)
-
-
-def test_opensource_app(opensource_app):
-    assert isinstance(opensource_app.llm, BaseLlm)
-    assert isinstance(opensource_app.db, BaseVectorDB)
-    assert isinstance(opensource_app.embedder, BaseEmbedder)
-
-
-def test_llama2_app(llama2_app):
-    assert isinstance(llama2_app.llm, BaseLlm)
-    assert isinstance(llama2_app.db, BaseVectorDB)
-    assert isinstance(llama2_app.embedder, BaseEmbedder)
 
 
 class TestConfigForAppComponents:
