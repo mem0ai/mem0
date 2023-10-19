@@ -26,7 +26,6 @@ class TestClipProcessor:
             ClipProcessor.get_image_features(os.path.join(tmp_dir, "image.jpg"), model)
 
             # Delete the temporary file.
-            print("temp dir: ", tmp_dir, "image.jpg: ", os.path.join(tmp_dir, "image.jpg"))
             os.remove(os.path.join(tmp_dir, "image.jpg"))
             os.remove("image.jpg")
 
