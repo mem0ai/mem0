@@ -25,7 +25,7 @@ class IndirectDataType(Enum):
     CSV = "csv"
     MDX = "mdx"
     IMAGES = "images"
-    UNSTRUCTURED = 'unstructured'
+    UNSTRUCTURED = "unstructured"
     JSON = "json"
 
 

@@ -1,6 +1,7 @@
 import hashlib
 
-from langchain.document_loaders.json_loader import JSONLoader as LcJSONLoader
+from langchain.document_loaders.json_loader import \
+    JSONLoader as LangchainJSONLoader
 
 from embedchain.loaders.base_loader import BaseLoader
 
@@ -13,7 +14,7 @@ class JSONLoader(BaseLoader):
         """Load a json file. Each data point is a key value pair."""
         data = []
         data_content = []
-        loader = LcJSONLoader(content, text_content=False, jq_schema=langchain_json_jq_schema)
+        loader = LangchainJSONLoader(content, text_content=False, jq_schema=langchain_json_jq_schema)
         docs = loader.load()
         for doc in docs:
             meta_data = doc.metadata
