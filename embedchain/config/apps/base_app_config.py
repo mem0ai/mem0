@@ -8,7 +8,7 @@ from embedchain.vectordb.base import BaseVectorDB
 
 class BaseAppConfig(BaseConfig, JSONSerializable):
     """
-    Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
+    Parent config to initialize an instance of `App`.
     """
 
     def __init__(

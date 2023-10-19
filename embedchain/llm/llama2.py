@@ -40,7 +40,7 @@ class Llama2Llm(BaseLlm):
     def get_llm_model_answer(self, prompt):
         # TODO: Move the model and other inputs into config
         if self.config.system_prompt:
-            raise ValueError("Llama2App does not support `system_prompt`")
+            raise ValueError("Llama2 does not support `system_prompt`")
         llm = Replicate(
             model=self.config.model,
             input={
