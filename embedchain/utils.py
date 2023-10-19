@@ -164,13 +164,18 @@ def detect_datatype(source: Any) -> DataType:
             try:
                 response = requests.get(source)
                 response.raise_for_status()
-                yaml_content = yaml.safe_load(response.text)
+                try:
+                    yaml_content = yaml.safe_load(response.text)
+                except yaml.YAMLError as exc:
+                    logging.error(f"Error parsing YAML: {exc}")
+                    raise TypeError(f"Not a valid data type. Error loading YAML: {exc}")
+
                 if is_openapi_yaml(yaml_content):
                     logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
                     return DataType.OPENAPI
                 else:
                     logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'")
-                    raise
+                    raise TypeError("Not a valid data type. Check 'https://spec.openapis.org/oas/v3.1.0', make sure you have all the required fields in YAML config data")
             except requests.exceptions.RequestException as e:
                 logging.error(f"Error fetching URL {formatted_source}: {e}")
 
