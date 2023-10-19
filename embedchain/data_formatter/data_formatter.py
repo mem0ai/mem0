@@ -6,11 +6,11 @@ from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
-from embedchain.chunkers.unstructured_file import UnstructuredFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
 from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
+from embedchain.chunkers.unstructured_file import UnstructuredFileChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
@@ -28,10 +28,10 @@ from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.mdx import MdxLoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.sitemap import SitemapLoader
+from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.xml import XmlLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
-from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.models.data_type import DataType
 
 

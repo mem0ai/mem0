@@ -2,7 +2,8 @@ import hashlib
 from unittest.mock import patch
 
 from langchain.docstore.document import Document
-from langchain.document_loaders.json_loader import JSONLoader as LcJSONLoader
+from langchain.document_loaders.json_loader import \
+    JSONLoader as LangchainJSONLoader
 
 from embedchain.loaders.json import JSONLoader
 
@@ -12,10 +13,10 @@ def test_load_data():
         Document(page_content="content1", metadata={"seq_num": 1}),
         Document(page_content="content2", metadata={"seq_num": 2}),
     ]
-    with patch.object(LcJSONLoader, "load", return_value=mock_document):
+    with patch.object(LangchainJSONLoader, "load", return_value=mock_document):
         content = "temp.json"
 
-        result = JsonLoader.load_data(content)
+        result = JSONLoader.load_data(content)
 
         assert "doc_id" in result
         assert "data" in result
