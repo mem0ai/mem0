@@ -44,8 +44,8 @@ def test_create_chunks(chunker, text_splitter_mock, loader_mock, app_id, data_ty
 
     result = chunker.create_chunks(loader_mock, "test_src", app_id)
     expected_ids = [
-        hashlib.sha256(("Chunk 1" + "URL 1").encode()).hexdigest(),
-        hashlib.sha256(("Chunk 2" + "URL 1").encode()).hexdigest(),
+        f"{app_id}--" + hashlib.sha256(("Chunk 1" + "URL 1").encode()).hexdigest(),
+        f"{app_id}--" + hashlib.sha256(("Chunk 2" + "URL 1").encode()).hexdigest(),
     ]
 
     assert result["documents"] == ["Chunk 1", "Chunk 2"]
