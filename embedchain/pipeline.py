@@ -1,8 +1,10 @@
 import threading
 import uuid
+
 import yaml
-from embedchain.embedchain import EmbedChain
+
 from embedchain.config import PipelineConfig
+from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.factory import EmbedderFactory, VectorDBFactory
