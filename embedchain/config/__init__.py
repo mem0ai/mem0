@@ -2,6 +2,7 @@
 
 from .add_config import AddConfig, ChunkerConfig
 from .apps.app_config import AppConfig
+from .pipeline_config import PipelineConfig
 from .base_config import BaseConfig
 from .embedder.base import BaseEmbedderConfig
 from .embedder.base import BaseEmbedderConfig as EmbedderConfig
