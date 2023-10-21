@@ -1,5 +1,7 @@
 from typing import Iterable, Optional, Union
 
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
 from embedchain.config import BaseLlmConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -19,28 +21,36 @@ class GPT4ALLLlm(BaseLlm):
     @staticmethod
     def _get_instance(model):
         try:
-            from gpt4all import GPT4All
+            from langchain.llms.gpt4all import GPT4All as LangchainGPT4All
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501
             ) from None
-
-        return GPT4All(model_name=model)
-
+        
+        
+        return LangchainGPT4All(model=model)
+    
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
                 "GPT4ALLLlm does not support switching models at runtime. Please create a new app instance."
             )
-
+            
+        messages = []
         if config.system_prompt:
-            raise ValueError("GPT4ALLLlm does not support `system_prompt`")
+            messages.append(config.system_prompt)
+        messages.append(prompt)
+        kwargs = {
+            "temp": config.temperature,
+            "max_tokens": config.max_tokens,
+        }
+        if config.top_p:
+            kwargs["top_p"] = config.top_p
 
+        callbacks = [StreamingStdOutCallbackHandler()]
         response = self.instance.generate(
-            prompt=prompt,
-            streaming=config.stream,
-            top_p=config.top_p,
-            max_tokens=config.max_tokens,
-            temp=config.temperature,
+            prompts=messages,
+            callbacks=callbacks,
+            **kwargs
         )
         return response
