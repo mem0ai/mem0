@@ -1,7 +1,4 @@
 from typing import Optional
-import logging
-
-from chromadb.utils import embedding_functions
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
