@@ -5,6 +5,7 @@ import string
 from typing import Any
 
 from embedchain.models.data_type import DataType
+from embedchain.constants import GMAIL_ADDRESS_SEPARATOR_IN_APP_INPUT
 
 
 def clean_string(text):
@@ -258,7 +259,22 @@ def detect_datatype(source: Any) -> DataType:
 
     else:
         # Source is not a URL.
-
+        
+        # check if source is list of emails
+        emails = source.split(GMAIL_ADDRESS_SEPARATOR_IN_APP_INPUT)
+        valid_emails = [email for email in emails if is_valid_email(email)]
+        if len(valid_emails) > 0:
+            logging.debug(f"Source of `{formatted_source}` detected as `gmail`.")
+            return DataType.GMAIL
+                
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
+
+def is_valid_email(email):
+    # Define the regular expression pattern for a valid email address
+    pattern = r'^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$'
+
+    match = re.match(pattern, email)
+    
+    return bool(match)

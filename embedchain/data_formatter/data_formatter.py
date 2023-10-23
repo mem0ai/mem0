@@ -6,6 +6,7 @@ from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.openapi import OpenAPIChunker
+from embedchain.chunkers.gmail import GMAILChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
@@ -34,6 +35,7 @@ from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.xml import XmlLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
+from embedchain.loaders.gmail import GMAILLoader
 from embedchain.models.data_type import DataType
 
 
@@ -84,6 +86,7 @@ class DataFormatter(JSONSerializable):
             DataType.UNSTRUCTURED: UnstructuredLoader,
             DataType.JSON: JSONLoader,
             DataType.OPENAPI: OpenAPILoader,
+            DataType.GMAIL: GMAILLoader
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -128,6 +131,7 @@ class DataFormatter(JSONSerializable):
             DataType.UNSTRUCTURED: UnstructuredFileChunker,
             DataType.JSON: JSONChunker,
             DataType.OPENAPI: OpenAPIChunker,
+            DataType.GMAIL: GMAILChunker,
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]
