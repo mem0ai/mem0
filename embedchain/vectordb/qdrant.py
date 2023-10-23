@@ -1,7 +1,7 @@
 import copy
 import os
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 try:
     from qdrant_client import QdrantClient
@@ -160,7 +160,7 @@ class QdrantDB(BaseVectorDB):
                 ),
             )
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -172,8 +172,8 @@ class QdrantDB(BaseVectorDB):
         :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
         generated or not
         :type skip_embedding: bool
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :rtype: List[Tuple[str,str,str]]
         """
         if not skip_embedding:
             query_vector = self.embedder.embedding_fn([input_query])[0]
@@ -201,7 +201,10 @@ class QdrantDB(BaseVectorDB):
         )
         response = []
         for result in results:
-            response.append(result.payload.get("text", ""))
+            content = result.payload.get("text", "")
+            source = result.payload.get("url", "Source not found.")
+            doc_id = result.payload.get("doc_id", "Doc id not found.")
+            response.append(tuple((content, source, doc_id)))
         return response
 
     def count(self) -> int:

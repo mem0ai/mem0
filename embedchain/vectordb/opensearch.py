@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 try:
     from opensearchpy import OpenSearch
@@ -145,7 +145,7 @@ class OpenSearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -157,8 +157,8 @@ class OpenSearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :rtype: List[Tuple[str,str,str]]
         """
         # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
@@ -185,7 +185,12 @@ class OpenSearchDB(BaseVectorDB):
             pre_filter=pre_filter,
             k=n_results,
         )
-        contents = [doc.page_content for doc in docs]
+        contents = []
+        for doc in docs:
+            content = doc.page_content
+            source = doc.metadata.get("url", "Source not found.")
+            doc_id = doc.metadata.get("doc_id", "Doc id not found.")
+            contents.append(tuple((content, source, doc_id)))
         return contents
 
     def set_collection_name(self, name: str):

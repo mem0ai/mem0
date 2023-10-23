@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from embedchain.config import ZillizDBConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -124,7 +124,7 @@ class ZillizVectorDB(BaseVectorDB):
         self.collection.flush()
         self.client.flush(self.config.collection_name)
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -135,8 +135,8 @@ class ZillizVectorDB(BaseVectorDB):
         :param where: to filter data
         :type where: str
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query.
-        :rtype: List[str]
+        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :rtype: List[Tuple[str,str,str]]
         """
 
         if self.collection.is_empty:
@@ -145,13 +145,14 @@ class ZillizVectorDB(BaseVectorDB):
         if not isinstance(where, str):
             where = None
 
+        output_fields = ["text", "url", "doc_id"]
         if skip_embedding:
             query_vector = input_query
             query_result = self.client.search(
                 collection_name=self.config.collection_name,
                 data=query_vector,
                 limit=n_results,
-                output_fields=["text"],
+                output_fields=output_fields,
             )
 
         else:
@@ -162,13 +163,16 @@ class ZillizVectorDB(BaseVectorDB):
                 collection_name=self.config.collection_name,
                 data=[query_vector],
                 limit=n_results,
-                output_fields=["text"],
+                output_fields=output_fields,
             )
 
         doc_list = []
         for query in query_result:
-            doc_list.append(query[0]["entity"]["text"])
-
+            data = query[0]["entity"]
+            content = data.get("text", "")
+            source = data.get("url", "Source not found.")
+            doc_id = data.get("doc_id", "Doc id not found.")
+            doc_list.append(tuple((content, source, doc_id)))
         return doc_list
 
     def count(self) -> int:

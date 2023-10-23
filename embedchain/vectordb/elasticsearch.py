@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from elasticsearch import Elasticsearch
@@ -135,7 +135,7 @@ class ElasticsearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -147,8 +147,8 @@ class ElasticsearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :rtype: List[Tuple[str,str,str]]
         """
         if skip_embedding:
             query_vector = input_query
@@ -168,10 +168,15 @@ class ElasticsearchDB(BaseVectorDB):
         if "app_id" in where:
             app_id = where["app_id"]
             query["script_score"]["query"]["bool"]["must"] = [{"term": {"metadata.app_id": app_id}}]
-        _source = ["text"]
+        _source = ["text", "metadata.url", "metadata.doc_id"]
         response = self.client.search(index=self._get_index(), query=query, _source=_source, size=n_results)
         docs = response["hits"]["hits"]
-        contents = [doc["_source"]["text"] for doc in docs]
+        contents = []
+        for doc in docs:
+            content = doc["_source"]["text"]
+            source = doc["_source"]["url"]
+            doc_id = doc["_source"]["doc_id"]
+            contents.append(tuple((content, source, doc_id)))
         return contents
 
     def set_collection_name(self, name: str):
