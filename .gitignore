@@ -174,3 +174,6 @@ db
 
 notebooks/*.yaml
 .ipynb_checkpoints/
+
+# local shell scripts
+*.sh
