@@ -1,0 +1,24 @@
+{
+    "chunk_compression": null,
+    "dtype": "str",
+    "hidden": false,
+    "htype": "text",
+    "is_link": false,
+    "is_sequence": false,
+    "length": 0,
+    "links": {
+        "_text_id": {
+            "extend": "extend_id",
+            "flatten_sequence": false
+        }
+    },
+    "max_chunk_size": null,
+    "max_shape": [],
+    "min_shape": [],
+    "name": "text",
+    "sample_compression": null,
+    "tiling_threshold": null,
+    "typestr": null,
+    "verify": true,
+    "version": "3.8.2"
+}
