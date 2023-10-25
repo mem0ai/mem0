@@ -74,6 +74,7 @@ class VectorDBFactory:
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
+        "deeplake": "embedchain.vectordb.deeplake.DeeplakeDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
@@ -82,6 +83,7 @@ class VectorDBFactory:
         "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
         "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
         "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
+        "deeplake": "embedchain.config.vectordb.deeplake.DeeplakeDBConfig",
     }
 
     @classmethod

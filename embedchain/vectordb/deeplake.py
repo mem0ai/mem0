@@ -3,8 +3,6 @@ from typing import Dict, List, Optional
 
 try:
     import deeplake
-    from deeplake.core import vectorstore
-    from deeplake.core.fast_forwarding import version_compare
     from deeplake.core.vectorstore import VectorStore
 except ImportError:
     raise ImportError("Deeplake requires extra dependencies. Install with `pip install embedchain[deeplake]`") from None
@@ -41,8 +39,8 @@ class DeeplakeDB(BaseVectorDB):
 
     def __init__(self, config: DeeplakeDBConfig = None):
         """
-        Qdrant as vector database
-        :param config. Qdrant database config to be used for connection
+        Deeplake as vector database
+        :param config. Deeplake database config to be used for connection
         """
         if config is None:
             config = DeeplakeDBConfig()
