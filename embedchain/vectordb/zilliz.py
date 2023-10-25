@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional, Tuple
+import logging
 
 from embedchain.config import ZillizDBConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -61,6 +62,7 @@ class ZillizVectorDB(BaseVectorDB):
         :type name: str
         """
         if utility.has_collection(name):
+            logging.info(f"[ZillizDB]: found a preexisting collection in your zilliz cluster, {name}, make sure the auto-id is not enabled otherwise some of the DB functionality will fail.")
             self.collection = Collection(name)
         else:
             fields = [

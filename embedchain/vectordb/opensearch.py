@@ -185,6 +185,7 @@ class OpenSearchDB(BaseVectorDB):
             pre_filter=pre_filter,
             k=n_results,
         )
+        
         contents = []
         for doc in docs:
             content = doc.page_content

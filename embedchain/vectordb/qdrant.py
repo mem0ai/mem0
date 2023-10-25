@@ -199,11 +199,13 @@ class QdrantDB(BaseVectorDB):
             query_vector=query_vector,
             limit=n_results,
         )
+        
         response = []
         for result in results:
             content = result.payload.get("text", "")
-            source = result.payload.get("url", "Source not found.")
-            doc_id = result.payload.get("doc_id", "Doc id not found.")
+            metadata = result.payload.get("metadata", {})
+            source = metadata.get("url", "Source not found.")
+            doc_id = metadata.get("doc_id", "Doc id not found.")
             response.append(tuple((content, source, doc_id)))
         return response
 
@@ -214,3 +216,15 @@ class QdrantDB(BaseVectorDB):
     def reset(self):
         self.client.delete_collection(collection_name=self.collection_name)
         self._initialize()
+    
+    def set_collection_name(self, name: str):
+        """
+        Set the name of the collection. A collection is an isolated space for vectors.
+
+        :param name: Name of the collection.
+        :type name: str
+        """
+        if not isinstance(name, str):
+            raise TypeError("Collection name must be a string")
+        self.config.collection_name = name
+        self.collection_name = self._get_or_create_collection()

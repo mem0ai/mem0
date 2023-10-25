@@ -214,7 +214,7 @@ class WeaviateDB(BaseVectorDB):
         else:
             query_vector = input_query
         keys = set(where.keys() if where is not None else set())
-        data_fields = ["text", "url", "doc_id"]
+        data_fields = ["text"]  #, "url", "doc_id"
         if len(keys.intersection(self.metadata_keys)) != 0:
             weaviate_where_operands = []
             for key in keys:
@@ -245,12 +245,11 @@ class WeaviateDB(BaseVectorDB):
                 .with_limit(n_results)
                 .do()
             )
-        
         matched_tokens = []
         for result in results["data"]["Get"].get(self.index_name):
             content = result["text"]
-            source = result["url"]
-            doc_id = result["doc_id"]
+            source = result.get("url", "source not found.")
+            doc_id = result.get("doc_id", "doc_id not found")
             matched_tokens.append(tuple((content, source, doc_id)))
         return matched_tokens
 

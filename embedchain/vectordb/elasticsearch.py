@@ -174,8 +174,9 @@ class ElasticsearchDB(BaseVectorDB):
         contents = []
         for doc in docs:
             content = doc["_source"]["text"]
-            source = doc["_source"]["url"]
-            doc_id = doc["_source"]["doc_id"]
+            metadata = doc["_source"]["metadata"]
+            source = metadata["url"]
+            doc_id = metadata["doc_id"]
             contents.append(tuple((content, source, doc_id)))
         return contents
 
