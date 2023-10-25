@@ -1,9 +1,10 @@
 import os
 import shutil
-import pytest
 from unittest.mock import patch
 
+import pytest
 from chromadb.config import Settings
+
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
 from embedchain.vectordb.chroma import ChromaDB
