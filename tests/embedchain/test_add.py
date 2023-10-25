@@ -16,19 +16,20 @@ def app(mocker):
 
 
 def test_add(app):
-    app.add("https://example.com", metadata={"meta": "meta-data"})
-    assert app.user_asks == [["https://example.com", "web_page", {"meta": "meta-data"}]]
+    app.add("https://example.com", metadata={"foo": "bar"})
+    assert app.user_asks == [["https://example.com", "web_page", {"foo": "bar"}]]
 
 
-def test_add_sitemap(app):
-    app.add("https://www.google.com/sitemap.xml", metadata={"meta": "meta-data"})
-    assert app.user_asks == [["https://www.google.com/sitemap.xml", "sitemap", {"meta": "meta-data"}]]
+# TODO: Make this test faster by generating a sitemap locally rather than using a remote one
+# def test_add_sitemap(app):
+#     app.add("https://www.google.com/sitemap.xml", metadata={"foo": "bar"})
+#     assert app.user_asks == [["https://www.google.com/sitemap.xml", "sitemap", {"foo": "bar"}]]
 
 
 def test_add_forced_type(app):
     data_type = "text"
-    app.add("https://example.com", data_type=data_type, metadata={"meta": "meta-data"})
-    assert app.user_asks == [["https://example.com", data_type, {"meta": "meta-data"}]]
+    app.add("https://example.com", data_type=data_type, metadata={"foo": "bar"})
+    assert app.user_asks == [["https://example.com", data_type, {"foo": "bar"}]]
 
 
 def test_dry_run(app):

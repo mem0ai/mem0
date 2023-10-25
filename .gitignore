@@ -165,9 +165,9 @@ cython_debug/
 
 # Database
 db
+test-db
 
 .vscode
-/poetry.lock
 .idea/
 
 .DS_Store
