@@ -114,7 +114,8 @@ def detect_datatype(source: Any) -> DataType:
     :return: data_type string
     """
     from urllib.parse import urlparse
-    import requests, yaml
+    import requests
+    import yaml
     
     def is_openapi_yaml(yaml_content):
         # currently the following two fields are required in openapi spec yaml config
@@ -174,8 +175,10 @@ def detect_datatype(source: Any) -> DataType:
                     logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
                     return DataType.OPENAPI
                 else:
-                    logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'")
-                    raise TypeError("Not a valid data type. Check 'https://spec.openapis.org/oas/v3.1.0', make sure you have all the required fields in YAML config data")
+                    logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. \
+                        Check 'https://spec.openapis.org/oas/v3.1.0'")
+                    raise TypeError("Not a valid data type. Check 'https://spec.openapis.org/oas/v3.1.0', \
+                        make sure you have all the required fields in YAML config data")
             except requests.exceptions.RequestException as e:
                 logging.error(f"Error fetching URL {formatted_source}: {e}")
 
@@ -229,8 +232,10 @@ def detect_datatype(source: Any) -> DataType:
                     logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
                     return DataType.OPENAPI
                 else:
-                    logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'")
-                    raise ValueError("Invalid YAML data. Check 'https://spec.openapis.org/oas/v3.1.0', make sure to add all the required params")
+                    logging.error(f"Source of `{formatted_source}` does not contain all the required fields of OpenAPI yaml. \
+                        Check 'https://spec.openapis.org/oas/v3.1.0'")
+                    raise ValueError("Invalid YAML data. Check 'https://spec.openapis.org/oas/v3.1.0', \
+                        make sure to add all the required params")
 
         if source.endswith(".json"):
             logging.debug(f"Source of `{formatted_source}` detected as `json`.")
