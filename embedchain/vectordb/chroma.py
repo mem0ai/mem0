@@ -262,9 +262,9 @@ class ChromaDB(BaseVectorDB):
         """
         Resets the database. Deletes all embeddings irreversibly.
         """
-        # Delete all data from the database
+        # Delete all data from the collection
         try:
-            self.client.reset()
+            self.client.delete_collection(self.config.collection_name)
         except ValueError:
             raise ValueError(
                 "For safety reasons, resetting is disabled. "
