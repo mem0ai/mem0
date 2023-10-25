@@ -171,9 +171,9 @@ class ZillizVectorDB(BaseVectorDB):
         doc_list = []
         for query in query_result:
             data = query[0]["entity"]
-            content = data.get("text", "")
-            source = data.get("url", "Source not found.")
-            doc_id = data.get("doc_id", "Doc id not found.")
+            content = data["text"]
+            source = data["url"]
+            doc_id = data["doc_id"]
             doc_list.append(tuple((content, source, doc_id)))
         return doc_list
 

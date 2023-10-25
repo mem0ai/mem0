@@ -140,9 +140,9 @@ class PineconeDB(BaseVectorDB):
         contents = []
         for doc in data["matches"]:
             metadata = doc["metadata"]
-            content = metadata.get("text")
-            source = metadata.get("url", "Source not found.")
-            doc_id = metadata.get("doc_id", "Doc id not found.")
+            content = metadata["text"]
+            source = metadata["url"]
+            doc_id = metadata["doc_id"]
             contents.append(tuple((content, source, doc_id)))
         return contents
 

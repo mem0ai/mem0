@@ -189,8 +189,8 @@ class OpenSearchDB(BaseVectorDB):
         contents = []
         for doc in docs:
             content = doc.page_content
-            source = doc.metadata.get("url", "Source not found.")
-            doc_id = doc.metadata.get("doc_id", "Doc id not found.")
+            source = doc.metadata["url"]
+            doc_id = doc.metadata["doc_id"]
             contents.append(tuple((content, source, doc_id)))
         return contents
 

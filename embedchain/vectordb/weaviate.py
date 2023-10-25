@@ -248,8 +248,8 @@ class WeaviateDB(BaseVectorDB):
         matched_tokens = []
         for result in results["data"]["Get"].get(self.index_name):
             content = result["text"]
-            source = result.get("url", "source not found.")
-            doc_id = result.get("doc_id", "doc_id not found")
+            source = result["url"]
+            doc_id = result["doc_id"]
             matched_tokens.append(tuple((content, source, doc_id)))
         return matched_tokens
 

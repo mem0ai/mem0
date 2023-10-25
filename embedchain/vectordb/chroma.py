@@ -234,8 +234,8 @@ class ChromaDB(BaseVectorDB):
         contents = []
         for result in results_formatted:
             content_metadata = result[0].metadata
-            content_source = content_metadata.get("url", "Source not found.")
-            content_doc_id = content_metadata.get("doc_id", "Doc id not found.")
+            content_source = content_metadata["url"]
+            content_doc_id = content_metadata["doc_id"]
             contents.append((result[0].page_content, content_source, content_doc_id))
         return contents
 

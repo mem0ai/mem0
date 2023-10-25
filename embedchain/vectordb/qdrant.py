@@ -202,10 +202,10 @@ class QdrantDB(BaseVectorDB):
         
         response = []
         for result in results:
-            content = result.payload.get("text", "")
-            metadata = result.payload.get("metadata", {})
-            source = metadata.get("url", "Source not found.")
-            doc_id = metadata.get("doc_id", "Doc id not found.")
+            content = result.payload["text"]
+            metadata = result.payload["metadata"]
+            source = metadata["url"]
+            doc_id = metadata["doc_id"]
             response.append(tuple((content, source, doc_id)))
         return response
 
