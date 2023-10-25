@@ -167,10 +167,12 @@ dataloaders=[
     "unstructured",
     "sentence-transformers",
     "jq",
+    "requests",
+    "google-api-python-client",
     "google-auth",
     "google-auth-oauthlib",
     "google-auth-httplib2",
-    "google-api-python-client",
+    "google-api-core",
 ]
 vertexai = ["google-cloud-aiplatform"]
 llama2 = ["replicate"]

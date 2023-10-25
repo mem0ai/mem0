@@ -4,7 +4,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 import logging
 
-from embedchain.constants import GMAIL_ADDRESS_SEPARATOR_IN_APP_INPUT
+from embedchain.constants import GMAIL_ADDRESS_SEPARATOR_IN_EMBEDCHAIN_APP
 from embedchain.loaders.base_loader import BaseLoader
 
 from langchain.chat_loaders.gmail import GMailLoader
@@ -39,8 +39,8 @@ def get_user_cred(cred_path):
 class GMAILLoader(BaseLoader):
     @staticmethod
     def load_date(content):
-        email_senders = str(content).split(GMAIL_ADDRESS_SEPARATOR_IN_APP_INPUT)
-        cred_path = os.getenv("GOOGLE_CRED_PATH")
+        email_senders = str(content).split(GMAIL_ADDRESS_SEPARATOR_IN_EMBEDCHAIN_APP)
+        cred_path = os.getenv("GOOGLE_CREDENTIALS_PATH")
         try:
             creds = get_user_cred(cred_path)
             loader = GMailLoader(creds=creds, n=100, raise_error=True)
