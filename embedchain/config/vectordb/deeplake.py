@@ -13,7 +13,7 @@ class DeeplakeDBConfig(BaseVectorDbConfig):
 
     def __init__(
         self,
-        path: Union[str, pathlib.Path] = None,
+        path: Union[str, pathlib.Path] = "/tmp/deeplake",
         collection_name: Optional[str] = None,
         dir: Optional[str] = None,
         **extra_params: Dict[str, any],
@@ -37,5 +37,8 @@ class DeeplakeDBConfig(BaseVectorDbConfig):
         """
         self.path = path
         self.extra_params = extra_params
+
+        # We are fixing this to python because deeplake currently supports filtering support on metadata only with this
+        # config
         self.exec_option = "python"
         super().__init__(collection_name=collection_name, dir=dir)
