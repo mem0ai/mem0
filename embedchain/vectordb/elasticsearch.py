@@ -156,6 +156,7 @@ class ElasticsearchDB(BaseVectorDB):
             input_query_vector = self.embedder.embedding_fn(input_query)
             query_vector = input_query_vector[0]
 
+        # For building query with `script_score` key, check `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`
         query = {
             "script_score": {
                 "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},
@@ -167,7 +168,7 @@ class ElasticsearchDB(BaseVectorDB):
         }
         if "app_id" in where:
             app_id = where["app_id"]
-            query["script_score"]["query"]["bool"]["must"] = [{"term": {"metadata.app_id": app_id}}]
+            query["script_score"]["query"] = {"match": {"metadata.app_id": app_id}}
         _source = ["text", "metadata.url", "metadata.doc_id"]
         response = self.client.search(index=self._get_index(), query=query, _source=_source, size=n_results)
         docs = response["hits"]["hits"]

@@ -175,5 +175,7 @@ db
 notebooks/*.yaml
 .ipynb_checkpoints/
 
-# local shell scripts
+# local secret files
 *.sh
+*.pub
+*.crt
