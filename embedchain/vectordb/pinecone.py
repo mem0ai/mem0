@@ -142,10 +142,10 @@ class PineconeDB(BaseVectorDB):
         contents = []
         for doc in data["matches"]:
             metadata = doc["metadata"]
-            content = metadata["text"]
+            context = metadata["text"]
             source = metadata["url"]
             doc_id = metadata["doc_id"]
-            contents.append(tuple((content, source, doc_id)))
+            contents.append(tuple((context, source, doc_id)))
         return contents
 
     def set_collection_name(self, name: str):

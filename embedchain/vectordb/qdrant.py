@@ -204,11 +204,11 @@ class QdrantDB(BaseVectorDB):
 
         response = []
         for result in results:
-            content = result.payload["text"]
+            context = result.payload["text"]
             metadata = result.payload["metadata"]
             source = metadata["url"]
             doc_id = metadata["doc_id"]
-            response.append(tuple((content, source, doc_id)))
+            response.append(tuple((context, source, doc_id)))
         return response
 
     def count(self) -> int:

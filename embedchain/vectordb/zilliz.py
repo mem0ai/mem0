@@ -173,10 +173,10 @@ class ZillizVectorDB(BaseVectorDB):
         doc_list = []
         for query in query_result:
             data = query[0]["entity"]
-            content = data["text"]
+            context = data["text"]
             source = data["url"]
             doc_id = data["doc_id"]
-            doc_list.append(tuple((content, source, doc_id)))
+            doc_list.append(tuple((context, source, doc_id)))
         return doc_list
 
     def count(self) -> int:

@@ -235,10 +235,11 @@ class ChromaDB(BaseVectorDB):
         results_formatted = self._format_result(result)
         contents = []
         for result in results_formatted:
+            context = result[0].page_content
             content_metadata = result[0].metadata
             content_source = content_metadata["url"]
             content_doc_id = content_metadata["doc_id"]
-            contents.append((result[0].page_content, content_source, content_doc_id))
+            contents.append((context, content_source, content_doc_id))
         return contents
 
     def set_collection_name(self, name: str):

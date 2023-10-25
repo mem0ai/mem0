@@ -176,11 +176,11 @@ class ElasticsearchDB(BaseVectorDB):
         docs = response["hits"]["hits"]
         contents = []
         for doc in docs:
-            content = doc["_source"]["text"]
+            context = doc["_source"]["text"]
             metadata = doc["_source"]["metadata"]
             source = metadata["url"]
             doc_id = metadata["doc_id"]
-            contents.append(tuple((content, source, doc_id)))
+            contents.append(tuple((context, source, doc_id)))
         return contents
 
     def set_collection_name(self, name: str):

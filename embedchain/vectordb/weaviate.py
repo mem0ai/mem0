@@ -216,7 +216,7 @@ class WeaviateDB(BaseVectorDB):
         else:
             query_vector = input_query
         keys = set(where.keys() if where is not None else set())
-        data_fields = ["text"]  # , "url", "doc_id"
+        data_fields = ["text"]
         if len(keys.intersection(self.metadata_keys)) != 0:
             weaviate_where_operands = []
             for key in keys:
@@ -249,10 +249,10 @@ class WeaviateDB(BaseVectorDB):
             )
         matched_tokens = []
         for result in results["data"]["Get"].get(self.index_name):
-            content = result["text"]
-            source = result["url"]
-            doc_id = result["doc_id"]
-            matched_tokens.append(tuple((content, source, doc_id)))
+            context = result["text"]
+            # source = result["url"]
+            # doc_id = result["doc_id"]
+            matched_tokens.append(context)
         return matched_tokens
 
     def set_collection_name(self, name: str):

@@ -190,10 +190,10 @@ class OpenSearchDB(BaseVectorDB):
 
         contents = []
         for doc in docs:
-            content = doc.page_content
+            context = doc.page_content
             source = doc.metadata["url"]
             doc_id = doc.metadata["doc_id"]
-            contents.append(tuple((content, source, doc_id)))
+            contents.append(tuple((context, source, doc_id)))
         return contents
 
     def set_collection_name(self, name: str):
