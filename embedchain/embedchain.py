@@ -510,7 +510,7 @@ class EmbedChain(JSONSerializable):
         contexts = data
         if len(data) > 0 and isinstance(data[0], tuple):
             contexts = list(map(lambda x: x[0], data))
-        
+
         return contexts
 
     def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict] = None) -> str:

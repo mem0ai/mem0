@@ -1,9 +1,10 @@
 import os
 import shutil
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from chromadb.config import Settings
+from langchain.docstore.document import Document
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
@@ -146,7 +147,7 @@ def test_chroma_db_collection_add_with_skip_embedding(app_with_settings):
     app_with_settings.db.add(
         embeddings=[[0, 0, 0]],
         documents=["document"],
-        metadatas=[{"value": "somevalue"}],
+        metadatas=[{"url": "url_1", "doc_id": "doc_id_1"}],
         ids=["id"],
         skip_embedding=True,
     )
@@ -158,13 +159,13 @@ def test_chroma_db_collection_add_with_skip_embedding(app_with_settings):
         "documents": ["document"],
         "embeddings": None,
         "ids": ["id"],
-        "metadatas": [{"value": "somevalue"}],
+        "metadatas": [{"url": "url_1", "doc_id": "doc_id_1"}],
     }
 
     assert data == expected_value
 
     data = app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=1, skip_embedding=True)
-    expected_value = ["document"]
+    expected_value = [("document", "url_1", "doc_id_1")]
 
     assert data == expected_value
     app_with_settings.db.reset()
@@ -300,8 +301,9 @@ def test_chroma_db_collection_reset():
     app3.db.reset()
     app4.db.reset()
 
+
 @patch("embedchain.vectordb.chroma.chromadb.Client")
-def test_fetch_context_source(self, mock_client):
+def test_fetch_context_source(mock_client):
     mock_collection = MagicMock()
     mock_collection.get.return_value = ["doc_id_1", "doc_id_2"]
 
