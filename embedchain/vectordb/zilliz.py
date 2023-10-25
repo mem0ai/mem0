@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional, Tuple
 import logging
+from typing import Dict, List, Optional, Tuple
 
 from embedchain.config import ZillizDBConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -62,7 +62,7 @@ class ZillizVectorDB(BaseVectorDB):
         :type name: str
         """
         if utility.has_collection(name):
-            logging.info(f"[ZillizDB]: found a preexisting collection in your zilliz cluster, {name}, make sure the auto-id is not enabled otherwise some of the DB functionality will fail.")
+            logging.info(f"[ZillizDB]: found a preexisting collection {name}, make sure the auto-id is disabled.")
             self.collection = Collection(name)
         else:
             fields = [
@@ -126,7 +126,9 @@ class ZillizVectorDB(BaseVectorDB):
         self.collection.flush()
         self.client.flush(self.config.collection_name)
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -137,7 +139,7 @@ class ZillizVectorDB(BaseVectorDB):
         :param where: to filter data
         :type where: str
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
 

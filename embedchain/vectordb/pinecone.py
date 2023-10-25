@@ -118,7 +118,9 @@ class PineconeDB(BaseVectorDB):
         for i in range(0, len(docs), self.BATCH_SIZE):
             self.client.upsert(docs[i : i + self.BATCH_SIZE])
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -129,7 +131,7 @@ class PineconeDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. if True, input_query is already embedded
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         if not skip_embedding:

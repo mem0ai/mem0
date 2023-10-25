@@ -1,14 +1,14 @@
 # ruff: noqa: E501
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from chromadb.config import Settings
+from langchain.docstore.document import Document
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
 from embedchain.vectordb.chroma import ChromaDB
-from langchain.docstore.document import Document
 
 
 class TestChromaDbHosts(unittest.TestCase):
@@ -207,7 +207,7 @@ class TestChromaDbCollection(unittest.TestCase):
         self.app_with_settings.db.add(
             embeddings=[[0, 0, 0]],
             documents=["document"],
-            metadatas=[{"value": "somevalue"}],
+            metadatas=[{"url": "url_1", "doc_id": "doc_id_1"}],
             ids=["id"],
             skip_embedding=True,
         )
@@ -220,13 +220,13 @@ class TestChromaDbCollection(unittest.TestCase):
             "documents": ["document"],
             "embeddings": None,
             "ids": ["id"],
-            "metadatas": [{"value": "somevalue"}],
+            "metadatas": [{"url": "url_1", "doc_id": "doc_id_1"}],
         }
         self.assertEqual(data, expected_value)
 
         # Validate if the query utility of the database is working as expected
         data = self.app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=1, skip_embedding=True)
-        expected_value = [("document", "Source not found.", "Doc id not found.")]
+        expected_value = [("document", "url_1", "doc_id_1")]
         self.assertEqual(data, expected_value)
 
     def test_add_with_invalid_inputs(self):
@@ -366,25 +366,26 @@ class TestChromaDbCollection(unittest.TestCase):
         self.assertEqual(app3.count(), 0)
         self.assertEqual(app4.count(), 0)
 
+
 class TestChromaDBContextSource(unittest.TestCase):
     @patch("embedchain.vectordb.chroma.chromadb.Client")
     def test_fetch_context_source(self, mock_client):
         mock_collection = MagicMock()
         mock_collection.get.return_value = ["doc_id_1", "doc_id_2"]
-        
+
         config = ChromaDbConfig()
         db = ChromaDB(config=config)
-        
+
         db.collection = mock_collection
-        
+
         input_query = ["sample query"]
         n_results = 5
         where = {"some_key": "some_value"}
         skip_embedding = False
-        
+
         return_value = [
             (Document(page_content="Content 1", metadata={"url": "source1", "doc_id": "doc_id_1"}), 0.95),
-            (Document(page_content="Content 2", metadata={"url": "source2", "doc_id": "doc_id_2"}), 0.92)
+            (Document(page_content="Content 2", metadata={"url": "source2", "doc_id": "doc_id_2"}), 0.92),
         ]
         with patch.object(ChromaDB, "_format_result", return_value=return_value):
             result = db.query(input_query, n_results, where, skip_embedding)

@@ -160,7 +160,9 @@ class QdrantDB(BaseVectorDB):
                 ),
             )
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -172,7 +174,7 @@ class QdrantDB(BaseVectorDB):
         :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
         generated or not
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         if not skip_embedding:
@@ -199,7 +201,7 @@ class QdrantDB(BaseVectorDB):
             query_vector=query_vector,
             limit=n_results,
         )
-        
+
         response = []
         for result in results:
             content = result.payload["text"]
@@ -216,7 +218,7 @@ class QdrantDB(BaseVectorDB):
     def reset(self):
         self.client.delete_collection(collection_name=self.collection_name)
         self._initialize()
-    
+
     def set_collection_name(self, name: str):
         """
         Set the name of the collection. A collection is an isolated space for vectors.

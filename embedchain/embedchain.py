@@ -461,8 +461,8 @@ class EmbedChain(JSONSerializable):
             where=where,
             skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
         )
-        
-        contents = list(map(lambda x: x[0], data)) if len(data)>0 and isinstance(data[0], tuple) else data
+
+        contents = list(map(lambda x: x[0], data)) if len(data) > 0 and isinstance(data[0], tuple) else data
         return contents
 
     def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict] = None) -> str:

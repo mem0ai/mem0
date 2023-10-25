@@ -194,7 +194,9 @@ class WeaviateDB(BaseVectorDB):
                 )
                 batch.add_reference(obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata")
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -206,7 +208,7 @@ class WeaviateDB(BaseVectorDB):
         :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
         generated or not
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         if not skip_embedding:
@@ -214,7 +216,7 @@ class WeaviateDB(BaseVectorDB):
         else:
             query_vector = input_query
         keys = set(where.keys() if where is not None else set())
-        data_fields = ["text"]  #, "url", "doc_id"
+        data_fields = ["text"]  # , "url", "doc_id"
         if len(keys.intersection(self.metadata_keys)) != 0:
             weaviate_where_operands = []
             for key in keys:

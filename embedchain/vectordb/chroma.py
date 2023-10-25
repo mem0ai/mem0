@@ -191,7 +191,9 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str, str, str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         Query contents from vector database based on vector similarity
 
@@ -204,7 +206,7 @@ class ChromaDB(BaseVectorDB):
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         try:

@@ -135,7 +135,9 @@ class ElasticsearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -147,7 +149,7 @@ class ElasticsearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         if skip_embedding:
@@ -156,7 +158,7 @@ class ElasticsearchDB(BaseVectorDB):
             input_query_vector = self.embedder.embedding_fn(input_query)
             query_vector = input_query_vector[0]
 
-        # For building query with `script_score` key, check `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`
+        # `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`
         query = {
             "script_score": {
                 "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},

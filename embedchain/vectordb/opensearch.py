@@ -145,7 +145,9 @@ class OpenSearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[Tuple[str,str,str]]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -157,7 +159,7 @@ class OpenSearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, source of the information (i.e. url of the source), doc_id
+        :return: The content of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
@@ -185,7 +187,7 @@ class OpenSearchDB(BaseVectorDB):
             pre_filter=pre_filter,
             k=n_results,
         )
-        
+
         contents = []
         for doc in docs:
             content = doc.page_content

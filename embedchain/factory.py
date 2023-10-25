@@ -74,7 +74,7 @@ class VectorDBFactory:
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
-        "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB"
+        "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
