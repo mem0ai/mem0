@@ -69,6 +69,9 @@ class Pipeline(EmbedChain):
         self.llm = llm or None
         self._init_db()
 
+        # setup user id and directory
+        self.u_id = self._load_or_generate_user_id()
+
         # Establish a connection to the SQLite database
         self.connection = sqlite3.connect(SQLITE_PATH)
         self.cursor = self.connection.cursor()

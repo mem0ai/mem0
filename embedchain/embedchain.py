@@ -88,6 +88,10 @@ class EmbedChain(JSONSerializable):
         # Attributes that aren't subclass related.
         self.user_asks = []
 
+        # Send anonymous telemetry
+        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
+        self.u_id = self._load_or_generate_user_id()
+
         # Establish a connection to the SQLite database
         self.connection = sqlite3.connect(SQLITE_PATH)
         self.cursor = self.connection.cursor()
@@ -108,9 +112,6 @@ class EmbedChain(JSONSerializable):
         )
         self.connection.commit()
 
-        # Send anonymous telemetry
-        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
-        self.u_id = self._load_or_generate_user_id()
         # NOTE: Uncomment the next two lines when running tests to see if any test fires a telemetry event.
         # if (self.config.collect_metrics):
         #     raise ConnectionRefusedError("Collection of metrics should not be allowed.")
