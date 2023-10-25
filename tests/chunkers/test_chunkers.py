@@ -3,6 +3,7 @@ from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
+from embedchain.chunkers.openapi import OpenAPIChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
@@ -29,6 +30,7 @@ chunker_common_config = {
     XmlChunker: {"chunk_size": 500, "chunk_overlap": 50, "length_function": len},
     YoutubeVideoChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     JSONChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    OpenAPIChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

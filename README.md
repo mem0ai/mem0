@@ -47,6 +47,7 @@ Embedchain empowers you to create ChatGPT like apps, on your own dynamic dataset
 * Doc file
 * JSON file
 * Code documentation website loader
+* OpenAPI specs
 * Notion
 * Unstructured file loader and many more
 
