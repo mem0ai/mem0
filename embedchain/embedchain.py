@@ -92,7 +92,7 @@ class EmbedChain(JSONSerializable):
         self.connection = sqlite3.connect(SQLITE_PATH)
         self.cursor = self.connection.cursor()
 
-        # Create the 'data' table if it doesn't exist
+        # Create the 'data_sources' table if it doesn't exist
         self.cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS data_sources (
