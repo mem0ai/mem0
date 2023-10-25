@@ -26,16 +26,15 @@ class GPT4ALLLlm(BaseLlm):
             raise ModuleNotFoundError(
                 "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501
             ) from None
-        
-        
+
         return LangchainGPT4All(model=model)
-    
+
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
             raise RuntimeError(
                 "GPT4ALLLlm does not support switching models at runtime. Please create a new app instance."
             )
-            
+
         messages = []
         if config.system_prompt:
             messages.append(config.system_prompt)
@@ -48,9 +47,5 @@ class GPT4ALLLlm(BaseLlm):
             kwargs["top_p"] = config.top_p
 
         callbacks = [StreamingStdOutCallbackHandler()]
-        response = self.instance.generate(
-            prompts=messages,
-            callbacks=callbacks,
-            **kwargs
-        )
+        response = self.instance.generate(prompts=messages, callbacks=callbacks, **kwargs)
         return response
