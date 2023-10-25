@@ -5,6 +5,7 @@ from embedchain.chunkers.images import ImagesChunker
 from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
+from embedchain.chunkers.openapi import OpenAPIChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
@@ -26,6 +27,7 @@ from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
 from embedchain.loaders.local_text import LocalTextLoader
 from embedchain.loaders.mdx import MdxLoader
+from embedchain.loaders.openapi import OpenAPILoader
 from embedchain.loaders.pdf_file import PdfFileLoader
 from embedchain.loaders.sitemap import SitemapLoader
 from embedchain.loaders.unstructured_file import UnstructuredLoader
@@ -81,6 +83,7 @@ class DataFormatter(JSONSerializable):
             DataType.IMAGES: ImagesLoader,
             DataType.UNSTRUCTURED: UnstructuredLoader,
             DataType.JSON: JSONLoader,
+            DataType.OPENAPI: OpenAPILoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:
@@ -124,6 +127,7 @@ class DataFormatter(JSONSerializable):
             DataType.XML: XmlChunker,
             DataType.UNSTRUCTURED: UnstructuredFileChunker,
             DataType.JSON: JSONChunker,
+            DataType.OPENAPI: OpenAPIChunker,
         }
         if data_type in chunker_classes:
             chunker_class: type = chunker_classes[data_type]

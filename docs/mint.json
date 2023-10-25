@@ -46,6 +46,7 @@
           "group": "Supported data sources",
           "pages": [
             "data-sources/csv",
+            "data-sources/json",
             "data-sources/docs-site",
             "data-sources/docx",
             "data-sources/mdx",
@@ -55,6 +56,7 @@
             "data-sources/sitemap",
             "data-sources/text",
             "data-sources/web-page",
+            "data-sources/openapi",
             "data-sources/youtube-video"
           ]
         },

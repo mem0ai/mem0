@@ -1,0 +1,36 @@
+---
+title: '📃 JSON'
+---
+
+To add any json file, use the data_type as `json`. `json` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+
+```python
+import os
+
+from embedchain.apps.app import App
+
+os.environ["OPENAI_API_KEY"] = "openai_api_key"
+
+app = App()
+
+response = app.query("What is the net worth of Elon Musk as of October 2023?")
+
+print(response)
+"I'm sorry, but I don't have access to real-time information or future predictions. Therefore, I don't know the net worth of Elon Musk as of October 2023."
+
+source_id = app.add("temp.json")
+
+response = app.query("What is the net worth of Elon Musk as of October 2023?")
+
+print(response)
+"As of October 2023, Elon Musk's net worth is $255.2 billion."
+```
+
+```temp.json
+{
+    "question": "What is your net worth, Elon Musk?",
+    "answer": "As of October 2023, Elon Musk's net worth is $255.2 billion, making him one of the wealthiest individuals in the world."
+}
+```
+
+

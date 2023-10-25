@@ -27,6 +27,7 @@ class IndirectDataType(Enum):
     IMAGES = "images"
     UNSTRUCTURED = "unstructured"
     JSON = "json"
+    OPENAPI = "openapi"
 
 
 class SpecialDataType(Enum):
@@ -53,3 +54,4 @@ class DataType(Enum):
     IMAGES = IndirectDataType.IMAGES.value
     UNSTRUCTURED = IndirectDataType.UNSTRUCTURED.value
     JSON = IndirectDataType.JSON.value
+    OPENAPI = IndirectDataType.OPENAPI.value
