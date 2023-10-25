@@ -1,7 +1,8 @@
 import hashlib
-from urllib.parse import urlparse
-import requests
 from io import StringIO
+from urllib.parse import urlparse
+
+import requests
 import yaml
 
 from embedchain.loaders.base_loader import BaseLoader
@@ -23,7 +24,7 @@ class OpenAPILoader(BaseLoader):
             return open(path)
         else:
             return open(content)
-    
+
     @staticmethod
     def load_data(content):
         """Load yaml file of openapi. Each pair is a document."""
