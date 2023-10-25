@@ -1,10 +1,10 @@
 # Contributing to embedchain
 
-Let us make contributing easy, collaborative and fun.
+Let us make contribution easy, collaborative and fun.
 
 ## Submit your Contribution through PR
 
-To make a contribution, follow the following steps:
+To make a contribution, follow these steps:
 
 1. Fork and clone this repository
 2. Do the changes on your fork with dedicated feature branch `feature/f1`
@@ -35,7 +35,7 @@ poetry shell
 
 ### 📌 Pre-commit
 
-To ensure our standards, make sure to install pre-commit before star to contribute.
+To ensure our standards, make sure to install pre-commit before starting to contribute.
 
 ```bash
 pre-commit install
@@ -51,7 +51,7 @@ make lint
 
 Make sure that the linter does not report any errors or warnings before submitting a pull request.
 
-### Code Format with `black`
+### Code Formatting with `black`
 
 We use `black` to reformat the code by running the following command:
 
