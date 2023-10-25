@@ -46,6 +46,9 @@ class GPT4ALLLlm(BaseLlm):
         if config.top_p:
             kwargs["top_p"] = config.top_p
 
-        callbacks = [StreamingStdOutCallbackHandler()]
+        callbacks = None
+        if config.stream:
+            callbacks = [StreamingStdOutCallbackHandler()]
+        
         response = self.instance.generate(prompts=messages, callbacks=callbacks, **kwargs)
         return response
