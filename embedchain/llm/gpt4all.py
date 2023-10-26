@@ -14,6 +14,7 @@ class GPT4ALLLlm(BaseLlm):
         if self.config.model is None:
             self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
+        self.instance.streaming = config.stream
 
     def get_llm_model_answer(self, prompt):
         return self._get_answer(prompt=prompt, config=self.config)
@@ -46,9 +47,8 @@ class GPT4ALLLlm(BaseLlm):
         if config.top_p:
             kwargs["top_p"] = config.top_p
 
-        callbacks = None
-        if config.stream:
-            callbacks = [StreamingStdOutCallbackHandler()]
+        callbacks = [StreamingStdOutCallbackHandler()]
 
         response = self.instance.generate(prompts=messages, callbacks=callbacks, **kwargs)
+        print("RESPONSE: ", response.llm_output)
         return response
