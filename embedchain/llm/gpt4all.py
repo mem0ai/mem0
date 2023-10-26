@@ -50,5 +50,4 @@ class GPT4ALLLlm(BaseLlm):
         callbacks = [StreamingStdOutCallbackHandler()]
 
         response = self.instance.generate(prompts=messages, callbacks=callbacks, **kwargs)
-        print("RESPONSE: ", response.llm_output)
         return response
