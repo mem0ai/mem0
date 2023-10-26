@@ -1,10 +1,9 @@
 import os
 import shutil
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from chromadb.config import Settings
-from langchain.docstore.document import Document
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
@@ -302,27 +301,33 @@ def test_chroma_db_collection_reset():
     app4.db.reset()
 
 
-@patch("embedchain.vectordb.chroma.chromadb.Client")
-def test_fetch_context_source(mock_client):
-    mock_collection = MagicMock()
-    mock_collection.get.return_value = ["doc_id_1", "doc_id_2"]
+def test_chroma_db_collection_query(app_with_settings):
+    app_with_settings.db.reset()
 
-    config = ChromaDbConfig()
-    db = ChromaDB(config=config)
+    assert app_with_settings.db.count() == 0
 
-    db.collection = mock_collection
+    app_with_settings.db.add(
+        embeddings=[[0, 0, 0]],
+        documents=["document"],
+        metadatas=[{"url": "url_1", "doc_id": "doc_id_1"}],
+        ids=["id"],
+        skip_embedding=True,
+    )
 
-    input_query = ["sample query"]
-    n_results = 5
-    where = {"some_key": "some_value"}
-    skip_embedding = False
+    assert app_with_settings.db.count() == 1
 
-    return_value = [
-        (Document(page_content="Content 1", metadata={"url": "source1", "doc_id": "doc_id_1"}), 0.95),
-        (Document(page_content="Content 2", metadata={"url": "source2", "doc_id": "doc_id_2"}), 0.92),
-    ]
-    with patch.object(ChromaDB, "_format_result", return_value=return_value):
-        result = db.query(input_query, n_results, where, skip_embedding)
-        assert len(result) == 2
-        assert result[0] == ("Content 1", "source1", "doc_id_1")
-        assert result[1] == ("Content 2", "source2", "doc_id_2")
+    app_with_settings.db.add(
+        embeddings=[[0, 1, 0]],
+        documents=["document2"],
+        metadatas=[{"url": "url_2", "doc_id": "doc_id_2"}],
+        ids=["id2"],
+        skip_embedding=True,
+    )
+
+    assert app_with_settings.db.count() == 2
+
+    data = app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=2, skip_embedding=True)
+    expected_value = [("document", "url_1", "doc_id_1"), ("document2", "url_2", "doc_id_2")]
+
+    assert data == expected_value
+    app_with_settings.db.reset()

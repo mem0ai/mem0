@@ -507,9 +507,8 @@ class EmbedChain(JSONSerializable):
             skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
         )
 
-        contexts = data
-        if len(data) > 0 and isinstance(data[0], tuple):
-            contexts = list(map(lambda x: x[0], data))
+        if len(contexts) > 0 and isinstance(contexts[0], tuple):
+            contexts = list(map(lambda x: x[0], contexts))
 
         return contexts
 

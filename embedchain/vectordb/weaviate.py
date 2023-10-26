@@ -247,13 +247,8 @@ class WeaviateDB(BaseVectorDB):
                 .with_limit(n_results)
                 .do()
             )
-        matched_tokens = []
-        for result in results["data"]["Get"].get(self.index_name):
-            context = result["text"]
-            # source = result["url"]
-            # doc_id = result["doc_id"]
-            matched_tokens.append(context)
-        return matched_tokens
+        contexts = results["data"]["Get"].get(self.index_name)
+        return contexts
 
     def set_collection_name(self, name: str):
         """

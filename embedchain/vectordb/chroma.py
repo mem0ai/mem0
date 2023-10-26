@@ -233,14 +233,14 @@ class ChromaDB(BaseVectorDB):
                 " embeddings, is used to retrieve an embedding from the database."
             ) from None
         results_formatted = self._format_result(result)
-        contents = []
+        contexts = []
         for result in results_formatted:
             context = result[0].page_content
-            content_metadata = result[0].metadata
-            content_source = content_metadata["url"]
-            content_doc_id = content_metadata["doc_id"]
-            contents.append((context, content_source, content_doc_id))
-        return contents
+            metadata = result[0].metadata
+            source = metadata["url"]
+            doc_id = metadata["doc_id"]
+            contexts.append((context, source, doc_id))
+        return contexts
 
     def set_collection_name(self, name: str):
         """
