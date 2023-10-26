@@ -9,7 +9,6 @@ from embedchain.llm.gpt4all import GPT4ALLLlm
 
 @pytest.fixture
 def config():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
     config = BaseLlmConfig(
         temperature=0.7,
         max_tokens=50,
