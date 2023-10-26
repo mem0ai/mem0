@@ -146,7 +146,7 @@ def test_chroma_db_collection_add_with_skip_embedding(app_with_settings):
     app_with_settings.db.add(
         embeddings=[[0, 0, 0]],
         documents=["document"],
-        metadatas=[{"value": "somevalue"}],
+        metadatas=[{"url": "url_1", "doc_id": "doc_id_1"}],
         ids=["id"],
         skip_embedding=True,
     )
@@ -158,13 +158,13 @@ def test_chroma_db_collection_add_with_skip_embedding(app_with_settings):
         "documents": ["document"],
         "embeddings": None,
         "ids": ["id"],
-        "metadatas": [{"value": "somevalue"}],
+        "metadatas": [{"url": "url_1", "doc_id": "doc_id_1"}],
     }
 
     assert data == expected_value
 
     data = app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=1, skip_embedding=True)
-    expected_value = ["document"]
+    expected_value = [("document", "url_1", "doc_id_1")]
 
     assert data == expected_value
     app_with_settings.db.reset()
@@ -299,3 +299,35 @@ def test_chroma_db_collection_reset():
     app2.db.reset()
     app3.db.reset()
     app4.db.reset()
+
+
+def test_chroma_db_collection_query(app_with_settings):
+    app_with_settings.db.reset()
+
+    assert app_with_settings.db.count() == 0
+
+    app_with_settings.db.add(
+        embeddings=[[0, 0, 0]],
+        documents=["document"],
+        metadatas=[{"url": "url_1", "doc_id": "doc_id_1"}],
+        ids=["id"],
+        skip_embedding=True,
+    )
+
+    assert app_with_settings.db.count() == 1
+
+    app_with_settings.db.add(
+        embeddings=[[0, 1, 0]],
+        documents=["document2"],
+        metadatas=[{"url": "url_2", "doc_id": "doc_id_2"}],
+        ids=["id2"],
+        skip_embedding=True,
+    )
+
+    assert app_with_settings.db.count() == 2
+
+    data = app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=2, skip_embedding=True)
+    expected_value = [("document", "url_1", "doc_id_1"), ("document2", "url_2", "doc_id_2")]
+
+    assert data == expected_value
+    app_with_settings.db.reset()

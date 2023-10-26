@@ -500,13 +500,17 @@ class EmbedChain(JSONSerializable):
 
             db_query = ClipProcessor.get_text_features(query=input_query)
 
-        contents = self.db.query(
+        contexts = self.db.query(
             input_query=db_query,
             n_results=query_config.number_documents,
             where=where,
             skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
         )
-        return contents
+
+        if len(contexts) > 0 and isinstance(contexts[0], tuple):
+            contexts = list(map(lambda x: x[0], contexts))
+
+        return contexts
 
     def query(self, input_query: str, config: BaseLlmConfig = None, dry_run=False, where: Optional[Dict] = None) -> str:
         """
