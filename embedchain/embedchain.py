@@ -500,7 +500,7 @@ class EmbedChain(JSONSerializable):
 
             db_query = ClipProcessor.get_text_features(query=input_query)
 
-        data = self.db.query(
+        contexts = self.db.query(
             input_query=db_query,
             n_results=query_config.number_documents,
             where=where,

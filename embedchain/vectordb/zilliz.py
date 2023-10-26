@@ -62,7 +62,7 @@ class ZillizVectorDB(BaseVectorDB):
         :type name: str
         """
         if utility.has_collection(name):
-            logging.info(f"[ZillizDB]: found a preexisting collection {name}, make sure the auto-id is disabled.")
+            logging.info(f"[ZillizDB]: found an existing collection {name}, make sure the auto-id is disabled.")
             self.collection = Collection(name)
         else:
             fields = [
@@ -139,7 +139,7 @@ class ZillizVectorDB(BaseVectorDB):
         :param where: to filter data
         :type where: str
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query, url of the source, doc_id
+        :return: The context of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
 

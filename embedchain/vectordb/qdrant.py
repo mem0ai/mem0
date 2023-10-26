@@ -174,7 +174,7 @@ class QdrantDB(BaseVectorDB):
         :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
         generated or not
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, url of the source, doc_id
+        :return: The context of the document that matched your query, url of the source, doc_id
         :rtype: List[Tuple[str,str,str]]
         """
         if not skip_embedding:

@@ -149,7 +149,8 @@ class ElasticsearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, url of the source, doc_id
+        :return: The context of the document that matched your query, url of the source, doc_id
+
         :rtype: List[Tuple[str,str,str]]
         """
         if skip_embedding:
