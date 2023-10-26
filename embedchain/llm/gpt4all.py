@@ -1,7 +1,7 @@
 from typing import Iterable, Optional, Union
 
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.callbacks.stdout import StdOutCallbackHandler
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -15,7 +15,7 @@ class GPT4ALLLlm(BaseLlm):
         if self.config.model is None:
             self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
-        self.instance.streaming = config.stream
+        self.instance.streaming = self.config.stream
 
     def get_llm_model_answer(self, prompt):
         return self._get_answer(prompt=prompt, config=self.config)
@@ -52,7 +52,7 @@ class GPT4ALLLlm(BaseLlm):
         if config.stream:
             callbacks = [StreamingStdOutCallbackHandler()]
         else:
-            callbacks =[StdOutCallbackHandler()]
+            callbacks = [StdOutCallbackHandler()]
 
         response = self.instance.generate(prompts=messages, callbacks=callbacks, **kwargs)
         answer = ""
