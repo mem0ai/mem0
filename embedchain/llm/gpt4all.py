@@ -1,7 +1,7 @@
 from typing import Iterable, Optional, Union
 
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.callbacks.stdout import StdOutCallbackHandler
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -48,11 +48,7 @@ class GPT4ALLLlm(BaseLlm):
         if config.top_p:
             kwargs["top_p"] = config.top_p
 
-        callbacks = None
-        if config.stream:
-            callbacks = [StreamingStdOutCallbackHandler()]
-        else:
-            callbacks =[StdOutCallbackHandler()]
+        callbacks = [StreamingStdOutCallbackHandler()] if config.stream else [StdOutCallbackHandler()]
 
         response = self.instance.generate(prompts=messages, callbacks=callbacks, **kwargs)
         answer = ""

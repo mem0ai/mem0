@@ -17,6 +17,7 @@ from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
+from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -77,11 +78,12 @@ class Pipeline(EmbedChain):
 
         self.config = config or PipelineConfig()
         self.name = self.config.name
-        self.local_id = self.config.id or str(uuid.uuid4())
+
+        self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
 
         self.embedding_model = embedding_model or OpenAIEmbedder()
         self.db = db or ChromaDB()
-        self.llm = llm or None
+        self.llm = llm or OpenAILlm()
         self._init_db()
 
         # setup user id and directory
@@ -128,7 +130,7 @@ class Pipeline(EmbedChain):
             self.client = Client()
         else:
             api_key = input(
-                "Enter Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/ \n"
+                "🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/ \n"  # noqa: E501
             )
             self.client = Client(api_key=api_key)
 
@@ -150,7 +152,7 @@ class Pipeline(EmbedChain):
             headers={"Authorization": f"Token {self.client.api_key}"},
         )
         if r.status_code not in [200, 201]:
-            raise Exception(f"Error occurred while creating pipeline. Response from API: {r.text}")
+            raise Exception(f"❌ Error occurred while creating pipeline. API response: {r.text}")
 
         print(
             f"🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/{r.json()['id']}\n"  # noqa: E501
@@ -207,8 +209,7 @@ class Pipeline(EmbedChain):
             printed_value = metadata.get("file_path") if metadata.get("file_path") else data_value
             print(f"✅ Data of type: {data_type}, value: {printed_value} added successfully.")
         except Exception as e:
-            self.logger.error(f"Error occurred during data upload: {str(e)}")
-            print(f"❌ Error occurred during data upload for type {data_type}!")
+            print(f"❌ Error occurred during data upload for type {data_type}!. Error: {str(e)}")
 
     def _send_api_request(self, endpoint, payload):
         url = f"{self.client.host}{endpoint}"
@@ -237,39 +238,33 @@ class Pipeline(EmbedChain):
             self._upload_data_to_pipeline(data_type, data_value, metadata)
             self._mark_data_as_uploaded(data_hash)
             return True
-        except Exception as e:
-            self.logger.error(f"Error occurred during data upload: {str(e)}")
+        except Exception:
             print(f"❌ Error occurred during data upload for hash {data_hash}!")
             return False
 
     def _mark_data_as_uploaded(self, data_hash):
         self.cursor.execute(
-            "UPDATE data_sources SET is_uploaded = 1 WHERE hash = ? AND pipeline_id = ? AND is_uploaded = 0",
+            "UPDATE data_sources SET is_uploaded = 1 WHERE hash = ? AND pipeline_id = ?",
             (data_hash, self.local_id),
         )
         self.connection.commit()
 
     def deploy(self):
-        try:
-            if self.client is None:
-                self._init_client()
+        if self.client is None:
+            self._init_client()
 
-            pipeline_data = self._create_pipeline()
-            self.id = pipeline_data["id"]
+        pipeline_data = self._create_pipeline()
+        self.id = pipeline_data["id"]
 
-            results = self.cursor.execute(
-                "SELECT * FROM data_sources WHERE pipeline_id = ? AND is_uploaded = 0", (self.local_id,)
-            ).fetchall()
+        results = self.cursor.execute(
+            "SELECT * FROM data_sources WHERE pipeline_id = ? AND is_uploaded = 0", (self.local_id,)
+        ).fetchall()
 
-            if len(results) > 0:
-                print("🛠️ Adding data to your pipeline...")
-            for result in results:
-                data_hash, data_type, data_value = result[0], result[2], result[3]
-                self._process_and_upload_data(data_hash, data_type, data_value)
-
-        except Exception as e:
-            self.logger.exception(f"Error occurred during deployment: {str(e)}")
-            raise HTTPException(status_code=500, detail="Error occurred during deployment.")
+        if len(results) > 0:
+            print("🛠️ Adding data to your pipeline...")
+        for result in results:
+            data_hash, data_type, data_value = result[1], result[2], result[3]
+            self._process_and_upload_data(data_hash, data_type, data_value)
 
     @classmethod
     def from_config(cls, yaml_path: str, auto_deploy: bool = False):
