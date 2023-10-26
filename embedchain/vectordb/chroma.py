@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -191,7 +191,9 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         Query contents from vector database based on vector similarity
 
@@ -204,8 +206,8 @@ class ChromaDB(BaseVectorDB):
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query.
-        :rtype: List[str]
+        :return: The content of the document that matched your query, url of the source, doc_id
+        :rtype: List[Tuple[str,str,str]]
         """
         try:
             if skip_embedding:
@@ -231,8 +233,14 @@ class ChromaDB(BaseVectorDB):
                 " embeddings, is used to retrieve an embedding from the database."
             ) from None
         results_formatted = self._format_result(result)
-        contents = [result[0].page_content for result in results_formatted]
-        return contents
+        contexts = []
+        for result in results_formatted:
+            context = result[0].page_content
+            metadata = result[0].metadata
+            source = metadata["url"]
+            doc_id = metadata["doc_id"]
+            contexts.append((context, source, doc_id))
+        return contexts
 
     def set_collection_name(self, name: str):
         """

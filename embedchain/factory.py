@@ -41,15 +41,15 @@ class LlmFactory:
 
 class EmbedderFactory:
     provider_to_class = {
+        "azure_openai": "embedchain.embedder.openai.OpenAIEmbedder",
         "gpt4all": "embedchain.embedder.gpt4all.GPT4AllEmbedder",
         "huggingface": "embedchain.embedder.huggingface.HuggingFaceEmbedder",
-        "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
-        "azure_openai": "embedchain.embedder.openai.OpenAIEmbedder",
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
+        "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
     }
     provider_to_config_class = {
-        "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
     }
 
     @classmethod
@@ -72,16 +72,18 @@ class VectorDBFactory:
         "elasticsearch": "embedchain.vectordb.elasticsearch.ElasticsearchDB",
         "opensearch": "embedchain.vectordb.opensearch.OpenSearchDB",
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
-        "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
+        "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
+        "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
         "elasticsearch": "embedchain.config.vectordb.elasticsearch.ElasticsearchDBConfig",
         "opensearch": "embedchain.config.vectordb.opensearch.OpenSearchDBConfig",
         "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
-        "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
         "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
+        "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
+        "zilliz": "embedchain.config.vectordb.zilliz.ZillizDBConfig",
     }
 
     @classmethod
