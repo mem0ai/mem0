@@ -6,18 +6,17 @@ from embedchain.config import BaseLlmConfig
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
-try:
-    importlib.import_module("vertexai")
-except ModuleNotFoundError:
-    raise ModuleNotFoundError(
-        "The required dependencies for VertexAI are not installed."
-        'Please install with `pip install --upgrade "embedchain[vertexai]"`'
-    ) from None
-
 
 @register_deserializable
 class VertexAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
+        try:
+            importlib.import_module("vertexai")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "The required dependencies for VertexAI are not installed."
+                'Please install with `pip install --upgrade "embedchain[vertexai]"`'
+            ) from None
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
