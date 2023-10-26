@@ -27,7 +27,7 @@ class GPT4ALLLlm(BaseLlm):
                 "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501
             ) from None
 
-        return LangchainGPT4All(model=model)
+        return LangchainGPT4All(model=model, allow_download=True)
 
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         if config.model and config.model != self.config.model:
