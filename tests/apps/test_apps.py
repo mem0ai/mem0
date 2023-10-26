@@ -135,6 +135,7 @@ class TestAppFromConfig:
 
         # Validate the LLM config values
         llm_config = config_data["llm"]["config"]
+        assert app.llm.config.model == llm_config["model"]
         assert app.llm.config.temperature == llm_config["temperature"]
         assert app.llm.config.max_tokens == llm_config["max_tokens"]
         assert app.llm.config.top_p == llm_config["top_p"]
@@ -148,5 +149,4 @@ class TestAppFromConfig:
 
         # Validate the Embedder config values
         embedder_config = config_data["embedder"]["config"]
-        assert app.embedder.config.model == embedder_config["model"]
         assert app.embedder.config.deployment_name == embedder_config["deployment_name"]
