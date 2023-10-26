@@ -2,20 +2,19 @@
 title: '📬 GMAIL'
 ---
 
-To use GMAILLoader you must install the extra dependencies with `pip install --upgrade embedchain[dataloaders]`.
+To use GMAILLoader you must install the extra dependencies with `pip install --upgrade embedchain[dataloaders]`. Download your google credentials file from your deve account, follow instructions @`https://cloud.google.com/docs/authentication/api-keys` to download credentials, now rename the file to `token.json` and save it in the root folder of embedchain repo.
 
-To load GMAIL messages, use the data_type as `gmail`. Since it is hard to automatically detect, it is advised to specify the `data_type` when adding a GMAIL document.
-The next argument must be a valid list of email addresses. Eg:
+To load GMAIL messages, you MUST use the data_type as `gmail`. Otherwise the source will be detected as simple `text`.
+
+The `source` must be a valid GMAIL search query, you can refer `https://support.google.com/mail/answer/7190?hl=en` to build a query.
 
 ```python
 import os
 from embedchain.apps.app import App
-
-os.environ["GOOGLE_CRED_PATH"] = 'credentials.json'
-
+from embedchain.models.data_type import DataType
 app = App()
 
-emails = ['deven@embedchain.ai', 'deshraj@embedchain.ai']
-app.add(", ".join(emails))
+query = "from: me label:inbox"
+app.add(query, data_type=DataType.GMAIL)
 app.query("Summarize my email conversations")
 ```

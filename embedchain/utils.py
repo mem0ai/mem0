@@ -260,13 +260,8 @@ def detect_datatype(source: Any) -> DataType:
     else:
         # Source is not a URL.
         
-        # check if source is list of emails
-        emails = source.split(GMAIL_ADDRESS_SEPARATOR_IN_EMBEDCHAIN_APP)
-        valid_emails = [email for email in emails if is_valid_email(email)]
-        if len(valid_emails) > 0:
-            logging.debug(f"Source of `{formatted_source}` detected as `gmail`.")
-            return DataType.GMAIL
-                
+        # TODO: check if source is gmail query
+        
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
