@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from langchain.llms.gpt4all import GPT4All as LangchainGPT4All
 
@@ -18,7 +16,6 @@ def config():
         model="orca-mini-3b.ggmlv3.q4_0.bin",
     )
     yield config
-    os.environ.pop("OPENAI_API_KEY")
 
 
 @pytest.fixture
