@@ -143,7 +143,7 @@ pytest-asyncio = "^0.21.1"
 [tool.poetry.extras]
 streamlit = ["streamlit"]
 community = ["llama-hub"]
-opensource = ["sentence-transformers", "torch", "gpt4all"]
+opensource = ["sentence-transformers", "torch", "gpt4all", "langchain"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
 poe = ["fastapi-poe"]
