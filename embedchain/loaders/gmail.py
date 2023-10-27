@@ -29,9 +29,9 @@ class GMAILLoader(BaseLoader):
                 dev account. Refer this `https://cloud.google.com/docs/authentication/api-keys`")
         
         GmailReader = download_loader("GmailReader")
-        loader = GmailReader(query=query, service=None, results_per_page=10)
+        loader = GmailReader(query=query, service=None, results_per_page=20)
         documents = loader.load_data()
-        logging.info(f"GMAIL Loader: {len(documents)} mails found")
+        logging.info(f"GMAIL Loader: {len(documents)} mails found for query- {query}")
         
         data = []
         data_contents = []
