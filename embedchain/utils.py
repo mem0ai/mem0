@@ -264,12 +264,3 @@ def detect_datatype(source: Any) -> DataType:
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
-
-
-def is_valid_email(email):
-    # Define the regular expression pattern for a valid email address
-    pattern = r"^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$"
-
-    match = re.match(pattern, email)
-
-    return bool(match)
