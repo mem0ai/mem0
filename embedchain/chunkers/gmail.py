@@ -8,7 +8,7 @@ from embedchain.helper.json_serializable import register_deserializable
 
 
 @register_deserializable
-class GMAILChunker(BaseChunker):
+class GmailChunker(BaseChunker):
     """Chunker for gmail."""
 
     def __init__(self, config: Optional[ChunkerConfig] = None):
