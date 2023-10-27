@@ -50,6 +50,7 @@ class EmbedderFactory:
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
     }
 
     @classmethod
