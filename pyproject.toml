@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.77"
+version = "0.0.78"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = ["Taranjeet Singh, Deshraj Yadav"]
 license = "Apache License"
@@ -160,13 +160,14 @@ milvus = ["pymilvus"]
 dataloaders=[
     "youtube-transcripts-api",
     "beautifulsoup4",
+    "docx2txt",
+    "duckduckgo-search",
+    "jq",
+    "langchain",
     "pypdf",
     "pytube",
-    "duckduckgo-search",
-    "docx2txt",
-    "unstructured",
     "sentence-transformers",
-    "jq",
+    "unstructured",
 ]
 vertexai = ["google-cloud-aiplatform"]
 llama2 = ["replicate"]
