@@ -1,2 +1,2 @@
 flask==2.3.2
-embedchain==0.0.58
+embedchain[dataloaders]==0.0.78
