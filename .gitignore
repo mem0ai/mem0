@@ -176,8 +176,3 @@ notebooks/*.yaml
 .ipynb_checkpoints/
 
 !configs/*.yaml
-
-
-# Google API
-credentials.json
-token.json

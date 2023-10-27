@@ -23,7 +23,7 @@ def get_header(text: str, header: str) -> str:
     return header.strip()
 
 
-class GMAILLoader(BaseLoader):
+class GmailLoader(BaseLoader):
     def load_data(self, query):
         """Load data from gmail."""
         if not os.path.isfile("credentials.json"):
@@ -35,7 +35,7 @@ class GMAILLoader(BaseLoader):
         GmailReader = download_loader("GmailReader")
         loader = GmailReader(query=query, service=None, results_per_page=20)
         documents = loader.load_data()
-        logging.info(f"GMAIL Loader: {len(documents)} mails found for query- {query}")
+        logging.info(f"Gmail Loader: {len(documents)} mails found for query- {query}")
 
         data = []
         data_contents = []

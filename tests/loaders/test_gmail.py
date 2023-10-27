@@ -1,7 +1,7 @@
 import pytest
 from llama_index.readers.schema.base import Document
 
-from embedchain.loaders.gmail import GMAILLoader
+from embedchain.loaders.gmail import GmailLoader
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def mock_beautifulsoup(mocker):
 
 @pytest.fixture
 def gmail_loader(mock_download_loader, mock_quopri, mock_beautifulsoup):
-    return GMAILLoader()
+    return GmailLoader()
 
 
 def test_load_data_file_not_found(gmail_loader, mocker):
