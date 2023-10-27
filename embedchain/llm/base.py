@@ -5,9 +5,9 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base_llm_config import (
-    DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
-    DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.config.llm.base import (DEFAULT_PROMPT,
+                                        DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
+                                        DOCS_SITE_PROMPT_TEMPLATE)
 from embedchain.helper.json_serializable import JSONSerializable
 
 
@@ -129,8 +129,12 @@ class BaseLlm(JSONSerializable):
         :return: Search results
         :rtype: Unknown
         """
-        from langchain.tools import DuckDuckGoSearchRun
-
+        try:
+            from langchain.tools import DuckDuckGoSearchRun
+        except ImportError:
+            raise ImportError(
+                'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+            ) from None
         search = DuckDuckGoSearchRun()
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
@@ -174,7 +178,7 @@ class BaseLlm(JSONSerializable):
         :type input_query: str
         :param contexts: Embeddings retrieved from the database to be used as context.
         :type contexts: List[str]
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to
@@ -202,7 +206,6 @@ class BaseLlm(JSONSerializable):
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
             prompt = self.generate_prompt(input_query, contexts, **k)
             logging.info(f"Prompt: {prompt}")
-
             if dry_run:
                 return prompt
 
@@ -230,7 +233,7 @@ class BaseLlm(JSONSerializable):
         :type input_query: str
         :param contexts: Embeddings retrieved from the database to be used as context.
         :type contexts: List[str]
-        :param config: The `LlmConfig` instance to use as configuration options. This is used for one method call.
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
         :type config: Optional[BaseLlmConfig], optional
         :param dry_run: A dry run does everything except send the resulting prompt to

@@ -1,0 +1,26 @@
+app:
+  config:
+    id: 'open-source-app'
+    collection_name: 'open-source-app'
+    collect_metrics: false
+
+llm:
+  provider: gpt4all
+  config:
+    model: 'orca-mini-3b.ggmlv3.q4_0.bin'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+vector_db:
+  provider: chroma
+  config:
+    collection_name: 'open-source-app'
+    dir: db
+    allow_reset: true
+
+embedder:
+  provider: gpt4all
+  config:
+    deployment_name: null

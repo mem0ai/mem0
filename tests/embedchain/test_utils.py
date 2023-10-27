@@ -39,6 +39,12 @@ class TestApp(unittest.TestCase):
     def test_detect_datatype_local_docx(self):
         self.assertEqual(detect_datatype("file:///home/user/document.docx"), DataType.DOCX)
 
+    def test_detect_data_type_json(self):
+        self.assertEqual(detect_datatype("https://www.example.com/data.json"), DataType.JSON)
+
+    def test_detect_data_type_local_json(self):
+        self.assertEqual(detect_datatype("file:///home/user/data.json"), DataType.JSON)
+
     @patch("os.path.isfile")
     def test_detect_datatype_regular_filesystem_docx(self, mock_isfile):
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=True) as tmp:

@@ -1,0 +1,224 @@
+---
+title: 🗄️ Vector databases
+---
+
+## Overview
+
+Utilizing a vector database alongside Embedchain is a seamless process. All you need to do is configure it within the YAML configuration file. We've provided examples for each supported database below:
+
+<CardGroup cols={4}>
+  <Card title="ChromaDB" href="#chromadb"></Card>
+  <Card title="Elasticsearch" href="#elasticsearch"></Card>
+  <Card title="OpenSearch" href="#opensearch"></Card>
+  <Card title="Zilliz" href="#zilliz"></Card>
+  <Card title="LanceDB" href="#lancedb"></Card>
+  <Card title="Pinecone" href="#pinecone"></Card>
+  <Card title="Qdrant" href="#qdrant"></Card>
+  <Card title="Weaviate" href="#weaviate"></Card>
+</CardGroup>
+
+## ChromaDB
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load chroma configuration from yaml file
+app = App.from_config(yaml_path="config1.yaml")
+```
+
+```yaml config1.yaml
+vector_db:
+  provider: chroma
+  config:
+    collection_name: 'my-collection'
+    dir: db
+    allow_reset: true
+```
+
+```yaml config2.yaml
+vector_db:
+  provider: chroma
+  config:
+    collection_name: 'my-collection'
+    host: localhost
+    port: 5200
+    allow_reset: true
+```
+
+</CodeGroup>
+
+
+## Elasticsearch
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[elasticsearch]'
+```
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load elasticsearch configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vector_db:
+  provider: elasticsearch
+  config:
+    collection_name: 'es-index'
+    es_url: http://localhost:9200
+    allow_reset: true
+    api_key: xxx
+```
+</CodeGroup>
+
+## OpenSearch
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[opensearch]'
+```
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load opensearch configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vector_db:
+  provider: opensearch
+  config:
+    opensearch_url: 'https://localhost:9200'
+    http_auth:
+      - admin
+      - admin
+    vector_dimension: 1536
+    collection_name: 'my-app'
+    use_ssl: false
+    verify_certs: false
+```
+
+</CodeGroup>
+
+## Zilliz
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[milvus]'
+```
+
+Set the Zilliz environment variables `ZILLIZ_CLOUD_URI` and `ZILLIZ_CLOUD_TOKEN` which you can find it on their [cloud platform](https://cloud.zilliz.com/).
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
+os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
+
+# load zilliz configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vector_db:
+  provider: zilliz
+  config:
+    collection_name: 'zilliz-app'
+    uri: https://xxxx.api.gcp-region.zillizcloud.com
+    token: xxx
+    vector_dim: 1536
+    metric_type: L2
+```
+
+</CodeGroup>
+
+## LanceDB
+
+_Coming soon_
+
+## Pinecone
+
+Install pinecone related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[pinecone]'
+```
+
+In order to use Pinecone as vector database, set the environment variables `PINECONE_API_KEY` and `PINECONE_ENV` which you can find on [Pinecone dashboard](https://app.pinecone.io/).
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load pinecone configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vector_db:
+  provider: pinecone
+  config:
+    metric: cosine
+    vector_dimension: 1536
+    collection_name: my-pinecone-index
+```
+
+</CodeGroup>
+
+## Qdrant
+
+In order to use Qdrant as a vector database, set the environment variables `QDRANT_URL` and `QDRANT_API_KEY` which you can find on [Qdrant Dashboard](https://cloud.qdrant.io/).
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+# load qdrant configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vector_db:
+  provider: qdrant
+  config:
+    collection_name: my_qdrant_index
+```
+</CodeGroup>
+
+## Weaviate
+
+In order to use Weaviate as a vector database, set the environment variables `WEAVIATE_ENDPOINT` and `WEAVIATE_API_KEY` which you can find on [Weaviate dashboard](https://console.weaviate.cloud/dashboard).
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+# load weaviate configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vector_db:
+  provider: weaviate
+  config:
+    collection_name: my_weaviate_index
+```
+</CodeGroup>
+
+<Snippet file="missing-vector-db-tip.mdx" />

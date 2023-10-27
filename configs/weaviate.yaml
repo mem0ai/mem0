@@ -1,0 +1,4 @@
+vector_db:
+  provider: weaviate
+  config:
+    collection_name: my_weaviate_index

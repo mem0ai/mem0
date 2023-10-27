@@ -18,6 +18,9 @@ install_es:
 install_opensearch:
 	poetry install --extras opensearch
 
+install_milvus:
+	poetry install --extras milvus
+
 shell:
 	poetry shell
 
@@ -28,20 +31,14 @@ format:
 	$(PYTHON) -m black .
 	$(PYTHON) -m isort .
 
-lint:
-	$(PYTHON) -m ruff .
-
 clean:
 	rm -rf dist build *.egg-info
 
-test:
-	$(PYTHON) -m pytest
-
-ci_lint:
+lint:
 	poetry run ruff .
 
-ci_test:
-	poetry run pytest
+test:
+	poetry run pytest $(file)
 
 coverage:
 	poetry run pytest --cov=$(PROJECT_NAME) --cov-report=xml

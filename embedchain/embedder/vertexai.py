@@ -7,7 +7,7 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import VectorDimensions
 
 
-class VertexAiEmbedder(BaseEmbedder):
+class VertexAIEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
 
