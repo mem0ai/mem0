@@ -1,12 +1,12 @@
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.gmail import GMAILChunker
 from embedchain.chunkers.images import ImagesChunker
 from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.openapi import OpenAPIChunker
-from embedchain.chunkers.gmail import GMAILChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
@@ -23,6 +23,7 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.csv import CsvLoader
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
+from embedchain.loaders.gmail import GMAILLoader
 from embedchain.loaders.images import ImagesLoader
 from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
@@ -35,7 +36,6 @@ from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.loaders.xml import XmlLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
-from embedchain.loaders.gmail import GMAILLoader
 from embedchain.models.data_type import DataType
 
 
@@ -86,7 +86,7 @@ class DataFormatter(JSONSerializable):
             DataType.UNSTRUCTURED: UnstructuredLoader,
             DataType.JSON: JSONLoader,
             DataType.OPENAPI: OpenAPILoader,
-            DataType.GMAIL: GMAILLoader
+            DataType.GMAIL: GMAILLoader,
         }
         lazy_loaders = {DataType.NOTION}
         if data_type in loaders:

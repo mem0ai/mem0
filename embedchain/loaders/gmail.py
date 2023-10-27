@@ -1,7 +1,7 @@
+import hashlib
 import logging
 import os
 import quopri
-import hashlib
 from textwrap import dedent
 
 from bs4 import BeautifulSoup
@@ -14,6 +14,7 @@ except ImportError:
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
+
 def get_header(text: str, header: str) -> str:
     start_string_position = text.find(header)
     pos_start = text.find(":", start_string_position) + 1
@@ -21,24 +22,27 @@ def get_header(text: str, header: str) -> str:
     header = text[pos_start:pos_end]
     return header.strip()
 
+
 class GMAILLoader(BaseLoader):
     def load_data(self, query):
         """Load data from gmail."""
         if not os.path.isfile("credentials.json"):
-            raise FileNotFoundError(f"You must download the valid credentials file from your google \
-                dev account. Refer this `https://cloud.google.com/docs/authentication/api-keys`")
-        
+            raise FileNotFoundError(
+                "You must download the valid credentials file from your google \
+                dev account. Refer this `https://cloud.google.com/docs/authentication/api-keys`"
+            )
+
         GmailReader = download_loader("GmailReader")
         loader = GmailReader(query=query, service=None, results_per_page=20)
         documents = loader.load_data()
         logging.info(f"GMAIL Loader: {len(documents)} mails found for query- {query}")
-        
+
         data = []
         data_contents = []
         logging.info(f"Gmail Loader: {len(documents)} mails found")
         for document in documents:
             original_size = len(document.text)
-            
+
             snippet = document.metadata.get("snippet")
             meta_data = {
                 "url": document.metadata.get("id"),
@@ -48,18 +52,18 @@ class GMAILLoader(BaseLoader):
                 "to": get_header(document.text, "To"),
                 "search_query": query,
             }
-            
+
             # Decode
             decoded_bytes = quopri.decodestring(document.text)
             decoded_str = decoded_bytes.decode("utf-8", errors="replace")
-            
+
             # Slice
             mail_start = decoded_str.find("<!DOCTYPE")
             email_data = decoded_str[mail_start:]
-            
+
             # Web Page HTML Processing
             soup = BeautifulSoup(email_data, "html.parser")
-            
+
             tags_to_exclude = [
                 "nav",
                 "aside",
@@ -72,16 +76,16 @@ class GMAILLoader(BaseLoader):
                 "script",
                 "style",
             ]
-            
+
             for tag in soup(tags_to_exclude):
                 tag.decompose()
-            
+
             ids_to_exclude = ["sidebar", "main-navigation", "menu-main-menu"]
             for id in ids_to_exclude:
                 tags = soup.find_all(id=id)
                 for tag in tags:
                     tag.decompose()
-            
+
             classes_to_exclude = [
                 "elementor-location-header",
                 "navbar-header",
@@ -95,10 +99,10 @@ class GMAILLoader(BaseLoader):
                 tags = soup.find_all(class_=class_name)
                 for tag in tags:
                     tag.decompose()
-            
+
             content = soup.get_text()
             content = clean_string(content)
-            
+
             cleaned_size = len(content)
             if original_size != 0:
                 logging.info(
@@ -116,8 +120,5 @@ class GMAILLoader(BaseLoader):
             data.append({"content": data_content, "meta_data": meta_data})
             data_contents.append(data_content)
         doc_id = hashlib.sha256((query + ", ".join(data_contents)).encode()).hexdigest()
-        response_data = {
-            "doc_id": doc_id, 
-            "data": data
-            }
+        response_data = {"doc_id": doc_id, "data": data}
         return response_data
