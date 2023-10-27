@@ -40,7 +40,8 @@ def test_load_data(gmail_loader, mock_download_loader, mocker):
     mock_gmail_reader_instance.load_data.return_value = [Document(text=text, extra_info=metadata)]
     mock_download_loader.return_value = mock_gmail_reader_instance
 
-    response_data = gmail_loader.load_data("your_query")
+    with mocker.patch("os.path.isfile", return_value=True):
+        response_data = gmail_loader.load_data("your_query")
 
     assert "doc_id" in response_data
     assert "data" in response_data
