@@ -15,7 +15,7 @@ class GPT4ALLLlm(BaseLlm):
         if self.config.model is None:
             self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
-        self.instance.streaming = config.stream
+        self.instance.streaming = self.config.stream
 
     def get_llm_model_answer(self, prompt):
         return self._get_answer(prompt=prompt, config=self.config)
