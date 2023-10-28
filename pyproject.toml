@@ -168,9 +168,19 @@ dataloaders=[
     "pytube",
     "sentence-transformers",
     "unstructured",
+    "jq",
 ]
 vertexai = ["google-cloud-aiplatform"]
 llama2 = ["replicate"]
+gmail = [
+    "llama-hub", 
+    "requests", 
+    "google-api-python-client", 
+    "google-auth", 
+    "google-auth-oauthlib", 
+    "google-auth-httplib2", 
+    "google-api-core",
+]
 
 [tool.poetry.group.docs.dependencies]
 
