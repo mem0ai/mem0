@@ -28,6 +28,7 @@ class IndirectDataType(Enum):
     UNSTRUCTURED = "unstructured"
     JSON = "json"
     OPENAPI = "openapi"
+    GMAIL = "gmail"
 
 
 class SpecialDataType(Enum):
@@ -55,3 +56,4 @@ class DataType(Enum):
     UNSTRUCTURED = IndirectDataType.UNSTRUCTURED.value
     JSON = IndirectDataType.JSON.value
     OPENAPI = IndirectDataType.OPENAPI.value
+    GMAIL = IndirectDataType.GMAIL.value

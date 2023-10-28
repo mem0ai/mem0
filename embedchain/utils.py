@@ -259,6 +259,8 @@ def detect_datatype(source: Any) -> DataType:
     else:
         # Source is not a URL.
 
+        # TODO: check if source is gmail query
+
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
