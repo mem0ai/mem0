@@ -34,6 +34,8 @@ class Pipeline(EmbedChain):
 
     def __init__(
         self,
+        id: str = None,
+        name: str = None,
         config: PipelineConfig = None,
         db: BaseVectorDB = None,
         embedding_model: BaseEmbedder = None,
@@ -61,6 +63,15 @@ class Pipeline(EmbedChain):
         :type auto_deploy: bool, optional
         :raises Exception: If an error occurs while creating the pipeline
         """
+        if id and yaml_path:
+            raise Exception("Cannot provide both id and config. Please provide only one of them.")
+
+        if id and name:
+            raise Exception("Cannot provide both id and name. Please provide only one of them.")
+
+        if name and config:
+            raise Exception("Cannot provide both name and config. Please provide only one of them.")
+
         logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
 
@@ -71,15 +82,27 @@ class Pipeline(EmbedChain):
         self.client = None
         # pipeline_id from the backend
         self.id = None
-        if yaml_path:
-            with open(yaml_path, "r") as file:
-                config_data = yaml.safe_load(file)
-                self.yaml_config = config_data
 
         self.config = config or PipelineConfig()
         self.name = self.config.name
 
         self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
+
+        if yaml_path:
+            with open(yaml_path, "r") as file:
+                config_data = yaml.safe_load(file)
+                self.yaml_config = config_data
+
+        if id is not None:
+            # Init client first since user is trying to fetch the pipeline
+            # details from the platform
+            self._init_client()
+            pipeline_details = self._get_pipeline(id)
+            self.config.id = self.local_id = pipeline_details["metadata"]["local_id"]
+            self.id = id
+
+        if name is not None:
+            self.name = name
 
         self.embedding_model = embedding_model or OpenAIEmbedder()
         self.db = db or ChromaDB()
@@ -134,6 +157,24 @@ class Pipeline(EmbedChain):
             )
             self.client = Client(api_key=api_key)
 
+    def _get_pipeline(self, id):
+        """
+        Get existing pipeline
+        """
+        print("🛠️ Fetching pipeline details from the platform...")
+        url = f"{self.client.host}/api/v1/pipelines/{id}/cli/"
+        r = requests.get(
+            url,
+            headers={"Authorization": f"Token {self.client.api_key}"},
+        )
+        if r.status_code == 404:
+            raise Exception(f"❌ Pipeline with id {id} not found!")
+
+        print(
+            f"🎉 Pipeline loaded successfully! Pipeline url: https://app.embedchain.ai/pipelines/{r.json()['id']}\n"  # noqa: E501
+        )
+        return r.json()
+
     def _create_pipeline(self):
         """
         Create a pipeline on the platform.
@@ -154,9 +195,14 @@ class Pipeline(EmbedChain):
         if r.status_code not in [200, 201]:
             raise Exception(f"❌ Error occurred while creating pipeline. API response: {r.text}")
 
-        print(
-            f"🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/{r.json()['id']}\n"  # noqa: E501
-        )
+        if r.status_code == 200:
+            print(
+                f"🎉🎉🎉 Existing pipeline found! View your pipeline: https://app.embedchain.ai/pipelines/{r.json()['id']}\n"  # noqa: E501
+            )  # noqa: E501
+        elif r.status_code == 201:
+            print(
+                f"🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/{r.json()['id']}\n"  # noqa: E501
+            )
         return r.json()
 
     def _get_presigned_url(self, data_type, data_value):
@@ -257,7 +303,7 @@ class Pipeline(EmbedChain):
         self.id = pipeline_data["id"]
 
         results = self.cursor.execute(
-            "SELECT * FROM data_sources WHERE pipeline_id = ? AND is_uploaded = 0", (self.local_id,)
+            "SELECT * FROM data_sources WHERE pipeline_id = ? AND is_uploaded = 0", (self.local_id,)  # noqa:E501
         ).fetchall()
 
         if len(results) > 0:
