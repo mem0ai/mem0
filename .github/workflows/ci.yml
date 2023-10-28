@@ -19,14 +19,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install poetry
-        run: pip install poetry==1.4.2
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.2
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
         run: poetry install --all-extras
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Lint with ruff
         run: make lint
-      - name: Test with pytest
-        run: make test
-      - name: Generate coverage report
+      - name: Run tests and generate coverage report
         run: make coverage
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
@@ -34,4 +43,3 @@ jobs:
           file: coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-

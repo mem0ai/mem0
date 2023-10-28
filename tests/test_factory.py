@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 import embedchain
@@ -22,6 +24,8 @@ class TestFactories:
         ],
     )
     def test_llm_factory_create(self, provider_name, config_data, expected_class):
+        os.environ["ANTHROPIC_API_KEY"] = "test_api_key"
+        os.environ["OPENAI_API_KEY"] = "test_api_key"
         llm_instance = LlmFactory.create(provider_name, config_data)
         assert isinstance(llm_instance, expected_class)
 

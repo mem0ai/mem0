@@ -11,3 +11,5 @@ services:
       - variables.env
     ports:
       - "5000:5000"
+    volumes:
+      - .:/usr/src/api

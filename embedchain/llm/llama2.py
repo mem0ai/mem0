@@ -1,3 +1,4 @@
+import importlib
 import os
 from typing import Optional
 
@@ -11,6 +12,13 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class Llama2Llm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
+        try:
+            importlib.import_module("replicate")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "The required dependencies for Llama2 are not installed."
+                'Please install with `pip install --upgrade "embedchain[llama2]"`'
+            ) from None
         if "REPLICATE_API_TOKEN" not in os.environ:
             raise ValueError("Please set the REPLICATE_API_TOKEN environment variable.")
 
@@ -31,7 +39,7 @@ class Llama2Llm(BaseLlm):
     def get_llm_model_answer(self, prompt):
         # TODO: Move the model and other inputs into config
         if self.config.system_prompt:
-            raise ValueError("Llama2App does not support `system_prompt`")
+            raise ValueError("Llama2 does not support `system_prompt`")
         llm = Replicate(
             model=self.config.model,
             input={

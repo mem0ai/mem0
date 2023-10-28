@@ -115,6 +115,13 @@ def detect_datatype(source: Any) -> DataType:
     """
     from urllib.parse import urlparse
 
+    import requests
+    import yaml
+
+    def is_openapi_yaml(yaml_content):
+        # currently the following two fields are required in openapi spec yaml config
+        return "openapi" in yaml_content and "info" in yaml_content
+
     try:
         if not isinstance(source, str):
             raise ValueError("Source is not a string and thus cannot be a URL.")
@@ -155,6 +162,35 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
+        if url.path.endswith(".yaml"):
+            try:
+                response = requests.get(source)
+                response.raise_for_status()
+                try:
+                    yaml_content = yaml.safe_load(response.text)
+                except yaml.YAMLError as exc:
+                    logging.error(f"Error parsing YAML: {exc}")
+                    raise TypeError(f"Not a valid data type. Error loading YAML: {exc}")
+
+                if is_openapi_yaml(yaml_content):
+                    logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
+                    return DataType.OPENAPI
+                else:
+                    logging.error(
+                        f"Source of `{formatted_source}` does not contain all the required \
+                        fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'"
+                    )
+                    raise TypeError(
+                        "Not a valid data type. Check 'https://spec.openapis.org/oas/v3.1.0', \
+                        make sure you have all the required fields in YAML config data"
+                    )
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Error fetching URL {formatted_source}: {e}")
+
+        if url.path.endswith(".json"):
+            logging.debug(f"Source of `{formatted_source}` detected as `json_file`.")
+            return DataType.JSON
+
         if "docs" in url.netloc or ("docs" in url.path and url.scheme != "file"):
             # `docs_site` detection via path is not accepted for local filesystem URIs,
             # because that would mean all paths that contain `docs` are now doc sites, which is too aggressive.
@@ -194,6 +230,26 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
             return DataType.XML
 
+        if source.endswith(".yaml"):
+            with open(source, "r") as file:
+                yaml_content = yaml.safe_load(file)
+                if is_openapi_yaml(yaml_content):
+                    logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
+                    return DataType.OPENAPI
+                else:
+                    logging.error(
+                        f"Source of `{formatted_source}` does not contain all the required \
+                                  fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'"
+                    )
+                    raise ValueError(
+                        "Invalid YAML data. Check 'https://spec.openapis.org/oas/v3.1.0', \
+                        make sure to add all the required params"
+                    )
+
+        if source.endswith(".json"):
+            logging.debug(f"Source of `{formatted_source}` detected as `json`.")
+            return DataType.JSON
+
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.
         raise ValueError(
@@ -202,6 +258,8 @@ def detect_datatype(source: Any) -> DataType:
 
     else:
         # Source is not a URL.
+
+        # TODO: check if source is gmail query
 
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")

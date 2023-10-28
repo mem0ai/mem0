@@ -32,7 +32,7 @@
   "navigation": [
     {
       "group": "Get started",
-      "pages": ["get-started/quickstart", "get-started/introduction", "get-started/faq"]
+      "pages": ["get-started/quickstart", "get-started/introduction", "get-started/faq", "get-started/examples"]
     },
     {
       "group": "Components",
@@ -46,6 +46,7 @@
           "group": "Supported data sources",
           "pages": [
             "data-sources/csv",
+            "data-sources/json",
             "data-sources/docs-site",
             "data-sources/docx",
             "data-sources/mdx",
@@ -55,6 +56,7 @@
             "data-sources/sitemap",
             "data-sources/text",
             "data-sources/web-page",
+            "data-sources/openapi",
             "data-sources/youtube-video"
           ]
         },
@@ -68,6 +70,10 @@
     {
       "group": "Examples",
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot", "examples/poe_bot"]
+    },
+    {
+      "group": "Pipelines",
+      "pages": ["pipelines/quickstart"]
     },
     {
       "group": "Community",

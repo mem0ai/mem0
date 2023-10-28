@@ -1,5 +1,7 @@
 # embedchain
 
+<a href="https://runacap.com/ross-index/q3-2023/" target="_blank" rel="noopener"><img style="width: 260px; height: 56px" src="https://runacap.com/wp-content/uploads/2023/10/ROSS_badge_black_Q3_2023.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q3 2023 | Runa Capital" width="260" height="56"/></a>
+
 [![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
 [![Slack](https://img.shields.io/badge/slack-embedchain-brightgreen.svg?logo=slack)](https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw)
 [![Discord](https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat)](https://discord.gg/CUU9FPhRNt)
@@ -38,17 +40,23 @@ The documentation for embedchain can be found at [docs.embedchain.ai](https://do
 
 Embedchain empowers you to create ChatGPT like apps, on your own dynamic dataset.
 
-### Data Types Supported
+### Data types supported
 
 * Youtube video
 * PDF file
+* CSV file
 * Web page
+* MDX file
+* XML file
 * Sitemap
 * Doc file
-* Code documentation website loader
-* Notion and many more.
+* Notion
+* JSON file
+* OpenAPI specs
+* Code docs website
+* Unstructured file loader and many more
 
-You can find the full list of data types on [our documentation](https://docs.embedchain.ai/data-sources/csv).
+You can find the full list of data types on [our documentation](https://docs.embedchain.ai/data-sources/).
 
 ### Queries
 
@@ -71,6 +79,34 @@ elon_bot.add("https://www.youtube.com/watch?v=RcYjXbSJBN8")
 elon_bot.query("How many companies does Elon Musk run and name those?")
 # Answer: Elon Musk currently runs several companies. As of my knowledge, he is the CEO and lead designer of SpaceX, the CEO and product architect of Tesla, Inc., the CEO and founder of Neuralink, and the CEO and founder of The Boring Company. However, please note that this information may change over time, so it's always good to verify the latest updates.
 ```
+
+## Examples
+
+| LLM          | Google Colab  | Replit   |
+|--------------|---------------|----------|
+| OpenAI       | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/openai.ipynb)           | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/openai#main.py)      |
+| Anthropic    | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/anthropic.ipynb)        | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/anthropic#main.py)   |
+| Azure OpenAI | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/azure-openai.ipynb)     | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/azureopenai#main.py) |
+| VertexAI     | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/vertex_ai.ipynb)        | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/vertexai#main.py)    |
+| Cohere       | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/cohere.ipynb)           | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/cohere#main.py)      |
+| Hugging Face | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/hugging_face_hub.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/huggingface#main.py) |
+| JinaChat     | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/jina.ipynb)             | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/jina#main.py)        |
+| GPT4All      | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/gpt4all.ipynb)          | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/gpt4all#main.py)     |
+| Llama2       | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/llama2.ipynb)           | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/llama2#main.py)      |
+
+| Embedding model     | Google Colab                                                                                                                                                                            | Replit                                                                                                                        |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI       | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/openai.ipynb)           | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/openai#main.py)      |
+| VertexAI     | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/vertex_ai.ipynb)        | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/vertexai#main.py)    |
+| GPT4All      | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/gpt4all.ipynb)          | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/gpt4all#main.py)     |
+| Hugging Face | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/hugging_face_hub.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/huggingface#main.py) |
+
+| Vector DB     | Google Colab                                                                                                                                                                         | Replit                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| ChromaDB      | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/chromadb.ipynb)      | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/chromadb#main.py)      |
+| Elasticsearch | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/elasticsearch.ipynb) | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/elasticsearchdb#main.py) |
+| Opensearch    | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/opensearch.ipynb)    | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/opensearchdb#main.py)    |
+| Pinecone      | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/embedchain/embedchain/blob/main/notebooks/pinecone.ipynb)      | [![Try with Replit Badge](https://replit.com/badge?caption=Try%20with%20Replit&variant=small)](https://replit.com/@taranjeetio/pineconedb#main.py)      |
 
 ## 🤝 Contributing
 

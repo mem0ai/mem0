@@ -3,7 +3,7 @@ import os
 import pytest
 import yaml
 
-from embedchain import App, CustomApp, Llama2App, OpenSourceApp
+from embedchain import App
 from embedchain.config import (AddConfig, AppConfig, BaseEmbedderConfig,
                                BaseLlmConfig, ChromaDbConfig)
 from embedchain.embedder.base import BaseEmbedder
@@ -18,47 +18,10 @@ def app():
     return App()
 
 
-@pytest.fixture
-def custom_app():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
-    return CustomApp()
-
-
-@pytest.fixture
-def opensource_app():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
-    return OpenSourceApp()
-
-
-@pytest.fixture
-def llama2_app():
-    os.environ["OPENAI_API_KEY"] = "test_api_key"
-    os.environ["REPLICATE_API_TOKEN"] = "-"
-    return Llama2App()
-
-
 def test_app(app):
     assert isinstance(app.llm, BaseLlm)
     assert isinstance(app.db, BaseVectorDB)
     assert isinstance(app.embedder, BaseEmbedder)
-
-
-def test_custom_app(custom_app):
-    assert isinstance(custom_app.llm, BaseLlm)
-    assert isinstance(custom_app.db, BaseVectorDB)
-    assert isinstance(custom_app.embedder, BaseEmbedder)
-
-
-def test_opensource_app(opensource_app):
-    assert isinstance(opensource_app.llm, BaseLlm)
-    assert isinstance(opensource_app.db, BaseVectorDB)
-    assert isinstance(opensource_app.embedder, BaseEmbedder)
-
-
-def test_llama2_app(llama2_app):
-    assert isinstance(llama2_app.llm, BaseLlm)
-    assert isinstance(llama2_app.db, BaseVectorDB)
-    assert isinstance(llama2_app.embedder, BaseEmbedder)
 
 
 class TestConfigForAppComponents:
@@ -103,6 +66,19 @@ class TestConfigForAppComponents:
             App(embedder_config=wrong_embedder_config)
 
         assert isinstance(embedder_config, BaseEmbedderConfig)
+
+    def test_components_raises_type_error_if_not_proper_instances(self):
+        wrong_llm = "wrong_llm"
+        with pytest.raises(TypeError):
+            App(llm=wrong_llm)
+
+        wrong_db = "wrong_db"
+        with pytest.raises(TypeError):
+            App(db=wrong_db)
+
+        wrong_embedder = "wrong_embedder"
+        with pytest.raises(TypeError):
+            App(embedder=wrong_embedder)
 
 
 class TestAppFromConfig:
@@ -159,6 +135,7 @@ class TestAppFromConfig:
 
         # Validate the LLM config values
         llm_config = config_data["llm"]["config"]
+        assert app.llm.config.model == llm_config["model"]
         assert app.llm.config.temperature == llm_config["temperature"]
         assert app.llm.config.max_tokens == llm_config["max_tokens"]
         assert app.llm.config.top_p == llm_config["top_p"]
@@ -172,5 +149,4 @@ class TestAppFromConfig:
 
         # Validate the Embedder config values
         embedder_config = config_data["embedder"]["config"]
-        assert app.embedder.config.model == embedder_config["model"]
         assert app.embedder.config.deployment_name == embedder_config["deployment_name"]

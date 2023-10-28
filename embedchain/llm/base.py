@@ -129,8 +129,12 @@ class BaseLlm(JSONSerializable):
         :return: Search results
         :rtype: Unknown
         """
-        from langchain.tools import DuckDuckGoSearchRun
-
+        try:
+            from langchain.tools import DuckDuckGoSearchRun
+        except ImportError:
+            raise ImportError(
+                'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+            ) from None
         search = DuckDuckGoSearchRun()
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
@@ -202,7 +206,6 @@ class BaseLlm(JSONSerializable):
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
             prompt = self.generate_prompt(input_query, contexts, **k)
             logging.info(f"Prompt: {prompt}")
-
             if dry_run:
                 return prompt
 

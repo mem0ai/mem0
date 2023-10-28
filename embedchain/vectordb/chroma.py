@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -24,6 +24,8 @@ except RuntimeError:
 @register_deserializable
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
+
+    BATCH_SIZE = 100
 
     def __init__(self, config: Optional[ChromaDbConfig] = None):
         """Initialize a new ChromaDB instance
@@ -123,10 +125,6 @@ class ChromaDB(BaseVectorDB):
             args["limit"] = limit
         return self.collection.get(**args)
 
-    def get_advanced(self, where):
-        where_clause = self._generate_where_clause(where)
-        return self.collection.get(where=where_clause, limit=1)
-
     def add(
         self,
         embeddings: List[List[float]],
@@ -149,10 +147,31 @@ class ChromaDB(BaseVectorDB):
         :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
         :type skip_embedding: bool
         """
-        if skip_embedding:
-            self.collection.add(embeddings=embeddings, documents=documents, metadatas=metadatas, ids=ids)
-        else:
-            self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
+        size = len(documents)
+        if skip_embedding and (embeddings is None or len(embeddings) != len(documents)):
+            raise ValueError("Cannot add documents to chromadb with inconsistent embeddings")
+
+        if len(documents) != size or len(metadatas) != size or len(ids) != size:
+            raise ValueError(
+                "Cannot add documents to chromadb with inconsistent sizes. Documents size: {}, Metadata size: {},"
+                " Ids size: {}".format(len(documents), len(metadatas), len(ids))
+            )
+
+        for i in range(0, len(documents), self.BATCH_SIZE):
+            print("Inserting batches from {} to {} in chromadb".format(i, min(len(documents), i + self.BATCH_SIZE)))
+            if skip_embedding:
+                self.collection.add(
+                    embeddings=embeddings[i : i + self.BATCH_SIZE],
+                    documents=documents[i : i + self.BATCH_SIZE],
+                    metadatas=metadatas[i : i + self.BATCH_SIZE],
+                    ids=ids[i : i + self.BATCH_SIZE],
+                )
+            else:
+                self.collection.add(
+                    documents=documents[i : i + self.BATCH_SIZE],
+                    metadatas=metadatas[i : i + self.BATCH_SIZE],
+                    ids=ids[i : i + self.BATCH_SIZE],
+                )
 
     def _format_result(self, results: QueryResult) -> list[tuple[Document, float]]:
         """
@@ -172,7 +191,9 @@ class ChromaDB(BaseVectorDB):
             )
         ]
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(
+        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
+    ) -> List[Tuple[str, str, str]]:
         """
         Query contents from vector database based on vector similarity
 
@@ -185,8 +206,8 @@ class ChromaDB(BaseVectorDB):
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query.
-        :rtype: List[str]
+        :return: The content of the document that matched your query, url of the source, doc_id
+        :rtype: List[Tuple[str,str,str]]
         """
         try:
             if skip_embedding:
@@ -208,11 +229,18 @@ class ChromaDB(BaseVectorDB):
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
                 e.message()
-                + ". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
+                + ". This is commonly a side-effect when an embedding function, different from the one used to add the"
+                " embeddings, is used to retrieve an embedding from the database."
             ) from None
         results_formatted = self._format_result(result)
-        contents = [result[0].page_content for result in results_formatted]
-        return contents
+        contexts = []
+        for result in results_formatted:
+            context = result[0].page_content
+            metadata = result[0].metadata
+            source = metadata["url"]
+            doc_id = metadata["doc_id"]
+            contexts.append((context, source, doc_id))
+        return contexts
 
     def set_collection_name(self, name: str):
         """
@@ -242,9 +270,9 @@ class ChromaDB(BaseVectorDB):
         """
         Resets the database. Deletes all embeddings irreversibly.
         """
-        # Delete all data from the database
+        # Delete all data from the collection
         try:
-            self.client.reset()
+            self.client.delete_collection(self.config.collection_name)
         except ValueError:
             raise ValueError(
                 "For safety reasons, resetting is disabled. "
