@@ -7,9 +7,9 @@ from textwrap import dedent
 from bs4 import BeautifulSoup
 
 try:
-    from llama_index import download_loader
+    from llama_hub.gmail.base import GmailReader
 except ImportError:
-    raise ImportError("Notion requires extra dependencies. Install with `pip install embedchain[community]`") from None
+    raise ImportError("Gmail requires extra dependencies. Install with `pip install embedchain[gmail]`") from None
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
@@ -32,7 +32,6 @@ class GmailLoader(BaseLoader):
                 dev account. Refer this `https://cloud.google.com/docs/authentication/api-keys`"
             )
 
-        GmailReader = download_loader("GmailReader")
         loader = GmailReader(query=query, service=None, results_per_page=20)
         documents = loader.load_data()
         logging.info(f"Gmail Loader: {len(documents)} mails found for query- {query}")
