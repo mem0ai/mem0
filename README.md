@@ -64,7 +64,7 @@ For example, you can use Embedchain to create an Elon Musk bot using the followi
 
 ```python
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 # Create a bot instance
 os.environ["OPENAI_API_KEY"] = "YOUR API KEY"
@@ -78,6 +78,17 @@ elon_bot.add("https://www.youtube.com/watch?v=RcYjXbSJBN8")
 # Query the bot
 elon_bot.query("How many companies does Elon Musk run and name those?")
 # Answer: Elon Musk currently runs several companies. As of my knowledge, he is the CEO and lead designer of SpaceX, the CEO and product architect of Tesla, Inc., the CEO and founder of Neuralink, and the CEO and founder of The Boring Company. However, please note that this information may change over time, so it's always good to verify the latest updates.
+
+# (Optional): Deploy app to Embedchain Platform
+app.deploy()
+# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
+# ec-xxxxxx
+
+# 🛠️ Creating pipeline on the platform...
+# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+
+# 🛠️ Adding data to your pipeline...
+# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
 ```
 
 ## Examples
