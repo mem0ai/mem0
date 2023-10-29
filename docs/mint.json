@@ -7,9 +7,20 @@
   },
   "favicon": "/favicon.png",
   "colors": {
-    "primary": "#12A7D3",
-    "light": "#81D7F7",
-    "dark": "#004E7A"
+    "primary": "#2B48EE",
+    "light": "#2B48EE",
+    "dark": "#2B48EE",
+    "background": {
+      "dark": "#020415"
+    }
+  },
+  "metadata": {
+    "og:image": "/og.png",
+    "twitter:site": "@embedchain"
+  },
+  "topAnchor": {
+    "name": "Documentation",
+    "icon": "book-open"
   },
   "topbarLinks": [
     {
@@ -26,8 +37,11 @@
     }
   ],
   "topbarCtaButton": {
-    "name": "GitHub",
-    "url": "https://embedchain.ai"
+    "name": "Get started",
+    "url": "https://app.embedchain.ai"
+  },
+  "primaryTab": {
+    "name": "Docs"
   },
   "navigation": [
     {
@@ -111,5 +125,12 @@
   },
   "backgroundImage": "/background.png",
   "isWhiteLabeled": true,
-  "feedback.thumbsRating": true
+  "feedback": {
+    "suggestEdit": true,
+    "raiseIssue": true,
+    "thumbsRating": true
+  },
+  "search": {
+    "prompt": "✨ Search embedchain docs..."
+  }
 }
