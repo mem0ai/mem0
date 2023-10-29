@@ -18,6 +18,7 @@ from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
+from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -109,8 +110,9 @@ class Pipeline(EmbedChain):
         self.llm = llm or OpenAILlm()
         self._init_db()
 
-        # setup user id and directory
-        self.u_id = self._load_or_generate_user_id()
+        # Send anonymous telemetry
+        self._telemetry_props = {"class": self.__class__.__name__}
+        self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
 
         # Establish a connection to the SQLite database
         self.connection = sqlite3.connect(SQLITE_PATH)
@@ -131,8 +133,10 @@ class Pipeline(EmbedChain):
         """
         )
         self.connection.commit()
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="init", properties=self._telemetry_props)
 
-        self.user_asks = []  # legacy defaults
+        self.user_asks = []
         if self.auto_deploy:
             self.deploy()
 
@@ -219,6 +223,9 @@ class Pipeline(EmbedChain):
         """
         Search for similar documents related to the query in the vector database.
         """
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="search", properties=self._telemetry_props)
+
         # TODO: Search will call the endpoint rather than fetching the data from the db itself when deploy=True.
         if self.id is None:
             where = {"app_id": self.local_id}
@@ -312,6 +319,9 @@ class Pipeline(EmbedChain):
             data_hash, data_type, data_value = result[1], result[2], result[3]
             self._process_and_upload_data(data_hash, data_type, data_value)
 
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="deploy", properties=self._telemetry_props)
+
     @classmethod
     def from_config(cls, yaml_path: str, auto_deploy: bool = False):
         """
@@ -347,6 +357,11 @@ class Pipeline(EmbedChain):
         embedding_model = EmbedderFactory.create(
             embedding_model_provider, embedding_model_config_data.get("config", {})
         )
+
+        # Send anonymous telemetry
+        event_properties = {"init_type": "yaml_config"}
+        AnonymousTelemetry().capture(event_name="init", properties=event_properties)
+
         return cls(
             config=pipeline_config,
             llm=llm,

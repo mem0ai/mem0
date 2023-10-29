@@ -22,7 +22,7 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load chroma configuration from yaml file
 app = App.from_config(yaml_path="config1.yaml")
@@ -61,7 +61,7 @@ pip install --upgrade 'embedchain[elasticsearch]'
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load elasticsearch configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -89,7 +89,7 @@ pip install --upgrade 'embedchain[opensearch]'
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load opensearch configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -125,7 +125,7 @@ Set the Zilliz environment variables `ZILLIZ_CLOUD_URI` and `ZILLIZ_CLOUD_TOKEN`
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
 os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
@@ -164,7 +164,7 @@ In order to use Pinecone as vector database, set the environment variables `PINE
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load pinecone configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -187,7 +187,7 @@ In order to use Qdrant as a vector database, set the environment variables `QDRA
 
 <CodeGroup>
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load qdrant configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -207,7 +207,7 @@ In order to use Weaviate as a vector database, set the environment variables `WE
 
 <CodeGroup>
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load weaviate configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")

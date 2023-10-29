@@ -15,7 +15,7 @@ class AppConfig(BaseAppConfig):
         self,
         log_level: str = "WARNING",
         id: Optional[str] = None,
-        collect_metrics: Optional[bool] = None,
+        collect_metrics: Optional[bool] = True,
         collection_name: Optional[str] = None,
     ):
         """

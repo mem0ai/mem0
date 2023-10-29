@@ -1,18 +1,13 @@
 import hashlib
-import importlib.metadata
 import json
 import logging
 import os
 import sqlite3
-import threading
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import requests
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
-from tenacity import retry, stop_after_attempt, wait_fixed
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig
@@ -24,6 +19,7 @@ from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
                                          IndirectDataType, SpecialDataType)
+from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -89,9 +85,8 @@ class EmbedChain(JSONSerializable):
         self.user_asks = []
 
         # Send anonymous telemetry
-        self.s_id = self.config.id if self.config.id else str(uuid.uuid4())
-        self.u_id = self._load_or_generate_user_id()
-
+        self._telemetry_props = {"class": self.__class__.__name__}
+        self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
         # Establish a connection to the SQLite database
         self.connection = sqlite3.connect(SQLITE_PATH)
         self.cursor = self.connection.cursor()
@@ -111,12 +106,8 @@ class EmbedChain(JSONSerializable):
         """
         )
         self.connection.commit()
-
-        # NOTE: Uncomment the next two lines when running tests to see if any test fires a telemetry event.
-        # if (self.config.collect_metrics):
-        #     raise ConnectionRefusedError("Collection of metrics should not be allowed.")
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("init",))
-        thread_telemetry.start()
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="init", properties=self._telemetry_props)
 
     @property
     def collect_metrics(self):
@@ -137,29 +128,6 @@ class EmbedChain(JSONSerializable):
         if not isinstance(value, bool):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.llm.online = value
-
-    def _load_or_generate_user_id(self) -> str:
-        """
-        Loads the user id from the config file if it exists, otherwise generates a new
-        one and saves it to the config file.
-
-        :return: user id
-        :rtype: str
-        """
-        if not os.path.exists(CONFIG_DIR):
-            os.makedirs(CONFIG_DIR)
-
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r") as f:
-                data = json.load(f)
-                if "user_id" in data:
-                    return data["user_id"]
-
-        u_id = str(uuid.uuid4())
-        with open(CONFIG_FILE, "w") as f:
-            json.dump({"user_id": u_id}, f)
-
-        return u_id
 
     def add(
         self,
@@ -259,9 +227,14 @@ class EmbedChain(JSONSerializable):
             # it's quicker to check the variable twice than to count words when they won't be submitted.
             word_count = data_formatter.chunker.get_word_count(documents)
 
-            extra_metadata = {"data_type": data_type.value, "word_count": word_count, "chunks_count": new_chunks}
-            thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("add", extra_metadata))
-            thread_telemetry.start()
+            # Send anonymous telemetry
+            event_properties = {
+                **self._telemetry_props,
+                "data_type": data_type.value,
+                "word_count": word_count,
+                "chunks_count": new_chunks,
+            }
+            self.telemetry.capture(event_name="add", properties=event_properties)
 
         return source_hash
 
@@ -535,9 +508,7 @@ class EmbedChain(JSONSerializable):
         answer = self.llm.query(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
 
         # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("query",))
-        thread_telemetry.start()
-
+        self.telemetry.capture(event_name="query", properties=self._telemetry_props)
         return answer
 
     def chat(
@@ -569,10 +540,8 @@ class EmbedChain(JSONSerializable):
         """
         contexts = self.retrieve_from_database(input_query=input_query, config=config, where=where)
         answer = self.llm.chat(input_query=input_query, contexts=contexts, config=config, dry_run=dry_run)
-
         # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("chat",))
-        thread_telemetry.start()
+        self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
 
         return answer
 
@@ -608,34 +577,8 @@ class EmbedChain(JSONSerializable):
         Resets the database. Deletes all embeddings irreversibly.
         `App` does not have to be reinitialized after using this method.
         """
-        # Send anonymous telemetry
-        thread_telemetry = threading.Thread(target=self._send_telemetry_event, args=("reset",))
-        thread_telemetry.start()
-
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
-
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
-    def _send_telemetry_event(self, method: str, extra_metadata: Optional[dict] = None):
-        """
-        Send telemetry event to the embedchain server. This is anonymous. It can be toggled off in `AppConfig`.
-        """
-        if not self.config.collect_metrics:
-            return
-
-        with threading.Lock():
-            url = "https://api.embedchain.ai/api/v1/telemetry/"
-            metadata = {
-                "s_id": self.s_id,
-                "version": importlib.metadata.version(__package__ or __name__),
-                "method": method,
-                "language": "py",
-                "u_id": self.u_id,
-            }
-            if extra_metadata:
-                metadata.update(extra_metadata)
-
-            response = requests.post(url, json={"metadata": metadata})
-            if response.status_code != 200:
-                logging.warning(f"Telemetry event failed with status code {response.status_code}")
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="reset", properties=self._telemetry_props)

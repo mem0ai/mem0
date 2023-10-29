@@ -35,7 +35,7 @@ Default behavior is to create a persistent vector db in the directory **./db**. 
 Create a local index:
 
 ```python
-from embedchain import App
+from embedchain import Pipeline as App
 
 naval_chat_bot = App()
 naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
@@ -45,7 +45,7 @@ naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Alma
 You can reuse the local index with the same code, but without adding new documents:
 
 ```python
-from embedchain import App
+from embedchain import Pipeline as App
 
 naval_chat_bot = App()
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))

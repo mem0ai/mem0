@@ -72,10 +72,6 @@
       "pages": ["examples/full_stack", "examples/api_server", "examples/discord_bot", "examples/slack_bot", "examples/telegram_bot", "examples/whatsapp_bot", "examples/poe_bot"]
     },
     {
-      "group": "Pipelines",
-      "pages": ["pipelines/quickstart"]
-    },
-    {
       "group": "Community",
       "pages": [
         "community/connect-with-us",

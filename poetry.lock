@@ -7196,4 +7196,4 @@ whatsapp = ["flask", "twilio"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "4021d63d76a9128c8d7342bc482dfe90fa9878fde1359c2f0730fa9188e503af"
+content-hash = "fad388baca92d2669530c2d928920e9f7abbe0ad74786b34dc915603b4a08a17"

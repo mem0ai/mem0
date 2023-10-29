@@ -38,7 +38,7 @@ class ChromaDB(BaseVectorDB):
         else:
             self.config = ChromaDbConfig()
 
-        self.settings = Settings()
+        self.settings = Settings(anonymized_telemetry=False)
         self.settings.allow_reset = self.config.allow_reset if hasattr(self.config, "allow_reset") else False
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():

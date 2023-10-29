@@ -14,3 +14,10 @@ def setup():
     clean_db()
     yield
     clean_db()
+
+
+@pytest.fixture(autouse=True)
+def disable_telemetry():
+    os.environ["EC_TELEMETRY"] = "false"
+    yield
+    del os.environ["EC_TELEMETRY"]

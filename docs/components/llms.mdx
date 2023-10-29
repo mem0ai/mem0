@@ -26,7 +26,7 @@ Once you have obtained the key, you can use it like this:
 
 ```python
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -41,7 +41,7 @@ If you are looking to configure the different parameters of the LLM, you can do 
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -71,7 +71,7 @@ To use Azure OpenAI model, you have to set some of the azure openai related envi
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["OPENAI_API_TYPE"] = "azure"
 os.environ["OPENAI_API_BASE"] = "https://xxx.openai.azure.com/"
@@ -110,7 +110,7 @@ To use anthropic's model, please set the `ANTHROPIC_API_KEY` which you find on t
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["ANTHROPIC_API_KEY"] = "xxx"
 
@@ -147,7 +147,7 @@ Once you have the API key, you are all set to use it with Embedchain.
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["COHERE_API_KEY"] = "xxx"
 
@@ -180,7 +180,7 @@ GPT4all is a free-to-use, locally running, privacy-aware chatbot. No GPU or inte
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load llm configuration from config.yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -212,7 +212,7 @@ Once you have the key, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["JINACHAT_API_KEY"] = "xxx"
 # load llm configuration from config.yaml file
@@ -248,7 +248,7 @@ Once you have the token, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
@@ -278,7 +278,7 @@ Once you have the token, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["REPLICATE_API_TOKEN"] = "xxx"
 
@@ -305,7 +305,7 @@ Setup Google Cloud Platform application credentials by following the instruction
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load llm configuration from config.yaml file
 app = App.from_config(yaml_path="config.yaml")
