@@ -229,12 +229,22 @@ class Pipeline(EmbedChain):
         # TODO: Search will call the endpoint rather than fetching the data from the db itself when deploy=True.
         if self.id is None:
             where = {"app_id": self.local_id}
-            return self.db.query(
+            context = self.db.query(
                 query,
                 n_results=num_documents,
                 where=where,
                 skip_embedding=False,
             )
+            result = []
+            for c in context:
+                result.append(
+                    {
+                        "context": c[0],
+                        "source": c[1],
+                        "document_id": c[2],
+                    }
+                )
+            return result
         else:
             # Make API call to the backend to get the results
             NotImplementedError("Search is not implemented yet for the prod mode.")

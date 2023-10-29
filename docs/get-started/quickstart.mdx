@@ -35,6 +35,19 @@ app.query("What is the net worth of Elon Musk today?")
 # Answer: The net worth of Elon Musk today is $258.7 billion.
 ```
   </Step>
+  <Step title="🚀 (Optional) Deploy your pipeline to Embedchain Platform">
+```python
+app.deploy()
+# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
+# ec-xxxxxx
+
+# 🛠️ Creating pipeline on the platform...
+# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+
+# 🛠️ Adding data to your pipeline...
+# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
+```
+  </Step>
 </Steps>
 
 Putting it together, you can run your first app using the following code. Make sure to set the `OPENAI_API_KEY` 🔑 environment variable in the code.
@@ -55,4 +68,14 @@ app.add("https://www.forbes.com/profile/elon-musk")
 response = app.query("What is the net worth of Elon Musk today?")
 print(response)
 # Answer: The net worth of Elon Musk today is $258.7 billion.
+
+app.deploy()
+# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
+# ec-xxxxxx
+
+# 🛠️ Creating pipeline on the platform...
+# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+
+# 🛠️ Adding data to your pipeline...
+# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
 ```
