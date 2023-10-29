@@ -5,7 +5,7 @@ title: '📊 CSV'
 To add any csv file, use the data_type as `csv`. `csv` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
 
 ```python
-from embedchain import App
+from embedchain import Pipeline as App
 
 app = App()
 app.add('https://people.sc.fsu.edu/~jburkardt/data/csv/airtravel.csv', data_type="csv")
