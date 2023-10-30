@@ -23,7 +23,6 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.csv import CsvLoader
 from embedchain.loaders.docs_site_loader import DocsSiteLoader
 from embedchain.loaders.docx_file import DocxFileLoader
-from embedchain.loaders.gmail import GmailLoader
 from embedchain.loaders.images import ImagesLoader
 from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.local_qna_pair import LocalQnaPairLoader
@@ -86,9 +85,8 @@ class DataFormatter(JSONSerializable):
             DataType.UNSTRUCTURED: UnstructuredLoader,
             DataType.JSON: JSONLoader,
             DataType.OPENAPI: OpenAPILoader,
-            DataType.GMAIL: GmailLoader,
         }
-        lazy_loaders = {DataType.NOTION}
+        lazy_loaders = { DataType.NOTION, DataType.GMAIL }
         if data_type in loaders:
             loader_class: type = loaders[data_type]
             loader: BaseLoader = loader_class()
@@ -98,6 +96,10 @@ class DataFormatter(JSONSerializable):
                 from embedchain.loaders.notion import NotionLoader
 
                 return NotionLoader()
+            elif data_type == DataType.GMAIL:
+                from embedchain.loaders.gmail import GmailLoader
+
+                return GmailLoader()
             else:
                 raise ValueError(f"Unsupported data type: {data_type}")
         else:
