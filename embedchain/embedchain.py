@@ -530,6 +530,7 @@ class EmbedChain(JSONSerializable):
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="query", properties=self._telemetry_props)
+
         if citations:
             return answer, contexts
         else:
