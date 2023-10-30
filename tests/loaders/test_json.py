@@ -1,11 +1,8 @@
 import hashlib
 
-import pytest
-
 from embedchain.loaders.json import JSONLoader
 
 
-@pytest.mark()
 def test_load_data(mocker):
     content = "temp.json"
 
