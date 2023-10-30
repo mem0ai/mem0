@@ -9,7 +9,6 @@ from embedchain.loaders.base_loader import BaseLoader
 
 VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
 
-
 class JSONLoader(BaseLoader):
     @staticmethod
     def load_data(content):
@@ -52,6 +51,5 @@ class JSONLoader(BaseLoader):
             doc_content = doc.text
             data.append({"content": doc_content, "meta_data": {"url": content}})
             data_content.append(doc_content)
-
         doc_id = hashlib.sha256((content + ", ".join(data_content)).encode()).hexdigest()
         return {"doc_id": doc_id, "data": data}
