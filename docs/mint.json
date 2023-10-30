@@ -15,7 +15,7 @@
     }
   },
   "metadata": {
-    "og:image": "/og.png",
+    "og:image": "/images/og.png",
     "twitter:site": "@embedchain"
   },
   "topAnchor": {
@@ -114,7 +114,6 @@
     }
 
   ],
-
   "footerSocials": {
     "website": "https://embedchain.ai",
     "github": "https://github.com/embedchain/embedchain",
@@ -123,8 +122,13 @@
     "twitter": "https://twitter.com/embedchain",
     "linkedin": "https://www.linkedin.com/company/embedchain"
   },
-  "backgroundImage": "/background.png",
   "isWhiteLabeled": true,
+  "analytics": {
+    "posthog": {
+      "apiKey": "phc_MSQ1GVfzkm7dRpktoKUGzWPlpkYhmVpcUtmLk1RwkQs",
+      "apiHost": "https://app.embedchain.ai/ingest"
+    }
+  },
   "feedback": {
     "suggestEdit": true,
     "raiseIssue": true,
