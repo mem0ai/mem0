@@ -1,24 +1,37 @@
 import hashlib
-
-from langchain.document_loaders.json_loader import \
-    JSONLoader as LangchainJSONLoader
+import json
+import os
 
 from embedchain.loaders.base_loader import BaseLoader
-
-langchain_json_jq_schema = 'to_entries | map("\(.key): \(.value|tostring)") | .[]'
 
 
 class JSONLoader(BaseLoader):
     @staticmethod
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
+        try:
+            from llama_hub.jsondata.base import \
+                JSONDataReader as LLHBUBJSONLoader
+        except ImportError:
+            raise Exception(
+                f"Couldn't import the required packages to load {content}, \
+                Do `pip install --upgrade 'embedchain[json]`"
+            )
+
+        loader = LLHBUBJSONLoader()
+
+        if not isinstance(content, str) and not os.path.isfile(content):
+            print(f"Invaid content input. Provide the correct path to the json file saved locally in {content}")
+
         data = []
         data_content = []
-        loader = LangchainJSONLoader(content, text_content=False, jq_schema=langchain_json_jq_schema)
-        docs = loader.load()
-        for doc in docs:
-            meta_data = doc.metadata
-            data.append({"content": doc.page_content, "meta_data": {"url": content, "row": meta_data["seq_num"]}})
-            data_content.append(doc.page_content)
+
+        with open(content, "r") as json_file:
+            json_data = json.load(json_file)
+            docs = loader.load_data(json_data)
+            for doc in docs:
+                doc_content = doc.text
+                data.append({"content": doc_content, "meta_data": {"url": content}})
+                data_content.append(doc_content)
         doc_id = hashlib.sha256((content + ", ".join(data_content)).encode()).hexdigest()
         return {"doc_id": doc_id, "data": data}
