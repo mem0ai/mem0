@@ -1,4 +1,5 @@
 import hashlib
+
 import pytest
 from llama_index.readers.schema.base import Document
 
@@ -15,7 +16,7 @@ def test_load_data(mocker):
             {"content": "content2", "meta_data": {"url": content}},
         ],
     }
-    
+
     mocker.patch("embedchain.loaders.json.JSONLoader.load_data", return_value=mock_document)
 
     json_loader = JSONLoader()
