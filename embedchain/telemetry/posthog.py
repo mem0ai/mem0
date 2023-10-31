@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class AnonymousTelemetry:
     def __init__(self, host="https://app.posthog.com", enabled=True):
-        self.project_api_key = "phc_XnMmNHzwxE7PVHX4mD2r8K6nfxVM48a2sq2U3N1p2lO"
+        self.project_api_key = "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2"
         self.host = host
         self.posthog = Posthog(project_api_key=self.project_api_key, host=self.host)
         self.user_id = self.get_user_id()
