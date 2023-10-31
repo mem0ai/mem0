@@ -125,7 +125,7 @@
   "isWhiteLabeled": true,
   "analytics": {
     "posthog": {
-      "apiKey": "phc_MSQ1GVfzkm7dRpktoKUGzWPlpkYhmVpcUtmLk1RwkQs",
+      "apiKey": "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2",
       "apiHost": "https://app.embedchain.ai/ingest"
     }
   },
