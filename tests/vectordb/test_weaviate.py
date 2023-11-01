@@ -74,7 +74,7 @@ class TestWeaviateDb(unittest.TestCase):
                         {
                             "name": "app_id",
                             "dataType": ["text"],
-                        }
+                        },
                     ],
                 },
             ]

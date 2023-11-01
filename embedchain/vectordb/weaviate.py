@@ -105,7 +105,7 @@ class WeaviateDB(BaseVectorDB):
                             {
                                 "name": "app_id",
                                 "dataType": ["text"],
-                            }
+                            },
                         ],
                     },
                 ]
@@ -196,7 +196,7 @@ class WeaviateDB(BaseVectorDB):
         n_results: int,
         where: Dict[str, any],
         skip_embedding: bool,
-        citations: bool = False
+        citations: bool = False,
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector database based on vector similarity
@@ -219,13 +219,13 @@ class WeaviateDB(BaseVectorDB):
             query_vector = self.embedder.embedding_fn([input_query])[0]
         else:
             query_vector = input_query
-        
+
         keys = set(where.keys() if where is not None else set())
         data_fields = ["text"]
-        
+
         if citations:
             data_fields.append(weaviate.LinkTo("metadata", self.index_name + "_metadata", list(self.metadata_keys)))
-            
+
         if len(keys.intersection(self.metadata_keys)) != 0:
             weaviate_where_operands = []
             for key in keys:
@@ -258,13 +258,13 @@ class WeaviateDB(BaseVectorDB):
             )
 
         docs = results["data"]["Get"].get(self.index_name)
-        contexts=[]
+        contexts = []
         for doc in docs:
-            context = doc['text']
+            context = doc["text"]
             if citations:
-                metadata = doc['metadata'][0]
-                source = metadata['url']
-                doc_id = metadata['doc_id']
+                metadata = doc["metadata"][0]
+                source = metadata["url"]
+                doc_id = metadata["doc_id"]
                 contexts.append((context, source, doc_id))
             else:
                 contexts.append(context)
