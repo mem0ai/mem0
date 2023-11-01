@@ -312,6 +312,15 @@ class Pipeline(EmbedChain):
         )
         self.connection.commit()
 
+    def get_data_sources_by_app_id(self, app_id):
+        db_data = self.cursor.execute("SELECT * FROM data_sources WHERE pipeline_id = ?", (app_id,)).fetchall()
+
+        data_sources = []
+        for data in db_data:
+            data_sources.append({"data_type": data[2], "data_value": data[3], "metadata": data[4]})
+
+        return data_sources
+
     def deploy(self):
         if self.client is None:
             self._init_client()
@@ -347,7 +356,7 @@ class Pipeline(EmbedChain):
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
-        pipeline_config_data = config_data.get("pipeline", {}).get("config", {})
+        pipeline_config_data = config_data.get("app", {}).get("config", {})
         db_config_data = config_data.get("vectordb", {})
         embedding_model_config_data = config_data.get("embedding_model", {})
         llm_config_data = config_data.get("llm", {})

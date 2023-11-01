@@ -1,6 +1,6 @@
 app:
   config:
-    id: 'full-stack-app'
+    id: 'testapp'
 
 llm:
   provider: openai
@@ -25,7 +25,7 @@ llm:
 vectordb:
   provider: chroma
   config:
-    collection_name: 'my-collection-name'
+    collection_name: 'rest-api-app'
     dir: db
     allow_reset: true
 
