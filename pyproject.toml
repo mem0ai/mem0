@@ -128,6 +128,7 @@ huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = { version = "2.3.1", optional = true }
 google-cloud-aiplatform = { version = "^1.26.1", optional = true }
 replicate = { version = "^0.15.4", optional = true }
+schema = "^0.7.5"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

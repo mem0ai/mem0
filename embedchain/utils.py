@@ -4,6 +4,7 @@ import os
 import re
 import string
 from typing import Any
+from schema import Schema, Optional, Or
 
 from embedchain.models.data_type import DataType
 
@@ -283,3 +284,54 @@ def is_valid_json_string(source: str):
             Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
         )
         return False
+
+
+def validate_yaml_config(config_data):
+    schema = Schema(
+        {
+            Optional('app'): {
+                Optional('config'): {
+                    Optional('id'): str,
+                    Optional('name'): str,
+                    Optional('log_level'): Or('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'),
+                    Optional('collect_metrics'): bool,
+                    Optional('collection_name'): str,
+                }
+            },
+            Optional('llm'): {
+                Optional('provider'): Or('openai', 'azure_openai', 'anthropic', 'huggingface', 'cohere', 'gpt4all', 'jina', 'llama2', 'vertex_ai'),
+                Optional('config'): {
+                    Optional('model'): str,
+                    Optional('number_documents'): int,
+                    Optional('temperature'): float,
+                    Optional('max_tokens'): int,
+                    Optional('top_p'): Or(float, int),
+                    Optional('stream'): bool,
+                    Optional('template'): str,
+                    Optional('system_prompt'): str,
+                    Optional('deployment_name'): str,
+                    Optional('where'): dict,
+                    Optional('query_type'): str,
+                }
+            },
+            Optional('vectordb'): {
+                Optional('provider'): Or('chroma', 'elasticsearch', 'opensearch', 'pinecone', 'qdrant', 'weaviate', 'zilliz'),
+                Optional('config'): {
+                    Optional('collection_name'): str,
+                    Optional('dir'): str,
+                    Optional('allow_reset'): bool,
+                    Optional('host'): str,
+                    Optional('port'): str,
+                }
+            },
+            Optional('embedder'): {
+                Optional('provider'): Or('openai', 'gpt4all', 'huggingface', 'vertexai'),
+                Optional('config'): {
+                    Optional('model'): str,
+                    Optional('deployment_name'): str,
+                }
+            }
+        }
+    )
+
+    return schema.validate(config_data)
