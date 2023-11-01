@@ -62,6 +62,10 @@ class WeaviateDB(BaseVectorDB):
         if not self.client.schema.exists(self.index_name):
             # id is a reserved field in Weaviate, hence we had to change the name of the id field to identifier
             # The none vectorizer is crucial as we have our own custom embedding function
+            """
+            TODO: wait for weaviate to add indexing on `object[]` data-type so that we can add filter while querying.
+            Once that is done, change `dataType` of "metadata" field to `object[]` and update the query below.
+            """
             class_obj = {
                 "classes": [
                     {
