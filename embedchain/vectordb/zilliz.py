@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from embedchain.config import ZillizDBConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -127,8 +127,13 @@ class ZillizVectorDB(BaseVectorDB):
         self.client.flush(self.config.collection_name)
 
     def query(
-        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
-    ) -> List[Tuple[str, str, str]]:
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -139,8 +144,11 @@ class ZillizVectorDB(BaseVectorDB):
         :param where: to filter data
         :type where: str
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The context of the document that matched your query, url of the source, doc_id
-        :rtype: List[Tuple[str,str,str]]
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
 
         if self.collection.is_empty:
@@ -170,14 +178,17 @@ class ZillizVectorDB(BaseVectorDB):
                 output_fields=output_fields,
             )
 
-        doc_list = []
+        contexts = []
         for query in query_result:
             data = query[0]["entity"]
             context = data["text"]
-            source = data["url"]
-            doc_id = data["doc_id"]
-            doc_list.append(tuple((context, source, doc_id)))
-        return doc_list
+            if citations:
+                source = data["url"]
+                doc_id = data["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def count(self) -> int:
         """

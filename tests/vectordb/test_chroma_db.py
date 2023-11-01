@@ -163,10 +163,12 @@ def test_chroma_db_collection_add_with_skip_embedding(app_with_settings):
 
     assert data == expected_value
 
-    data = app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=1, skip_embedding=True)
-    expected_value = [("document", "url_1", "doc_id_1")]
+    data_without_citations = app_with_settings.db.query(
+        input_query=[0, 0, 0], where={}, n_results=1, skip_embedding=True
+    )
+    expected_value_without_citations = ["document"]
+    assert data_without_citations == expected_value_without_citations
 
-    assert data == expected_value
     app_with_settings.db.reset()
 
 
@@ -326,8 +328,16 @@ def test_chroma_db_collection_query(app_with_settings):
 
     assert app_with_settings.db.count() == 2
 
-    data = app_with_settings.db.query(input_query=[0, 0, 0], where={}, n_results=2, skip_embedding=True)
-    expected_value = [("document", "url_1", "doc_id_1"), ("document2", "url_2", "doc_id_2")]
+    data_without_citations = app_with_settings.db.query(
+        input_query=[0, 0, 0], where={}, n_results=2, skip_embedding=True
+    )
+    expected_value_without_citations = ["document", "document2"]
+    assert data_without_citations == expected_value_without_citations
 
-    assert data == expected_value
+    data_with_citations = app_with_settings.db.query(
+        input_query=[0, 0, 0], where={}, n_results=2, skip_embedding=True, citations=True
+    )
+    expected_value_with_citations = [("document", "url_1", "doc_id_1"), ("document2", "url_2", "doc_id_2")]
+    assert data_with_citations == expected_value_with_citations
+
     app_with_settings.db.reset()

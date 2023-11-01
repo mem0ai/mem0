@@ -234,6 +234,7 @@ class Pipeline(EmbedChain):
                 n_results=num_documents,
                 where=where,
                 skip_embedding=False,
+                citations=True,
             )
             result = []
             for c in context:

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 try:
     from opensearchpy import OpenSearch
@@ -146,8 +146,13 @@ class OpenSearchDB(BaseVectorDB):
         self.client.indices.refresh(index=self._get_index())
 
     def query(
-        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
-    ) -> List[Tuple[str, str, str]]:
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -159,8 +164,11 @@ class OpenSearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: The content of the document that matched your query, url of the source, doc_id
-        :rtype: List[Tuple[str,str,str]]
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
@@ -188,13 +196,16 @@ class OpenSearchDB(BaseVectorDB):
             k=n_results,
         )
 
-        contents = []
+        contexts = []
         for doc in docs:
             context = doc.page_content
-            source = doc.metadata["url"]
-            doc_id = doc.metadata["doc_id"]
-            contents.append(tuple((context, source, doc_id)))
-        return contents
+            if citations:
+                source = doc.metadata["url"]
+                doc_id = doc.metadata["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def set_collection_name(self, name: str):
         """
