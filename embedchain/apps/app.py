@@ -11,9 +11,10 @@ from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
+from embedchain.utils import validate_yaml_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
-from embedchain.utils import validate_yaml_config
+
 
 @register_deserializable
 class App(EmbedChain):
@@ -131,7 +132,6 @@ class App(EmbedChain):
             validate_yaml_config(config_data)
         except Exception as e:
             raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
-
 
         app_config_data = config_data.get("app", {})
         llm_config_data = config_data.get("llm", {})
