@@ -10,7 +10,7 @@ class TestAnonymousTelemetry:
         os.environ["EC_TELEMETRY"] = "true"
         mock_posthog = mocker.patch("embedchain.telemetry.posthog.Posthog")
         telemetry = AnonymousTelemetry()
-        assert telemetry.project_api_key == "phc_XnMmNHzwxE7PVHX4mD2r8K6nfxVM48a2sq2U3N1p2lO"
+        assert telemetry.project_api_key == "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2"
         assert telemetry.host == "https://app.posthog.com"
         assert telemetry.enabled is True
         assert telemetry.user_id
