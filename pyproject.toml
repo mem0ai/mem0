@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.87"
+version = "0.0.88"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -181,6 +181,7 @@ gmail = [
     "google-auth-httplib2",
     "google-api-core",
 ]
+json = ["llama-hub"]
 
 [tool.poetry.group.docs.dependencies]
 
