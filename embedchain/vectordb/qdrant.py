@@ -1,7 +1,7 @@
 import copy
 import os
 import uuid
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 try:
     from qdrant_client import QdrantClient
@@ -161,8 +161,13 @@ class QdrantDB(BaseVectorDB):
             )
 
     def query(
-        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
-    ) -> List[Tuple[str, str, str]]:
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -174,8 +179,11 @@ class QdrantDB(BaseVectorDB):
         :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
         generated or not
         :type skip_embedding: bool
-        :return: The context of the document that matched your query, url of the source, doc_id
-        :rtype: List[Tuple[str,str,str]]
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         if not skip_embedding:
             query_vector = self.embedder.embedding_fn([input_query])[0]
@@ -202,14 +210,17 @@ class QdrantDB(BaseVectorDB):
             limit=n_results,
         )
 
-        response = []
+        contexts = []
         for result in results:
             context = result.payload["text"]
-            metadata = result.payload["metadata"]
-            source = metadata["url"]
-            doc_id = metadata["doc_id"]
-            response.append(tuple((context, source, doc_id)))
-        return response
+            if citations:
+                metadata = result.payload["metadata"]
+                source = metadata["url"]
+                doc_id = metadata["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def count(self) -> int:
         response = self.client.get_collection(collection_name=self.collection_name)
