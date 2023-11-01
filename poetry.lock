@@ -7124,6 +7124,7 @@ elasticsearch = ["elasticsearch"]
 gmail = ["llama-hub", "requests"]
 huggingface-hub = ["huggingface_hub"]
 images = ["ftfy", "pillow", "regex", "torch", "torchvision"]
+json = ["llama-hub"]
 llama2 = ["replicate"]
 milvus = ["pymilvus"]
 opensearch = ["opensearch-py"]
@@ -7140,4 +7141,4 @@ whatsapp = ["flask", "twilio"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "2e5140f157ad4b3ad47f5dfcfe3ad98a2a40f68a5310cec2ca4245d2ce6af0fc"
+content-hash = "0b83ba3fd2485b3b4aa3c6a7534b214378d349538f7eb63c65768aafecdfad60"
