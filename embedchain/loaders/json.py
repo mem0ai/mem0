@@ -34,7 +34,7 @@ class JSONLoader(BaseLoader):
 
         # Load json data from various sources. TODO: add support for dictionary
         if os.path.isfile(content):
-            with open(content, "r") as json_file:
+            with open(content, "r", encoding="utf-8") as json_file:
                 json_data = json.load(json_file)
         elif re.match(VALID_URL_PATTERN, content):
             response = requests.get(content)
