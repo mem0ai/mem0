@@ -13,6 +13,7 @@ from models import (
 )
 from database import Base, engine, SessionLocal
 from services import get_app, save_app, get_apps, remove_app
+from utils import generate_error_message_for_api_keys
 
 Base.metadata.create_all(bind=engine)
 
@@ -54,7 +55,7 @@ async def get_all_apps(db: Session = Depends(get_db)):
 
 
 @app.post("/create", tags=["Apps"], response_model=DefaultResponse)
-async def create_app_using_default_config(app_id: str, config: UploadFile, db: Session = Depends(get_db)):
+async def create_app_using_default_config(app_id: str, config: UploadFile = None, db: Session = Depends(get_db)):
     """
     Create a new app using App ID.
     If you don't provide a config file, Embedchain will use the default config file\n
@@ -70,16 +71,16 @@ async def create_app_using_default_config(app_id: str, config: UploadFile, db: S
             raise HTTPException(detail=f"App with id '{app_id}' already exists.", status_code=400)
 
         yaml_path = "default.yaml"
-        contents = await config.read()
-
-        try:
-            yaml_conf = yaml.safe_load(contents)
-            if yaml_conf is not None:
+        if config is not None:
+            contents = await config.read()
+            try:
+                yaml.safe_load(contents)
+                # TODO: validate the config yaml file here
                 yaml_path = f"configs/{app_id}.yaml"
                 with open(yaml_path, "w") as file:
                     file.write(str(contents, "utf-8"))
-        except yaml.YAMLError as exc:
-            raise HTTPException(detail=f"Error parsing YAML: {exc}", status_code=400)
+            except yaml.YAMLError as exc:
+                raise HTTPException(detail=f"Error parsing YAML: {exc}", status_code=400)
 
         save_app(db, app_id, yaml_path)
 
@@ -111,12 +112,12 @@ async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depe
 
         app = App.from_config(yaml_path=db_app.config)
 
-        response = app.get_data_sources_by_app_id(app_id=app_id)
-        return {"data": response}
+        response = app.get_data_sources()
+        return {"results": response}
     except ValueError as ve:
         if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
             raise HTTPException(
-                detail="OPENAI_API_KEY or OPENAI_ORGANIZATION not set, please set them in your environment variables.",
+                detail=generate_error_message_for_api_keys(ve),
                 status_code=400,
             )
     except Exception as e:
@@ -154,7 +155,7 @@ async def add_datasource_to_an_app(body: SourceApp, app_id: str, db: Session = D
     except ValueError as ve:
         if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
             raise HTTPException(
-                detail="OPENAI_API_KEY or OPENAI_ORGANIZATION not set, please set them in your environment variables.",
+                detail=generate_error_message_for_api_keys(ve),
                 status_code=400,
             )
     except Exception as e:
@@ -191,7 +192,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
     except ValueError as ve:
         if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
             raise HTTPException(
-                detail="OPENAI_API_KEY or OPENAI_ORGANIZATION not set, please set them in your environment variables.",
+                detail=generate_error_message_for_api_keys(ve),
                 status_code=400,
             )
     except Exception as e:
@@ -228,7 +229,7 @@ async def chat_with_an_app(body: MessageApp, app_id: str, db: Session = Depends(
     except ValueError as ve:
         if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
             raise HTTPException(
-                detail="OPENAI_API_KEY or OPENAI_ORGANIZATION not set, please set them in your environment variables.",
+                detail=generate_error_message_for_api_keys(ve),
                 status_code=400,
             )
     except Exception as e:
@@ -270,7 +271,7 @@ async def deploy_app(body: DeployAppRequest, app_id: str, db: Session = Depends(
     except ValueError as ve:
         if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
             raise HTTPException(
-                detail="OPENAI_API_KEY or OPENAI_ORGANIZATION not set, please set them in your environment variables.",
+                detail=generate_error_message_for_api_keys(ve),
                 status_code=400,
             )
     except Exception as e:
