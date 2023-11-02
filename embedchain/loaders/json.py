@@ -6,7 +6,7 @@ import re
 import requests
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils import clean_string, is_valid_json_string
 
 VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
 
@@ -34,7 +34,7 @@ class JSONLoader(BaseLoader):
         if not isinstance(content, str) and not isinstance(content, list):
             print("Invaid content input. Provide the correct path to the json file.")
 
-        content_str = content
+        content_url_str = content
         data = []
         data_content = []
 
@@ -43,7 +43,10 @@ class JSONLoader(BaseLoader):
             docs = []
             for doc in content:
                 docs.extend(loader.load_data(doc))
-            content_str = "".join(str(content))
+            content_url_str = hashlib.sha256((str(content)).encode()).hexdigest()
+        elif isinstance(content, dict):
+            docs = loader.load_data(content)
+            content_url_str = hashlib.sha256((str(content)).encode()).hexdigest()
         else:
             if os.path.isfile(content):
                 with open(content, "r", encoding="utf-8") as json_file:
@@ -57,6 +60,10 @@ class JSONLoader(BaseLoader):
                         f"Loading data from the given url: {content} failed. \
                         Make sure the url is working."
                     )
+            elif is_valid_json_string(content):
+                print("VALID STRING: ", content)
+                json_data = content
+                content_url_str = hashlib.sha256((content).encode()).hexdigest()
             else:
                 raise ValueError(f"Invalid content to load json data from: {content}")
 
@@ -64,8 +71,8 @@ class JSONLoader(BaseLoader):
 
         for doc in docs:
             doc_content = clean_string(doc.text)
-            data.append({"content": doc_content, "meta_data": {"url": content_str}})
+            data.append({"content": doc_content, "meta_data": {"url": content_url_str}})
             data_content.append(doc_content)
 
-        doc_id = hashlib.sha256((content_str + ", ".join(data_content)).encode()).hexdigest()
+        doc_id = hashlib.sha256((content_url_str + ", ".join(data_content)).encode()).hexdigest()
         return {"doc_id": doc_id, "data": data}

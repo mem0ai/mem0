@@ -2,7 +2,16 @@
 title: '📃 JSON'
 ---
 
-To add any json file, use the data_type as `json`. `json` allows remote urls and conventional file paths. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+To add any json file, use the data_type as `json`. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+
+Here are the supported sources for loading `json`:
+```
+1. URL - valid url to json file that ends with ".json" extension.
+2. Local file - valid url to local json file that ends with ".json" extension.
+3. Array of json dicts - Array of json formatted dictionaries (e.g. - app.add([{"foo": "bar"}, {"foo": "bar"}]))
+4. Dictionary - Json formatted dictionary (e.g. - app.add({"foo": "bar", "foo": "bar"}))
+5. String - valid json string (e.g. - app.add('{"foo": "bar"}'))
+```
 
 ```python
 import os
@@ -25,8 +34,8 @@ response = app.query("What is the net worth of Elon Musk as of October 2023?")
 print(response)
 "As of October 2023, Elon Musk's net worth is $255.2 billion."
 ```
-
-```temp.json
+temp.json
+```
 {
     "question": "What is your net worth, Elon Musk?",
     "answer": "As of October 2023, Elon Musk's net worth is $255.2 billion, making him one of the wealthiest individuals in the world."

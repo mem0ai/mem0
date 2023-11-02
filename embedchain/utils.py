@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -208,7 +209,7 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
             return DataType.QNA_PAIR
 
-        if isinstance(source, list) and all(isinstance(doc, dict) for doc in source):
+        if (isinstance(source, dict)) or (isinstance(source, list) and all(isinstance(doc, dict) for doc in source)):
             logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
             return DataType.JSON
 
@@ -265,6 +266,30 @@ def detect_datatype(source: Any) -> DataType:
 
         # TODO: check if source is gmail query
 
+        # check if the source is valid json string
+        if is_valid_json_string(source):
+            logging.debug(f"Source of `{formatted_source}` detected as `json`.")
+            return DataType.JSON
+
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
+
+
+def is_valid_json_string(source):
+    if not isinstance(source, str):
+        logging.warn(
+            "Unexpected call to check the validity of json string.\
+            The source must be string."
+        )
+        return False
+    else:
+        try:
+            _ = json.loads(source)
+            return True
+        except json.JSONDecodeError:
+            logging.error(
+                "Insert valid string format of JSON. \
+                Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
+            )
+            return False

@@ -40,7 +40,7 @@ def test_load_data(mocker):
 def test_load_data_url(mocker):
     content = "https://example.com/posts.json"
 
-    mocker.patch("os.path.isfile", return_value=False)  # Mocking os.path.isfile to simulate a URL case
+    mocker.patch("os.path.isfile", return_value=False)
     mocker.patch(
         "llama_hub.jsondata.base.JSONDataReader.load_data",
         return_value=[Document(text="content1"), Document(text="content2")],
@@ -72,7 +72,7 @@ def test_load_data_invalid_content(mocker):
     mocker.patch("os.path.isfile", return_value=False)
     mocker.patch("requests.get")
 
-    content = "123"
+    content = "123: 345}"
 
     with pytest.raises(ValueError, match="Invalid content to load json data from"):
         JSONLoader.load_data(content)
@@ -89,3 +89,86 @@ def test_load_data_invalid_url(mocker):
 
     with pytest.raises(ValueError, match=f"Invalid content to load json data from: {content}"):
         JSONLoader.load_data(content)
+
+
+def test_load_data_from_array(mocker):
+    content = [{"content1", "content2"}]
+
+    content_url_str = hashlib.sha256((str(content)).encode()).hexdigest()
+
+    mocker.patch("os.path.isfile", return_value=False)
+    mocker.patch(
+        "llama_hub.jsondata.base.JSONDataReader.load_data",
+        return_value=[Document(text="content1"), Document(text="content2")],
+    )
+
+    result = JSONLoader.load_data(content)
+
+    assert "doc_id" in result
+    assert "data" in result
+
+    expected_data = [
+        {"content": "content1", "meta_data": {"url": content_url_str}},
+        {"content": "content2", "meta_data": {"url": content_url_str}},
+    ]
+
+    assert result["data"] == expected_data
+
+    expected_doc_id = hashlib.sha256((content_url_str + ", ".join(["content1", "content2"])).encode()).hexdigest()
+    assert result["doc_id"] == expected_doc_id
+
+
+def test_load_data_from_dict(mocker):
+    content = {
+        "foo": "bar",
+    }
+
+    content_url_str = hashlib.sha256((str(content)).encode()).hexdigest()
+
+    mocker.patch("os.path.isfile", return_value=False)
+    mocker.patch(
+        "llama_hub.jsondata.base.JSONDataReader.load_data",
+        return_value=[Document(text="content1"), Document(text="content2")],
+    )
+
+    result = JSONLoader.load_data(content)
+
+    assert "doc_id" in result
+    assert "data" in result
+
+    expected_data = [
+        {"content": "content1", "meta_data": {"url": content_url_str}},
+        {"content": "content2", "meta_data": {"url": content_url_str}},
+    ]
+
+    assert result["data"] == expected_data
+
+    expected_doc_id = hashlib.sha256((content_url_str + ", ".join(["content1", "content2"])).encode()).hexdigest()
+    assert result["doc_id"] == expected_doc_id
+
+
+def test_load_data_from_json_string(mocker):
+    content = '{"foo": "bar"}'
+
+    content_url_str = hashlib.sha256((content).encode()).hexdigest()
+
+    mocker.patch("os.path.isfile", return_value=False)
+    mocker.patch(
+        "llama_hub.jsondata.base.JSONDataReader.load_data",
+        return_value=[Document(text="content1"), Document(text="content2")],
+    )
+
+    result = JSONLoader.load_data(content)
+
+    assert "doc_id" in result
+    assert "data" in result
+
+    expected_data = [
+        {"content": "content1", "meta_data": {"url": content_url_str}},
+        {"content": "content2", "meta_data": {"url": content_url_str}},
+    ]
+
+    assert result["data"] == expected_data
+
+    expected_doc_id = hashlib.sha256((content_url_str + ", ".join(["content1", "content2"])).encode()).hexdigest()
+    assert result["doc_id"] == expected_doc_id

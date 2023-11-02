@@ -20,7 +20,7 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
                                          IndirectDataType, SpecialDataType)
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils import detect_datatype
+from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
 
 load_dotenv()
@@ -175,11 +175,19 @@ class EmbedChain(JSONSerializable):
         if data_type:
             try:
                 data_type = DataType(data_type)
+                if data_type == DataType.JSON and isinstance(source, str):
+                    if not is_valid_json_string(source):
+                        raise ValueError(
+                            f"Invalid json input: {source}",
+                            "Provide the correct JSON formatted source, \
+                                refer `https://docs.embedchain.ai/data-sources/json`",
+                        )
             except ValueError:
                 raise ValueError(
                     f"Invalid data_type: '{data_type}'.",
                     f"Please use one of the following: {[data_type.value for data_type in DataType]}",
                 ) from None
+
         if not data_type:
             data_type = detect_datatype(source)
 
@@ -287,8 +295,8 @@ class EmbedChain(JSONSerializable):
             # These types have a indirect source reference
             # As long as the reference is the same, they can be updated.
             where = {"url": src}
-            if chunker.data_type == DataType.JSON and isinstance(src, list):
-                url = "".join(str(src))
+            if chunker.data_type == DataType.JSON and (isinstance(src, list) or isinstance(src, dict)):
+                url = hashlib.sha256((str(src)).encode()).hexdigest()
                 where = {"url": url}
 
             if self.config.id is not None:
@@ -372,8 +380,8 @@ class EmbedChain(JSONSerializable):
 
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
-        if chunker.data_type == DataType.JSON and isinstance(src, list):
-            url = "".join(str(src))
+        if chunker.data_type == DataType.JSON and (isinstance(src, list) or isinstance(src, dict)):
+            url = hashlib.sha256((str(src)).encode()).hexdigest()
             where = {"url": url}
         # if data type is qna_pair, we check for question
         if chunker.data_type == DataType.QNA_PAIR:
@@ -416,7 +424,7 @@ class EmbedChain(JSONSerializable):
 
             new_metadatas.append(m)
         metadatas = new_metadatas
-
+        print("DOC metadata: ", metadatas)
         if dry_run:
             return list(documents), metadatas, ids, 0
 
