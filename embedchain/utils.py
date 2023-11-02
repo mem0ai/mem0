@@ -208,6 +208,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
             return DataType.QNA_PAIR
 
+        if isinstance(source, list) and all(isinstance(doc, dict) for doc in source):
+            logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
+            return DataType.JSON
+
         # Raise an error if it isn't a string and also not a valid non-string type (one of the previous).
         # We could stringify it, but it is better to raise an error and let the user decide how they want to do that.
         raise TypeError(

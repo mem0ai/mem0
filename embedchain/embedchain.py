@@ -287,6 +287,10 @@ class EmbedChain(JSONSerializable):
             # These types have a indirect source reference
             # As long as the reference is the same, they can be updated.
             where = {"url": src}
+            if chunker.data_type == DataType.JSON and isinstance(src, list):
+                url = "".join(str(src))
+                where = {"url": url}
+
             if self.config.id is not None:
                 where.update({"app_id": self.config.id})
 
@@ -368,6 +372,9 @@ class EmbedChain(JSONSerializable):
 
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
+        if chunker.data_type == DataType.JSON and isinstance(src, list):
+            url = "".join(str(src))
+            where = {"url": url}
         # if data type is qna_pair, we check for question
         if chunker.data_type == DataType.QNA_PAIR:
             where = {"question": src[0]}
