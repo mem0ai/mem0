@@ -1,9 +1,7 @@
 import hashlib
-import importlib
 import json
 import os
 import re
-import subprocess
 
 import requests
 
@@ -12,25 +10,18 @@ from embedchain.utils import clean_string
 
 VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
 
-MODULE_NAME = "llama_hub.jsondata.base"
-
 
 class JSONLoader(BaseLoader):
     @staticmethod
     def _get_llama_hub_loader():
         try:
-            module = importlib.import_module(MODULE_NAME)
-            LLHUBJSONLoader = module.JSONDataReader
-        except ImportError:
-            try:
-                subprocess.run(["pip", "install", "--upgrade", "embedchain[json]"], check=True)
-                module = importlib.import_module(MODULE_NAME)
-                LLHUBJSONLoader = module.JSONDataReader
-            except Exception as e:
-                raise Exception(
-                    f"Failed to install required packages: {e}. \
-                        Please install manually using `pip install --upgrade 'embedchain[json]'`"
-                )
+            from llama_hub.jsondata.base import \
+                JSONDataReader as LLHUBJSONLoader
+        except ImportError as e:
+            raise Exception(
+                f"Failed to install required packages: {e}, \
+                install them using `pip install --upgrade 'embedchain[json]`"
+            )
 
         return LLHUBJSONLoader()
 
