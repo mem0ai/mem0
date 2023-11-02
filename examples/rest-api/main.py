@@ -10,7 +10,6 @@ from models import (
     MessageApp,
     DefaultResponse,
     DeployAppRequest,
-    # SetEnvKeys,
 )
 from database import Base, engine, SessionLocal
 from services import get_app, save_app, get_apps, remove_app
@@ -45,37 +44,23 @@ def check_status():
     return {"ping": "pong"}
 
 
-# FIXME: Put on hold for now
-# @app.put("/env", tags=["Apps"])
-# async def set_env(body: SetEnvKeys):
-#     """
-#     Set the Environment variables needed for respective LLMs to work.\n
-#     """
-#     keys = body.keys
-#     try:
-#         for key in keys:
-#             os.environ[key] = keys[key]
-
-#         return DefaultResponse(response="Env variables set successfully.")
-#     except Exception as e:
-#         raise HTTPException(detail=f"Error setting API key: {e}", status_code=400)
-
-
 @app.get("/apps", tags=["Apps"])
 async def get_all_apps(db: Session = Depends(get_db)):
     """
     Get all apps.
     """
     apps = get_apps(db)
-    return {"data": apps}
+    return {"results": apps}
 
 
 @app.post("/create", tags=["Apps"], response_model=DefaultResponse)
-async def create_app_using_default_config(app_id: str, db: Session = Depends(get_db)):
+async def create_app_using_default_config(app_id: str, config: UploadFile, db: Session = Depends(get_db)):
     """
     Create a new app using App ID.
-    This uses a default config
-    i.e, our opensource config that doesn't require any API key to run.\n
+    If you don't provide a config file, Embedchain will use the default config file\n
+    which uses opensource GPT4ALL model.\n
+    app_id: The ID of the app.\n
+    config: The YAML config file to create an App.\n
     """
     try:
         if app_id is None:
@@ -85,6 +70,16 @@ async def create_app_using_default_config(app_id: str, db: Session = Depends(get
             raise HTTPException(detail=f"App with id '{app_id}' already exists.", status_code=400)
 
         yaml_path = "default.yaml"
+        contents = await config.read()
+
+        try:
+            yaml_conf = yaml.safe_load(contents)
+            if yaml_conf is not None:
+                yaml_path = f"configs/{app_id}.yaml"
+                with open(yaml_path, "w") as file:
+                    file.write(str(contents, "utf-8"))
+        except yaml.YAMLError as exc:
+            raise HTTPException(detail=f"Error parsing YAML: {exc}", status_code=400)
 
         save_app(db, app_id, yaml_path)
 
@@ -93,40 +88,8 @@ async def create_app_using_default_config(app_id: str, db: Session = Depends(get
         raise HTTPException(detail=f"Error creating app: {e}", status_code=400)
 
 
-@app.post("/create/yaml", tags=["Apps"], response_model=DefaultResponse)
-async def create_app_using_custom_config(config: UploadFile, db: Session = Depends(get_db)):
-    """
-    Create a new app using YAML config.
-    """
-    try:
-        contents = await config.read()
-
-        try:
-            yaml_conf = yaml.safe_load(contents)
-            app_id = yaml_conf.get("app", {}).get("config", {}).get("id", None)
-
-            if app_id is None:
-                raise HTTPException(detail="App ID not provided.", status_code=400)
-
-            if get_app(db, app_id) is not None:
-                raise HTTPException(detail=f"App with id '{app_id}' already exists.", status_code=400)
-
-            yaml_path = f"configs/{app_id}.yaml"
-            with open(yaml_path, "w") as file:
-                file.write(str(contents, "utf-8"))
-
-            save_app(db, app_id, yaml_path)
-
-        except yaml.YAMLError as exc:
-            raise HTTPException(detail=f"Error parsing YAML: {exc}", status_code=400)
-
-        return DefaultResponse(response=f"App created successfully. App ID: {app_id}")
-    except Exception as e:
-        raise HTTPException(detail=f"Error creating app: {e}", status_code=400)
-
-
 @app.get(
-    "/{app_id}/datasources",
+    "/{app_id}/data",
     tags=["Apps"],
 )
 async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depends(get_db)):
@@ -351,4 +314,4 @@ if __name__ == "__main__":
     import uvicorn
 
     is_dev = os.getenv("DEVELOPMENT", "False")
-    uvicorn.run("main:app", host="0.0.0.0", port=8010, reload=bool(is_dev))
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=bool(is_dev))

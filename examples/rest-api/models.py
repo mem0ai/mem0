@@ -4,10 +4,6 @@ from sqlalchemy import Column, String, Integer
 from database import Base
 
 
-class SetEnvKeys(BaseModel):
-    keys: dict = Field({}, description="The keys that you want to set in the environment.")
-
-
 class QueryApp(BaseModel):
     query: str = Field("", description="The query that you want to ask the App.")
 
@@ -23,10 +19,6 @@ class DeployAppRequest(BaseModel):
 
 class MessageApp(BaseModel):
     message: str = Field("", description="The message that you want to send to the App.")
-
-
-class ErrorResponse(BaseModel):
-    error: str
 
 
 class DefaultResponse(BaseModel):

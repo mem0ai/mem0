@@ -312,8 +312,8 @@ class Pipeline(EmbedChain):
         )
         self.connection.commit()
 
-    def get_data_sources_by_app_id(self, app_id):
-        db_data = self.cursor.execute("SELECT * FROM data_sources WHERE pipeline_id = ?", (app_id,)).fetchall()
+    def get_data_sources_by_app_id(self):
+        db_data = self.cursor.execute("SELECT * FROM data_sources WHERE pipeline_id = ?", (self.local_id,)).fetchall()
 
         data_sources = []
         for data in db_data:
