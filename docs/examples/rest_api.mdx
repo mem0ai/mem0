@@ -1,0 +1,162 @@
+---
+title: "🌍 REST API"
+---
+
+The REST API example can be found [here](https://github.com/embedchain/embedchain/tree/main/examples/rest-api).
+
+## Quick Start
+
+To run Embedchain as a REST API server use,
+
+```bash
+docker run -d --name embedchain -p 8000:8000 embedchain/app:rest-api-latest
+```
+
+Open up your browser and navigate to http://0.0.0.0:8000/docs to interact with the API. There is a full-fledged Swagger docs playground with all the information
+about the API endpoints.
+
+![Swagger Docs Screenshot](https://github.com/embedchain/embedchain/assets/73601258/400e6830-ca09-47fc-9cc3-a2d30376bdd8)
+
+## API Reference
+
+### `GET /ping`
+
+Returns a `pong` response if the server is operational.
+
+### `GET /apps`
+
+Retrieves a list of all the apps that have been created.
+
+### `POST /create`
+
+Creates a new Embedchain App. App requires an `app_id` to be created. The `app_id` is a unique identifier for your app.
+
+By default we will use the opensource **gpt4all** model to perform operations. You can also specify your own config by uploading a config YAML file.
+
+For example, create a `config.yaml` file (adjust according to your requirements):
+
+```yaml
+app:
+  config:
+    id: "default-app"
+
+llm:
+  provider: openai
+  config:
+    model: "gpt-3.5-turbo"
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+    template: |
+      Use the following pieces of context to answer the query at the end.
+      If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+      $context
+
+      Query: $query
+
+      Helpful Answer:
+
+vectordb:
+  provider: chroma
+  config:
+    collection_name: "rest-api-app"
+    dir: db
+    allow_reset: true
+
+embedder:
+  provider: openai
+  config:
+    model: "text-embedding-ada-002"
+```
+
+To learn more about custom configurations, check out the [Custom configurations](https://docs.embedchain.ai/advanced/configuration).
+To explore more examples of config YAMLs for Embedchain, visit [embedchain/configs](https://github.com/embedchain/embedchain/tree/main/configs).
+
+Now, you can upload this config file in the request body.
+
+**Note:** To use custom models, an **API key** might be required. Refer to the table below to determine the necessary API key for your provider.
+
+| Keys                       | Providers                      |
+| -------------------------- | ------------------------------ |
+| `OPENAI_API_KEY `          | OpenAI, Azure OpenAI, Jina etc |
+| `OPENAI_API_TYPE`          | Azure                          |
+| `OPENAI_API_BASE`          | Azure                          |
+| `OPENAI_API_VERSION`       | Azure                          |
+| `COHERE_API_KEY`           | Cohere                         |
+| `ANTHROPIC_API_KEY`        | Anthropic                      |
+| `JINACHAT_API_KEY`         | Jina                           |
+| `HUGGINGFACE_ACCESS_TOKEN` | Huggingface                    |
+| `REPLICATE_API_TOKEN`      | llama2                         |
+
+To provide them, you can simply run the docker command with the `-e` flag.
+
+For example,
+
+```bash
+docker run -d --name embedchain -p 8000:8000 -e OPENAI_API_KEY=YOUR_API_KEY embedchain/app:rest-api-latest
+```
+
+Cool! This will create a new Embedchain App with the given `app_id`.
+
+### `POST /{app_id}/add`
+
+Add a datasource to the Embedchain App with the given `app_id`.
+
+Here, you can remove the `data_type` field if you want Embedchain to automatically detect the data type.
+
+For example, use:
+
+```json
+{
+  "source": "https://www.forbes.com/profile/elon-musk/"
+}
+```
+
+### `POST /{app_id}/query`
+
+Now, lets query the Embedchain App with the given `app_id`.
+
+For example, use:
+
+```json
+{
+  "query": "Who is Elon Musk?"
+}
+```
+
+### `POST /{app_id}/chat`
+
+Chat with the Embedchain App with the given `app_id`.
+
+For example, use:
+
+```json
+{
+  "message": "Who is Elon Musk?"
+}
+```
+
+### `POST /{app_id}/deploy`
+
+> _This is a special endpoint that allows you to deploy your Embedchain App to the [Embedchain Platform](https://app.embedchain.ai/)._
+
+This feature is very powerful as it allows the creation of a public API endpoint for your app, enabling queries from anywhere. This creates a _pipeline_
+for your app that
+
+To utilize this functionality, visit app.embedchain.ai and create an account. Subsequently, generate a new [API KEY](https://app.embedchain.ai/settings/keys/).
+
+Using this API key, you can deploy your app to the platform.
+
+For example, use:
+
+```json
+{
+  "api_key": "ec-xxx"
+}
+```
+
+### `DELETE /{app_id}/delete`
+
+Deletes the Embedchain App associated with the provided `app_id`.
