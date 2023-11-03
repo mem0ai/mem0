@@ -14,9 +14,25 @@ Navigate to [http://localhost:8080/docs](http://localhost:8080/docs) to interact
 
 ![Swagger Docs Screenshot](https://github.com/embedchain/embedchain/assets/73601258/299d81e5-a0df-407c-afc2-6fa2c4286844)
 
-## Creating your first App
+## ⚡ Steps to get started
 
-App requires an `app_id` to be created. The `app_id` is a unique identifier for your app. By default we will use the opensource **gpt4all** model to get started. You can also specify your own config by uploading a config YAML file.
+### 1. Creating your first App
+
+To create an app, you can send a request to `POST /create` with an `app_id` parameter.
+
+```bash Request
+curl -X 'POST' \
+  'http://localhost:8080/create?app_id=my-app' \
+  -H 'accept: application/json'
+```
+
+This will create an Embedchain App and return us with an `app_id` which we can use to interact with the app.
+
+```json Response
+{ "response": "App created successfully. App ID: my-app" }
+```
+
+By default we will use the opensource **gpt4all** model to get started. You can also specify your own config by uploading a config YAML file.
 
 For example, create a `config.yaml` file (adjust according to your requirements):
 
@@ -60,6 +76,14 @@ To learn more about custom configurations, check out the [custom configurations 
 
 Now, you can upload this config file in the request body.
 
+For example,
+
+```bash Request
+curl --request POST \
+  --url http://localhost:8080/create?app_id=my-app \
+  -F "config=@/path/to/config.yaml"
+```
+
 **Note:** To use custom models, an **API key** might be required. Refer to the table below to determine the necessary API key for your provider.
 
 | Keys                       | Providers                      |
@@ -81,6 +105,51 @@ For example,
 ```bash
 docker run --name embedchain -p 8080:8080 -e OPENAI_API_KEY=<YOUR_OPENAI_API_KEY> embedchain/rest-api:latest
 ```
+
+### 2. Adding data sources to your App
+
+Next, you can add data sources to your app. Embedchain supports a variety of data sources. To learn more about data sources, check out the [supported data sources](https://docs.embedchain.ai/data-sources/csv).
+
+For example, to add a web page as a data source, you can send a request to `POST /{app_id}/add`.
+
+```bash Request
+curl -X 'POST' \
+  'http://localhost:8080/my-app/add' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "source": "https://www.forbes.com/profile/elon-musk",
+  "data_type": "webpage"
+}'
+```
+
+This returns us with a `document_hash` when ran successfully.
+
+```json Response
+{ "response": "fec7fe91e6b2d732938a2ec2e32bfe3f" }
+```
+
+### 3. Querying your App
+
+Now, we can query our app to get the answer to a question. To do this, we can send a request to `/{app_id}/query` with the following request body:
+
+```bash Request
+curl -X 'POST' \
+  'http://localhost:8080/my-app/query' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "query": "Who is the CEO of SpaceX?"
+}'
+```
+
+This returns us with a `response` when ran successfully.
+
+```json Response
+{ "response": "Elon Musk" }
+```
+
+And you're ready! 🎉
 
 If you run into issues, please feel free to contact us using below links:
 
