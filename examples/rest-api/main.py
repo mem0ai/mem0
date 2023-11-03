@@ -39,7 +39,7 @@ app = FastAPI(
 @app.get("/ping", tags=["Utility"])
 def check_status():
     """
-    Endpoint to check the status of the API.
+    Endpoint to check the status of the API
     """
     return {"ping": "pong"}
 
@@ -85,7 +85,7 @@ async def create_app_using_default_config(app_id: str, config: UploadFile = None
 
         return DefaultResponse(response=f"App created successfully. App ID: {app_id}")
     except Exception as e:
-        raise HTTPException(detail=f"Error creating app: {e}", status_code=400)
+        raise HTTPException(detail=f"Error creating app: {str(e)}", status_code=400)
 
 
 @app.get(
@@ -94,7 +94,7 @@ async def create_app_using_default_config(app_id: str, config: UploadFile = None
 )
 async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depends(get_db)):
     """
-    Get all datasources for an app.\n
+    Get all data sources for an app.\n
     app_id: The ID of the app. Use "default" for the default app.\n
     """
     try:
@@ -120,7 +120,7 @@ async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depe
                 status_code=400,
             )
     except Exception as e:
-        raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+        raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
 @app.post(
@@ -158,7 +158,7 @@ async def add_datasource_to_an_app(body: SourceApp, app_id: str, db: Session = D
                 status_code=400,
             )
     except Exception as e:
-        raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+        raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
 @app.post(
@@ -195,7 +195,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
                 status_code=400,
             )
     except Exception as e:
-        raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+        raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
 # FIXME: The chat implementation of Embedchain needs to be modified to work with the REST API.
@@ -236,7 +236,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
 #                 status_code=400,
 #             )
 #     except Exception as e:
-#         raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+#         raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
 @app.post(
@@ -278,7 +278,7 @@ async def deploy_app(body: DeployAppRequest, app_id: str, db: Session = Depends(
                 status_code=400,
             )
     except Exception as e:
-        raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+        raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
 @app.delete(
@@ -311,11 +311,11 @@ async def delete_app(app_id: str, db: Session = Depends(get_db)):
         remove_app(db, app_id)
         return DefaultResponse(response=f"App with id {app_id} deleted successfully.")
     except Exception as e:
-        raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+        raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
 if __name__ == "__main__":
     import uvicorn
 
     is_dev = os.getenv("DEVELOPMENT", "False")
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=bool(is_dev))
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=bool(is_dev))

@@ -92,7 +92,7 @@
       "pages": ["advanced/configuration"]
     },
     {
-      "group": "Rest API",
+      "group": "REST API",
         "pages": [
           "api-reference/getting-started",
           "api-reference/check-status",
@@ -161,5 +161,8 @@
   },
   "search": {
     "prompt": "✨ Search embedchain docs..."
+  },
+  "api": {
+    "baseUrl": "http://localhost:8080"
   }
 }

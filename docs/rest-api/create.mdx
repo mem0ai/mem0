@@ -1,0 +1,21 @@
+---
+openapi: post /create
+---
+
+<RequestExample>
+
+```bash Request
+curl --request POST \
+  --url http://localhost:8080/create \
+  -F "config=@/path/to/config.yaml"
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json Response
+{ "response": "App created successfully. App ID: {app_id}" }
+```
+
+</ResponseExample>

@@ -2,24 +2,21 @@
 title: "🌍 Getting Started"
 ---
 
-## Quick Start
+## Quickstart
 
-To run Embedchain as a REST API server use,
+To use Embedchain as a REST API service, run the following command:
 
 ```bash
-docker run -d --name embedchain -p 8080:8080 embedchain/app:rest-api-latest
+docker run --name embedchain -p 8080:8080 embedchain/app:rest-api-latest
 ```
 
-Open up your browser and navigate to http://0.0.0.0:8080/docs to interact with the API. There is a full-fledged Swagger docs playground with all the information
-about the API endpoints.
+Navigate to [http://localhost:8080/docs](http://localhost:8080/docs) to interact with the API. There is a full-fledged Swagger docs playground with all the information about the API endpoints.
 
 ![Swagger Docs Screenshot](https://github.com/embedchain/embedchain/assets/73601258/299d81e5-a0df-407c-afc2-6fa2c4286844)
 
 ## Creating your first App
 
-App requires an `app_id` to be created. The `app_id` is a unique identifier for your app.
-
-By default we will use the opensource **gpt4all** model to perform operations. You can also specify your own config by uploading a config YAML file.
+App requires an `app_id` to be created. The `app_id` is a unique identifier for your app. By default we will use the opensource **gpt4all** model to get started. You can also specify your own config by uploading a config YAML file.
 
 For example, create a `config.yaml` file (adjust according to your requirements):
 
@@ -59,8 +56,7 @@ embedder:
     model: "text-embedding-ada-002"
 ```
 
-To learn more about custom configurations, check out the [Custom configurations](https://docs.embedchain.ai/advanced/configuration).
-To explore more examples of config YAMLs for Embedchain, visit [embedchain/configs](https://github.com/embedchain/embedchain/tree/main/configs).
+To learn more about custom configurations, check out the [custom configurations docs](https://docs.embedchain.ai/advanced/configuration). To explore more examples of config yamls for embedchain, visit [embedchain/configs](https://github.com/embedchain/embedchain/tree/main/configs).
 
 Now, you can upload this config file in the request body.
 
@@ -78,25 +74,14 @@ Now, you can upload this config file in the request body.
 | `HUGGINGFACE_ACCESS_TOKEN` | Huggingface                    |
 | `REPLICATE_API_TOKEN`      | LLAMA2                         |
 
-To provide them, you can simply run the docker command with the `-e` flag.
+To add env variables, you can simply run the docker command with the `-e` flag.
 
 For example,
 
 ```bash
-docker run -d --name embedchain -p 8080:8080 -e OPENAI_API_KEY=YOUR_API_KEY embedchain/app:rest-api-latest
+docker run --name embedchain -p 8080:8080 -e OPENAI_API_KEY=<YOUR_OPENAI_API_KEY> embedchain/app:rest-api-latest
 ```
 
-Cool! This will create a new Embedchain App with the given `app_id`.
+If you run into issues, please feel free to contact us using below links:
 
-## Deploying your App to Embedchain Platform
-
-This feature is very powerful as it allows the creation of a public API endpoint for your app, enabling queries from anywhere. This creates a _pipeline_
-for your app that can sync the data time to time and provide you with the best results.
-
-![My first Pipeline](https://github.com/embedchain/embedchain/assets/73601258/266a66e0-330e-4bb9-aa97-687d826cd3fa)
-
-To utilize this functionality, visit app.embedchain.ai and create an account. Subsequently, generate a new [API KEY](https://app.embedchain.ai/settings/keys/).
-
-![Create Embedchain API Key](https://github.com/embedchain/embedchain/assets/73601258/791e92cc-4a6f-4740-94c2-f11cce13e93b)
-
-Using this API key, you can deploy your app to the platform.
+<Snippet file="get-help.mdx" />

@@ -13,8 +13,8 @@
       "/ping": {
         "get": {
           "tags": ["Utility"],
-          "summary": "Check Status",
-          "description": "Endpoint to check the status of the API.",
+          "summary": "Check status",
+          "description": "Endpoint to check the status of the API",
           "operationId": "check_status_ping_get",
           "responses": {
             "200": {
@@ -27,8 +27,8 @@
       "/apps": {
         "get": {
           "tags": ["Apps"],
-          "summary": "Get All Apps",
-          "description": "Get all apps.",
+          "summary": "Get all apps",
+          "description": "Get all applications",
           "operationId": "get_all_apps_apps_get",
           "responses": {
             "200": {
@@ -41,8 +41,8 @@
       "/create": {
         "post": {
           "tags": ["Apps"],
-          "summary": "Create App",
-          "description": "Create a new app using App ID.",
+          "summary": "Create app",
+          "description": "Create a new app using App ID",
           "operationId": "create_app_using_default_config_create_post",
           "parameters": [
             {
@@ -89,8 +89,8 @@
       "/{app_id}/data": {
         "get": {
           "tags": ["Apps"],
-          "summary": "Get Datasources Associated With App Id",
-          "description": "Get all datasources for an app.",
+          "summary": "Get data",
+          "description": "Get all data sources for an app",
           "operationId": "get_datasources_associated_with_app_id__app_id__data_get",
           "parameters": [
             {
@@ -119,8 +119,8 @@
       "/{app_id}/add": {
         "post": {
           "tags": ["Apps"],
-          "summary": "Add Datasource To An App",
-          "description": "Add a source to an existing app.",
+          "summary": "Add data",
+          "description": "Add a data source to an app.",
           "operationId": "add_datasource_to_an_app__app_id__add_post",
           "parameters": [
             {
@@ -161,8 +161,8 @@
       "/{app_id}/query": {
         "post": {
           "tags": ["Apps"],
-          "summary": "Query An App",
-          "description": "Query an existing app.",
+          "summary": "Query app",
+          "description": "Query an app",
           "operationId": "query_an_app__app_id__query_post",
           "parameters": [
             {
@@ -203,8 +203,8 @@
       "/{app_id}/chat": {
         "post": {
           "tags": ["Apps"],
-          "summary": "Chat With An App",
-          "description": "Query an existing app.\n\napp_id: The ID of the app. Use \"default\" for the default app.\n\nmessage: The message that you want to send to the App.",
+          "summary": "Chat",
+          "description": "Chat with an app.\n\napp_id: The ID of the app. Use \"default\" for the default app.\n\nmessage: The message that you want to send to the app.",
           "operationId": "chat_with_an_app__app_id__chat_post",
           "parameters": [
             {
@@ -287,8 +287,8 @@
       "/{app_id}/delete": {
         "delete": {
           "tags": ["Apps"],
-          "summary": "Delete App",
-          "description": "Delete an existing app.",
+          "summary": "Delete app",
+          "description": "Delete an existing app",
           "operationId": "delete_app__app_id__delete_delete",
           "parameters": [
             {
@@ -339,7 +339,7 @@
             "api_key": {
               "type": "string",
               "title": "Api Key",
-              "description": "The Embedchain API key for App deployments.",
+              "description": "The Embedchain API key for app deployments. You get the api key on the Embedchain platform by visiting [https://app.embedchain.ai](https://app.embedchain.ai)",
               "default": ""
             }
           },
@@ -425,4 +425,3 @@
       }
     }
   }
-  
