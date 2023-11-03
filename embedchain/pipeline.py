@@ -359,7 +359,7 @@ class Pipeline(EmbedChain):
 
         pipeline_config_data = config_data.get("app", {}).get("config", {})
         db_config_data = config_data.get("vectordb", {})
-        embedding_model_config_data = config_data.get("embedding_model", {})
+        embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         llm_config_data = config_data.get("llm", {})
 
         pipeline_config = PipelineConfig(**pipeline_config_data)
