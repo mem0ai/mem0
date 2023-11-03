@@ -4,8 +4,8 @@ app:
 
 llm:
   provider: azure_openai
-  model: gpt-35-turbo
   config:
+    model: gpt-35-turbo
     deployment_name: your_llm_deployment_name
     temperature: 0.5
     max_tokens: 1000

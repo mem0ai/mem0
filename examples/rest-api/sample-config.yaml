@@ -1,6 +1,6 @@
 app:
   config:
-    id: 'full-stack-app'
+    id: 'default-app'
 
 llm:
   provider: openai
@@ -19,13 +19,11 @@ llm:
       Query: $query
 
       Helpful Answer:
-    system_prompt: |
-      Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.
 
 vectordb:
   provider: chroma
   config:
-    collection_name: 'my-collection-name'
+    collection_name: 'rest-api-app'
     dir: db
     allow_reset: true
 
