@@ -15,7 +15,7 @@ def generate_error_message_for_api_keys(error: ValueError) -> str:
     if missing_keys:
         missing_keys_str = ", ".join(missing_keys)
         return f"""Please set the {missing_keys_str} environment variable(s) when running the Docker container.
-Example: `docker run -e {missing_keys[0]}=xxx embedchain/app:rest-api-latest`
+Example: `docker run -e {missing_keys[0]}=xxx embedchain/rest-api:latest`
 """
     else:
         return "Unknown error occurred."
