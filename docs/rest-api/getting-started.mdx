@@ -14,73 +14,280 @@ Navigate to [http://localhost:8080/docs](http://localhost:8080/docs) to interact
 
 ![Swagger Docs Screenshot](https://github.com/embedchain/embedchain/assets/73601258/299d81e5-a0df-407c-afc2-6fa2c4286844)
 
-## Creating your first App
+## ⚡ Steps to get started
 
-App requires an `app_id` to be created. The `app_id` is a unique identifier for your app. By default we will use the opensource **gpt4all** model to get started. You can also specify your own config by uploading a config YAML file.
+<Steps>
+  <Step title="⚙️ Create an app">
+    <Tabs>
+      <Tab title="cURL">
+      ```bash
+      curl --request POST "http://localhost:8080/create?app_id=my-app" \
+       -H "accept: application/json"
+      ```
+      </Tab>
+      <Tab title="python">
+      ```python
+      import requests
 
-For example, create a `config.yaml` file (adjust according to your requirements):
+      url = "http://localhost:8080/create?app_id=my-app"
 
-```yaml
-app:
-  config:
-    id: "default-app"
+      payload={}
 
-llm:
-  provider: openai
-  config:
-    model: "gpt-3.5-turbo"
-    temperature: 0.5
-    max_tokens: 1000
-    top_p: 1
-    stream: false
-    template: |
-      Use the following pieces of context to answer the query at the end.
-      If you don't know the answer, just say that you don't know, don't try to make up an answer.
+      response = requests.request("POST", url, data=payload)
 
-      $context
+      print(response)
+      ```
+      </Tab>
+      <Tab title="javascript">
+      ```javascript
+      const data = fetch("http://localhost:8080/create?app_id=my-app", {
+        method: "POST",
+      }).then((res) => res.json());
 
-      Query: $query
+      console.log(data);
+      ```
+      </Tab>
+      <Tab title="go">
+      ```go
+      package main
 
-      Helpful Answer:
+      import (
+        "fmt"
+        "net/http"
+        "io/ioutil"
+      )
 
-vectordb:
-  provider: chroma
-  config:
-    collection_name: "rest-api-app"
-    dir: db
-    allow_reset: true
+      func main() {
 
-embedder:
-  provider: openai
-  config:
-    model: "text-embedding-ada-002"
-```
+        url := "http://localhost:8080/create?app_id=my-app"
 
-To learn more about custom configurations, check out the [custom configurations docs](https://docs.embedchain.ai/advanced/configuration). To explore more examples of config yamls for embedchain, visit [embedchain/configs](https://github.com/embedchain/embedchain/tree/main/configs).
+        payload := strings.NewReader("")
 
-Now, you can upload this config file in the request body.
+        req, _ := http.NewRequest("POST", url, payload)
 
-**Note:** To use custom models, an **API key** might be required. Refer to the table below to determine the necessary API key for your provider.
+        req.Header.Add("Content-Type", "application/json")
 
-| Keys                       | Providers                      |
-| -------------------------- | ------------------------------ |
-| `OPENAI_API_KEY `          | OpenAI, Azure OpenAI, Jina etc |
-| `OPENAI_API_TYPE`          | Azure OpenAI                   |
-| `OPENAI_API_BASE`          | Azure OpenAI                   |
-| `OPENAI_API_VERSION`       | Azure OpenAI                   |
-| `COHERE_API_KEY`           | Cohere                         |
-| `ANTHROPIC_API_KEY`        | Anthropic                      |
-| `JINACHAT_API_KEY`         | Jina                           |
-| `HUGGINGFACE_ACCESS_TOKEN` | Huggingface                    |
-| `REPLICATE_API_TOKEN`      | LLAMA2                         |
+        res, _ := http.DefaultClient.Do(req)
 
-To add env variables, you can simply run the docker command with the `-e` flag.
+        defer res.Body.Close()
+        body, _ := ioutil.ReadAll(res.Body)
 
-For example,
+        fmt.Println(res)
+        fmt.Println(string(body))
 
-```bash
-docker run --name embedchain -p 8080:8080 -e OPENAI_API_KEY=<YOUR_OPENAI_API_KEY> embedchain/rest-api:latest
-```
+      }
+      ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+  <Step title="🗃️ Add data sources">
+    <Tabs>
+      <Tab title="cURL">
+        ```bash
+        curl --request POST \
+          --url http://localhost:8080/my-app/add \
+          -d "source=https://www.forbes.com/profile/elon-musk" \
+          -d "data_type=web_page"
+          ```
+      </Tab>
+      <Tab title="python">
+        ```python
+        import requests
+
+        url = "http://localhost:8080/my-app/add"
+
+        payload = "source=https://www.forbes.com/profile/elon-musk&data_type=web_page"
+        headers = {}
+
+        response = requests.request("POST", url, headers=headers, data=payload)
+
+        print(response)
+        ```
+      </Tab>
+      <Tab title="javascript">
+        ```javascript
+        const data = fetch("http://localhost:8080/my-app/add", {
+          method: "POST",
+          body: "source=https://www.forbes.com/profile/elon-musk&data_type=web_page",
+        }).then((res) => res.json());
+
+        console.log(data);
+        ```
+        </Tab>
+      <Tab title="go">
+        ```go
+        package main
+
+        import (
+          "fmt"
+          "strings"
+          "net/http"
+          "io/ioutil"
+        )
+
+        func main() {
+
+          url := "http://localhost:8080/my-app/add"
+
+          payload := strings.NewReader("source=https://www.forbes.com/profile/elon-musk&data_type=web_page")
+
+          req, _ := http.NewRequest("POST", url, payload)
+
+          req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+          res, _ := http.DefaultClient.Do(req)
+
+          defer res.Body.Close()
+          body, _ := ioutil.ReadAll(res.Body)
+
+          fmt.Println(res)
+          fmt.Println(string(body))
+
+        }
+        ```
+      </Tab>
+      </Tabs>
+
+  </Step>
+  <Step title="💬 Query on your data">
+    <Tabs>
+      <Tab title="cURL">
+        ```bash
+        curl --request POST \
+          --url http://localhost:8080/my-app/query \
+          -d "query=Who is Elon Musk?"
+        ```
+      </Tab>
+      <Tab title="python">
+        ```python
+        import requests
+
+        url = "http://localhost:8080/my-app/query"
+
+        payload = "query=Who is Elon Musk?"
+        headers = {}
+
+        response = requests.request("POST", url, headers=headers, data=payload)
+
+        print(response)
+        ```
+      </Tab>
+      <Tab title="javascript">
+        ```javascript
+        const data = fetch("http://localhost:8080/my-app/query", {
+          method: "POST",
+          body: "query=Who is Elon Musk?",
+        }).then((res) => res.json());
+
+        console.log(data);
+        ```
+        </Tab>
+        <Tab title="go">
+        ```go
+        package main
+
+        import (
+          "fmt"
+          "strings"
+          "net/http"
+          "io/ioutil"
+        )
+
+        func main() {
+
+          url := "http://localhost:8080/my-app/query"
+
+          payload := strings.NewReader("query=Who is Elon Musk?")
+
+          req, _ := http.NewRequest("POST", url, payload)
+
+          req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+          res, _ := http.DefaultClient.Do(req)
+
+          defer res.Body.Close()
+          body, _ := ioutil.ReadAll(res.Body)
+
+          fmt.Println(res)
+          fmt.Println(string(body))
+
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+  <Step title="🚀 (Optional) Deploy your app to Embedchain Platform">
+    <Tabs>
+      <Tab title="cURL">
+        ```bash
+        curl --request POST \
+          --url http://localhost:8080/my-app/deploy \
+          -d "api_key=ec-xxxx"
+          ```
+      </Tab>
+      <Tab title="python">
+        ```python
+        import requests
+
+        url = "http://localhost:8080/my-app/deploy"
+
+        payload = "api_key=ec-xxxx"
+
+        response = requests.request("POST", url, data=payload)
+
+        print(response)
+        ```
+      </Tab>
+      <Tab title="javascript">
+        ```javascript
+        const data = fetch("http://localhost:8080/my-app/deploy", {
+          method: "POST",
+          body: "api_key=ec-xxxx",
+        }).then((res) => res.json());
+
+        console.log(data);
+        ```
+      </Tab>
+      <Tab title="go">
+        ```go
+        package main
+
+        import (
+          "fmt"
+          "strings"
+          "net/http"
+          "io/ioutil"
+        )
+
+        func main() {
+
+          url := "http://localhost:8080/my-app/deploy"
+
+          payload := strings.NewReader("api_key=ec-xxxx")
+
+          req, _ := http.NewRequest("POST", url, payload)
+
+          req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+          res, _ := http.DefaultClient.Do(req)
+
+          defer res.Body.Close()
+          body, _ := ioutil.ReadAll(res.Body)
+
+          fmt.Println(res)
+          fmt.Println(string(body))
+
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+</Steps>
+
+And you're ready! 🎉
 
 If you run into issues, please feel free to contact us using below links:
 
