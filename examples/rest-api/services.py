@@ -1,6 +1,5 @@
-from sqlalchemy.orm import Session
-
 from models import AppModel
+from sqlalchemy.orm import Session
 
 
 def get_app(db: Session, app_id: str):
