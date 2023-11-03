@@ -8,12 +8,20 @@ Here are the supported sources for loading `json`:
 ```
 1. URL - valid url to json file that ends with ".json" extension.
 2. Local file - valid url to local json file that ends with ".json" extension.
-3. Array of json dicts - Array of json formatted dictionaries (e.g. - app.add([{"foo": "bar"}, {"foo": "bar"}]))
-4. Dictionary - Json formatted dictionary (e.g. - app.add({"foo": "bar", "foo": "bar"}))
-5. String - valid json string (e.g. - app.add('{"foo": "bar"}'))
+3. String - valid json string (e.g. - app.add('{"foo": "bar"}'))
 ```
 
-```python
+If you would like to add other data structures (e.x. list, dict etc.), do:
+```
+    import json
+    a = {"foo": "bar"}
+    valid_json_string_data = json.dumps(a, indent=0)
+
+    b = [{"foo": "bar"}]
+    valid_json_string_data = json.dumps(b, indent=0)
+```
+Example:
+```
 import os
 
 from embedchain.apps.app import App

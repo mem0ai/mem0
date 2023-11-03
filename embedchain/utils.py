@@ -209,10 +209,6 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
             return DataType.QNA_PAIR
 
-        if (isinstance(source, dict)) or (isinstance(source, list) and all(isinstance(doc, dict) for doc in source)):
-            logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
-            return DataType.JSON
-
         # Raise an error if it isn't a string and also not a valid non-string type (one of the previous).
         # We could stringify it, but it is better to raise an error and let the user decide how they want to do that.
         raise TypeError(
@@ -276,20 +272,14 @@ def detect_datatype(source: Any) -> DataType:
         return DataType.TEXT
 
 
-def is_valid_json_string(source):
-    if not isinstance(source, str):
-        logging.warn(
-            "Unexpected call to check the validity of json string.\
-            The source must be string."
+# check if the source is valid json string
+def is_valid_json_string(source: str):
+    try:
+        _ = json.loads(source)
+        return True
+    except json.JSONDecodeError:
+        logging.error(
+            "Insert valid string format of JSON. \
+            Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
         )
         return False
-    else:
-        try:
-            _ = json.loads(source)
-            return True
-        except json.JSONDecodeError:
-            logging.error(
-                "Insert valid string format of JSON. \
-                Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
-            )
-            return False
