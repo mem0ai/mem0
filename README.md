@@ -29,7 +29,7 @@ pip install --upgrade embedchain
 To run Embedchain as a REST API server run the following command:
 
 ```bash
-docker run -d --name embedchain -p 8080:8080 embedchain/app:rest-api-latest
+docker run -d --name embedchain -p 8080:8080 embedchain/rest-api:latest
 ```
 
 Navigate to http://0.0.0.0:8080/docs to interact with the API.

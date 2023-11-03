@@ -7,7 +7,7 @@ title: "🌍 Getting Started"
 To use Embedchain as a REST API service, run the following command:
 
 ```bash
-docker run --name embedchain -p 8080:8080 embedchain/app:rest-api-latest
+docker run --name embedchain -p 8080:8080 embedchain/rest-api:latest
 ```
 
 Navigate to [http://localhost:8080/docs](http://localhost:8080/docs) to interact with the API. There is a full-fledged Swagger docs playground with all the information about the API endpoints.
@@ -79,7 +79,7 @@ To add env variables, you can simply run the docker command with the `-e` flag.
 For example,
 
 ```bash
-docker run --name embedchain -p 8080:8080 -e OPENAI_API_KEY=<YOUR_OPENAI_API_KEY> embedchain/app:rest-api-latest
+docker run --name embedchain -p 8080:8080 -e OPENAI_API_KEY=<YOUR_OPENAI_API_KEY> embedchain/rest-api:latest
 ```
 
 If you run into issues, please feel free to contact us using below links:
