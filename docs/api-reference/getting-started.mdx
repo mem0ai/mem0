@@ -2,12 +2,12 @@
 title: "🌍 Getting Started"
 ---
 
-## Quick Start
+## Quickstart
 
 To run Embedchain as a REST API server use,
 
 ```bash
-docker run -d --name embedchain -p 8080:8080 embedchain/app:rest-api-latest
+docker run -d --name embedchain -p 8080:8080 embedchain/rest-api:latest
 ```
 
 Open up your browser and navigate to http://0.0.0.0:8080/docs to interact with the API. There is a full-fledged Swagger docs playground with all the information
@@ -83,7 +83,7 @@ To provide them, you can simply run the docker command with the `-e` flag.
 For example,
 
 ```bash
-docker run -d --name embedchain -p 8080:8080 -e OPENAI_API_KEY=YOUR_API_KEY embedchain/app:rest-api-latest
+docker run -d --name embedchain -p 8080:8080 -e OPENAI_API_KEY=YOUR_API_KEY embedchain/rest-api:latest
 ```
 
 Cool! This will create a new Embedchain App with the given `app_id`.
@@ -95,7 +95,7 @@ for your app that can sync the data time to time and provide you with the best r
 
 ![My first Pipeline](https://github.com/embedchain/embedchain/assets/73601258/266a66e0-330e-4bb9-aa97-687d826cd3fa)
 
-To utilize this functionality, visit app.embedchain.ai and create an account. Subsequently, generate a new [API KEY](https://app.embedchain.ai/settings/keys/).
+To utilize this functionality, visit [app.embedchain.ai](app.embedchain.ai) and create an account. Subsequently, generate a new [API KEY](https://app.embedchain.ai/settings/keys/).
 
 ![Create Embedchain API Key](https://github.com/embedchain/embedchain/assets/73601258/791e92cc-4a6f-4740-94c2-f11cce13e93b)
 
