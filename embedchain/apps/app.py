@@ -130,7 +130,7 @@ class App(EmbedChain):
         app_config_data = config_data.get("app", {})
         llm_config_data = config_data.get("llm", {})
         db_config_data = config_data.get("vectordb", {})
-        embedder_config_data = config_data.get("embedder", {})
+        embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
 
         app_config = AppConfig(**app_config_data.get("config", {}))
 
@@ -140,6 +140,6 @@ class App(EmbedChain):
         db_provider = db_config_data.get("provider", "chroma")
         db = VectorDBFactory.create(db_provider, db_config_data.get("config", {}))
 
-        embedder_provider = embedder_config_data.get("provider", "openai")
-        embedder = EmbedderFactory.create(embedder_provider, embedder_config_data.get("config", {}))
+        embedder_provider = embedding_model_config_data.get("provider", "openai")
+        embedder = EmbedderFactory.create(embedder_provider, embedding_model_config_data.get("config", {}))
         return cls(config=app_config, llm=llm, db=db, embedder=embedder)
