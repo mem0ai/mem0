@@ -18,4 +18,4 @@ def generate_error_message_for_api_keys(error: ValueError) -> str:
 Example: `docker run -e {missing_keys[0]}=xxx embedchain/rest-api:latest`
 """
     else:
-        return "Unknown error occurred."
+        return "Error: " + str(error)
