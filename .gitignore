@@ -76,7 +76,6 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-*.yaml
 
 # IPython
 profile_default/

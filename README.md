@@ -26,6 +26,14 @@ Book a [1-on-1 Session](https://cal.com/taranjeetio/ec) with Taranjeet, the foun
 pip install --upgrade embedchain
 ```
 
+To run Embedchain as a REST API server use,
+
+```bash
+docker run -d --name embedchain -p 8000:8000 embedchain/app:rest-api-latest
+```
+
+Navigate to http://0.0.0.0:8000/docs to interact with the API.
+
 ## 🔍 Demo
 
 Try out embedchain in your browser:
