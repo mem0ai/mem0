@@ -93,17 +93,17 @@
     },
     {
       "group": "REST API",
-        "pages": [
-          "api-reference/getting-started",
-          "api-reference/check-status",
-          "api-reference/get-all-apps",
-          "api-reference/create-app",
-          "api-reference/query-an-app",
-          "api-reference/add-datasource-to-an-app",
-          "api-reference/get-datasources-associated-with-app-id",
-          "api-reference/deploy-app",
-          "api-reference/delete-app"
-        ]
+      "pages": [
+        "rest-api/getting-started",
+        "rest-api/create",
+        "rest-api/get-all-apps",
+        "rest-api/add-data",
+        "rest-api/get-data",
+        "rest-api/query",
+        "rest-api/deploy",
+        "rest-api/delete",
+        "rest-api/check-status"
+      ]
     },
     {
       "group": "Examples",
