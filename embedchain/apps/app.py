@@ -126,7 +126,19 @@ class App(EmbedChain):
         """
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
+        return cls.from_dict_config(config_data)
 
+    @classmethod
+    def from_dict_config(cls, config_data_dict: dict):
+        """
+        Instantiate an App object from a dictionary configuration.
+
+        :param config_data_dict: dictionary configuration.
+        :type config_data_dict: dict
+        :return: An instance of the App class.
+        :rtype: App
+        """
+        config_data = config_data_dict
         app_config_data = config_data.get("app", {})
         llm_config_data = config_data.get("llm", {})
         db_config_data = config_data.get("vectordb", {})
