@@ -246,7 +246,7 @@
         "post": {
           "tags": ["Apps"],
           "summary": "Deploy App",
-          "description": "Query an existing app.\n\napp_id: The ID of the app. Use \"default\" for the default app.\n\napi_key: The API key to use for deployment. If not provided,\nEmbedchain will use the API key previously used (if any).",
+          "description": "Deploy an existing app.",
           "operationId": "deploy_app__app_id__deploy_post",
           "parameters": [
             {
@@ -344,7 +344,10 @@
             }
           },
           "type": "object",
-          "title": "DeployAppRequest"
+          "title": "DeployAppRequest",
+          "example":{
+            "api_key":"ec-xxx"
+         }
         },
         "HTTPValidationError": {
           "properties": {
@@ -379,7 +382,10 @@
             }
           },
           "type": "object",
-          "title": "QueryApp"
+          "title": "QueryApp",
+          "example":{
+            "query":"Who is Elon Musk?"
+         }
         },
         "SourceApp": {
           "properties": {
@@ -397,7 +403,10 @@
             }
           },
           "type": "object",
-          "title": "SourceApp"
+          "title": "SourceApp",
+          "example":{
+            "source":"https://en.wikipedia.org/wiki/Elon_Musk"
+         }
         },
         "ValidationError": {
           "properties": {

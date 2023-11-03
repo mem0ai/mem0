@@ -101,6 +101,7 @@
           "api-reference/query-an-app",
           "api-reference/add-datasource-to-an-app",
           "api-reference/get-datasources-associated-with-app-id",
+          "api-reference/deploy-app",
           "api-reference/delete-app"
         ]
     },
