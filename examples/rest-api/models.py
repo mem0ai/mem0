@@ -1,7 +1,8 @@
 from typing import Optional
-from pydantic import BaseModel, Field
-from sqlalchemy import Column, String, Integer
+
 from database import Base
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, Integer, String
 
 
 class QueryApp(BaseModel):
