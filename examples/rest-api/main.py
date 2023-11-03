@@ -7,7 +7,6 @@ from embedchain.client import Client
 from models import (
     QueryApp,
     SourceApp,
-    MessageApp,
     DefaultResponse,
     DeployAppRequest,
 )
@@ -199,41 +198,45 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
         raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
 
 
-@app.post(
-    "/{app_id}/chat",
-    tags=["Apps"],
-    response_model=DefaultResponse,
-)
-async def chat_with_an_app(body: MessageApp, app_id: str, db: Session = Depends(get_db)):
-    """
-    Query an existing app.\n
-    app_id: The ID of the app. Use "default" for the default app.\n
-    message: The message that you want to send to the App.\n
-    """
-    try:
-        if app_id is None:
-            raise HTTPException(
-                detail="App ID not provided. If you want to use the default app, use 'default' as the app_id.",
-                status_code=400,
-            )
+# FIXME: The chat implementation of Embedchain needs to be modified to work with the REST API.
+# @app.post(
+#     "/{app_id}/chat",
+#     tags=["Apps"],
+#     response_model=DefaultResponse,
+# )
+# async def chat_with_an_app(body: MessageApp, app_id: str, db: Session = Depends(get_db)):
+#     """
+#     Query an existing app.\n
+#     app_id: The ID of the app. Use "default" for the default app.\n
+#     message: The message that you want to send to the App.\n
+#     """
+#     try:
+#         if app_id is None:
+#             raise HTTPException(
+#                 detail="App ID not provided. If you want to use the default app, use 'default' as the app_id.",
+#                 status_code=400,
+#             )
 
-        db_app = get_app(db, app_id)
+#         db_app = get_app(db, app_id)
 
-        if db_app is None:
-            raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
+#         if db_app is None:
+#             raise HTTPException(
+#               detail=f"App with id {app_id} does not exist, please create it first.",
+#               status_code=400
+#             )
 
-        app = App.from_config(yaml_path=db_app.config)
+#         app = App.from_config(yaml_path=db_app.config)
 
-        response = app.chat(body.message)
-        return DefaultResponse(response=response)
-    except ValueError as ve:
-        if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
-            raise HTTPException(
-                detail=generate_error_message_for_api_keys(ve),
-                status_code=400,
-            )
-    except Exception as e:
-        raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
+#         response = app.chat(body.message)
+#         return DefaultResponse(response=response)
+#     except ValueError as ve:
+#         if "OPENAI_API_KEY" in str(ve) or "OPENAI_ORGANIZATION" in str(ve):
+#             raise HTTPException(
+#                 detail=generate_error_message_for_api_keys(ve),
+#                 status_code=400,
+#             )
+#     except Exception as e:
+#         raise HTTPException(detail=f"Error occurred: {e}", status_code=400)
 
 
 @app.post(
