@@ -12,7 +12,7 @@ Here are the supported sources for loading `json`:
 ```
 
 If you would like to add other data structures (e.x. list, dict etc.), do:
-```
+```python
     import json
     a = {"foo": "bar"}
     valid_json_string_data = json.dumps(a, indent=0)
@@ -21,7 +21,7 @@ If you would like to add other data structures (e.x. list, dict etc.), do:
     valid_json_string_data = json.dumps(b, indent=0)
 ```
 Example:
-```
+```python
 import os
 
 from embedchain.apps.app import App
@@ -43,7 +43,7 @@ print(response)
 "As of October 2023, Elon Musk's net worth is $255.2 billion."
 ```
 temp.json
-```
+```json
 {
     "question": "What is your net worth, Elon Musk?",
     "answer": "As of October 2023, Elon Musk's net worth is $255.2 billion, making him one of the wealthiest individuals in the world."
