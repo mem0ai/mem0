@@ -23,4 +23,4 @@ embedder:
   provider: openai
   config:
     model: 'text-embedding-ada-002'
-    deployment_name: null
+    deployment_name: 'test-deployment'
