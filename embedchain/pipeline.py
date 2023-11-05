@@ -10,7 +10,7 @@ import yaml
 from fastapi import FastAPI, HTTPException
 
 from embedchain import Client
-from embedchain.config import PipelineConfig
+from embedchain.config import PipelineConfig, ChunkerConfig
 from embedchain.embedchain import CONFIG_DIR, EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
@@ -45,6 +45,7 @@ class Pipeline(EmbedChain):
         yaml_path: str = None,
         log_level=logging.INFO,
         auto_deploy: bool = False,
+        chunker: ChunkerConfig = None,
     ):
         """
         Initialize a new `App` instance.
@@ -84,6 +85,10 @@ class Pipeline(EmbedChain):
         self.client = None
         # pipeline_id from the backend
         self.id = None
+
+        self.chunker = None
+        if chunker:
+            self.chunker = ChunkerConfig(**chunker)
 
         self.config = config or PipelineConfig()
         self.name = self.config.name
@@ -367,6 +372,7 @@ class Pipeline(EmbedChain):
         db_config_data = config_data.get("vectordb", {})
         embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         llm_config_data = config_data.get("llm", {})
+        chunker_config_data = config_data.get("chunker", {})
 
         pipeline_config = PipelineConfig(**pipeline_config_data)
 
@@ -395,6 +401,7 @@ class Pipeline(EmbedChain):
             embedding_model=embedding_model,
             yaml_path=yaml_path,
             auto_deploy=auto_deploy,
+            chunker=chunker_config_data,
         )
 
     def start(self, host="0.0.0.0", port=8000):
