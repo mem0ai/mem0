@@ -350,6 +350,11 @@ def validate_yaml_config(config_data):
                     Optional("deployment_name"): str,
                 },
             },
+            Optional("chunker"): {
+                Optional("chunk_size"): int,
+                Optional("chunk_overlap"): int,
+                Optional("length_function"): str,
+            },
         }
     )
 

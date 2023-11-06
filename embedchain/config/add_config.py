@@ -1,3 +1,5 @@
+import builtins
+from importlib import import_module
 from typing import Callable, Optional
 
 from embedchain.config.base_config import BaseConfig
@@ -18,7 +20,18 @@ class ChunkerConfig(BaseConfig):
     ):
         self.chunk_size = chunk_size if chunk_size else 2000
         self.chunk_overlap = chunk_overlap if chunk_overlap else 0
-        self.length_function = length_function if length_function else len
+        if isinstance(length_function, str):
+            self.length_function = self.load_func(length_function)
+        else:
+            self.length_function = length_function if length_function else len
+
+    def load_func(self, dotpath: str):
+        if "." not in dotpath:
+            return getattr(builtins, dotpath)
+        else:
+            module_, func = dotpath.rsplit(".", maxsplit=1)
+            m = import_module(module_)
+            return getattr(m, func)
 
 
 @register_deserializable
