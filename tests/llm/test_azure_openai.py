@@ -45,14 +45,14 @@ def test_get_answer(azure_openai_llm):
             streaming=azure_openai_llm.config.stream,
         )
         mock_chat_instance.assert_called_once_with(
-            azure_openai_llm._get_messages(prompt, system_prompt=azure_openai_llm.config.system_prompt)
+            azure_openai_llm._get_langchain_messages(prompt, system_prompt=azure_openai_llm.config.system_prompt)
         )
 
 
-def test_get_messages(azure_openai_llm):
+def test_get_langchain_messages(azure_openai_llm):
     prompt = "Test Prompt"
     system_prompt = "Test System Prompt"
-    messages = azure_openai_llm._get_messages(prompt, system_prompt)
+    messages = azure_openai_llm._get_langchain_messages(prompt, system_prompt)
     assert messages == [
         SystemMessage(content="Test System Prompt", additional_kwargs={}),
         HumanMessage(content="Test Prompt", additional_kwargs={}, example=False),
@@ -80,7 +80,7 @@ def test_get_answer_top_p_is_provided(azure_openai_llm, caplog):
             streaming=config.stream,
         )
         mock_chat_instance.assert_called_once_with(
-            azure_openai_llm._get_messages(prompt, system_prompt=config.system_prompt)
+            azure_openai_llm._get_langchain_messages(prompt, system_prompt=config.system_prompt)
         )
 
         assert "Config option `top_p` is not supported by this model." in caplog.text

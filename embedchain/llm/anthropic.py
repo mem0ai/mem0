@@ -28,6 +28,6 @@ class AnthropicLlm(BaseLlm):
         if config.max_tokens and config.max_tokens != 1000:
             logging.warning("Config option `max_tokens` is not supported by this model.")
 
-        messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
+        messages = BaseLlm._get_langchain_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content

@@ -31,6 +31,6 @@ class VertexAILlm(BaseLlm):
         if config.top_p and config.top_p != 1:
             logging.warning("Config option `top_p` is not supported by this model.")
 
-        messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
+        messages = BaseLlm._get_langchain_messages(prompt, system_prompt=config.system_prompt)
 
         return chat(messages).content

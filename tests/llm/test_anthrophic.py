@@ -38,14 +38,14 @@ def test_get_answer(anthropic_llm):
             model=anthropic_llm.config.model,
         )
         mock_chat_instance.assert_called_once_with(
-            anthropic_llm._get_messages(prompt, system_prompt=anthropic_llm.config.system_prompt)
+            anthropic_llm._get_langchain_messages(prompt, system_prompt=anthropic_llm.config.system_prompt)
         )
 
 
-def test_get_messages(anthropic_llm):
+def test_get_langchain_messages(anthropic_llm):
     prompt = "Test Prompt"
     system_prompt = "Test System Prompt"
-    messages = anthropic_llm._get_messages(prompt, system_prompt)
+    messages = anthropic_llm._get_langchain_messages(prompt, system_prompt)
     assert messages == [
         SystemMessage(content="Test System Prompt", additional_kwargs={}),
         HumanMessage(content="Test Prompt", additional_kwargs={}, example=False),
