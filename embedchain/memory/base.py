@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import time
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from embedchain.constants import SQLITE_PATH
 from embedchain.memory.message import ECBaseChatMessage
@@ -38,17 +38,18 @@ class ECChatMemory:
             self.cursor.execute(CHAT_MEMORY_CREATE_TABLE_QUERY)
             self.connection.commit()
 
-    def add(self, app_id, chat_memory: ECBaseChatMessage):
+    def add(self, app_id, chat_memory: ECBaseChatMessage) -> Optional[str]:
         memory_id = str(uuid.uuid4())
         created_at = time.time()
         metadata = self._serialize_json(
             merge_metadata_dict(chat_memory.human_message.metadata, chat_memory.ai_message.metadata)
         )
-        self.cursor.execute(
-            """
+        ADD_CHAT_MESSAGE_QUERY = """
             INSERT INTO chat_memory (app_id, id, question, answer, created_at, metadata)
             VALUES (?, ?, ?, ?, ?, ?)
-        """,
+        """
+        self.cursor.execute(
+            ADD_CHAT_MESSAGE_QUERY,
             (
                 app_id,
                 memory_id,
@@ -63,10 +64,11 @@ class ECChatMemory:
         return memory_id
 
     def delete_chat_history(self, app_id: str):
-        self.cursor.execute(
-            """
+        DELETE_CHAT_HISTORY_QUERY = """
             DELETE FROM chat_memory WHERE app_id=?
-        """,
+        """
+        self.cursor.execute(
+            DELETE_CHAT_HISTORY_QUERY,
             (app_id,),
         )
         self.connection.commit()
@@ -77,13 +79,14 @@ class ECChatMemory:
         for a given app_id.
         """
 
-        self.cursor.execute(
-            """
+        QUERY = """
             SELECT * FROM chat_memory
             WHERE app_id=?
             ORDER BY created_at DESC
             LIMIT ?
-        """,
+        """
+        self.cursor.execute(
+            QUERY,
             (app_id, n_memories),
         )
 
@@ -108,11 +111,12 @@ class ECChatMemory:
         self.connection.close()
 
     def count_chat_memory_entries(self, app_id: str):
-        self.cursor.execute(
-            """
+        QUERY = """
         SELECT COUNT(*) FROM chat_memory
         WHERE app_id=?
-        """,
+        """
+        self.cursor.execute(
+            QUERY,
             (app_id,),
         )
         count = self.cursor.fetchone()[0]

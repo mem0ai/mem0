@@ -1,8 +1,6 @@
 import logging
 from typing import Any, Dict, Optional
 
-from pydantic import Field
-
 from embedchain.helper.json_serializable import JSONSerializable
 
 
@@ -19,7 +17,7 @@ class ECBaseMessage(JSONSerializable):
     by: str
     """The creator of the message. AI, Human, Bot etc."""
 
-    metadata: Dict[str, Any] = Field(default_factory={})
+    metadata: Dict[str, Any]
     """Any additional info."""
 
     def __init__(self, content: str, by: str, metadata: Dict[str, Any] = {}) -> None:
