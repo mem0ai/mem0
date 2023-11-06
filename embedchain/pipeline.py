@@ -7,7 +7,6 @@ import uuid
 
 import requests
 import yaml
-from fastapi import FastAPI, HTTPException
 
 from embedchain import Client
 from embedchain.config import PipelineConfig
@@ -396,33 +395,3 @@ class Pipeline(EmbedChain):
             yaml_path=yaml_path,
             auto_deploy=auto_deploy,
         )
-
-    def start(self, host="0.0.0.0", port=8000):
-        app = FastAPI()
-
-        @app.post("/add")
-        async def add_document(data_value: str, data_type: str = None):
-            """
-            Add a document to the pipeline.
-            """
-            try:
-                document = {"data_value": data_value, "data_type": data_type}
-                self.add(document)
-                return {"message": "Document added successfully"}
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @app.post("/query")
-        async def query_documents(query: str, num_documents: int = 3):
-            """
-            Query for similar documents in the pipeline.
-            """
-            try:
-                results = self.search(query, num_documents)
-                return results
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        import uvicorn
-
-        uvicorn.run(app, host=host, port=port)
