@@ -597,8 +597,7 @@ class EmbedChain(JSONSerializable):
         )
 
         # add conversation in memory
-        app_id = self.config.id
-        self.llm.add_history(app_id, input_query, answer)
+        self.llm.add_history(self.config.id, input_query, answer)
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="chat", properties=self._telemetry_props)

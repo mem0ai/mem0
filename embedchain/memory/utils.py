@@ -1,9 +1,9 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
-def merge_metadata_dict(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+def merge_metadata_dict(left: Optional[Dict[str, Any]], right: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
-    Merge the metadatas of two ECBaseMessage types.
+    Merge the metadatas of two BaseMessage types.
 
     Args:
         left (Dict[str, Any]): metadata of human message
@@ -13,6 +13,13 @@ def merge_metadata_dict(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str
         Dict[str, Any]: combined metadata dict with dedup
         to be saved in db.
     """
+    if not left and not right:
+        return None
+    elif not left:
+        return right
+    elif not right:
+        return left
+
     merged = left.copy()
     for k, v in right.items():
         if k not in merged:

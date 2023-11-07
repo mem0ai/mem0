@@ -6,7 +6,7 @@ from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
 from embedchain.llm.base import BaseLlm
 from embedchain.memory.base import ECChatMemory
-from embedchain.memory.message import ECBaseChatMessage
+from embedchain.memory.message import ChatMessage
 
 
 class TestApp(unittest.TestCase):
@@ -52,7 +52,7 @@ class TestApp(unittest.TestCase):
         Also tests that a dry run does not change the history
         """
         with patch.object(ECChatMemory, "get_recent_memories") as mock_memory:
-            mock_message = ECBaseChatMessage()
+            mock_message = ChatMessage()
             mock_message.add_user_message("Test query 1")
             mock_message.add_ai_message("Test answer")
             mock_memory.return_value = [mock_message]

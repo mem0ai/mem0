@@ -1,12 +1,11 @@
 import json
 import logging
 import sqlite3
-import time
 import uuid
 from typing import Any, Dict, List, Optional
 
 from embedchain.constants import SQLITE_PATH
-from embedchain.memory.message import ECBaseChatMessage
+from embedchain.memory.message import ChatMessage
 from embedchain.memory.utils import merge_metadata_dict
 
 """
@@ -17,14 +16,14 @@ answer: ai response
 created_at: unix formatted timestamp of creation.
 metadata: stringified JSON of metadata dictionary.
 """
-CHAT_MEMORY_CREATE_TABLE_QUERY = """
-            CREATE TABLE IF NOT EXISTS chat_memory (
+CHAT_MESSAGE_CREATE_TABLE_QUERY = """
+            CREATE TABLE IF NOT EXISTS chat_history (
                 app_id TEXT,
                 id TEXT,
                 question TEXT,
                 answer TEXT,
-                created_at REAL,
                 metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id, app_id)
             )
             """
@@ -35,28 +34,26 @@ class ECChatMemory:
         with sqlite3.connect(SQLITE_PATH) as self.connection:
             self.cursor = self.connection.cursor()
 
-            self.cursor.execute(CHAT_MEMORY_CREATE_TABLE_QUERY)
+            self.cursor.execute(CHAT_MESSAGE_CREATE_TABLE_QUERY)
             self.connection.commit()
 
-    def add(self, app_id, chat_memory: ECBaseChatMessage) -> Optional[str]:
+    def add(self, app_id, chat_message: ChatMessage) -> Optional[str]:
         memory_id = str(uuid.uuid4())
-        created_at = time.time()
-        metadata = self._serialize_json(
-            merge_metadata_dict(chat_memory.human_message.metadata, chat_memory.ai_message.metadata)
-        )
+        metadata_dict = merge_metadata_dict(chat_message.human_message.metadata, chat_message.ai_message.metadata)
+        if metadata_dict:
+            metadata = self._serialize_json(metadata_dict)
         ADD_CHAT_MESSAGE_QUERY = """
-            INSERT INTO chat_memory (app_id, id, question, answer, created_at, metadata)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO chat_history (app_id, id, question, answer, metadata)
+            VALUES (?, ?, ?, ?, ?)
         """
         self.cursor.execute(
             ADD_CHAT_MESSAGE_QUERY,
             (
                 app_id,
                 memory_id,
-                chat_memory.human_message.content,
-                chat_memory.ai_message.content,
-                created_at,
-                metadata,
+                chat_message.human_message.content,
+                chat_message.ai_message.content,
+                metadata if metadata_dict else "{}",
             ),
         )
         self.connection.commit()
@@ -65,7 +62,7 @@ class ECChatMemory:
 
     def delete_chat_history(self, app_id: str):
         DELETE_CHAT_HISTORY_QUERY = """
-            DELETE FROM chat_memory WHERE app_id=?
+            DELETE FROM chat_history WHERE app_id=?
         """
         self.cursor.execute(
             DELETE_CHAT_HISTORY_QUERY,
@@ -73,33 +70,33 @@ class ECChatMemory:
         )
         self.connection.commit()
 
-    def get_recent_memories(self, app_id, n_memories=10) -> List[ECBaseChatMessage]:
+    def get_recent_memories(self, app_id, num_rounds=10) -> List[ChatMessage]:
         """
-        Get the most recent n_memories number of memories
-        for a given app_id.
+        Get the most recent num_rounds rounds of conversations
+        between human and AI, for a given app_id.
         """
 
         QUERY = """
-            SELECT * FROM chat_memory
+            SELECT * FROM chat_history
             WHERE app_id=?
             ORDER BY created_at DESC
             LIMIT ?
         """
         self.cursor.execute(
             QUERY,
-            (app_id, n_memories),
+            (app_id, num_rounds),
         )
 
         results = self.cursor.fetchall()
-        memories = []
+        history = []
         for result in results:
-            app_id, id, question, answer, timestamp, metadata = result
+            app_id, id, question, answer, metadata, timestamp = result
             metadata = self._deserialize_json(metadata=metadata)
-            memory = ECBaseChatMessage()
+            memory = ChatMessage()
             memory.add_user_message(question, metadata=metadata)
             memory.add_ai_message(answer, metadata=metadata)
-            memories.append(memory)
-        return memories
+            history.append(memory)
+        return history
 
     def _serialize_json(self, metadata: Dict[str, Any]):
         return json.dumps(metadata)
@@ -110,9 +107,9 @@ class ECChatMemory:
     def close_connection(self):
         self.connection.close()
 
-    def count_chat_memory_entries(self, app_id: str):
+    def count_history_messages(self, app_id: str):
         QUERY = """
-        SELECT COUNT(*) FROM chat_memory
+        SELECT COUNT(*) FROM chat_history
         WHERE app_id=?
         """
         self.cursor.execute(

@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Generator, List, Optional
 
-from langchain.schema import BaseMessage
+from langchain.schema import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
 from embedchain.config.llm.base import (DEFAULT_PROMPT,
@@ -9,7 +9,7 @@ from embedchain.config.llm.base import (DEFAULT_PROMPT,
                                         DOCS_SITE_PROMPT_TEMPLATE)
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.memory.base import ECChatMemory
-from embedchain.memory.message import ECBaseChatMessage
+from embedchain.memory.message import ChatMessage
 
 
 class BaseLlm(JSONSerializable):
@@ -47,15 +47,15 @@ class BaseLlm(JSONSerializable):
 
     def update_history(self, app_id: str):
         """Update class history attribute with history in memory (for chat method)"""
-        chat_history = self.memory.get_recent_memories(app_id=app_id, n_memories=10)
+        chat_history = self.memory.get_recent_memories(app_id=app_id, num_rounds=10)
         if chat_history:
             self.set_history([str(history) for history in chat_history])
 
-    def add_history(self, app_id: str, question: str, answer: str, metadata: Dict[str, Any] = {}):
-        chat_memory = ECBaseChatMessage()
-        chat_memory.add_user_message(question, metadata=metadata)
-        chat_memory.add_ai_message(answer, metadata=metadata)
-        self.memory.add(app_id=app_id, chat_memory=chat_memory)
+    def add_history(self, app_id: str, question: str, answer: str, metadata: Optional[Dict[str, Any]] = None):
+        chat_message = ChatMessage()
+        chat_message.add_user_message(question, metadata=metadata)
+        chat_message.add_ai_message(answer, metadata=metadata)
+        self.memory.add(app_id=app_id, chat_message=chat_message)
         self.update_history(app_id=app_id)
 
     def generate_prompt(self, input_query: str, contexts: List[str], **kwargs: Dict[str, Any]) -> str:
@@ -285,7 +285,7 @@ class BaseLlm(JSONSerializable):
                 self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)
 
     @staticmethod
-    def _get_langchain_messages(prompt: str, system_prompt: Optional[str] = None) -> List[BaseMessage]:
+    def _get_langchain_messages(prompt: str, system_prompt: Optional[str] = None) -> List[LCBaseMessage]:
         """
         Construct a list of langchain messages
 

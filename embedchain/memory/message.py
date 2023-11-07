@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from embedchain.helper.json_serializable import JSONSerializable
 
 
-class ECBaseMessage(JSONSerializable):
+class BaseMessage(JSONSerializable):
     """
     The base abstract message class.
 
@@ -20,7 +20,7 @@ class ECBaseMessage(JSONSerializable):
     metadata: Dict[str, Any]
     """Any additional info."""
 
-    def __init__(self, content: str, by: str, metadata: Dict[str, Any] = {}) -> None:
+    def __init__(self, content: str, by: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
         self.content = content
         self.by = by
@@ -39,7 +39,7 @@ class ECBaseMessage(JSONSerializable):
         return f"{self.by}: {self.content}"
 
 
-class ECBaseChatMessage(JSONSerializable):
+class ChatMessage(JSONSerializable):
     """
     The base abstract chat message class.
 
@@ -47,26 +47,26 @@ class ECBaseChatMessage(JSONSerializable):
     between human and model.
     """
 
-    human_message: Optional[ECBaseMessage] = None
-    ai_message: Optional[ECBaseMessage] = None
+    human_message: Optional[BaseMessage] = None
+    ai_message: Optional[BaseMessage] = None
 
-    def add_user_message(self, message: str, metadata: dict = {}):
+    def add_user_message(self, message: str, metadata: Optional[dict] = None):
         if self.human_message:
             logging.info(
                 "Human message already exists in the chat message,\
                 overwritting it with new message."
             )
 
-        self.human_message = ECBaseMessage(content=message, by="human", metadata=metadata)
+        self.human_message = BaseMessage(content=message, by="human", metadata=metadata)
 
-    def add_ai_message(self, message: str, metadata: dict = {}):
+    def add_ai_message(self, message: str, metadata: Optional[dict] = None):
         if self.ai_message:
             logging.info(
                 "AI message already exists in the chat message,\
                 overwritting it with new message."
             )
 
-        self.ai_message = ECBaseMessage(content=message, by="ai", metadata=metadata)
+        self.ai_message = BaseMessage(content=message, by="ai", metadata=metadata)
 
     def __str__(self) -> str:
         return f"{self.human_message} | {self.ai_message}"

@@ -1,4 +1,4 @@
-from embedchain.memory.message import ECBaseChatMessage, ECBaseMessage
+from embedchain.memory.message import BaseMessage, ChatMessage
 
 
 def test_ec_base_message():
@@ -6,7 +6,7 @@ def test_ec_base_message():
     by = "human"
     metadata = {"key": "value"}
 
-    message = ECBaseMessage(content=content, by=by, metadata=metadata)
+    message = BaseMessage(content=content, by=by, metadata=metadata)
 
     assert message.content == content
     assert message.by == by
@@ -22,7 +22,7 @@ def test_ec_base_chat_message():
     human_metadata = {"user": "John"}
     ai_metadata = {"response_time": 0.5}
 
-    chat_message = ECBaseChatMessage()
+    chat_message = ChatMessage()
     chat_message.add_user_message(human_message_content, metadata=human_metadata)
     chat_message.add_ai_message(ai_message_content, metadata=ai_metadata)
 
