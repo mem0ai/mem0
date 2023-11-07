@@ -222,3 +222,16 @@ class ZillizVectorDB(BaseVectorDB):
         if not isinstance(name, str):
             raise TypeError("Collection name must be a string")
         self.config.collection_name = name
+
+    def delete(self, keys: Union[list, str, int]):
+        """
+        Delete the embeddings from DB. Zilliz only support deleting with keys.
+
+
+        :param keys: Primary keys of the table entries to delete.
+        :type keys: Union[list, str, int]
+        """
+        self.client.delete(
+            collection_name=self.config.collection_name,
+            pks=keys,
+        )
