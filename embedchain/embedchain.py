@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
 from embedchain.chunkers.base_chunker import BaseChunker
-from embedchain.config import AddConfig, BaseLlmConfig
+from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
@@ -16,8 +16,7 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import (DataType, DirectDataType,
-                                         IndirectDataType, SpecialDataType)
+from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
@@ -77,6 +76,7 @@ class EmbedChain(JSONSerializable):
         # Attributes that aren't subclass related.
         self.user_asks = []
 
+        self.chunker: ChunkerConfig = None
         # Send anonymous telemetry
         self._telemetry_props = {"class": self.__class__.__name__}
         self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
@@ -150,7 +150,11 @@ class EmbedChain(JSONSerializable):
         :return: source_hash, a md5-hash of the source, in hexadecimal representation.
         :rtype: str
         """
-        if config is None:
+        if config is not None:
+            pass
+        elif self.chunker is not None:
+            config = AddConfig(chunker=self.chunker)
+        else:
             config = AddConfig()
 
         try:

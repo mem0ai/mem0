@@ -7,10 +7,9 @@ import uuid
 
 import requests
 import yaml
-from fastapi import FastAPI, HTTPException
 
 from embedchain import Client
-from embedchain.config import PipelineConfig
+from embedchain.config import PipelineConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
@@ -20,6 +19,7 @@ from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
+from embedchain.utils import validate_yaml_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -43,6 +43,7 @@ class Pipeline(EmbedChain):
         yaml_path: str = None,
         log_level=logging.INFO,
         auto_deploy: bool = False,
+        chunker: ChunkerConfig = None,
     ):
         """
         Initialize a new `App` instance.
@@ -82,6 +83,10 @@ class Pipeline(EmbedChain):
         self.client = None
         # pipeline_id from the backend
         self.id = None
+
+        self.chunker = None
+        if chunker:
+            self.chunker = ChunkerConfig(**chunker)
 
         self.config = config or PipelineConfig()
         self.name = self.config.name
@@ -356,10 +361,16 @@ class Pipeline(EmbedChain):
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
+        try:
+            validate_yaml_config(config_data)
+        except Exception as e:
+            raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
+
         pipeline_config_data = config_data.get("app", {}).get("config", {})
         db_config_data = config_data.get("vectordb", {})
         embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         llm_config_data = config_data.get("llm", {})
+        chunker_config_data = config_data.get("chunker", {})
 
         pipeline_config = PipelineConfig(**pipeline_config_data)
 
@@ -388,34 +399,5 @@ class Pipeline(EmbedChain):
             embedding_model=embedding_model,
             yaml_path=yaml_path,
             auto_deploy=auto_deploy,
+            chunker=chunker_config_data,
         )
-
-    def start(self, host="0.0.0.0", port=8000):
-        app = FastAPI()
-
-        @app.post("/add")
-        async def add_document(data_value: str, data_type: str = None):
-            """
-            Add a document to the pipeline.
-            """
-            try:
-                document = {"data_value": data_value, "data_type": data_type}
-                self.add(document)
-                return {"message": "Document added successfully"}
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @app.post("/query")
-        async def query_documents(query: str, num_documents: int = 3):
-            """
-            Query for similar documents in the pipeline.
-            """
-            try:
-                results = self.search(query, num_documents)
-                return results
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        import uvicorn
-
-        uvicorn.run(app, host=host, port=port)

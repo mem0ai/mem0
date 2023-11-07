@@ -2,7 +2,7 @@ from typing import Optional
 
 import yaml
 
-from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig
+from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
@@ -11,6 +11,7 @@ from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
+from embedchain.utils import validate_yaml_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -37,6 +38,7 @@ class App(EmbedChain):
         embedder: BaseEmbedder = None,
         embedder_config: Optional[BaseEmbedderConfig] = None,
         system_prompt: Optional[str] = None,
+        chunker: Optional[ChunkerConfig] = None,
     ):
         """
         Initialize a new `App` instance.
@@ -96,6 +98,9 @@ class App(EmbedChain):
         if embedder is None:
             embedder = OpenAIEmbedder(config=embedder_config)
 
+        self.chunker = None
+        if chunker:
+            self.chunker = ChunkerConfig(**chunker)
         # Type check assignments
         if not isinstance(llm, BaseLlm):
             raise TypeError(
@@ -127,10 +132,16 @@ class App(EmbedChain):
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
+        try:
+            validate_yaml_config(config_data)
+        except Exception as e:
+            raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
+
         app_config_data = config_data.get("app", {})
         llm_config_data = config_data.get("llm", {})
         db_config_data = config_data.get("vectordb", {})
         embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
+        chunker_config_data = config_data.get("chunker", {})
 
         app_config = AppConfig(**app_config_data.get("config", {}))
 
@@ -142,4 +153,4 @@ class App(EmbedChain):
 
         embedder_provider = embedding_model_config_data.get("provider", "openai")
         embedder = EmbedderFactory.create(embedder_provider, embedding_model_config_data.get("config", {}))
-        return cls(config=app_config, llm=llm, db=db, embedder=embedder)
+        return cls(config=app_config, llm=llm, db=db, embedder=embedder, chunker=chunker_config_data)

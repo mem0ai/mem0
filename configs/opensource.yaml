@@ -23,4 +23,4 @@ vectordb:
 embedder:
   provider: gpt4all
   config:
-    deployment_name: null
+    deployment_name: 'test-deployment'
