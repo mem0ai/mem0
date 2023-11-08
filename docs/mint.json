@@ -3,38 +3,43 @@
   "name": "Embedchain",
   "logo": {
     "dark": "/logo/dark.svg",
-    "light": "/logo/light.svg"
+    "light": "/logo/light.svg",
+    "href": "https://embedchain.ai/"
   },
   "favicon": "/favicon.png",
   "colors": {
-    "primary": "#2B48EE",
-    "light": "#2B48EE",
-    "dark": "#2B48EE",
+    "primary": "#3B2FC9",
+    "light": "#6673FF",
+    "dark": "#3B2FC9",
     "background": {
-      "dark": "#020415"
+      "dark": "#0f1117",
+      "light": "#fff"
     }
+  },
+  "modeToggle": {
+    "default": "dark"
   },
   "openapi": ["/rest-api.json"],
   "metadata": {
     "og:image": "/images/og.png",
     "twitter:site": "@embedchain"
   },
-  "topAnchor": {
-    "name": "Documentation",
-    "icon": "book-open"
-  },
+  "anchors": [
+    {
+      "name": "Embedchain Platform",
+      "icon": "tv",
+      "url": "https://app.embedchain.ai/"
+    },
+    {
+      "name": "Join our slack",
+      "icon": "slack",
+      "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
+    }
+  ],
   "topbarLinks": [
     {
-      "name": "Twitter",
-      "url": "https://twitter.com/embedchain"
-    },
-    {
-      "name": "Slack",
-      "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
-    },
-    {
-      "name": "Discord",
-      "url": "https://discord.gg/6PzXDgEjG5"
+      "name": "Create account",
+      "url": "https://app.embedchain.ai/login/"
     }
   ],
   "topbarCtaButton": {
@@ -106,7 +111,7 @@
       ]
     },
     {
-      "group": "Examples",
+      "group": "Use Cases",
       "pages": [
         "examples/full_stack",
         "examples/discord_bot",
