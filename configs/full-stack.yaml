@@ -2,6 +2,11 @@ app:
   config:
     id: 'full-stack-app'
 
+chunker:
+  chunk_size: 100
+  chunk_overlap: 20
+  length_function: 'len'
+
 llm:
   provider: openai
   config:

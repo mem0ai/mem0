@@ -11,6 +11,11 @@ app:
   config:
     id: 'full-stack-app'
 
+chunker:
+  chunk_size: 100
+  chunk_overlap: 20
+  length_function: 'len'
+
 llm:
   provider: openai
   config:
@@ -49,7 +54,11 @@ Alright, let's dive into what each key means in the yaml config above:
 1. `app` Section:
     - `config`:
         - `id` (String): The ID or name of your full-stack application.
-2. `llm` Section:
+2. `chunker` Section:
+    - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
+    - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.
+    - `length_function` (String): The function used to calculate the length of each chunk of text. In this case, it's set to 'len'. You can also use any function import directly as a string here.
+3. `llm` Section:
     - `provider` (String): The provider for the language model, which is set to 'openai'. You can find the full list of llm providers in [our docs](/components/llms).
     - `model` (String): The specific model being used, 'gpt-3.5-turbo'.
     - `config`:
@@ -59,13 +68,13 @@ Alright, let's dive into what each key means in the yaml config above:
         - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `template` (String): A custom template for the prompt that the model uses to generate responses.
         - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
-3. `vectordb` Section:
+4. `vectordb` Section:
     - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
     - `config`:
         - `collection_name` (String): The initial collection name for the database, set to 'full-stack-app'.
         - `dir` (String): The directory for the database, set to 'db'.
         - `allow_reset` (Boolean): Indicates whether resetting the database is allowed, set to true.
-4. `embedder` Section:
+5. `embedder` Section:
     - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
     - `config`:
         - `model` (String): The specific model used for text embedding, 'text-embedding-ada-002'.

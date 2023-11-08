@@ -1,0 +1,4 @@
+chunker:
+  chunk_size: 100
+  chunk_overlap: 20
+  length_function: 'len'
