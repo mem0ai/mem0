@@ -17,7 +17,8 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
+from embedchain.models.data_type import (DataType, DirectDataType,
+                                         IndirectDataType, SpecialDataType)
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
@@ -140,17 +141,17 @@ class EmbedChain(JSONSerializable):
                 raise ValueError(
                     f"Invalid postgres query: {source}",
                     "Provide the valid source to add from postgres, \
-                        make sure you are following `https://docs.embedchain.ai/data-sources/postgres`"
+                        make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
                 )
 
-            if ('loader_class' not in kwargs) or not isinstance(kwargs.get('loader_class'), BaseLoader):
+            if ("loader_class" not in kwargs) or not isinstance(kwargs.get("loader_class"), BaseLoader):
                 raise ValueError(
                     "you must also pass the loader using `loader_class` param.\
                         Make sure you are providing the class of `BaseLoader` type, \
                         check `https://docs.embedchain.ai/data-sources/postgres`"
                 )
-            
-            if ('chunker_class' not in kwargs) or not isinstance(kwargs.get('chunker_class'), BaseChunker):
+
+            if ("chunker_class" not in kwargs) or not isinstance(kwargs.get("chunker_class"), BaseChunker):
                 logging.info(
                     "you can also pass the chunker using `chunker_class` param.\
                         Make sure you are providing the class of `BaseChunker` type, \
@@ -249,17 +250,12 @@ class EmbedChain(JSONSerializable):
             return source_hash
 
         self.user_asks.append([source, data_type.value, metadata])
-        
+
         data_formatter = DataFormatter(data_type, config)
-        data_loader = kwargs.get('loader_class', data_formatter.loader)
-        data_chunker = kwargs.get('chunker_class', data_formatter.chunker)
+        data_loader = kwargs.get("loader_class", data_formatter.loader)
+        data_chunker = kwargs.get("chunker_class", data_formatter.chunker)
         documents, metadatas, _ids, new_chunks = self.load_and_embed(
-            data_loader,
-            data_chunker,
-            source,
-            metadata,
-            source_hash,
-            dry_run
+            data_loader, data_chunker, source, metadata, source_hash, dry_run
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
@@ -330,9 +326,9 @@ class EmbedChain(JSONSerializable):
             "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."  # noqa: E501
         )
         return self.add(
-            source=source, 
-            data_type=data_type, 
-            metadata=metadata, 
+            source=source,
+            data_type=data_type,
+            metadata=metadata,
             config=config,
             kwargs=kwargs,
         )

@@ -6,6 +6,7 @@ from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.openapi import OpenAPIChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
+from embedchain.chunkers.postgres import PostgresChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
 from embedchain.chunkers.table import TableChunker
@@ -14,7 +15,6 @@ from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config.add_config import ChunkerConfig
-from embedchain.chunkers.postgres import PostgresChunker
 
 chunker_config = ChunkerConfig(chunk_size=500, chunk_overlap=0, length_function=len)
 

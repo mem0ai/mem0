@@ -9,7 +9,7 @@ import requests
 import yaml
 
 from embedchain import Client
-from embedchain.config import PipelineConfig, ChunkerConfig
+from embedchain.config import ChunkerConfig, PipelineConfig
 from embedchain.embedchain import CONFIG_DIR, EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
