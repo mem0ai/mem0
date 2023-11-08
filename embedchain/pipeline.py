@@ -120,7 +120,7 @@ class Pipeline(EmbedChain):
         self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
 
         # Establish a connection to the SQLite database
-        self.connection = sqlite3.connect(SQLITE_PATH)
+        self.connection = sqlite3.connect(SQLITE_PATH, check_same_thread=False)
         self.cursor = self.connection.cursor()
 
         # Create the 'data_sources' table if it doesn't exist
