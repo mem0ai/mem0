@@ -140,16 +140,16 @@ class EmbedChain(JSONSerializable):
                         make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
                 )
 
-            if ("loader_class" not in kwargs) or not isinstance(kwargs.get("loader_class"), BaseLoader):
+            if ("loader" not in kwargs) or not isinstance(kwargs.get("loader"), BaseLoader):
                 raise ValueError(
-                    "you must also pass the loader using `loader_class` param.\
+                    "you must also pass the loader using `loader` param.\
                         Make sure you are providing the class of `BaseLoader` type, \
                         check `https://docs.embedchain.ai/data-sources/postgres`"
                 )
 
-            if ("chunker_class" not in kwargs) or not isinstance(kwargs.get("chunker_class"), BaseChunker):
+            if ("chunker" not in kwargs) or not isinstance(kwargs.get("chunker"), BaseChunker):
                 logging.info(
-                    "you can also pass the chunker using `chunker_class` param.\
+                    "you can also pass the chunker using `chunker` param.\
                         Make sure you are providing the class of `BaseChunker` type, \
                         check `https://docs.embedchain.ai/data-sources/postgres`"
                 )
