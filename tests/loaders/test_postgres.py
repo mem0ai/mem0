@@ -42,7 +42,6 @@ def test_load_data(postgres_loader, monkeypatch):
     assert mock_cursor.execute.called_with(query)
 
 
-
 def test_load_data_exception(postgres_loader, monkeypatch):
     mock_cursor = MagicMock()
     monkeypatch.setattr(postgres_loader, "cursor", mock_cursor)

@@ -149,9 +149,7 @@ class EmbedChain(JSONSerializable):
 
             if ("chunker" not in kwargs) or not isinstance(kwargs.get("chunker"), BaseChunker):
                 logging.info(
-                    "you can also pass the chunker using `chunker` param.\
-                        Make sure you are providing the class of `BaseChunker` type, \
-                        check `https://docs.embedchain.ai/data-sources/postgres`"
+                    "You can also pass the chunker using `chunker` param. Make sure you are providing the class of `BaseChunker` type, check `https://docs.embedchain.ai/data-sources/postgres`"  # noqa:E501
                 )
 
         elif data_type == DataType.JSON:
