@@ -3,6 +3,7 @@ from importlib import import_module
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig
 from embedchain.config.add_config import ChunkerConfig, LoaderConfig
+from embedchain.constants import DEFAULT_POSTGRES_CONFIG
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
@@ -31,6 +32,20 @@ class DataFormatter(JSONSerializable):
         module_path, class_name = module_path.rsplit(".", 1)
         module = import_module(module_path)
         return getattr(module, class_name)
+
+    def _get_default_loader_config(self, type: DataType):
+        custom_loader_default_config = {
+            DataType.POSTGRES: DEFAULT_POSTGRES_CONFIG,
+        }
+
+        if type in custom_loader_default_config:
+            return custom_loader_default_config[type]
+        else:
+            raise ValueError(
+                f"Error loading the default config for data type: {type}.",
+                "We highly recommend users to provide the loader. Check \
+                    `https://docs.embedchain.ai/data-sources/postgres`",
+            )
 
     def _get_loader(self, data_type: DataType, config: LoaderConfig) -> BaseLoader:
         """
@@ -62,11 +77,18 @@ class DataFormatter(JSONSerializable):
             DataType.OPENAPI: "embedchain.loaders.openapi.OpenAPILoader",
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
+        }
+        custom_loaders = {
             DataType.POSTGRES: "embedchain.loaders.postgres.PostgresLoader",
         }
+
         if data_type in loaders:
             loader_class: type = self._lazy_load(loaders[data_type])
             return loader_class()
+        elif data_type in custom_loaders:
+            loader_class: type = self._lazy_load(custom_loaders[data_type])
+            default_config = self._get_default_loader_config(data_type)
+            return loader_class(config=default_config)
         else:
             raise ValueError(f"Unsupported data type: {data_type}")
 

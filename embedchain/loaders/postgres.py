@@ -6,15 +6,16 @@ from embedchain.loaders.base_loader import BaseLoader
 
 
 class PostgresLoader(BaseLoader):
-    def __init__(self):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__()
-        self.connection = None
-        self.cursor = None
-
-    def setup_loader(self, config: Optional[Dict[str, Any]] = None):
         if not config:
             raise ValueError(f"Must provide the valid config. Received: {config}")
 
+        self.connection = None
+        self.cursor = None
+        self._setup_loader(config=config)
+
+    def _setup_loader(self, config: Dict[str, Any]):
         try:
             import psycopg
         except ImportError as e:
@@ -60,5 +61,7 @@ class PostgresLoader(BaseLoader):
     def close_connection(self):
         if self.cursor:
             self.cursor.close()
+            self.cursor = None
         if self.connection:
             self.connection.close()
+            self.connection = None
