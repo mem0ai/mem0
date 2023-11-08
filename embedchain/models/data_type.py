@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class DirectDataType(Enum):
     """
     DirectDataType enum contains data types that contain raw data directly.

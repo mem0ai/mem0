@@ -15,6 +15,7 @@ from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config.add_config import ChunkerConfig
+from embedchain.chunkers.postgres import PostgresChunker
 
 chunker_config = ChunkerConfig(chunk_size=500, chunk_overlap=0, length_function=len)
 
