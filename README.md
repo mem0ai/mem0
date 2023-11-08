@@ -1,5 +1,9 @@
-# embedchain
+<img src="docs/logo/light.svg">
 
+<br />
+<hr />
+
+<br />
 <a href="https://runacap.com/ross-index/q3-2023/" target="_blank" rel="noopener"><img style="width: 260px; height: 56px" src="https://runacap.com/wp-content/uploads/2023/10/ROSS_badge_black_Q3_2023.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q3 2023 | Runa Capital" width="260" height="56"/></a>
 
 [![PyPI](https://img.shields.io/pypi/v/embedchain)](https://pypi.org/project/embedchain/)
@@ -11,6 +15,8 @@
 [![codecov](https://codecov.io/gh/embedchain/embedchain/graph/badge.svg?token=EMRRHZXW1Q)](https://codecov.io/gh/embedchain/embedchain)
 
 Embedchain is a Data Platform for LLMs - load, index, retrieve, and sync any unstructured data. Using embedchain, you can easily create LLM powered apps over any data. If you want a javascript version, check out [embedchain-js](https://github.com/embedchain/embedchain/tree/main/embedchain-js)
+
+<img src="docs/images/cover2.gif" width="800px">
 
 ## Community
 
