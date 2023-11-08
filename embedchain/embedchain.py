@@ -144,16 +144,16 @@ class EmbedChain(JSONSerializable):
                         make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
                 )
 
-            if ("loader_class" not in kwargs) or not isinstance(kwargs.get("loader_class"), BaseLoader):
+            if ("loader" not in kwargs) or not isinstance(kwargs.get("loader"), BaseLoader):
                 raise ValueError(
-                    "you must also pass the loader using `loader_class` param.\
+                    "you must also pass the loader using `loader` param.\
                         Make sure you are providing the class of `BaseLoader` type, \
                         check `https://docs.embedchain.ai/data-sources/postgres`"
                 )
 
-            if ("chunker_class" not in kwargs) or not isinstance(kwargs.get("chunker_class"), BaseChunker):
+            if ("chunker" not in kwargs) or not isinstance(kwargs.get("chunker"), BaseChunker):
                 logging.info(
-                    "you can also pass the chunker using `chunker_class` param.\
+                    "you can also pass the chunker using `chunker` param.\
                         Make sure you are providing the class of `BaseChunker` type, \
                         check `https://docs.embedchain.ai/data-sources/postgres`"
                 )
@@ -252,8 +252,8 @@ class EmbedChain(JSONSerializable):
         self.user_asks.append([source, data_type.value, metadata])
 
         data_formatter = DataFormatter(data_type, config)
-        data_loader = kwargs.get("loader_class", data_formatter.loader)
-        data_chunker = kwargs.get("chunker_class", data_formatter.chunker)
+        data_loader = kwargs.get("loader", data_formatter.loader)
+        data_chunker = kwargs.get("chunker", data_formatter.chunker)
         documents, metadatas, _ids, new_chunks = self.load_and_embed(
             data_loader, data_chunker, source, metadata, source_hash, dry_run
         )

@@ -43,7 +43,7 @@ question = "What is Elon Musk's networth?"
 response = app.query(question)
 # Answer: As of September 2021, Elon Musk's net worth is estimated to be around $250 billion, making him one of the wealthiest individuals in the world. However, please note that net worth can fluctuate over time due to various factors such as stock market changes and business ventures.
 
-app.add("SELECT * FROM table_name;", data_type='postgres', loader_class=postgres_loader)
+app.add("SELECT * FROM table_name;", data_type='postgres', loader=postgres_loader)
 # Adds `(1, 'What is your net worth, Elon Musk?', "As of October 2023, Elon Musk's net worth is $255.2 billion.")`
 
 response = app.query(question)
@@ -61,5 +61,5 @@ from embedchain.config.add_config import ChunkerConfig
 postgres_chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=0, length_function=len)
 postgres_chunker = PostgresChunker(config=postgres_chunker_config)
 
-app.add("SELECT * FROM table_name;", data_type='postgres', loader_class=postgres_loader, chunker_class=postgres_chunker)
+app.add("SELECT * FROM table_name;", data_type='postgres', loader=postgres_loader, chunker=postgres_chunker)
 ```
