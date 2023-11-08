@@ -1,5 +1,5 @@
 ---
-title: '🤖 Discord Bot'
+title: "🤖 Discord Bot"
 ---
 
 ### 🔑 Keys Setup
@@ -12,9 +12,11 @@ title: '🤖 Discord Bot'
 - On the left sidebar, click on `OAuth2` and go to `General`.
 - Set `Authorization Method` to `In-app Authorization`. Under `Scopes` select `bot`.
 - Under `Bot Permissions` allow the following and then click on `Save Changes`.
+
 ```text
 Send Messages (under Text Permissions)
 ```
+
 - Now under `OAuth2` and go to `URL Generator`. Under `Scopes` select `bot`.
 - Under `Bot Permissions` set the same permissions as above.
 - Now scroll down and copy the `Generated URL`. Paste it in a browser window and select the Server where you want to add the bot.
@@ -23,40 +25,46 @@ Send Messages (under Text Permissions)
 
 ### Take the bot online
 
-1. Install embedchain python package:
+<Tabs>
+    <Tab title="docker">
+        ```bash
+        docker run --name discord-bot -e OPENAI_API_KEY=sk-xxx -e DISCORD_BOT_TOKEN=xxx -p 8080:8080 embedchain/discord-bot:latest
+        ```
+    </Tab>
+    <Tab title="python">
+        ```bash
+        pip install --upgrade "embedchain[discord]"
 
-```bash
-pip install --upgrade "embedchain[discord]"
-```
+        python -m embedchain.bots.discord
 
-2. Launch your Discord bot:
-
-
-```bash
-python -m embedchain.bots.discord
-```
-
-If you prefer to see the question and not only the answer, run it with
-
-```bash
-python -m embedchain.bots.discord --include-question
-```
+        # or if you prefer to see the question and not only the answer, run it with
+        python -m embedchain.bots.discord --include-question
+        ```
+    </Tab>
+</Tabs>
 
 ### 🚀 Usage Instructions
 
 - Go to the server where you have added your bot.
+  ![Slash commands interaction with bot](https://github.com/embedchain/embedchain/assets/73601258/bf1414e3-d408-4863-b0d2-ef382a76467e)
 - You can add data sources to the bot using the slash command:
+
 ```text
-/add <data_type> <url_or_text>
+/ec add <data_type> <url_or_text>
 ```
+
 - You can ask your queries from the bot using the slash command:
+
 ```text
-/query <question>
+/ec query <question>
 ```
+
 - You can chat with the bot using the slash command:
+
 ```text
-/chat <question>
+/ec chat <question>
 ```
+
 📝 Note: To use the bot privately, you can message the bot directly by right clicking the bot and selecting `Message`.
 
 🎉 Happy Chatting! 🎉
