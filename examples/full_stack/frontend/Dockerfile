@@ -1,4 +1,4 @@
-FROM node:18 AS frontend
+FROM node:18-slim AS frontend
 
 WORKDIR /usr/src/app/frontend
 COPY package.json .
