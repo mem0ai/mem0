@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class DirectDataType(Enum):
     """
     DirectDataType enum contains data types that contain raw data directly.
@@ -29,6 +28,7 @@ class IndirectDataType(Enum):
     JSON = "json"
     OPENAPI = "openapi"
     GMAIL = "gmail"
+    POSTGRES = "postgres"
 
 
 class SpecialDataType(Enum):
@@ -57,3 +57,4 @@ class DataType(Enum):
     JSON = IndirectDataType.JSON.value
     OPENAPI = IndirectDataType.OPENAPI.value
     GMAIL = IndirectDataType.GMAIL.value
+    POSTGRES = IndirectDataType.POSTGRES.value

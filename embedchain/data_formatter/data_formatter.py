@@ -62,6 +62,7 @@ class DataFormatter(JSONSerializable):
             DataType.OPENAPI: "embedchain.loaders.openapi.OpenAPILoader",
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
+            DataType.POSTGRES: "embedchain.loaders.postgres.PostgresLoader",
         }
         if data_type in loaders:
             loader_class: type = self._lazy_load(loaders[data_type])
@@ -89,6 +90,7 @@ class DataFormatter(JSONSerializable):
             DataType.OPENAPI: "embedchain.chunkers.openapi.OpenAPIChunker",
             DataType.GMAIL: "embedchain.chunkers.gmail.GmailChunker",
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
+            DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
         }
 
         if data_type in chunker_classes:

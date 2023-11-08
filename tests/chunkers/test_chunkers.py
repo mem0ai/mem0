@@ -14,6 +14,7 @@ from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config.add_config import ChunkerConfig
+from embedchain.chunkers.postgres import PostgresChunker
 
 chunker_config = ChunkerConfig(chunk_size=500, chunk_overlap=0, length_function=len)
 
@@ -33,6 +34,7 @@ chunker_common_config = {
     JSONChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     OpenAPIChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     GmailChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    PostgresChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 
