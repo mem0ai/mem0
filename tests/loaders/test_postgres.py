@@ -24,6 +24,7 @@ def test_postgres_loader_invalid_config():
         PostgresLoader(config=None)
 
 
+
 def test_load_data(postgres_loader, monkeypatch):
     mock_cursor = MagicMock()
     monkeypatch.setattr(postgres_loader, "cursor", mock_cursor)
@@ -39,6 +40,7 @@ def test_load_data(postgres_loader, monkeypatch):
     assert result["data"][0]["meta_data"]["url"] == f"postgres_query-({query})"
     assert result["data"][1]["meta_data"]["url"] == f"postgres_query-({query})"
     assert mock_cursor.execute.called_with(query)
+
 
 
 def test_load_data_exception(postgres_loader, monkeypatch):

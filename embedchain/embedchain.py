@@ -137,17 +137,17 @@ class EmbedChain(JSONSerializable):
                 raise ValueError(
                     f"Invalid postgres query: {source}",
                     "Provide the valid source to add from postgres, \
-                        make sure you are following `https://docs.embedchain.ai/data-sources/postgres`"
+                        make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
                 )
 
-            if ('loader_class' not in kwargs) or not isinstance(kwargs.get('loader_class'), BaseLoader):
+            if ("loader_class" not in kwargs) or not isinstance(kwargs.get("loader_class"), BaseLoader):
                 raise ValueError(
                     "you must also pass the loader using `loader_class` param.\
                         Make sure you are providing the class of `BaseLoader` type, \
                         check `https://docs.embedchain.ai/data-sources/postgres`"
                 )
-            
-            if ('chunker_class' not in kwargs) or not isinstance(kwargs.get('chunker_class'), BaseChunker):
+
+            if ("chunker_class" not in kwargs) or not isinstance(kwargs.get("chunker_class"), BaseChunker):
                 logging.info(
                     "you can also pass the chunker using `chunker_class` param.\
                         Make sure you are providing the class of `BaseChunker` type, \
