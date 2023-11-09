@@ -2,9 +2,9 @@
 title: '🐬 MySQL'
 ---
 
-1. Setup the MysqlLoader by configuring the MySQL Database:
+1. Setup the MySQL loader by configuring the SQL db.
 ```Python
-from embedchain.loaders.mysql import MysqlLoader
+from embedchain.loaders.mysql import MySQLLoader
 
 config = {
     "host": "host",
@@ -14,10 +14,10 @@ config = {
     "password": "password",
 }
 
-mysql_loader = MysqlLoader(config=config)
+mysql_loader = MySQLLoader(config=config)
 ```
 
-For more details on how to setup with valid config, check mysql [documentation](https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html).
+For more details on how to setup with valid config, check MySQL [documentation](https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html).
 
 2. Once you setup the loader, you can create an app and load data using the above MySQL loader
 ```Python
@@ -28,10 +28,6 @@ os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
 app = App()
 
-question = "What is Elon Musk's networth?"
-response = app.query(question)
-# Answer: As of September 2021, Elon Musk's net worth is estimated to be around $250 billion, making him one of the wealthiest individuals in the world. However, please note that net worth can fluctuate over time due to various factors such as stock market changes and business ventures.
-
 app.add("SELECT * FROM table_name;", data_type='mysql', loader=mysql_loader)
 # Adds `(1, 'What is your net worth, Elon Musk?', "As of October 2023, Elon Musk's net worth is $255.2 billion.")`
 
@@ -41,10 +37,10 @@ response = app.query(question)
 
 NOTE: The `add` function of the app will accept any executable query to load data. DO NOT pass the `CREATE`, `INSERT` queries in `add` function.
 
-3. We automatically create a chunker to chunk your mysql data, however if you wish to provide your own chunker class. Here is how you can do that:
+3. We automatically create a chunker to chunk your SQL data, however if you wish to provide your own chunker class. Here is how you can do that:
 ``Python
 
-from embedchain.chunkers.mysql import MysqlChunker
+from embedchain.chunkers.mysql import MySQLChunker
 from embedchain.config.add_config import ChunkerConfig
 
 mysql_chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=0, length_function=len)

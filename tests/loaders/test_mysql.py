@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from embedchain.loaders.mysql import MysqlLoader
+from embedchain.loaders.mysql import MySQLLoader
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def mysql_loader(mocker):
             "password": "your_password",
             "database": "your_database",
         }
-        loader = MysqlLoader(config=config)
+        loader = MySQLLoader(config=config)
         yield loader
 
 
@@ -28,7 +28,7 @@ def test_mysql_loader_initialization(mysql_loader):
 
 def test_mysql_loader_invalid_config():
     with pytest.raises(ValueError, match="Invalid sql config: None"):
-        MysqlLoader(config=None)
+        MySQLLoader(config=None)
 
 
 def test_mysql_loader_setup_loader_successful(mysql_loader):
@@ -63,8 +63,8 @@ def test_mysql_loader_load_data_successful(mysql_loader, mocker):
     assert "doc_id" in result
     assert "data" in result
     assert len(result["data"]) == 2
-    assert result["data"][0]["meta_data"]["url"] == f"mysql_query-{query}"
-    assert result["data"][1]["meta_data"]["url"] == f"mysql_query-{query}"
+    assert result["data"][0]["meta_data"]["url"] == query
+    assert result["data"][1]["meta_data"]["url"] == query
 
     doc_id = hashlib.sha256((query + ", ".join([d["content"] for d in result["data"]])).encode()).hexdigest()
 

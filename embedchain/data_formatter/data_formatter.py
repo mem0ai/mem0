@@ -113,7 +113,7 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.chunkers.gmail.GmailChunker",
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
             DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
-            DataType.MYSQL: "embedchain.chunkers.mysql.MysqlChunker",
+            DataType.MYSQL: "embedchain.chunkers.mysql.MySQLChunker",
         }
 
         if data_type in chunker_classes:

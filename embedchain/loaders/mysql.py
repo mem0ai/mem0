@@ -6,7 +6,7 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
 
-class MysqlLoader(BaseLoader):
+class MySQLLoader(BaseLoader):
     def __init__(self, config: Optional[Dict[str, Any]]):
         super().__init__()
         if not config:
@@ -55,7 +55,7 @@ class MysqlLoader(BaseLoader):
         rows = self.cursor.fetchall()
         for row in rows:
             doc_content = clean_string(str(row))
-            data.append({"content": doc_content, "meta_data": {"url": f"mysql_query-{query}"}})
+            data.append({"content": doc_content, "meta_data": {"url": query}})
             data_content.append(doc_content)
         doc_id = hashlib.sha256((query + ", ".join(data_content)).encode()).hexdigest()
         return {
