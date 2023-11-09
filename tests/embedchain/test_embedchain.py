@@ -35,6 +35,8 @@ def test_whole_app(app_instance, mocker):
 
 
 def test_add_after_reset(app_instance, mocker):
+    mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
+
     config = AppConfig(log_level="DEBUG", collect_metrics=False)
     chroma_config = {"allow_reset": True}
 

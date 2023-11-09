@@ -3,6 +3,10 @@ title: ❓ FAQs
 description: 'Collections of all the frequently asked questions'
 ---
 
+#### Does Embedchain support OpenAI's Assistant APIs?
+
+Yes, it does. Please refer to the [OpenAI Assistant docs page](/get-started/openai-assistant).
+
 #### How to use `gpt-4-turbo` model released on OpenAI DevDay?
 
 <CodeGroup>
@@ -76,7 +80,7 @@ app = App.from_config(yaml_path="opensource.yaml")
 llm:
   provider: gpt4all
   config:
-    model: 'orca-mini-3b.ggmlv3.q4_0.bin'
+    model: 'orca-mini-3b-gguf2-q4_0.gguf'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1

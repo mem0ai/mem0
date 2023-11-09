@@ -13,7 +13,7 @@ class GPT4ALLLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
         if self.config.model is None:
-            self.config.model = "orca-mini-3b.ggmlv3.q4_0.bin"
+            self.config.model = "orca-mini-3b-gguf2-q4_0.gguf"
         self.instance = GPT4ALLLlm._get_instance(self.config.model)
         self.instance.streaming = self.config.stream
 
