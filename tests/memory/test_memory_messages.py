@@ -34,4 +34,4 @@ def test_ec_base_chat_message():
     assert chat_message.ai_message.creator == "ai"
     assert chat_message.ai_message.metadata == ai_metadata
 
-    assert str(chat_message) == f"human: {human_message_content} | ai: {ai_message_content}"
+    assert str(chat_message) == f"human: {human_message_content}\nai: {ai_message_content}"
