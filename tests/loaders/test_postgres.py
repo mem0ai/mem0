@@ -24,7 +24,6 @@ def test_postgres_loader_invalid_config():
         PostgresLoader(config=None)
 
 
-
 def test_load_data(postgres_loader, monkeypatch):
     mock_cursor = MagicMock()
     monkeypatch.setattr(postgres_loader, "cursor", mock_cursor)
