@@ -55,6 +55,7 @@
       "pages": [
         "get-started/quickstart",
         "get-started/introduction",
+        "get-started/openai-assistant",
         "get-started/faq",
         "get-started/examples"
       ]
