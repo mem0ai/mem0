@@ -10,7 +10,7 @@ import yaml
 
 from embedchain import Client
 from embedchain.embedchain import EmbedChain
-from embedchain.config import ChunkerConfig, PipelineConfig
+from embedchain.config import PipelineConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder

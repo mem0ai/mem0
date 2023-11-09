@@ -285,7 +285,7 @@ class BaseLlm(JSONSerializable):
                 self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)
 
     @staticmethod
-    def _get_langchain_messages(prompt: str, system_prompt: Optional[str] = None) -> List[LCBaseMessage]:
+    def _get_messages(prompt: str, system_prompt: Optional[str] = None) -> List[LCBaseMessage]:
         """
         Construct a list of langchain messages
 

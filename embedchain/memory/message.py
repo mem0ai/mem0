@@ -11,19 +11,19 @@ class BaseMessage(JSONSerializable):
     Messages are the inputs and outputs of Models.
     """
 
+    # The string content of the message.
     content: str
-    """The string content of the message."""
 
+    # The creator of the message. AI, Human, Bot etc.
     by: str
-    """The creator of the message. AI, Human, Bot etc."""
 
+    # Any additional info.
     metadata: Dict[str, Any]
-    """Any additional info."""
 
-    def __init__(self, content: str, by: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, content: str, creator: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
         self.content = content
-        self.by = by
+        self.creator = creator
         self.metadata = metadata
 
     @property
@@ -36,7 +36,7 @@ class BaseMessage(JSONSerializable):
         return True
 
     def __str__(self) -> str:
-        return f"{self.by}: {self.content}"
+        return f"{self.creator}: {self.content}"
 
 
 class ChatMessage(JSONSerializable):
@@ -57,7 +57,7 @@ class ChatMessage(JSONSerializable):
                 overwritting it with new message."
             )
 
-        self.human_message = BaseMessage(content=message, by="human", metadata=metadata)
+        self.human_message = BaseMessage(content=message, creator="human", metadata=metadata)
 
     def add_ai_message(self, message: str, metadata: Optional[dict] = None):
         if self.ai_message:
@@ -66,7 +66,7 @@ class ChatMessage(JSONSerializable):
                 overwritting it with new message."
             )
 
-        self.ai_message = BaseMessage(content=message, by="ai", metadata=metadata)
+        self.ai_message = BaseMessage(content=message, creator="ai", metadata=metadata)
 
     def __str__(self) -> str:
         return f"{self.human_message} | {self.ai_message}"

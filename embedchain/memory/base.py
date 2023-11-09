@@ -8,14 +8,6 @@ from embedchain.constants import SQLITE_PATH
 from embedchain.memory.message import ChatMessage
 from embedchain.memory.utils import merge_metadata_dict
 
-"""
-app_id: saves the app_id of the embedchain app.
-id: saves the id of the dialogue between user and model.
-question: user query
-answer: ai response
-created_at: unix formatted timestamp of creation.
-metadata: stringified JSON of metadata dictionary.
-"""
 CHAT_MESSAGE_CREATE_TABLE_QUERY = """
             CREATE TABLE IF NOT EXISTS chat_history (
                 app_id TEXT,

@@ -55,10 +55,10 @@ def test_get_answer_no_warning(vertexai_llm, caplog):
         assert "Config option `top_p` is not supported by this model." not in caplog.text
 
 
-def test_get_langchain_messages(vertexai_llm):
+def test_get_messages(vertexai_llm):
     prompt = "Test Prompt"
     system_prompt = "Test System Prompt"
-    messages = vertexai_llm._get_langchain_messages(prompt, system_prompt)
+    messages = vertexai_llm._get_messages(prompt, system_prompt)
     assert messages == [
         SystemMessage(content="Test System Prompt", additional_kwargs={}),
         HumanMessage(content="Test Prompt", additional_kwargs={}, example=False),
