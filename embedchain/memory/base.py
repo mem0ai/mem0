@@ -62,7 +62,7 @@ class ECChatMemory:
         )
         self.connection.commit()
 
-    def get_recent_memories(self, app_id, num_rounds=10) -> List[ChatMessage]:
+    def get_recent_memories(self, app_id, num_rounds=10, display_format=False) -> List[ChatMessage]:
         """
         Get the most recent num_rounds rounds of conversations
         between human and AI, for a given app_id.
@@ -82,12 +82,16 @@ class ECChatMemory:
         results = self.cursor.fetchall()
         history = []
         for result in results:
-            app_id, id, question, answer, metadata, timestamp = result
+            app_id, _, question, answer, metadata, timestamp = result
             metadata = self._deserialize_json(metadata=metadata)
-            memory = ChatMessage()
-            memory.add_user_message(question, metadata=metadata)
-            memory.add_ai_message(answer, metadata=metadata)
-            history.append(memory)
+            # Return list of dict if display_format is True
+            if display_format:
+                history.append({"human": question, "ai": answer, "metadata": metadata, "timestamp": timestamp})
+            else:
+                memory = ChatMessage()
+                memory.add_user_message(question, metadata=metadata)
+                memory.add_ai_message(answer, metadata=metadata)
+                history.append(memory)
         return history
 
     def _serialize_json(self, metadata: Dict[str, Any]):

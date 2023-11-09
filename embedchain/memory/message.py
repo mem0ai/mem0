@@ -69,4 +69,4 @@ class ChatMessage(JSONSerializable):
         self.ai_message = BaseMessage(content=message, creator="ai", metadata=metadata)
 
     def __str__(self) -> str:
-        return f"{self.human_message} | {self.ai_message}"
+        return f"{self.human_message}\n{self.ai_message}"

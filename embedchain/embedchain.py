@@ -74,6 +74,9 @@ class EmbedChain(JSONSerializable):
         if system_prompt:
             self.llm.config.system_prompt = system_prompt
 
+        # Fetch the history from the database if exists
+        self.llm.update_history(app_id=self.config.id)
+
         # Attributes that aren't subclass related.
         self.user_asks = []
 
@@ -641,9 +644,16 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
-        self.clear_history()
+        self.delete_history()
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
-    def clear_history(self):
+    def get_history(self, num_rounds: int = 10, display_format: bool = True):
+        return self.llm.memory.get_recent_memories(
+            app_id=self.config.id,
+            num_rounds=num_rounds,
+            display_format=display_format,
+        )
+
+    def delete_history(self):
         self.llm.memory.delete_chat_history(app_id=self.config.id)
