@@ -9,7 +9,7 @@ def test_ec_base_message():
     message = BaseMessage(content=content, creator=creator, metadata=metadata)
 
     assert message.content == content
-    assert message.by == creator
+    assert message.creator == creator
     assert message.metadata == metadata
     assert message.type is None
     assert message.is_lc_serializable() is True
