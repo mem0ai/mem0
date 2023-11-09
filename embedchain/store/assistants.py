@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -11,6 +12,7 @@ from openai.types.beta.threads import MessageContentText, ThreadMessage
 from embedchain.config import AddConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.models.data_type import DataType
+from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype
 
 logging.basicConfig(level=logging.WARN)
@@ -27,6 +29,7 @@ class OpenAIAssistant:
         data_sources=None,
         assistant_id=None,
         log_level=logging.WARN,
+        collect_metrics=True,
     ):
         self.name = name or "OpenAI Assistant"
         self.instructions = instructions
@@ -37,14 +40,24 @@ class OpenAIAssistant:
         self._client = OpenAI()
         self._initialize_assistant(assistant_id)
         self.thread_id = thread_id or self._create_thread()
+        self._telemetry_props = {"class": self.__class__.__name__}
+        self.telemetry = AnonymousTelemetry(enabled=collect_metrics)
+        self.telemetry.capture(event_name="init", properties=self._telemetry_props)
 
     def add(self, source, data_type=None):
         file_path = self._prepare_source_path(source, data_type)
         self._add_file_to_assistant(file_path)
+
+        event_props = {
+            **self._telemetry_props,
+            "data_type": data_type or detect_datatype(source),
+        }
+        self.telemetry.capture(event_name="add", properties=event_props)
         logging.info("Data successfully added to the assistant.")
 
     def chat(self, message):
         self._send_message(message)
+        self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
         return self._get_latest_response()
 
     def delete_thread(self):
@@ -70,9 +83,9 @@ class OpenAIAssistant:
         if Path(source).is_file():
             return source
         data_type = data_type or detect_datatype(source)
-        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig())
+        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig(), kwargs={})
         data = formatter.loader.load_data(source)["data"]
-        return self._save_temp_data(data[0]["content"].encode())
+        return self._save_temp_data(data=data[0]["content"].encode(), source=source)
 
     def _add_file_to_assistant(self, file_path):
         file_obj = self._client.files.create(file=open(file_path, "rb"), purpose="assistants")
@@ -117,9 +130,11 @@ class OpenAIAssistant:
         content = [c.text.value for c in thread_message.content if isinstance(c, MessageContentText)]
         return " ".join(content)
 
-    def _save_temp_data(self, data):
+    def _save_temp_data(self, data, source):
+        special_chars_pattern = r'[\\/:*?"<>|&=% ]+'
+        sanitized_source = re.sub(special_chars_pattern, "_", source)[:256]
         temp_dir = tempfile.mkdtemp()
-        file_path = os.path.join(temp_dir, "temp_data")
+        file_path = os.path.join(temp_dir, sanitized_source)
         with open(file_path, "wb") as file:
             file.write(data)
         return file_path

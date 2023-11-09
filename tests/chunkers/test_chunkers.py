@@ -6,6 +6,7 @@ from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
 from embedchain.chunkers.openapi import OpenAPIChunker
 from embedchain.chunkers.pdf_file import PdfFileChunker
+from embedchain.chunkers.postgres import PostgresChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
 from embedchain.chunkers.table import TableChunker
@@ -33,6 +34,7 @@ chunker_common_config = {
     JSONChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     OpenAPIChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     GmailChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    PostgresChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

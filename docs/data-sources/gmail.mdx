@@ -24,12 +24,11 @@ To use this you need to save `credentials.json` in the directory from where you 
 12. Put the `.json` file in your current directory and rename it to `credentials.json`
 
 ```python
-import os
-from embedchain.apps.app import App
-from embedchain.models.data_type import DataType
+from embedchain import Pipeline as App
+
 app = App()
 
-query = "to: me label:inbox"
-app.add(query, data_type=DataType.GMAIL)
+gmail_filter = "to: me label:inbox"
+app.add(gmail_filter, data_type="gmail")
 app.query("Summarize my email conversations")
 ```
