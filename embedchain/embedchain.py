@@ -1,9 +1,7 @@
 import hashlib
 import json
 import logging
-import os
 import sqlite3
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from dotenv import load_dotenv
@@ -12,6 +10,7 @@ from langchain.docstore.document import Document
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
+from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
@@ -24,12 +23,6 @@ from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
 
 load_dotenv()
-
-ABS_PATH = os.getcwd()
-HOME_DIR = str(Path.home())
-CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-SQLITE_PATH = os.path.join(CONFIG_DIR, "embedchain.db")
 
 
 class EmbedChain(JSONSerializable):
@@ -602,6 +595,9 @@ class EmbedChain(JSONSerializable):
             input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
         )
 
+        # add conversation in memory
+        self.llm.add_history(self.config.id, input_query, answer)
+
         # Send anonymous telemetry
         self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
 
@@ -645,5 +641,9 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
+        self.clear_history()
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
+
+    def clear_history(self):
+        self.llm.memory.delete_chat_history(app_id=self.config.id)

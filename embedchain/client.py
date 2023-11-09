@@ -5,7 +5,7 @@ import uuid
 
 import requests
 
-from embedchain.embedchain import CONFIG_DIR, CONFIG_FILE
+from embedchain.constants import CONFIG_DIR, CONFIG_FILE
 
 
 class Client:
