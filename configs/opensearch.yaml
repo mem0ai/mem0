@@ -1,7 +1,7 @@
 app:
   config:
     id: 'my-app'
-    log_level: 'WARN'
+    log_level: 'WARNING'
     collect_metrics: true
     collection_name: 'my-app'
 
@@ -30,4 +30,4 @@ embedder:
   provider: openai
   config:
     model: 'text-embedding-ada-002'
-    deployment_name: null
+    deployment_name: 'my-app'

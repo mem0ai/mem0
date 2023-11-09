@@ -12,10 +12,19 @@ pip install --upgrade embedchain
 
 2. Launch your WhatsApp bot:
 
+<Tabs>
+    <Tab title="docker">
+        ```bash
+        docker run --name whatsapp-bot -e OPENAI_API_KEY=sk-xxx -p 8000:8000 embedchain/whatsapp-bot
+        ```
+    </Tab>
+    <Tab title="python">
+        ```bash
+        python -m embedchain.bots.whatsapp --port 5000
+        ```
+    </Tab>
+</Tabs>
 
-```bash
-python -m embedchain.bots.whatsapp --port 5000
-```
 
 If your bot needs to be accessible online, use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
 

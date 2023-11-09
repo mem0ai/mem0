@@ -138,8 +138,7 @@ def detect_datatype(source: Any) -> DataType:
     formatted_source = format_source(str(source), 30)
 
     if url:
-        from langchain.document_loaders.youtube import \
-            ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
+        from langchain.document_loaders.youtube import ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
 
         if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
@@ -309,7 +308,7 @@ def validate_yaml_config(config_data):
                     "gpt4all",
                     "jina",
                     "llama2",
-                    "vertex_ai",
+                    "vertexai",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -329,23 +328,17 @@ def validate_yaml_config(config_data):
                 Optional("provider"): Or(
                     "chroma", "elasticsearch", "opensearch", "pinecone", "qdrant", "weaviate", "zilliz"
                 ),
-                Optional("config"): {
-                    Optional("collection_name"): str,
-                    Optional("dir"): str,
-                    Optional("allow_reset"): bool,
-                    Optional("host"): str,
-                    Optional("port"): str,
-                },
+                Optional("config"): object,  # TODO: add particular config schema for each provider
             },
             Optional("embedder"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai"),
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai"),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
                 },
             },
             Optional("embedding_model"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai"),
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai"),
                 Optional("config"): {
                     Optional("model"): str,
                     Optional("deployment_name"): str,
