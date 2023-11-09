@@ -130,6 +130,9 @@ pymilvus = { version = "2.3.1", optional = true }
 google-cloud-aiplatform = { version = "^1.26.1", optional = true }
 replicate = { version = "^0.15.4", optional = true }
 schema = "^0.7.5"
+psycopg = { version = "^3.1.12", optional = true }
+psycopg-binary = { version = "^3.1.12", optional = true }
+psycopg-pool = { version = "^3.1.8", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -184,6 +187,7 @@ gmail = [
     "google-api-core",
 ]
 json = ["llama-hub"]
+postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 
 [tool.poetry.group.docs.dependencies]
 

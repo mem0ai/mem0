@@ -137,6 +137,7 @@ class EmbedChain(JSONSerializable):
         metadata: Optional[Dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
         dry_run=False,
+        **kwargs: Dict[str, Any],
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -180,21 +181,6 @@ class EmbedChain(JSONSerializable):
         if data_type:
             try:
                 data_type = DataType(data_type)
-                if data_type == DataType.JSON:
-                    if isinstance(source, str):
-                        if not is_valid_json_string(source):
-                            raise ValueError(
-                                f"Invalid json input: {source}",
-                                "Provide the correct JSON formatted source, \
-                                    refer `https://docs.embedchain.ai/data-sources/json`",
-                            )
-                    elif not isinstance(source, str):
-                        raise ValueError(
-                            "Invaid content input. \
-                            If you want to upload (list, dict, etc.), do \
-                                `json.dump(data, indent=0)` and add the stringified JSON. \
-                                    Check - `https://docs.embedchain.ai/data-sources/json`"
-                        )
             except ValueError:
                 raise ValueError(
                     f"Invalid data_type: '{data_type}'.",
@@ -218,8 +204,9 @@ class EmbedChain(JSONSerializable):
             print(f"Data with hash {source_hash} already exists. Skipping addition.")
             return source_hash
 
-        data_formatter = DataFormatter(data_type, config)
         self.user_asks.append([source, data_type.value, metadata])
+
+        data_formatter = DataFormatter(data_type, config, kwargs)
         documents, metadatas, _ids, new_chunks = self.load_and_embed(
             data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, dry_run
         )
@@ -265,6 +252,7 @@ class EmbedChain(JSONSerializable):
         data_type: Optional[DataType] = None,
         metadata: Optional[Dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
+        **kwargs: Dict[str, Any],
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -290,7 +278,13 @@ class EmbedChain(JSONSerializable):
         logging.warning(
             "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."  # noqa: E501
         )
-        return self.add(source=source, data_type=data_type, metadata=metadata, config=config)
+        return self.add(
+            source=source,
+            data_type=data_type,
+            metadata=metadata,
+            config=config,
+            kwargs=kwargs,
+        )
 
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """

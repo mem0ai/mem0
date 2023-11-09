@@ -63,5 +63,5 @@ def test_add_after_reset(app_instance, mocker):
 def test_add_with_incorrect_content(app_instance, mocker):
     content = [{"foo": "bar"}]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         app_instance.add(content, data_type="json")

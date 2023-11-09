@@ -26,9 +26,20 @@ class JSONLoader(BaseLoader):
         return LLHUBJSONLoader()
 
     @staticmethod
+    def _check_content(content):
+        if not isinstance(content, str):
+            raise ValueError(
+                "Invaid content input. \
+                If you want to upload (list, dict, etc.), do \
+                    `json.dump(data, indent=0)` and add the stringified JSON. \
+                        Check - `https://docs.embedchain.ai/data-sources/json`"
+            )
+
+    @staticmethod
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
 
+        JSONLoader._check_content(content)
         loader = JSONLoader._get_llama_hub_loader()
 
         data = []
