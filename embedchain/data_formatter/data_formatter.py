@@ -1,4 +1,5 @@
 from importlib import import_module
+from typing import Any, Dict
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig
@@ -15,7 +16,7 @@ class DataFormatter(JSONSerializable):
     .add or .add_local method call
     """
 
-    def __init__(self, data_type: DataType, config: AddConfig):
+    def __init__(self, data_type: DataType, config: AddConfig, kwargs: Dict[str, Any]):
         """
         Initialize a dataformatter, set data type and chunker based on datatype.
 
@@ -24,15 +25,15 @@ class DataFormatter(JSONSerializable):
         :param config: AddConfig instance with nested loader and chunker config attributes.
         :type config: AddConfig
         """
-        self.loader = self._get_loader(data_type=data_type, config=config.loader)
-        self.chunker = self._get_chunker(data_type=data_type, config=config.chunker)
+        self.loader = self._get_loader(data_type=data_type, config=config.loader, kwargs=kwargs)
+        self.chunker = self._get_chunker(data_type=data_type, config=config.chunker, kwargs=kwargs)
 
     def _lazy_load(self, module_path: str):
         module_path, class_name = module_path.rsplit(".", 1)
         module = import_module(module_path)
         return getattr(module, class_name)
 
-    def _get_loader(self, data_type: DataType, config: LoaderConfig) -> BaseLoader:
+    def _get_loader(self, data_type: DataType, config: LoaderConfig, kwargs: Dict[str, Any]) -> BaseLoader:
         """
         Returns the appropriate data loader for the given data type.
 
@@ -63,13 +64,28 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
         }
+
+        custom_loaders = set(
+            [
+                DataType.POSTGRES,
+            ]
+        )
+
         if data_type in loaders:
             loader_class: type = self._lazy_load(loaders[data_type])
             return loader_class()
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
+        elif data_type in custom_loaders:
+            loader_class: type = kwargs.get("loader", None)
+            if loader_class is not None:
+                return loader_class
 
-    def _get_chunker(self, data_type: DataType, config: ChunkerConfig) -> BaseChunker:
+        raise ValueError(
+            f"Cant find the loader for {data_type}.\
+                    We recommend to pass the loader to use data_type: {data_type},\
+                        check `https://docs.embedchain.ai/data-sources/overview`."
+        )
+
+    def _get_chunker(self, data_type: DataType, config: ChunkerConfig, kwargs: Dict[str, Any]) -> BaseChunker:
         """Returns the appropriate chunker for the given data type (updated for lazy loading)."""
         chunker_classes = {
             DataType.YOUTUBE_VIDEO: "embedchain.chunkers.youtube_video.YoutubeVideoChunker",
@@ -89,12 +105,21 @@ class DataFormatter(JSONSerializable):
             DataType.OPENAPI: "embedchain.chunkers.openapi.OpenAPIChunker",
             DataType.GMAIL: "embedchain.chunkers.gmail.GmailChunker",
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
+            DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
         }
 
         if data_type in chunker_classes:
-            chunker_class = self._lazy_load(chunker_classes[data_type])
+            if "chunker" in kwargs:
+                chunker_class = kwargs.get("chunker")
+            else:
+                chunker_class = self._lazy_load(chunker_classes[data_type])
+
             chunker = chunker_class(config)
             chunker.set_data_type(data_type)
             return chunker
         else:
-            raise ValueError(f"Unsupported data type: {data_type}")
+            raise ValueError(
+                f"Cant find the chunker for {data_type}.\
+                    We recommend to pass the chunker to use data_type: {data_type},\
+                        check `https://docs.embedchain.ai/data-sources/overview`."
+            )
