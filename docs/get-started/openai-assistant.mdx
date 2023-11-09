@@ -20,7 +20,7 @@ Creating an OpenAI Assistant using Embedchain is very simple 3 step process.
 Make sure that you have `OPENAI_API_KEY` set in the environment variable.
 
 ```python
-from embedchain.store.openai import OpenAIAssistant
+from embedchain.store.assistants import OpenAIAssistant
 
 assistant = OpenAIAssistant(
     name="OpenAI DevDay Assistant",
@@ -49,8 +49,6 @@ assistant = OpenAIAssistant(
 <ResponseField name="data_sources" type="list" default="[]">
   Add data sources to your assistant. You can add in the following format: `[{"source": "https://example.com", "data_type": "web_page"}]`
 </ResponseField>
-
-
 
 ## Step-2: Add data to thread
 
