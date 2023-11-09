@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -70,9 +71,9 @@ class OpenAIAssistant:
         if Path(source).is_file():
             return source
         data_type = data_type or detect_datatype(source)
-        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig())
+        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig(), kwargs={})
         data = formatter.loader.load_data(source)["data"]
-        return self._save_temp_data(data[0]["content"].encode())
+        return self._save_temp_data(data=data[0]["content"].encode(), source=source)
 
     def _add_file_to_assistant(self, file_path):
         file_obj = self._client.files.create(file=open(file_path, "rb"), purpose="assistants")
@@ -117,9 +118,11 @@ class OpenAIAssistant:
         content = [c.text.value for c in thread_message.content if isinstance(c, MessageContentText)]
         return " ".join(content)
 
-    def _save_temp_data(self, data):
+    def _save_temp_data(self, data, source):
+        special_chars_pattern = r'[\\/:*?"<>|&=% ]+'
+        sanitized_source = re.sub(special_chars_pattern, "_", source)[:256]
         temp_dir = tempfile.mkdtemp()
-        file_path = os.path.join(temp_dir, "temp_data")
+        file_path = os.path.join(temp_dir, sanitized_source)
         with open(file_path, "wb") as file:
             file.write(data)
         return file_path

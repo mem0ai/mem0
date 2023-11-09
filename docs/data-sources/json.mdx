@@ -2,52 +2,43 @@
 title: '📃 JSON'
 ---
 
-To add any json file, use the data_type as `json`. Headers are included for each line, so if you have an `age` column, `18` will be added as `age: 18`. Eg:
+To add any json file, use the data_type as `json`. Headers are included for each line, so for example if you have a json like `{"age": 18}`, then it will be added as `age: 18`.
 
 Here are the supported sources for loading `json`:
+
 ```
 1. URL - valid url to json file that ends with ".json" extension.
 2. Local file - valid url to local json file that ends with ".json" extension.
 3. String - valid json string (e.g. - app.add('{"foo": "bar"}'))
 ```
 
-If you would like to add other data structures (e.x. list, dict etc.), do:
-```python
-    import json
-    a = {"foo": "bar"}
-    valid_json_string_data = json.dumps(a, indent=0)
+<Tip>
+If you would like to add other data structures (e.g. list, dict etc.), convert it to a valid json first using `json.dumps()` function.
+</Tip>
 
-    b = [{"foo": "bar"}]
-    valid_json_string_data = json.dumps(b, indent=0)
-```
-Example:
-```python
-import os
+## Example
 
-from embedchain.apps.app import App
+<CodeGroup>
 
-os.environ["OPENAI_API_KEY"] = "openai_api_key"
+```python python
+from embedchain import Pipeline as App
 
 app = App()
 
-response = app.query("What is the net worth of Elon Musk as of October 2023?")
+# Add json file
+app.add("temp.json")
 
-print(response)
-"I'm sorry, but I don't have access to real-time information or future predictions. Therefore, I don't know the net worth of Elon Musk as of October 2023."
-
-source_id = app.add("temp.json")
-
-response = app.query("What is the net worth of Elon Musk as of October 2023?")
-
-print(response)
-"As of October 2023, Elon Musk's net worth is $255.2 billion."
+app.query("What is the net worth of Elon Musk as of October 2023?")
+# As of October 2023, Elon Musk's net worth is $255.2 billion.
 ```
-temp.json
-```json
+
+
+```json temp.json
 {
     "question": "What is your net worth, Elon Musk?",
     "answer": "As of October 2023, Elon Musk's net worth is $255.2 billion, making him one of the wealthiest individuals in the world."
 }
 ```
+</CodeGroup>
 
 
