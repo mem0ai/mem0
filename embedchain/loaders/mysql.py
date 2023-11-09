@@ -24,7 +24,9 @@ class MysqlLoader(BaseLoader):
         try:
             import mysql.connector as sqlconnector
         except ImportError as e:
-            raise ImportError("Unable to import required packages for MysqlLoader") from e
+            raise ImportError(
+                "Unable to import required packages for MySQL loader. Run `pip install --upgrade 'embedchain[mysql]'`."  # noqa: E501
+            ) from e
 
         try:
             self.connection = sqlconnector.connection.MySQLConnection(**config)
