@@ -126,48 +126,6 @@ class EmbedChain(JSONSerializable):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.llm.online = value
 
-    def check_input(
-        self,
-        source: Any,
-        data_type: DataType,
-        kwargs: Dict[str, Any],
-    ):
-        if data_type == DataType.POSTGRES:
-            if not isinstance(source, str):
-                raise ValueError(
-                    f"Invalid postgres query: {source}",
-                    "Provide the valid source to add from postgres, \
-                        make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
-                )
-
-            if ("loader" not in kwargs) or not isinstance(kwargs.get("loader"), BaseLoader):
-                raise ValueError(
-                    "you must also pass the loader using `loader` param.\
-                        Make sure you are providing the class of `BaseLoader` type, \
-                        check `https://docs.embedchain.ai/data-sources/postgres`"
-                )
-
-            if ("chunker" not in kwargs) or not isinstance(kwargs.get("chunker"), BaseChunker):
-                logging.info(
-                    "You can also pass the chunker using `chunker` param. Make sure you are providing the class of `BaseChunker` type, check `https://docs.embedchain.ai/data-sources/postgres`"  # noqa:E501
-                )
-
-        elif data_type == DataType.JSON:
-            if isinstance(source, str):
-                if not is_valid_json_string(source):
-                    raise ValueError(
-                        f"Invalid json input: {source}",
-                        "Provide the correct JSON formatted source, \
-                            refer `https://docs.embedchain.ai/data-sources/json`",
-                    )
-            elif not isinstance(source, str):
-                raise ValueError(
-                    "Invaid content input. \
-                    If you want to upload (list, dict, etc.), do \
-                        `json.dump(data, indent=0)` and add the stringified JSON. \
-                            Check - `https://docs.embedchain.ai/data-sources/json`"
-                )
-
     def add(
         self,
         source: Any,
@@ -228,7 +186,6 @@ class EmbedChain(JSONSerializable):
         if not data_type:
             data_type = detect_datatype(source)
 
-        self.check_input(source=source, data_type=data_type, kwargs=kwargs)
         # `source_hash` is the md5 hash of the source argument
         hash_object = hashlib.md5(str(source).encode("utf-8"))
         source_hash = hash_object.hexdigest()

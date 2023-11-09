@@ -64,9 +64,12 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
         }
-        custom_loaders = {
-            DataType.POSTGRES: "embedchain.loaders.postgres.PostgresLoader",
-        }
+
+        custom_loaders = set(
+            [
+                DataType.POSTGRES,
+            ]
+        )
 
         custom_loaders = set(
             [
