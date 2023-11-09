@@ -37,10 +37,16 @@ class PostgresLoader(BaseLoader):
         self.connection = psycopg.connect(conninfo=config_info)
         self.cursor = self.connection.cursor()
 
-    def load_data(self, query):
-        if not self.cursor:
-            raise ValueError("PostgreLoader cursor is not initialized. Call setup_loader first.")
+    def _check_query(self, query):
+        if not isinstance(query, str):
+            raise ValueError(
+                f"Invalid postgres query: {query}",
+                "Provide the valid source to add from postgres, \
+                    make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
+            )
 
+    def load_data(self, query):
+        self._check_query(query)
         try:
             data = []
             data_content = []

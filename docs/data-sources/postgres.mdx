@@ -6,8 +6,6 @@ title: '🐘 Postgres'
 ```Python
 from embedchain.loaders.postgres import PostgresLoader
 
-postgres_loader = PostgresLoader()
-
 config = {
     "host": "host_address",
     "port": "port_number",
@@ -22,7 +20,8 @@ config = {
 }
 """
 
-postgres_loader.setup_loader(config=config)
+postgres_loader = PostgresLoader(config=config)
+
 ```
 
 You can either setup the loader by passing the postgresql url or by providing the config data.
