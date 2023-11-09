@@ -68,6 +68,10 @@ assistant = OpenAIAssistant(assistant_id="asst_xxx", thread_id="thread_xxx")
   Add data sources to your assistant. You can add in the following format: `[{"source": "https://example.com", "data_type": "web_page"}]`
 </ResponseField>
 
+<ResponseField name="telemetry" type="boolean" default="True">
+  Anonymous telemetry (doesn't collect any user information or user's files). Used to improve the Embedchain package utilization. Default is `True`.
+</ResponseField>
+
 ## Step-2: Add data to thread
 
 You can add any custom data source that is supported by Embedchain. Else, you can directly pass the file path on your local system and Embedchain propagates it to OpenAI Assistant.
