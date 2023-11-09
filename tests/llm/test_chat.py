@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
 from embedchain.llm.base import BaseLlm
+from embedchain.memory.base import ECChatMemory
+from embedchain.memory.message import ChatMessage
 
 
 class TestApp(unittest.TestCase):
@@ -31,14 +33,14 @@ class TestApp(unittest.TestCase):
         """
         config = AppConfig(collect_metrics=False)
         app = App(config=config)
-        first_answer = app.chat("Test query 1")
-        self.assertEqual(first_answer, "Test answer")
-        self.assertEqual(len(app.llm.memory.chat_memory.messages), 2)
-        self.assertEqual(len(app.llm.history.splitlines()), 2)
-        second_answer = app.chat("Test query 2")
-        self.assertEqual(second_answer, "Test answer")
-        self.assertEqual(len(app.llm.memory.chat_memory.messages), 4)
-        self.assertEqual(len(app.llm.history.splitlines()), 4)
+        with patch.object(BaseLlm, "add_history") as mock_history:
+            first_answer = app.chat("Test query 1")
+            self.assertEqual(first_answer, "Test answer")
+            mock_history.assert_called_with(app.config.id, "Test query 1", "Test answer")
+
+            second_answer = app.chat("Test query 2")
+            self.assertEqual(second_answer, "Test answer")
+            mock_history.assert_called_with(app.config.id, "Test query 2", "Test answer")
 
     @patch.object(App, "retrieve_from_database", return_value=["Test context"])
     @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
@@ -49,16 +51,22 @@ class TestApp(unittest.TestCase):
 
         Also tests that a dry run does not change the history
         """
-        config = AppConfig(collect_metrics=False)
-        app = App(config=config)
-        first_answer = app.chat("Test query 1")
-        self.assertEqual(first_answer, "Test answer")
-        self.assertEqual(len(app.llm.history.splitlines()), 2)
-        history = app.llm.history
-        dry_run = app.chat("Test query 2", dry_run=True)
-        self.assertIn("History:", dry_run)
-        self.assertEqual(history, app.llm.history)
-        self.assertEqual(len(app.llm.history.splitlines()), 2)
+        with patch.object(ECChatMemory, "get_recent_memories") as mock_memory:
+            mock_message = ChatMessage()
+            mock_message.add_user_message("Test query 1")
+            mock_message.add_ai_message("Test answer")
+            mock_memory.return_value = [mock_message]
+
+            config = AppConfig(collect_metrics=False)
+            app = App(config=config)
+            first_answer = app.chat("Test query 1")
+            self.assertEqual(first_answer, "Test answer")
+            self.assertEqual(len(app.llm.history), 1)
+            history = app.llm.history
+            dry_run = app.chat("Test query 2", dry_run=True)
+            self.assertIn("History:", dry_run)
+            self.assertEqual(history, app.llm.history)
+            self.assertEqual(len(app.llm.history), 1)
 
     @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
     def test_chat_with_where_in_params(self):

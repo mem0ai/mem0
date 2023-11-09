@@ -1,4 +1,5 @@
 import yaml
+
 from embedchain.utils import validate_yaml_config
 
 CONFIG_YAMLS = [

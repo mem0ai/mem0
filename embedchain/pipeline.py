@@ -10,7 +10,8 @@ import yaml
 
 from embedchain import Client
 from embedchain.config import ChunkerConfig, PipelineConfig
-from embedchain.embedchain import CONFIG_DIR, EmbedChain
+from embedchain.constants import SQLITE_PATH
+from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
@@ -21,8 +22,6 @@ from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import validate_yaml_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
-
-SQLITE_PATH = os.path.join(CONFIG_DIR, "embedchain.db")
 
 
 @register_deserializable

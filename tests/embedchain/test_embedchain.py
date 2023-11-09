@@ -7,6 +7,7 @@ from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.llm.base import BaseLlm
+from embedchain.memory.base import ECChatMemory
 
 os.environ["OPENAI_API_KEY"] = "test-api-key"
 
@@ -25,6 +26,11 @@ def test_whole_app(app_instance, mocker):
     mocker.patch.object(BaseLlm, "get_answer_from_llm", return_value=knowledge)
     mocker.patch.object(BaseLlm, "get_llm_model_answer", return_value=knowledge)
     mocker.patch.object(BaseLlm, "generate_prompt")
+    mocker.patch.object(
+        BaseLlm,
+        "add_history",
+    )
+    mocker.patch.object(ECChatMemory, "delete_chat_history", autospec=True)
 
     app_instance.add(knowledge, data_type="text")
     app_instance.query("What text did I give you?")
@@ -41,6 +47,10 @@ def test_add_after_reset(app_instance, mocker):
     chroma_config = {"allow_reset": True}
 
     app_instance = App(config=config, db_config=ChromaDbConfig(**chroma_config))
+
+    # mock delete chat history
+    mocker.patch.object(ECChatMemory, "delete_chat_history", autospec=True)
+
     app_instance.reset()
 
     app_instance.db.client.heartbeat()
