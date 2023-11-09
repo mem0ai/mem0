@@ -2,7 +2,8 @@ from typing import Optional
 
 import yaml
 
-from embedchain.config import AppConfig, BaseEmbedderConfig, BaseLlmConfig, ChunkerConfig
+from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
+                               ChunkerConfig)
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder

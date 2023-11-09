@@ -13,7 +13,7 @@ def config():
         top_p=0.8,
         stream=False,
         system_prompt="System prompt",
-        model="orca-mini-3b.ggmlv3.q4_0.bin",
+        model="orca-mini-3b-gguf2-q4_0.gguf",
     )
     yield config
 
@@ -40,7 +40,7 @@ def test_gpt4all_init_with_config(config, gpt4all_with_config):
 
 
 def test_gpt4all_init_without_config(gpt4all_without_config):
-    assert gpt4all_without_config.config.model == "orca-mini-3b.ggmlv3.q4_0.bin"
+    assert gpt4all_without_config.config.model == "orca-mini-3b-gguf2-q4_0.gguf"
     assert isinstance(gpt4all_without_config.instance, LangchainGPT4All)
 
 

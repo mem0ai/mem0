@@ -9,7 +9,7 @@ import requests
 import yaml
 
 from embedchain import Client
-from embedchain.config import PipelineConfig, ChunkerConfig
+from embedchain.config import ChunkerConfig, PipelineConfig
 from embedchain.embedchain import CONFIG_DIR, EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
@@ -42,7 +42,7 @@ class Pipeline(EmbedChain):
         embedding_model: BaseEmbedder = None,
         llm: BaseLlm = None,
         yaml_path: str = None,
-        log_level=logging.INFO,
+        log_level=logging.WARN,
         auto_deploy: bool = False,
         chunker: ChunkerConfig = None,
     ):
@@ -59,7 +59,7 @@ class Pipeline(EmbedChain):
         :type llm: BaseLlm, optional
         :param yaml_path: Path to the YAML configuration file, defaults to None
         :type yaml_path: str, optional
-        :param log_level: Log level to use, defaults to logging.INFO
+        :param log_level: Log level to use, defaults to logging.WARN
         :type log_level: int, optional
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
