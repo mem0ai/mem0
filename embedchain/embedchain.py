@@ -16,7 +16,8 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
+from embedchain.models.data_type import (DataType, DirectDataType,
+                                         IndirectDataType, SpecialDataType)
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
@@ -81,7 +82,7 @@ class EmbedChain(JSONSerializable):
         self._telemetry_props = {"class": self.__class__.__name__}
         self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
         # Establish a connection to the SQLite database
-        self.connection = sqlite3.connect(SQLITE_PATH)
+        self.connection = sqlite3.connect(SQLITE_PATH, check_same_thread=False)
         self.cursor = self.connection.cursor()
 
         # Create the 'data_sources' table if it doesn't exist

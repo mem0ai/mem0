@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.92"
+version = "0.1.0"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -88,12 +88,12 @@ exclude = '''
 color = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-langchain = "^0.0.303"
+langchain = "^0.0.332"
 requests = "^2.31.0"
-openai = ">=0.28.0"
-chromadb = "^0.4.8"
+openai = ">=1.1.1"
+chromadb = "^0.4.16"
 posthog = "^3.0.2"
 tiktoken = { version = "^0.4.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }
@@ -101,11 +101,12 @@ beautifulsoup4 = { version = "^4.12.2", optional = true }
 pypdf = { version = "^3.11.0", optional = true }
 pytube = { version = "^15.0.0", optional = true }
 duckduckgo-search = { version = "^3.8.5", optional = true }
-llama-hub = { version = "^0.0.29", optional = true }
+llama-hub = { version = "^0.0.43", optional = true }
+llama-index = { version = "^0.8.65", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.0.0", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
-gpt4all = { version = "1.0.8", optional = true }
+gpt4all = { version = "2.0.2", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
 opensearch-py = { version = "2.3.1", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
