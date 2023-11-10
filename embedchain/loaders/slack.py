@@ -72,7 +72,7 @@ class SlackLoader(BaseLoader):
             json.loads(query)
             return True
         except ValueError:
-            logging.warn(f"Pass the valid json query in slack loader, found: {query}")
+            logging.warning(f"Pass the valid json query in slack loader, found: {query}")
             return False
 
     def _check_query(self, query):
@@ -91,7 +91,7 @@ class SlackLoader(BaseLoader):
             logging.info(f"Loading slack conversations from channels: {channels}")
             for _, channel_name in enumerate(channels):
                 if channel_name not in self.channel_names_with_id:
-                    logging.warn(f"Channel with name {channel_name} not found, skipping...")
+                    logging.warning(f"Channel with name {channel_name} not found, skipping...")
                     continue
                 channel_id = self.channel_names_with_id.get(channel_name)
                 channel_config = json_query.get(channel_id, {})
@@ -119,7 +119,7 @@ class SlackLoader(BaseLoader):
                 "data": data,
             }
         except Exception as e:
-            logging.warn(f"Error in loading slack data: {e}")
+            logging.warning(f"Error in loading slack data: {e}")
             raise ValueError(
                 f"Error in loading slack data: {e}. Check `https://docs.embedchain.ai/data-sources/slack` to learn more."  # noqa:E501
             ) from e
