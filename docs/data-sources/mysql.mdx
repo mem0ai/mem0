@@ -24,8 +24,6 @@ For more details on how to setup with valid config, check MySQL [documentation](
 import os
 from embedchain.pipeline import Pipeline as App
 
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
-
 app = App()
 
 app.add("SELECT * FROM table_name;", data_type='mysql', loader=mysql_loader)
@@ -44,7 +42,7 @@ from embedchain.chunkers.mysql import MySQLChunker
 from embedchain.config.add_config import ChunkerConfig
 
 mysql_chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=0, length_function=len)
-mysql_chunker = PostgresChunker(config=mysql_chunker_config)
+mysql_chunker = MySQLChunker(config=mysql_chunker_config)
 
 app.add("SELECT * FROM table_name;", data_type='mysql', loader=mysql_loader, chunker=mysql_chunker)
 ```
