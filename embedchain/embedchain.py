@@ -478,13 +478,13 @@ class EmbedChain(JSONSerializable):
         query_config = config or self.llm.config
         if where is not None:
             where = where
-        elif query_config is not None and query_config.where is not None:
-            where = query_config.where
         else:
             where = {}
-
-        if self.config.id is not None:
-            where.update({"app_id": self.config.id})
+            if query_config is not None and query_config.where is not None:
+                where = query_config.where
+            
+            if self.config.id is not None:
+                where.update({"app_id": self.config.id})
 
         # We cannot query the database with the input query in case of an image search. This is because we need
         # to bring down both the image and text to the same dimension to be able to compare them.
