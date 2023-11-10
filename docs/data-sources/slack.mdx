@@ -1,0 +1,62 @@
+---
+title: '🤖 Slack'
+---
+
+## Pre-requisite
+- Download required packages by running `pip install --upgrade "embedchain[slack]"`.
+- Configure your slack bot token as environment variable `SLACK_BOT_TOKEN`. Find your bot token on your [Slack Account](https://api.slack.com/authentication/token-types)
+
+## Example
+1. Setup the Slack loader by configuring the Slack Webclient.
+```Python
+from embedchain.loaders.slack import SlackLoader
+
+os.environ["SLACK_BOT_TOKEN"] = "xoxb-xxxx"
+
+loader = SlackLoader()
+
+"""
+config = {
+    'base_url': slack_app_url,
+    'headers': web_headers,
+    'team_id': slack_team_id,
+}
+
+loader = SlackLoader(config)
+"""
+```
+
+NOTE: you can also pass the `config` with `base_url`, `headers`, `team_id` to setup your SlackLoader.
+
+2. Once you setup the loader, you can create an app and load data using the above slack loader
+```Python
+import os
+from embedchain.pipeline import Pipeline as App
+
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+
+app = App()
+
+query = {
+    "random": {"last_seen": 0}
+}
+slack_query = loader.create_query(from_dict=query)
+
+# adds the data from slack app's "random" channel.
+app.add(slack_query, data_type="slack", loader=loader)
+question = "Which bots are available in the slack workspace?"
+# Answer: The available bots in the slack workspace are "Embedchain bot".
+```
+
+NOTE: Slack Loader provides `create_query` function to check and create valid query for adding data into your app using the slack loader.
+
+3. We automatically create a chunker to chunk your slack data, however if you wish to provide your own chunker class. Here is how you can do that:
+```Python
+from embedchain.chunkers.slack import SlackChunker
+from embedchain.config.add_config import ChunkerConfig
+
+slack_chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=0, length_function=len)
+slack_chunker = SlackChunker(config=slack_chunker_config)
+
+app.add(slack_chunker, data_type="slack", loader=loader, chunker=slack_chunker)
+```
