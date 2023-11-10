@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from embedchain.loaders.slack import SlackLoader
@@ -12,7 +10,7 @@ def slack_loader(mocker, monkeypatch):
     mocker.patch("ssl.create_default_context")
     mocker.patch("certifi.where")
 
-    monkeypatch.setenv("SLACK_BOT_TOKEN", "slack_bot_token")
+    monkeypatch.setenv("SLACK_USER_TOKEN", "slack_user_token")
 
     return SlackLoader()
 
@@ -28,16 +26,8 @@ def test_slack_loader_setup_loader(slack_loader):
     assert slack_loader.client is not None
 
 
-def test_slack_loader_is_valid_json(slack_loader):
-    valid_json = '{"key": "value"}'
-    invalid_json = "invalid_json"
-
-    assert slack_loader._is_valid_json(valid_json)
-    assert not slack_loader._is_valid_json(invalid_json)
-
-
 def test_slack_loader_check_query(slack_loader):
-    valid_json_query = '{"channel_id": {"last_seen": 0, "limit": 100}}'
+    valid_json_query = "test_query"
     invalid_query = 123
 
     slack_loader._check_query(valid_json_query)
@@ -47,20 +37,11 @@ def test_slack_loader_check_query(slack_loader):
 
 
 def test_slack_loader_load_data(slack_loader, mocker):
-    valid_json_query = '{"channel_id": {"last_seen": 0, "limit": 100}}'
+    valid_json_query = "in:random"
 
-    mocker.patch.object(slack_loader.client, "conversations_history", return_value={"messages": []})
+    mocker.patch.object(slack_loader.client, "search_messages", return_value={"messages": {}})
 
     result = slack_loader.load_data(valid_json_query)
 
     assert "doc_id" in result
     assert "data" in result
-
-
-def test_slack_loader_create_query(slack_loader):
-    valid_query_dict = {"channel_id": {"last_seen": 0, "limit": 100}}
-    slack_loader.channel_names_with_id = {"channel_id": "channel_id"}
-
-    result = slack_loader.create_query(valid_query_dict)
-
-    assert json.loads(result) == valid_query_dict
