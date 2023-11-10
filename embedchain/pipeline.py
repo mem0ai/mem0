@@ -64,6 +64,9 @@ class Pipeline(EmbedChain):
         :type auto_deploy: bool, optional
         :raises Exception: If an error occurs while creating the pipeline
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
+
         if id and yaml_path:
             raise Exception("Cannot provide both id and config. Please provide only one of them.")
 
@@ -75,22 +78,18 @@ class Pipeline(EmbedChain):
 
         logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
-
         self.auto_deploy = auto_deploy
-
         # Store the yaml config as an attribute to be able to send it
         self.yaml_config = None
         self.client = None
         # pipeline_id from the backend
         self.id = None
-
         self.chunker = None
         if chunker:
             self.chunker = ChunkerConfig(**chunker)
 
         self.config = config or PipelineConfig()
         self.name = self.config.name
-
         self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
 
         if yaml_path:
