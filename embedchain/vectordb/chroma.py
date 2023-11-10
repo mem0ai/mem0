@@ -77,7 +77,7 @@ class ChromaDB(BaseVectorDB):
     def _generate_where_clause(self, where: Dict[str, any]) -> str:
         # If only one filter is supplied, return it as is
         # (no need to wrap in $and based on chroma docs)
-        if len(where.keys()) == 1:
+        if len(where.keys()) <= 1:
             return where
         where_filters = []
         for k, v in where.items():
@@ -224,7 +224,7 @@ class ChromaDB(BaseVectorDB):
                         input_query,
                     ],
                     n_results=n_results,
-                    where=where,
+                    where=self._generate_where_clause(where),
                 )
             else:
                 result = self.collection.query(
@@ -232,7 +232,7 @@ class ChromaDB(BaseVectorDB):
                         input_query,
                     ],
                     n_results=n_results,
-                    where=where,
+                    where=self._generate_where_clause(where),
                 )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
@@ -275,7 +275,7 @@ class ChromaDB(BaseVectorDB):
         return self.collection.count()
 
     def delete(self, where):
-        return self.collection.delete(where=where)
+        return self.collection.delete(where=self._generate_where_clause(where))
 
     def reset(self):
         """
