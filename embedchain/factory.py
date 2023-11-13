@@ -1,7 +1,7 @@
 import importlib
 
 
-def _load_class(class_type):
+def load_class(class_type):
     module_path, class_name = class_type.rsplit(".", 1)
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
@@ -32,8 +32,8 @@ class LlmFactory:
         config_name = "embedchain" if provider_name not in cls.provider_to_config_class else provider_name
         config_class_type = cls.provider_to_config_class.get(config_name)
         if class_type:
-            llm_class = _load_class(class_type)
-            llm_config_class = _load_class(config_class_type)
+            llm_class = load_class(class_type)
+            llm_config_class = load_class(config_class_type)
             return llm_class(config=llm_config_class(**config_data))
         else:
             raise ValueError(f"Unsupported Llm provider: {provider_name}")
@@ -60,8 +60,8 @@ class EmbedderFactory:
         config_name = "openai" if provider_name not in cls.provider_to_config_class else provider_name
         config_class_type = cls.provider_to_config_class.get(config_name)
         if class_type:
-            embedder_class = _load_class(class_type)
-            embedder_config_class = _load_class(config_class_type)
+            embedder_class = load_class(class_type)
+            embedder_config_class = load_class(config_class_type)
             return embedder_class(config=embedder_config_class(**config_data))
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
@@ -92,8 +92,8 @@ class VectorDBFactory:
         class_type = cls.provider_to_class.get(provider_name)
         config_class_type = cls.provider_to_config_class.get(provider_name)
         if class_type:
-            embedder_class = _load_class(class_type)
-            embedder_config_class = _load_class(config_class_type)
+            embedder_class = load_class(class_type)
+            embedder_config_class = load_class(config_class_type)
             return embedder_class(config=embedder_config_class(**config_data))
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
