@@ -1,3 +1,1 @@
-embedchain
-embedchain[slack]
-embedchain[poe]
+embedchain[slack, poe]==0.1.7
