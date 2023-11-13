@@ -1,11 +1,5 @@
 import hashlib
 
-try:
-    from langchain.document_loaders import RSSFeedLoader as LangchainRSSFeedLoader
-except ImportError:
-    raise ImportError(
-        'RSSFeedLoader file requires extra dependencies. Install with `pip install --upgrade "embedchain[rss_feed]"`'
-    ) from None
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
@@ -33,17 +27,26 @@ class RSSFeedLoader(BaseLoader):
 
     @staticmethod
     def get_rss_content(url: str):
+        try:
+            from langchain.document_loaders import RSSFeedLoader as LangchainRSSFeedLoader
+        except ImportError:
+            raise ImportError(
+                """RSSFeedLoader file requires extra dependencies.
+                Install with `pip install --upgrade "embedchain[rss_feed]"`"""
+            ) from None
+
         output = []
         loader = LangchainRSSFeedLoader(urls=[url])
         data = loader.load()
 
         for entry in data:
+            meta_data = RSSFeedLoader.serialize_metadata(entry.metadata)
+            meta_data.update({"url": url})
             output.append(
                 {
                     "content": entry.page_content,
-                    "meta_data": RSSFeedLoader.serialize_metadata(entry.metadata),
+                    "meta_data": meta_data,
                 }
             )
-            output[-1]["meta_data"]["url"] = url
 
         return output
