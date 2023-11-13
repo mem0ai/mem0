@@ -68,6 +68,7 @@ class DataFormatter(JSONSerializable):
         custom_loaders = set(
             [
                 DataType.POSTGRES,
+                DataType.MYSQL,
                 DataType.SLACK,
             ]
         )
@@ -107,6 +108,7 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.chunkers.gmail.GmailChunker",
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
             DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
+            DataType.MYSQL: "embedchain.chunkers.mysql.MySQLChunker",
             DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
         }
 
