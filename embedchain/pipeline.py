@@ -357,6 +357,9 @@ class Pipeline(EmbedChain):
         :return: An instance of the Pipeline class.
         :rtype: Pipeline
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
+
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
