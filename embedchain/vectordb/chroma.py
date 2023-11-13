@@ -158,7 +158,11 @@ class ChromaDB(BaseVectorDB):
             )
 
         for i in range(0, len(documents), self.BATCH_SIZE):
-            print("Inserting batches from {} to {} in chromadb".format(i, min(len(documents), i + self.BATCH_SIZE)))
+            print(
+                "Inserting batches from {} to {} in vector database.".format(
+                    i, min(len(documents), i + self.BATCH_SIZE)
+                )
+            )
             if skip_embedding:
                 self.collection.add(
                     embeddings=embeddings[i : i + self.BATCH_SIZE],
