@@ -14,7 +14,7 @@ class TestApp(unittest.TestCase):
         os.environ["OPENAI_API_KEY"] = "test_key"
         self.app = App(config=AppConfig(collect_metrics=False))
 
-    @patch.object(App, "retrieve_from_database", return_value=["Test context"])
+    @patch.object(App, "_retrieve_from_database", return_value=["Test context"])
     @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
     def test_chat_with_memory(self, mock_get_answer, mock_retrieve):
         """
@@ -28,7 +28,7 @@ class TestApp(unittest.TestCase):
         - After the first call, 'memory.chat_memory.add_user_message' and 'memory.chat_memory.add_ai_message' are
         - During the second call, the 'chat' method uses the chat history from the first call.
 
-        The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database', 'get_answer_from_llm' and
+        The test isolates the 'chat' method behavior by mocking out '_retrieve_from_database', 'get_answer_from_llm' and
         'memory' methods.
         """
         config = AppConfig(collect_metrics=False)
@@ -42,7 +42,7 @@ class TestApp(unittest.TestCase):
             self.assertEqual(second_answer, "Test answer")
             mock_history.assert_called_with(app.config.id, "Test query 2", "Test answer")
 
-    @patch.object(App, "retrieve_from_database", return_value=["Test context"])
+    @patch.object(App, "_retrieve_from_database", return_value=["Test context"])
     @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
     def test_template_replacement(self, mock_get_answer, mock_retrieve):
         """
@@ -73,7 +73,7 @@ class TestApp(unittest.TestCase):
         """
         Test where filter
         """
-        with patch.object(self.app, "retrieve_from_database") as mock_retrieve:
+        with patch.object(self.app, "_retrieve_from_database") as mock_retrieve:
             mock_retrieve.return_value = ["Test context"]
             with patch.object(self.app.llm, "get_llm_model_answer") as mock_answer:
                 mock_answer.return_value = "Test answer"
@@ -89,19 +89,19 @@ class TestApp(unittest.TestCase):
     def test_chat_with_where_in_chat_config(self):
         """
         This test checks the functionality of the 'chat' method in the App class.
-        It simulates a scenario where the 'retrieve_from_database' method returns a context list based on
+        It simulates a scenario where the '_retrieve_from_database' method returns a context list based on
         a where filter and 'get_llm_model_answer' returns an expected answer string.
 
-        The 'chat' method is expected to call 'retrieve_from_database' with the where filter specified
+        The 'chat' method is expected to call '_retrieve_from_database' with the where filter specified
         in the BaseLlmConfig and 'get_llm_model_answer' methods appropriately and return the right answer.
 
         Key assumptions tested:
-        - 'retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
+        - '_retrieve_from_database' method is called exactly once with arguments: "Test query" and an instance of
             BaseLlmConfig.
         - 'get_llm_model_answer' is called exactly once. The specific arguments are not checked in this test.
         - 'chat' method returns the value it received from 'get_llm_model_answer'.
 
-        The test isolates the 'chat' method behavior by mocking out 'retrieve_from_database' and
+        The test isolates the 'chat' method behavior by mocking out '_retrieve_from_database' and
         'get_llm_model_answer' methods.
         """
         with patch.object(self.app.llm, "get_llm_model_answer") as mock_answer:

@@ -29,7 +29,7 @@ class TestAnonymousTelemetry:
         mocker.patch("embedchain.telemetry.posthog.CONFIG_FILE", str(config_file))
         telemetry = AnonymousTelemetry()
 
-        user_id = telemetry.get_user_id()
+        user_id = telemetry._get_user_id()
         assert user_id == "unique_user_id"
         assert config_file.read() == '{"user_id": "unique_user_id"}'
 

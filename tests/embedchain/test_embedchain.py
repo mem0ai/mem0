@@ -22,7 +22,7 @@ def test_whole_app(app_instance, mocker):
     knowledge = "lorem ipsum dolor sit amet, consectetur adipiscing"
 
     mocker.patch.object(EmbedChain, "add")
-    mocker.patch.object(EmbedChain, "retrieve_from_database")
+    mocker.patch.object(EmbedChain, "_retrieve_from_database")
     mocker.patch.object(BaseLlm, "get_answer_from_llm", return_value=knowledge)
     mocker.patch.object(BaseLlm, "get_llm_model_answer", return_value=knowledge)
     mocker.patch.object(BaseLlm, "generate_prompt")
