@@ -33,7 +33,7 @@ class IndirectDataType(Enum):
     YOUTUBE_CHANNEL = "youtube_channel"
     DISCORD = "discord"
     CUSTOM = "custom"
-
+    RSSFEED = "rss_feed"
 
 class SpecialDataType(Enum):
     """
@@ -65,3 +65,4 @@ class DataType(Enum):
     YOUTUBE_CHANNEL = IndirectDataType.YOUTUBE_CHANNEL.value
     DISCORD = IndirectDataType.DISCORD.value
     CUSTOM = IndirectDataType.CUSTOM.value
+    RSSFEED = IndirectDataType.RSSFEED.value
