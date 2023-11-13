@@ -83,7 +83,7 @@ async def create_app_using_default_config(app_id: str, config: UploadFile = None
 
         return DefaultResponse(response=f"App created successfully. App ID: {app_id}")
     except Exception as e:
-        logging.warn(str(e))
+        logging.warning(str(e))
         raise HTTPException(detail=f"Error creating app: {str(e)}", status_code=400)
 
 
@@ -113,13 +113,13 @@ async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depe
         response = app.get_data_sources()
         return {"results": response}
     except ValueError as ve:
-        logging.warn(str(ve))
+        logging.warning(str(ve))
         raise HTTPException(
             detail=generate_error_message_for_api_keys(ve),
             status_code=400,
         )
     except Exception as e:
-        logging.warn(str(e))
+        logging.warning(str(e))
         raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
@@ -152,13 +152,13 @@ async def add_datasource_to_an_app(body: SourceApp, app_id: str, db: Session = D
         response = app.add(source=body.source, data_type=body.data_type)
         return DefaultResponse(response=response)
     except ValueError as ve:
-        logging.warn(str(ve))
+        logging.warning(str(ve))
         raise HTTPException(
             detail=generate_error_message_for_api_keys(ve),
             status_code=400,
         )
     except Exception as e:
-        logging.warn(str(e))
+        logging.warning(str(e))
         raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
@@ -190,13 +190,13 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
         response = app.query(body.query)
         return DefaultResponse(response=response)
     except ValueError as ve:
-        logging.warn(str(ve))
+        logging.warning(str(ve))
         raise HTTPException(
             detail=generate_error_message_for_api_keys(ve),
             status_code=400,
         )
     except Exception as e:
-        logging.warn(str(e))
+        logging.warning(str(e))
         raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 
@@ -273,13 +273,13 @@ async def deploy_app(body: DeployAppRequest, app_id: str, db: Session = Depends(
         app.deploy()
         return DefaultResponse(response="App deployed successfully.")
     except ValueError as ve:
-        logging.warn(str(ve))
+        logging.warning(str(ve))
         raise HTTPException(
             detail=generate_error_message_for_api_keys(ve),
             status_code=400,
         )
     except Exception as e:
-        logging.warn(str(e))
+        logging.warning(str(e))
         raise HTTPException(detail=f"Error occurred: {str(e)}", status_code=400)
 
 

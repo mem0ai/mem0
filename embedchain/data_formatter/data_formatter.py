@@ -68,6 +68,7 @@ class DataFormatter(JSONSerializable):
         custom_loaders = set(
             [
                 DataType.POSTGRES,
+                DataType.SLACK,
             ]
         )
 
@@ -106,6 +107,7 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.chunkers.gmail.GmailChunker",
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
             DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
+            DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
         }
 
         if data_type in chunker_classes:
