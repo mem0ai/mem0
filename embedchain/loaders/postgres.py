@@ -52,7 +52,7 @@ class PostgresLoader(BaseLoader):
             results = self.cursor.fetchall()
             for result in results:
                 doc_content = str(result)
-                data.append({"content": doc_content, "meta_data": {"url": f"postgres_query-({query})"}})
+                data.append({"content": doc_content, "meta_data": {"url": query}})
                 data_content.append(doc_content)
             doc_id = hashlib.sha256((query + ", ".join(data_content)).encode()).hexdigest()
             return {

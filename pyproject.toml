@@ -133,6 +133,7 @@ schema = "^0.7.5"
 psycopg = { version = "^3.1.12", optional = true }
 psycopg-binary = { version = "^3.1.12", optional = true }
 psycopg-pool = { version = "^3.1.8", optional = true }
+mysql-connector-python = { version = "^8.1.0", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -188,6 +189,7 @@ gmail = [
 ]
 json = ["llama-hub"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
+mysql = ["mysql-connector-python"]
 
 [tool.poetry.group.docs.dependencies]
 

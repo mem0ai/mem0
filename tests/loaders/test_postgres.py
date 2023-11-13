@@ -36,8 +36,8 @@ def test_load_data(postgres_loader, monkeypatch):
     assert "doc_id" in result
     assert "data" in result
     assert len(result["data"]) == 2
-    assert result["data"][0]["meta_data"]["url"] == f"postgres_query-({query})"
-    assert result["data"][1]["meta_data"]["url"] == f"postgres_query-({query})"
+    assert result["data"][0]["meta_data"]["url"] == query
+    assert result["data"][1]["meta_data"]["url"] == query
     assert mock_cursor.execute.called_with(query)
 
 
