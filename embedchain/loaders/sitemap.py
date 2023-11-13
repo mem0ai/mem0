@@ -20,6 +20,12 @@ from embedchain.utils import is_readable
 
 @register_deserializable
 class SitemapLoader(BaseLoader):
+    """
+    This method takes a sitemap URL as input and retrieves
+    all the URLs to use the WebPageLoader to load content
+    of each page.
+    """
+
     def load_data(self, sitemap_url):
         output = []
         web_page_loader = WebPageLoader()
