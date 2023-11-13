@@ -9,6 +9,7 @@ from embedchain.chunkers.pdf_file import PdfFileChunker
 from embedchain.chunkers.postgres import PostgresChunker
 from embedchain.chunkers.qna_pair import QnaPairChunker
 from embedchain.chunkers.sitemap import SitemapChunker
+from embedchain.chunkers.slack import SlackChunker
 from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
@@ -35,6 +36,7 @@ chunker_common_config = {
     OpenAPIChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     GmailChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     PostgresChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    SlackChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

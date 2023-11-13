@@ -30,6 +30,7 @@ class IndirectDataType(Enum):
     OPENAPI = "openapi"
     GMAIL = "gmail"
     POSTGRES = "postgres"
+    SLACK = "slack"
 
 
 class SpecialDataType(Enum):
@@ -59,3 +60,4 @@ class DataType(Enum):
     OPENAPI = IndirectDataType.OPENAPI.value
     GMAIL = IndirectDataType.GMAIL.value
     POSTGRES = IndirectDataType.POSTGRES.value
+    SLACK = IndirectDataType.SLACK.value
