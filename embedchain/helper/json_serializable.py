@@ -33,7 +33,7 @@ def register_deserializable(cls: Type[T]) -> Type[T]:
     Returns:
         Type: The same class, after registration.
     """
-    JSONSerializable.register_class_as_deserializable(cls)
+    JSONSerializable._register_class_as_deserializable(cls)
     return cls
 
 
@@ -183,7 +183,7 @@ class JSONSerializable:
             return cls.deserialize(json_str)
 
     @classmethod
-    def register_class_as_deserializable(cls, target_class: Type[T]) -> None:
+    def _register_class_as_deserializable(cls, target_class: Type[T]) -> None:
         """
         Register a class as deserializable. This is a classmethod and globally shared.
 
