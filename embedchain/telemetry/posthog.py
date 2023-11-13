@@ -20,7 +20,7 @@ class AnonymousTelemetry:
         self.project_api_key = "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2"
         self.host = host
         self.posthog = Posthog(project_api_key=self.project_api_key, host=self.host)
-        self.user_id = self.get_user_id()
+        self.user_id = self._get_user_id()
         self.enabled = enabled
 
         # Check if telemetry tracking is disabled via environment variable
@@ -38,7 +38,7 @@ class AnonymousTelemetry:
         posthog_logger = logging.getLogger("posthog")
         posthog_logger.disabled = True
 
-    def get_user_id(self):
+    def _get_user_id(self):
         if not os.path.exists(CONFIG_DIR):
             os.makedirs(CONFIG_DIR)
 

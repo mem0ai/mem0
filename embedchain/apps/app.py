@@ -2,6 +2,7 @@ from typing import Optional
 
 import yaml
 
+from embedchain.client import Client
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChunkerConfig)
 from embedchain.config.vectordb.base import BaseVectorDbConfig
@@ -67,6 +68,9 @@ class App(EmbedChain):
         :type system_prompt: Optional[str], optional
         :raises TypeError: LLM, database or embedder or their config is not a valid class instance.
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
+
         # Type check configs
         if config and not isinstance(config, AppConfig):
             raise TypeError(
@@ -130,6 +134,9 @@ class App(EmbedChain):
         :return: An instance of the App class.
         :rtype: App
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
+
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 

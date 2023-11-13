@@ -15,8 +15,21 @@ channels:read
 chat:write
 ```
 5. Now select the option `Install to Workspace` and after it's done, copy the `Bot User OAuth Token` and set it in your secrets as `SLACK_BOT_TOKEN`.
-6. Run your bot now with `python3 -m embedchain.bots.slack`
-7. Expose your bot to the internet. Default port is `5000`, which can be changed by adding `port --8080` to the startup command. You can use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
+6. Run your bot now,
+<Tabs>
+    <Tab title="docker">
+        ```bash
+        docker run --name slack-bot -e OPENAI_API_KEY=sk-xxx -e SLACK_BOT_TOKEN=xxx -p 8000:8000 embedchain/slack-bot
+        ```
+    </Tab>
+    <Tab title="python">
+        ```bash
+        pip install --upgrade "embedchain[slack]"
+        python3 -m embedchain.bots.slack --port 8000
+        ```
+</Tab>
+</Tabs>
+7. Expose your bot to the internet. You can use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
 8. On the Slack API website go to `Event Subscriptions` on the left Sidebar and turn on `Enable Events`.
 9. In `Request URL`, enter your server or ngrok address.
 10. After it gets verified, click on `Subscribe to bot events`, add `message.channels` Bot User Event and click on `Save Changes`.

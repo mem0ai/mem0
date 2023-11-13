@@ -31,6 +31,7 @@ class IndirectDataType(Enum):
     GMAIL = "gmail"
     POSTGRES = "postgres"
     MYSQL = "mysql"
+    SLACK = "slack"
 
 
 class SpecialDataType(Enum):
@@ -61,3 +62,4 @@ class DataType(Enum):
     GMAIL = IndirectDataType.GMAIL.value
     POSTGRES = IndirectDataType.POSTGRES.value
     MYSQL = IndirectDataType.MYSQL.value
+    SLACK = IndirectDataType.SLACK.value

@@ -40,9 +40,7 @@ class PostgresLoader(BaseLoader):
     def _check_query(self, query):
         if not isinstance(query, str):
             raise ValueError(
-                f"Invalid postgres query: {query}",
-                "Provide the valid source to add from postgres, \
-                    make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",
+                f"Invalid postgres query: {query}. Provide the valid source to add from postgres, make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",  # noqa:E501
             )
 
     def load_data(self, query):

@@ -69,12 +69,7 @@ class DataFormatter(JSONSerializable):
             [
                 DataType.POSTGRES,
                 DataType.MYSQL,
-            ]
-        )
-
-        custom_loaders = set(
-            [
-                DataType.POSTGRES,
+                DataType.SLACK,
             ]
         )
 
@@ -114,6 +109,7 @@ class DataFormatter(JSONSerializable):
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
             DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
             DataType.MYSQL: "embedchain.chunkers.mysql.MySQLChunker",
+            DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
         }
 
         if data_type in chunker_classes:
