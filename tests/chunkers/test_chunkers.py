@@ -1,3 +1,4 @@
+from embedchain.chunkers.discourse import DiscourseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.gmail import GmailChunker
@@ -37,6 +38,7 @@ chunker_common_config = {
     GmailChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     PostgresChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     SlackChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    DiscourseChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

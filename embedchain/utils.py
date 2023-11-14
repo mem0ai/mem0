@@ -5,9 +5,64 @@ import re
 import string
 from typing import Any
 
+from bs4 import BeautifulSoup
 from schema import Optional, Or, Schema
 
 from embedchain.models.data_type import DataType
+
+
+def parse_content(content, type):
+    implemented = ["html.parser", "lxml", "lxml-xml", "xml", "html5lib"]
+    if type not in implemented:
+        raise ValueError(f"Parser type {type} not implemented. Please choose one of {implemented}")
+
+    soup = BeautifulSoup(content, type)
+    original_size = len(str(soup.get_text()))
+
+    tags_to_exclude = [
+        "nav",
+        "aside",
+        "form",
+        "header",
+        "noscript",
+        "svg",
+        "canvas",
+        "footer",
+        "script",
+        "style",
+    ]
+    for tag in soup(tags_to_exclude):
+        tag.decompose()
+
+    ids_to_exclude = ["sidebar", "main-navigation", "menu-main-menu"]
+    for id in ids_to_exclude:
+        tags = soup.find_all(id=id)
+        for tag in tags:
+            tag.decompose()
+
+    classes_to_exclude = [
+        "elementor-location-header",
+        "navbar-header",
+        "nav",
+        "header-sidebar-wrapper",
+        "blog-sidebar-wrapper",
+        "related-posts",
+    ]
+    for class_name in classes_to_exclude:
+        tags = soup.find_all(class_=class_name)
+        for tag in tags:
+            tag.decompose()
+
+    content = soup.get_text()
+    content = clean_string(content)
+
+    cleaned_size = len(content)
+    if original_size != 0:
+        logging.info(
+            f"Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
+        )
+
+    return content
 
 
 def clean_string(text):

@@ -32,6 +32,7 @@ class IndirectDataType(Enum):
     POSTGRES = "postgres"
     MYSQL = "mysql"
     SLACK = "slack"
+    DISCOURSE = "discourse"
 
 
 class SpecialDataType(Enum):
@@ -63,3 +64,4 @@ class DataType(Enum):
     POSTGRES = IndirectDataType.POSTGRES.value
     MYSQL = IndirectDataType.MYSQL.value
     SLACK = IndirectDataType.SLACK.value
+    DISCOURSE = IndirectDataType.DISCOURSE.value
