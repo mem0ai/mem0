@@ -1,15 +1,14 @@
+import time
 import concurrent.futures
 import hashlib
 import logging
-
-import requests
 
 try:
     from bs4 import BeautifulSoup
     from bs4.builder import ParserRejectedMarkup
 except ImportError:
     raise ImportError(
-        'Sitemap requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+        'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
     ) from None
 
 from embedchain.helper.json_serializable import register_deserializable
@@ -26,6 +25,8 @@ class SubstackLoader(BaseLoader):
     """
 
     def load_data(self, url: str):
+        import requests
+
         output = []
         response = requests.get(url)
         response.raise_for_status()
@@ -43,7 +44,7 @@ class SubstackLoader(BaseLoader):
                 each_load_data.raise_for_status()
 
                 data = self.serialize_response(each_load_data)
-                data = str(data).encode()
+                data = str(data)
                 if is_readable(data):
                     return data
                 else:
@@ -59,11 +60,12 @@ class SubstackLoader(BaseLoader):
                 try:
                     data = future.result()
                     if data:
-                        output.append(data)
+                        output.append({"content": data, "meta_data": {"url": link}})
+                    time.sleep(0.3)
                 except Exception as e:
                     logging.error(f"Error loading page {link}: {e}")
 
-        return {"doc_id": doc_id, "data": [data[0] for data in output if data]}
+        return {"doc_id": doc_id, "data": output}
 
     def serialize_response(self, response):
         data = {}
