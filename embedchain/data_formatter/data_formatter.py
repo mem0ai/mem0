@@ -69,6 +69,7 @@ class DataFormatter(JSONSerializable):
             [
                 DataType.POSTGRES,
                 DataType.SLACK,
+                DataType.DISCOURSE,
             ]
         )
 
@@ -108,6 +109,7 @@ class DataFormatter(JSONSerializable):
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
             DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
             DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
+            DataType.DISCOURSE: "embedchain.chunkers.discourse.DiscourseChunker",
         }
 
         if data_type in chunker_classes:
