@@ -70,6 +70,7 @@ class DataFormatter(JSONSerializable):
                 DataType.POSTGRES,
                 DataType.MYSQL,
                 DataType.SLACK,
+                DataType.DISCOURSE,
             ]
         )
 
@@ -110,6 +111,7 @@ class DataFormatter(JSONSerializable):
             DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
             DataType.MYSQL: "embedchain.chunkers.mysql.MySQLChunker",
             DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
+            DataType.DISCOURSE: "embedchain.chunkers.discourse.DiscourseChunker",
         }
 
         if data_type in chunker_classes:
