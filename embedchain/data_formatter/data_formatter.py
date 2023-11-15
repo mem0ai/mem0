@@ -63,6 +63,7 @@ class DataFormatter(JSONSerializable):
             DataType.OPENAPI: "embedchain.loaders.openapi.OpenAPILoader",
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
+            DataType.SUBSTACK: "embedchain.loaders.substack.SubstackLoader",
         }
 
         custom_loaders = set(
@@ -112,6 +113,7 @@ class DataFormatter(JSONSerializable):
             DataType.MYSQL: "embedchain.chunkers.mysql.MySQLChunker",
             DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
             DataType.DISCOURSE: "embedchain.chunkers.discourse.DiscourseChunker",
+            DataType.SUBSTACK: "embedchain.chunkers.substack.SubstackChunker",
         }
 
         if data_type in chunker_classes:

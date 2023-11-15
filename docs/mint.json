@@ -87,7 +87,9 @@
             "data-sources/text",
             "data-sources/web-page",
             "data-sources/openapi",
-            "data-sources/youtube-video"
+            "data-sources/youtube-video",
+            "data-sources/discourse",
+            "data-sources/substack"
           ]
         },
         "data-sources/data-type-handling"
