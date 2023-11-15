@@ -19,7 +19,7 @@ class YoutubeVideoLoader(BaseLoader):
         doc = loader.load()
         output = []
         if not len(doc):
-            raise ValueError("No data found")
+            raise ValueError(f"No data found for url: {url}")
         content = doc[0].page_content
         content = clean_string(content)
         meta_data = doc[0].metadata
