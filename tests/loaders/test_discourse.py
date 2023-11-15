@@ -7,7 +7,7 @@ from embedchain.loaders.discourse import DiscourseLoader
 @pytest.fixture
 def discourse_loader_config():
     return {
-        "domain": "https://example.com",
+        "domain": "https://example.com/",
     }
 
 
@@ -17,9 +17,9 @@ def discourse_loader(discourse_loader_config):
 
 
 def test_discourse_loader_init_with_valid_config():
-    config = {"domain": "https://example.com"}
+    config = {"domain": "https://example.com/"}
     loader = DiscourseLoader(config=config)
-    assert loader.domain == "https://example.com"
+    assert loader.domain == "https://example.com/"
 
 
 def test_discourse_loader_init_with_missing_config():
