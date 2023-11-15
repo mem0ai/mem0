@@ -1,14 +1,7 @@
 import time
 import hashlib
 import logging
-
-try:
-    from bs4 import BeautifulSoup
-    from bs4.builder import ParserRejectedMarkup
-except ImportError:
-    raise ImportError(
-        'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
-    ) from None
+import requests
 
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
@@ -24,7 +17,13 @@ class SubstackLoader(BaseLoader):
     """
 
     def load_data(self, url: str):
-        import requests
+        try:
+            from bs4 import BeautifulSoup
+            from bs4.builder import ParserRejectedMarkup
+        except ImportError:
+            raise ImportError(
+                'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+            ) from None
 
         output = []
         response = requests.get(url)
@@ -37,12 +36,36 @@ class SubstackLoader(BaseLoader):
 
         doc_id = hashlib.sha256((" ".join(links) + url).encode()).hexdigest()
 
-        def load_link(link):
+        def serialize_response(soup: BeautifulSoup):
+            data = {}
+
+            h1_els = soup.find_all("h1")
+            if h1_els is not None and len(h1_els) > 0:
+                data["title"] = h1_els[1].text
+
+            description_el = soup.find("meta", {"name": "description"})
+            if description_el is not None:
+                data["description"] = description_el["content"]
+
+            content_el = soup.find("div", {"class": "available-content"})
+            if content_el is not None:
+                data["content"] = content_el.text
+
+            like_btn = soup.find("div", {"class": "like-button-container"})
+            if like_btn is not None:
+                no_of_likes_div = like_btn.find("div", {"class": "label"})
+                if no_of_likes_div is not None:
+                    data["no_of_likes"] = no_of_likes_div.text
+
+            return data
+
+        def load_link(link: str):
             try:
                 each_load_data = requests.get(link)
                 each_load_data.raise_for_status()
 
-                data = self.serialize_response(each_load_data)
+                soup = BeautifulSoup(response.text, "html.parser")
+                data = serialize_response(soup)
                 data = str(data)
                 if is_readable(data):
                     return data
@@ -60,27 +83,3 @@ class SubstackLoader(BaseLoader):
             time.sleep(0.4)  # added to avoid rate limiting
 
         return {"doc_id": doc_id, "data": output}
-
-    def serialize_response(self, response):
-        data = {}
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        h1_els = soup.find_all("h1")
-        if h1_els is not None and len(h1_els) > 0:
-            data["title"] = h1_els[1].text
-
-        description_el = soup.find("meta", {"name": "description"})
-        if description_el is not None:
-            data["description"] = description_el["content"]
-
-        content_el = soup.find("div", {"class": "available-content"})
-        if content_el is not None:
-            data["content"] = content_el.text
-
-        like_btn = soup.find("div", {"class": "like-button-container"})
-        if like_btn is not None:
-            no_of_likes_div = like_btn.find("div", {"class": "label"})
-            if no_of_likes_div is not None:
-                data["no_of_likes"] = no_of_likes_div.text
-
-        return data
