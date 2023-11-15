@@ -33,6 +33,7 @@ class IndirectDataType(Enum):
     MYSQL = "mysql"
     SLACK = "slack"
     DISCOURSE = "discourse"
+    SUBSTACK = "substack"
 
 
 class SpecialDataType(Enum):
@@ -65,3 +66,4 @@ class DataType(Enum):
     MYSQL = IndirectDataType.MYSQL.value
     SLACK = IndirectDataType.SLACK.value
     DISCOURSE = IndirectDataType.DISCOURSE.value
+    SUBSTACK = IndirectDataType.SUBSTACK.value
