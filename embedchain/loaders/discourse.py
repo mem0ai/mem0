@@ -30,7 +30,7 @@ class DiscourseLoader(BaseLoader):
             )
 
     def _load_post(self, post_id):
-        post_url = f"{self.domain}/posts/{post_id}.json"
+        post_url = f"{self.domain}posts/{post_id}.json"
         response = requests.get(post_url)
         response.raise_for_status()
         response_data = response.json()
@@ -53,7 +53,7 @@ class DiscourseLoader(BaseLoader):
         data = []
         data_contents = []
         logging.info(f"Searching data on discourse url: {self.domain}, for query: {query}")
-        search_url = f"{self.domain}/search.json?q={query}"
+        search_url = f"{self.domain}search.json?q={query}"
         response = requests.get(search_url)
         response.raise_for_status()
         response_data = response.json()

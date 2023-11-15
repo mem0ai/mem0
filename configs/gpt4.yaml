@@ -1,0 +1,8 @@
+llm:
+  provider: openai
+  config:
+    model: 'gpt-4'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
