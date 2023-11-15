@@ -22,7 +22,7 @@ os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
 app = App()
 
-app.add("openai", data_type="discourse", loader=dicourse_loader)
+app.add("openai after:2023-10-1", data_type="discourse", loader=dicourse_loader)
 
 question = "Where can I find the OpenAI API status page?"
 app.query(question)
