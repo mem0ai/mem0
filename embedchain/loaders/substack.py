@@ -1,5 +1,4 @@
 import time
-import concurrent.futures
 import hashlib
 import logging
 
@@ -53,17 +52,12 @@ class SubstackLoader(BaseLoader):
                 logging.error(f"Failed to parse {link}: {e}")
             return None
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_link = {executor.submit(load_link, link): link for link in links}
-            for future in concurrent.futures.as_completed(future_to_link):
-                link = future_to_link[future]
-                try:
-                    data = future.result()
-                    if data:
-                        output.append({"content": data, "meta_data": {"url": link}})
-                    time.sleep(0.3)
-                except Exception as e:
-                    logging.error(f"Error loading page {link}: {e}")
+        for link in links:
+            data = load_link(link)
+            if data:
+                output.append({"content": data, "meta_data": {"url": link}})
+            # TODO: allow users to configure this
+            time.sleep(0.4)  # added to avoid rate limiting
 
         return {"doc_id": doc_id, "data": output}
 
