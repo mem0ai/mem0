@@ -9,6 +9,7 @@ CONFIG_YAMLS = [
     "configs/chunker.yaml",
     "configs/cohere.yaml",
     "configs/full-stack.yaml",
+    "configs/gpt4.yaml",
     "configs/gpt4all.yaml",
     "configs/huggingface.yaml",
     "configs/jina.yaml",
@@ -21,16 +22,15 @@ CONFIG_YAMLS = [
 ]
 
 
-class TestAllConfigYamls:
-    def test_all_config_yamls(self):
-        """Test that all config yamls are valid."""
-        for config_yaml in CONFIG_YAMLS:
-            with open(config_yaml, "r") as f:
-                config = yaml.safe_load(f)
-            assert config is not None
+def test_all_config_yamls():
+    """Test that all config yamls are valid."""
+    for config_yaml in CONFIG_YAMLS:
+        with open(config_yaml, "r") as f:
+            config = yaml.safe_load(f)
+        assert config is not None
 
-            try:
-                validate_yaml_config(config)
-            except Exception as e:
-                print(f"Error in {config_yaml}: {e}")
-                raise e
+        try:
+            validate_yaml_config(config)
+        except Exception as e:
+            print(f"Error in {config_yaml}: {e}")
+            raise e
