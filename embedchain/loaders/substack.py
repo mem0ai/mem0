@@ -81,6 +81,6 @@ class SubstackLoader(BaseLoader):
             if data:
                 output.append({"content": data, "meta_data": {"url": link}})
             # TODO: allow users to configure this
-            time.sleep(0.4)  # added to avoid rate limiting
+            time.sleep(1.0)  # added to avoid rate limiting
 
         return {"doc_id": doc_id, "data": output}
