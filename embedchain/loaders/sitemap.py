@@ -3,6 +3,7 @@ import hashlib
 import logging
 
 import requests
+from tqdm import tqdm
 
 try:
     from bs4 import BeautifulSoup
@@ -52,7 +53,7 @@ class SitemapLoader(BaseLoader):
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_link = {executor.submit(load_link, link): link for link in links}
-            for future in concurrent.futures.as_completed(future_to_link):
+            for future in tqdm(concurrent.futures.as_completed(future_to_link), total=len(links)):
                 link = future_to_link[future]
                 try:
                     data = future.result()
