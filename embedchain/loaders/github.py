@@ -68,7 +68,7 @@ class GithubLoader(BaseLoader):
                             data.extend(results)
                             data_urls.extend([result.get("meta_data").get("url") for result in results])
                     except Exception as e:
-                        logging.error(f"Failed to process {file}: {e}")
+                        logging.warn(f"Failed to process {file}: {e}")
 
         source_hash = hashlib.sha256(repo_url.encode()).hexdigest()
         repo_path = f"/tmp/{source_hash}"
