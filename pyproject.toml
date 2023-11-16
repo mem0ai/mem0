@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.14"
+version = "0.1.16"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -169,7 +169,7 @@ huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
 milvus = ["pymilvus"]
 dataloaders=[
-    "youtube-transcripts-api",
+    "youtube-transcript-api",
     "beautifulsoup4",
     "docx2txt",
     "duckduckgo-search",
@@ -193,9 +193,9 @@ json = ["llama-hub"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 mysql = ["mysql-connector-python"]
 git = ["gitpython"]
-youtube_channel = [
+youtube = [
     "yt_dlp",
-    "youtube-transcripts-api",
+    "youtube-transcript-api",
 ]
 
 [tool.poetry.group.docs.dependencies]

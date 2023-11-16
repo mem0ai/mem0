@@ -7641,7 +7641,7 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [extras]
 cohere = ["cohere"]
 community = ["llama-hub"]
-dataloaders = ["beautifulsoup4", "docx2txt", "duckduckgo-search", "pypdf", "pytube", "sentence-transformers", "unstructured"]
+dataloaders = ["beautifulsoup4", "docx2txt", "duckduckgo-search", "pypdf", "pytube", "sentence-transformers", "unstructured", "youtube-transcript-api"]
 discord = ["discord"]
 elasticsearch = ["elasticsearch"]
 git = ["gitpython"]
@@ -7663,9 +7663,9 @@ streamlit = []
 vertexai = ["google-cloud-aiplatform"]
 weaviate = ["weaviate-client"]
 whatsapp = ["flask", "twilio"]
-youtube-channel = ["yt_dlp"]
+youtube = ["youtube-transcript-api", "yt_dlp"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "a7282080c7a4379bdc6f33dfe9cae7eb20764aae0176137ba5c7af7cdcc58ede"
+content-hash = "14af44b54fd0a64230b32726e99996abc745ad067d07782463a87483d8bbe834"
