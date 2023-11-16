@@ -64,6 +64,8 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
             DataType.SUBSTACK: "embedchain.loaders.substack.SubstackLoader",
+            DataType.GITHUB: "embedchain.loaders.github.GithubLoader",
+            DataType.YOUTUBE_CHANNEL: "embedchain.loaders.youtube_channel.YoutubeChannelLoader",
         }
 
         custom_loaders = set(
@@ -114,6 +116,8 @@ class DataFormatter(JSONSerializable):
             DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
             DataType.DISCOURSE: "embedchain.chunkers.discourse.DiscourseChunker",
             DataType.SUBSTACK: "embedchain.chunkers.substack.SubstackChunker",
+            DataType.GITHUB: "embedchain.chunkers.base_chunker.BaseChunker",
+            DataType.YOUTUBE_CHANNEL: "embedchain.chunkers.base_chunker.BaseChunker",
         }
 
         if data_type in chunker_classes:

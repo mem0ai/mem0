@@ -34,6 +34,8 @@ class IndirectDataType(Enum):
     SLACK = "slack"
     DISCOURSE = "discourse"
     SUBSTACK = "substack"
+    GITHUB = "github"
+    YOUTUBE_CHANNEL = "youtube_channel"
 
 
 class SpecialDataType(Enum):
@@ -67,3 +69,5 @@ class DataType(Enum):
     SLACK = IndirectDataType.SLACK.value
     DISCOURSE = IndirectDataType.DISCOURSE.value
     SUBSTACK = IndirectDataType.SUBSTACK.value
+    GITHUB = IndirectDataType.GITHUB.value
+    YOUTUBE_CHANNEL = IndirectDataType.YOUTUBE_CHANNEL.value

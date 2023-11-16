@@ -57,8 +57,8 @@ class SitemapLoader(BaseLoader):
                 try:
                     data = future.result()
                     if data:
-                        output.append(data)
+                        output.extend(data)
                 except Exception as e:
                     logging.error(f"Error loading page {link}: {e}")
 
-        return {"doc_id": doc_id, "data": [data[0] for data in output if data]}
+        return {"doc_id": doc_id, "data": output}

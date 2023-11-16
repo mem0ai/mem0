@@ -255,6 +255,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
             return DataType.DOCS_SITE
 
+        if "github.com" in url.netloc:
+            logging.debug(f"Source of `{formatted_source}` detected as `github`.")
+            return DataType.GITHUB
+
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return DataType.WEB_PAGE
