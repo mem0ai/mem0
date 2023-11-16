@@ -6892,30 +6892,30 @@ backoff = "*"
 beautifulsoup4 = "*"
 chardet = "*"
 dataclasses-json = "*"
-ebooklib = {version = "*", optional = true, markers = "extra == \"local-inference\""}
+ebooklib = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
 emoji = "*"
 filetype = "*"
 langdetect = "*"
 lxml = "*"
-markdown = {version = "*", optional = true, markers = "extra == \"local-inference\""}
-msg-parser = {version = "*", optional = true, markers = "extra == \"local-inference\""}
+markdown = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+msg-parser = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
 nltk = "*"
 numpy = "*"
-openpyxl = {version = "*", optional = true, markers = "extra == \"local-inference\""}
-pandas = {version = "*", optional = true, markers = "extra == \"local-inference\""}
-pdf2image = {version = "*", optional = true, markers = "extra == \"local-inference\""}
-"pdfminer.six" = {version = "*", optional = true, markers = "extra == \"local-inference\""}
-pypandoc = {version = "*", optional = true, markers = "extra == \"local-inference\""}
-python-docx = {version = ">=1.0.1", optional = true, markers = "extra == \"local-inference\""}
+openpyxl = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+pandas = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+pdf2image = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+"pdfminer.six" = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+pypandoc = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+python-docx = {version = ">=1.0.1", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
 python-iso639 = "*"
 python-magic = "*"
-python-pptx = {version = "<=0.6.21", optional = true, markers = "extra == \"local-inference\""}
+python-pptx = {version = "<=0.6.21", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
 rapidfuzz = "*"
 requests = "*"
 tabulate = "*"
-unstructured-inference = {version = "0.7.3", optional = true, markers = "extra == \"local-inference\""}
-"unstructured.pytesseract" = {version = ">=0.3.12", optional = true, markers = "extra == \"local-inference\""}
-xlrd = {version = "*", optional = true, markers = "extra == \"local-inference\""}
+unstructured-inference = {version = "0.7.3", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+"unstructured.pytesseract" = {version = ">=0.3.12", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
+xlrd = {version = "*", optional = true, markers = "extra == \"all-docs\" or extra == \"local-inference\""}
 
 [package.extras]
 airtable = ["pyairtable"]
@@ -7641,7 +7641,7 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [extras]
 cohere = ["cohere"]
 community = ["llama-hub"]
-dataloaders = ["beautifulsoup4", "docx2txt", "duckduckgo-search", "pypdf", "pytube", "sentence-transformers", "unstructured"]
+dataloaders = ["beautifulsoup4", "docx2txt", "duckduckgo-search", "pypdf", "pytube", "sentence-transformers", "unstructured", "youtube-transcript-api"]
 discord = ["discord"]
 elasticsearch = ["elasticsearch"]
 git = ["gitpython"]
@@ -7663,9 +7663,9 @@ streamlit = []
 vertexai = ["google-cloud-aiplatform"]
 weaviate = ["weaviate-client"]
 whatsapp = ["flask", "twilio"]
-youtube-channel = ["yt_dlp"]
+youtube = ["youtube-transcript-api", "yt_dlp"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "a7282080c7a4379bdc6f33dfe9cae7eb20764aae0176137ba5c7af7cdcc58ede"
+content-hash = "58dce9bc5ef9c8d7e77d5fbc3176e24a8facbe89beddbf4c605b9c68e6617b5a"
