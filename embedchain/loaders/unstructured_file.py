@@ -1,11 +1,5 @@
 import hashlib
 
-try:
-    from langchain.document_loaders import UnstructuredFileLoader
-except ImportError:
-    raise ImportError(
-        'Unstructured file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
-    ) from None
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
@@ -15,6 +9,13 @@ from embedchain.utils import clean_string
 class UnstructuredLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Unstructured file."""
+        try:
+            from langchain.document_loaders import UnstructuredFileLoader
+        except ImportError:
+            raise ImportError(
+                'Unstructured file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'  # noqa: E501
+            ) from None
+
         loader = UnstructuredFileLoader(url)
         data = []
         all_content = []
