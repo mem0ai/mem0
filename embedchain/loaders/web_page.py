@@ -22,27 +22,23 @@ class WebPageLoader(BaseLoader):
 
     def load_data(self, url):
         """Load data from a web page using a shared requests session."""
-        try:
-            response = self._session.get(url, timeout=30)
-            response.raise_for_status()
-            data = response.content
-            content = self._get_clean_content(data, url)
+        response = self._session.get(url, timeout=30)
+        response.raise_for_status()
+        data = response.content
+        content = self._get_clean_content(data, url)
 
-            meta_data = {"url": url}
+        meta_data = {"url": url}
 
-            doc_id = hashlib.sha256((content + url).encode()).hexdigest()
-            return {
-                "doc_id": doc_id,
-                "data": [
-                    {
-                        "content": content,
-                        "meta_data": meta_data,
-                    }
-                ],
-            }
-        except requests.RequestException as e:
-            logging.error(f"Error fetching URL {url}: {e}")
-            return None
+        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        return {
+            "doc_id": doc_id,
+            "data": [
+                {
+                    "content": content,
+                    "meta_data": meta_data,
+                }
+            ],
+        }
 
     def _get_clean_content(self, html, url) -> str:
         soup = BeautifulSoup(html, "html.parser")

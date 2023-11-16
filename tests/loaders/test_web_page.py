@@ -27,7 +27,7 @@ def test_load_data(web_page_loader):
             </body>
         </html>
     """
-    with patch("embedchain.loaders.web_page.requests.get", return_value=mock_response):
+    with patch("embedchain.loaders.web_page.WebPageLoader._session.get", return_value=mock_response):
         result = web_page_loader.load_data(page_url)
 
     content = web_page_loader._get_clean_content(mock_response.content, page_url)
