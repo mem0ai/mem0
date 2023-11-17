@@ -39,7 +39,7 @@ class SitemapLoader(BaseLoader):
                 soup = BeautifulSoup(response.text, "xml")
             except requests.RequestException as e:
                 logging.error(f"Error fetching sitemap from URL: {e}")
-                return {"doc_id": "", "data": []}
+                return
         elif os.path.isfile(sitemap_source):
             with open(sitemap_source, "r") as file:
                 soup = BeautifulSoup(file, "xml")
