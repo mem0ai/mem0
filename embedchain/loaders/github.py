@@ -71,7 +71,7 @@ class GithubLoader(BaseLoader):
                     executor.submit(_load_file, os.path.join(root, filename)): os.path.join(root, filename)
                     for root, _, files in os.walk(repo_path)
                     for filename in files
-                    if (_is_whitelisted(os.path.join(root, filename)) and not _is_file_empty(os.path.join(root, filename)))
+                    if (_is_whitelisted(os.path.join(root, filename)) and not _is_file_empty(os.path.join(root, filename))). # noqa:E501
                 }  # noqa: E501
                 for future in tqdm(concurrent.futures.as_completed(future_to_file), total=len(future_to_file)):
                     file = future_to_file[future]
