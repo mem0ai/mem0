@@ -216,6 +216,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
 
+        if url.path.endswith(".mdx") or url.path.endswith(".md"):
+            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            return DataType.MDX
+
         if url.path.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
@@ -291,6 +295,10 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".xml"):
             logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
             return DataType.XML
+
+        if source.endswith(".mdx") or source.endswith(".md"):
+            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            return DataType.MDX
 
         if source.endswith(".yaml"):
             with open(source, "r") as file:
