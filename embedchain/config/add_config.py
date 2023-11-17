@@ -17,9 +17,15 @@ class ChunkerConfig(BaseConfig):
         chunk_size: Optional[int] = None,
         chunk_overlap: Optional[int] = None,
         length_function: Optional[Callable[[str], int]] = None,
+        min_chunk_size: Optional[int] = None,
     ):
         self.chunk_size = chunk_size if chunk_size else 2000
-        self.chunk_overlap = chunk_overlap if chunk_overlap else 0
+        self.chunk_overlap = chunk_overlap if chunk_overlap is not None else 100
+        self.min_chunk_size = min_chunk_size if min_chunk_size is not None else 0
+        if self.min_chunk_size >= self.chunk_size:
+            raise ValueError(
+                f"min_chunk_size {min_chunk_size} should be less than chunk_size {chunk_size}"
+            )
         if isinstance(length_function, str):
             self.length_function = self.load_func(length_function)
         else:
@@ -37,7 +43,7 @@ class ChunkerConfig(BaseConfig):
 @register_deserializable
 class LoaderConfig(BaseConfig):
     """
-    Config for the chunker used in `add` method
+    Config for the loader used in `add` method
     """
 
     def __init__(self):

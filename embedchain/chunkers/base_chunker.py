@@ -1,5 +1,6 @@
 import hashlib
-
+import logging
+from typing import Optional
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from embedchain.config.add_config import ChunkerConfig
@@ -21,7 +22,7 @@ class BaseChunker(JSONSerializable):
             self.text_splitter = text_splitter
         self.data_type = None
 
-    def create_chunks(self, loader, src, app_id=None):
+    def create_chunks(self, loader, src, app_id=None, config: Optional[ChunkerConfig] = None):
         """
         Loads data and chunks it.
 
@@ -34,6 +35,8 @@ class BaseChunker(JSONSerializable):
         documents = []
         chunk_ids = []
         idMap = {}
+        min_chunk_size = config.min_chunk_size if config is not None else 0
+        logging.info(f"Skipping chunks smaller than {min_chunk_size} characters")
         data_result = loader.load_data(src)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]
@@ -56,7 +59,7 @@ class BaseChunker(JSONSerializable):
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
                 chunk_id = f"{app_id}--{chunk_id}" if app_id is not None else chunk_id
-                if idMap.get(chunk_id) is None:
+                if idMap.get(chunk_id) is None and len(chunk) >= min_chunk_size:
                     idMap[chunk_id] = True
                     chunk_ids.append(chunk_id)
                     documents.append(chunk)
