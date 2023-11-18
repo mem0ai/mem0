@@ -5,7 +5,6 @@ import re
 import string
 from typing import Any
 
-from bs4 import BeautifulSoup
 from schema import Optional, Or, Schema
 
 from embedchain.models.data_type import DataType
@@ -15,6 +14,8 @@ def parse_content(content, type):
     implemented = ["html.parser", "lxml", "lxml-xml", "xml", "html5lib"]
     if type not in implemented:
         raise ValueError(f"Parser type {type} not implemented. Please choose one of {implemented}")
+
+    from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(content, type)
     original_size = len(str(soup.get_text()))
