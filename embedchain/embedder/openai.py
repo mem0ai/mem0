@@ -1,18 +1,18 @@
 import os
 from typing import Optional
 
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 from langchain.embeddings import OpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import VectorDimensions
 
-from .chroma_embeddings import OpenAIEmbeddingFunction
-
 
 class OpenAIEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
+
         if self.config.model is None:
             self.config.model = "text-embedding-ada-002"
 

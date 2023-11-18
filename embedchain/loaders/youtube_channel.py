@@ -2,6 +2,8 @@ import concurrent.futures
 import hashlib
 import logging
 
+from tqdm import tqdm
+
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 
@@ -48,11 +50,16 @@ class YoutubeChannelLoader(BaseLoader):
 
         def _add_youtube_channel():
             video_links = _get_yt_video_links()
+            logging.info("Loading videos from youtube channel...")
             with concurrent.futures.ThreadPoolExecutor() as executor:
+                # Submitting all tasks and storing the future object with the video link
                 future_to_video = {
                     executor.submit(_load_yt_video, video_link): video_link for video_link in video_links
-                }  # noqa: E501
-                for future in concurrent.futures.as_completed(future_to_video):
+                }
+
+                for future in tqdm(
+                    concurrent.futures.as_completed(future_to_video), total=len(video_links), desc="Processing videos"
+                ):
                     video = future_to_video[future]
                     try:
                         results = future.result()

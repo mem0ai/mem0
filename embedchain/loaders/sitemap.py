@@ -53,7 +53,7 @@ class SitemapLoader(BaseLoader):
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_link = {executor.submit(load_link, link): link for link in links}
-            for future in tqdm(concurrent.futures.as_completed(future_to_link), total=len(links)):
+            for future in tqdm(concurrent.futures.as_completed(future_to_link), total=len(links), desc="Loading pages"):
                 link = future_to_link[future]
                 try:
                     data = future.result()

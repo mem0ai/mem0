@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.16"
+version = "0.1.17"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -90,10 +90,10 @@ color = true
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-langchain = "^0.0.332"
+langchain = "^0.0.336"
 requests = "^2.31.0"
 openai = ">=1.1.1"
-chromadb = "^0.4.16"
+chromadb = "^0.4.17"
 posthog = "^3.0.2"
 tiktoken = { version = "^0.4.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }

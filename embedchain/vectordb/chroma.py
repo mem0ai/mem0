@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
+from tqdm import tqdm
 
 from embedchain.config import ChromaDbConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -157,12 +158,7 @@ class ChromaDB(BaseVectorDB):
                 " Ids size: {}".format(len(documents), len(metadatas), len(ids))
             )
 
-        for i in range(0, len(documents), self.BATCH_SIZE):
-            print(
-                "Inserting batches from {} to {} in vector database.".format(
-                    i, min(len(documents), i + self.BATCH_SIZE)
-                )
-            )
+        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
             if skip_embedding:
                 self.collection.add(
                     embeddings=embeddings[i : i + self.BATCH_SIZE],

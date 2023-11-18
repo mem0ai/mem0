@@ -1,5 +1,8 @@
 import logging
+import time
 from typing import Dict, List, Optional, Set, Tuple, Union
+
+from tqdm import tqdm
 
 try:
     from opensearchpy import OpenSearch
@@ -22,6 +25,8 @@ class OpenSearchDB(BaseVectorDB):
     """
     OpenSearch as vector database
     """
+
+    BATCH_SIZE = 100
 
     def __init__(self, config: OpenSearchDBConfig):
         """OpenSearch as vector database.
@@ -131,19 +136,28 @@ class OpenSearchDB(BaseVectorDB):
         :type skip_embedding: bool
         """
 
-        docs = []
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
-        for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
-            docs.append(
-                {
-                    "_index": self._get_index(),
-                    "_id": id,
-                    "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
-                }
-            )
-        bulk(self.client, docs)
-        self.client.indices.refresh(index=self._get_index())
+        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
+            if not skip_embedding:
+                embeddings = self.embedder.embedding_fn(documents[i : i + self.BATCH_SIZE])
+
+            docs = []
+            for id, text, metadata, embeddings in zip(
+                ids[i : i + self.BATCH_SIZE],
+                documents[i : i + self.BATCH_SIZE],
+                metadatas[i : i + self.BATCH_SIZE],
+                embeddings[i : i + self.BATCH_SIZE],
+            ):
+                docs.append(
+                    {
+                        "_index": self._get_index(),
+                        "_id": id,
+                        "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
+                    }
+                )
+            bulk(self.client, docs)
+            self.client.indices.refresh(index=self._get_index())
+            # Sleep for 0.1 seconds to avoid rate limiting
+            time.sleep(0.1)
 
     def query(
         self,
