@@ -9,7 +9,6 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.mdx import MdxLoader
 
-# from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.utils import detect_datatype
 
 
@@ -51,7 +50,6 @@ class GithubLoader(BaseLoader):
 
         mdx_loader = MdxLoader()
         json_loader = JSONLoader()
-        # unstructured_loader = UnstructuredLoader()
         data = []
         data_urls = []
 

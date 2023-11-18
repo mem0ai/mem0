@@ -57,7 +57,6 @@ class YoutubeChannelLoader(BaseLoader):
                     executor.submit(_load_yt_video, video_link): video_link for video_link in video_links
                 }
 
-                # Wrapping the as_completed generator with tqdm for progress tracking
                 for future in tqdm(
                     concurrent.futures.as_completed(future_to_video), total=len(video_links), desc="Processing videos"
                 ):
