@@ -51,7 +51,6 @@ class SitemapLoader(BaseLoader):
                 logging.error(f"Failed to parse {link}: {e}")
             return None
 
-        print("Loading pages from sitemap...")
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_link = {executor.submit(load_link, link): link for link in links}
             for future in tqdm(concurrent.futures.as_completed(future_to_link), total=len(links), desc="Loading pages"):

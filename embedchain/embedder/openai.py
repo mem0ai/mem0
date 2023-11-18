@@ -1,13 +1,12 @@
 import os
 from typing import Optional
 
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 from langchain.embeddings import OpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import VectorDimensions
-
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 
 class OpenAIEmbedder(BaseEmbedder):

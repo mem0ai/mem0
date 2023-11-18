@@ -1,10 +1,9 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from tqdm import tqdm
-
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
+from tqdm import tqdm
 
 from embedchain.config import ChromaDbConfig
 from embedchain.helper.json_serializable import register_deserializable

@@ -8,7 +8,6 @@ from tqdm import tqdm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.mdx import MdxLoader
-
 from embedchain.utils import detect_datatype
 
 

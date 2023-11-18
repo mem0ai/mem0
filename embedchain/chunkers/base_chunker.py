@@ -1,8 +1,5 @@
 import hashlib
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-from embedchain.config.add_config import ChunkerConfig
 from embedchain.helper.json_serializable import JSONSerializable
 from embedchain.models.data_type import DataType
 

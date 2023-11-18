@@ -1,3 +1,4 @@
+from embedchain.chunkers.common_chunker import CommonChunker
 from embedchain.chunkers.discourse import DiscourseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
@@ -14,7 +15,6 @@ from embedchain.chunkers.slack import SlackChunker
 from embedchain.chunkers.table import TableChunker
 from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
-from embedchain.chunkers.common_chunker import CommonChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
 from embedchain.config.add_config import ChunkerConfig
