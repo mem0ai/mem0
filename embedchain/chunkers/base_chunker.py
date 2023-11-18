@@ -10,15 +10,7 @@ from embedchain.models.data_type import DataType
 class BaseChunker(JSONSerializable):
     def __init__(self, text_splitter):
         """Initialize the chunker."""
-        if text_splitter is None:
-            config = ChunkerConfig(chunk_size=1000, chunk_overlap=0, length_function=len)
-            self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=config.chunk_size,
-                chunk_overlap=config.chunk_overlap,
-                length_function=config.length_function,
-            )
-        else:
-            self.text_splitter = text_splitter
+        self.text_splitter = text_splitter
         self.data_type = None
 
     def create_chunks(self, loader, src, app_id=None):
