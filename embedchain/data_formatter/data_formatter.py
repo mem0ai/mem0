@@ -116,8 +116,8 @@ class DataFormatter(JSONSerializable):
             DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
             DataType.DISCOURSE: "embedchain.chunkers.discourse.DiscourseChunker",
             DataType.SUBSTACK: "embedchain.chunkers.substack.SubstackChunker",
-            DataType.GITHUB: "embedchain.chunkers.base_chunker.BaseChunker",
-            DataType.YOUTUBE_CHANNEL: "embedchain.chunkers.base_chunker.BaseChunker",
+            DataType.GITHUB: "embedchain.chunkers.common_chunker.CommonChunker",
+            DataType.YOUTUBE_CHANNEL: "embedchain.chunkers.common_chunker.CommonChunker",
         }
 
         if data_type in chunker_classes:

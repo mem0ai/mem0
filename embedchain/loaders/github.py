@@ -8,8 +8,33 @@ from tqdm import tqdm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.json import JSONLoader
 from embedchain.loaders.mdx import MdxLoader
-from embedchain.loaders.unstructured_file import UnstructuredLoader
 from embedchain.utils import detect_datatype
+
+
+def _load_file_data(path):
+    data = []
+    data_content = []
+    try:
+        with open(path, "rb") as f:
+            content = f.read().decode("utf-8")
+    except Exception as e:
+        print(f"Error reading file {path}: {e}")
+        raise ValueError(f"Failed to read file {path}")
+
+    meta_data = {}
+    meta_data["url"] = path
+    data.append(
+        {
+            "content": content,
+            "meta_data": meta_data,
+        }
+    )
+    data_content.append(content)
+    doc_id = hashlib.sha256((" ".join(data_content) + path).encode()).hexdigest()
+    return {
+        "doc_id": doc_id,
+        "data": data,
+    }
 
 
 class GithubLoader(BaseLoader):
@@ -24,7 +49,6 @@ class GithubLoader(BaseLoader):
 
         mdx_loader = MdxLoader()
         json_loader = JSONLoader()
-        unstructured_loader = UnstructuredLoader()
         data = []
         data_urls = []
 
@@ -51,7 +75,7 @@ class GithubLoader(BaseLoader):
             elif data_type == "json":
                 data = json_loader.load_data(file_path)
             else:
-                data = unstructured_loader.load_data(file_path)
+                data = _load_file_data(file_path)
 
             return data.get("data", [])
 
@@ -64,7 +88,7 @@ class GithubLoader(BaseLoader):
             return file_extension[1:] in whitelisted_extensions
 
         def _add_repo_files(repo_path: str):
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                 future_to_file = {
                     executor.submit(_load_file, os.path.join(root, filename)): os.path.join(root, filename)
                     for root, _, files in os.walk(repo_path)
