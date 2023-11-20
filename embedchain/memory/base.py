@@ -18,7 +18,7 @@ CHAT_MESSAGE_CREATE_TABLE_QUERY = """
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id, app_id)
             )
-            """
+"""
 
 
 class ECChatMemory:

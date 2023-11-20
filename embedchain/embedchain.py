@@ -21,6 +21,7 @@ from embedchain.models.data_type import (DataType, DirectDataType,
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
+from embedchain.client import Client
 
 load_dotenv()
 
@@ -50,6 +51,8 @@ class EmbedChain(JSONSerializable):
         :type system_prompt: Optional[str], optional
         :raises ValueError: No database or embedder provided.
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
 
         self.config = config
         # Llm
