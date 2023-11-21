@@ -1,8 +1,11 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.0.81"
+version = "0.1.17"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
-authors = ["Taranjeet Singh, Deshraj Yadav"]
+authors = [
+    "Taranjeet Singh <taranjeet@embedchain.ai>",
+    "Deshraj Yadav <deshraj@embedchain.ai>",
+]
 license = "Apache License"
 readme = "README.md"
 exclude = [
@@ -85,23 +88,25 @@ exclude = '''
 color = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-langchain = "^0.0.279"
+langchain = "^0.0.336"
 requests = "^2.31.0"
-openai = "^0.27.5"
-tiktoken = { version="^0.4.0", optional=true }
-chromadb ="^0.4.8"
-youtube-transcript-api = { version="^0.6.1", optional=true }
-beautifulsoup4 = { version="^4.12.2", optional=true }
-pypdf = { version="^3.11.0", optional=true }
-pytube = { version="^15.0.0", optional=true }
-duckduckgo-search = { version="^3.8.5", optional=true }
-llama-hub = { version = "^0.0.29", optional = true }
+openai = ">=1.1.1"
+chromadb = "^0.4.17"
+posthog = "^3.0.2"
+tiktoken = { version = "^0.4.0", optional = true }
+youtube-transcript-api = { version = "^0.6.1", optional = true }
+beautifulsoup4 = { version = "^4.12.2", optional = true }
+pypdf = { version = "^3.11.0", optional = true }
+pytube = { version = "^15.0.0", optional = true }
+duckduckgo-search = { version = "^3.8.5", optional = true }
+llama-hub = { version = "^0.0.43", optional = true }
+llama-index = { version = "^0.8.65", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.0.0", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
-gpt4all = { version = "1.0.8", optional = true }
+gpt4all = { version = "2.0.2", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
 opensearch-py = { version = "2.3.1", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
@@ -110,12 +115,12 @@ twilio = { version = "^8.5.0", optional = true }
 fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
-cohere = { version = "^4.27", optional= true }
-weaviate-client = { version = "^3.24.1", optional= true }
-docx2txt = { version="^0.8", optional=true }
+cohere = { version = "^4.27", optional = true }
+weaviate-client = { version = "^3.24.1", optional = true }
+docx2txt = { version = "^0.8", optional = true }
 pinecone-client = { version = "^2.2.4", optional = true }
 qdrant-client = { version = "1.6.3", optional = true }
-unstructured = {extras = ["local-inference"], version = "^0.10.18", optional=true}
+unstructured = {extras = ["local-inference", "all-docs"], version = "^0.10.18", optional = true}
 pillow = { version = "10.0.1", optional = true }
 torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
 ftfy = { version = "6.1.1", optional = true }
@@ -124,7 +129,13 @@ huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = { version = "2.3.1", optional = true }
 google-cloud-aiplatform = { version = "^1.26.1", optional = true }
 replicate = { version = "^0.15.4", optional = true }
-jq = { version=">=1.6.0", optional = true}
+schema = "^0.7.5"
+psycopg = { version = "^3.1.12", optional = true }
+psycopg-binary = { version = "^3.1.12", optional = true }
+psycopg-pool = { version = "^3.1.8", optional = true }
+mysql-connector-python = { version = "^8.1.0", optional = true }
+gitpython = { version = "^3.1.38", optional = true }
+yt_dlp = { version = "^2023.11.14", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -143,7 +154,7 @@ pytest-asyncio = "^0.21.1"
 [tool.poetry.extras]
 streamlit = ["streamlit"]
 community = ["llama-hub"]
-opensource = ["sentence-transformers", "torch", "gpt4all", "langchain"]
+opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
 poe = ["fastapi-poe"]
@@ -158,17 +169,14 @@ huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
 milvus = ["pymilvus"]
 dataloaders=[
-    "youtube-transcripts-api",
+    "youtube-transcript-api",
     "beautifulsoup4",
     "docx2txt",
     "duckduckgo-search",
-    "jq",
-    "langchain",
     "pypdf",
     "pytube",
     "sentence-transformers",
     "unstructured",
-    "jq",
 ]
 vertexai = ["google-cloud-aiplatform"]
 llama2 = ["replicate"]
@@ -181,9 +189,15 @@ gmail = [
     "google-auth-httplib2",
     "google-api-core",
 ]
+json = ["llama-hub"]
+postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
+mysql = ["mysql-connector-python"]
+git = ["gitpython"]
+youtube = [
+    "yt_dlp",
+    "youtube-transcript-api",
+]
 
 [tool.poetry.group.docs.dependencies]
-
-
 
 [tool.poetry.scripts]

@@ -16,7 +16,7 @@ def app():
 
 @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
 def test_query(app):
-    with patch.object(app, "retrieve_from_database") as mock_retrieve:
+    with patch.object(app, "_retrieve_from_database") as mock_retrieve:
         mock_retrieve.return_value = ["Test context"]
         with patch.object(app.llm, "get_llm_model_answer") as mock_answer:
             mock_answer.return_value = "Test answer"
@@ -58,7 +58,7 @@ def test_app_passing(mock_get_answer):
 
 @patch("chromadb.api.models.Collection.Collection.add", MagicMock)
 def test_query_with_where_in_params(app):
-    with patch.object(app, "retrieve_from_database") as mock_retrieve:
+    with patch.object(app, "_retrieve_from_database") as mock_retrieve:
         mock_retrieve.return_value = ["Test context"]
         with patch.object(app.llm, "get_llm_model_answer") as mock_answer:
             mock_answer.return_value = "Test answer"

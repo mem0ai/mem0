@@ -7,21 +7,21 @@ import uuid
 
 import requests
 import yaml
-from fastapi import FastAPI, HTTPException
 
 from embedchain import Client
-from embedchain.config import PipelineConfig
-from embedchain.embedchain import CONFIG_DIR, EmbedChain
+from embedchain.config import ChunkerConfig, PipelineConfig
+from embedchain.constants import SQLITE_PATH
+from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helper.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
+from embedchain.telemetry.posthog import AnonymousTelemetry
+from embedchain.utils import validate_yaml_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
-
-SQLITE_PATH = os.path.join(CONFIG_DIR, "embedchain.db")
 
 
 @register_deserializable
@@ -41,8 +41,9 @@ class Pipeline(EmbedChain):
         embedding_model: BaseEmbedder = None,
         llm: BaseLlm = None,
         yaml_path: str = None,
-        log_level=logging.INFO,
+        log_level=logging.WARN,
         auto_deploy: bool = False,
+        chunker: ChunkerConfig = None,
     ):
         """
         Initialize a new `App` instance.
@@ -57,12 +58,15 @@ class Pipeline(EmbedChain):
         :type llm: BaseLlm, optional
         :param yaml_path: Path to the YAML configuration file, defaults to None
         :type yaml_path: str, optional
-        :param log_level: Log level to use, defaults to logging.INFO
+        :param log_level: Log level to use, defaults to logging.WARN
         :type log_level: int, optional
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
         :raises Exception: If an error occurs while creating the pipeline
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
+
         if id and yaml_path:
             raise Exception("Cannot provide both id and config. Please provide only one of them.")
 
@@ -74,18 +78,18 @@ class Pipeline(EmbedChain):
 
         logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
-
         self.auto_deploy = auto_deploy
-
         # Store the yaml config as an attribute to be able to send it
         self.yaml_config = None
         self.client = None
         # pipeline_id from the backend
         self.id = None
+        self.chunker = None
+        if chunker:
+            self.chunker = ChunkerConfig(**chunker)
 
         self.config = config or PipelineConfig()
         self.name = self.config.name
-
         self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
 
         if yaml_path:
@@ -109,11 +113,12 @@ class Pipeline(EmbedChain):
         self.llm = llm or OpenAILlm()
         self._init_db()
 
-        # setup user id and directory
-        self.u_id = self._load_or_generate_user_id()
+        # Send anonymous telemetry
+        self._telemetry_props = {"class": self.__class__.__name__}
+        self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
 
         # Establish a connection to the SQLite database
-        self.connection = sqlite3.connect(SQLITE_PATH)
+        self.connection = sqlite3.connect(SQLITE_PATH, check_same_thread=False)
         self.cursor = self.connection.cursor()
 
         # Create the 'data_sources' table if it doesn't exist
@@ -131,8 +136,10 @@ class Pipeline(EmbedChain):
         """
         )
         self.connection.commit()
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="init", properties=self._telemetry_props)
 
-        self.user_asks = []  # legacy defaults
+        self.user_asks = []
         if self.auto_deploy:
             self.deploy()
 
@@ -219,15 +226,29 @@ class Pipeline(EmbedChain):
         """
         Search for similar documents related to the query in the vector database.
         """
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="search", properties=self._telemetry_props)
+
         # TODO: Search will call the endpoint rather than fetching the data from the db itself when deploy=True.
         if self.id is None:
             where = {"app_id": self.local_id}
-            return self.db.query(
+            context = self.db.query(
                 query,
                 n_results=num_documents,
                 where=where,
                 skip_embedding=False,
+                citations=True,
             )
+            result = []
+            for c in context:
+                result.append(
+                    {
+                        "context": c[0],
+                        "source": c[1],
+                        "document_id": c[2],
+                    }
+                )
+            return result
         else:
             # Make API call to the backend to get the results
             NotImplementedError("Search is not implemented yet for the prod mode.")
@@ -295,6 +316,15 @@ class Pipeline(EmbedChain):
         )
         self.connection.commit()
 
+    def get_data_sources(self):
+        db_data = self.cursor.execute("SELECT * FROM data_sources WHERE pipeline_id = ?", (self.local_id,)).fetchall()
+
+        data_sources = []
+        for data in db_data:
+            data_sources.append({"data_type": data[2], "data_value": data[3], "metadata": data[4]})
+
+        return data_sources
+
     def deploy(self):
         if self.client is None:
             self._init_client()
@@ -312,6 +342,9 @@ class Pipeline(EmbedChain):
             data_hash, data_type, data_value = result[1], result[2], result[3]
             self._process_and_upload_data(data_hash, data_type, data_value)
 
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="deploy", properties=self._telemetry_props)
+
     @classmethod
     def from_config(cls, yaml_path: str, auto_deploy: bool = False):
         """
@@ -324,13 +357,22 @@ class Pipeline(EmbedChain):
         :return: An instance of the Pipeline class.
         :rtype: Pipeline
         """
+        # Setup user directory if it doesn't exist already
+        Client.setup_dir()
+
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
-        pipeline_config_data = config_data.get("pipeline", {}).get("config", {})
+        try:
+            validate_yaml_config(config_data)
+        except Exception as e:
+            raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
+
+        pipeline_config_data = config_data.get("app", {}).get("config", {})
         db_config_data = config_data.get("vectordb", {})
-        embedding_model_config_data = config_data.get("embedding_model", {})
+        embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         llm_config_data = config_data.get("llm", {})
+        chunker_config_data = config_data.get("chunker", {})
 
         pipeline_config = PipelineConfig(**pipeline_config_data)
 
@@ -347,6 +389,11 @@ class Pipeline(EmbedChain):
         embedding_model = EmbedderFactory.create(
             embedding_model_provider, embedding_model_config_data.get("config", {})
         )
+
+        # Send anonymous telemetry
+        event_properties = {"init_type": "yaml_config"}
+        AnonymousTelemetry().capture(event_name="init", properties=event_properties)
+
         return cls(
             config=pipeline_config,
             llm=llm,
@@ -354,34 +401,5 @@ class Pipeline(EmbedChain):
             embedding_model=embedding_model,
             yaml_path=yaml_path,
             auto_deploy=auto_deploy,
+            chunker=chunker_config_data,
         )
-
-    def start(self, host="0.0.0.0", port=8000):
-        app = FastAPI()
-
-        @app.post("/add")
-        async def add_document(data_value: str, data_type: str = None):
-            """
-            Add a document to the pipeline.
-            """
-            try:
-                document = {"data_value": data_value, "data_type": data_type}
-                self.add(document)
-                return {"message": "Document added successfully"}
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @app.post("/query")
-        async def query_documents(query: str, num_documents: int = 3):
-            """
-            Query for similar documents in the pipeline.
-            """
-            try:
-                results = self.search(query, num_documents)
-                return results
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        import uvicorn
-
-        uvicorn.run(app, host=host, port=port)

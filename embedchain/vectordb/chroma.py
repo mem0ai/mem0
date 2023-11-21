@@ -1,8 +1,9 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
+from tqdm import tqdm
 
 from embedchain.config import ChromaDbConfig
 from embedchain.helper.json_serializable import register_deserializable
@@ -38,7 +39,7 @@ class ChromaDB(BaseVectorDB):
         else:
             self.config = ChromaDbConfig()
 
-        self.settings = Settings()
+        self.settings = Settings(anonymized_telemetry=False)
         self.settings.allow_reset = self.config.allow_reset if hasattr(self.config, "allow_reset") else False
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():
@@ -77,7 +78,7 @@ class ChromaDB(BaseVectorDB):
     def _generate_where_clause(self, where: Dict[str, any]) -> str:
         # If only one filter is supplied, return it as is
         # (no need to wrap in $and based on chroma docs)
-        if len(where.keys()) == 1:
+        if len(where.keys()) <= 1:
             return where
         where_filters = []
         for k, v in where.items():
@@ -157,8 +158,7 @@ class ChromaDB(BaseVectorDB):
                 " Ids size: {}".format(len(documents), len(metadatas), len(ids))
             )
 
-        for i in range(0, len(documents), self.BATCH_SIZE):
-            print("Inserting batches from {} to {} in chromadb".format(i, min(len(documents), i + self.BATCH_SIZE)))
+        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
             if skip_embedding:
                 self.collection.add(
                     embeddings=embeddings[i : i + self.BATCH_SIZE],
@@ -192,8 +192,13 @@ class ChromaDB(BaseVectorDB):
         ]
 
     def query(
-        self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool
-    ) -> List[Tuple[str, str, str]]:
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Query contents from vector database based on vector similarity
 
@@ -205,9 +210,12 @@ class ChromaDB(BaseVectorDB):
         :type where: Dict[str, Any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query, url of the source, doc_id
-        :rtype: List[Tuple[str,str,str]]
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         try:
             if skip_embedding:
@@ -216,7 +224,7 @@ class ChromaDB(BaseVectorDB):
                         input_query,
                     ],
                     n_results=n_results,
-                    where=where,
+                    where=self._generate_where_clause(where),
                 )
             else:
                 result = self.collection.query(
@@ -224,7 +232,7 @@ class ChromaDB(BaseVectorDB):
                         input_query,
                     ],
                     n_results=n_results,
-                    where=where,
+                    where=self._generate_where_clause(where),
                 )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
@@ -236,10 +244,13 @@ class ChromaDB(BaseVectorDB):
         contexts = []
         for result in results_formatted:
             context = result[0].page_content
-            metadata = result[0].metadata
-            source = metadata["url"]
-            doc_id = metadata["doc_id"]
-            contexts.append((context, source, doc_id))
+            if citations:
+                metadata = result[0].metadata
+                source = metadata["url"]
+                doc_id = metadata["doc_id"]
+                contexts.append((context, source, doc_id))
+            else:
+                contexts.append(context)
         return contexts
 
     def set_collection_name(self, name: str):
@@ -264,7 +275,7 @@ class ChromaDB(BaseVectorDB):
         return self.collection.count()
 
     def delete(self, where):
-        return self.collection.delete(where=where)
+        return self.collection.delete(where=self._generate_where_clause(where))
 
     def reset(self):
         """

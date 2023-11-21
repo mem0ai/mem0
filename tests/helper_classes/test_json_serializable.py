@@ -53,7 +53,7 @@ class TestJsonSerializable(unittest.TestCase):
         app: SecondTestClass = SecondTestClass().deserialize(serial)
         self.assertTrue(app.default)
         # If we register and try again with the same serial, it should work
-        SecondTestClass.register_class_as_deserializable(SecondTestClass)
+        SecondTestClass._register_class_as_deserializable(SecondTestClass)
         app: SecondTestClass = SecondTestClass().deserialize(serial)
         self.assertFalse(app.default)
 

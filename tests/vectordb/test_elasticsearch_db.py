@@ -60,12 +60,16 @@ class TestEsDB(unittest.TestCase):
 
         # Query the database for the documents that are most similar to the query "This is a document".
         query = ["This is a document"]
-        results = self.db.query(query, n_results=2, where={}, skip_embedding=False)
+        results_without_citations = self.db.query(query, n_results=2, where={}, skip_embedding=False)
+        expected_results_without_citations = ["This is a document.", "This is another document."]
+        self.assertEqual(results_without_citations, expected_results_without_citations)
 
-        # Assert that the results are correct.
-        self.assertEqual(
-            results, [("This is a document.", "url_1", "doc_id_1"), ("This is another document.", "url_2", "doc_id_2")]
-        )
+        results_with_citations = self.db.query(query, n_results=2, where={}, skip_embedding=False, citations=True)
+        expected_results_with_citations = [
+            ("This is a document.", "url_1", "doc_id_1"),
+            ("This is another document.", "url_2", "doc_id_2"),
+        ]
+        self.assertEqual(results_with_citations, expected_results_with_citations)
 
     @patch("embedchain.vectordb.elasticsearch.Elasticsearch")
     def test_query_with_skip_embedding(self, mock_client):
@@ -111,9 +115,7 @@ class TestEsDB(unittest.TestCase):
         results = self.db.query(query, n_results=2, where={}, skip_embedding=True)
 
         # Assert that the results are correct.
-        self.assertEqual(
-            results, [("This is a document.", "url_1", "doc_id_1"), ("This is another document.", "url_2", "doc_id_2")]
-        )
+        self.assertEqual(results, ["This is a document.", "This is another document."])
 
     def test_init_without_url(self):
         # Make sure it's not loaded from env

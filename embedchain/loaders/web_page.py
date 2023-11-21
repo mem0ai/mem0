@@ -17,15 +17,17 @@ from embedchain.utils import clean_string
 
 @register_deserializable
 class WebPageLoader(BaseLoader):
+    # Shared session for all instances
+    _session = requests.Session()
+
     def load_data(self, url):
-        """Load data from a web page."""
-        response = requests.get(url)
+        """Load data from a web page using a shared requests session."""
+        response = self._session.get(url, timeout=30)
+        response.raise_for_status()
         data = response.content
         content = self._get_clean_content(data, url)
 
-        meta_data = {
-            "url": url,
-        }
+        meta_data = {"url": url}
 
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
@@ -86,3 +88,7 @@ class WebPageLoader(BaseLoader):
             )
 
         return content
+
+    @classmethod
+    def close_session(cls):
+        cls._session.close()

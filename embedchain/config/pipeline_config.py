@@ -16,7 +16,7 @@ class PipelineConfig(BaseAppConfig):
         log_level: str = "WARNING",
         id: Optional[str] = None,
         name: Optional[str] = None,
-        collect_metrics: Optional[bool] = False,
+        collect_metrics: Optional[bool] = True,
     ):
         """
         Initializes a configuration class instance for an App. This is the simplest form of an embedchain app.

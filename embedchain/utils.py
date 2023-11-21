@@ -1,10 +1,69 @@
+import json
 import logging
 import os
 import re
 import string
 from typing import Any
 
+from schema import Optional, Or, Schema
+
 from embedchain.models.data_type import DataType
+
+
+def parse_content(content, type):
+    implemented = ["html.parser", "lxml", "lxml-xml", "xml", "html5lib"]
+    if type not in implemented:
+        raise ValueError(f"Parser type {type} not implemented. Please choose one of {implemented}")
+
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(content, type)
+    original_size = len(str(soup.get_text()))
+
+    tags_to_exclude = [
+        "nav",
+        "aside",
+        "form",
+        "header",
+        "noscript",
+        "svg",
+        "canvas",
+        "footer",
+        "script",
+        "style",
+    ]
+    for tag in soup(tags_to_exclude):
+        tag.decompose()
+
+    ids_to_exclude = ["sidebar", "main-navigation", "menu-main-menu"]
+    for id in ids_to_exclude:
+        tags = soup.find_all(id=id)
+        for tag in tags:
+            tag.decompose()
+
+    classes_to_exclude = [
+        "elementor-location-header",
+        "navbar-header",
+        "nav",
+        "header-sidebar-wrapper",
+        "blog-sidebar-wrapper",
+        "related-posts",
+    ]
+    for class_name in classes_to_exclude:
+        tags = soup.find_all(class_=class_name)
+        for tag in tags:
+            tag.decompose()
+
+    content = soup.get_text()
+    content = clean_string(content)
+
+    cleaned_size = len(content)
+    if original_size != 0:
+        logging.info(
+            f"Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
+        )
+
+    return content
 
 
 def clean_string(text):
@@ -158,6 +217,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
 
+        if url.path.endswith(".mdx") or url.path.endswith(".md"):
+            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            return DataType.MDX
+
         if url.path.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
@@ -197,6 +260,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
             return DataType.DOCS_SITE
 
+        if "github.com" in url.netloc:
+            logging.debug(f"Source of `{formatted_source}` detected as `github`.")
+            return DataType.GITHUB
+
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return DataType.WEB_PAGE
@@ -230,6 +297,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
             return DataType.XML
 
+        if source.endswith(".mdx") or source.endswith(".md"):
+            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            return DataType.MDX
+
         if source.endswith(".yaml"):
             with open(source, "r") as file:
                 yaml_content = yaml.safe_load(file)
@@ -261,6 +332,93 @@ def detect_datatype(source: Any) -> DataType:
 
         # TODO: check if source is gmail query
 
+        # check if the source is valid json string
+        if is_valid_json_string(source):
+            logging.debug(f"Source of `{formatted_source}` detected as `json`.")
+            return DataType.JSON
+
         # Use text as final fallback.
         logging.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
+
+
+# check if the source is valid json string
+def is_valid_json_string(source: str):
+    try:
+        _ = json.loads(source)
+        return True
+    except json.JSONDecodeError:
+        logging.error(
+            "Insert valid string format of JSON. \
+            Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
+        )
+        return False
+
+
+def validate_yaml_config(config_data):
+    schema = Schema(
+        {
+            Optional("app"): {
+                Optional("config"): {
+                    Optional("id"): str,
+                    Optional("name"): str,
+                    Optional("log_level"): Or("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+                    Optional("collect_metrics"): bool,
+                    Optional("collection_name"): str,
+                }
+            },
+            Optional("llm"): {
+                Optional("provider"): Or(
+                    "openai",
+                    "azure_openai",
+                    "anthropic",
+                    "huggingface",
+                    "cohere",
+                    "gpt4all",
+                    "jina",
+                    "llama2",
+                    "vertexai",
+                ),
+                Optional("config"): {
+                    Optional("model"): str,
+                    Optional("number_documents"): int,
+                    Optional("temperature"): float,
+                    Optional("max_tokens"): int,
+                    Optional("top_p"): Or(float, int),
+                    Optional("stream"): bool,
+                    Optional("template"): str,
+                    Optional("system_prompt"): str,
+                    Optional("deployment_name"): str,
+                    Optional("where"): dict,
+                    Optional("query_type"): str,
+                },
+            },
+            Optional("vectordb"): {
+                Optional("provider"): Or(
+                    "chroma", "elasticsearch", "opensearch", "pinecone", "qdrant", "weaviate", "zilliz"
+                ),
+                Optional("config"): object,  # TODO: add particular config schema for each provider
+            },
+            Optional("embedder"): {
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai"),
+                Optional("config"): {
+                    Optional("model"): Optional(str),
+                    Optional("deployment_name"): Optional(str),
+                },
+            },
+            Optional("embedding_model"): {
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai"),
+                Optional("config"): {
+                    Optional("model"): str,
+                    Optional("deployment_name"): str,
+                },
+            },
+            Optional("chunker"): {
+                Optional("chunk_size"): int,
+                Optional("chunk_overlap"): int,
+                Optional("length_function"): str,
+            },
+        }
+    )
+
+    return schema.validate(config_data)
