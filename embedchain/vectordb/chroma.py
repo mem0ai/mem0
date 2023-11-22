@@ -6,7 +6,7 @@ from langchain.docstore.document import Document
 from tqdm import tqdm
 
 from embedchain.config import ChromaDbConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:

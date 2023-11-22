@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional, Tuple, Union
 
 from embedchain.config import ZillizDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:

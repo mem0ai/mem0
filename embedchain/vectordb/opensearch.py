@@ -16,7 +16,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import OpenSearchVectorSearch
 
 from embedchain.config import OpenSearchDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 

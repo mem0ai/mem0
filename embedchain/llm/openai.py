@@ -4,7 +4,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
 
@@ -34,7 +34,8 @@ class OpenAILlm(BaseLlm):
             from langchain.callbacks.streaming_stdout import \
                 StreamingStdOutCallbackHandler
 
-            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=[StreamingStdOutCallbackHandler()])
+            callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
+            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks)
         else:
             chat = ChatOpenAI(**kwargs)
         return chat(messages).content
