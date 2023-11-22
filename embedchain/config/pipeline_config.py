@@ -1,6 +1,6 @@
 from typing import Optional
 
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 
 from .apps.base_app_config import BaseAppConfig
 

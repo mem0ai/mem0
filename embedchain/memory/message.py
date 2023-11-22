@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 
 
 class BaseMessage(JSONSerializable):

@@ -13,7 +13,7 @@ from embedchain.config.apps.base_app_config import BaseAppConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,

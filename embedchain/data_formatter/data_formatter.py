@@ -4,7 +4,7 @@ from typing import Any, Dict
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig
 from embedchain.config.add_config import ChunkerConfig, LoaderConfig
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import DataType
 

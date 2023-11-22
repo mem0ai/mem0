@@ -1,7 +1,7 @@
 from typing import Optional
 
 from embedchain.config.vectordb.base import BaseVectorDbConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 
 
 @register_deserializable

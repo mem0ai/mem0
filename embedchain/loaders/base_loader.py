@@ -1,4 +1,4 @@
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 
 
 class BaseLoader(JSONSerializable):

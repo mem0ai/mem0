@@ -1,6 +1,6 @@
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 
 
 class BaseVectorDB(JSONSerializable):

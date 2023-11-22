@@ -3,7 +3,7 @@ from importlib import import_module
 from typing import Callable, Optional
 
 from embedchain.config.base_config import BaseConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 
 
 @register_deserializable

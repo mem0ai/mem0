@@ -1,6 +1,6 @@
 import hashlib
 
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.models.data_type import DataType
 
 
