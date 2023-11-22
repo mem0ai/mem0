@@ -13,7 +13,7 @@ except ImportError:
         'Sitemap requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
     ) from None
 
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
 from embedchain.utils import is_readable

@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 from embedchain.config import BaseLlmConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
 
