@@ -119,7 +119,7 @@ class TestAppFromConfig:
         # Validate the Embedder config values
         embedder_config = config_data["embedder"]["config"]
         assert app.embedder.config.model == embedder_config["model"]
-        assert app.embedder.config.deployment_name == embedder_config["deployment_name"]
+        assert app.embedder.config.deployment_name == embedder_config.get("deployment_name")
 
     def test_from_opensource_config(self, mocker):
         mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
