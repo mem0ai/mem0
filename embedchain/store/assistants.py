@@ -10,7 +10,7 @@ from typing import cast
 from openai import OpenAI
 from openai.types.beta.threads import MessageContentText, ThreadMessage
 
-from embedchain import Pipeline
+from embedchain import Client, Pipeline
 from embedchain.config import AddConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.models.data_type import DataType
@@ -18,6 +18,9 @@ from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype
 
 logging.basicConfig(level=logging.WARN)
+
+# Setup the user directory if doesn't exist already
+Client.setup_dir()
 
 
 class OpenAIAssistant:

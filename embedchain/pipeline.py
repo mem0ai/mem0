@@ -24,6 +24,10 @@ from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
 
+# Setup the user directory if doesn't exist already
+Client.setup_dir()
+
+
 @register_deserializable
 class Pipeline(EmbedChain):
     """
