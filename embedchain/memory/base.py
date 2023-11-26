@@ -23,7 +23,7 @@ CHAT_MESSAGE_CREATE_TABLE_QUERY = """
 
 class ECChatMemory:
     def __init__(self) -> None:
-        with sqlite3.connect(SQLITE_PATH) as self.connection:
+        with sqlite3.connect(SQLITE_PATH, check_same_thread=False) as self.connection:
             self.cursor = self.connection.cursor()
 
             self.cursor.execute(CHAT_MESSAGE_CREATE_TABLE_QUERY)
