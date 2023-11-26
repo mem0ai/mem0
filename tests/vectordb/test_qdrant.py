@@ -7,9 +7,9 @@ from qdrant_client.http.models import Batch
 
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.config.vectordb.pinecone import PineconeDBConfig
+from embedchain.config.vector_db.pinecone import PineconeDBConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.vectordb.qdrant import QdrantDB
+from embedchain.vector_db.qdrant import QdrantDB
 
 
 class TestQdrantDB(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestQdrantDB(unittest.TestCase):
         with self.assertRaises(TypeError):
             QdrantDB(config=PineconeDBConfig())
 
-    @patch("embedchain.vectordb.qdrant.QdrantClient")
+    @patch("embedchain.vector_db.qdrant.QdrantClient")
     def test_initialize(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
@@ -35,7 +35,7 @@ class TestQdrantDB(unittest.TestCase):
         self.assertEqual(db.client, qdrant_client_mock.return_value)
         qdrant_client_mock.return_value.get_collections.assert_called_once()
 
-    @patch("embedchain.vectordb.qdrant.QdrantClient")
+    @patch("embedchain.vector_db.qdrant.QdrantClient")
     def test_get(self, qdrant_client_mock):
         qdrant_client_mock.return_value.scroll.return_value = ([], None)
 
@@ -53,7 +53,7 @@ class TestQdrantDB(unittest.TestCase):
         resp2 = db.get(ids=["123", "456"], where={"url": "https://ai.ai"})
         self.assertEqual(resp2, {"ids": []})
 
-    @patch("embedchain.vectordb.qdrant.QdrantClient")
+    @patch("embedchain.vector_db.qdrant.QdrantClient")
     @patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
     def test_add(self, uuid_mock, qdrant_client_mock):
         qdrant_client_mock.return_value.scroll.return_value = ([], None)
@@ -93,7 +93,7 @@ class TestQdrantDB(unittest.TestCase):
             ),
         )
 
-    @patch("embedchain.vectordb.qdrant.QdrantClient")
+    @patch("embedchain.vector_db.qdrant.QdrantClient")
     def test_query(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
@@ -123,7 +123,7 @@ class TestQdrantDB(unittest.TestCase):
             limit=1,
         )
 
-    @patch("embedchain.vectordb.qdrant.QdrantClient")
+    @patch("embedchain.vector_db.qdrant.QdrantClient")
     def test_count(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
@@ -137,7 +137,7 @@ class TestQdrantDB(unittest.TestCase):
         db.count()
         qdrant_client_mock.return_value.get_collection.assert_called_once_with(collection_name="embedchain-store-1526")
 
-    @patch("embedchain.vectordb.qdrant.QdrantClient")
+    @patch("embedchain.vector_db.qdrant.QdrantClient")
     def test_reset(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()

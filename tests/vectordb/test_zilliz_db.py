@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from embedchain.config import ZillizDBConfig
-from embedchain.vectordb.zilliz import ZillizVectorDB
+from embedchain.vector_db.zilliz import ZillizVectorDB
 
 
 # to run tests, provide the URI and TOKEN in .env file
@@ -59,8 +59,8 @@ class TestZillizVectorDB:
     def mock_config(self, mocker):
         return mocker.Mock(spec=ZillizDBConfig())
 
-    @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
-    @patch("embedchain.vectordb.zilliz.connections.connect", autospec=True)
+    @patch("embedchain.vector_db.zilliz.MilvusClient", autospec=True)
+    @patch("embedchain.vector_db.zilliz.connections.connect", autospec=True)
     def test_zilliz_vector_db_setup(self, mock_connect, mock_client, mock_config):
         """
         Test if the `ZillizVectorDB` instance is initialized with the correct uri and token values.
@@ -106,8 +106,8 @@ class TestZillizDBCollection:
 
         assert db_config.collection_name == expected_collection
 
-    @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
-    @patch("embedchain.vectordb.zilliz.connections", autospec=True)
+    @patch("embedchain.vector_db.zilliz.MilvusClient", autospec=True)
+    @patch("embedchain.vector_db.zilliz.connections", autospec=True)
     def test_query_with_skip_embedding(self, mock_connect, mock_client, mock_config):
         """
         Test if the `ZillizVectorDB` instance is takes in the query with skip_embeddings.
@@ -152,8 +152,8 @@ class TestZillizDBCollection:
 
             assert query_result_with_citations == [("result_doc", "url_1", "doc_id_1")]
 
-    @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
-    @patch("embedchain.vectordb.zilliz.connections", autospec=True)
+    @patch("embedchain.vector_db.zilliz.MilvusClient", autospec=True)
+    @patch("embedchain.vector_db.zilliz.connections", autospec=True)
     def test_query_without_skip_embedding(self, mock_connect, mock_client, mock_embedder, mock_config):
         """
         Test if the `ZillizVectorDB` instance is takes in the query without skip_embeddings.

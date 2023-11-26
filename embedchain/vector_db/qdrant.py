@@ -11,8 +11,8 @@ try:
 except ImportError:
     raise ImportError("Qdrant requires extra dependencies. Install with `pip install embedchain[qdrant]`") from None
 
-from embedchain.config.vectordb.qdrant import QdrantDBConfig
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.config.vector_db.qdrant import QdrantDBConfig
+from embedchain.vector_db.base import BaseVectorDB
 
 
 class QdrantDB(BaseVectorDB):

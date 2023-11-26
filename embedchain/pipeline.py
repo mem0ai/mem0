@@ -20,9 +20,8 @@ from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import validate_yaml_config
-from embedchain.vectordb.base import BaseVectorDB
-from embedchain.vectordb.chroma import ChromaDB
-
+from embedchain.vector_db.base import BaseVectorDB
+from embedchain.vector_db.chroma import ChromaDB
 
 # Setup the user directory if doesn't exist already
 Client.setup_dir()
@@ -367,7 +366,7 @@ class Pipeline(EmbedChain):
             raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
 
         pipeline_config_data = config_data.get("app", {}).get("config", {})
-        db_config_data = config_data.get("vectordb", {})
+        db_config_data = config_data.get("vector_db", {})
         embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         llm_config_data = config_data.get("llm", {})
         chunker_config_data = config_data.get("chunker", {})

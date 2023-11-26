@@ -27,7 +27,7 @@ llm:
     system_prompt: |
       Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.
 
-vectordb:
+vector_db:
   provider: chroma
   config:
     collection_name: 'my-collection-name'

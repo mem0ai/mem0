@@ -69,22 +69,22 @@ class EmbedderFactory:
 
 class VectorDBFactory:
     provider_to_class = {
-        "chroma": "embedchain.vectordb.chroma.ChromaDB",
-        "elasticsearch": "embedchain.vectordb.elasticsearch.ElasticsearchDB",
-        "opensearch": "embedchain.vectordb.opensearch.OpenSearchDB",
-        "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
-        "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
-        "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
-        "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
+        "chroma": "embedchain.vector_db.chroma.ChromaDB",
+        "elasticsearch": "embedchain.vector_db.elasticsearch.ElasticsearchDB",
+        "opensearch": "embedchain.vector_db.opensearch.OpenSearchDB",
+        "pinecone": "embedchain.vector_db.pinecone.PineconeDB",
+        "qdrant": "embedchain.vector_db.qdrant.QdrantDB",
+        "weaviate": "embedchain.vector_db.weaviate.WeaviateDB",
+        "zilliz": "embedchain.vector_db.zilliz.ZillizVectorDB",
     }
     provider_to_config_class = {
-        "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
-        "elasticsearch": "embedchain.config.vectordb.elasticsearch.ElasticsearchDBConfig",
-        "opensearch": "embedchain.config.vectordb.opensearch.OpenSearchDBConfig",
-        "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
-        "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
-        "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
-        "zilliz": "embedchain.config.vectordb.zilliz.ZillizDBConfig",
+        "chroma": "embedchain.config.vector_db.chroma.ChromaDbConfig",
+        "elasticsearch": "embedchain.config.vector_db.elasticsearch.ElasticsearchDBConfig",
+        "opensearch": "embedchain.config.vector_db.opensearch.OpenSearchDBConfig",
+        "pinecone": "embedchain.config.vector_db.pinecone.PineconeDBConfig",
+        "qdrant": "embedchain.config.vector_db.qdrant.QdrantDBConfig",
+        "weaviate": "embedchain.config.vector_db.weaviate.WeaviateDBConfig",
+        "zilliz": "embedchain.config.vector_db.zilliz.ZillizDBConfig",
     }
 
     @classmethod

@@ -3,10 +3,9 @@ from typing import Any
 from embedchain import Pipeline as App
 from embedchain.config import AddConfig, BaseLlmConfig, PipelineConfig
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.helpers.json_serializable import (JSONSerializable,
-                                                  register_deserializable)
+from embedchain.helpers.json_serializable import JSONSerializable, register_deserializable
 from embedchain.llm.openai import OpenAILlm
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.chroma import ChromaDB
 
 
 @register_deserializable

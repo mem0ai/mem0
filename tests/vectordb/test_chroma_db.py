@@ -7,7 +7,7 @@ from chromadb.config import Settings
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
-from embedchain.vectordb.chroma import ChromaDB
+from embedchain.vector_db.chroma import ChromaDB
 
 os.environ["OPENAI_API_KEY"] = "test-api-key"
 
@@ -59,7 +59,7 @@ def test_chroma_db_init_with_basic_auth():
     assert settings.chroma_client_auth_credentials == chroma_config["chroma_settings"]["chroma_client_auth_credentials"]
 
 
-@patch("embedchain.vectordb.chroma.chromadb.Client")
+@patch("embedchain.vector_db.chroma.chromadb.Client")
 def test_app_init_with_host_and_port(mock_client):
     host = "test-host"
     port = "1234"
@@ -72,7 +72,7 @@ def test_app_init_with_host_and_port(mock_client):
     assert called_settings.chroma_server_http_port == port
 
 
-@patch("embedchain.vectordb.chroma.chromadb.Client")
+@patch("embedchain.vector_db.chroma.chromadb.Client")
 def test_app_init_with_host_and_port_none(mock_client):
     _app = App(config=AppConfig(collect_metrics=False), db_config=ChromaDbConfig(allow_reset=True, dir="test-db"))
 

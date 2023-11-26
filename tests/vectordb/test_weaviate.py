@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.config.vectordb.pinecone import PineconeDBConfig
+from embedchain.config.vector_db.pinecone import PineconeDBConfig
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.vectordb.weaviate import WeaviateDB
+from embedchain.vector_db.weaviate import WeaviateDB
 
 
 class TestWeaviateDb(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestWeaviateDb(unittest.TestCase):
         with self.assertRaises(TypeError):
             WeaviateDB(config=PineconeDBConfig())
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_initialize(self, weaviate_mock):
         """Test the init method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value
@@ -85,7 +85,7 @@ class TestWeaviateDb(unittest.TestCase):
         self.assertEqual(db.index_name, "Embedchain_store_1526")
         weaviate_client_schema_mock.create.assert_called_once_with(expected_class_obj)
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_get_or_create_db(self, weaviate_mock):
         """Test the _get_or_create_db method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value
@@ -101,7 +101,7 @@ class TestWeaviateDb(unittest.TestCase):
         expected_client = db._get_or_create_db()
         self.assertEqual(expected_client, weaviate_client_mock)
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_add(self, weaviate_mock):
         """Test the add method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value
@@ -145,7 +145,7 @@ class TestWeaviateDb(unittest.TestCase):
             vector=embeddings[1],
         )
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_query_without_where(self, weaviate_mock):
         """Test the query method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value
@@ -169,7 +169,7 @@ class TestWeaviateDb(unittest.TestCase):
             {"vector": ["This is a test document."]}
         )
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_query_with_where(self, weaviate_mock):
         """Test the query method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value
@@ -197,7 +197,7 @@ class TestWeaviateDb(unittest.TestCase):
             {"vector": ["This is a test document."]}
         )
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_reset(self, weaviate_mock):
         """Test the reset method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value
@@ -219,7 +219,7 @@ class TestWeaviateDb(unittest.TestCase):
             "Embedchain_store_1526", where={"path": ["identifier"], "operator": "Like", "valueText": ".*"}
         )
 
-    @patch("embedchain.vectordb.weaviate.weaviate")
+    @patch("embedchain.vector_db.weaviate.weaviate")
     def test_count(self, weaviate_mock):
         """Test the reset method of the WeaviateDb class."""
         weaviate_client_mock = weaviate_mock.Client.return_value

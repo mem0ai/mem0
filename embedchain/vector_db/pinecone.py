@@ -8,9 +8,9 @@ except ImportError:
         "Pinecone requires extra dependencies. Install with `pip install --upgrade 'embedchain[pinecone]'`"
     ) from None
 
-from embedchain.config.vectordb.pinecone import PineconeDBConfig
+from embedchain.config.vector_db.pinecone import PineconeDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
-from embedchain.vectordb.base import BaseVectorDB
+from embedchain.vector_db.base import BaseVectorDB
 
 
 @register_deserializable

@@ -9,9 +9,9 @@ import embedchain.embedder.openai
 import embedchain.embedder.vertexai
 import embedchain.llm.anthropic
 import embedchain.llm.openai
-import embedchain.vectordb.chroma
-import embedchain.vectordb.elasticsearch
-import embedchain.vectordb.opensearch
+import embedchain.vector_db.chroma
+import embedchain.vector_db.elasticsearch
+import embedchain.vector_db.opensearch
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 
 
@@ -50,16 +50,16 @@ class TestFactories:
     @pytest.mark.parametrize(
         "provider_name, config_data, expected_class",
         [
-            ("chroma", {}, embedchain.vectordb.chroma.ChromaDB),
+            ("chroma", {}, embedchain.vector_db.chroma.ChromaDB),
             (
                 "opensearch",
                 {"opensearch_url": "http://localhost:9200", "http_auth": ("admin", "admin")},
-                embedchain.vectordb.opensearch.OpenSearchDB,
+                embedchain.vector_db.opensearch.OpenSearchDB,
             ),
-            ("elasticsearch", {"es_url": "http://localhost:9200"}, embedchain.vectordb.elasticsearch.ElasticsearchDB),
+            ("elasticsearch", {"es_url": "http://localhost:9200"}, embedchain.vector_db.elasticsearch.ElasticsearchDB),
         ],
     )
     def test_vectordb_factory_create(self, mocker, provider_name, config_data, expected_class):
-        mocker.patch("embedchain.vectordb.opensearch.OpenSearchDB", autospec=True)
+        mocker.patch("embedchain.vector_db.opensearch.OpenSearchDB", autospec=True)
         vectordb_instance = VectorDBFactory.create(provider_name, config_data)
         assert isinstance(vectordb_instance, expected_class)

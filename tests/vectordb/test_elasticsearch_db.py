@@ -5,11 +5,11 @@ from unittest.mock import patch
 from embedchain import App
 from embedchain.config import AppConfig, ElasticsearchDBConfig
 from embedchain.embedder.gpt4all import GPT4AllEmbedder
-from embedchain.vectordb.elasticsearch import ElasticsearchDB
+from embedchain.vector_db.elasticsearch import ElasticsearchDB
 
 
 class TestEsDB(unittest.TestCase):
-    @patch("embedchain.vectordb.elasticsearch.Elasticsearch")
+    @patch("embedchain.vector_db.elasticsearch.Elasticsearch")
     def test_setUp(self, mock_client):
         self.db = ElasticsearchDB(config=ElasticsearchDBConfig(es_url="https://localhost:9200"))
         self.vector_dim = 384
@@ -19,7 +19,7 @@ class TestEsDB(unittest.TestCase):
         # Assert that the Elasticsearch client is stored in the ElasticsearchDB class.
         self.assertEqual(self.db.client, mock_client.return_value)
 
-    @patch("embedchain.vectordb.elasticsearch.Elasticsearch")
+    @patch("embedchain.vector_db.elasticsearch.Elasticsearch")
     def test_query(self, mock_client):
         self.db = ElasticsearchDB(config=ElasticsearchDBConfig(es_url="https://localhost:9200"))
         app_config = AppConfig(collection_name=False, collect_metrics=False)
@@ -71,7 +71,7 @@ class TestEsDB(unittest.TestCase):
         ]
         self.assertEqual(results_with_citations, expected_results_with_citations)
 
-    @patch("embedchain.vectordb.elasticsearch.Elasticsearch")
+    @patch("embedchain.vector_db.elasticsearch.Elasticsearch")
     def test_query_with_skip_embedding(self, mock_client):
         self.db = ElasticsearchDB(config=ElasticsearchDBConfig(es_url="https://localhost:9200"))
         app_config = AppConfig(collection_name=False, collect_metrics=False)

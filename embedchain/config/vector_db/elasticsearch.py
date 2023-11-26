@@ -1,7 +1,7 @@
 import os
 from typing import Dict, List, Optional, Union
 
-from embedchain.config.vectordb.base import BaseVectorDbConfig
+from embedchain.config.vector_db.base import BaseVectorDbConfig
 from embedchain.helpers.json_serializable import register_deserializable
 
 

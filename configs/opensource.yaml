@@ -13,7 +13,7 @@ llm:
     top_p: 1
     stream: false
 
-vectordb:
+vector_db:
   provider: chroma
   config:
     collection_name: 'open-source-app'

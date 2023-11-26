@@ -3,7 +3,7 @@ pipeline:
     name: Example pipeline
     id: pipeline-1  # Make sure that id is different every time you create a new pipeline
 
-vectordb:
+vector_db:
   provider: chroma
   config:
     collection_name: pipeline-1

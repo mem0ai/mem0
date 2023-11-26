@@ -36,7 +36,7 @@ llm:
     system_prompt: |
       Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.
 
-vectordb:
+vector_db:
   provider: chroma
   config:
     collection_name: 'full-stack-app'
@@ -68,7 +68,7 @@ Alright, let's dive into what each key means in the yaml config above:
         - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `template` (String): A custom template for the prompt that the model uses to generate responses.
         - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
-4. `vectordb` Section:
+4. `vector_db` Section:
     - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
     - `config`:
         - `collection_name` (String): The initial collection name for the database, set to 'full-stack-app'.
