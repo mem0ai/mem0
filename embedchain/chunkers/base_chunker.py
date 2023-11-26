@@ -1,6 +1,6 @@
 import hashlib
 
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.models.data_type import DataType
 
 
@@ -44,6 +44,7 @@ class BaseChunker(JSONSerializable):
 
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
+                chunk_id = f"{app_id}--{chunk_id}" if app_id is not None else chunk_id
                 if idMap.get(chunk_id) is None:
                     idMap[chunk_id] = True
                     chunk_ids.append(chunk_id)

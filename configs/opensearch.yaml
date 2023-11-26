@@ -1,14 +1,14 @@
 app:
   config:
     id: 'my-app'
-    log_level: 'WARN'
+    log_level: 'WARNING'
     collect_metrics: true
     collection_name: 'my-app'
 
 llm:
   provider: openai
-  model: 'gpt-3.5-turbo'
   config:
+    model: 'gpt-3.5-turbo'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -30,4 +30,4 @@ embedder:
   provider: openai
   config:
     model: 'text-embedding-ada-002'
-    deployment_name: null
+    deployment_name: 'my-app'

@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 try:
     import pinecone
@@ -9,7 +9,7 @@ except ImportError:
     ) from None
 
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 
@@ -118,7 +118,14 @@ class PineconeDB(BaseVectorDB):
         for i in range(0, len(docs), self.BATCH_SIZE):
             self.client.upsert(docs[i : i + self.BATCH_SIZE])
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -129,16 +136,28 @@ class PineconeDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. if True, input_query is already embedded
         :type skip_embedding: bool
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         if not skip_embedding:
             query_vector = self.embedder.embedding_fn([input_query])[0]
         else:
             query_vector = input_query
-        contents = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True)
-        embeddings = list(map(lambda content: content["metadata"]["text"], contents["matches"]))
-        return embeddings
+        data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True)
+        contexts = []
+        for doc in data["matches"]:
+            metadata = doc["metadata"]
+            context = metadata["text"]
+            if citations:
+                source = metadata["url"]
+                doc_id = metadata["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def set_collection_name(self, name: str):
         """

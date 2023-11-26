@@ -27,6 +27,7 @@ class TestClipProcessor:
 
             # Delete the temporary file.
             os.remove(os.path.join(tmp_dir, "image.jpg"))
+            os.remove("image.jpg")
 
     def test_get_text_features(self):
         # Test that the `get_text_features()` method returns a list containing the text embedding.

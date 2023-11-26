@@ -76,7 +76,6 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-.ipynb_checkpoints
 
 # IPython
 profile_default/
@@ -165,9 +164,14 @@ cython_debug/
 
 # Database
 db
+test-db
 
 .vscode
-/poetry.lock
 .idea/
 
 .DS_Store
+
+notebooks/*.yaml
+.ipynb_checkpoints/
+
+!configs/*.yaml

@@ -1,0 +1,33 @@
+---
+openapi: get /apps
+---
+
+<RequestExample>
+
+```bash Request
+curl --request GET \
+  --url http://localhost:8080/apps
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json Response
+{
+  "results": [
+    {
+      "config": "config1.yaml",
+      "id": 1,
+      "app_id": "app1"
+    },
+    {
+      "config": "config2.yaml",
+      "id": 2,
+      "app_id": "app2"
+    }
+  ]
+}
+```
+
+</ResponseExample>

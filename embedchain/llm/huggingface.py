@@ -5,7 +5,7 @@ from typing import Optional
 from langchain.llms import HuggingFaceHub
 
 from embedchain.config import BaseLlmConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
 
@@ -20,7 +20,7 @@ class HuggingFaceLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for HuggingFaceHub are not installed."
-                'Please install with `pip install --upgrade "embedchain[huggingface_hub]"`'
+                'Please install with `pip install --upgrade "embedchain[huggingface-hub]"`'
             ) from None
 
         super().__init__(config=config)

@@ -4,8 +4,8 @@ from string import Template
 
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
-from embedchain.helper.json_serializable import (JSONSerializable,
-                                                 register_deserializable)
+from embedchain.helpers.json_serializable import (JSONSerializable,
+                                                  register_deserializable)
 
 
 class TestJsonSerializable(unittest.TestCase):
@@ -53,7 +53,7 @@ class TestJsonSerializable(unittest.TestCase):
         app: SecondTestClass = SecondTestClass().deserialize(serial)
         self.assertTrue(app.default)
         # If we register and try again with the same serial, it should work
-        SecondTestClass.register_class_as_deserializable(SecondTestClass)
+        SecondTestClass._register_class_as_deserializable(SecondTestClass)
         app: SecondTestClass = SecondTestClass().deserialize(serial)
         self.assertFalse(app.default)
 
@@ -63,7 +63,6 @@ class TestJsonSerializable(unittest.TestCase):
         config = AppConfig(id=random_id, collect_metrics=False)
         # config class is set under app.config.
         app = App(config=config)
-        # w/o recursion it would just be <embedchain.config.apps.OpenSourceAppConfig.OpenSourceAppConfig object at x>
         s = app.serialize()
         new_app: App = App.deserialize(s)
         # The id of the new app is the same as the first one.

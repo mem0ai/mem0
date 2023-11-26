@@ -1,61 +1,77 @@
 import os
-import unittest
-from unittest.mock import patch
+
+import pytest
+from chromadb.api.models.Collection import Collection
 
 from embedchain import App
 from embedchain.config import AppConfig, ChromaDbConfig
+from embedchain.embedchain import EmbedChain
+from embedchain.llm.base import BaseLlm
+from embedchain.memory.base import ECChatMemory
+
+os.environ["OPENAI_API_KEY"] = "test-api-key"
 
 
-class TestChromaDbHostsLoglevel(unittest.TestCase):
-    os.environ["OPENAI_API_KEY"] = "test_key"
+@pytest.fixture
+def app_instance():
+    config = AppConfig(log_level="DEBUG", collect_metrics=False)
+    return App(config)
 
-    @patch("chromadb.api.models.Collection.Collection.add")
-    @patch("embedchain.embedchain.EmbedChain.retrieve_from_database")
-    @patch("embedchain.llm.base.BaseLlm.get_answer_from_llm")
-    @patch("embedchain.llm.base.BaseLlm.get_llm_model_answer")
-    def test_whole_app(
-        self,
-        _mock_add,
-        _mock_ec_retrieve_from_database,
-        _mock_get_answer_from_llm,
-        mock_ec_get_llm_model_answer,
-    ):
-        """
-        Test if the `App` instance is initialized without a config that does not contain default hosts and ports.
-        """
-        config = AppConfig(log_level="DEBUG", collect_metrics=False)
 
-        app = App(config)
+def test_whole_app(app_instance, mocker):
+    knowledge = "lorem ipsum dolor sit amet, consectetur adipiscing"
 
-        knowledge = "lorem ipsum dolor sit amet, consectetur adipiscing"
+    mocker.patch.object(EmbedChain, "add")
+    mocker.patch.object(EmbedChain, "_retrieve_from_database")
+    mocker.patch.object(BaseLlm, "get_answer_from_llm", return_value=knowledge)
+    mocker.patch.object(BaseLlm, "get_llm_model_answer", return_value=knowledge)
+    mocker.patch.object(BaseLlm, "generate_prompt")
+    mocker.patch.object(
+        BaseLlm,
+        "add_history",
+    )
+    mocker.patch.object(ECChatMemory, "delete_chat_history", autospec=True)
 
-        app.add(knowledge, data_type="text")
+    app_instance.add(knowledge, data_type="text")
+    app_instance.query("What text did I give you?")
+    app_instance.chat("What text did I give you?")
 
-        app.query("What text did I give you?")
-        app.chat("What text did I give you?")
+    assert BaseLlm.generate_prompt.call_count == 2
+    app_instance.reset()
 
-        self.assertEqual(mock_ec_get_llm_model_answer.call_args[1]["documents"], [knowledge])
 
-    def test_add_after_reset(self):
-        """
-        Test if the `App` instance is correctly reconstructed after a reset.
-        """
-        config = AppConfig(log_level="DEBUG", collect_metrics=False)
-        chroma_config = {"allow_reset": True}
-        app = App(config=config, db_config=ChromaDbConfig(**chroma_config))
-        app.reset()
+def test_add_after_reset(app_instance, mocker):
+    mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
 
-        # Make sure the client is still healthy
-        app.db.client.heartbeat()
-        # Make sure the collection exists, and can be added to
-        app.db.collection.add(
-            embeddings=[[1.1, 2.3, 3.2], [4.5, 6.9, 4.4], [1.1, 2.3, 3.2]],
-            metadatas=[
-                {"chapter": "3", "verse": "16"},
-                {"chapter": "3", "verse": "5"},
-                {"chapter": "29", "verse": "11"},
-            ],
-            ids=["id1", "id2", "id3"],
-        )
+    config = AppConfig(log_level="DEBUG", collect_metrics=False)
+    chroma_config = {"allow_reset": True}
 
-        app.reset()
+    app_instance = App(config=config, db_config=ChromaDbConfig(**chroma_config))
+
+    # mock delete chat history
+    mocker.patch.object(ECChatMemory, "delete_chat_history", autospec=True)
+
+    app_instance.reset()
+
+    app_instance.db.client.heartbeat()
+
+    mocker.patch.object(Collection, "add")
+
+    app_instance.db.collection.add(
+        embeddings=[[1.1, 2.3, 3.2], [4.5, 6.9, 4.4], [1.1, 2.3, 3.2]],
+        metadatas=[
+            {"chapter": "3", "verse": "16"},
+            {"chapter": "3", "verse": "5"},
+            {"chapter": "29", "verse": "11"},
+        ],
+        ids=["id1", "id2", "id3"],
+    )
+
+    app_instance.reset()
+
+
+def test_add_with_incorrect_content(app_instance, mocker):
+    content = [{"foo": "bar"}]
+
+    with pytest.raises(TypeError):
+        app_instance.add(content, data_type="json")

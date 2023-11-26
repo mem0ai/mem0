@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
     from elasticsearch import Elasticsearch
@@ -10,7 +10,7 @@ except ImportError:
     ) from None
 
 from embedchain.config import ElasticsearchDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 
@@ -135,7 +135,14 @@ class ElasticsearchDB(BaseVectorDB):
         bulk(self.client, docs)
         self.client.indices.refresh(index=self._get_index())
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -147,8 +154,12 @@ class ElasticsearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+        :return: The context of the document that matched your query, url of the source, doc_id
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         if skip_embedding:
             query_vector = input_query
@@ -156,6 +167,7 @@ class ElasticsearchDB(BaseVectorDB):
             input_query_vector = self.embedder.embedding_fn(input_query)
             query_vector = input_query_vector[0]
 
+        # `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`
         query = {
             "script_score": {
                 "query": {"bool": {"must": [{"exists": {"field": "text"}}]}},
@@ -167,12 +179,21 @@ class ElasticsearchDB(BaseVectorDB):
         }
         if "app_id" in where:
             app_id = where["app_id"]
-            query["script_score"]["query"]["bool"]["must"] = [{"term": {"metadata.app_id": app_id}}]
-        _source = ["text"]
+            query["script_score"]["query"] = {"match": {"metadata.app_id": app_id}}
+        _source = ["text", "metadata.url", "metadata.doc_id"]
         response = self.client.search(index=self._get_index(), query=query, _source=_source, size=n_results)
         docs = response["hits"]["hits"]
-        contents = [doc["_source"]["text"] for doc in docs]
-        return contents
+        contexts = []
+        for doc in docs:
+            context = doc["_source"]["text"]
+            if citations:
+                metadata = doc["_source"]["metadata"]
+                source = metadata["url"]
+                doc_id = metadata["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def set_collection_name(self, name: str):
         """

@@ -3,7 +3,7 @@ import logging
 import os
 from typing import List, Optional
 
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 
 from .base import BaseBot
 

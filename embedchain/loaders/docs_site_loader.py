@@ -3,9 +3,16 @@ import logging
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
 
-from embedchain.helper.json_serializable import register_deserializable
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    raise ImportError(
+        'DocsSite requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+    ) from None
+
+
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
 

@@ -1,4 +1,4 @@
-FROM python:3.11 AS backend
+FROM python:3.11-slim
 
 WORKDIR /usr/src/discord_bot
 COPY requirements.txt .

@@ -2,13 +2,13 @@ import logging
 from typing import Optional
 
 from embedchain.config.base_config import BaseConfig
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.vectordb.base import BaseVectorDB
 
 
 class BaseAppConfig(BaseConfig, JSONSerializable):
     """
-    Parent config to initialize an instance of `App`, `OpenSourceApp` or `CustomApp`.
+    Parent config to initialize an instance of `App`.
     """
 
     def __init__(

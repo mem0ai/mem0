@@ -1,7 +1,8 @@
-from typing import Dict, List, Optional
+import logging
+from typing import Dict, List, Optional, Tuple, Union
 
 from embedchain.config import ZillizDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
@@ -61,6 +62,7 @@ class ZillizVectorDB(BaseVectorDB):
         :type name: str
         """
         if utility.has_collection(name):
+            logging.info(f"[ZillizDB]: found an existing collection {name}, make sure the auto-id is disabled.")
             self.collection = Collection(name)
         else:
             fields = [
@@ -124,7 +126,14 @@ class ZillizVectorDB(BaseVectorDB):
         self.collection.flush()
         self.client.flush(self.config.collection_name)
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+    def query(
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -135,8 +144,11 @@ class ZillizVectorDB(BaseVectorDB):
         :param where: to filter data
         :type where: str
         :raises InvalidDimensionException: Dimensions do not match.
-        :return: The content of the document that matched your query.
-        :rtype: List[str]
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
 
         if self.collection.is_empty:
@@ -145,13 +157,14 @@ class ZillizVectorDB(BaseVectorDB):
         if not isinstance(where, str):
             where = None
 
+        output_fields = ["text", "url", "doc_id"]
         if skip_embedding:
             query_vector = input_query
             query_result = self.client.search(
                 collection_name=self.config.collection_name,
                 data=query_vector,
                 limit=n_results,
-                output_fields=["text"],
+                output_fields=output_fields,
             )
 
         else:
@@ -162,14 +175,20 @@ class ZillizVectorDB(BaseVectorDB):
                 collection_name=self.config.collection_name,
                 data=[query_vector],
                 limit=n_results,
-                output_fields=["text"],
+                output_fields=output_fields,
             )
 
-        doc_list = []
+        contexts = []
         for query in query_result:
-            doc_list.append(query[0]["entity"]["text"])
-
-        return doc_list
+            data = query[0]["entity"]
+            context = data["text"]
+            if citations:
+                source = data["url"]
+                doc_id = data["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def count(self) -> int:
         """
@@ -203,3 +222,16 @@ class ZillizVectorDB(BaseVectorDB):
         if not isinstance(name, str):
             raise TypeError("Collection name must be a string")
         self.config.collection_name = name
+
+    def delete(self, keys: Union[list, str, int]):
+        """
+        Delete the embeddings from DB. Zilliz only support deleting with keys.
+
+
+        :param keys: Primary keys of the table entries to delete.
+        :type keys: Union[list, str, int]
+        """
+        self.client.delete(
+            collection_name=self.config.collection_name,
+            pks=keys,
+        )

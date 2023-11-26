@@ -26,7 +26,7 @@ Once you have obtained the key, you can use it like this:
 
 ```python
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -41,7 +41,7 @@ If you are looking to configure the different parameters of the LLM, you can do 
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -52,8 +52,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: openai
-  model: 'gpt-3.5-turbo'
   config:
+    model: 'gpt-3.5-turbo'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -65,7 +65,42 @@ llm:
 
 ## Azure OpenAI
 
-_Coming soon_
+To use Azure OpenAI model, you have to set some of the azure openai related environment variables as given in the code block below:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import Pipeline as App
+
+os.environ["OPENAI_API_TYPE"] = "azure"
+os.environ["OPENAI_API_BASE"] = "https://xxx.openai.azure.com/"
+os.environ["OPENAI_API_KEY"] = "xxx"
+os.environ["OPENAI_API_VERSION"] = "xxx"
+
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: azure_openai
+  config:
+    model: gpt-35-turbo
+    deployment_name: your_llm_deployment_name
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: azure_openai
+  config:
+    model: text-embedding-ada-002
+    deployment_name: you_embedding_model_deployment_name
+```
+</CodeGroup>
+
+You can find the list of models and deployment name on the [Azure OpenAI Platform](https://oai.azure.com/portal).
 
 ## Anthropic
 
@@ -75,7 +110,7 @@ To use anthropic's model, please set the `ANTHROPIC_API_KEY` which you find on t
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["ANTHROPIC_API_KEY"] = "xxx"
 
@@ -86,8 +121,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: anthropic
-  model: 'claude-instant-1'
   config:
+    model: 'claude-instant-1'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -112,7 +147,7 @@ Once you have the API key, you are all set to use it with Embedchain.
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["COHERE_API_KEY"] = "xxx"
 
@@ -123,8 +158,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: cohere
-  model: large
   config:
+    model: large
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -145,7 +180,7 @@ GPT4all is a free-to-use, locally running, privacy-aware chatbot. No GPU or inte
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load llm configuration from config.yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -154,8 +189,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: gpt4all
-  model: 'orca-mini-3b.ggmlv3.q4_0.bin'
   config:
+    model: 'orca-mini-3b-gguf2-q4_0.gguf'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -163,8 +198,6 @@ llm:
 
 embedder:
   provider: gpt4all
-  config:
-    model: 'all-MiniLM-L6-v2'
 ```
 </CodeGroup>
 
@@ -179,7 +212,7 @@ Once you have the key, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["JINACHAT_API_KEY"] = "xxx"
 # load llm configuration from config.yaml file
@@ -204,7 +237,7 @@ llm:
 Install related dependencies using the following command:
 
 ```bash
-pip install --upgrade 'embedchain[huggingface_hub]'
+pip install --upgrade 'embedchain[huggingface-hub]'
 ```
 
 First, set `HUGGINGFACE_ACCESS_TOKEN` in environment variable which you can obtain from [their platform](https://huggingface.co/settings/tokens).
@@ -215,7 +248,7 @@ Once you have the token, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
@@ -226,8 +259,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: huggingface
-  model: 'google/flan-t5-xxl'
   config:
+    model: 'google/flan-t5-xxl'
     temperature: 0.5
     max_tokens: 1000
     top_p: 0.5
@@ -245,7 +278,7 @@ Once you have the token, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 os.environ["REPLICATE_API_TOKEN"] = "xxx"
 
@@ -256,8 +289,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: llama2
-  model: 'a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5'
   config:
+    model: 'a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5'
     temperature: 0.5
     max_tokens: 1000
     top_p: 0.5
@@ -272,7 +305,7 @@ Setup Google Cloud Platform application credentials by following the instruction
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load llm configuration from config.yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -281,8 +314,8 @@ app = App.from_config(yaml_path="config.yaml")
 ```yaml config.yaml
 llm:
   provider: vertexai
-  model: 'chat-bison'
   config:
+    model: 'chat-bison'
     temperature: 0.5
     top_p: 0.5
 ```

@@ -22,7 +22,7 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load chroma configuration from yaml file
 app = App.from_config(yaml_path="config1.yaml")
@@ -61,7 +61,7 @@ pip install --upgrade 'embedchain[elasticsearch]'
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load elasticsearch configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -89,7 +89,7 @@ pip install --upgrade 'embedchain[opensearch]'
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load opensearch configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -119,10 +119,16 @@ Install related dependencies using the following command:
 pip install --upgrade 'embedchain[milvus]'
 ```
 
+Set the Zilliz environment variables `ZILLIZ_CLOUD_URI` and `ZILLIZ_CLOUD_TOKEN` which you can find it on their [cloud platform](https://cloud.zilliz.com/).
+
 <CodeGroup>
 
 ```python main.py
-from embedchain import App
+import os
+from embedchain import Pipeline as App
+
+os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
+os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
 
 # load zilliz configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -132,7 +138,7 @@ app = App.from_config(yaml_path="config.yaml")
 vectordb:
   provider: zilliz
   config:
-    collection_name: 'zilliz-app'
+    collection_name: 'zilliz_app'
     uri: https://xxxx.api.gcp-region.zillizcloud.com
     token: xxx
     vector_dim: 1536
@@ -147,10 +153,18 @@ _Coming soon_
 
 ## Pinecone
 
+Install pinecone related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[pinecone]'
+```
+
 In order to use Pinecone as vector database, set the environment variables `PINECONE_API_KEY` and `PINECONE_ENV` which you can find on [Pinecone dashboard](https://app.pinecone.io/).
 
+<CodeGroup>
+
 ```python main.py
-from embedchain import App
+from embedchain import Pipeline as App
 
 # load pinecone configuration from yaml file
 app = App.from_config(yaml_path="config.yaml")
@@ -165,12 +179,46 @@ vectordb:
     collection_name: my-pinecone-index
 ```
 
+</CodeGroup>
+
 ## Qdrant
 
-_Coming soon_
+In order to use Qdrant as a vector database, set the environment variables `QDRANT_URL` and `QDRANT_API_KEY` which you can find on [Qdrant Dashboard](https://cloud.qdrant.io/).
+
+<CodeGroup>
+```python main.py
+from embedchain import Pipeline as App
+
+# load qdrant configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: qdrant
+  config:
+    collection_name: my_qdrant_index
+```
+</CodeGroup>
 
 ## Weaviate
 
-_Coming soon_
+In order to use Weaviate as a vector database, set the environment variables `WEAVIATE_ENDPOINT` and `WEAVIATE_API_KEY` which you can find on [Weaviate dashboard](https://console.weaviate.cloud/dashboard).
+
+<CodeGroup>
+```python main.py
+from embedchain import Pipeline as App
+
+# load weaviate configuration from yaml file
+app = App.from_config(yaml_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: weaviate
+  config:
+    collection_name: my_weaviate_index
+```
+</CodeGroup>
 
 <Snippet file="missing-vector-db-tip.mdx" />

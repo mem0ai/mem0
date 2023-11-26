@@ -1,5 +1,8 @@
 import logging
-from typing import Dict, List, Optional, Set
+import time
+from typing import Dict, List, Optional, Set, Tuple, Union
+
+from tqdm import tqdm
 
 try:
     from opensearchpy import OpenSearch
@@ -13,7 +16,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import OpenSearchVectorSearch
 
 from embedchain.config import OpenSearchDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 
@@ -22,6 +25,8 @@ class OpenSearchDB(BaseVectorDB):
     """
     OpenSearch as vector database
     """
+
+    BATCH_SIZE = 100
 
     def __init__(self, config: OpenSearchDBConfig):
         """OpenSearch as vector database.
@@ -131,21 +136,37 @@ class OpenSearchDB(BaseVectorDB):
         :type skip_embedding: bool
         """
 
-        docs = []
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
-        for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
-            docs.append(
-                {
-                    "_index": self._get_index(),
-                    "_id": id,
-                    "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
-                }
-            )
-        bulk(self.client, docs)
-        self.client.indices.refresh(index=self._get_index())
+        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
+            if not skip_embedding:
+                embeddings = self.embedder.embedding_fn(documents[i : i + self.BATCH_SIZE])
 
-    def query(self, input_query: List[str], n_results: int, where: Dict[str, any], skip_embedding: bool) -> List[str]:
+            docs = []
+            for id, text, metadata, embeddings in zip(
+                ids[i : i + self.BATCH_SIZE],
+                documents[i : i + self.BATCH_SIZE],
+                metadatas[i : i + self.BATCH_SIZE],
+                embeddings[i : i + self.BATCH_SIZE],
+            ):
+                docs.append(
+                    {
+                        "_index": self._get_index(),
+                        "_id": id,
+                        "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
+                    }
+                )
+            bulk(self.client, docs)
+            self.client.indices.refresh(index=self._get_index())
+            # Sleep for 0.1 seconds to avoid rate limiting
+            time.sleep(0.1)
+
+    def query(
+        self,
+        input_query: List[str],
+        n_results: int,
+        where: Dict[str, any],
+        skip_embedding: bool,
+        citations: bool = False,
+    ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -157,8 +178,11 @@ class OpenSearchDB(BaseVectorDB):
         :type where: Dict[str, any]
         :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
         :type skip_embedding: bool
-        :return: Database contents that are the result of the query
-        :rtype: List[str]
+        :param citations: we use citations boolean param to return context along with the answer.
+        :type citations: bool, default is False.
+        :return: The content of the document that matched your query,
+        along with url of the source and doc_id (if citations flag is true)
+        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
@@ -185,8 +209,17 @@ class OpenSearchDB(BaseVectorDB):
             pre_filter=pre_filter,
             k=n_results,
         )
-        contents = [doc.page_content for doc in docs]
-        return contents
+
+        contexts = []
+        for doc in docs:
+            context = doc.page_content
+            if citations:
+                source = doc.metadata["url"]
+                doc_id = doc.metadata["doc_id"]
+                contexts.append(tuple((context, source, doc_id)))
+            else:
+                contexts.append(context)
+        return contexts
 
     def set_collection_name(self, name: str):
         """

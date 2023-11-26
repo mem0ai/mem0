@@ -1,10 +1,10 @@
 from typing import Any
 
-from embedchain import App
-from embedchain.config import AddConfig, AppConfig, BaseLlmConfig
+from embedchain import Pipeline as App
+from embedchain.config import AddConfig, BaseLlmConfig, PipelineConfig
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.helper.json_serializable import (JSONSerializable,
-                                                 register_deserializable)
+from embedchain.helpers.json_serializable import (JSONSerializable,
+                                                  register_deserializable)
 from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -12,7 +12,7 @@ from embedchain.vectordb.chroma import ChromaDB
 @register_deserializable
 class BaseBot(JSONSerializable):
     def __init__(self):
-        self.app = App(config=AppConfig(), llm=OpenAILlm(), db=ChromaDB(), embedder=OpenAIEmbedder())
+        self.app = App(config=PipelineConfig(), llm=OpenAILlm(), db=ChromaDB(), embedding_model=OpenAIEmbedder())
 
     def add(self, data: Any, config: AddConfig = None):
         """
