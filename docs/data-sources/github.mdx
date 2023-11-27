@@ -1,0 +1,47 @@
+---
+title: 🚀 Github
+---
+
+1. Setup the Github loader by configuring the Github account with username and personal access token (PAT)
+```Python
+from embedchain.loaders.github import GithubLoader
+
+loader = GithubLoader(
+    config={
+        "username": "your_username",
+        "token":"m+your_token"
+        }
+    )
+```
+
+2. Once you setup the loader, you can create an app and load data using the above Github loader
+```Python
+from embedchain.pipeline import Pipeline as App
+
+app = App()
+
+load_query = " ".join([
+    "https://github.com/embedchain/embedchain",
+    "https://github.com/embedchain/embedchainjs",
+    "https://github.com/embedchain/embedchain/issues",
+    "https://github.com/embedchain/embedchain/issues?page=2",
+])
+
+app.add(load_query, data_type="github", loader=loader)
+
+response = app.query("What is Embedchain?")
+# Answer: Embedchain is a Data Platform for Large Language Models (LLMs). It allows users to seamlessly load, index, retrieve, and sync unstructured data to build dynamic, LLM-powered applications. There is also a JavaScript implementation called embedchain-js available on GitHub.
+```
+
+NOTE: The `add` function of the app will accept space separated list of valid github urls. It only supports loading github repository, issues and pull-requests.
+
+3. We automatically create a chunker to chunk your GitHub data, however if you wish to provide your own chunker class. Here is how you can do that:
+```Python
+from embedchain.chunkers.common_chunker import CommonChunker
+from embedchain.config.add_config import ChunkerConfig
+
+github_chunker_config = ChunkerConfig(chunk_size=2000, chunk_overlap=0, length_function=len)
+github_chunker = CommonChunker(config=github_chunker_config)
+
+app.add(load_query, data_type="github", loader=loader, chunker=github_chunker)
+```

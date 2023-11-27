@@ -78,16 +78,16 @@ def clean_string(text):
         have been performed.
     """
     # Replacement of newline characters:
-    text = text.replace("\n", " ")
+    # text = text.replace("\n", " ")
 
     # Stripping and reducing multiple spaces to single:
     cleaned_text = re.sub(r"\s+", " ", text.strip())
 
     # Removing backslashes:
-    cleaned_text = cleaned_text.replace("\\", "")
+    # cleaned_text = cleaned_text.replace("\\", "")
 
     # Replacing hash characters:
-    cleaned_text = cleaned_text.replace("#", " ")
+    # cleaned_text = cleaned_text.replace("#", " ")
 
     # Eliminating consecutive non-alphanumeric characters:
     # This regex identifies consecutive non-alphanumeric characters (i.e., not
