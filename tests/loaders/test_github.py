@@ -224,22 +224,21 @@ def test_github_loader_load_data(monkeypatch):
 
     result = loader.load_data(urls)
 
+    expected_doc_id = hashlib.sha256(
+        (
+            str(urls)
+            + ", ".join(
+                [
+                    "https://github.com/owner/repo1",
+                    "https://github.com/owner/repo2/pulls",
+                    "https://github.com/owner/repo2/issues",
+                ]
+            )
+        ).encode()
+    ).hexdigest()
+
     assert isinstance(result, dict)
     assert "doc_id" in result
     assert "data" in result
     assert len(result["data"]) == 3
-    assert (
-        result["doc_id"]
-        == hashlib.sha256(
-            (
-                str(urls)
-                + ", ".join(
-                    [
-                        "https://github.com/owner/repo1",
-                        "https://github.com/owner/repo2/pulls",
-                        "https://github.com/owner/repo2/issues",
-                    ]
-                )
-            ).encode()
-        ).hexdigest()
-    )
+    assert result["doc_id"] == expected_doc_id
