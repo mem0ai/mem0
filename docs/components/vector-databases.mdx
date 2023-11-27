@@ -73,8 +73,11 @@ vectordb:
   config:
     collection_name: 'es-index'
     es_url: http://localhost:9200
-    allow_reset: true
+    http_auth:
+      - admin
+      - admin
     api_key: xxx
+    verify_certs: false
 ```
 </CodeGroup>
 
@@ -99,12 +102,12 @@ app = App.from_config(yaml_path="config.yaml")
 vectordb:
   provider: opensearch
   config:
+    collection_name: 'my-app'
     opensearch_url: 'https://localhost:9200'
     http_auth:
       - admin
       - admin
     vector_dimension: 1536
-    collection_name: 'my-app'
     use_ssl: false
     verify_certs: false
 ```
