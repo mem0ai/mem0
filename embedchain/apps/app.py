@@ -121,16 +121,16 @@ class App(EmbedChain):
         super().__init__(config, llm=llm, db=db, embedder=embedder, system_prompt=system_prompt)
 
     @classmethod
-    def from_config(cls, yaml_path: str):
+    def from_config(cls, yaml_config: str):
         """
         Instantiate an App object from a YAML configuration file.
 
-        :param yaml_path: Path to the YAML configuration file.
-        :type yaml_path: str
+        :param yaml_config: Path to the YAML configuration file.
+        :type yaml_config: str
         :return: An instance of the App class.
         :rtype: App
         """
-        with open(yaml_path, "r") as file:
+        with open(yaml_config, "r") as file:
             config_data = yaml.safe_load(file)
 
         try:

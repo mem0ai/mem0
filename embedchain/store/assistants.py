@@ -150,7 +150,7 @@ class AIAssistant:
         self,
         name=None,
         instructions=None,
-        yaml_path=None,
+        yaml_config=None,
         assistant_id=None,
         thread_id=None,
         data_sources=None,
@@ -165,7 +165,7 @@ class AIAssistant:
         self.instructions = instructions
         self.assistant_id = assistant_id or str(uuid.uuid4())
         self.thread_id = thread_id or str(uuid.uuid4())
-        self.pipeline = Pipeline.from_config(yaml_path=yaml_path) if yaml_path else Pipeline()
+        self.pipeline = Pipeline.from_config(yaml_config=yaml_config) if yaml_config else Pipeline()
         self.pipeline.local_id = self.pipeline.config.id = self.thread_id
 
         if self.instructions:

@@ -25,7 +25,7 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
 from embedchain import Pipeline as App
 
 # load chroma configuration from yaml file
-app = App.from_config(yaml_path="config1.yaml")
+app = App.from_config(yaml_config="config1.yaml")
 ```
 
 ```yaml config1.yaml
@@ -64,7 +64,7 @@ pip install --upgrade 'embedchain[elasticsearch]'
 from embedchain import Pipeline as App
 
 # load elasticsearch configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(yaml_config="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -95,7 +95,7 @@ pip install --upgrade 'embedchain[opensearch]'
 from embedchain import Pipeline as App
 
 # load opensearch configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(yaml_config="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -134,7 +134,7 @@ os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
 os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
 
 # load zilliz configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(yaml_config="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -170,7 +170,7 @@ In order to use Pinecone as vector database, set the environment variables `PINE
 from embedchain import Pipeline as App
 
 # load pinecone configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(yaml_config="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -193,7 +193,7 @@ In order to use Qdrant as a vector database, set the environment variables `QDRA
 from embedchain import Pipeline as App
 
 # load qdrant configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(yaml_config="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -213,7 +213,7 @@ In order to use Weaviate as a vector database, set the environment variables `WE
 from embedchain import Pipeline as App
 
 # load weaviate configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(yaml_config="config.yaml")
 ```
 
 ```yaml config.yaml

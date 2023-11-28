@@ -82,17 +82,17 @@ class TestConfigForAppComponents:
 
 
 class TestAppFromConfig:
-    def load_config_data(self, yaml_path):
-        with open(yaml_path, "r") as file:
+    def load_config_data(self, yaml_config):
+        with open(yaml_config, "r") as file:
             return yaml.safe_load(file)
 
     def test_from_chroma_config(self, mocker):
         mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
 
-        yaml_path = "configs/chroma.yaml"
-        config_data = self.load_config_data(yaml_path)
+        yaml_config = "configs/chroma.yaml"
+        config_data = self.load_config_data(yaml_config)
 
-        app = App.from_config(yaml_path)
+        app = App.from_config(yaml_config)
 
         # Check if the App instance and its components were created correctly
         assert isinstance(app, App)
@@ -124,10 +124,10 @@ class TestAppFromConfig:
     def test_from_opensource_config(self, mocker):
         mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
 
-        yaml_path = "configs/opensource.yaml"
-        config_data = self.load_config_data(yaml_path)
+        yaml_config = "configs/opensource.yaml"
+        config_data = self.load_config_data(yaml_config)
 
-        app = App.from_config(yaml_path)
+        app = App.from_config(yaml_config)
 
         # Check if the App instance and its components were created correctly
         assert isinstance(app, App)
