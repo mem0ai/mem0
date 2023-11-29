@@ -19,7 +19,7 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils import validate_yaml_config
+from embedchain.utils import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -361,7 +361,7 @@ class Pipeline(EmbedChain):
             config_data = yaml.safe_load(file)
 
         try:
-            validate_yaml_config(config_data)
+            validate_config(config_data)
         except Exception as e:
             raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
 
