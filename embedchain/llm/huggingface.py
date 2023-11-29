@@ -1,4 +1,5 @@
 import importlib
+import logging
 import os
 from typing import Optional
 
@@ -42,6 +43,7 @@ class HuggingFaceLlm(BaseLlm):
         else:
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
 
+        logging.info(f"Using HuggingFaceHub with model {config.model}")
         llm = HuggingFaceHub(
             huggingfacehub_api_token=os.environ["HUGGINGFACE_ACCESS_TOKEN"],
             repo_id=config.model or "google/flan-t5-xxl",

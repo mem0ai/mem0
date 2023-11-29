@@ -50,3 +50,15 @@ from embedchain import Pipeline as App
 naval_chat_bot = App()
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 ```
+
+## Resetting an app and vector database
+
+You can reset the app by simply calling the `reset` method. This will delete the vector database and all other app related files.
+
+```python
+from embedchain import Pipeline as App
+
+app = App()
+app.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
+app.reset()
+```
