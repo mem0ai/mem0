@@ -46,7 +46,7 @@ from embedchain import Pipeline as App
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -78,7 +78,7 @@ os.environ["OPENAI_API_BASE"] = "https://xxx.openai.azure.com/"
 os.environ["OPENAI_API_KEY"] = "xxx"
 os.environ["OPENAI_API_VERSION"] = "xxx"
 
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -115,7 +115,7 @@ from embedchain import Pipeline as App
 os.environ["ANTHROPIC_API_KEY"] = "xxx"
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -152,7 +152,7 @@ from embedchain import Pipeline as App
 os.environ["COHERE_API_KEY"] = "xxx"
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -183,7 +183,7 @@ GPT4all is a free-to-use, locally running, privacy-aware chatbot. No GPU or inte
 from embedchain import Pipeline as App
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -216,7 +216,7 @@ from embedchain import Pipeline as App
 
 os.environ["JINACHAT_API_KEY"] = "xxx"
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -253,7 +253,7 @@ from embedchain import Pipeline as App
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -283,7 +283,7 @@ from embedchain import Pipeline as App
 os.environ["REPLICATE_API_TOKEN"] = "xxx"
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -308,7 +308,7 @@ Setup Google Cloud Platform application credentials by following the instruction
 from embedchain import Pipeline as App
 
 # load llm configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml

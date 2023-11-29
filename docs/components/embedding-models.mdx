@@ -29,7 +29,7 @@ from embedchain import Pipeline as App
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load embedding model configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 
 app.add("https://en.wikipedia.org/wiki/OpenAI")
 app.query("What is OpenAI?")
@@ -59,7 +59,7 @@ os.environ["AZURE_OPENAI_ENDPOINT"] = "https://xxx.openai.azure.com/"
 os.environ["AZURE_OPENAI_API_KEY"] = "xxx"
 os.environ["OPENAI_API_VERSION"] = "xxx"
 
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -93,7 +93,7 @@ GPT4All supports generating high quality embeddings of arbitrary length document
 from embedchain import Pipeline as App
 
 # load embedding model configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -122,7 +122,7 @@ Hugging Face supports generating embeddings of arbitrary length documents of tex
 from embedchain import Pipeline as App
 
 # load embedding model configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -153,7 +153,7 @@ Embedchain supports Google's VertexAI embeddings model through a simple interfac
 from embedchain import Pipeline as App
 
 # load embedding model configuration from config.yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml

@@ -12,79 +12,73 @@ pip install embedchain
 ```
 
 <Tip>
-Embedchain now supports OpenAI's latest `gpt-4-turbo` model. Checkout the [docs here](/get-started/faq#how-to-use-gpt-4-turbo-model-released-on-openai-devday) on how to use it.
+Embedchain now supports OpenAI's latest `gpt-4-turbo` model. Checkout the [FAQs](/get-started/faq#how-to-use-gpt-4-turbo-model-released-on-openai-devday).
 </Tip>
 
 Creating an app involves 3 steps:
 
 <Steps>
   <Step title="⚙️ Import app instance">
-```python
-from embedchain import Pipeline as App
-app = App()
-```
+    ```python
+    from embedchain import Pipeline as App
+    app = App()
+    ```
+    <Accordion title="Customize your app by a simple YAML config" icon="gear-complex">
+      Embedchain provides a wide range of options to customize your app. You can customize the model, data sources, and much more.
+      Explore the custom configurations [here](https://docs.embedchain.ai/advanced/configuration).
+      ```python
+      from embedchain import Pipeline as App
+      app = App(yaml_config="config.yaml")
+      ```
+    </Accordion>
   </Step>
   <Step title="🗃️ Add data sources">
-```python
-# Add different data sources
-app.add("https://en.wikipedia.org/wiki/Elon_Musk")
-app.add("https://www.forbes.com/profile/elon-musk")
-# You can also add local data sources such as pdf, csv files etc.
-# app.add("/path/to/file.pdf")
-```
+    ```python
+    app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+    app.add("https://www.forbes.com/profile/elon-musk")
+    # app.add("path/to/file/elon_musk.pdf")
+    ```
+    <Accordion title="Embedchain supports adding data from many data sources." icon="files">
+      Embedchain supports adding data from many data sources including web pages, PDFs, databases, and more.
+      Explore the list of supported [data sources](https://docs.embedchain.ai/data-sources/overview).
+    </Accordion>
   </Step>
-  <Step title="💬 Query or chat or search context on your data">
-```python
-app.query("What is the net worth of Elon Musk today?")
-# Answer: The net worth of Elon Musk today is $258.7 billion.
-```
+  <Step title="💬 Ask questions, chat, or search through your data with ease">
+    ```python
+    app.query("What is the net worth of Elon Musk today?")
+    # Answer: The net worth of Elon Musk today is $258.7 billion.
+    ```
+    <Accordion title="Want to chat with your app?" icon="face-thinking">
+      Embedchain provides a wide range of features to interact with your app. You can chat with your app, ask questions, search through your data, and much more.
+      ```python
+      app.chat("How many companies does Elon Musk run? Name those")
+      # Answer: Elon Musk runs 3 companies: Tesla, SpaceX, and Neuralink.
+      app.chat("What is his net worth today?")
+      # Answer: The net worth of Elon Musk today is $258.7 billion.
+      ```
+      To learn about other features, click [here](https://docs.embedchain.ai/get-started/introduction)
+    </Accordion>
   </Step>
-  <Step title="🚀 (Optional) Deploy your pipeline to Embedchain Platform">
-```python
-app.deploy()
-# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
-# ec-xxxxxx
+  <Step title="🚀 Seamlessly launch your App on the Embedchain Platform!">
+    ```python
+    app.deploy()
+    # 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
+    # ec-xxxxxx
 
-# 🛠️ Creating pipeline on the platform...
-# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+    # 🛠️ Creating pipeline on the platform...
+    # 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
 
-# 🛠️ Adding data to your pipeline...
-# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
-```
+    # 🛠️ Adding data to your pipeline...
+    # ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
+    ```
+    <Accordion title="Share your app with others" icon="laptop-mobile">
+      You can now share your app with others from our platform.
+      Access your app on our [platform](https://app.embedchain.ai/).
+    </Accordion>
   </Step>
 </Steps>
 
-Putting it together, you can run your first app using the following code. Make sure to set the `OPENAI_API_KEY` 🔑 environment variable in the code.
-
-```python
-import os
-from embedchain import Pipeline as App
-
-os.environ["OPENAI_API_KEY"] = "xxx"
-app = App()
-
-# Add different data sources
-app.add("https://en.wikipedia.org/wiki/Elon_Musk")
-app.add("https://www.forbes.com/profile/elon-musk")
-# You can also add local data sources such as pdf, csv files etc.
-# app.add("/path/to/file.pdf")
-
-response = app.query("What is the net worth of Elon Musk today?")
-print(response)
-# Answer: The net worth of Elon Musk today is $258.7 billion.
-
-app.deploy()
-# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
-# ec-xxxxxx
-
-# 🛠️ Creating pipeline on the platform...
-# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
-
-# 🛠️ Adding data to your pipeline...
-# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
-```
-
-You can try it out yourself using the following Google Colab notebook:
+Putting it together, you can run your first app using the following Google Colab. Make sure to set the `OPENAI_API_KEY` 🔑 environment variable in the code.
 
 <a href="https://colab.research.google.com/drive/17ON1LPonnXAtLaZEebnOktstB_1cJJmh?usp=sharing">
     <img src="https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667" alt="Open in Colab" />

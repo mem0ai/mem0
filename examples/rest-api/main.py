@@ -108,7 +108,7 @@ async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depe
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         response = app.get_data_sources()
         return {"results": response}
@@ -147,7 +147,7 @@ async def add_datasource_to_an_app(body: SourceApp, app_id: str, db: Session = D
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         response = app.add(source=body.source, data_type=body.data_type)
         return DefaultResponse(response=response)
@@ -185,7 +185,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         response = app.query(body.query)
         return DefaultResponse(response=response)
@@ -227,7 +227,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
 #               status_code=400
 #             )
 
-#         app = App.from_config(yaml_path=db_app.config)
+#         app = App.from_config(config_path=db_app.config)
 
 #         response = app.chat(body.message)
 #         return DefaultResponse(response=response)
@@ -264,7 +264,7 @@ async def deploy_app(body: DeployAppRequest, app_id: str, db: Session = Depends(
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         api_key = body.api_key
         # this will save the api key in the embedchain.db
@@ -305,7 +305,7 @@ async def delete_app(app_id: str, db: Session = Depends(get_db)):
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         # reset app.db
         app.db.reset()
