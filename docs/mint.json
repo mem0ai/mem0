@@ -89,7 +89,8 @@
             "data-sources/openapi",
             "data-sources/youtube-video",
             "data-sources/discourse",
-            "data-sources/substack"
+            "data-sources/substack",
+            "data-sources/discord"
           ]
         },
         "data-sources/data-type-handling"
