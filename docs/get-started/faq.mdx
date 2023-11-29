@@ -41,7 +41,7 @@ from embedchain import Pipeline as App
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from gpt4_turbo.yaml file
-app = App.from_config(yaml_path="gpt4_turbo.yaml")
+app = App.from_config(config_path="gpt4_turbo.yaml")
 ```
 
 ```yaml gpt4_turbo.yaml
@@ -66,7 +66,7 @@ from embedchain import Pipeline as App
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from gpt4.yaml file
-app = App.from_config(yaml_path="gpt4.yaml")
+app = App.from_config(config_path="gpt4.yaml")
 ```
 
 ```yaml gpt4.yaml
@@ -92,7 +92,7 @@ from embedchain import Pipeline as App
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from opensource.yaml file
-app = App.from_config(yaml_path="opensource.yaml")
+app = App.from_config(config_path="opensource.yaml")
 ```
 
 ```yaml opensource.yaml
