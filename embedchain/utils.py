@@ -5,7 +5,6 @@ import re
 import string
 from typing import Any
 
-import yaml
 from schema import Optional, Or, Schema
 
 from embedchain.models.data_type import DataType
@@ -354,23 +353,6 @@ def is_valid_json_string(source: str):
             Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
         )
         return False
-
-
-# read yaml data
-def read_yaml(input_data):
-    try:
-        # If input_data is a file path, read the file
-        if isinstance(input_data, str) and input_data.endswith(".yaml"):
-            with open(input_data, "r") as file:
-                yaml_data = yaml.safe_load(file)
-        else:
-            # Assume input_data is a YAML-formatted string
-            yaml_data = yaml.safe_load(input_data)
-
-        return yaml_data
-    except Exception as e:
-        logging.error(f"Error reading YAML: {e}")
-        return None
 
 
 def validate_yaml_config(config_data):

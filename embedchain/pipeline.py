@@ -6,6 +6,7 @@ import sqlite3
 import uuid
 
 import requests
+import yaml
 
 from embedchain import Client
 from embedchain.config import ChunkerConfig, PipelineConfig
@@ -18,7 +19,7 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils import read_yaml, validate_yaml_config
+from embedchain.utils import validate_yaml_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -42,7 +43,7 @@ class Pipeline(EmbedChain):
         db: BaseVectorDB = None,
         embedding_model: BaseEmbedder = None,
         llm: BaseLlm = None,
-        yaml_config: str = None,
+        yaml_path: str = None,
         log_level=logging.WARN,
         auto_deploy: bool = False,
         chunker: ChunkerConfig = None,
@@ -58,15 +59,15 @@ class Pipeline(EmbedChain):
         :type embedding_model: BaseEmbedder, optional
         :param llm: The LLM model used to calculate embeddings, defaults to None
         :type llm: BaseLlm, optional
-        :param yaml_config: Path to the YAML configuration file, or valid yaml string. defaults to None
-        :type yaml_config: str, optional
+        :param yaml_path: Path to the YAML configuration file, defaults to None
+        :type yaml_path: str, optional
         :param log_level: Log level to use, defaults to logging.WARN
         :type log_level: int, optional
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
         :raises Exception: If an error occurs while creating the pipeline
         """
-        if id and yaml_config:
+        if id and yaml_path:
             raise Exception("Cannot provide both id and config. Please provide only one of them.")
 
         if id and name:
@@ -91,7 +92,10 @@ class Pipeline(EmbedChain):
         self.name = self.config.name
         self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
 
-        self.yaml_config = read_yaml(yaml_config)
+        if yaml_path:
+            with open(yaml_path, "r") as file:
+                config_data = yaml.safe_load(file)
+                self.yaml_config = config_data
 
         if id is not None:
             # Init client first since user is trying to fetch the pipeline
@@ -342,18 +346,19 @@ class Pipeline(EmbedChain):
         self.telemetry.capture(event_name="deploy", properties=self._telemetry_props)
 
     @classmethod
-    def from_config(cls, yaml_config: str, auto_deploy: bool = False):
+    def from_config(cls, yaml_path: str, auto_deploy: bool = False):
         """
         Instantiate a Pipeline object from a YAML configuration file.
 
-        :param yaml_config: Path to the YAML configuration file or valid YAML string.
-        :type yaml_config: str
+        :param yaml_path: Path to the YAML configuration file.
+        :type yaml_path: str
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
         :return: An instance of the Pipeline class.
         :rtype: Pipeline
         """
-        config_data = read_yaml(yaml_config)
+        with open(yaml_path, "r") as file:
+            config_data = yaml.safe_load(file)
 
         try:
             validate_yaml_config(config_data)
@@ -391,7 +396,7 @@ class Pipeline(EmbedChain):
             llm=llm,
             db=db,
             embedding_model=embedding_model,
-            yaml_config=yaml_config,
+            yaml_path=yaml_path,
             auto_deploy=auto_deploy,
             chunker=chunker_config_data,
         )
