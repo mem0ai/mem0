@@ -66,6 +66,7 @@ class DataFormatter(JSONSerializable):
             DataType.SUBSTACK: "embedchain.loaders.substack.SubstackLoader",
             DataType.GITHUB: "embedchain.loaders.github.GithubLoader",
             DataType.YOUTUBE_CHANNEL: "embedchain.loaders.youtube_channel.YoutubeChannelLoader",
+            DataType.DISCORD: "embedchain.loaders.discord.DiscordLoader",
         }
 
         custom_loaders = set(
@@ -118,6 +119,7 @@ class DataFormatter(JSONSerializable):
             DataType.SUBSTACK: "embedchain.chunkers.substack.SubstackChunker",
             DataType.GITHUB: "embedchain.chunkers.common_chunker.CommonChunker",
             DataType.YOUTUBE_CHANNEL: "embedchain.chunkers.common_chunker.CommonChunker",
+            DataType.DISCORD: "embedchain.chunkers.common_chunker.CommonChunker",
         }
 
         if data_type in chunker_classes:
