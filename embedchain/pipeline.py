@@ -342,42 +342,57 @@ class Pipeline(EmbedChain):
         self.telemetry.capture(event_name="deploy", properties=self._telemetry_props)
 
     @classmethod
-    def from_config(cls, yaml_path: Optional[str] = None, auto_deploy: bool = False, **kwargs: Dict[str, Any]):
+    def from_config(
+        cls,
+        config_path: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+        auto_deploy: bool = False,
+        yaml_path: Optional[str] = None,
+    ):
         """
-        Instantiate a Pipeline object from a YAML configuration file.
+        Instantiate a Pipeline object from a configuration.
 
-        :param yaml_path: Path to the YAML configuration file.
-        :type yaml_path: str
+        :param config_path: Path to the YAML or JSON configuration file.
+        :type config_path: Optional[str]
+        :param config: A dictionary containing the configuration.
+        :type config: Optional[Dict[str, Any]]
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
-        :param kwargs: Additional keyword arguments.
-        :type kwargs: Dict[str, Any]
-            - json_path: Path to the JSON configuration file.
-            - config: A dictionary containing the configuration.
+        :param yaml_path: (Deprecated) Path to the YAML configuration file. Use config_path instead.
+        :type yaml_path: Optional[str]
         :return: An instance of the Pipeline class.
         :rtype: Pipeline
         """
-        json_path = kwargs.get("json_path", None)
-        config = kwargs.get("config", None)
+        # Backward compatibility for yaml_path
+        if yaml_path and not config_path:
+            config_path = yaml_path
 
-        if yaml_path:
-            with open(yaml_path, "r") as file:
-                config_data = yaml.safe_load(file)
-        elif json_path:
-            with open(json_path, "r") as json_file:
-                config_data = json.load(json_file)
+        if config_path and config:
+            raise ValueError("Please provide only one of config_path or config.")
+
+        config_data = None
+
+        if config_path:
+            file_extension = os.path.splitext(config_path)[1]
+            with open(config_path, "r") as file:
+                if file_extension in [".yaml", ".yml"]:
+                    config_data = yaml.safe_load(file)
+                elif file_extension == ".json":
+                    config_data = json.load(file)
+                else:
+                    raise ValueError("config_path must be a path to a YAML or JSON file.")
         elif config and isinstance(config, dict):
             config_data = config
         else:
             logging.error(
-                "Please provide either a YAML config file path, a config dict or json config file path. Falling back to defaults because no config is provided.",  # noqa: E501
+                "Please provide either a config file path (YAML or JSON) or a config dictionary. Falling back to defaults because no config is provided.",  # noqa: E501
             )
             config_data = {}
 
         try:
             validate_config(config_data)
         except Exception as e:
-            raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
+            raise Exception(f"Error occurred while validating the config. Error: {str(e)}")
 
         pipeline_config_data = config_data.get("app", {}).get("config", {})
         db_config_data = config_data.get("vectordb", {})
