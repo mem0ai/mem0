@@ -355,7 +355,7 @@ def is_valid_json_string(source: str):
         return False
 
 
-def validate_yaml_config(config_data):
+def validate_config(config_data):
     schema = Schema(
         {
             Optional("app"): {
