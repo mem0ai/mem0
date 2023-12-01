@@ -35,6 +35,7 @@ You must provide qualifiers `type:` and `repo:` in the query. The `type:` qualif
 <Card title="Valid queries" icon="lightbulb" iconType="duotone" color="#ca8b04">
     - `repo:embedchain/embedchain type:repo` - to load the repository
     - `repo:embedchain/embedchain type:issue,pr` - to load the issues and pull-requests of the repository
+    - `repo:embedchain/embedchain type:issue state:closed` - to load the closed issues of the repository
 </Card>
 
 3. We automatically create a chunker to chunk your GitHub data, however if you wish to provide your own chunker class. Here is how you can do that:

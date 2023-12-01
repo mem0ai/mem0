@@ -23,8 +23,9 @@ class GithubLoader(BaseLoader):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__()
         if not config:
-            logging.warning("GithubLoader config is empty, client will not be initialized.")
-            return
+            raise ValueError(
+                "GithubLoader requires a personal access token to use github api. Check - `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic`"  # noqa: E501
+            )
 
         try:
             from github import Github
@@ -50,10 +51,9 @@ class GithubLoader(BaseLoader):
         """Search github code."""
         data = []
         results = self.client.search_code(query)
-        urls = []
-        for result in tqdm.tqdm(results, total=results.totalCount, desc="Loading code files from github"):
+        for result in tqdm(results, total=results.totalCount, desc="Loading code files from github"):
             url = result.html_url
-            urls.append(url)
+            logging.info(f"Added data from url: {url}")
             content = result.decoded_content.decode("utf-8")
             metadata = {
                 "url": url,
@@ -64,7 +64,6 @@ class GithubLoader(BaseLoader):
                     "meta_data": metadata,
                 }
             )
-        logging.info(f"Added data from urls: {urls}")
         return data
 
     def _get_github_repo_data(self, repo_url: str):
@@ -144,7 +143,7 @@ class GithubLoader(BaseLoader):
         # Add repo contents
         for result in results:
             clone_url = result.clone_url
-            print("Cloning repository: ", clone_url)
+            logging.info(f"Cloning repository: {clone_url}")
             data = self._get_github_repo_data(clone_url)
         return data
 
