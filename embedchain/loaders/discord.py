@@ -1,6 +1,6 @@
+import hashlib
 import logging
 import os
-import hashlib
 
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
