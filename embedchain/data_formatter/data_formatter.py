@@ -64,7 +64,6 @@ class DataFormatter(JSONSerializable):
             DataType.GMAIL: "embedchain.loaders.gmail.GmailLoader",
             DataType.NOTION: "embedchain.loaders.notion.NotionLoader",
             DataType.SUBSTACK: "embedchain.loaders.substack.SubstackLoader",
-            DataType.GITHUB: "embedchain.loaders.github.GithubLoader",
             DataType.YOUTUBE_CHANNEL: "embedchain.loaders.youtube_channel.YoutubeChannelLoader",
             DataType.DISCORD: "embedchain.loaders.discord.DiscordLoader",
         }
@@ -75,6 +74,7 @@ class DataFormatter(JSONSerializable):
                 DataType.MYSQL,
                 DataType.SLACK,
                 DataType.DISCOURSE,
+                DataType.GITHUB,
             ]
         )
 
