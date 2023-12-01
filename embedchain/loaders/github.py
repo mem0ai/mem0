@@ -14,7 +14,7 @@ from embedchain.utils import clean_string
 GITHUB_URL = "https://github.com"
 GITHUB_API_URL = "https://api.github.com"
 
-VALID_SEARCH_TYPES = set(["code", "repo", "pr", "issue"])
+VALID_SEARCH_TYPES = set(["code", "repo", "pr", "issue", "discussion"])
 
 
 class GithubLoader(BaseLoader):
@@ -147,8 +147,8 @@ class GithubLoader(BaseLoader):
             data = self._get_github_repo_data(clone_url)
         return data
 
-    def _github_search(self, query: str, type: str):
-        """Search github issues."""
+    def _github_search_issues_and_pr(self, query: str, type: str):
+        """Search github issues and PRs."""
         data = []
 
         query = f"{query} is:{type}"
@@ -185,6 +185,44 @@ class GithubLoader(BaseLoader):
             )
         return data
 
+    # need to test more for discussion
+    def _github_search_discussions(self, query: str):
+        """Search github discussions."""
+        data = []
+
+        query = f"{query} is:discussion"
+        logging.info(f"Searching github repo for query: {query}")
+        repos_results = self.client.search_repositories(query)
+        logging.info(f"Total repos found: {repos_results.totalCount}")
+        for repo_result in tqdm(repos_results, total=repos_results.totalCount, desc="Loading discussions from github"):
+            teams = repo_result.get_teams()
+            # import pdb; pdb.set_trace()
+            for team in teams:
+                team_discussions = team.get_discussions()
+                for discussion in team_discussions:
+                    url = discussion.html_url
+                    title = discussion.title
+                    body = discussion.body
+                    if not body:
+                        logging.warn(f"Skipping discussion because empty content for: {url}")
+                        continue
+                    comments = []
+                    comments_created_at = []
+                    print("Discussion comments: ", discussion.comments_url)
+                    content = "\n".join([title, body, *comments])
+                    metadata = {
+                        "url": url,
+                        "created_at": str(discussion.created_at),
+                        "comments_created_at": " ".join(comments_created_at),
+                    }
+                    data.append(
+                        {
+                            "content": clean_string(content),
+                            "meta_data": metadata,
+                        }
+                    )
+        return data
+
     def _search_github_data(self, search_type: str, query: str):
         """Search github data."""
         if search_type == "code":
@@ -192,9 +230,11 @@ class GithubLoader(BaseLoader):
         elif search_type == "repo":
             data = self._github_search_repo(query)
         elif search_type == "issue":
-            data = self._github_search(query, search_type)
+            data = self._github_search_issues_and_pr(query, search_type)
         elif search_type == "pr":
-            data = self._github_search(query, search_type)
+            data = self._github_search_issues_and_pr(query, search_type)
+        elif search_type == "discussion":
+            raise ValueError("GithubLoader does not support searching discussions yet.")
 
         return data
 
