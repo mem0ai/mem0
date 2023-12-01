@@ -11,7 +11,7 @@ from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
-from embedchain.utils import validate_yaml_config
+from embedchain.utils import validate_config
 from embedchain.vector_db.base import BaseVectorDB
 from embedchain.vector_db.chroma import ChromaDB
 
@@ -133,13 +133,13 @@ class App(EmbedChain):
             config_data = yaml.safe_load(file)
 
         try:
-            validate_yaml_config(config_data)
+            validate_config(config_data)
         except Exception as e:
             raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
 
         app_config_data = config_data.get("app", {})
         llm_config_data = config_data.get("llm", {})
-        db_config_data = config_data.get("vector_db", {})
+        db_config_data = config_data.get("vectordb", {})
         embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         chunker_config_data = config_data.get("chunker", {})
 

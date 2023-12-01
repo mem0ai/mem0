@@ -354,7 +354,7 @@ def is_valid_json_string(source: str):
         return False
 
 
-def validate_yaml_config(config_data):
+def validate_config(config_data):
     schema = Schema(
         {
             Optional("app"): {
@@ -392,7 +392,7 @@ def validate_yaml_config(config_data):
                     Optional("query_type"): str,
                 },
             },
-            Optional("vector_db"): {
+            Optional("vectordb"): {
                 Optional("provider"): Or(
                     "chroma", "elasticsearch", "opensearch", "pinecone", "qdrant", "weaviate", "zilliz"
                 ),

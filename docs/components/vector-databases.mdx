@@ -25,11 +25,11 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
 from embedchain import Pipeline as App
 
 # load chroma configuration from yaml file
-app = App.from_config(yaml_path="config1.yaml")
+app = App.from_config(config_path="config1.yaml")
 ```
 
 ```yaml config1.yaml
-vector_db:
+vectordb:
   provider: chroma
   config:
     collection_name: 'my-collection'
@@ -38,7 +38,7 @@ vector_db:
 ```
 
 ```yaml config2.yaml
-vector_db:
+vectordb:
   provider: chroma
   config:
     collection_name: 'my-collection'
@@ -64,17 +64,20 @@ pip install --upgrade 'embedchain[elasticsearch]'
 from embedchain import Pipeline as App
 
 # load elasticsearch configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
-vector_db:
+vectordb:
   provider: elasticsearch
   config:
     collection_name: 'es-index'
     es_url: http://localhost:9200
-    allow_reset: true
+    http_auth:
+      - admin
+      - admin
     api_key: xxx
+    verify_certs: false
 ```
 </CodeGroup>
 
@@ -92,19 +95,19 @@ pip install --upgrade 'embedchain[opensearch]'
 from embedchain import Pipeline as App
 
 # load opensearch configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
-vector_db:
+vectordb:
   provider: opensearch
   config:
+    collection_name: 'my-app'
     opensearch_url: 'https://localhost:9200'
     http_auth:
       - admin
       - admin
     vector_dimension: 1536
-    collection_name: 'my-app'
     use_ssl: false
     verify_certs: false
 ```
@@ -131,11 +134,11 @@ os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
 os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
 
 # load zilliz configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
-vector_db:
+vectordb:
   provider: zilliz
   config:
     collection_name: 'zilliz_app'
@@ -167,11 +170,11 @@ In order to use Pinecone as vector database, set the environment variables `PINE
 from embedchain import Pipeline as App
 
 # load pinecone configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
-vector_db:
+vectordb:
   provider: pinecone
   config:
     metric: cosine
@@ -190,11 +193,11 @@ In order to use Qdrant as a vector database, set the environment variables `QDRA
 from embedchain import Pipeline as App
 
 # load qdrant configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
-vector_db:
+vectordb:
   provider: qdrant
   config:
     collection_name: my_qdrant_index
@@ -210,11 +213,11 @@ In order to use Weaviate as a vector database, set the environment variables `WE
 from embedchain import Pipeline as App
 
 # load weaviate configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
-vector_db:
+vectordb:
   provider: weaviate
   config:
     collection_name: my_weaviate_index

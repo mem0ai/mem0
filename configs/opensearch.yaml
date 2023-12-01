@@ -14,7 +14,7 @@ llm:
     top_p: 1
     stream: false
 
-vector_db:
+vectordb:
   provider: opensearch
   config:
     opensearch_url: 'https://localhost:9200'

@@ -1,4 +1,4 @@
-vector_db:
+vectordb:
   provider: pinecone
   config:
     metric: cosine

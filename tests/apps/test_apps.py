@@ -110,7 +110,7 @@ class TestAppFromConfig:
         assert app.llm.config.stream == llm_config["stream"]
 
         # Validate the VectorDB config values
-        db_config = config_data["vector_db"]["config"]
+        db_config = config_data["vectordb"]["config"]
         assert app.db.config.collection_name == db_config["collection_name"]
         assert app.db.config.dir == db_config["dir"]
         assert app.db.config.allow_reset == db_config["allow_reset"]
@@ -145,7 +145,7 @@ class TestAppFromConfig:
         assert app.llm.config.stream == llm_config["stream"]
 
         # Validate the VectorDB config values
-        db_config = config_data["vector_db"]["config"]
+        db_config = config_data["vectordb"]["config"]
         assert app.db.config.collection_name == db_config["collection_name"]
         assert app.db.config.dir == db_config["dir"]
         assert app.db.config.allow_reset == db_config["allow_reset"]
