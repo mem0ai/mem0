@@ -15,7 +15,10 @@ loader = GithubLoader(
 
 2. Once you setup the loader, you can create an app and load data using the above Github loader
 ```Python
+import os
 from embedchain.pipeline import Pipeline as App
+
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 
 app = App()
 
