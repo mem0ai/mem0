@@ -16,7 +16,6 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
-from embedchain.utils import is_readable
 
 
 @register_deserializable
@@ -43,10 +42,7 @@ class SitemapLoader(BaseLoader):
         def load_link(link):
             try:
                 each_load_data = web_page_loader.load_data(link)
-                if is_readable(each_load_data.get("data")[0].get("content")):
-                    return each_load_data.get("data")
-                else:
-                    logging.warning(f"Page is not readable (too many invalid characters): {link}")
+                return each_load_data.get("data")
             except ParserRejectedMarkup as e:
                 logging.error(f"Failed to parse {link}: {e}")
             return None
