@@ -39,7 +39,7 @@ class SitemapLoader(BaseLoader):
 
         doc_id = hashlib.sha256((" ".join(links) + sitemap_url).encode()).hexdigest()
 
-        def load_data(link):
+        def load_web_page(link):
             try:
                 loader_data = web_page_loader.load_data(link)
                 return loader_data.get("data")
@@ -48,7 +48,7 @@ class SitemapLoader(BaseLoader):
             return None
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_link = {executor.submit(load_data, link): link for link in links}
+            future_to_link = {executor.submit(load_web_page, link): link for link in links}
             for future in tqdm(concurrent.futures.as_completed(future_to_link), total=len(links), desc="Loading pages"):
                 link = future_to_link[future]
                 try:
