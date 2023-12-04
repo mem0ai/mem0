@@ -39,16 +39,16 @@ class SitemapLoader(BaseLoader):
 
         doc_id = hashlib.sha256((" ".join(links) + sitemap_url).encode()).hexdigest()
 
-        def load_link(link):
+        def load_data(link):
             try:
-                each_load_data = web_page_loader.load_data(link)
-                return each_load_data.get("data")
+                loader_data = web_page_loader.load_data(link)
+                return loader_data.get("data")
             except ParserRejectedMarkup as e:
                 logging.error(f"Failed to parse {link}: {e}")
             return None
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_link = {executor.submit(load_link, link): link for link in links}
+            future_to_link = {executor.submit(load_data, link): link for link in links}
             for future in tqdm(concurrent.futures.as_completed(future_to_link), total=len(links), desc="Loading pages"):
                 link = future_to_link[future]
                 try:
