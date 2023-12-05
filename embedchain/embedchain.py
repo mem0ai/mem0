@@ -190,16 +190,6 @@ class EmbedChain(JSONSerializable):
         hash_object = hashlib.md5(str(source).encode("utf-8"))
         source_hash = hash_object.hexdigest()
 
-        # Check if the data hash already exists, if so, skip the addition
-        self.cursor.execute(
-            "SELECT 1 FROM data_sources WHERE hash = ? AND pipeline_id = ?", (source_hash, self.config.id)
-        )
-        existing_data = self.cursor.fetchone()
-
-        if existing_data:
-            print(f"Data with hash {source_hash} already exists. Skipping addition.")
-            return source_hash
-
         self.user_asks.append([source, data_type.value, metadata])
 
         data_formatter = DataFormatter(data_type, config, kwargs)
@@ -212,7 +202,7 @@ class EmbedChain(JSONSerializable):
         # Insert the data into the 'data' table
         self.cursor.execute(
             """
-            INSERT INTO data_sources (hash, pipeline_id, type, value, metadata)
+            INSERT OR REPLACE INTO data_sources (hash, pipeline_id, type, value, metadata)
             VALUES (?, ?, ?, ?, ?)
         """,
             (source_hash, self.config.id, data_type.value, str(source), json.dumps(metadata)),
