@@ -68,23 +68,13 @@ class DataFormatter(JSONSerializable):
             DataType.DISCORD: "embedchain.loaders.discord.DiscordLoader",
         }
 
-        custom_loaders = set(
-            [
-                DataType.POSTGRES,
-                DataType.MYSQL,
-                DataType.SLACK,
-                DataType.DISCOURSE,
-                DataType.GITHUB,
-            ]
-        )
-
-        if data_type in loaders:
+        if data_type == DataType.CUSTOM or ("loader" in kwargs):
+            loader_class: type = kwargs.get("loader", None)
+            if loader_class:
+                return loader_class
+        elif data_type in loaders:
             loader_class: type = self._lazy_load(loaders[data_type])
             return loader_class()
-        elif data_type in custom_loaders:
-            loader_class: type = kwargs.get("loader", None)
-            if loader_class is not None:
-                return loader_class
 
         raise ValueError(
             f"Cant find the loader for {data_type}.\
@@ -112,28 +102,26 @@ class DataFormatter(JSONSerializable):
             DataType.OPENAPI: "embedchain.chunkers.openapi.OpenAPIChunker",
             DataType.GMAIL: "embedchain.chunkers.gmail.GmailChunker",
             DataType.NOTION: "embedchain.chunkers.notion.NotionChunker",
-            DataType.POSTGRES: "embedchain.chunkers.postgres.PostgresChunker",
-            DataType.MYSQL: "embedchain.chunkers.mysql.MySQLChunker",
-            DataType.SLACK: "embedchain.chunkers.slack.SlackChunker",
-            DataType.DISCOURSE: "embedchain.chunkers.discourse.DiscourseChunker",
             DataType.SUBSTACK: "embedchain.chunkers.substack.SubstackChunker",
-            DataType.GITHUB: "embedchain.chunkers.common_chunker.CommonChunker",
             DataType.YOUTUBE_CHANNEL: "embedchain.chunkers.common_chunker.CommonChunker",
             DataType.DISCORD: "embedchain.chunkers.common_chunker.CommonChunker",
+            DataType.CUSTOM: "embedchain.chunkers.common_chunker.CommonChunker",
         }
 
-        if data_type in chunker_classes:
-            if "chunker" in kwargs:
-                chunker_class = kwargs.get("chunker")
-            else:
-                chunker_class = self._lazy_load(chunker_classes[data_type])
-
+        if "chunker" in kwargs:
+            chunker_class = kwargs.get("chunker", None)
+            if chunker_class:
+                chunker = chunker_class(config)
+                chunker.set_data_type(data_type)
+                return chunker
+        elif data_type in chunker_classes:
+            chunker_class = self._lazy_load(chunker_classes[data_type])
             chunker = chunker_class(config)
             chunker.set_data_type(data_type)
             return chunker
-        else:
-            raise ValueError(
-                f"Cant find the chunker for {data_type}.\
-                    We recommend to pass the chunker to use data_type: {data_type},\
-                        check `https://docs.embedchain.ai/data-sources/overview`."
-            )
+
+        raise ValueError(
+            f"Cant find the chunker for {data_type}.\
+                We recommend to pass the chunker to use data_type: {data_type},\
+                    check `https://docs.embedchain.ai/data-sources/overview`."
+        )
