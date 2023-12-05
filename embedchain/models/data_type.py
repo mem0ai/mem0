@@ -29,14 +29,10 @@ class IndirectDataType(Enum):
     JSON = "json"
     OPENAPI = "openapi"
     GMAIL = "gmail"
-    POSTGRES = "postgres"
-    MYSQL = "mysql"
-    SLACK = "slack"
-    DISCOURSE = "discourse"
     SUBSTACK = "substack"
-    GITHUB = "github"
     YOUTUBE_CHANNEL = "youtube_channel"
     DISCORD = "discord"
+    CUSTOM = "custom"
 
 
 class SpecialDataType(Enum):
@@ -65,11 +61,7 @@ class DataType(Enum):
     JSON = IndirectDataType.JSON.value
     OPENAPI = IndirectDataType.OPENAPI.value
     GMAIL = IndirectDataType.GMAIL.value
-    POSTGRES = IndirectDataType.POSTGRES.value
-    MYSQL = IndirectDataType.MYSQL.value
-    SLACK = IndirectDataType.SLACK.value
-    DISCOURSE = IndirectDataType.DISCOURSE.value
     SUBSTACK = IndirectDataType.SUBSTACK.value
-    GITHUB = IndirectDataType.GITHUB.value
     YOUTUBE_CHANNEL = IndirectDataType.YOUTUBE_CHANNEL.value
     DISCORD = IndirectDataType.DISCORD.value
+    CUSTOM = IndirectDataType.CUSTOM.value
