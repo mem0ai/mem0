@@ -4,6 +4,7 @@ import logging
 
 import requests
 from tqdm import tqdm
+from urllib.parse import urlparse
 
 try:
     from bs4 import BeautifulSoup
