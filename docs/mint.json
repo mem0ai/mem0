@@ -134,6 +134,12 @@
       ]
     },
     {
+      "group": "Support",
+      "pages": [
+        "support/get-help"
+      ]
+    },
+    {
       "group": "Examples",
       "pages": [
         {
