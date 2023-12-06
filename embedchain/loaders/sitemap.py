@@ -1,10 +1,10 @@
 import concurrent.futures
 import hashlib
 import logging
+from urllib.parse import urlparse
 
 import requests
 from tqdm import tqdm
-from urllib.parse import urlparse
 
 try:
     from bs4 import BeautifulSoup
@@ -38,7 +38,7 @@ class SitemapLoader(BaseLoader):
             response = requests.get(sitemap_url)
             response.raise_for_status()
         else:
-             with open(sitemap_url, "r") as file:
+            with open(sitemap_url, "r") as file:
                 soup = BeautifulSoup(file, "xml")
         links = [link.text for link in soup.find_all("loc") if link.parent.name == "url"]
         if len(links) == 0:

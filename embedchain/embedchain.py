@@ -536,13 +536,10 @@ class EmbedChain(JSONSerializable):
         or the dry run result
         :rtype: str, if citations is False, otherwise Tuple[str,List[Tuple[str,str,str]]]
         """
-        if "citations" in kwargs:
-            citations = kwargs.pop("citations")
-        else:
-            citations = False
-
+        citations = kwargs.get("citations", False)
+        db_kwargs = {key: value for key, value in kwargs.items() if key != "citations"}
         contexts = self._retrieve_from_database(
-            input_query=input_query, config=config, where=where, citations=citations, **kwargs
+            input_query=input_query, config=config, where=where, citations=citations, **db_kwargs
         )
         if citations and len(contexts) > 0 and isinstance(contexts[0], tuple):
             contexts_data_for_llm_query = list(map(lambda x: x[0], contexts))
