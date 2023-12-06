@@ -196,7 +196,6 @@ class GithubLoader(BaseLoader):
         logging.info(f"Total repos found: {repos_results.totalCount}")
         for repo_result in tqdm(repos_results, total=repos_results.totalCount, desc="Loading discussions from github"):
             teams = repo_result.get_teams()
-            # import pdb; pdb.set_trace()
             for team in teams:
                 team_discussions = team.get_discussions()
                 for discussion in team_discussions:

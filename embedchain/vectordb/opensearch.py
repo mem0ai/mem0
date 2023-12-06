@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from tqdm import tqdm
 
@@ -121,6 +121,7 @@ class OpenSearchDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ):
         """Add data in vector database.
 
@@ -154,7 +155,7 @@ class OpenSearchDB(BaseVectorDB):
             ]
 
             # Perform bulk operation
-            bulk(self.client, batch_entries)
+            bulk(self.client, batch_entries, **kwargs)
             self.client.indices.refresh(index=self._get_index())
 
             # Sleep to avoid rate limiting
@@ -167,6 +168,7 @@ class OpenSearchDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector data base based on vector similarity
@@ -209,6 +211,7 @@ class OpenSearchDB(BaseVectorDB):
             metadata_field="metadata",
             pre_filter=pre_filter,
             k=n_results,
+            **kwargs,
         )
 
         contexts = []

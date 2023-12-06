@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import os
@@ -6,6 +7,7 @@ import string
 from typing import Any
 
 from schema import Optional, Or, Schema
+from tqdm import tqdm
 
 from embedchain.models.data_type import DataType
 
@@ -422,3 +424,16 @@ def validate_config(config_data):
     )
 
     return schema.validate(config_data)
+
+
+def chunks(iterable, batch_size=100, desc="Processing chunks"):
+    """A helper function to break an iterable into chunks of size batch_size."""
+    it = iter(iterable)
+    total_size = len(iterable)
+
+    with tqdm(total=total_size, desc=desc, unit="batch") as pbar:
+        chunk = tuple(itertools.islice(it, batch_size))
+        while chunk:
+            yield chunk
+            pbar.update(len(chunk))
+            chunk = tuple(itertools.islice(it, batch_size))

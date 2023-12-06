@@ -1,7 +1,7 @@
 import copy
 import os
 import uuid
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
     from qdrant_client import QdrantClient
@@ -127,6 +127,7 @@ class QdrantDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ):
         """add data in vector database
         :param embeddings: list of embeddings for the corresponding documents to be added
@@ -158,6 +159,7 @@ class QdrantDB(BaseVectorDB):
                     payloads=payloads[i : i + self.BATCH_SIZE],
                     vectors=embeddings[i : i + self.BATCH_SIZE],
                 ),
+                **kwargs,
             )
 
     def query(
@@ -167,6 +169,7 @@ class QdrantDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector database based on vector similarity
@@ -208,6 +211,7 @@ class QdrantDB(BaseVectorDB):
             query_filter=models.Filter(must=qdrant_must_filters),
             query_vector=query_vector,
             limit=n_results,
+            **kwargs,
         )
 
         contexts = []
