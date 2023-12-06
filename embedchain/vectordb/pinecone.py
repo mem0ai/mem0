@@ -10,6 +10,7 @@ except ImportError:
 
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
+from embedchain.utils import chunks
 from embedchain.vectordb.base import BaseVectorDB
 
 
@@ -92,6 +93,7 @@ class PineconeDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ):
         """add data in vector database
 
@@ -104,7 +106,6 @@ class PineconeDB(BaseVectorDB):
         """
         docs = []
         print("Adding documents to Pinecone...")
-
         embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
             docs.append(
@@ -115,8 +116,8 @@ class PineconeDB(BaseVectorDB):
                 }
             )
 
-        for i in range(0, len(docs), self.BATCH_SIZE):
-            self.client.upsert(docs[i : i + self.BATCH_SIZE])
+        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches..."):
+            self.client.upsert(chunk, **kwargs)
 
     def query(
         self,
@@ -125,6 +126,7 @@ class PineconeDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector database based on vector similarity
@@ -146,7 +148,7 @@ class PineconeDB(BaseVectorDB):
             query_vector = self.embedder.embedding_fn([input_query])[0]
         else:
             query_vector = input_query
-        data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True)
+        data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True, **kwargs)
         contexts = []
         for doc in data["matches"]:
             metadata = doc["metadata"]

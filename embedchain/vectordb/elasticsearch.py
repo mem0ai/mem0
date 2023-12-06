@@ -105,6 +105,7 @@ class ElasticsearchDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ) -> Any:
         """
         add data in vector database
@@ -142,6 +143,7 @@ class ElasticsearchDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector data base based on vector similarity

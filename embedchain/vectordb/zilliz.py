@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from embedchain.config import ZillizDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -113,6 +113,7 @@ class ZillizVectorDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ):
         """Add to database"""
         if not skip_embedding:
@@ -120,7 +121,7 @@ class ZillizVectorDB(BaseVectorDB):
 
         for id, doc, metadata, embedding in zip(ids, documents, metadatas, embeddings):
             data = {**metadata, "id": id, "text": doc, "embeddings": embedding}
-            self.client.insert(collection_name=self.config.collection_name, data=data)
+            self.client.insert(collection_name=self.config.collection_name, data=data, **kwargs)
 
         self.collection.load()
         self.collection.flush()
@@ -133,6 +134,7 @@ class ZillizVectorDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Query contents from vector data base based on vector similarity
@@ -165,6 +167,7 @@ class ZillizVectorDB(BaseVectorDB):
                 data=query_vector,
                 limit=n_results,
                 output_fields=output_fields,
+                **kwargs,
             )
 
         else:
@@ -176,6 +179,7 @@ class ZillizVectorDB(BaseVectorDB):
                 data=[query_vector],
                 limit=n_results,
                 output_fields=output_fields,
+                **kwargs,
             )
 
         contexts = []

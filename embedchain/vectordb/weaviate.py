@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
     import weaviate
@@ -158,6 +158,7 @@ class WeaviateDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ):
         """add data in vector database
         :param embeddings: list of embeddings for the corresponding documents to be added
@@ -192,7 +193,9 @@ class WeaviateDB(BaseVectorDB):
                     class_name=self.index_name + "_metadata",
                     vector=embedding,
                 )
-                batch.add_reference(obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata")
+                batch.add_reference(
+                    obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata", **kwargs
+                )
 
     def query(
         self,
@@ -201,6 +204,7 @@ class WeaviateDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector database based on vector similarity

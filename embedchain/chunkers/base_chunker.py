@@ -41,7 +41,6 @@ class BaseChunker(JSONSerializable):
             url = meta_data["url"]
 
             chunks = self.get_chunks(content)
-
             for chunk in chunks:
                 chunk_id = hashlib.sha256((chunk + url).encode()).hexdigest()
                 chunk_id = f"{app_id}--{chunk_id}" if app_id is not None else chunk_id

@@ -133,6 +133,7 @@ class ChromaDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Any:
         """
         Add vectors to chroma database
@@ -198,6 +199,7 @@ class ChromaDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Query contents from vector database based on vector similarity
@@ -225,6 +227,7 @@ class ChromaDB(BaseVectorDB):
                     ],
                     n_results=n_results,
                     where=self._generate_where_clause(where),
+                    **kwargs,
                 )
             else:
                 result = self.collection.query(
@@ -233,6 +236,7 @@ class ChromaDB(BaseVectorDB):
                     ],
                     n_results=n_results,
                     where=self._generate_where_clause(where),
+                    **kwargs,
                 )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
