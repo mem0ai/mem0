@@ -4,6 +4,7 @@ import logging
 
 import requests
 from tqdm import tqdm
+from urllib.parse import urlparse
 
 try:
     from bs4 import BeautifulSoup
@@ -29,10 +30,16 @@ class SitemapLoader(BaseLoader):
     def load_data(self, sitemap_url):
         output = []
         web_page_loader = WebPageLoader()
-        response = requests.get(sitemap_url)
-        response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, "xml")
+        if urlparse(sitemap_url).scheme not in ["file", "http", "https"]:
+            raise ValueError("Not a valid URL.")
+
+        if urlparse(sitemap_url).scheme in ["http", "https"]:
+            response = requests.get(sitemap_url)
+            response.raise_for_status()
+        else:
+             with open(sitemap_url, "r") as file:
+                soup = BeautifulSoup(file, "xml")
         links = [link.text for link in soup.find_all("loc") if link.parent.name == "url"]
         if len(links) == 0:
             links = [link.text for link in soup.find_all("loc")]
