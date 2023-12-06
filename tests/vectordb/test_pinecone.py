@@ -57,11 +57,11 @@ class TestPinecone:
         db.add(vectors, documents, metadatas, ids, True)
 
         expected_pinecone_upsert_args = [
-            {"id": "doc1", "metadata": {"text": "This is a document."}, "values": [0, 0, 0]},
-            {"id": "doc2", "metadata": {"text": "This is another document."}, "values": [1, 1, 1]},
+            {"id": "doc1", "values": [0, 0, 0], "metadata": {"text": "This is a document."}},
+            {"id": "doc2", "values": [1, 1, 1], "metadata": {"text": "This is another document."}},
         ]
         # Assert that the Pinecone client was called to upsert the documents
-        pinecone_client_mock.upsert.assert_called_once_with(expected_pinecone_upsert_args)
+        pinecone_client_mock.upsert.assert_called_once_with(tuple(expected_pinecone_upsert_args))
 
     @patch("embedchain.vectordb.pinecone.pinecone")
     def test_query_documents(self, pinecone_mock):
