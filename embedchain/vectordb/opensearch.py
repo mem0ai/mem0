@@ -155,7 +155,7 @@ class OpenSearchDB(BaseVectorDB):
             ]
 
             # Perform bulk operation
-            bulk(self.client, batch_entries)
+            bulk(self.client, batch_entries, **kwargs)
             self.client.indices.refresh(index=self._get_index())
 
             # Sleep to avoid rate limiting
@@ -211,6 +211,7 @@ class OpenSearchDB(BaseVectorDB):
             metadata_field="metadata",
             pre_filter=pre_filter,
             k=n_results,
+            **kwargs,
         )
 
         contexts = []

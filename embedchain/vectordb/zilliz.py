@@ -121,7 +121,7 @@ class ZillizVectorDB(BaseVectorDB):
 
         for id, doc, metadata, embedding in zip(ids, documents, metadatas, embeddings):
             data = {**metadata, "id": id, "text": doc, "embeddings": embedding}
-            self.client.insert(collection_name=self.config.collection_name, data=data)
+            self.client.insert(collection_name=self.config.collection_name, data=data, **kwargs)
 
         self.collection.load()
         self.collection.flush()
@@ -167,6 +167,7 @@ class ZillizVectorDB(BaseVectorDB):
                 data=query_vector,
                 limit=n_results,
                 output_fields=output_fields,
+                **kwargs,
             )
 
         else:
@@ -178,6 +179,7 @@ class ZillizVectorDB(BaseVectorDB):
                 data=[query_vector],
                 limit=n_results,
                 output_fields=output_fields,
+                **kwargs,
             )
 
         contexts = []

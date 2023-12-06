@@ -193,7 +193,9 @@ class WeaviateDB(BaseVectorDB):
                     class_name=self.index_name + "_metadata",
                     vector=embedding,
                 )
-                batch.add_reference(obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata")
+                batch.add_reference(
+                    obj_uuid, self.index_name, "metadata", metadata_uuid, self.index_name + "_metadata", **kwargs
+                )
 
     def query(
         self,

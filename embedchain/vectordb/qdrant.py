@@ -159,6 +159,7 @@ class QdrantDB(BaseVectorDB):
                     payloads=payloads[i : i + self.BATCH_SIZE],
                     vectors=embeddings[i : i + self.BATCH_SIZE],
                 ),
+                **kwargs,
             )
 
     def query(
@@ -210,6 +211,7 @@ class QdrantDB(BaseVectorDB):
             query_filter=models.Filter(must=qdrant_must_filters),
             query_vector=query_vector,
             limit=n_results,
+            **kwargs,
         )
 
         contexts = []
