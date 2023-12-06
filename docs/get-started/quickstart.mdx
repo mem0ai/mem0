@@ -26,10 +26,21 @@ Creating an app involves 3 steps:
     <Accordion title="Customize your app by a simple YAML config" icon="gear-complex">
       Embedchain provides a wide range of options to customize your app. You can customize the model, data sources, and much more.
       Explore the custom configurations [here](https://docs.embedchain.ai/advanced/configuration).
-      ```python
+      <CodeGroup>
+      ```python yaml_app.py
       from embedchain import Pipeline as App
-      app = App(yaml_config="config.yaml")
+      app = App.from_config(config_path="config.yaml")
       ```
+      ```python json_app.py
+      from embedchain import Pipeline as App
+      app = App.from_config(config_path="config.json")
+      ```
+      ```python app.py
+      from embedchain import Pipeline as App
+      config = {} # Add your config here
+      app = App.from_config(config=config)
+      ```
+      </CodeGroup>
     </Accordion>
   </Step>
   <Step title="🗃️ Add data sources">
