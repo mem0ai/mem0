@@ -57,7 +57,7 @@ class BaseLlmConfig(BaseConfig):
 
     def __init__(
         self,
-        number_documents: int = 1,
+        number_documents: int = 3,
         template: Optional[Template] = None,
         model: Optional[str] = None,
         temperature: float = 0,
