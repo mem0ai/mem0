@@ -3,7 +3,7 @@ import logging
 import time
 
 import requests
-
+from xml.etree import ElementTree
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import is_readable
@@ -24,9 +24,29 @@ class SubstackLoader(BaseLoader):
                 'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
             ) from None
 
+        if not url.endswith("sitemap.xml"):
+            url = url + "/sitemap.xml"
+
         output = []
         response = requests.get(url)
-        response.raise_for_status()
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise ValueError(
+                f"""
+                Failed to load {url}: {e}. Please use the root substack URL. For example, https://example.substack.com
+                """
+            )
+
+        try:
+            ElementTree.fromstring(response.content)
+        except ElementTree.ParseError:
+            raise ValueError(
+                f"""
+                Failed to parse {url}. Please use the root substack URL. For example, https://example.substack.com
+                """
+            )
 
         soup = BeautifulSoup(response.text, "xml")
         links = [link.text for link in soup.find_all("loc") if link.parent.name == "url" and "/p/" in link.text]
