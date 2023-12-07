@@ -80,10 +80,10 @@ class BeehiivLoader(BaseLoader):
 
         def load_link(link: str):
             try:
-                each_load_data = requests.get(link, headers=headers)
-                each_load_data.raise_for_status()
+                beehiiv_data = requests.get(link, headers=headers)
+                beehiiv_data.raise_for_status()
 
-                soup = BeautifulSoup(each_load_data.text, "html.parser")
+                soup = BeautifulSoup(beehiiv_data.text, "html.parser")
                 data = serialize_response(soup)
                 data = str(data)
                 if is_readable(data):

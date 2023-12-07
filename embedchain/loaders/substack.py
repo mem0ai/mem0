@@ -60,10 +60,10 @@ class SubstackLoader(BaseLoader):
 
         def load_link(link: str):
             try:
-                each_load_data = requests.get(link)
-                each_load_data.raise_for_status()
+                substack_data = requests.get(link)
+                substack_data.raise_for_status()
 
-                soup = BeautifulSoup(each_load_data.text, "html.parser")
+                soup = BeautifulSoup(substack_data.text, "html.parser")
                 data = serialize_response(soup)
                 data = str(data)
                 if is_readable(data):
