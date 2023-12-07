@@ -90,7 +90,8 @@
             "data-sources/youtube-video",
             "data-sources/discourse",
             "data-sources/substack",
-            "data-sources/discord"
+            "data-sources/discord",
+            "data-sources/beehiiv"
           ]
         },
         "data-sources/data-type-handling"
