@@ -43,7 +43,44 @@ print(context)
 
 Embedchain empowers developers to ask questions and receive relevant answers through a user-friendly query API. Refer to the following example to learn how to utilize the query API:
 
-```python
+<CodeGroup>
+
+```python With Citations
+from embedchain import Pipeline as App
+
+# Initialize app
+app = App()
+
+# Add data source
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Get relevant answer for your query
+answer, sources = app.query("What is the net worth of Elon?", citations=True)
+print(answer)
+# Answer: The net worth of Elon Musk is $221.9 billion.
+
+print(sources)
+# [
+#    (
+#        'Elon Musk PROFILEElon MuskCEO, Tesla$247.1B$2.3B (0.96%)Real Time Net Worthas of 12/7/23 ...',
+#        'https://www.forbes.com/profile/elon-musk',
+#        '4651b266--4aa78839fe97'
+#    ),
+#    (
+#        '74% of the company, which is now called X.Wealth HistoryHOVER TO REVEAL NET WORTH BY YEARForbes ...',
+#        'https://www.forbes.com/profile/elon-musk',
+#        '4651b266--4aa78839fe97'
+#    ),
+#    (
+#        'founded in 2002, is worth nearly $150 billion after a $750 million tender offer in June 2023 ...',
+#        'https://www.forbes.com/profile/elon-musk',
+#        '4651b266--4aa78839fe97'
+#    )
+# ]
+```
+
+
+```python Without Citations
 from embedchain import Pipeline as App
 
 # Initialize app
@@ -58,11 +95,55 @@ print(answer)
 # Answer: The net worth of Elon Musk is $221.9 billion.
 ```
 
+</CodeGroup>
+
+When `citations=True`, note that the returned `sources` are a list of tuples where each tuple has three elements (in the following order):
+1. source chunk
+2. link of the source document
+3. document id (used for book keeping purposes)
+
+
 ## 💬 Chat
 
 Embedchain allows easy chatting over your data sources using a user-friendly chat API. Check out the example below to understand how to use the chat API:
 
-```python
+<CodeGroup>
+
+```python With Citations
+from embedchain import Pipeline as App
+
+# Initialize app
+app = App()
+
+# Add data source
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Get relevant answer for your query
+answer, sources = app.chat("What is the net worth of Elon?", citations=True)
+print(answer)
+# Answer: The net worth of Elon Musk is $221.9 billion.
+
+print(sources)
+# [
+#    (
+#        'Elon Musk PROFILEElon MuskCEO, Tesla$247.1B$2.3B (0.96%)Real Time Net Worthas of 12/7/23 ...',
+#        'https://www.forbes.com/profile/elon-musk',
+#        '4651b266--4aa78839fe97'
+#    ),
+#    (
+#        '74% of the company, which is now called X.Wealth HistoryHOVER TO REVEAL NET WORTH BY YEARForbes ...',
+#        'https://www.forbes.com/profile/elon-musk',
+#        '4651b266--4aa78839fe97'
+#    ),
+#    (
+#        'founded in 2002, is worth nearly $150 billion after a $750 million tender offer in June 2023 ...',
+#        'https://www.forbes.com/profile/elon-musk',
+#        '4651b266--4aa78839fe97'
+#    )
+# ]
+```
+
+```python Without Citations
 from embedchain import Pipeline as App
 
 # Initialize app
@@ -72,10 +153,17 @@ app = App()
 app.add("https://www.forbes.com/profile/elon-musk")
 
 # Chat on your data using `.chat()`
-answer = app.chat("How much did Elon pay for Twitter?")
+answer = app.chat("What is the net worth of Elon?")
 print(answer)
-# Answer: Elon Musk paid $44 billion for Twitter.
+# Answer: The net worth of Elon Musk is $221.9 billion.
 ```
+
+</CodeGroup>
+
+Similar to `query()` function, when `citations=True`, note that the returned `sources` are a list of tuples where each tuple has three elements (in the following order):
+1. source chunk
+2. link of the source document
+3. document id (used for book keeping purposes)
 
 ## 🚀 Deploy
 
