@@ -1,18 +1,18 @@
 import hashlib
 import logging
 import time
-
 import requests
 from xml.etree import ElementTree
+
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import is_readable
 
 
 @register_deserializable
-class SubstackLoader(BaseLoader):
+class BeehiivLoader(BaseLoader):
     """
-    This loader is used to load data from Substack URLs.
+    This loader is used to load data from Beehiiv URLs.
     """
 
     def load_data(self, url: str):
@@ -21,15 +21,22 @@ class SubstackLoader(BaseLoader):
             from bs4.builder import ParserRejectedMarkup
         except ImportError:
             raise ImportError(
-                'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+                'Beehiiv requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
             ) from None
 
         if not url.endswith("sitemap.xml"):
             url = url + "/sitemap.xml"
 
         output = []
-        response = requests.get(url)
-
+        # we need to set this as a header to avoid 403
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 "
+                "Safari/537.36"
+            ),
+        }
+        response = requests.get(url, headers=headers)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
@@ -47,7 +54,6 @@ class SubstackLoader(BaseLoader):
                 Failed to parse {url}. Please use the root substack URL. For example, https://example.substack.com
                 """
             )
-
         soup = BeautifulSoup(response.text, "xml")
         links = [link.text for link in soup.find_all("loc") if link.parent.name == "url" and "/p/" in link.text]
         if len(links) == 0:
@@ -58,32 +64,26 @@ class SubstackLoader(BaseLoader):
         def serialize_response(soup: BeautifulSoup):
             data = {}
 
-            h1_els = soup.find_all("h1")
-            if h1_els is not None and len(h1_els) > 0:
-                data["title"] = h1_els[1].text
+            h1_el = soup.find("h1")
+            if h1_el is not None:
+                data["title"] = h1_el.text
 
             description_el = soup.find("meta", {"name": "description"})
             if description_el is not None:
                 data["description"] = description_el["content"]
 
-            content_el = soup.find("div", {"class": "available-content"})
+            content_el = soup.find("div", {"id": "content-blocks"})
             if content_el is not None:
                 data["content"] = content_el.text
-
-            like_btn = soup.find("div", {"class": "like-button-container"})
-            if like_btn is not None:
-                no_of_likes_div = like_btn.find("div", {"class": "label"})
-                if no_of_likes_div is not None:
-                    data["no_of_likes"] = no_of_likes_div.text
 
             return data
 
         def load_link(link: str):
             try:
-                substack_data = requests.get(link)
-                substack_data.raise_for_status()
+                beehiiv_data = requests.get(link, headers=headers)
+                beehiiv_data.raise_for_status()
 
-                soup = BeautifulSoup(substack_data.text, "html.parser")
+                soup = BeautifulSoup(beehiiv_data.text, "html.parser")
                 data = serialize_response(soup)
                 data = str(data)
                 if is_readable(data):

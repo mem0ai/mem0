@@ -34,6 +34,8 @@ class IndirectDataType(Enum):
     DISCORD = "discord"
     CUSTOM = "custom"
     RSSFEED = "rss_feed"
+    BEEHIIV = "beehiiv"
+
 
 class SpecialDataType(Enum):
     """
@@ -66,3 +68,4 @@ class DataType(Enum):
     DISCORD = IndirectDataType.DISCORD.value
     CUSTOM = IndirectDataType.CUSTOM.value
     RSSFEED = IndirectDataType.RSSFEED.value
+    BEEHIIV = IndirectDataType.BEEHIIV.value
