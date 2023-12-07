@@ -137,6 +137,9 @@ mysql-connector-python = { version = "^8.1.0", optional = true }
 gitpython = { version = "^3.1.38", optional = true }
 yt_dlp = { version = "^2023.11.14", optional = true }
 PyGithub = { version = "^1.59.1", optional = true }
+feedparser = { version = "^6.0.10", optional = true }
+newspaper3k = { version = "^0.2.8", optional = true }
+listparser = { version = "^0.19", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -198,6 +201,7 @@ youtube = [
     "yt_dlp",
     "youtube-transcript-api",
 ]
+rss_feed = ["feedparser", "listparser", "newspaper3k"]
 
 [tool.poetry.group.docs.dependencies]
 
