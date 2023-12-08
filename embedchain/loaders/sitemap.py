@@ -37,9 +37,11 @@ class SitemapLoader(BaseLoader):
         if urlparse(sitemap_url).scheme in ["http", "https"]:
             response = requests.get(sitemap_url)
             response.raise_for_status()
+            soup = BeautifulSoup(response.text, "xml")
         else:
             with open(sitemap_url, "r") as file:
                 soup = BeautifulSoup(file, "xml")
+
         links = [link.text for link in soup.find_all("loc") if link.parent.name == "url"]
         if len(links) == 0:
             links = [link.text for link in soup.find_all("loc")]
