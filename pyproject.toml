@@ -95,7 +95,8 @@ requests = "^2.31.0"
 openai = ">=1.1.1"
 chromadb = "^0.4.17"
 posthog = "^3.0.2"
-tiktoken = { version = "^0.4.0", optional = true }
+tiktoken = { version = "^0.3.3", optional = true }
+triton = { version = "^2.1.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }
 beautifulsoup4 = { version = "^4.12.2", optional = true }
 pypdf = { version = "^3.11.0", optional = true }
@@ -104,7 +105,7 @@ duckduckgo-search = { version = "^3.8.5", optional = true }
 llama-hub = { version = "^0.0.43", optional = true }
 llama-index = { version = "^0.8.65", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
-torch = { version = "2.0.0", optional = true }
+torch = { version = "2.1.1", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
 gpt4all = { version = "2.0.2", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
@@ -140,6 +141,7 @@ PyGithub = { version = "^1.59.1", optional = true }
 feedparser = { version = "^6.0.10", optional = true }
 newspaper3k = { version = "^0.2.8", optional = true }
 listparser = { version = "^0.19", optional = true }
+openai-whisper = { version = "20231117", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -202,6 +204,7 @@ youtube = [
     "youtube-transcript-api",
 ]
 rss_feed = ["feedparser", "listparser", "newspaper3k"]
+audio = ["openai-whisper"]
 
 [tool.poetry.group.docs.dependencies]
 
