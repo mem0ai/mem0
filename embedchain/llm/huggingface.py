@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Optional
 
-from langchain.llms import HuggingFaceHub
+from langchain.llms.huggingface_hub import HuggingFaceHub
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
