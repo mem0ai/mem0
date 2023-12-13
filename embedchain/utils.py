@@ -310,6 +310,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `text`.")
             return DataType.TEXT
 
+        if source.endswith(".pdf"):
+            logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
+            return DataType.PDF_FILE
+
         if source.endswith(".yaml"):
             with open(source, "r") as file:
                 yaml_content = yaml.safe_load(file)
