@@ -71,7 +71,6 @@ elon_bot = App()
 # Embed online resources
 elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
 elon_bot.add("https://www.forbes.com/profile/elon-musk")
-elon_bot.add("https://www.youtube.com/watch?v=RcYjXbSJBN8")
 
 # Query the bot
 elon_bot.query("How many companies does Elon Musk run and name those?")
