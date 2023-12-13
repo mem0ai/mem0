@@ -31,7 +31,7 @@ chunker_common_config = {
     QnaPairChunker: {"chunk_size": 300, "chunk_overlap": 0, "length_function": len},
     TableChunker: {"chunk_size": 300, "chunk_overlap": 0, "length_function": len},
     SitemapChunker: {"chunk_size": 500, "chunk_overlap": 0, "length_function": len},
-    WebPageChunker: {"chunk_size": 500, "chunk_overlap": 0, "length_function": len},
+    WebPageChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     XmlChunker: {"chunk_size": 500, "chunk_overlap": 50, "length_function": len},
     YoutubeVideoChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     JSONChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
