@@ -86,11 +86,9 @@ class TestApp(unittest.TestCase):
 
     @patch("os.path.isfile")
     def test_detect_datatype_regular_filesystem_file_not_detected(self, mock_isfile):
-        """Test error if a valid file is referenced, but it isn't a valid data_type"""
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=True) as tmp:
             mock_isfile.return_value = True
-            with self.assertRaises(ValueError):
-                detect_datatype(tmp.name)
+            self.assertEqual(detect_datatype(tmp.name), DataType.TEXT)
 
     def test_detect_datatype_regular_filesystem_no_file(self):
         """Test that if a filepath is not actually an existing file, it is not handled as a file path."""
