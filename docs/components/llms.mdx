@@ -8,6 +8,7 @@ Embedchain comes with built-in support for various popular large language models
 
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
+  <Card title="Google AI" href="#google-ai"></Card>
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Cohere" href="#cohere"></Card>
@@ -62,6 +63,41 @@ llm:
 
 </CodeGroup>
 
+## Google AI
+
+To use Google AI model, you have to set the `GOOGLE_API_KEY` environment variable. You can obtain the Google API key from the [Google Maker Suite](https://makersuite.google.com/app/apikey)
+
+<CodeGroup>
+```python main.py
+import os
+from embedchain import Pipeline as App
+
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+os.environ["GOOGLE_API_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.query("What is the net worth of Elon Musk?")
+if app.llm.config.stream: # if stream is enabled, response is a generator
+    for chunk in response:
+        print(chunk)
+else:
+    print(response)
+```
+
+```yaml config.yaml
+llm:
+  provider: google
+  config:
+    model: gemini-pro
+    max_tokens: 1000
+    temperature: 0.5
+    top_p: 1
+    stream: false
+```
+</CodeGroup>
 
 ## Azure OpenAI
 
