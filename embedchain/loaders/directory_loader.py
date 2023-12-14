@@ -17,11 +17,9 @@ class DirectoryLoader(BaseLoader):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__()
-        if not config:
-            raise ValueError("Must provide a valid config.")
-
-        self.recursive = config.get("recursive", False)
-        self.required_exts = config.get("required_exts", None)
+        config = config or {}
+        self.recursive = config.get("recursive", True)
+        self.extensions = config.get("extensions", None)
         self.errors = []
 
     def load_data(self, path: str):
@@ -40,9 +38,7 @@ class DirectoryLoader(BaseLoader):
     def _process_directory(self, directory_path: Path):
         data_list = []
         for file_path in directory_path.rglob("*") if self.recursive else directory_path.glob("*"):
-            if file_path.is_file() and (
-                not self.required_exts or any(file_path.suffix == ext for ext in self.required_exts)
-            ):
+            if file_path.is_file() and (not self.extensions or any(file_path.suffix == ext for ext in self.extensions)):
                 loader = self._predict_loader(file_path)
                 data_list.extend(loader.load_data(str(file_path))["data"])
         return data_list
