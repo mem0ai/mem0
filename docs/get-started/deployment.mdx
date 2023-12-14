@@ -1,0 +1,53 @@
+---
+title: '🚀 Deployment'
+description: 'Deploy your embedchain RAG application to production'
+---
+
+After successfully setting up and testing your Embedchain application locally, the next step is to deploy it to a hosting service to make it accessible to a wider audience. This section offers various options for hosting your app on the [Embedchain platform](https://app.embedchain.ai) or through [self-hosting options](#self-hosting).
+
+## Option 1: Deploy on Embedchain Platform
+
+Embedchain enables developers to deploy their LLM-powered apps in production using the [Embedchain platform](https://app.embedchain.ai). The platform offers free access to context on your data through its REST API. Once the pipeline is deployed, you can update your data sources anytime after deployment.
+
+See the example below on how to use the deploy your app (for free):
+
+```python
+from embedchain import Pipeline as App
+
+# Initialize app
+app = App()
+
+# Add data source
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Deploy your pipeline to Embedchain Platform
+app.deploy()
+
+# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
+# ec-xxxxxx
+
+# 🛠️ Creating pipeline on the platform...
+# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+
+# 🛠️ Adding data to your pipeline...
+# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
+```
+
+## Option 2: Self-hosting
+
+You can also deploy Embedchain as a self-hosted service using the dockerized REST API service that we provide. Please follow the [guide here](/examples/rest-api) on how to use the REST API service. Here are some tutorials on how to deploy a containerized application to different platforms like AWS, GCP, Azure etc:
+
+- [AWS EKS](https://docs.aws.amazon.com/eks/latest/userguide/sample-deployment.html)
+- [AWS ECS](https://docs.aws.amazon.com/codecatalyst/latest/userguide/deploy-tut-ecs.html)
+- [Google GKE](https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app)
+- [Azure App Service](https://learn.microsoft.com/en-us/training/modules/deploy-run-container-app-service/)
+- [Fly.io](https://fly.io/docs/languages-and-frameworks/python/)
+- [Render.com](https://render.com/docs/deploy-an-image)
+- [Huggingface Spaces](https://huggingface.co/new-space)
+
+
+## Seeking help?
+
+If you run into issues with deployment, please feel free to reach out to us via any of the following methods:
+
+<Snippet file="get-help.mdx" />
