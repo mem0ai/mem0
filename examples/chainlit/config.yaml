@@ -1,0 +1,3 @@
+llm:
+  config:
+    stream: true
