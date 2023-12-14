@@ -4,7 +4,7 @@
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg",
-    "href": "https://embedchain.ai/"
+    "href": "https://github.com/embedchain/embedchain"
   },
   "favicon": "/favicon.png",
   "colors": {
@@ -19,106 +19,145 @@
   "modeToggle": {
     "default": "dark"
   },
-  "openapi": ["/rest-api.json"],
+  "openapi": [
+    "/rest-api.json"
+  ],
   "metadata": {
     "og:image": "/images/og.png",
     "twitter:site": "@embedchain"
   },
+  "tabs": [
+    {
+      "name": "Examples",
+      "url": "examples"
+    },
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
   "anchors": [
     {
-      "name": "Embedchain Platform",
-      "icon": "tv",
-      "url": "https://app.embedchain.ai/"
+      "name": "Talk to founders",
+      "icon": "calendar",
+      "url": "https://cal.com/taranjeetio/ec"
     },
     {
       "name": "Join our slack",
       "icon": "slack",
       "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
+    },
+    {
+      "name": "Join our discord",
+      "icon": "discord",
+      "url": "https://discord.gg/CUU9FPhRNt"
     }
   ],
   "topbarLinks": [
     {
-      "name": "Create account",
-      "url": "https://app.embedchain.ai/login/"
+      "name": "GitHub",
+      "url": "https://github.com/embedchain/embedchain"
     }
   ],
   "topbarCtaButton": {
-    "name": "Get started",
-    "url": "https://app.embedchain.ai"
+    "name": "Join our slack",
+    "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
   },
   "primaryTab": {
-    "name": "Docs"
+    "name": "Documentation"
   },
   "navigation": [
     {
-      "group": "Get started",
+      "group": "Get Started",
       "pages": [
-        "get-started/quickstart",
         "get-started/introduction",
-        "get-started/openai-assistant",
-        "get-started/faq",
-        "get-started/examples"
+        "get-started/quickstart",
+        "get-started/deployment",
+        {
+        "group": "🔗 Integrations",
+          "pages": [
+            "integration/langsmith"
+          ]
+        },
+        "get-started/faq"
+      ]
+    },
+    {
+      "group": "Use cases",
+      "pages": [
+        "use-cases/chatbots",
+        "use-cases/question-answering",
+        "use-cases/semantic-search"
       ]
     },
     {
       "group": "Components",
       "pages": [
-        "components/llms",
-        "components/embedding-models",
-        "components/vector-databases"
-      ]
-    },
-    {
-      "group": "Data sources",
-      "pages": [
-        "data-sources/overview",
         {
-          "group": "Supported data sources",
+          "group": "Data sources",
           "pages": [
-            "data-sources/csv",
-            "data-sources/json",
-            "data-sources/docs-site",
-            "data-sources/docx",
-            "data-sources/mdx",
-            "data-sources/notion",
-            "data-sources/pdf-file",
-            "data-sources/qna",
-            "data-sources/sitemap",
-            "data-sources/text",
-            "data-sources/web-page",
-            "data-sources/openapi",
-            "data-sources/youtube-video",
-            "data-sources/discourse",
-            "data-sources/substack",
-            "data-sources/discord",
-            "data-sources/beehiiv"
+            "components/data-sources/overview",
+            {
+              "group": "Data types",
+              "pages": [
+                "components/data-sources/csv",
+                "components/data-sources/json",
+                "components/data-sources/docs-site",
+                "components/data-sources/docx",
+                "components/data-sources/mdx",
+                "components/data-sources/notion",
+                "components/data-sources/pdf-file",
+                "components/data-sources/qna",
+                "components/data-sources/sitemap",
+                "components/data-sources/text",
+                "components/data-sources/web-page",
+                "components/data-sources/openapi",
+                "components/data-sources/youtube-video",
+                "components/data-sources/discourse",
+                "components/data-sources/substack",
+                "components/data-sources/discord",
+                "components/data-sources/beehiiv"
+              ]
+            },
+            "components/data-sources/data-type-handling"
           ]
         },
-        "data-sources/data-type-handling"
+        "components/llms",
+        "components/vector-databases",
+        "components/embedding-models"
       ]
     },
     {
-      "group": "Advanced",
-      "pages": ["advanced/configuration"]
-    },
-    {
-      "group": "REST API",
+      "group": "Community",
       "pages": [
-        "rest-api/getting-started",
-        "rest-api/create",
-        "rest-api/get-all-apps",
-        "rest-api/add-data",
-        "rest-api/get-data",
-        "rest-api/query",
-        "rest-api/deploy",
-        "rest-api/delete",
-        "rest-api/check-status"
+        "community/connect-with-us"
       ]
     },
     {
-      "group": "Use Cases",
+      "group": "Examples",
       "pages": [
+        {
+          "group": "REST API Service",
+          "pages": [
+            "examples/rest-api/getting-started",
+            "examples/rest-api/create",
+            "examples/rest-api/get-all-apps",
+            "examples/rest-api/add-data",
+            "examples/rest-api/get-data",
+            "examples/rest-api/query",
+            "examples/rest-api/deploy",
+            "examples/rest-api/delete",
+            "examples/rest-api/check-status"
+          ]
+        },
         "examples/full_stack",
+        "examples/openai-assistant",
+        "examples/opensource-assistant"
+      ]
+    },
+    {
+      "group": "Chatbots",
+      "pages": [
         "examples/discord_bot",
         "examples/slack_bot",
         "examples/telegram_bot",
@@ -127,15 +166,33 @@
       ]
     },
     {
-      "group": "Community",
-      "pages": ["community/connect-with-us", "community/showcase"]
+      "group": "Showcase",
+      "pages": [
+        "examples/showcase"
+      ]
     },
     {
-      "group": "Integrations",
-      "pages": ["integration/langsmith"]
+      "group": "API Reference",
+      "pages": [
+        "api-reference/pipeline/overview",
+        {
+          "group": "Pipeline methods",
+          "pages": [
+            "api-reference/pipeline/add",
+            "api-reference/pipeline/query",
+            "api-reference/pipeline/chat",
+            "api-reference/pipeline/search",
+            "api-reference/pipeline/deploy",
+            "api-reference/pipeline/reset"
+          ]
+        },
+        "api-reference/store/openai-assistant",
+        "api-reference/store/ai-assistants",
+        "api-reference/advanced/configuration"
+      ]
     },
     {
-      "group": "Contribute",
+      "group": "Contributing",
       "pages": [
         "contribution/guidelines",
         "contribution/dev",
@@ -146,7 +203,9 @@
     },
     {
       "group": "Product",
-      "pages": ["product/release-notes"]
+      "pages": [
+        "product/release-notes"
+      ]
     }
   ],
   "footerSocials": {

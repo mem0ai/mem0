@@ -1,0 +1,51 @@
+---
+title: '🔍 search'
+---
+
+`.search()` enables you to uncover the most pertinent context by performing a semantic search across your data sources based on a given query. Refer to the function signature below:
+
+### Parameters
+
+<ParamField path="query" type="str">
+    Question
+</ParamField>
+<ParamField path="num_documents" type="int" optional>
+    Number of relevant documents to fetch. Defaults to `3`
+</ParamField>
+
+### Returns
+
+<ResponseField name="answer" type="dict">
+    Return list of dictionaries that contain the relevant chunk and their source information.
+</ResponseField>
+
+## Usage
+
+Refer to the following example on how to use the search api:
+
+```python Code example
+from embedchain import Pipeline as App
+
+# Initialize app
+app = App()
+
+# Add data source
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Get relevant context using semantic search
+context = app.search("What is the net worth of Elon?", num_documents=2)
+print(context)
+# Context:
+# [
+#     {
+#         'context': 'Elon Musk PROFILEElon MuskCEO, Tesla$221.9BReal Time Net Worthas of 10/29/23Reflects change since 5 pm ET of prior trading day. 1 in the world todayPhoto by Martin Schoeller for ForbesAbout Elon MuskElon Musk cofounded six companies, including electric car maker Tesla, rocket producer SpaceX and tunneling startup Boring Company.He owns about 21% of Tesla between stock and options, but has pledged more than half his shares as collateral for personal loans of up to $3.5 billion.SpaceX, founded in',
+#         'source': 'https://www.forbes.com/profile/elon-musk',
+#         'document_id': 'some_document_id'
+#     },
+#     {
+#         'context': 'company, which is now called X.Wealth HistoryHOVER TO REVEAL NET WORTH BY YEARForbes Lists 1Forbes 400 (2023)The Richest Person In Every State (2023) 2Billionaires (2023) 1Innovative Leaders (2019) 25Powerful People (2018) 12Richest In Tech (2017)Global Game Changers (2016)More ListsPersonal StatsAge52Source of WealthTesla, SpaceX, Self MadeSelf-Made Score8Philanthropy Score1ResidenceAustin, TexasCitizenshipUnited StatesMarital StatusSingleChildren11EducationBachelor of Arts/Science, University',
+#         'source': 'https://www.forbes.com/profile/elon-musk',
+#         'document_id': 'some_document_id'
+#     }
+# ]
+```

@@ -245,7 +245,7 @@
       "/{app_id}/deploy": {
         "post": {
           "tags": ["Apps"],
-          "summary": "Deploy App",
+          "summary": "Deploy app",
           "description": "Deploy an existing app.",
           "operationId": "deploy_app__app_id__deploy_post",
           "parameters": [

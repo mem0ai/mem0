@@ -98,8 +98,8 @@ Comprehensive guides and API documentation are available to help you get the mos
 
 - [Getting Started](https://docs.embedchain.ai/get-started/quickstart)
 - [Introduction](https://docs.embedchain.ai/get-started/introduction#what-is-embedchain)
-- [Examples](https://docs.embedchain.ai/get-started/examples)
-- [Supported data types](https://docs.embedchain.ai/data-sources/)
+- [Examples](https://docs.embedchain.ai/examples)
+- [Supported data types](https://docs.embedchain.ai/components/data-sources/overview)
 
 ## 🔗 Join the Community
 
