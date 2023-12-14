@@ -226,10 +226,6 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
-        if url.path.endswith(".txt"):
-            logging.debug(f"Source of `{formatted_source}` detected as `text`.")
-            return DataType.TEXT
-
         if url.path.endswith(".yaml"):
             try:
                 response = requests.get(source)
