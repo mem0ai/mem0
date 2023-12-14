@@ -35,7 +35,7 @@ class IndirectDataType(Enum):
     CUSTOM = "custom"
     RSSFEED = "rss_feed"
     BEEHIIV = "beehiiv"
-    DIRECTORY = "dir"
+    DIRECTORY = "directory"
 
 
 class SpecialDataType(Enum):
