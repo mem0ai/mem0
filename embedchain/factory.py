@@ -18,6 +18,7 @@ class LlmFactory:
         "llama2": "embedchain.llm.llama2.Llama2Llm",
         "openai": "embedchain.llm.openai.OpenAILlm",
         "vertexai": "embedchain.llm.vertex_ai.VertexAILlm",
+        "google": "embedchain.llm.google.GoogleLlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",

@@ -380,6 +380,7 @@ def validate_config(config_data):
                     "jina",
                     "llama2",
                     "vertexai",
+                    "google",
                 ),
                 Optional("config"): {
                     Optional("model"): str,

@@ -1,0 +1,8 @@
+llm:
+  provider: google
+  config:
+    model: gemini-pro
+    max_tokens: 1000
+    temperature: 0.9
+    top_p: 1.0
+    stream: false
