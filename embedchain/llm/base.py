@@ -48,8 +48,7 @@ class BaseLlm(JSONSerializable):
     def update_history(self, app_id: str):
         """Update class history attribute with history in memory (for chat method)"""
         chat_history = self.memory.get_recent_memories(app_id=app_id, num_rounds=10)
-        if chat_history:
-            self.set_history([str(history) for history in chat_history])
+        self.set_history([str(history) for history in chat_history])
 
     def add_history(self, app_id: str, question: str, answer: str, metadata: Optional[Dict[str, Any]] = None):
         chat_message = ChatMessage()

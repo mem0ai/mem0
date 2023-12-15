@@ -1,0 +1,19 @@
+---
+title: 🗑 delete
+---
+
+`delete_chat_history()` method allows you to delete all previous messages in a chat history.
+
+## Usage
+
+```python
+from embedchain import Pipeline as App
+
+app = App()
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+app.chat("What is the net worth of Elon Musk?")
+
+app.delete_chat_history()
+```
