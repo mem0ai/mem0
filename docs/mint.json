@@ -233,5 +233,11 @@
   },
   "api": {
     "baseUrl": "http://localhost:8080"
-  }
+  },
+  "redirects": [
+    {
+      "source": "/changelog/command-line",
+      "destination": "/get-started/introduction"
+    }
+  ]
 }
