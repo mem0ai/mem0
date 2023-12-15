@@ -1,14 +1,14 @@
-from pathlib import Path
 import hashlib
 import logging
-from typing import Optional, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-from embedchain.utils import detect_datatype
+from embedchain.config import AddConfig
+from embedchain.data_formatter.data_formatter import DataFormatter
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.local_text import LocalTextLoader
-from embedchain.data_formatter.data_formatter import DataFormatter
-from embedchain.config import AddConfig
+from embedchain.utils import detect_datatype
 
 
 @register_deserializable
