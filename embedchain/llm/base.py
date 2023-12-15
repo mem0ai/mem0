@@ -217,7 +217,6 @@ class BaseLlm(JSONSerializable):
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
-
             if isinstance(answer, str):
                 logging.info(f"Answer: {answer}")
                 return answer
