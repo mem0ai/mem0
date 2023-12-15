@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from typing import Optional
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -20,7 +21,7 @@ class ImagesChunker(BaseChunker):
         )
         super().__init__(image_splitter)
 
-    def create_chunks(self, loader, src, app_id=None):
+    def create_chunks(self, loader, src, app_id=None, config: Optional[ChunkerConfig] = None):
         """
         Loads the image(s), and creates their corresponding embedding. This creates one chunk for each image
 
@@ -32,6 +33,8 @@ class ImagesChunker(BaseChunker):
         documents = []
         embeddings = []
         ids = []
+        min_chunk_size = config.min_chunk_size if config is not None else 0
+        logging.info(f"[INFO] Skipping chunks smaller than {min_chunk_size} characters")
         data_result = loader.load_data(src)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]
