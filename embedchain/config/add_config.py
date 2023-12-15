@@ -25,7 +25,7 @@ class ChunkerConfig(BaseConfig):
         self.min_chunk_size = min_chunk_size
         if self.min_chunk_size >= self.chunk_size:
             raise ValueError(f"min_chunk_size {min_chunk_size} should be less than chunk_size {chunk_size}")
-        if self.min_chunk_size <= self.chunk_overlap:
+        if self.min_chunk_size < self.chunk_overlap:
             logging.warn(
                 f"min_chunk_size {min_chunk_size} should be greater than chunk_overlap {chunk_overlap}, otherwise it is redundant."  # noqa:E501
             )
