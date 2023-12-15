@@ -1,7 +1,7 @@
 import importlib
 import logging
 import os
-from typing import Optional
+from typing import Generator, Optional, Union
 
 import google.generativeai as genai
 
@@ -33,7 +33,7 @@ class GoogleLlm(BaseLlm):
         return GoogleLlm._get_answer(prompt, self.config)
 
     @staticmethod
-    def _get_answer(prompt: str, config: BaseLlmConfig):
+    def _get_answer(prompt: str, config: BaseLlmConfig) -> Union[str, Generator[str, None, None]]:
         model_name = config.model or "gemini-pro"
         logging.info(f"Using Google LLM model: {model_name}")
         model = genai.GenerativeModel(model_name=model_name)

@@ -7,3 +7,4 @@ class VectorDimensions(Enum):
     OPENAI = 1536
     VERTEX_AI = 768
     HUGGING_FACE = 384
+    GOOGLE_AI = 768
