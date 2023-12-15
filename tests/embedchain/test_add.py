@@ -33,7 +33,7 @@ def test_add_forced_type(app):
 
 
 def test_dry_run(app):
-    chunker_config = ChunkerConfig(chunk_size=1, chunk_overlap=0)
+    chunker_config = ChunkerConfig(chunk_size=1, chunk_overlap=0, min_chunk_size=0)
     text = """0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"""
 
     result = app.add(source=text, config=AddConfig(chunker=chunker_config), dry_run=True)

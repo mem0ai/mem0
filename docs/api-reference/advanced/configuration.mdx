@@ -180,6 +180,8 @@ Alright, let's dive into what each key means in the yaml config above:
     - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.
     - `length_function` (String): The function used to calculate the length of each chunk of text. In this case, it's set to 'len'. You can also use any function import directly as a string here.
+    - `min_chunk_size` (Integer): The minimum size of each chunk of text that is sent to the language model. Must be less than `chunk_size`, and greater than `chunk_overlap`.
+
 If you have questions about the configuration above, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />

@@ -196,7 +196,7 @@ class EmbedChain(JSONSerializable):
 
         data_formatter = DataFormatter(data_type, config, loader, chunker)
         documents, metadatas, _ids, new_chunks = self._load_and_embed(
-            data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, dry_run, **kwargs
+            data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, config, dry_run, **kwargs
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
@@ -339,6 +339,7 @@ class EmbedChain(JSONSerializable):
         src: Any,
         metadata: Optional[Dict[str, Any]] = None,
         source_hash: Optional[str] = None,
+        add_config: Optional[AddConfig] = None,
         dry_run=False,
         **kwargs: Optional[Dict[str, Any]],
     ):
@@ -359,12 +360,13 @@ class EmbedChain(JSONSerializable):
         app_id = self.config.id if self.config is not None else None
 
         # Create chunks
-        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id)
+        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id, config=add_config.chunker)
         # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         new_doc_id = embeddings_data["doc_id"]
+        embeddings = embeddings_data.get("embeddings")
         if existing_doc_id and existing_doc_id == new_doc_id:
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
@@ -429,7 +431,7 @@ class EmbedChain(JSONSerializable):
         chunks_before_addition = self.db.count()
 
         self.db.add(
-            embeddings=embeddings_data.get("embeddings", None),
+            embeddings=embeddings,
             documents=documents,
             metadatas=metadatas,
             ids=ids,
