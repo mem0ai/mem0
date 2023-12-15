@@ -28,6 +28,9 @@
   <a href="https://codecov.io/gh/embedchain/embedchain">
     <img src="https://codecov.io/gh/embedchain/embedchain/graph/badge.svg?token=EMRRHZXW1Q" alt="codecov">
   </a>
+  <a href="https://pepy.tech/project/embedchain">
+    <img src="https://static.pepy.tech/badge/embedchain" alt="Downloads">
+  </a>
 </p>
 
 <hr />
