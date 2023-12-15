@@ -13,7 +13,6 @@ Use the model provided on huggingface: `mistralai/Mistral-7B-v0.1`
 import os
 from embedchain import Pipeline as App
 
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "hf_your_token"
 
 app = App.from_config("huggingface.yaml")
@@ -27,6 +26,11 @@ llm:
     max_tokens: 1000
     top_p: 0.5
     stream: false
+
+embedder:
+  provider: huggingface
+  config:
+    model: 'sentence-transformers/all-mpnet-base-v2'
 ```
 </CodeGroup>
 </Accordion>
