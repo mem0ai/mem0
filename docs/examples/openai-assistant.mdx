@@ -1,5 +1,5 @@
 ---
-title: '🤖 OpenAI Assistant'
+title: 'OpenAI Assistant'
 ---
 
 <img src="https://blogs.swarthmore.edu/its/wp-content/uploads/2022/05/openai.jpg"  align="center" width="500" alt="OpenAI Logo"/>
@@ -38,40 +38,6 @@ assistant = OpenAIAssistant(assistant_id="asst_xxx")
 assistant = OpenAIAssistant(assistant_id="asst_xxx", thread_id="thread_xxx")
 ```
 
-### Arguments
-
-<ResponseField name="name" type="string">
-  Name for your AI assistant
-</ResponseField>
-
-<ResponseField name="instructions" type="string">
-  how the Assistant and model should behave or respond
-</ResponseField>
-
-<ResponseField name="assistant_id" type="string">
-  Load existing OpenAI Assistant. If you pass this, you don't have to pass other arguments.
-</ResponseField>
-
-<ResponseField name="thread_id" type="string">
-  Existing OpenAI thread id if exists
-</ResponseField>
-
-<ResponseField name="model" type="str" default="gpt-4-1106-preview">
-  OpenAI model to use
-</ResponseField>
-
-<ResponseField name="tools" type="list">
-  OpenAI tools to use. Default set to `[{"type": "retrieval"}]`
-</ResponseField>
-
-<ResponseField name="data_sources" type="list" default="[]">
-  Add data sources to your assistant. You can add in the following format: `[{"source": "https://example.com", "data_type": "web_page"}]`
-</ResponseField>
-
-<ResponseField name="telemetry" type="boolean" default="True">
-  Anonymous telemetry (doesn't collect any user information or user's files). Used to improve the Embedchain package utilization. Default is `True`.
-</ResponseField>
-
 ## Step-2: Add data to thread
 
 You can add any custom data source that is supported by Embedchain. Else, you can directly pass the file path on your local system and Embedchain propagates it to OpenAI Assistant.
@@ -92,4 +58,3 @@ You can try it out yourself using the following Google Colab notebook:
 <a href="https://colab.research.google.com/drive/1BKlXZYSl6AFRgiHZ5XIzXrXC_24kDYHQ?usp=sharing">
     <img src="https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667" alt="Open in Colab" />
 </a>
-
