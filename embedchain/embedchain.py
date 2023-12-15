@@ -650,7 +650,7 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
-        self.delete_history()
+        self.delete_chat_history()
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
@@ -661,5 +661,6 @@ class EmbedChain(JSONSerializable):
             display_format=display_format,
         )
 
-    def delete_history(self):
+    def delete_chat_history(self):
         self.llm.memory.delete_chat_history(app_id=self.config.id)
+        self.llm.update_history(app_id=self.config.id)

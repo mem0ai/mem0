@@ -183,7 +183,8 @@
             "api-reference/pipeline/chat",
             "api-reference/pipeline/search",
             "api-reference/pipeline/deploy",
-            "api-reference/pipeline/reset"
+            "api-reference/pipeline/reset",
+            "api-reference/pipeline/delete"
           ]
         },
         "api-reference/store/openai-assistant",
@@ -233,5 +234,11 @@
   },
   "api": {
     "baseUrl": "http://localhost:8080"
-  }
+  },
+  "redirects": [
+    {
+      "source": "/changelog/command-line",
+      "destination": "/get-started/introduction"
+    }
+  ]
 }
