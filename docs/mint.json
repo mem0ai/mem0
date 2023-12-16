@@ -116,7 +116,8 @@
                 "components/data-sources/discourse",
                 "components/data-sources/substack",
                 "components/data-sources/discord",
-                "components/data-sources/beehiiv"
+                "components/data-sources/beehiiv",
+                "components/data-sources/directory"
               ]
             },
             "components/data-sources/data-type-handling"
