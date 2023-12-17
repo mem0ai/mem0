@@ -15,8 +15,8 @@ class AppConfig(BaseAppConfig):
         self,
         log_level: str = "WARNING",
         id: Optional[str] = None,
+        name: Optional[str] = None,
         collect_metrics: Optional[bool] = True,
-        collection_name: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for an App. This is the simplest form of an embedchain app.
@@ -32,4 +32,7 @@ class AppConfig(BaseAppConfig):
         defaults to None
         :type collection_name: Optional[str], optional
         """
-        super().__init__(log_level=log_level, id=id, collect_metrics=collect_metrics, collection_name=collection_name)
+        self._setup_logging(log_level)
+        self.id = id
+        self.name = name
+        self.collect_metrics = collect_metrics
