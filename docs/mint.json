@@ -77,7 +77,8 @@
         "group": "🔗 Integrations",
           "pages": [
             "integration/langsmith",
-            "integration/chainlit"
+            "integration/chainlit",
+            "integration/streamlit-mistral"
           ]
         },
         "get-started/faq"
