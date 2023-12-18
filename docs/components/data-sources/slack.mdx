@@ -9,15 +9,33 @@ title: '🤖 Slack'
     - Make sure your slack user token includes [search](https://api.slack.com/scopes/search:read) scope.
 
 ## Example
+
+### Get Started
+
+This will automatically retrieve data from the workspace associated with the user's token.
+
+```python
+import os
+from embedchain import Pipeline as App
+
+os.environ["SLACK_USER_TOKEN"] = "xoxp-xxx"
+app = App()
+
+app.add("in:general", data_type="slack")
+
+result = app.query("what are the messages in general channel?")
+
+print(result)
+```
+
+
+### Customize your SlackLoader
 1. Setup the Slack loader by configuring the Slack Webclient.
 ```Python
 from embedchain.loaders.slack import SlackLoader
 
 os.environ["SLACK_USER_TOKEN"] = "xoxp-*"
 
-loader = SlackLoader()
-
-"""
 config = {
     'base_url': slack_app_url,
     'headers': web_headers,
@@ -25,7 +43,6 @@ config = {
 }
 
 loader = SlackLoader(config)
-"""
 ```
 
 NOTE: you can also pass the `config` with `base_url`, `headers`, `team_id` to setup your SlackLoader.

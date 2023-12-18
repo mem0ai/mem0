@@ -75,6 +75,7 @@ class DataFormatter(JSONSerializable):
             DataType.RSSFEED: "embedchain.loaders.rss_feed.RSSFeedLoader",
             DataType.BEEHIIV: "embedchain.loaders.beehiiv.BeehiivLoader",
             DataType.DIRECTORY: "embedchain.loaders.directory_loader.DirectoryLoader",
+            DataType.SLACK: "embedchain.loaders.slack.SlackLoader",
         }
 
         if data_type == DataType.CUSTOM or loader is not None:
@@ -118,6 +119,7 @@ class DataFormatter(JSONSerializable):
             DataType.RSSFEED: "embedchain.chunkers.rss_feed.RSSFeedChunker",
             DataType.BEEHIIV: "embedchain.chunkers.beehiiv.BeehiivChunker",
             DataType.DIRECTORY: "embedchain.chunkers.common_chunker.CommonChunker",
+            DataType.SLACK: "embedchain.chunkers.common_chunker.CommonChunker",
         }
 
         if chunker is not None:
