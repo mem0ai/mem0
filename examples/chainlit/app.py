@@ -19,6 +19,7 @@ async def on_chat_start():
             }
         }
     })
+    app.add("./elon-musk", data_type="directory")
     app.collect_metrics = False
     cl.user_session.set("app", app)
 

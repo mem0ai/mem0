@@ -1,5 +1,5 @@
 ---
-title: '🚀 Chainlit'
+title: '⛓️ Chainlit'
 description: 'Integrate with Chainlit to create LLM chat apps'
 ---
 
@@ -40,6 +40,8 @@ async def on_chat_start():
             }
         }
     })
+    # import any data you want to use in your app
+    app.add("./elon-musk", data_type="directory")
     app.collect_metrics = False
     cl.user_session.set("app", app)
 
