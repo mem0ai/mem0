@@ -36,6 +36,7 @@ class IndirectDataType(Enum):
     RSSFEED = "rss_feed"
     BEEHIIV = "beehiiv"
     DIRECTORY = "directory"
+    SLACK = "slack"
 
 
 class SpecialDataType(Enum):
@@ -71,3 +72,4 @@ class DataType(Enum):
     RSSFEED = IndirectDataType.RSSFEED.value
     BEEHIIV = IndirectDataType.BEEHIIV.value
     DIRECTORY = IndirectDataType.DIRECTORY.value
+    SLACK = IndirectDataType.SLACK.value
