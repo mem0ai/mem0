@@ -1,58 +1,48 @@
-import logging
-import os
+from fastapi import FastAPI, Request, responses
 
-from flask import Flask, jsonify, request
+from embedchain import Pipeline
 
-from embedchain import Pipeline as App
-
-app = Flask(__name__)
-
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
+# Initialize the FastAPI app and EmbedChain app
+app = FastAPI()
+embedchain_app = Pipeline()
 
 
-@app.route("/add", methods=["POST"])
-def add():
-    data = request.get_json()
-    data_type = data.get("data_type")
-    url_or_text = data.get("url_or_text")
-    if data_type and url_or_text:
-        try:
-            App().add(url_or_text, data_type=data_type)
-            return jsonify({"data": f"Added {data_type}: {url_or_text}"}), 200
-        except Exception:
-            logging.exception(f"Failed to add {data_type=}: {url_or_text=}")
-            return jsonify({"error": f"Failed to add {data_type}: {url_or_text}"}), 500
-    return jsonify({"error": "Invalid request. Please provide 'data_type' and 'url_or_text' in JSON format."}), 400
+@app.post("/add")
+async def add_source(request: Request):
+    """
+    Adds a new source to the EmbedChain app.
+    Expects a JSON with a "source" key.
+    """
+    data = await request.json()
+    source = data.get("source")
+    embedchain_app.add(source)
+    return {"message": f"Source '{source}' added successfully."}
 
 
-@app.route("/query", methods=["POST"])
-def query():
-    data = request.get_json()
+@app.post("/query")
+async def handle_query(request: Request):
+    """
+    Handles a query to the EmbedChain app.
+    Expects a JSON with a "question" key.
+    """
+    data = await request.json()
     question = data.get("question")
-    if question:
-        try:
-            response = App().query(question)
-            return jsonify({"data": response}), 200
-        except Exception:
-            logging.exception(f"Failed to query {question=}")
-            return jsonify({"error": "An error occurred. Please try again!"}), 500
-    return jsonify({"error": "Invalid request. Please provide 'question' in JSON format."}), 400
+    answer = embedchain_app.query(question)
+    return {"answer": answer}
 
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json()
+@app.post("/chat")
+async def handle_chat(request: Request):
+    """
+    Handles a chat request to the EmbedChain app.
+    Expects a JSON with a "question" key.
+    """
+    data = await request.json()
     question = data.get("question")
-    if question:
-        try:
-            response = App().chat(question)
-            return jsonify({"data": response}), 200
-        except Exception:
-            logging.exception(f"Failed to chat {question=}")
-            return jsonify({"error": "An error occurred. Please try again!"}), 500
-    return jsonify({"error": "Invalid request. Please provide 'question' in JSON format."}), 400
+    response = embedchain_app.chat(question)
+    return {"response": response}
 
 
-@app.route("/api/python")
-def hello_world():
-    return "<p>Hello, World!</p>"
+@app.get("/")
+async def root():
+    return responses.RedirectResponse(url="/docs")
