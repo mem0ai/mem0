@@ -1,14 +1,15 @@
-# Welcome to Chainlit! 🚀🤖
+# Welcome to Embedchain! 🚀
 
-Hi there, Developer! 👋 We're excited to have you on board. Chainlit is a powerful tool designed to help you prototype, debug and share applications built on top of LLMs.
+Hello! 👋 Excited to see you join us. With Embedchain and Chainlit, create ChatGPT like apps effortlessly.
 
-## Useful Links 🔗
+## Quick Start 🌟
 
-- **Documentation:** Get started with our comprehensive [Chainlit Documentation](https://docs.chainlit.io) 📚
-- **Discord Community:** Join our friendly [Chainlit Discord](https://discord.gg/k73SQ3FyUh) to ask questions, share your projects, and connect with other developers! 💬
+- **Embedchain Docs:** Get started with our comprehensive [Embedchain Documentation](https://docs.embedchain.ai/) 📚
+- **Discord Community:** Join our discord [Embedchain Discord](https://discord.gg/CUU9FPhRNt) to ask questions, share your projects, and connect with other developers! 💬
+- **UI Guide**: Master Chainlit with [Chainlit Documentation](https://docs.chainlit.io/) ⛓️
 
-We can't wait to see what you create with Chainlit! Happy coding! 💻😊
+Happy building with Embedchain! 🎉
 
-## Welcome screen
+## Customize welcome screen
 
-To modify the welcome screen, edit the `chainlit.md` file at the root of your project. If you do not want a welcome screen, just leave this file empty.
+Edit chainlit.md in your project root to change this welcome message.
