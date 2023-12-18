@@ -53,6 +53,7 @@ chunker:
   chunk_size: 2000
   chunk_overlap: 100
   length_function: 'len'
+  min_chunk_size: 0
 ```
 
 ```json config.json
@@ -91,7 +92,8 @@ chunker:
   "chunker": {
     "chunk_size": 2000,
     "chunk_overlap": 100,
-    "length_function": "len"
+    "length_function": "len",
+    "min_chunk_size": 0
   }
 }
 ```
@@ -138,7 +140,8 @@ config = {
     'chunker': {
         'chunk_size': 2000,
         'chunk_overlap': 100,
-        'length_function': 'len'
+        'length_function': 'len',
+        'min_chunk_size': 0
     }
 }
 ```

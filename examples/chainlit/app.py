@@ -1,24 +1,24 @@
-import chainlit as cl
-from embedchain import Pipeline as App
-
 import os
+
+import chainlit as cl
+
+from embedchain import Pipeline as App
 
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
+
 @cl.on_chat_start
 async def on_chat_start():
-    app = App.from_config(config={
-        'app': {
-            'config': {
-                'name': 'chainlit-app'
-            }
-        },
-        'llm': {
-            'config': {
-                'stream': True,
-            }
+    app = App.from_config(
+        config={
+            "app": {"config": {"name": "chainlit-app"}},
+            "llm": {
+                "config": {
+                    "stream": True,
+                }
+            },
         }
-    })
+    )
     # import your data here
     app.add("https://www.forbes.com/profile/elon-musk/")
     app.collect_metrics = False
@@ -31,5 +31,5 @@ async def on_message(message: cl.Message):
     msg = cl.Message(content="")
     for chunk in await cl.make_async(app.chat)(message.content):
         await msg.stream_token(chunk)
-    
+
     await msg.send()
