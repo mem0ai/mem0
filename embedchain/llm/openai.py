@@ -1,7 +1,8 @@
 import json
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -15,7 +16,7 @@ class OpenAILlm(BaseLlm):
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt) -> str:
-        response = OpenAILlm._get_answer(self, prompt, self.config)
+        response = self._get_answer(prompt, self.config)
         return response
 
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> str:
