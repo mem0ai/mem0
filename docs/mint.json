@@ -137,6 +137,7 @@
     {
       "group": "Examples",
       "pages": [
+        "examples/notebooks-and-replits",
         {
           "group": "REST API Service",
           "pages": [
