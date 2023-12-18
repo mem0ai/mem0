@@ -428,6 +428,7 @@ def validate_config(config_data):
                 Optional("chunk_size"): int,
                 Optional("chunk_overlap"): int,
                 Optional("length_function"): str,
+                Optional("min_chunk_size"): int,
             },
         }
     )
