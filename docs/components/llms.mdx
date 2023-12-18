@@ -38,6 +38,30 @@ app.query("What is OpenAI?")
 
 If you are looking to configure the different parameters of the LLM, you can do so by loading the app using a [yaml config](https://github.com/embedchain/embedchain/blob/main/configs/chroma.yaml) file.
 
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import Pipeline as App
+
+os.environ['OPENAI_API_KEY'] = 'xxx'
+
+# load llm configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: openai
+  config:
+    model: 'gpt-3.5-turbo'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+```
+</CodeGroup>
+
 ### Function Calling
 To enable [function calling](https://platform.openai.com/docs/guides/function-calling) in your application using embedchain and OpenAI, you need to pass functions into `OpenAILlm` class as an array of functions. Here are several ways in which you can achieve that:
 
@@ -158,31 +182,6 @@ result = app.query("Tell me more about the pokemon pikachu.")
 print(result)
 ```
 </Accordion>
-
-<CodeGroup>
-
-```python main.py
-import os
-from embedchain import Pipeline as App
-
-os.environ['OPENAI_API_KEY'] = 'xxx'
-
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
-
-```yaml config.yaml
-llm:
-  provider: openai
-  config:
-    model: 'gpt-3.5-turbo'
-    temperature: 0.5
-    max_tokens: 1000
-    top_p: 1
-    stream: false
-```
-
-</CodeGroup>
 
 ## Google AI
 
