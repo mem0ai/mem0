@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import requests
 import yaml
 
-from embedchain import Client
+from embedchain.client import Client
 from embedchain.config import AppConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
