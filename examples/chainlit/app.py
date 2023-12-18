@@ -19,7 +19,8 @@ async def on_chat_start():
             }
         }
     })
-    app.add("./elon-musk", data_type="directory")
+    # import your data here
+    app.add("https://www.forbes.com/profile/elon-musk/")
     app.collect_metrics = False
     cl.user_session.set("app", app)
 
