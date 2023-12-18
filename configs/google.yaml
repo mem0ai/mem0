@@ -6,3 +6,8 @@ llm:
     temperature: 0.9
     top_p: 1.0
     stream: false
+
+embedder:
+  provider: google
+  config:
+    model: models/embedding-001

@@ -146,21 +146,7 @@ class BaseLlm(JSONSerializable):
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def _stream_query_response(self, answer: Any) -> Generator[Any, Any, None]:
-        """Generator to be used as streaming response
-
-        :param answer: Answer chunk from llm
-        :type answer: Any
-        :yield: Answer chunk from llm
-        :rtype: Generator[Any, Any, None]
-        """
-        streamed_answer = ""
-        for chunk in answer:
-            streamed_answer = streamed_answer + chunk
-            yield chunk
-        logging.info(f"Answer: {streamed_answer}")
-
-    def _stream_chat_response(self, answer: Any) -> Generator[Any, Any, None]:
+    def _stream_response(self, answer: Any) -> Generator[Any, Any, None]:
         """Generator to be used as streaming response
 
         :param answer: Answer chunk from llm
@@ -220,7 +206,7 @@ class BaseLlm(JSONSerializable):
                 logging.info(f"Answer: {answer}")
                 return answer
             else:
-                return self._stream_query_response(answer)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config
@@ -269,14 +255,12 @@ class BaseLlm(JSONSerializable):
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
-
             if isinstance(answer, str):
                 logging.info(f"Answer: {answer}")
-
                 return answer
             else:
                 # this is a streamed response and needs to be handled differently.
-                return self._stream_chat_response(answer)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config
