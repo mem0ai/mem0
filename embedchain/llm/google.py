@@ -1,7 +1,7 @@
 import importlib
 import logging
 import os
-from typing import Optional
+from typing import Any, Generator, Optional, Union
 
 import google.generativeai as genai
 
@@ -30,22 +30,22 @@ class GoogleLlm(BaseLlm):
     def get_llm_model_answer(self, prompt):
         if self.config.system_prompt:
             raise ValueError("GoogleLlm does not support `system_prompt`")
-        return GoogleLlm._get_answer(prompt, self.config)
+        response = self._get_answer(prompt)
+        return response
 
-    @staticmethod
-    def _get_answer(prompt: str, config: BaseLlmConfig):
-        model_name = config.model or "gemini-pro"
+    def _get_answer(self, prompt: str) -> Union[str, Generator[Any, Any, None]]:
+        model_name = self.config.model or "gemini-pro"
         logging.info(f"Using Google LLM model: {model_name}")
         model = genai.GenerativeModel(model_name=model_name)
 
         generation_config_params = {
             "candidate_count": 1,
-            "max_output_tokens": config.max_tokens,
-            "temperature": config.temperature or 0.5,
+            "max_output_tokens": self.config.max_tokens,
+            "temperature": self.config.temperature or 0.5,
         }
 
-        if config.top_p >= 0.0 and config.top_p <= 1.0:
-            generation_config_params["top_p"] = config.top_p
+        if self.config.top_p >= 0.0 and self.config.top_p <= 1.0:
+            generation_config_params["top_p"] = self.config.top_p
         else:
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
 
@@ -54,11 +54,11 @@ class GoogleLlm(BaseLlm):
         response = model.generate_content(
             prompt,
             generation_config=generation_config,
-            stream=config.stream,
+            stream=self.config.stream,
         )
-
-        if config.stream:
-            for chunk in response:
-                yield chunk.text
+        if self.config.stream:
+            # TODO: Implement streaming
+            response.resolve()
+            return response.text
         else:
             return response.text

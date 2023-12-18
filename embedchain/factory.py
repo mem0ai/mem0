@@ -47,11 +47,13 @@ class EmbedderFactory:
         "huggingface": "embedchain.embedder.huggingface.HuggingFaceEmbedder",
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
         "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
+        "google": "embedchain.embedder.google.GoogleAIEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
     }
 
     @classmethod

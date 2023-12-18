@@ -72,7 +72,6 @@ To use Google AI model, you have to set the `GOOGLE_API_KEY` environment variabl
 import os
 from embedchain import Pipeline as App
 
-os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 os.environ["GOOGLE_API_KEY"] = "xxx"
 
 app = App.from_config(config_path="config.yaml")
@@ -96,6 +95,13 @@ llm:
     temperature: 0.5
     top_p: 1
     stream: false
+
+embedder:
+  provider: google
+  config:
+    model: 'models/embedding-001'
+    task_type: "retrieval_document"
+    title: "Embeddings for Embedchain"
 ```
 </CodeGroup>
 
