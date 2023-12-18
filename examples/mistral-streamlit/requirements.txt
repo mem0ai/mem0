@@ -1,2 +1,2 @@
 streamlit==1.29.0
-embedchain==0.1.32
+embedchain==
