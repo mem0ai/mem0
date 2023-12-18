@@ -76,7 +76,8 @@
         {
         "group": "🔗 Integrations",
           "pages": [
-            "integration/langsmith"
+            "integration/langsmith",
+            "integration/chainlit"
           ]
         },
         "get-started/faq"
