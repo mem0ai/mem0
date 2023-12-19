@@ -87,7 +87,8 @@
       "group": "Deployment",
       "pages": [
         "get-started/deployment",
-        "deployment/fly_io"
+        "deployment/fly_io",
+        "deployment/modal_com"
       ]
     },
     {
