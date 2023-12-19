@@ -8,12 +8,34 @@ import click
 import pkg_resources
 from rich.console import Console
 
+from embedchain.telemetry.posthog import AnonymousTelemetry
+
 console = Console()
 
 
 @click.group()
 def cli():
     pass
+
+
+anonymous_telemetry = AnonymousTelemetry()
+
+def get_pkg_path_from_name(template: str):
+    try:
+        # Determine the installation location of the embedchain package
+        package_path = pkg_resources.resource_filename("embedchain", "")
+    except ImportError:
+        console.print("❌ [bold red]Failed to locate the 'embedchain' package. Is it installed?[/bold red]")
+        return
+
+    # Construct the source path from the embedchain package
+    src_path = os.path.join(package_path, "deployment", template)
+
+    if not os.path.exists(src_path):
+        console.print(f"❌ [bold red]Template '{template}' not found.[/bold red]")
+        return
+    
+    return src_path
 
 
 def setup_fly_io_app(extra_args):
@@ -49,20 +71,10 @@ def setup_modal_com_app(extra_args):
 @click.option("--template", default="fly.io", help="The template to use.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def create(template, extra_args):
-    try:
-        # Determine the installation location of the embedchain package
-        package_path = pkg_resources.resource_filename("embedchain", "")
-    except ImportError:
-        console.print("❌ [bold red]Failed to locate the 'embedchain' package. Is it installed?[/bold red]")
-        return
-
-    # Construct the source path from the embedchain package
-    src_path = os.path.join(package_path, "deployment", template)
-
-    if not os.path.exists(src_path):
-        console.print(f"❌ [bold red]Template '{template}' not found.[/bold red]")
-        return
-
+    anonymous_telemetry.capture(
+        event_name="ec_create", properties={"template_used": template}
+    )
+    src_path = get_pkg_path_from_name(template)
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
     env_sample_path = os.path.join(src_path, ".env.example")
     if os.path.exists(env_sample_path):
@@ -122,6 +134,9 @@ def dev(debug, host, port):
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
 
+    anonymous_telemetry.capture(
+        event_name="ec_dev", properties={"template_used": template}
+    )
     if template == "fly.io":
         run_dev_fly_io(debug, host, port)
     elif template == "modal.com":
@@ -207,6 +222,10 @@ def deploy():
     with open("embedchain.json", "r") as file:
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
+
+    anonymous_telemetry.capture(
+        event_name="ec_deploy", properties={"template_used": template}
+    )
     if template == "fly.io":
         deploy_fly()
     elif template == "modal.com":
