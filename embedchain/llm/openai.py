@@ -33,14 +33,16 @@ class OpenAILlm(BaseLlm):
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
-            from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+            from langchain.callbacks.streaming_stdout import \
+                StreamingStdOutCallbackHandler
 
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
             chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks)
         else:
             chat = ChatOpenAI(**kwargs)
         if self.functions is not None:
-            from langchain.chains.openai_functions import create_openai_fn_runnable
+            from langchain.chains.openai_functions import \
+                create_openai_fn_runnable
             from langchain.prompts import ChatPromptTemplate
 
             structured_prompt = ChatPromptTemplate.from_messages(messages)
