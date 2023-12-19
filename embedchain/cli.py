@@ -3,10 +3,13 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime
 
 import click
 import pkg_resources
 from rich.console import Console
+
+from embedchain.telemetry.posthog import AnonymousTelemetry
 
 console = Console()
 
@@ -14,6 +17,21 @@ console = Console()
 @click.group()
 def cli():
     pass
+
+
+def send_anonymous_telemetry(event_name: str, template: str = None):
+    if event_name != "ec_create":
+        try:
+            current_dir_app_file = os.path.join(os.getcwd(), "app.py")
+            curr_time = datetime.fromtimestamp(os.path.getmtime(current_dir_app_file))
+            modified_time = datetime.fromtimestamp(os.path.getctime(current_dir_app_file))
+            is_file_updated_check = curr_time != modified_time
+        except FileNotFoundError:
+            is_file_updated_check = False
+
+    AnonymousTelemetry().capture(
+        event_name=event_name, properties={"template_used": template, "is_file_updated": is_file_updated_check}
+    )
 
 
 def setup_fly_io_app(extra_args):
@@ -49,6 +67,7 @@ def setup_modal_com_app(extra_args):
 @click.option("--template", default="fly.io", help="The template to use.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def create(template, extra_args):
+    send_anonymous_telemetry(event_name="ec_create", template=template)
     try:
         # Determine the installation location of the embedchain package
         package_path = pkg_resources.resource_filename("embedchain", "")
@@ -122,6 +141,7 @@ def dev(debug, host, port):
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
 
+    send_anonymous_telemetry(event_name="ec_dev", template=template)
     if template == "fly.io":
         run_dev_fly_io(debug, host, port)
     elif template == "modal.com":
@@ -207,6 +227,8 @@ def deploy():
     with open("embedchain.json", "r") as file:
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
+
+    send_anonymous_telemetry(event_name="ec_deploy", template=template)
     if template == "fly.io":
         deploy_fly()
     elif template == "modal.com":

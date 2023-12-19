@@ -1,6 +1,8 @@
 import os
-from embedchain import Pipeline as App
+
 import streamlit as st
+
+from embedchain import Pipeline as App
 
 with st.sidebar:
     huggingface_access_token = st.text_input("Hugging face Token", key="chatbot_api_key", type="password")
