@@ -2,7 +2,7 @@ import os
 
 import streamlit as st
 
-from embedchain import Pipeline as App
+from embedchain import App
 
 
 @st.cache_resource
