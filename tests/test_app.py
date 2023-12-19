@@ -89,7 +89,6 @@ class TestAppFromConfig:
 
         # Validate the AppConfig values
         assert app.config.id == config_data["app"]["config"]["id"]
-        assert app.config.collection_name == config_data["app"]["config"]["collection_name"]
         assert app.config.collect_metrics == config_data["app"]["config"]["collect_metrics"]
 
         # Validate the LLM config values

@@ -23,7 +23,7 @@ class TestEsDB(unittest.TestCase):
     def test_query(self, mock_client):
         self.db = ElasticsearchDB(config=ElasticsearchDBConfig(es_url="https://localhost:9200"))
         app_config = AppConfig(collect_metrics=False)
-        self.app = App(config=app_config, db=self.db, embedder=GPT4AllEmbedder())
+        self.app = App(config=app_config, db=self.db, embedding_model=GPT4AllEmbedder())
 
         # Assert that the Elasticsearch client is stored in the ElasticsearchDB class.
         self.assertEqual(self.db.client, mock_client.return_value)

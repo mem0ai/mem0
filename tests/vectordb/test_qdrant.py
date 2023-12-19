@@ -76,7 +76,7 @@ class TestQdrantDB(unittest.TestCase):
         qdrant_client_mock.return_value.upsert.assert_called_once_with(
             collection_name="embedchain-store-1526",
             points=Batch(
-                ids=["abc", "def"],
+                ids=["def", "ghi"],
                 payloads=[
                     {
                         "identifier": "123",
