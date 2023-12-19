@@ -18,22 +18,7 @@ def cli():
     pass
 
 
-def send_anonymous_telemetry(event_name: str, template: str = None):
-    is_file_updated_check = False
-    if event_name != "ec_create":
-        try:
-            current_dir_app_file = os.path.join(os.getcwd(), "app.py")
-            ec_template_app_file = get_pkg_path_from_name(template) + "/app.py"
-            current_dir_app_file_size = os.path.getsize(current_dir_app_file)
-            ec_template_app_file_size = os.path.getsize(ec_template_app_file)
-            file_size_difference = current_dir_app_file_size - ec_template_app_file_size
-            is_file_updated_check = file_size_difference != 0
-        except FileNotFoundError:
-            is_file_updated_check = False
-
-    AnonymousTelemetry().capture(
-        event_name=event_name, properties={"template_used": template, "is_file_updated": is_file_updated_check}
-    )
+anonymous_telemetry = AnonymousTelemetry()
 
 def get_pkg_path_from_name(template: str):
     try:
@@ -86,7 +71,9 @@ def setup_modal_com_app(extra_args):
 @click.option("--template", default="fly.io", help="The template to use.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def create(template, extra_args):
-    send_anonymous_telemetry(event_name="ec_create", template=template)
+    anonymous_telemetry.capture(
+        event_name="ec_create", properties={"template_used": template}
+    )
     src_path = get_pkg_path_from_name(template)
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
     env_sample_path = os.path.join(src_path, ".env.example")
@@ -147,7 +134,9 @@ def dev(debug, host, port):
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
 
-    send_anonymous_telemetry(event_name="ec_dev", template=template)
+    anonymous_telemetry.capture(
+        event_name="ec_dev", properties={"template_used": template}
+    )
     if template == "fly.io":
         run_dev_fly_io(debug, host, port)
     elif template == "modal.com":
@@ -234,7 +223,9 @@ def deploy():
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
 
-    send_anonymous_telemetry(event_name="ec_deploy", template=template)
+    anonymous_telemetry.capture(
+        event_name="ec_deploy", properties={"template_used": template}
+    )
     if template == "fly.io":
         deploy_fly()
     elif template == "modal.com":
