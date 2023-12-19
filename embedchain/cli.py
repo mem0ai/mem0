@@ -3,7 +3,6 @@ import os
 import re
 import shutil
 import subprocess
-from datetime import datetime
 
 import click
 import pkg_resources
@@ -24,15 +23,34 @@ def send_anonymous_telemetry(event_name: str, template: str = None):
     if event_name != "ec_create":
         try:
             current_dir_app_file = os.path.join(os.getcwd(), "app.py")
-            curr_time = datetime.fromtimestamp(os.path.getmtime(current_dir_app_file))
-            modified_time = datetime.fromtimestamp(os.path.getctime(current_dir_app_file))
-            is_file_updated_check = curr_time != modified_time
+            ec_template_app_file = get_pkg_path_from_name(template) + "/app.py"
+            current_dir_app_file_size = os.path.getsize(current_dir_app_file)
+            ec_template_app_file_size = os.path.getsize(ec_template_app_file)
+            file_size_difference = current_dir_app_file_size - ec_template_app_file_size
+            is_file_updated_check = file_size_difference != 0
         except FileNotFoundError:
             is_file_updated_check = False
 
     AnonymousTelemetry().capture(
         event_name=event_name, properties={"template_used": template, "is_file_updated": is_file_updated_check}
     )
+
+def get_pkg_path_from_name(template: str):
+    try:
+        # Determine the installation location of the embedchain package
+        package_path = pkg_resources.resource_filename("embedchain", "")
+    except ImportError:
+        console.print("❌ [bold red]Failed to locate the 'embedchain' package. Is it installed?[/bold red]")
+        return
+
+    # Construct the source path from the embedchain package
+    src_path = os.path.join(package_path, "deployment", template)
+
+    if not os.path.exists(src_path):
+        console.print(f"❌ [bold red]Template '{template}' not found.[/bold red]")
+        return
+    
+    return src_path
 
 
 def setup_fly_io_app(extra_args):
@@ -69,20 +87,7 @@ def setup_modal_com_app(extra_args):
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def create(template, extra_args):
     send_anonymous_telemetry(event_name="ec_create", template=template)
-    try:
-        # Determine the installation location of the embedchain package
-        package_path = pkg_resources.resource_filename("embedchain", "")
-    except ImportError:
-        console.print("❌ [bold red]Failed to locate the 'embedchain' package. Is it installed?[/bold red]")
-        return
-
-    # Construct the source path from the embedchain package
-    src_path = os.path.join(package_path, "deployment", template)
-
-    if not os.path.exists(src_path):
-        console.print(f"❌ [bold red]Template '{template}' not found.[/bold red]")
-        return
-
+    src_path = get_pkg_path_from_name(template)
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
     env_sample_path = os.path.join(src_path, ".env.example")
     if os.path.exists(env_sample_path):
