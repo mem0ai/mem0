@@ -65,11 +65,11 @@ This will generate a directory structure like this:
 
 Feel free to edit the files as required.
 - `Dockerfile`: Defines the steps to setup the application
-- `app.py`: Contains FastAPI app code
+- `app.py`: Contains API app code
 - `fly.toml`: fly.io config file
 - `.env`: Contains environment variables for production
 - `.env.example`: Contains dummy environment variables (can ignore this file)
-- `embedchain.json`: Contains embedchain specific configuration for deployment
+- `embedchain.json`: Contains embedchain specific configuration for deployment (you don't need to configure this)
 - `requirements.txt`: Contains python dependencies for your FastAPI application
 
 ## Step-3: Test app locally
@@ -88,7 +88,7 @@ You can deploy to fly.io using the following command:
 ec deploy
 ```
 
-Once this step finished, it will provide you with the deployment endpoint where you can access the app live. It will look something like this:
+Once this step finished, it will provide you with the deployment endpoint where you can access the app live. It will look something like this (Swagger docs):
 
 You can also check the logs, monitor app status etc on their dashboard by running command `fly dashboard`.
 

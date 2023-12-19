@@ -30,10 +30,10 @@ This `create` command will open a browser window and ask you to login to your mo
 ```
 
 Feel free to edit the files as required.
-- `app.py`: Contains FastAPI app code
+- `app.py`: Contains API app code
 - `.env`: Contains environment variables for production
 - `.env.example`: Contains dummy environment variables (can ignore this file)
-- `embedchain.json`: Contains embedchain specific configuration for deployment
+- `embedchain.json`: Contains embedchain specific configuration for deployment (you don't need to configure this)
 - `requirements.txt`: Contains python dependencies for your FastAPI application
 
 ## Step-2: Test app locally
@@ -52,7 +52,7 @@ You can deploy to modal.com using the following command:
 ec deploy
 ```
 
-Once this step finished, it will provide you with the deployment endpoint where you can access the app live. It will look something like this:
+Once this step finished, it will provide you with the deployment endpoint where you can access the app live. It will look something like this (Swagger docs):
 
 <img src="/images/fly_io.png" />
 
