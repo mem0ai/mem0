@@ -72,7 +72,6 @@
       "pages": [
         "get-started/introduction",
         "get-started/quickstart",
-        "get-started/deployment",
         {
         "group": "🔗 Integrations",
           "pages": [
@@ -82,6 +81,13 @@
           ]
         },
         "get-started/faq"
+      ]
+    },
+    {
+      "group": "Deployment",
+      "pages": [
+        "get-started/deployment",
+        "deployment/fly_io"
       ]
     },
     {
