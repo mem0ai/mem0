@@ -1,5 +1,6 @@
-import re
+import json
 import os
+import re
 import shutil
 import subprocess
 
@@ -72,12 +73,15 @@ def create(template, extra_args):
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
+    embedchain_config = {"provider": template}
+    with open("embedchain.json", "w") as file:
+        json.dump(embedchain_config, file, indent=4)
+        console.print(
+            f"🎉 [green]All done! Successfully created `embedchain.json` with '{template}' as provider.[/green]"
+        )
 
-@cli.command()
-@click.option("--debug", is_flag=True, help="Enable or disable debug mode.")
-@click.option("--host", default="127.0.0.1", help="The host address to run the FastAPI app on.")
-@click.option("--port", default=8000, help="The port to run the FastAPI app on.")
-def dev(debug, host, port):
+
+def run_dev_fly_io(debug, host, port):
     uvicorn_command = ["uvicorn", "app:app"]
 
     if debug:
@@ -92,6 +96,35 @@ def dev(debug, host, port):
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except KeyboardInterrupt:
         console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
+
+
+def run_dev_modal_com():
+    modal_run_cmd = ["modal", "serve", "app"]
+    try:
+        console.print(f"🚀 [bold cyan]Running FastAPI app with command: {' '.join(modal_run_cmd)}[/bold cyan]")
+        subprocess.run(modal_run_cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except KeyboardInterrupt:
+        console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
+
+
+@cli.command()
+@click.option("--debug", is_flag=True, help="Enable or disable debug mode.")
+@click.option("--host", default="127.0.0.1", help="The host address to run the FastAPI app on.")
+@click.option("--port", default=8000, help="The port to run the FastAPI app on.")
+def dev(debug, host, port):
+    template = ""
+    with open("embedchain.json", "r") as file:
+        embedchain_config = json.load(file)
+        template = embedchain_config["provider"]
+
+    if template == "fly.io":
+        run_dev_fly_io(debug, host, port)
+    elif template == "modal.com":
+        run_dev_modal_com()
+    else:
+        raise ValueError(f"Unknown template '{template}'.")
 
 
 def read_env_file(env_file_path):
@@ -150,11 +183,30 @@ def deploy_fly():
         )
 
 
+def deploy_modal():
+    modal_deploy_cmd = ["modal", "deploy", "app"]
+    try:
+        console.print(f"🚀 [bold cyan]Running: {' '.join(modal_deploy_cmd)}[/bold cyan]")
+        subprocess.run(modal_deploy_cmd, check=True)
+        console.print("✅ [bold green]'modal deploy' executed successfully.[/bold green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except FileNotFoundError:
+        console.print(
+            "❌ [bold red]'modal' command not found. Please ensure Modal CLI is installed and in your PATH.[/bold red]"
+        )
+
+
 @cli.command()
 def deploy():
     # Check for platform-specific files
-    if os.path.exists("fly.toml"):
+    template = ""
+    with open("embedchain.json", "r") as file:
+        embedchain_config = json.load(file)
+        template = embedchain_config["provider"]
+    if template == "fly.io":
         deploy_fly()
-    # Add elif conditions here for other platforms
+    elif template == "modal.com":
+        deploy_modal()
     else:
         console.print("❌ [bold red]No recognized deployment platform found.[/bold red]")
