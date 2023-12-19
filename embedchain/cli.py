@@ -1,7 +1,8 @@
 import os
 import shutil
-import click
 import subprocess
+
+import click
 import pkg_resources
 from rich.console import Console
 
@@ -11,6 +12,34 @@ console = Console()
 @click.group()
 def cli():
     pass
+
+
+def setup_fly_io(extra_args):
+    fly_launch_command = ["fly", "launch", "--region", "sjc"] + list(extra_args)
+    try:
+        console.print(f"🚀 [bold cyan]Running: {' '.join(fly_launch_command)}[/bold cyan]")
+        subprocess.run(fly_launch_command, check=True)
+        console.print("✅ [bold green]'fly launch' executed successfully.[/bold green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except FileNotFoundError:
+        console.print(
+            "❌ [bold red]'fly' command not found. Please ensure Fly CLI is installed and in your PATH.[/bold red]"
+        )
+
+
+def setup_modal_com(extra_args):
+    modal_setup_file = os.path.join(os.path.expanduser("~"), ".modal.toml")
+    if os.path.exists(modal_setup_file):
+        console.print(
+            """✅ [bold green]Modal setup already done. You can now install the dependencies by doing \n
+            `pip install -r requirements.txt`[/bold green]"""
+        )
+        return
+    modal_setup_cmd = ["modal", "setup"] + list(extra_args)
+    console.print(f"🚀 [bold cyan]Running: {' '.join(modal_setup_cmd)}[/bold cyan]")
+    subprocess.run(modal_setup_cmd, check=True)
+    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
 
 
 @cli.command()
@@ -34,17 +63,10 @@ def create(template, extra_args):
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
     console.print(f"✅ [bold green]Successfully created app from template '{template}'.[/bold green]")
 
-    fly_launch_command = ["fly", "launch", "--region", "sjc"] + list(extra_args)
-    try:
-        console.print(f"🚀 [bold cyan]Running: {' '.join(fly_launch_command)}[/bold cyan]")
-        subprocess.run(fly_launch_command, check=True)
-        console.print("✅ [bold green]'fly launch' executed successfully.[/bold green]")
-    except subprocess.CalledProcessError as e:
-        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
-    except FileNotFoundError:
-        console.print(
-            "❌ [bold red]'fly' command not found. Please ensure Fly CLI is installed and in your PATH.[/bold red]"
-        )
+    if template == "fly.io":
+        setup_fly_io(extra_args)
+    elif template == "modal.com":
+        setup_modal_com(extra_args)
 
 
 @cli.command()
