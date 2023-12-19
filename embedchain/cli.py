@@ -1,3 +1,4 @@
+import re
 import os
 import shutil
 import subprocess
@@ -14,7 +15,7 @@ def cli():
     pass
 
 
-def setup_fly_io(extra_args):
+def setup_fly_io_app(extra_args):
     fly_launch_command = ["fly", "launch", "--region", "sjc"] + list(extra_args)
     try:
         console.print(f"🚀 [bold cyan]Running: {' '.join(fly_launch_command)}[/bold cyan]")
@@ -28,7 +29,7 @@ def setup_fly_io(extra_args):
         )
 
 
-def setup_modal_com(extra_args):
+def setup_modal_com_app(extra_args):
     modal_setup_file = os.path.join(os.path.expanduser("~"), ".modal.toml")
     if os.path.exists(modal_setup_file):
         console.print(
@@ -64,9 +65,11 @@ def create(template, extra_args):
     console.print(f"✅ [bold green]Successfully created app from template '{template}'.[/bold green]")
 
     if template == "fly.io":
-        setup_fly_io(extra_args)
+        setup_fly_io_app(extra_args)
     elif template == "modal.com":
-        setup_modal_com(extra_args)
+        setup_modal_com_app(extra_args)
+    else:
+        raise ValueError(f"Unknown template '{template}'.")
 
 
 @cli.command()
@@ -90,16 +93,67 @@ def dev(debug, host, port):
         console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
 
 
-@cli.command()
-def deploy():
+def read_env_file(env_file_path):
+    """
+    Reads an environment file and returns a dictionary of key-value pairs.
+
+    Args:
+    env_file_path (str): The path to the .env file.
+
+    Returns:
+    dict: Dictionary of environment variables.
+    """
+    env_vars = {}
+    with open(env_file_path, "r") as file:
+        for line in file:
+            # Ignore comments and empty lines
+            if line.strip() and not line.strip().startswith("#"):
+                # Assume each line is in the format KEY=VALUE
+                key_value_match = re.match(r"(\w+)=(.*)", line.strip())
+                if key_value_match:
+                    key, value = key_value_match.groups()
+                    env_vars[key] = value
+    return env_vars
+
+
+def deploy_fly():
+    app_name = ""
+    with open("fly.toml", "r") as file:
+        for line in file:
+            if line.strip().startswith("app ="):
+                app_name = line.split("=")[1].strip().strip('"')
+
+    if not app_name:
+        console.print("❌ [bold red]App name not found in fly.toml[/bold red]")
+        return
+
+    env_vars = read_env_file(".env")
+    secrets_command = ["flyctl", "secrets", "set", "-a", app_name] + [f"{k}={v}" for k, v in env_vars.items()]
+
     deploy_command = ["fly", "deploy"]
     try:
+        # Set secrets
+        console.print(f"🔐 [bold cyan]Setting secrets for {app_name}[/bold cyan]")
+        subprocess.run(secrets_command, check=True)
+
+        # Deploy application
         console.print(f"🚀 [bold cyan]Running: {' '.join(deploy_command)}[/bold cyan]")
         subprocess.run(deploy_command, check=True)
         console.print("✅ [bold green]'fly deploy' executed successfully.[/bold green]")
+
     except subprocess.CalledProcessError as e:
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except FileNotFoundError:
         console.print(
             "❌ [bold red]'fly' command not found. Please ensure Fly CLI is installed and in your PATH.[/bold red]"
         )
+
+
+@cli.command()
+def deploy():
+    # Check for platform-specific files
+    if os.path.exists("fly.toml"):
+        deploy_fly()
+    # Add elif conditions here for other platforms
+    else:
+        console.print("❌ [bold red]No recognized deployment platform found.[/bold red]")
