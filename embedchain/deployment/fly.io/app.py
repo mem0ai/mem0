@@ -3,12 +3,10 @@ from pydantic import BaseModel
 
 from embedchain import Pipeline
 
-# Initialize the FastAPI app and EmbedChain app
-app = FastAPI()
+app = FastAPI(title="Embedchain FastAPI App")
 embedchain_app = Pipeline()
 
 
-# Define Pydantic models for request bodies
 class SourceModel(BaseModel):
     source: str
 

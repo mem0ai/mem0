@@ -17,7 +17,7 @@ def cli():
 
 
 def setup_fly_io_app(extra_args):
-    fly_launch_command = ["fly", "launch", "--region", "sjc"] + list(extra_args)
+    fly_launch_command = ["fly", "launch", "--region", "sjc", "--no-deploy"] + list(extra_args)
     try:
         console.print(f"🚀 [bold cyan]Running: {' '.join(fly_launch_command)}[/bold cyan]")
         subprocess.run(fly_launch_command, check=True)
@@ -64,6 +64,9 @@ def create(template, extra_args):
         return
 
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
+    env_sample_path = os.path.join(src_path, ".env.example")
+    if os.path.exists(env_sample_path):
+        shutil.copy(env_sample_path, os.path.join(os.getcwd(), ".env"))
     console.print(f"✅ [bold green]Successfully created app from template '{template}'.[/bold green]")
 
     if template == "fly.io":
