@@ -1,21 +1,24 @@
+from dotenv import load_dotenv
 from fastapi import Body, FastAPI, responses
 from modal import Image, Secret, Stub, asgi_app
 
 from embedchain import Pipeline
 
-web_app = FastAPI()
-embedchain_app = Pipeline(name="embedchain-modal-app")
+load_dotenv(".env")
 
 image = Image.debian_slim().pip_install(
     "embedchain",
     "embedchain[dataloaders]",
 )
+
 stub = Stub(
     name="embedchain-app",
     image=image,
-    # add OPENAI_API_KEY to secrets in modal.com
-    secrets=[Secret.from_name("openai-secret")],
+    secrets=[Secret.from_dotenv(".env")],
 )
+
+web_app = FastAPI()
+embedchain_app = Pipeline(name="embedchain-modal-app")
 
 
 @web_app.post("/add")

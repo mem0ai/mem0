@@ -40,6 +40,7 @@ def setup_modal_com_app(extra_args):
     modal_setup_cmd = ["modal", "setup"] + list(extra_args)
     console.print(f"🚀 [bold cyan]Running: {' '.join(modal_setup_cmd)}[/bold cyan]")
     subprocess.run(modal_setup_cmd, check=True)
+    shutil.move(".env.example", ".env")
     console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
 
 
