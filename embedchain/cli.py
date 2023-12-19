@@ -20,6 +20,7 @@ def cli():
 
 
 def send_anonymous_telemetry(event_name: str, template: str = None):
+    is_file_updated_check = False
     if event_name != "ec_create":
         try:
             current_dir_app_file = os.path.join(os.getcwd(), "app.py")
