@@ -42,6 +42,7 @@ def setup_fly_io_app(extra_args):
     fly_launch_command = ["fly", "launch", "--region", "sjc", "--no-deploy"] + list(extra_args)
     try:
         console.print(f"🚀 [bold cyan]Running: {' '.join(fly_launch_command)}[/bold cyan]")
+        shutil.move(".env.example", ".env")
         subprocess.run(fly_launch_command, check=True)
         console.print("✅ [bold green]'fly launch' executed successfully.[/bold green]")
     except subprocess.CalledProcessError as e:
@@ -59,7 +60,6 @@ def setup_modal_com_app(extra_args):
             """✅ [bold green]Modal setup already done. You can now install the dependencies by doing \n
             `pip install -r requirements.txt`[/bold green]"""
         )
-        return
     else:
         modal_setup_cmd = ["modal", "setup"] + list(extra_args)
         console.print(f"🚀 [bold cyan]Running: {' '.join(modal_setup_cmd)}[/bold cyan]")
@@ -75,7 +75,6 @@ def setup_render_com_app():
             """✅ [bold green]Render setup already done. You can now install the dependencies by doing \n
             `pip install -r requirements.txt`[/bold green]"""
         )
-        return
     else:
         render_setup_cmd = ["render", "config", "init"]
         console.print(f"🚀 [bold cyan]Running: {' '.join(render_setup_cmd)}[/bold cyan]")
@@ -93,9 +92,6 @@ def create(template, extra_args):
     )
     src_path = get_pkg_path_from_name(template)
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
-    env_sample_path = os.path.join(src_path, ".env.example")
-    if os.path.exists(env_sample_path):
-        shutil.copy(env_sample_path, os.path.join(os.getcwd(), ".env"))
     console.print(f"✅ [bold green]Successfully created app from template '{template}'.[/bold green]")
 
     if template == "fly.io":
