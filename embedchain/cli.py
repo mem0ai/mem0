@@ -283,8 +283,14 @@ def deploy_streamlit():
     streamlit_deploy_cmd = ["streamlit", "run", "app.py"]
     try:
         console.print(f"🚀 [bold cyan]Running: {' '.join(streamlit_deploy_cmd)}[/bold cyan]")
+        console.print(
+            """\n\n✅ [bold yellow]To deploy a streamlit app, you can directly it from the UI.\n
+        Click on the 'Deploy' button on the top right corner of the app.\n
+        For more information, please refer to https://docs.embedchain.ai/deployment/streamlit_io
+        [/bold yellow]
+                      \n\n"""
+        )
         subprocess.run(streamlit_deploy_cmd, check=True)
-        console.print("✅ [bold yellow]To deploy a streamlit app, you can directly it from the UI.[/bold yellow]")
     except subprocess.CalledProcessError as e:
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except FileNotFoundError:
