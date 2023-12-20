@@ -1,9 +1,12 @@
 import streamlit as st
+
 from embedchain import Pipeline as App
+
 
 @st.cache_resource
 def embedchain_bot():
     return App()
+
 
 st.title("💬 Chatbot")
 st.caption("🚀 An Embedchain app powered by OpenAI!")

@@ -97,9 +97,11 @@ def setup_render_com_app():
                   """
     )
 
+
 def setup_streamlit_io_app():
     shutil.move(".env.example", ".env")
     console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
+
 
 @cli.command()
 @click.option("--template", default="fly.io", help="The template to use.")
@@ -155,6 +157,7 @@ def run_dev_modal_com():
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except KeyboardInterrupt:
         console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
+
 
 def run_dev_streamlit_io():
     streamlit_run_cmd = ["streamlit", "run", "app.py"]
@@ -275,6 +278,7 @@ def deploy_modal():
             "❌ [bold red]'modal' command not found. Please ensure Modal CLI is installed and in your PATH.[/bold red]"
         )
 
+
 def deploy_streamlit():
     streamlit_deploy_cmd = ["streamlit", "run", "app.py"]
     try:
@@ -285,7 +289,8 @@ def deploy_streamlit():
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except FileNotFoundError:
         console.print(
-            "❌ [bold red]'streamlit' command not found. Please ensure Streamlit CLI is installed and in your PATH.[/bold red]"
+            """❌ [bold red]'streamlit' command not found.\n
+            Please ensure Streamlit CLI is installed and in your PATH.[/bold red]"""
         )
 
 def deploy_render():
