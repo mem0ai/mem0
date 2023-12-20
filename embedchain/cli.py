@@ -97,6 +97,9 @@ def setup_render_com_app():
                   """
     )
 
+def setup_streamlit_io_app():
+    shutil.move(".env.example", ".env")
+    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
 
 @cli.command()
 @click.option("--template", default="fly.io", help="The template to use.")
@@ -113,6 +116,8 @@ def create(template, extra_args):
         setup_modal_com_app(extra_args)
     elif template == "render.com":
         setup_render_com_app()
+    elif template == "streamlit.io":
+        setup_streamlit_io_app()
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
@@ -151,6 +156,15 @@ def run_dev_modal_com():
     except KeyboardInterrupt:
         console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
 
+def run_dev_streamlit_io():
+    streamlit_run_cmd = ["streamlit", "run", "app.py"]
+    try:
+        console.print(f"🚀 [bold cyan]Running Streamlit app with command: {' '.join(streamlit_run_cmd)}[/bold cyan]")
+        subprocess.run(streamlit_run_cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except KeyboardInterrupt:
+        console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
 
 def run_dev_render_com(debug, host, port):
     uvicorn_command = ["uvicorn", "app:app"]
@@ -186,6 +200,8 @@ def dev(debug, host, port):
         run_dev_modal_com()
     elif template == "render.com":
         run_dev_render_com(debug, host, port)
+    elif template == "streamlit.io":
+        run_dev_streamlit_io()
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
@@ -259,6 +275,18 @@ def deploy_modal():
             "❌ [bold red]'modal' command not found. Please ensure Modal CLI is installed and in your PATH.[/bold red]"
         )
 
+def deploy_streamlit():
+    streamlit_deploy_cmd = ["streamlit", "run", "app.py"]
+    try:
+        console.print(f"🚀 [bold cyan]Running: {' '.join(streamlit_deploy_cmd)}[/bold cyan]")
+        subprocess.run(streamlit_deploy_cmd, check=True)
+        console.print("✅ [bold yellow]To deploy a streamlit app, you can directly it from the UI.[/bold yellow]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except FileNotFoundError:
+        console.print(
+            "❌ [bold red]'streamlit' command not found. Please ensure Streamlit CLI is installed and in your PATH.[/bold red]"
+        )
 
 def deploy_render():
     render_deploy_cmd = ["render", "blueprint", "launch"]
@@ -290,5 +318,7 @@ def deploy():
         deploy_modal()
     elif template == "render.com":
         deploy_render()
+    elif template == "streamlit.io":
+        deploy_streamlit()
     else:
         console.print("❌ [bold red]No recognized deployment platform found.[/bold red]")
