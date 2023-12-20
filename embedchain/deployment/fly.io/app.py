@@ -1,8 +1,8 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI, responses
 from pydantic import BaseModel
 
 from embedchain import Pipeline
-from dotenv import load_dotenv
 
 load_dotenv(".env")
 

@@ -1,7 +1,9 @@
 import csv
 import queue
 import threading
+from io import StringIO
 
+import requests
 import streamlit as st
 
 from embedchain import Pipeline as App
@@ -27,9 +29,12 @@ def read_csv_row_by_row(file_path):
 @st.cache_resource
 def add_data_to_app():
     app = sadhguru_ai()
-    file_path = "data.csv"
-    for row in read_csv_row_by_row(file_path):
-        app.add(row["url"], data_type="web_page")
+    url = "https://gist.githubusercontent.com/deshraj/50b0597157e04829bbbb7bc418be6ccb/raw/95b0f1547028c39691f5c7db04d362baa597f3f4/data.csv"  # noqa:E501
+    response = requests.get(url)
+    csv_file = StringIO(response.text)
+    for row in csv.reader(csv_file):
+        if row and row[0] != "url":
+            app.add(row[0], data_type="web_page")
 
 
 app = sadhguru_ai()

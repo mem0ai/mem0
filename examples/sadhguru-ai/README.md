@@ -1,6 +1,6 @@
 ## Sadhguru AI
 
-This directory contains the code used to implement [Sadhguru AI](https://sadhguru-ai.streamlit.app/) using Embedchain.
+This directory contains the code used to implement [Sadhguru AI](https://sadhguru-ai.streamlit.app/) using Embedchain. It is built on 3K+ videos and 1K+ articles of Sadhguru. You can find the full list of data sources [here](https://gist.github.com/deshraj/50b0597157e04829bbbb7bc418be6ccb).
 
 ## Run locally
 
