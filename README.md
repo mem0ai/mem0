@@ -37,7 +37,7 @@
 
 ## What is Embedchain?
 
-Embedchain is a production ready Open Source RAG framework - load, index, retrieve, and sync any unstructured data.
+Embedchain is an Open Source RAG Framework that makes it easy to create and deploy AI apps. At its core, Embedchain follows the design principle of being *"Conventional but Configurable"* to serve both software engineers and machine learning engineers.
 
 Embedchain streamlines the creation of RAG applications, offering a seamless process for managing various types of unstructured data. It efficiently segments data into manageable chunks, generates relevant embeddings, and stores them in a vector database for optimized retrieval. With a suite of diverse APIs, it enables users to extract contextual information, find precise answers, or engage in interactive chat conversations, all tailored to their own data.
 
@@ -47,15 +47,6 @@ Embedchain streamlines the creation of RAG applications, offering a seamless pro
 ```bash
 pip install embedchain
 ```
-
-### REST API
-You can also run Embedchain as a REST API server using the following command:
-
-```bash
-docker run --name embedchain -p 8080:8080 embedchain/rest-api:latest
-```
-
-Then, navigate to http://127.0.0.1:8080/docs to interact with the API.
 
 ## 🔍 Usage and Demo
 
@@ -90,14 +81,14 @@ You can also try it in your browser with Google Colab:
 ## 📖 Documentation
 Comprehensive guides and API documentation are available to help you get the most out of Embedchain:
 
-- [Getting Started](https://docs.embedchain.ai/get-started/quickstart)
 - [Introduction](https://docs.embedchain.ai/get-started/introduction#what-is-embedchain)
+- [Getting Started](https://docs.embedchain.ai/get-started/quickstart)
 - [Examples](https://docs.embedchain.ai/examples)
 - [Supported data types](https://docs.embedchain.ai/components/data-sources/overview)
 
 ## 🔗 Join the Community
 
-Connect with fellow developers and users by joining our [Slack Workspace](https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw). Dive into discussions, ask questions, and share your experiences.
+Connect with fellow developers and users by joining our [Slack Workspace](https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw) or [Discord Community](https://discord.gg/CUU9FPhRNt). Dive into discussions, ask questions, and share your experiences.
 
 ## 🤝 Schedule a 1-on-1 Session
 
