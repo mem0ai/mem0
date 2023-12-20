@@ -89,7 +89,8 @@
         "get-started/deployment",
         "deployment/fly_io",
         "deployment/modal_com",
-        "deployment/render_com"
+        "deployment/render_com",
+        "deployment/streamlit_io"
       ]
     },
     {
