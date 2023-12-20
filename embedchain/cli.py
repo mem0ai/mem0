@@ -20,6 +20,7 @@ def cli():
 
 anonymous_telemetry = AnonymousTelemetry()
 
+
 def get_pkg_path_from_name(template: str):
     try:
         # Determine the installation location of the embedchain package
@@ -34,7 +35,7 @@ def get_pkg_path_from_name(template: str):
     if not os.path.exists(src_path):
         console.print(f"❌ [bold red]Template '{template}' not found.[/bold red]")
         return
-    
+
     return src_path
 
 
@@ -65,7 +66,14 @@ def setup_modal_com_app(extra_args):
         console.print(f"🚀 [bold cyan]Running: {' '.join(modal_setup_cmd)}[/bold cyan]")
         subprocess.run(modal_setup_cmd, check=True)
     shutil.move(".env.example", ".env")
-    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
+    console.print(
+        """Great! Now you can install the dependencies by doing: \n
+                  `pip install -r requirements.txt`\n
+                  \n
+                  Next steps for you will be:\n
+                  `ec dev`
+                  """
+    )
 
 
 def setup_render_com_app():
@@ -80,16 +88,21 @@ def setup_render_com_app():
         console.print(f"🚀 [bold cyan]Running: {' '.join(render_setup_cmd)}[/bold cyan]")
         subprocess.run(render_setup_cmd, check=True)
     shutil.move(".env.example", ".env")
-    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
+    console.print(
+        """Great! Now you can install the dependencies by doing: \n
+                  `pip install -r requirements.txt`\n
+                  \n
+                  Next steps for you will be:\n
+                  `ec dev`
+                  """
+    )
 
 
 @cli.command()
 @click.option("--template", default="fly.io", help="The template to use.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def create(template, extra_args):
-    anonymous_telemetry.capture(
-        event_name="ec_create", properties={"template_used": template}
-    )
+    anonymous_telemetry.capture(event_name="ec_create", properties={"template_used": template})
     src_path = get_pkg_path_from_name(template)
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
     console.print(f"✅ [bold green]Successfully created app from template '{template}'.[/bold green]")
@@ -166,9 +179,7 @@ def dev(debug, host, port):
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
 
-    anonymous_telemetry.capture(
-        event_name="ec_dev", properties={"template_used": template}
-    )
+    anonymous_telemetry.capture(event_name="ec_dev", properties={"template_used": template})
     if template == "fly.io":
         run_dev_fly_io(debug, host, port)
     elif template == "modal.com":
@@ -272,9 +283,7 @@ def deploy():
         embedchain_config = json.load(file)
         template = embedchain_config["provider"]
 
-    anonymous_telemetry.capture(
-        event_name="ec_deploy", properties={"template_used": template}
-    )
+    anonymous_telemetry.capture(event_name="ec_deploy", properties={"template_used": template})
     if template == "fly.io":
         deploy_fly()
     elif template == "modal.com":

@@ -55,7 +55,7 @@ This `create` command will open a browser window and ask you to login to your re
 Feel free to edit the files as required.
 - `app.py`: Contains API app code
 - `.env`: Contains environment variables for production
-- `render.yaml`: Contains render.com specific configuration for deployment (configure this according to your needs)
+- `render.yaml`: Contains render.com specific configuration for deployment (configure this according to your needs, follow [this](https://docs.render.com/docs/blueprint-spec) for more info)
 - `embedchain.json`: Contains embedchain specific configuration for deployment (you don't need to configure this)
 - `requirements.txt`: Contains python dependencies for your application
 
@@ -72,7 +72,7 @@ ec dev
 
 Before deploying to render.com, you only have to set up one thing. 
 
-In the `render.yaml` file, update the **repo** key. Put the link of your git repository where your app is located. You can use a repository from [GitHub](https://github.com) or [GitLab](https://gitlab.com/users/sign_in).
+In the render.yaml file, make sure to modify the repo key by inserting the URL of your Git repository where your application will be hosted. You can create a repository from [GitHub](https://github.com) or [GitLab](https://gitlab.com/users/sign_in).
 
 After that, you're ready to deploy on render.com.
 
