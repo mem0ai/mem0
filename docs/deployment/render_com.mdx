@@ -70,12 +70,17 @@ ec dev
 
 ## Step-4: Deploy to render.com
 
-You can deploy to render.com using the following command:
+Before deploying to render.com, you only have to set up one thing. 
+
+In the `render.yaml` file, update the **repo** key. Put the link of your git repository where your app is located. You can use a repository from [GitHub](https://github.com) or [GitLab](https://gitlab.com/users/sign_in).
+
+After that, you're ready to deploy on render.com.
+
 ```bash Deploy app
 ec deploy
 ```
 
-Once this step finished, it will provide you with the deployment endpoint where you can access the app live. It will look something like this (Swagger docs):
+When you run this, it should open up your render dashboard and you can see the app being deployed. You can find your hosted link over there only.
 
 You can also check the logs, monitor app status etc on their dashboard by running command `render dashboard`.
 

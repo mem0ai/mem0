@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: render-app
+    name: ec-render-app
     runtime: python
     repo: https://github.com/<your-username>/<repo-name>
     scaling:
@@ -10,8 +10,6 @@ services:
       targetCPUPercent: 60 # optional if targetMemory is set
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0
-    domains:
-      - <your-custom-domain>.render.com
     envVars:
       - key: OPENAI_API_KEY
         value: sk-xxx
