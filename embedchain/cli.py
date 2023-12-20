@@ -99,7 +99,7 @@ def setup_render_com_app():
 
 
 def setup_streamlit_io_app():
-    shutil.move(".env.example", ".env")
+    # nothing needs to be done here
     console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
 
 
