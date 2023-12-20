@@ -70,7 +70,7 @@ def setup_modal_com_app(extra_args):
         """Great! Now you can install the dependencies by doing: \n
                   `pip install -r requirements.txt`\n
                   \n
-                  Next steps for you will be:\n
+                  To run your app locally:\n
                   `ec dev`
                   """
     )
