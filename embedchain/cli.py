@@ -144,16 +144,20 @@ def run_dev_modal_com():
 
 
 def run_dev_render_com(debug, host, port):
-    render_run_cmd = ["flask", "run", "--host", host, "--port", str(port)]
+    uvicorn_command = ["uvicorn", "app:app"]
 
     if debug:
-        render_run_cmd.append("--debug")
+        uvicorn_command.append("--reload")
+
+    uvicorn_command.extend(["--host", host, "--port", str(port)])
 
     try:
-        console.print(f"🚀 [bold cyan]Running Flask app with command: {' '.join(render_run_cmd)}[/bold cyan]")
-        subprocess.run(render_run_cmd, check=True)
+        console.print(f"🚀 [bold cyan]Running FastAPI app with command: {' '.join(uvicorn_command)}[/bold cyan]")
+        subprocess.run(uvicorn_command, check=True)
     except subprocess.CalledProcessError as e:
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except KeyboardInterrupt:
+        console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
 
 
 @cli.command()
