@@ -1,6 +1,10 @@
 import streamlit as st
 from embedchain import Pipeline as App
 
+@st.cache_resource
+def embedchain_bot():
+    return App()
+
 st.title("💬 Chatbot")
 st.caption("🚀 An Embedchain app powered by OpenAI!")
 if "messages" not in st.session_state:
@@ -20,7 +24,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 if prompt := st.chat_input("Ask me anything!"):
-    app = App()
+    app = embedchain_bot()
 
     if prompt.startswith("/add"):
         with st.chat_message("user"):

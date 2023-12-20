@@ -164,7 +164,7 @@ def run_dev_streamlit_io():
     except subprocess.CalledProcessError as e:
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except KeyboardInterrupt:
-        console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
+        console.print("\n🛑 [bold yellow]Streamlit server stopped[/bold yellow]")
 
 def run_dev_render_com(debug, host, port):
     uvicorn_command = ["uvicorn", "app:app"]
