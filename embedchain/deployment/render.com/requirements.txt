@@ -1,5 +1,4 @@
-numpy==1.24.3
-Flask==2.2.2
-Werkzeug==2.2.2
-gunicorn
+fastapi==0.104.0
+uvicorn==0.23.2
 embedchain
+beautifulsoup4

@@ -88,7 +88,8 @@
       "pages": [
         "get-started/deployment",
         "deployment/fly_io",
-        "deployment/modal_com"
+        "deployment/modal_com",
+        "deployment/render_com"
       ]
     },
     {

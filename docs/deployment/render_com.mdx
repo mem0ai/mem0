@@ -1,0 +1,93 @@
+---
+title: 'Render.com'
+description: 'Deploy your RAG application to render.com platform'
+---
+
+Embedchain has a nice and simple abstraction on top of the [render.com](https://render.com/) tools to let developers deploy RAG application to render.com platform seamlessly. 
+
+Follow the instructions given below to deploy your first application quickly:
+
+## Step-1: Install `render` command line
+
+<CodeGroup>
+```bash OSX
+brew tap render-oss/render
+brew install render
+```
+
+```bash Linux
+# Make sure you have deno installed -> https://docs.render.com/docs/cli#from-source-unsupported-operating-systems
+git clone https://github.com/render-oss/render-cli
+cd render-cli
+make deps
+deno task run
+deno compile
+```
+
+```bash Windows
+choco install rendercli
+```
+</CodeGroup>
+
+In case you run into issues, refer to official [render.com docs](https://docs.render.com/docs/cli).
+
+## Step-2 Create RAG application: 
+
+We provide a command line utility called `ec` in embedchain that inherits the template for `render.com` platform and help you deploy the app. Follow the instructions to create a render.com app using the template provided:
+
+
+```bash Create application
+pip install embedchain
+mkdir my-rag-app
+ec create --template=render.com
+```
+
+This `create` command will open a browser window and ask you to login to your render.com account and will generate a directory structure like this:
+
+```bash
+├── app.py
+├── .env
+├── render.yaml
+├── embedchain.json
+└── requirements.txt
+```
+
+Feel free to edit the files as required.
+- `app.py`: Contains API app code
+- `.env`: Contains environment variables for production
+- `render.yaml`: Contains render.com specific configuration for deployment (configure this according to your needs, follow [this](https://docs.render.com/docs/blueprint-spec) for more info)
+- `embedchain.json`: Contains embedchain specific configuration for deployment (you don't need to configure this)
+- `requirements.txt`: Contains python dependencies for your application
+
+## Step-3: Test app locally
+
+You can run the app locally by simply doing:
+
+```bash Run locally
+pip install -r requirements.txt
+ec dev
+```
+
+## Step-4: Deploy to render.com
+
+Before deploying to render.com, you only have to set up one thing. 
+
+In the render.yaml file, make sure to modify the repo key by inserting the URL of your Git repository where your application will be hosted. You can create a repository from [GitHub](https://github.com) or [GitLab](https://gitlab.com/users/sign_in).
+
+After that, you're ready to deploy on render.com.
+
+```bash Deploy app
+ec deploy
+```
+
+When you run this, it should open up your render dashboard and you can see the app being deployed. You can find your hosted link over there only.
+
+You can also check the logs, monitor app status etc on their dashboard by running command `render dashboard`.
+
+<img src="/images/fly_io.png" />
+
+## Seeking help?
+
+If you run into issues with deployment, please feel free to reach out to us via any of the following methods:
+
+<Snippet file="get-help.mdx" />

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ec-render-app
+    runtime: python
+    repo: https://github.com/<your-username>/<repo-name>
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 60 # optional if targetCPUPercent is set
+      targetCPUPercent: 60 # optional if targetMemory is set
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0
+    envVars:
+      - key: OPENAI_API_KEY
+        value: sk-xxx
+    autoDeploy: false # optional
