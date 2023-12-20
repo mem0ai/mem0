@@ -9,9 +9,9 @@ services:
       targetMemoryPercent: 60 # optional if targetCPUPercent is set
       targetCPUPercent: 60 # optional if targetMemory is set
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m app
+    startCommand: uvicorn app:app --host 0.0.0.0
     domains:
-      - <the-render-url-you-want>.render.com
+      - <your-custom-domain>.render.com
     envVars:
       - key: OPENAI_API_KEY
         value: sk-xxx
