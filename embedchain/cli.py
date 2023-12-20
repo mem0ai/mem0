@@ -60,9 +60,26 @@ def setup_modal_com_app(extra_args):
             `pip install -r requirements.txt`[/bold green]"""
         )
         return
-    modal_setup_cmd = ["modal", "setup"] + list(extra_args)
-    console.print(f"🚀 [bold cyan]Running: {' '.join(modal_setup_cmd)}[/bold cyan]")
-    subprocess.run(modal_setup_cmd, check=True)
+    else:
+        modal_setup_cmd = ["modal", "setup"] + list(extra_args)
+        console.print(f"🚀 [bold cyan]Running: {' '.join(modal_setup_cmd)}[/bold cyan]")
+        subprocess.run(modal_setup_cmd, check=True)
+    shutil.move(".env.example", ".env")
+    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
+
+
+def setup_render_com_app():
+    render_setup_file = os.path.join(os.path.expanduser("~"), ".render/config.yaml")
+    if os.path.exists(render_setup_file):
+        console.print(
+            """✅ [bold green]Render setup already done. You can now install the dependencies by doing \n
+            `pip install -r requirements.txt`[/bold green]"""
+        )
+        return
+    else:
+        render_setup_cmd = ["render", "config", "init"]
+        console.print(f"🚀 [bold cyan]Running: {' '.join(render_setup_cmd)}[/bold cyan]")
+        subprocess.run(render_setup_cmd, check=True)
     shutil.move(".env.example", ".env")
     console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
 
@@ -85,6 +102,8 @@ def create(template, extra_args):
         setup_fly_io_app(extra_args)
     elif template == "modal.com":
         setup_modal_com_app(extra_args)
+    elif template == "render.com":
+        setup_render_com_app()
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
@@ -124,6 +143,19 @@ def run_dev_modal_com():
         console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
 
 
+def run_dev_render_com(debug, host, port):
+    render_run_cmd = ["flask", "run", "--host", host, "--port", str(port)]
+
+    if debug:
+        render_run_cmd.append("--debug")
+
+    try:
+        console.print(f"🚀 [bold cyan]Running Flask app with command: {' '.join(render_run_cmd)}[/bold cyan]")
+        subprocess.run(render_run_cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+
+
 @cli.command()
 @click.option("--debug", is_flag=True, help="Enable or disable debug mode.")
 @click.option("--host", default="127.0.0.1", help="The host address to run the FastAPI app on.")
@@ -141,6 +173,8 @@ def dev(debug, host, port):
         run_dev_fly_io(debug, host, port)
     elif template == "modal.com":
         run_dev_modal_com()
+    elif template == "render.com":
+        run_dev_render_com(debug, host, port)
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
@@ -215,6 +249,21 @@ def deploy_modal():
         )
 
 
+def deploy_render():
+    render_deploy_cmd = ["render", "blueprint", "launch"]
+
+    try:
+        console.print(f"🚀 [bold cyan]Running: {' '.join(render_deploy_cmd)}[/bold cyan]")
+        subprocess.run(render_deploy_cmd, check=True)
+        console.print("✅ [bold green]'render blueprint launch' executed successfully.[/bold green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except FileNotFoundError:
+        console.print(
+            "❌ [bold red]'render' command not found. Please ensure Render CLI is installed and in your PATH.[/bold red]"
+        )
+
+
 @cli.command()
 def deploy():
     # Check for platform-specific files
@@ -230,5 +279,7 @@ def deploy():
         deploy_fly()
     elif template == "modal.com":
         deploy_modal()
+    elif template == "render.com":
+        deploy_render()
     else:
         console.print("❌ [bold red]No recognized deployment platform found.[/bold red]")

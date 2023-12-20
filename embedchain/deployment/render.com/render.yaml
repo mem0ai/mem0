@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: render-app
+    runtime: python
+    repo: https://github.com/<your-username>/<repo-name>
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 60 # optional if targetCPUPercent is set
+      targetCPUPercent: 60 # optional if targetMemory is set
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app
+    domains:
+      - <the-render-url-you-want>.render.com
+    envVars:
+      - key: OPENAI_API_KEY
+        value: sk-xxx
+    autoDeploy: false # optional

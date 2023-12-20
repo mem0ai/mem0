@@ -1,13 +1,12 @@
 import logging
-import os
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from embedchain import Pipeline as App
 
+load_dotenv()
 app = Flask(__name__)
-
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
 
 @app.route("/add", methods=["POST"])
