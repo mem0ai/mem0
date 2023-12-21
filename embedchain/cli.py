@@ -169,6 +169,7 @@ def run_dev_streamlit_io():
     except KeyboardInterrupt:
         console.print("\n🛑 [bold yellow]Streamlit server stopped[/bold yellow]")
 
+
 def run_dev_render_com(debug, host, port):
     uvicorn_command = ["uvicorn", "app:app"]
 
@@ -298,6 +299,7 @@ def deploy_streamlit():
             """❌ [bold red]'streamlit' command not found.\n
             Please ensure Streamlit CLI is installed and in your PATH.[/bold red]"""
         )
+
 
 def deploy_render():
     render_deploy_cmd = ["render", "blueprint", "launch"]
