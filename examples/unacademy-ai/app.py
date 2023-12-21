@@ -1,9 +1,11 @@
 import queue
 
 import streamlit as st
+
 from embedchain import Pipeline as App
 from embedchain.config import BaseLlmConfig
-from embedchain.helpers.callbacks import StreamingStdOutCallbackHandlerYield, generate
+from embedchain.helpers.callbacks import (StreamingStdOutCallbackHandlerYield,
+                                          generate)
 
 
 @st.cache_resource
@@ -19,7 +21,9 @@ assistant_avatar_url = "https://cdn-images-1.medium.com/v2/resize:fit:1200/1*LdF
 st.markdown(f"# <img src='{assistant_avatar_url}' width={35} /> Unacademy UPSC AI", unsafe_allow_html=True)
 
 styled_caption = """
-<p style="font-size: 17px; color: #aaa;">🚀 An <a href="https://github.com/embedchain/embedchain">Embedchain</a> app powered with Unacademy\'s UPSC data!</p>
+<p style="font-size: 17px; color: #aaa;">
+🚀 An <a href="https://github.com/embedchain/embedchain">Embedchain</a> app powered with Unacademy\'s UPSC data!
+</p>
 """
 st.markdown(styled_caption, unsafe_allow_html=True)
 
@@ -33,7 +37,10 @@ with st.expander(":grey[Want to create your own Unacademy UPSC AI?]"):
     ```python
     from embedchain import Pipeline as App
     unacademy_ai_app = App()
-    unacademy_ai_app.add("https://unacademy.com/content/upsc/study-material/plan-policy/atma-nirbhar-bharat-3-0/", data_type="web_page")
+    unacademy_ai_app.add(
+        "https://unacademy.com/content/upsc/study-material/plan-policy/atma-nirbhar-bharat-3-0/",
+        data_type="web_page"
+    )
     unacademy_ai_app.chat("What is Atma Nirbhar 3.0?")
     ```
 
@@ -45,7 +52,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
-            "content": """Hi, I'm Unacademy UPSC AI bot, who can answer any questions related to UPSC preparation. Let me help you prepare better for UPSC.\n
+            "content": """Hi, I'm Unacademy UPSC AI bot, who can answer any questions related to UPSC preparation.
+            Let me help you prepare better for UPSC.\n
 Sample questions:
 - What are the subjects in UPSC CSE?
 - What is the CSE scholarship price amount?
