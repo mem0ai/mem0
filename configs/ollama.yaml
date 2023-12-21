@@ -1,0 +1,12 @@
+llm:
+  provider: ollama
+  config:
+    model: 'llama2'
+    temperature: 0.5
+    top_p: 1
+    stream: true
+
+embedder:
+  provider: huggingface
+  config:
+    model: 'BAAI/bge-small-en-v1.5'

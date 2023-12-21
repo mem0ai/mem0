@@ -8,6 +8,7 @@ CONFIG_YAMLS = [
     "configs/chroma.yaml",
     "configs/chunker.yaml",
     "configs/cohere.yaml",
+    "configs/ollama.yaml",
     "configs/full-stack.yaml",
     "configs/gpt4.yaml",
     "configs/gpt4all.yaml",
