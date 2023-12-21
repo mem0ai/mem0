@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.37"
+version = "0.1.38"
 description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -145,6 +145,7 @@ feedparser = { version = "^6.0.10", optional = true }
 newspaper3k = { version = "^0.2.8", optional = true }
 listparser = { version = "^0.19", optional = true }
 google-generativeai = { version = "^0.3.0", optional = true }
+modal = { version = "^0.56.4329", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -210,6 +211,7 @@ rss_feed = [
     "newspaper3k"
 ]
 google = ["google-generativeai"]
+modal = ["modal"]
 
 [tool.poetry.group.docs.dependencies]
 
