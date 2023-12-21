@@ -103,12 +103,39 @@ def setup_streamlit_io_app():
     console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
 
 
+def setup_gradio_app():
+    # nothing needs to be done here
+    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
+
+
+def setup_hf_app():
+    subprocess.run(["pip", "install", "huggingface_hub[cli]"], check=True)
+    hf_setup_file = os.path.join(os.path.expanduser("~"), ".cache/huggingface/token")
+    if os.path.exists(hf_setup_file):
+        console.print(
+            """✅ [bold green]HuggingFace setup already done. You can now install the dependencies by doing \n
+            `pip install -r requirements.txt`[/bold green]"""
+        )
+    else:
+        console.print(
+            """🚀 [cyan]Running: huggingface-cli login \n
+                Please provide a [bold]WRITE[/bold] token so that we can directly deploy\n
+                your apps from the terminal.[/cyan]
+                """
+        )
+        subprocess.run(["huggingface-cli", "login"], check=True)
+    console.print("Great! Now you can install the dependencies by doing `pip install -r requirements.txt`")
+
+
 @cli.command()
 @click.option("--template", default="fly.io", help="The template to use.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def create(template, extra_args):
     anonymous_telemetry.capture(event_name="ec_create", properties={"template_used": template})
-    src_path = get_pkg_path_from_name(template)
+    template_dir = template
+    if "/" in template_dir:
+        template_dir = template.split("/")[1]
+    src_path = get_pkg_path_from_name(template_dir)
     shutil.copytree(src_path, os.getcwd(), dirs_exist_ok=True)
     console.print(f"✅ [bold green]Successfully created app from template '{template}'.[/bold green]")
 
@@ -120,6 +147,10 @@ def create(template, extra_args):
         setup_render_com_app()
     elif template == "streamlit.io":
         setup_streamlit_io_app()
+    elif template == "gradio.app":
+        setup_gradio_app()
+    elif template == "hf/gradio.app" or template == "hf/streamlit.app":
+        setup_hf_app()
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
@@ -187,6 +218,17 @@ def run_dev_render_com(debug, host, port):
         console.print("\n🛑 [bold yellow]FastAPI server stopped[/bold yellow]")
 
 
+def run_dev_gradio():
+    gradio_run_cmd = ["gradio", "app.py"]
+    try:
+        console.print(f"🚀 [bold cyan]Running Gradio app with command: {' '.join(gradio_run_cmd)}[/bold cyan]")
+        subprocess.run(gradio_run_cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except KeyboardInterrupt:
+        console.print("\n🛑 [bold yellow]Gradio server stopped[/bold yellow]")
+
+
 @cli.command()
 @click.option("--debug", is_flag=True, help="Enable or disable debug mode.")
 @click.option("--host", default="127.0.0.1", help="The host address to run the FastAPI app on.")
@@ -204,8 +246,10 @@ def dev(debug, host, port):
         run_dev_modal_com()
     elif template == "render.com":
         run_dev_render_com(debug, host, port)
-    elif template == "streamlit.io":
+    elif template == "streamlit.io" or template == "hf/streamlit.app":
         run_dev_streamlit_io()
+    elif template == "gradio.app" or template == "hf/gradio.app":
+        run_dev_gradio()
     else:
         raise ValueError(f"Unknown template '{template}'.")
 
@@ -316,12 +360,43 @@ def deploy_render():
         )
 
 
+def deploy_gradio_app():
+    gradio_deploy_cmd = ["gradio", "deploy"]
+
+    try:
+        console.print(f"🚀 [bold cyan]Running: {' '.join(gradio_deploy_cmd)}[/bold cyan]")
+        subprocess.run(gradio_deploy_cmd, check=True)
+        console.print("✅ [bold green]'gradio deploy' executed successfully.[/bold green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+    except FileNotFoundError:
+        console.print(
+            "❌ [bold red]'gradio' command not found. Please ensure Gradio CLI is installed and in your PATH.[/bold red]"
+        )
+
+
+def deploy_hf_spaces(ec_app_name):
+    if not ec_app_name:
+        console.print("❌ [bold red]'name' not found in embedchain.json[/bold red]")
+        return
+    hf_spaces_deploy_cmd = ["huggingface-cli", "upload", ec_app_name, ".", ".", "--repo-type=space"]
+
+    try:
+        console.print(f"🚀 [bold cyan]Running: {' '.join(hf_spaces_deploy_cmd)}[/bold cyan]")
+        subprocess.run(hf_spaces_deploy_cmd, check=True)
+        console.print("✅ [bold green]'huggingface-cli upload' executed successfully.[/bold green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
+
+
 @cli.command()
 def deploy():
     # Check for platform-specific files
     template = ""
+    ec_app_name = ""
     with open("embedchain.json", "r") as file:
         embedchain_config = json.load(file)
+        ec_app_name = embedchain_config["name"] if "name" in embedchain_config else None
         template = embedchain_config["provider"]
 
     anonymous_telemetry.capture(event_name="ec_deploy", properties={"template_used": template})
@@ -333,5 +408,9 @@ def deploy():
         deploy_render()
     elif template == "streamlit.io":
         deploy_streamlit()
+    elif template == "gradio.app":
+        deploy_gradio_app()
+    elif template.startswith("hf/"):
+        deploy_hf_spaces(ec_app_name)
     else:
         console.print("❌ [bold red]No recognized deployment platform found.[/bold red]")
