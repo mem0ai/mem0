@@ -146,6 +146,7 @@ response = app.query("What is the net worth of Elon Musk?")
 </Accordion>
 
 <Accordion title="How to persist data across multiple app sessions?">
+  Set up the app by adding an `id` in the config file. This keeps the data for future use. You can include this `id` in the yaml config or input it directly in `config` dict.
   ```python app1.py
   import os
   from embedchain import Pipeline as App
