@@ -144,6 +144,45 @@ response = app.query("What is the net worth of Elon Musk?")
 ```
 </CodeGroup>
 </Accordion>
+
+<Accordion title="How to persist data across multiple app sessions?">
+  Set up the app by adding an `id` in the config file. This keeps the data for future use. You can include this `id` in the yaml config or input it directly in `config` dict.
+  ```python app1.py
+  import os
+  from embedchain import Pipeline as App
+
+  os.environ['OPENAI_API_KEY'] = 'sk-xxx'
+
+  app1 = App.from_config(config={
+    "app": {
+      "config": {
+        "id": "your-app-id",
+      }
+    }
+  })
+
+  app1.add("https://www.forbes.com/profile/elon-musk")
+
+  response = app1.query("What is the net worth of Elon Musk?")
+  ```
+  ```python app2.py
+  import os
+  from embedchain import Pipeline as App
+
+  os.environ['OPENAI_API_KEY'] = 'sk-xxx'
+
+  app2 = App.from_config(config={
+    "app": {
+      "config": {
+        # this will persist and load data from app1 session
+        "id": "your-app-id",
+      }
+    }
+  })
+
+  response = app2.query("What is the net worth of Elon Musk?")
+  ```
+</Accordion>
 </AccordionGroup>
 
 #### Still have questions?
