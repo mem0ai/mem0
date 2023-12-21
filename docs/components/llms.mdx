@@ -12,6 +12,7 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Cohere" href="#cohere"></Card>
+  <Card title="Ollama" href="#Ollama"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="JinaChat" href="#jinachat"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
@@ -325,6 +326,32 @@ llm:
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
+```
+
+</CodeGroup>
+
+## Ollama
+
+Setup Ollama using https://github.com/jmorganca/ollama
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import Pipeline as App
+
+# load llm configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: ollama
+  config:
+    model: 'llama2'
+    temperature: 0.5
+    top_p: 1
+    stream: true
 ```
 
 </CodeGroup>
