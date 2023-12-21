@@ -385,6 +385,7 @@ def validate_config(config_data):
                     "huggingface",
                     "cohere",
                     "gpt4all",
+                    "ollama",
                     "jina",
                     "llama2",
                     "vertexai",
