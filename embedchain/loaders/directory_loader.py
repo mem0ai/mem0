@@ -38,6 +38,9 @@ class DirectoryLoader(BaseLoader):
     def _process_directory(self, directory_path: Path):
         data_list = []
         for file_path in directory_path.rglob("*") if self.recursive else directory_path.glob("*"):
+            # don't include dotfiles
+            if file_path.name.startswith("."):
+                continue
             if file_path.is_file() and (not self.extensions or any(file_path.suffix == ext for ext in self.extensions)):
                 loader = self._predict_loader(file_path)
                 data_list.extend(loader.load_data(str(file_path))["data"])

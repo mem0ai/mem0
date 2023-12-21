@@ -90,7 +90,8 @@
         "deployment/fly_io",
         "deployment/modal_com",
         "deployment/render_com",
-        "deployment/streamlit_io"
+        "deployment/streamlit_io",
+        "deployment/embedchain_ai"
       ]
     },
     {
