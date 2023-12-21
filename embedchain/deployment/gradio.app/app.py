@@ -1,13 +1,18 @@
-import random
+import os
 
 import gradio as gr
 
+from embedchain import Pipeline as App
 
-def random_response(message, history):
-    return random.choice(["Yes", "No"])
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+
+app = App()
 
 
-demo = gr.ChatInterface(random_response)
+def query(message, history):
+    return app.chat(message)
 
-if __name__ == "__main__":
-    demo.launch()
+
+demo = gr.ChatInterface(query)
+
+demo.launch()
