@@ -9,6 +9,7 @@ def ollama_llm_config():
     config = BaseLlmConfig(model="llama2", temperature=0.7, top_p=0.8, stream=True, system_prompt=None)
     yield config
 
+
 def test_get_llm_model_answer(ollama_llm_config, mocker):
     mocker.patch("embedchain.llm.ollama.OllamaLlm._get_answer", return_value="Test answer")
 
@@ -33,6 +34,6 @@ def test_get_answer_mocked_ollama(ollama_llm_config, mocker):
         system=None,
         temperature=0.7,
         top_p=0.8,
-        callback_manager=mocker.ANY  # Use mocker.ANY to ignore the exact instance
+        callback_manager=mocker.ANY,  # Use mocker.ANY to ignore the exact instance
     )
     mock_instance.assert_called_once_with(prompt)

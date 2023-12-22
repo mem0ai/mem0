@@ -19,7 +19,7 @@ class OllamaLlm(BaseLlm):
 
     def get_llm_model_answer(self, prompt):
         return self._get_answer(prompt=prompt, config=self.config)
-    
+
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         callback_manager = [StreamingStdOutCallbackHandler()] if config.stream else [StdOutCallbackHandler()]
 
@@ -28,7 +28,7 @@ class OllamaLlm(BaseLlm):
             system=config.system_prompt,
             temperature=config.temperature,
             top_p=config.top_p,
-            callback_manager=CallbackManager(callback_manager)
+            callback_manager=CallbackManager(callback_manager),
         )
 
         return llm(prompt)
