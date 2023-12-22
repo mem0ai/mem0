@@ -1,4 +1,4 @@
-### Streamlit Chat PDF App (Embedchain + OpenAI)
+# Embedchain Chat with PDF App
 
 You can easily create and deploy your own `Chat-with-PDF` App using Embedchain.
 
