@@ -1,5 +1,8 @@
 import logging
-from typing import Dict, List, Optional, Set, Tuple, Union
+import time
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+from tqdm import tqdm
 
 try:
     from opensearchpy import OpenSearch
@@ -13,7 +16,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import OpenSearchVectorSearch
 
 from embedchain.config import OpenSearchDBConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 
@@ -22,6 +25,8 @@ class OpenSearchDB(BaseVectorDB):
     """
     OpenSearch as vector database
     """
+
+    BATCH_SIZE = 100
 
     def __init__(self, config: OpenSearchDBConfig):
         """OpenSearch as vector database.
@@ -116,34 +121,45 @@ class OpenSearchDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, any]],
     ):
-        """add data in vector database
+        """Add data in vector database.
 
-        :param embeddings: list of embeddings to add
-        :type embeddings: List[List[str]]
-        :param documents: list of texts to add
-        :type documents: List[str]
-        :param metadatas: list of metadata associated with docs
-        :type metadatas: List[object]
-        :param ids: ids of docs
-        :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
-        :type skip_embedding: bool
+        Args:
+            embeddings (List[List[str]]): List of embeddings to add.
+            documents (List[str]): List of texts to add.
+            metadatas (List[object]): List of metadata associated with docs.
+            ids (List[str]): IDs of docs.
+            skip_embedding (bool): If True, then embeddings are assumed to be already generated.
         """
+        for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
+            batch_end = batch_start + self.BATCH_SIZE
+            batch_documents = documents[batch_start:batch_end]
 
-        docs = []
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
-        for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
-            docs.append(
+            # Generate embeddings for the batch if not skipping embedding
+            if not skip_embedding:
+                batch_embeddings = self.embedder.embedding_fn(batch_documents)
+            else:
+                batch_embeddings = embeddings[batch_start:batch_end]
+
+            # Create document entries for bulk upload
+            batch_entries = [
                 {
                     "_index": self._get_index(),
-                    "_id": id,
-                    "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
+                    "_id": doc_id,
+                    "_source": {"text": text, "metadata": metadata, "embeddings": embedding},
                 }
-            )
-        bulk(self.client, docs)
-        self.client.indices.refresh(index=self._get_index())
+                for doc_id, text, metadata, embedding in zip(
+                    ids[batch_start:batch_end], batch_documents, metadatas[batch_start:batch_end], batch_embeddings
+                )
+            ]
+
+            # Perform bulk operation
+            bulk(self.client, batch_entries, **kwargs)
+            self.client.indices.refresh(index=self._get_index())
+
+            # Sleep to avoid rate limiting
+            time.sleep(0.1)
 
     def query(
         self,
@@ -152,6 +168,7 @@ class OpenSearchDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         query contents from vector data base based on vector similarity
@@ -194,6 +211,7 @@ class OpenSearchDB(BaseVectorDB):
             metadata_field="metadata",
             pre_filter=pre_filter,
             k=n_results,
+            **kwargs,
         )
 
         contexts = []
@@ -236,7 +254,7 @@ class OpenSearchDB(BaseVectorDB):
         """
         # Delete all data from the database
         if self.client.indices.exists(index=self._get_index()):
-            # delete index in Es
+            # delete index in ES
             self.client.indices.delete(index=self._get_index())
 
     def delete(self, where):

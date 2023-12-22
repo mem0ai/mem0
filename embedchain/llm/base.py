@@ -7,7 +7,7 @@ from embedchain.config import BaseLlmConfig
 from embedchain.config.llm.base import (DEFAULT_PROMPT,
                                         DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
                                         DOCS_SITE_PROMPT_TEMPLATE)
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ECChatMemory
 from embedchain.memory.message import ChatMessage
 
@@ -48,8 +48,7 @@ class BaseLlm(JSONSerializable):
     def update_history(self, app_id: str):
         """Update class history attribute with history in memory (for chat method)"""
         chat_history = self.memory.get_recent_memories(app_id=app_id, num_rounds=10)
-        if chat_history:
-            self.set_history([str(history) for history in chat_history])
+        self.set_history([str(history) for history in chat_history])
 
     def add_history(self, app_id: str, question: str, answer: str, metadata: Optional[Dict[str, Any]] = None):
         chat_message = ChatMessage()
@@ -147,21 +146,7 @@ class BaseLlm(JSONSerializable):
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def _stream_query_response(self, answer: Any) -> Generator[Any, Any, None]:
-        """Generator to be used as streaming response
-
-        :param answer: Answer chunk from llm
-        :type answer: Any
-        :yield: Answer chunk from llm
-        :rtype: Generator[Any, Any, None]
-        """
-        streamed_answer = ""
-        for chunk in answer:
-            streamed_answer = streamed_answer + chunk
-            yield chunk
-        logging.info(f"Answer: {streamed_answer}")
-
-    def _stream_chat_response(self, answer: Any) -> Generator[Any, Any, None]:
+    def _stream_response(self, answer: Any) -> Generator[Any, Any, None]:
         """Generator to be used as streaming response
 
         :param answer: Answer chunk from llm
@@ -217,12 +202,11 @@ class BaseLlm(JSONSerializable):
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
-
             if isinstance(answer, str):
                 logging.info(f"Answer: {answer}")
                 return answer
             else:
-                return self._stream_query_response(answer)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config
@@ -271,14 +255,12 @@ class BaseLlm(JSONSerializable):
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
-
             if isinstance(answer, str):
                 logging.info(f"Answer: {answer}")
-
                 return answer
             else:
                 # this is a streamed response and needs to be handled differently.
-                return self._stream_chat_response(answer)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config

@@ -66,7 +66,7 @@ def test_discourse_loader_load_post_with_valid_post_id(discourse_loader, monkeyp
     assert "meta_data" in post_data
 
 
-def test_discourse_loader_load_post_with_invalid_post_id(discourse_loader, monkeypatch):
+def test_discourse_loader_load_post_with_invalid_post_id(discourse_loader, monkeypatch, caplog):
     def mock_get(*args, **kwargs):
         class MockResponse:
             def raise_for_status(self):
@@ -76,8 +76,9 @@ def test_discourse_loader_load_post_with_invalid_post_id(discourse_loader, monke
 
     monkeypatch.setattr(requests, "get", mock_get)
 
-    with pytest.raises(Exception, match="Test error"):
-        discourse_loader._load_post(123)
+    discourse_loader._load_post(123)
+
+    assert "Failed to load post" in caplog.text
 
 
 def test_discourse_loader_load_data_with_valid_query(discourse_loader, monkeypatch):

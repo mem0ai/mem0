@@ -1,131 +1,66 @@
 ---
 title: 📚 Introduction
-description: '📝 Embedchain is a Data Platform for LLMs - load, index, retrieve, and sync any unstructured data'
 ---
 
-## 🌐 What is Embedchain?
+## What is Embedchain?
 
-Embedchain simplifies data handling by automatically processing unstructured data, breaking it into chunks, generating embeddings, and storing it in a vector database.
+Embedchain is an Open Source RAG Framework that makes it easy to create and deploy AI apps. At its core, Embedchain follows the design principle of being *"Conventional but Configurable"* to serve both software engineers and machine learning engineers.
 
-Through various APIs, you can obtain contextual information for queries, find answers to specific questions, and engage in chat conversations using your data.
-## 🔍 Search
+Embedchain streamlines the creation of RAG applications, offering a seamless process for managing various types of unstructured data. It efficiently segments data into manageable chunks, generates relevant embeddings, and stores them in a vector database for optimized retrieval. With a suite of diverse APIs, it enables users to extract contextual information, find precise answers, or engage in interactive chat conversations, all tailored to their own data.
 
-Embedchain lets you get most relevant context by doing semantic search over your data sources for a provided query. See the example below:
+## Who is Embedchain for?
 
-```python
-from embedchain import Pipeline as App
+Embedchain is designed for a diverse range of users, from AI professionals like Data Scientists and Machine Learning Engineers to those just starting their AI journey, including college students, independent developers, and hobbyists. Essentially, it's for anyone with an interest in AI, regardless of their expertise level.
 
-# Initialize app
-app = App()
+Our APIs are user-friendly yet adaptable, enabling beginners to effortlessly create LLM-powered applications with as few as 4 lines of code. At the same time, we offer extensive customization options for every aspect of the RAG pipeline. This includes the choice of LLMs, vector databases, loaders and chunkers, retrieval strategies, re-ranking, and more.
 
-# Add data source
-app.add("https://www.forbes.com/profile/elon-musk")
+Our platform's clear and well-structured abstraction layers ensure that users can tailor the system to meet their specific needs, whether they're crafting a simple project or a complex, nuanced AI application.
 
-# Get relevant context using semantic search
-context = app.search("What is the net worth of Elon?", num_documents=2)
-print(context)
-# Context:
-# [
-#     {
-#         'context': 'Elon Musk PROFILEElon MuskCEO, Tesla$221.9BReal Time Net Worthas of 10/29/23Reflects change since 5 pm ET of prior trading day. 1 in the world todayPhoto by Martin Schoeller for ForbesAbout Elon MuskElon Musk cofounded six companies, including electric car maker Tesla, rocket producer SpaceX and tunneling startup Boring Company.He owns about 21% of Tesla between stock and options, but has pledged more than half his shares as collateral for personal loans of up to $3.5 billion.SpaceX, founded in',
-#         'source': 'https://www.forbes.com/profile/elon-musk',
-#         'document_id': 'some_document_id'
-#     },
-#     {
-#         'context': 'company, which is now called X.Wealth HistoryHOVER TO REVEAL NET WORTH BY YEARForbes Lists 1Forbes 400 (2023)The Richest Person In Every State (2023) 2Billionaires (2023) 1Innovative Leaders (2019) 25Powerful People (2018) 12Richest In Tech (2017)Global Game Changers (2016)More ListsPersonal StatsAge52Source of WealthTesla, SpaceX, Self MadeSelf-Made Score8Philanthropy Score1ResidenceAustin, TexasCitizenshipUnited StatesMarital StatusSingleChildren11EducationBachelor of Arts/Science, University',
-#         'source': 'https://www.forbes.com/profile/elon-musk',
-#         'document_id': 'some_document_id'
-#     }
-# ]
-```
+## Why Use Embedchain?
 
-## ❓Query
+Developing a robust and efficient RAG (Retrieval-Augmented Generation) pipeline for production use presents numerous complexities, such as:
 
-Embedchain empowers developers to ask questions and receive relevant answers through a user-friendly query API. Refer to the following example to learn how to utilize the query API:
+- Integrating and indexing data from diverse sources.
+- Determining optimal data chunking methods for each source.
+- Synchronizing the RAG pipeline with regularly updated data sources.
+- Implementing efficient data storage in a vector store.
+- Deciding whether to include metadata with document chunks.
+- Handling permission management.
+- Configuring Large Language Models (LLMs).
+- Selecting effective prompts.
+- Choosing suitable retrieval strategies.
+- Assessing the performance of your RAG pipeline.
+- Deploying the pipeline into a production environment, among other concerns.
 
-```python
-from embedchain import Pipeline as App
+Embedchain is designed to simplify these tasks, offering conventional yet customizable APIs. Our solution handles the intricate processes of loading, chunking, indexing, and retrieving data. This enables you to concentrate on aspects that are crucial for your specific use case or business objectives, ensuring a smoother and more focused development process.
 
-# Initialize app
-app = App()
+## How it works?
 
-# Add data source
-app.add("https://www.forbes.com/profile/elon-musk")
+Embedchain makes it easy to add data to your RAG pipeline with these straightforward steps:
 
-# Get relevant answer for your query
-answer = app.query("What is the net worth of Elon?")
-print(answer)
-# Answer: The net worth of Elon Musk is $221.9 billion.
-```
+1. **Automatic Data Handling**: It automatically recognizes the data type and loads it.
+2. **Efficient Data Processing**: The system creates embeddings for key parts of your data.
+3. **Flexible Data Storage**: You get to choose where to store this processed data in a vector database.
 
-## 💬 Chat
+When a user asks a question, whether for chatting, searching, or querying, Embedchain simplifies the response process:
 
-Embedchain allows easy chatting over your data sources using a user-friendly chat API. Check out the example below to understand how to use the chat API:
+1. **Query Processing**: It turns the user's question into embeddings.
+2. **Document Retrieval**: These embeddings are then used to find related documents in the database.
+3. **Answer Generation**: The related documents are used by the LLM to craft a precise answer.
 
-```python
-from embedchain import Pipeline as App
+With Embedchain, you don’t have to worry about the complexities of building a RAG pipeline. It offers an easy-to-use interface for developing applications with any kind of data.
 
-# Initialize app
-app = App()
+## Getting started
 
-# Add data source
-app.add("https://www.forbes.com/profile/elon-musk")
+Checkout our [quickstart guide](/get-started/quickstart) to start your first RAG application.
 
-# Chat on your data using `.chat()`
-answer = app.chat("How much did Elon pay for Twitter?")
-print(answer)
-# Answer: Elon Musk paid $44 billion for Twitter.
-```
+## Support
 
-## 🚀 Deploy
+Feel free to reach out to us if you have ideas, feedback or questions that we can help out with.
 
-Embedchain enables developers to deploy their LLM-powered apps in production using the Embedchain platform. The platform offers free access to context on your data through its REST API. Once the pipeline is deployed, you can update your data sources anytime after deployment.
+<Snippet file="get-help.mdx" />
 
-See the example below on how to use the deploy API:
+## Contribute
 
-```python
-from embedchain import Pipeline as App
-
-# Initialize app
-app = App()
-
-# Add data source
-app.add("https://www.forbes.com/profile/elon-musk")
-
-# Deploy your pipeline to Embedchain Platform
-app.deploy()
-
-# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
-# ec-xxxxxx
-
-# 🛠️ Creating pipeline on the platform...
-# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
-
-# 🛠️ Adding data to your pipeline...
-# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
-```
-
-## 🚀 How it works?
-
-Embedchain abstracts out the following steps from you to easily create LLM powered apps:
-
-1. Detect the data type and load data
-2. Create meaningful chunks
-3. Create embeddings for each chunk
-4. Store chunks in a vector database
-
-When a user asks a query, the following process happens to find the answer:
-
-1. Create an embedding for the query
-2. Find similar documents for the query from the vector database
-3. Pass the similar documents as context to LLM to get the final answer
-
-The process of loading the dataset and querying involves multiple steps, each with its own nuances:
-
-- How should I chunk the data? What is a meaningful chunk size?
-- How should I create embeddings for each chunk? Which embedding model should I use?
-- How should I store the chunks in a vector database? Which vector database should I use?
-- Should I store metadata along with the embeddings?
-- How should I find similar documents for a query? Which ranking model should I use?
-
-Embedchain takes care of all these nuances and provides a simple interface to create apps on any data.
+- [GitHub](https://github.com/embedchain/embedchain)
+- [Contribution docs](/contribution/dev)

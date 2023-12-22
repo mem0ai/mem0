@@ -13,7 +13,7 @@ from embedchain.config.apps.base_app_config import BaseAppConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
-from embedchain.helper.json_serializable import JSONSerializable
+from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.models.data_type import (DataType, DirectDataType,
@@ -133,7 +133,9 @@ class EmbedChain(JSONSerializable):
         metadata: Optional[Dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
         dry_run=False,
-        **kwargs: Dict[str, Any],
+        loader: Optional[BaseLoader] = None,
+        chunker: Optional[BaseChunker] = None,
+        **kwargs: Optional[Dict[str, Any]],
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -178,10 +180,10 @@ class EmbedChain(JSONSerializable):
             try:
                 data_type = DataType(data_type)
             except ValueError:
-                raise ValueError(
-                    f"Invalid data_type: '{data_type}'.",
-                    f"Please use one of the following: {[data_type.value for data_type in DataType]}",
-                ) from None
+                logging.info(
+                    f"Invalid data_type: '{data_type}', using `custom` instead.\n Check docs to pass the valid data type: `https://docs.embedchain.ai/data-sources/overview`"  # noqa: E501
+                )
+                data_type = DataType.CUSTOM
 
         if not data_type:
             data_type = detect_datatype(source)
@@ -190,21 +192,11 @@ class EmbedChain(JSONSerializable):
         hash_object = hashlib.md5(str(source).encode("utf-8"))
         source_hash = hash_object.hexdigest()
 
-        # Check if the data hash already exists, if so, skip the addition
-        self.cursor.execute(
-            "SELECT 1 FROM data_sources WHERE hash = ? AND pipeline_id = ?", (source_hash, self.config.id)
-        )
-        existing_data = self.cursor.fetchone()
-
-        if existing_data:
-            print(f"Data with hash {source_hash} already exists. Skipping addition.")
-            return source_hash
-
         self.user_asks.append([source, data_type.value, metadata])
 
-        data_formatter = DataFormatter(data_type, config, kwargs)
+        data_formatter = DataFormatter(data_type, config, loader, chunker)
         documents, metadatas, _ids, new_chunks = self._load_and_embed(
-            data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, dry_run
+            data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, config, dry_run, **kwargs
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
@@ -212,7 +204,7 @@ class EmbedChain(JSONSerializable):
         # Insert the data into the 'data' table
         self.cursor.execute(
             """
-            INSERT INTO data_sources (hash, pipeline_id, type, value, metadata)
+            INSERT OR REPLACE INTO data_sources (hash, pipeline_id, type, value, metadata)
             VALUES (?, ?, ?, ?, ?)
         """,
             (source_hash, self.config.id, data_type.value, str(source), json.dumps(metadata)),
@@ -248,7 +240,7 @@ class EmbedChain(JSONSerializable):
         data_type: Optional[DataType] = None,
         metadata: Optional[Dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
-        **kwargs: Dict[str, Any],
+        **kwargs: Optional[Dict[str, Any]],
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -279,7 +271,7 @@ class EmbedChain(JSONSerializable):
             data_type=data_type,
             metadata=metadata,
             config=config,
-            kwargs=kwargs,
+            **kwargs,
         )
 
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
@@ -347,7 +339,9 @@ class EmbedChain(JSONSerializable):
         src: Any,
         metadata: Optional[Dict[str, Any]] = None,
         source_hash: Optional[str] = None,
+        add_config: Optional[AddConfig] = None,
         dry_run=False,
+        **kwargs: Optional[Dict[str, Any]],
     ):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
@@ -366,12 +360,13 @@ class EmbedChain(JSONSerializable):
         app_id = self.config.id if self.config is not None else None
 
         # Create chunks
-        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id)
+        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id, config=add_config.chunker)
         # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         new_doc_id = embeddings_data["doc_id"]
+        embeddings = embeddings_data.get("embeddings")
         if existing_doc_id and existing_doc_id == new_doc_id:
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
@@ -436,11 +431,12 @@ class EmbedChain(JSONSerializable):
         chunks_before_addition = self.db.count()
 
         self.db.add(
-            embeddings=embeddings_data.get("embeddings", None),
+            embeddings=embeddings,
             documents=documents,
             metadatas=metadatas,
             ids=ids,
             skip_embedding=(chunker.data_type == DataType.IMAGES),
+            **kwargs,
         )
         count_new_chunks = self.db.count() - chunks_before_addition
 
@@ -458,7 +454,12 @@ class EmbedChain(JSONSerializable):
         ]
 
     def _retrieve_from_database(
-        self, input_query: str, config: Optional[BaseLlmConfig] = None, where=None, citations: bool = False
+        self,
+        input_query: str,
+        config: Optional[BaseLlmConfig] = None,
+        where=None,
+        citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Queries the vector database based on the given input query.
@@ -502,6 +503,7 @@ class EmbedChain(JSONSerializable):
             where=where,
             skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
             citations=citations,
+            **kwargs,
         )
 
         return contexts
@@ -512,6 +514,7 @@ class EmbedChain(JSONSerializable):
         config: BaseLlmConfig = None,
         dry_run=False,
         where: Optional[Dict] = None,
+        citations: bool = False,
         **kwargs: Dict[str, Any],
     ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
         """
@@ -536,9 +539,8 @@ class EmbedChain(JSONSerializable):
         or the dry run result
         :rtype: str, if citations is False, otherwise Tuple[str,List[Tuple[str,str,str]]]
         """
-        citations = kwargs.get("citations", False)
         contexts = self._retrieve_from_database(
-            input_query=input_query, config=config, where=where, citations=citations
+            input_query=input_query, config=config, where=where, citations=citations, **kwargs
         )
         if citations and len(contexts) > 0 and isinstance(contexts[0], tuple):
             contexts_data_for_llm_query = list(map(lambda x: x[0], contexts))
@@ -563,8 +565,9 @@ class EmbedChain(JSONSerializable):
         config: Optional[BaseLlmConfig] = None,
         dry_run=False,
         where: Optional[Dict[str, str]] = None,
+        citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> str:
+    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -589,9 +592,8 @@ class EmbedChain(JSONSerializable):
         or the dry run result
         :rtype: str, if citations is False, otherwise Tuple[str,List[Tuple[str,str,str]]]
         """
-        citations = kwargs.get("citations", False)
         contexts = self._retrieve_from_database(
-            input_query=input_query, config=config, where=where, citations=citations
+            input_query=input_query, config=config, where=where, citations=citations, **kwargs
         )
         if citations and len(contexts) > 0 and isinstance(contexts[0], tuple):
             contexts_data_for_llm_query = list(map(lambda x: x[0], contexts))
@@ -648,7 +650,7 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
-        self.delete_history()
+        self.delete_chat_history()
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
@@ -659,5 +661,6 @@ class EmbedChain(JSONSerializable):
             display_format=display_format,
         )
 
-    def delete_history(self):
+    def delete_chat_history(self):
         self.llm.memory.delete_chat_history(app_id=self.config.id)
+        self.llm.update_history(app_id=self.config.id)

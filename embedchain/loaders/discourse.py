@@ -1,6 +1,6 @@
-import concurrent.futures
 import hashlib
 import logging
+import time
 from typing import Any, Dict, Optional
 
 import requests
@@ -32,7 +32,11 @@ class DiscourseLoader(BaseLoader):
     def _load_post(self, post_id):
         post_url = f"{self.domain}posts/{post_id}.json"
         response = requests.get(post_url)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            logging.error(f"Failed to load post {post_id}: {e}")
+            return
         response_data = response.json()
         post_contents = clean_string(response_data.get("raw"))
         meta_data = {
@@ -55,18 +59,19 @@ class DiscourseLoader(BaseLoader):
         logging.info(f"Searching data on discourse url: {self.domain}, for query: {query}")
         search_url = f"{self.domain}search.json?q={query}"
         response = requests.get(search_url)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            raise ValueError(f"Failed to search query {query}: {e}")
         response_data = response.json()
         post_ids = response_data.get("grouped_search_result").get("post_ids")
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_post_id = {executor.submit(self._load_post, post_id): post_id for post_id in post_ids}
-            for future in concurrent.futures.as_completed(future_to_post_id):
-                post_id = future_to_post_id[future]
-                try:
-                    post_data = future.result()
-                    data.append(post_data)
-                except Exception as e:
-                    logging.error(f"Failed to load post {post_id}: {e}")
+        for id in post_ids:
+            post_data = self._load_post(id)
+            if post_data:
+                data.append(post_data)
+                data_contents.append(post_data.get("content"))
+            # Sleep for 0.4 sec, to avoid rate limiting. Check `https://meta.discourse.org/t/api-rate-limits/208405/6`
+            time.sleep(0.4)
         doc_id = hashlib.sha256((query + ", ".join(data_contents)).encode()).hexdigest()
         response_data = {"doc_id": doc_id, "data": data}
         return response_data

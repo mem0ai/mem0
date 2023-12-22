@@ -1,0 +1,2 @@
+gradio==4.11.0
+embedchain

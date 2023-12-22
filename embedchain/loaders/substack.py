@@ -1,9 +1,11 @@
-import time
 import hashlib
 import logging
+import time
+from xml.etree import ElementTree
+
 import requests
 
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import is_readable
 
@@ -11,9 +13,7 @@ from embedchain.utils import is_readable
 @register_deserializable
 class SubstackLoader(BaseLoader):
     """
-    This method takes a sitemap URL as input and retrieves
-    all the URLs to use the WebPageLoader to load content
-    of each page.
+    This loader is used to load data from Substack URLs.
     """
 
     def load_data(self, url: str):
@@ -25,9 +25,29 @@ class SubstackLoader(BaseLoader):
                 'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
             ) from None
 
+        if not url.endswith("sitemap.xml"):
+            url = url + "/sitemap.xml"
+
         output = []
         response = requests.get(url)
-        response.raise_for_status()
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise ValueError(
+                f"""
+                Failed to load {url}: {e}. Please use the root substack URL. For example, https://example.substack.com
+                """
+            )
+
+        try:
+            ElementTree.fromstring(response.content)
+        except ElementTree.ParseError:
+            raise ValueError(
+                f"""
+                Failed to parse {url}. Please use the root substack URL. For example, https://example.substack.com
+                """
+            )
 
         soup = BeautifulSoup(response.text, "xml")
         links = [link.text for link in soup.find_all("loc") if link.parent.name == "url" and "/p/" in link.text]
@@ -61,10 +81,10 @@ class SubstackLoader(BaseLoader):
 
         def load_link(link: str):
             try:
-                each_load_data = requests.get(link)
-                each_load_data.raise_for_status()
+                substack_data = requests.get(link)
+                substack_data.raise_for_status()
 
-                soup = BeautifulSoup(response.text, "html.parser")
+                soup = BeautifulSoup(substack_data.text, "html.parser")
                 data = serialize_response(soup)
                 data = str(data)
                 if is_readable(data):
@@ -80,6 +100,6 @@ class SubstackLoader(BaseLoader):
             if data:
                 output.append({"content": data, "meta_data": {"url": link}})
             # TODO: allow users to configure this
-            time.sleep(0.4)  # added to avoid rate limiting
+            time.sleep(1.0)  # added to avoid rate limiting
 
         return {"doc_id": doc_id, "data": output}

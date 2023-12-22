@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import os
@@ -5,8 +6,8 @@ import re
 import string
 from typing import Any
 
-from bs4 import BeautifulSoup
 from schema import Optional, Or, Schema
+from tqdm import tqdm
 
 from embedchain.models.data_type import DataType
 
@@ -15,6 +16,8 @@ def parse_content(content, type):
     implemented = ["html.parser", "lxml", "lxml-xml", "xml", "html5lib"]
     if type not in implemented:
         raise ValueError(f"Parser type {type} not implemented. Please choose one of {implemented}")
+
+    from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(content, type)
     original_size = len(str(soup.get_text()))
@@ -216,6 +219,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
 
+        if url.path.endswith(".mdx") or url.path.endswith(".md"):
+            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            return DataType.MDX
+
         if url.path.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
@@ -255,6 +262,10 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
             return DataType.DOCS_SITE
 
+        if "github.com" in url.netloc:
+            logging.debug(f"Source of `{formatted_source}` detected as `github`.")
+            return DataType.GITHUB
+
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return DataType.WEB_PAGE
@@ -287,6 +298,18 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".xml"):
             logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
             return DataType.XML
+
+        if source.endswith(".mdx") or source.endswith(".md"):
+            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            return DataType.MDX
+
+        if source.endswith(".txt"):
+            logging.debug(f"Source of `{formatted_source}` detected as `text`.")
+            return DataType.TEXT
+
+        if source.endswith(".pdf"):
+            logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
+            return DataType.PDF_FILE
 
         if source.endswith(".yaml"):
             with open(source, "r") as file:
@@ -342,7 +365,7 @@ def is_valid_json_string(source: str):
         return False
 
 
-def validate_yaml_config(config_data):
+def validate_config(config_data):
     schema = Schema(
         {
             Optional("app"): {
@@ -362,9 +385,11 @@ def validate_yaml_config(config_data):
                     "huggingface",
                     "cohere",
                     "gpt4all",
+                    "ollama",
                     "jina",
                     "llama2",
                     "vertexai",
+                    "google",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -387,14 +412,14 @@ def validate_yaml_config(config_data):
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
             Optional("embedder"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai"),
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
                 },
             },
             Optional("embedding_model"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai"),
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
                 Optional("config"): {
                     Optional("model"): str,
                     Optional("deployment_name"): str,
@@ -404,8 +429,22 @@ def validate_yaml_config(config_data):
                 Optional("chunk_size"): int,
                 Optional("chunk_overlap"): int,
                 Optional("length_function"): str,
+                Optional("min_chunk_size"): int,
             },
         }
     )
 
     return schema.validate(config_data)
+
+
+def chunks(iterable, batch_size=100, desc="Processing chunks"):
+    """A helper function to break an iterable into chunks of size batch_size."""
+    it = iter(iterable)
+    total_size = len(iterable)
+
+    with tqdm(total=total_size, desc=desc, unit="batch") as pbar:
+        chunk = tuple(itertools.islice(it, batch_size))
+        while chunk:
+            yield chunk
+            pbar.update(len(chunk))
+            chunk = tuple(itertools.islice(it, batch_size))

@@ -6,7 +6,7 @@ except ImportError:
     raise ImportError(
         'YouTube video requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
     ) from None
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
 
@@ -19,7 +19,7 @@ class YoutubeVideoLoader(BaseLoader):
         doc = loader.load()
         output = []
         if not len(doc):
-            raise ValueError("No data found")
+            raise ValueError(f"No data found for url: {url}")
         content = doc[0].page_content
         content = clean_string(content)
         meta_data = doc[0].metadata

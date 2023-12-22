@@ -2,7 +2,6 @@ from typing import Optional
 
 import yaml
 
-from embedchain.client import Client
 from embedchain.config import (AppConfig, BaseEmbedderConfig, BaseLlmConfig,
                                ChunkerConfig)
 from embedchain.config.vectordb.base import BaseVectorDbConfig
@@ -10,10 +9,10 @@ from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
-from embedchain.utils import validate_yaml_config
+from embedchain.utils import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
@@ -68,9 +67,6 @@ class App(EmbedChain):
         :type system_prompt: Optional[str], optional
         :raises TypeError: LLM, database or embedder or their config is not a valid class instance.
         """
-        # Setup user directory if it doesn't exist already
-        Client.setup_dir()
-
         # Type check configs
         if config and not isinstance(config, AppConfig):
             raise TypeError(
@@ -134,14 +130,11 @@ class App(EmbedChain):
         :return: An instance of the App class.
         :rtype: App
         """
-        # Setup user directory if it doesn't exist already
-        Client.setup_dir()
-
         with open(yaml_path, "r") as file:
             config_data = yaml.safe_load(file)
 
         try:
-            validate_yaml_config(config_data)
+            validate_config(config_data)
         except Exception as e:
             raise Exception(f"❌ Error occurred while validating the YAML config. Error: {str(e)}")
 

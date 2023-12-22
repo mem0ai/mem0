@@ -1,23 +1,23 @@
 import os
 from typing import Optional
 
-from langchain.embeddings import OpenAIEmbeddings
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+from langchain.embeddings import AzureOpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import VectorDimensions
 
-from .chroma_embeddings import OpenAIEmbeddingFunction
-
 
 class OpenAIEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
+
         if self.config.model is None:
             self.config.model = "text-embedding-ada-002"
 
         if self.config.deployment_name:
-            embeddings = OpenAIEmbeddings(deployment=self.config.deployment_name)
+            embeddings = AzureOpenAIEmbeddings(deployment=self.config.deployment_name)
             embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
         else:
             if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPENAI_ORGANIZATION") is None:

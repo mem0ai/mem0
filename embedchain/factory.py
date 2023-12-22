@@ -13,11 +13,13 @@ class LlmFactory:
         "azure_openai": "embedchain.llm.azure_openai.AzureOpenAILlm",
         "cohere": "embedchain.llm.cohere.CohereLlm",
         "gpt4all": "embedchain.llm.gpt4all.GPT4ALLLlm",
+        "ollama": "embedchain.llm.ollama.OllamaLlm",
         "huggingface": "embedchain.llm.huggingface.HuggingFaceLlm",
         "jina": "embedchain.llm.jina.JinaLlm",
         "llama2": "embedchain.llm.llama2.Llama2Llm",
         "openai": "embedchain.llm.openai.OpenAILlm",
         "vertexai": "embedchain.llm.vertex_ai.VertexAILlm",
+        "google": "embedchain.llm.google.GoogleLlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
@@ -46,11 +48,13 @@ class EmbedderFactory:
         "huggingface": "embedchain.embedder.huggingface.HuggingFaceEmbedder",
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
         "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
+        "google": "embedchain.embedder.google.GoogleAIEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
     }
 
     @classmethod

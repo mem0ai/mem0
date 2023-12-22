@@ -3,7 +3,15 @@ name: ci
 on:
   push:
     branches: [main]
+    paths:
+      - 'embedchain/**'
+      - 'tests/**'
+      - 'examples/**'
   pull_request:
+    paths:
+      - 'embedchain/**'
+      - 'tests/**'
+      - 'examples/**'
 
 jobs:
   build:

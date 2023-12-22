@@ -1,11 +1,12 @@
 import importlib
+import logging
 import os
 from typing import Optional
 
-from langchain.llms import HuggingFaceHub
+from langchain.llms.huggingface_hub import HuggingFaceHub
 
 from embedchain.config import BaseLlmConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
 
@@ -42,9 +43,11 @@ class HuggingFaceLlm(BaseLlm):
         else:
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
 
+        model = config.model or "google/flan-t5-xxl"
+        logging.info(f"Using HuggingFaceHub with model {model}")
         llm = HuggingFaceHub(
             huggingfacehub_api_token=os.environ["HUGGINGFACE_ACCESS_TOKEN"],
-            repo_id=config.model or "google/flan-t5-xxl",
+            repo_id=model,
             model_kwargs=model_kwargs,
         )
 

@@ -1,0 +1,17 @@
+app:
+  config:
+    name: 'mistral-streamlit-app'
+
+llm:
+  provider: huggingface
+  config:
+    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+    temperature: 0.1
+    max_tokens: 250
+    top_p: 0.1
+    stream: true
+
+embedder:
+  provider: huggingface
+  config:
+    model: 'sentence-transformers/all-mpnet-base-v2'

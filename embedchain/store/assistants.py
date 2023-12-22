@@ -10,7 +10,7 @@ from typing import cast
 from openai import OpenAI
 from openai.types.beta.threads import MessageContentText, ThreadMessage
 
-from embedchain import Pipeline
+from embedchain import Client, Pipeline
 from embedchain.config import AddConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.models.data_type import DataType
@@ -18,6 +18,9 @@ from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype
 
 logging.basicConfig(level=logging.WARN)
+
+# Setup the user directory if doesn't exist already
+Client.setup_dir()
 
 
 class OpenAIAssistant:
@@ -162,7 +165,7 @@ class AIAssistant:
         self.instructions = instructions
         self.assistant_id = assistant_id or str(uuid.uuid4())
         self.thread_id = thread_id or str(uuid.uuid4())
-        self.pipeline = Pipeline.from_config(yaml_path=yaml_path) if yaml_path else Pipeline()
+        self.pipeline = Pipeline.from_config(config_path=yaml_path) if yaml_path else Pipeline()
         self.pipeline.local_id = self.pipeline.config.id = self.thread_id
 
         if self.instructions:

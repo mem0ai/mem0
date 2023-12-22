@@ -3,9 +3,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
+from tqdm import tqdm
 
 from embedchain.config import ChromaDbConfig
-from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
@@ -132,6 +133,7 @@ class ChromaDB(BaseVectorDB):
         metadatas: List[object],
         ids: List[str],
         skip_embedding: bool,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Any:
         """
         Add vectors to chroma database
@@ -157,12 +159,7 @@ class ChromaDB(BaseVectorDB):
                 " Ids size: {}".format(len(documents), len(metadatas), len(ids))
             )
 
-        for i in range(0, len(documents), self.BATCH_SIZE):
-            print(
-                "Inserting batches from {} to {} in vector database.".format(
-                    i, min(len(documents), i + self.BATCH_SIZE)
-                )
-            )
+        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
             if skip_embedding:
                 self.collection.add(
                     embeddings=embeddings[i : i + self.BATCH_SIZE],
@@ -202,6 +199,7 @@ class ChromaDB(BaseVectorDB):
         where: Dict[str, any],
         skip_embedding: bool,
         citations: bool = False,
+        **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, str, str]], List[str]]:
         """
         Query contents from vector database based on vector similarity
@@ -229,6 +227,7 @@ class ChromaDB(BaseVectorDB):
                     ],
                     n_results=n_results,
                     where=self._generate_where_clause(where),
+                    **kwargs,
                 )
             else:
                 result = self.collection.query(
@@ -237,6 +236,7 @@ class ChromaDB(BaseVectorDB):
                     ],
                     n_results=n_results,
                     where=self._generate_where_clause(where),
+                    **kwargs,
                 )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(

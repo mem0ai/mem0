@@ -25,7 +25,7 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
 from embedchain import Pipeline as App
 
 # load chroma configuration from yaml file
-app = App.from_config(yaml_path="config1.yaml")
+app = App.from_config(config_path="config1.yaml")
 ```
 
 ```yaml config1.yaml
@@ -58,13 +58,19 @@ Install related dependencies using the following command:
 pip install --upgrade 'embedchain[elasticsearch]'
 ```
 
+<Note>
+You can configure the Elasticsearch connection by providing either `es_url` or `cloud_id`. If you are using the Elasticsearch Service on Elastic Cloud, you can find the `cloud_id` on the [Elastic Cloud dashboard](https://cloud.elastic.co/deployments).
+</Note>
+
+You can authorize the connection to Elasticsearch by providing either `basic_auth`, `api_key`, or `bearer_auth`.
+
 <CodeGroup>
 
 ```python main.py
 from embedchain import Pipeline as App
 
 # load elasticsearch configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -72,9 +78,11 @@ vectordb:
   provider: elasticsearch
   config:
     collection_name: 'es-index'
-    es_url: http://localhost:9200
-    allow_reset: true
-    api_key: xxx
+    cloud_id: 'deployment-name:xxxx'
+    basic_auth:
+      - elastic
+      - <your_password>
+    verify_certs: false
 ```
 </CodeGroup>
 
@@ -92,19 +100,19 @@ pip install --upgrade 'embedchain[opensearch]'
 from embedchain import Pipeline as App
 
 # load opensearch configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
 vectordb:
   provider: opensearch
   config:
+    collection_name: 'my-app'
     opensearch_url: 'https://localhost:9200'
     http_auth:
       - admin
       - admin
     vector_dimension: 1536
-    collection_name: 'my-app'
     use_ssl: false
     verify_certs: false
 ```
@@ -131,7 +139,7 @@ os.environ['ZILLIZ_CLOUD_URI'] = 'https://xxx.zillizcloud.com'
 os.environ['ZILLIZ_CLOUD_TOKEN'] = 'xxx'
 
 # load zilliz configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -167,7 +175,7 @@ In order to use Pinecone as vector database, set the environment variables `PINE
 from embedchain import Pipeline as App
 
 # load pinecone configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -190,7 +198,7 @@ In order to use Qdrant as a vector database, set the environment variables `QDRA
 from embedchain import Pipeline as App
 
 # load qdrant configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
@@ -210,7 +218,7 @@ In order to use Weaviate as a vector database, set the environment variables `WE
 from embedchain import Pipeline as App
 
 # load weaviate configuration from yaml file
-app = App.from_config(yaml_path="config.yaml")
+app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
