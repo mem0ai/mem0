@@ -40,7 +40,6 @@ if prompt := st.chat_input("Ask me anything!"):
         st.stop()
 
     os.environ["HUGGINGFACE_ACCESS_TOKEN"] = st.session_state.chatbot_api_key
-    # app = App.from_config(config_path="config.yaml")
     app = ec_app()
 
     if prompt.startswith("/add"):
