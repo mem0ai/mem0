@@ -69,6 +69,7 @@ class BaseLlmConfig(BaseConfig):
         where: Dict[str, Any] = None,
         query_type: Optional[str] = None,
         callbacks: Optional[List] = None,
+        api_key: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -117,6 +118,7 @@ class BaseLlmConfig(BaseConfig):
         self.system_prompt = system_prompt
         self.query_type = query_type
         self.callbacks = callbacks
+        self.api_key = api_key
 
         if type(template) is str:
             template = Template(template)
