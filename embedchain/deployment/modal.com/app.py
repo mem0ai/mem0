@@ -52,7 +52,7 @@ async def query(question: str = Body(..., description="Question to be answered")
     return {"answer": answer}
 
 
-@web_app.get("/chat")
+@web_app.post("/chat")
 async def chat(question: str = Body(..., description="Question to be answered")):
     """
     Handles a chat request to the EmbedChain app.
