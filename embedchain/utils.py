@@ -403,6 +403,7 @@ def validate_config(config_data):
                     Optional("deployment_name"): str,
                     Optional("where"): dict,
                     Optional("query_type"): str,
+                    Optional("api_key"): str,
                 },
             },
             Optional("vectordb"): {
@@ -416,6 +417,7 @@ def validate_config(config_data):
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
+                    Optional("api_key"): str,
                 },
             },
             Optional("embedding_model"): {
@@ -423,6 +425,7 @@ def validate_config(config_data):
                 Optional("config"): {
                     Optional("model"): str,
                     Optional("deployment_name"): str,
+                    Optional("api_key"): str,
                 },
             },
             Optional("chunker"): {

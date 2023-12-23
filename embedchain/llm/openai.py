@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, Optional
 
 from langchain.chat_models import ChatOpenAI
@@ -30,6 +31,7 @@ class OpenAILlm(BaseLlm):
             "max_tokens": config.max_tokens,
             "model_kwargs": {},
         }
+        api_key = config.api_key or os.environ["OPENAI_API_KEY"]
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
@@ -37,9 +39,9 @@ class OpenAILlm(BaseLlm):
                 StreamingStdOutCallbackHandler
 
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
-            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks)
+            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key)
         else:
-            chat = ChatOpenAI(**kwargs)
+            chat = ChatOpenAI(**kwargs, api_key=api_key)
         if self.functions is not None:
             from langchain.chains.openai_functions import \
                 create_openai_fn_runnable
