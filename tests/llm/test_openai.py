@@ -72,4 +72,5 @@ def test_get_llm_model_answer_without_system_prompt(config, mocker):
         temperature=config.temperature,
         max_tokens=config.max_tokens,
         model_kwargs={"top_p": config.top_p},
+        api_key=os.environ["OPENAI_API_KEY"],
     )

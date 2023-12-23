@@ -25,6 +25,7 @@ llm:
     max_tokens: 1000
     top_p: 1
     stream: false
+    api_key: sk-xxx
     template: |
       Use the following pieces of context to answer the query at the end.
       If you don't know the answer, just say that you don't know, don't try to make up an answer.
@@ -48,6 +49,7 @@ embedder:
   provider: openai
   config:
     model: 'text-embedding-ada-002'
+    api_key: sk-xxx
 
 chunker:
   chunk_size: 2000
@@ -72,7 +74,8 @@ chunker:
       "top_p": 1,
       "stream": false,
       "template": "Use the following pieces of context to answer the query at the end.\nIf you don't know the answer, just say that you don't know, don't try to make up an answer.\n$context\n\nQuery: $query\n\nHelpful Answer:",
-      "system_prompt": "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare."
+      "system_prompt": "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.",
+      "api_key": "sk-xxx"
     }
   },
   "vectordb": {
@@ -86,7 +89,8 @@ chunker:
   "embedder": {
     "provider": "openai",
     "config": {
-      "model": "text-embedding-ada-002"
+      "model": "text-embedding-ada-002",
+      "api_key": "sk-xxx"
     }
   },
   "chunker": {
@@ -120,7 +124,8 @@ config = {
             ),
             'system_prompt': (
                 "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare."
-            )
+            ),
+            'api_key': 'sk-xxx'
         }
     },
     'vectordb': {
@@ -134,7 +139,8 @@ config = {
     'embedder': {
         'provider': 'openai',
         'config': {
-            'model': 'text-embedding-ada-002'
+            'model': 'text-embedding-ada-002',
+            'api_key': 'sk-xxx'
         }
     },
     'chunker': {
@@ -168,6 +174,7 @@ Alright, let's dive into what each key means in the yaml config above:
         - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
         -  `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `number_documents` (Integer): Number of documents to pull from the vectordb as context, defaults to 1
+        - `api_key` (String): The API key for the language model.
 3. `vectordb` Section:
     - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
     - `config`:
@@ -179,6 +186,7 @@ Alright, let's dive into what each key means in the yaml config above:
     - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
     - `config`:
         - `model` (String): The specific model used for text embedding, 'text-embedding-ada-002'.
+        - `api_key` (String): The API key for the embedding model.
 5. `chunker` Section:
     - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.
