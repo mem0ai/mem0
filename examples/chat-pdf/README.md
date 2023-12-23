@@ -2,6 +2,8 @@
 
 You can easily create and deploy your own `Chat-with-PDF` App using Embedchain.
 
+Checkout the live demo we created for [chat with PDF](https://embedchain.ai/demo/chat-pdf).
+
 Here are few simple steps for you to create and deploy your app:
 
 1. Fork the embedchain repo from [Github](https://github.com/embedchain/embedchain).

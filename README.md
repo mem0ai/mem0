@@ -48,7 +48,11 @@ Embedchain streamlines the creation of RAG applications, offering a seamless pro
 pip install embedchain
 ```
 
-## 🔍 Usage and Demo
+## ✨ Live demo
+
+Checkout the [Chat with PDF](https://embedchain.ai/demo/chat-pdf) live demo we created using Embedchain. You can find the source code [here](https://github.com/embedchain/embedchain/tree/main/examples/chat-pdf).
+
+## 🔍 Usage
 
 <!-- Demo GIF or Image -->
 <p align="center">
