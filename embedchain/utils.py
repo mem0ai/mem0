@@ -384,6 +384,7 @@ def validate_config(config_data):
                     "anthropic",
                     "huggingface",
                     "cohere",
+                    "together",
                     "gpt4all",
                     "ollama",
                     "jina",
