@@ -12,6 +12,7 @@ class LlmFactory:
         "anthropic": "embedchain.llm.anthropic.AnthropicLlm",
         "azure_openai": "embedchain.llm.azure_openai.AzureOpenAILlm",
         "cohere": "embedchain.llm.cohere.CohereLlm",
+        "together": "embedchain.llm.together.TogetherLlm",
         "gpt4all": "embedchain.llm.gpt4all.GPT4ALLLlm",
         "ollama": "embedchain.llm.ollama.OllamaLlm",
         "huggingface": "embedchain.llm.huggingface.HuggingFaceLlm",
