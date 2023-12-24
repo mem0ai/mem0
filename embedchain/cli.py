@@ -356,7 +356,7 @@ def deploy_render():
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except FileNotFoundError:
         console.print(
-            "❌ [bold red]'render' command not found. Please ensure Render CLI is installed and in your PATH.[/bold red]"
+            "❌ [bold red]'render' command not found. Please ensure Render CLI is installed and in your PATH.[/bold red]"  # noqa:E501
         )
 
 
@@ -371,7 +371,7 @@ def deploy_gradio_app():
         console.print(f"❌ [bold red]An error occurred: {e}[/bold red]")
     except FileNotFoundError:
         console.print(
-            "❌ [bold red]'gradio' command not found. Please ensure Gradio CLI is installed and in your PATH.[/bold red]"
+            "❌ [bold red]'gradio' command not found. Please ensure Gradio CLI is installed and in your PATH.[/bold red]"  # noqa:E501
         )
 
 
