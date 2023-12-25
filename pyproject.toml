@@ -140,6 +140,9 @@ PyGithub = { version = "^1.59.1", optional = true }
 feedparser = { version = "^6.0.10", optional = true }
 newspaper3k = { version = "^0.2.8", optional = true }
 listparser = { version = "^0.19", optional = true }
+google-api-python-client = "^2.111.0"
+google-auth-httplib2 = "^0.2.0"
+google-auth-oauthlib = "^1.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -202,7 +205,5 @@ youtube = [
     "youtube-transcript-api",
 ]
 rss_feed = ["feedparser", "listparser", "newspaper3k"]
-
-[tool.poetry.group.docs.dependencies]
 
 [tool.poetry.scripts]

@@ -35,6 +35,7 @@ class IndirectDataType(Enum):
     CUSTOM = "custom"
     RSSFEED = "rss_feed"
     BEEHIIV = "beehiiv"
+    GOOGLE_DRIVE_FOLDER = "google_drive_folder"
 
 
 class SpecialDataType(Enum):
@@ -69,3 +70,4 @@ class DataType(Enum):
     CUSTOM = IndirectDataType.CUSTOM.value
     RSSFEED = IndirectDataType.RSSFEED.value
     BEEHIIV = IndirectDataType.BEEHIIV.value
+    GOOGLE_DRIVE_FOLDER = IndirectDataType.GOOGLE_DRIVE_FOLDER.value

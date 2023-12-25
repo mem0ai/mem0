@@ -74,6 +74,7 @@ class DataFormatter(JSONSerializable):
             DataType.DISCORD: "embedchain.loaders.discord.DiscordLoader",
             DataType.RSSFEED: "embedchain.loaders.rss_feed.RSSFeedLoader",
             DataType.BEEHIIV: "embedchain.loaders.beehiiv.BeehiivLoader",
+            DataType.GOOGLE_DRIVE_FOLDER: "embedchain.loaders.google_drive_folder.GoogleDriveFolderLoader",
         }
 
         if data_type == DataType.CUSTOM or loader is not None:
@@ -116,6 +117,7 @@ class DataFormatter(JSONSerializable):
             DataType.CUSTOM: "embedchain.chunkers.common_chunker.CommonChunker",
             DataType.RSSFEED: "embedchain.chunkers.rss_feed.RSSFeedChunker",
             DataType.BEEHIIV: "embedchain.chunkers.beehiiv.BeehiivChunker",
+            DataType.GOOGLE_DRIVE_FOLDER: "embedchain.chunkers.google_drive_folder.GoogleDriveFolderChunker",
         }
 
         if chunker is not None:
