@@ -516,7 +516,7 @@ class EmbedChain(JSONSerializable):
         where: Optional[Dict] = None,
         citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
+    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -567,7 +567,7 @@ class EmbedChain(JSONSerializable):
         where: Optional[Dict[str, str]] = None,
         citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
+    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
