@@ -187,7 +187,10 @@ class ZillizVectorDB(BaseVectorDB):
             data = query["entity"]
             score = query["distance"]
             context = data["text"]
-            data.pop("embeddings")
+
+            if "embeddings" in data:
+                data.pop("embeddings")
+
             if citations:
                 data["score"] = score
                 contexts.append(tuple((context, data)))
