@@ -22,22 +22,30 @@ class GoogleDriveFolderLoader(BaseLoader):
     def load_data(self, url: str):
         """Load data from a Google drive folder."""
         folder_id: str = self._get_drive_id_from_url(url)
-        loader = GoogleDriveLoader(
-            folder_id=folder_id,
-            recursive=True,
-            file_loader_cls=UnstructuredFileIOLoader,
-            file_loader_kwargs={"mode": "elements"},
-        )
 
-        docs = loader.load()
+        try:
+            loader = GoogleDriveLoader(
+                folder_id=folder_id,
+                recursive=True,
+                file_loader_cls=UnstructuredFileIOLoader,
+                file_loader_kwargs={"mode": "elements"},
+            )
 
-        data = []
-        all_content = []
-        for doc in docs:
-            all_content.append(doc.page_content)
-            # renames source to url for later use.
-            doc.metadata["url"] = doc.metadata.pop("source")
-            data.append({"content": doc.page_content, "meta_data": doc.metadata})
+            data = []
+            all_content = []
 
-        doc_id = hashlib.sha256((" ".join(all_content) + url).encode()).hexdigest()
-        return {"doc_id": doc_id, "data": data}
+            docs = loader.load()
+            for doc in docs:
+                all_content.append(doc.page_content)
+                # renames source to url for later use.
+                doc.metadata["url"] = doc.metadata.pop("source")
+                data.append({"content": doc.page_content, "meta_data": doc.metadata})
+
+            doc_id = hashlib.sha256((" ".join(all_content) + url).encode()).hexdigest()
+            return {"doc_id": doc_id, "data": data}
+
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "Google Drive requires extra dependencies. Install with `pip install embedchain[googledrive]`")
+
+
