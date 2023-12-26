@@ -1,18 +1,116 @@
+import base64
 import hashlib
 import logging
 import os
 import quopri
+from email import message_from_bytes
+from email.utils import parsedate_to_datetime
 from textwrap import dedent
 
 from bs4 import BeautifulSoup
 
-try:
-    from llama_hub.gmail.base import GmailReader
-except ImportError:
-    raise ImportError("Gmail requires extra dependencies. Install with `pip install embedchain[gmail]`") from None
-
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
+
+
+class GmailReader:
+    SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+    def __init__(self, query, service=None, results_per_page=10):
+        self.query = query
+        self.service = service
+        self.results_per_page = results_per_page
+
+    def _get_credentials(self):
+        """Get valid user credentials from storage or generate them."""
+        try:
+            from google.auth.transport.requests import Request
+            from google.oauth2.credentials import Credentials
+            from google_auth_oauthlib.flow import InstalledAppFlow
+        except ImportError:
+            raise ImportError(
+                'Gmail loader requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
+            ) from None
+
+        creds = None
+        if os.path.exists("token.json"):
+            creds = Credentials.from_authorized_user_file("token.json", self.SCOPES)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file("credentials.json", self.SCOPES)
+                creds = flow.run_local_server(port=0)
+            with open("token.json", "w") as token:
+                token.write(creds.to_json())
+        return creds
+
+    def load_data(self):
+        """Load emails from the user's Gmail account based on the query."""
+        try:
+            from googleapiclient.discovery import build
+        except ImportError:
+            raise ImportError(
+                'Gmail loader requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
+            ) from None
+
+        if not self.service:
+            self.service = build("gmail", "v1", credentials=self._get_credentials())
+
+        results = []
+        response = self.service.users().messages().list(userId="me", q=self.query).execute()
+        messages = response.get("messages", [])
+
+        for message in messages:
+            msg = self.service.users().messages().get(userId="me", id=message["id"], format="raw").execute()
+            msg_bytes = base64.urlsafe_b64decode(msg["raw"])
+            mime_msg = message_from_bytes(msg_bytes)
+            results.append(self.parse_message(mime_msg))
+
+        return results
+
+    def parse_message(self, mime_msg):
+        """Parse a MIME message into a more readable format."""
+        parsed_email = {
+            "subject": self._get_mime_header(mime_msg, "Subject"),
+            "from": self._get_mime_header(mime_msg, "From"),
+            "to": self._get_mime_header(mime_msg, "To"),
+            "date": self._parse_date(mime_msg),
+            "body": self._get_mime_body(mime_msg),
+        }
+        return parsed_email
+
+    def _get_mime_header(self, mime_msg, header_name):
+        """Extract a header value from a MIME message."""
+        header = mime_msg.get(header_name)
+        return header if header else ""
+
+    def _parse_date(self, mime_msg):
+        """Parse and format the date from a MIME message."""
+        date_header = self._get_mime_header(mime_msg, "Date")
+        if date_header:
+            try:
+                return parsedate_to_datetime(date_header)
+            except Exception:
+                return ""
+        return ""
+
+    def _get_mime_body(self, mime_msg):
+        """Extract the body from a MIME message."""
+        if mime_msg.is_multipart():
+            for part in mime_msg.walk():
+                ctype = part.get_content_type()
+                cdispo = str(part.get("Content-Disposition"))
+
+                # skip any text/plain (txt) attachments
+                if ctype == "text/plain" and "attachment" not in cdispo:
+                    return part.get_payload(decode=True).decode()  # decode
+                elif ctype == "text/html":
+                    return part.get_payload(decode=True).decode()  # to decode
+        else:
+            return mime_msg.get_payload(decode=True).decode()
+
+        return ""
 
 
 def get_header(text: str, header: str) -> str:
