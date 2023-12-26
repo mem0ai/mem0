@@ -91,9 +91,9 @@
         "deployment/modal_com",
         "deployment/render_com",
         "deployment/streamlit_io",
-        "deployment/embedchain_ai",
         "deployment/gradio_app",
-        "deployment/huggingface_spaces"
+        "deployment/huggingface_spaces",
+        "deployment/embedchain_ai"
       ]
     },
     {
