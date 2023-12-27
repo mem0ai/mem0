@@ -23,6 +23,7 @@ from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
+from embedchain.cache import cache
 
 # Setup the user directory if doesn't exist already
 Client.setup_dir()
@@ -108,6 +109,9 @@ class Pipeline(EmbedChain):
         self.db = db or ChromaDB()
         self.llm = llm or OpenAILlm()
         self._init_db()
+        
+        cache.initialize()
+        cache.set_openai_key()
 
         # Send anonymous telemetry
         self._telemetry_props = {"class": self.__class__.__name__}

@@ -375,6 +375,7 @@ def validate_config(config_data):
                     Optional("log_level"): Or("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
                     Optional("collect_metrics"): bool,
                     Optional("collection_name"): str,
+                    Optional("cache"): bool,
                 }
             },
             Optional("llm"): {

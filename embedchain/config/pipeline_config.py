@@ -17,6 +17,7 @@ class PipelineConfig(BaseAppConfig):
         id: Optional[str] = None,
         name: Optional[str] = None,
         collect_metrics: Optional[bool] = True,
+        cache: Optional[bool] = False,
     ):
         """
         Initializes a configuration class instance for an App. This is the simplest form of an embedchain app.
@@ -36,3 +37,4 @@ class PipelineConfig(BaseAppConfig):
         self.id = id
         self.name = name
         self.collect_metrics = collect_metrics
+        self.cache = cache
