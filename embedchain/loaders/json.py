@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import requests
 
@@ -15,39 +15,24 @@ class JSONReader:
         """Initialize the JSONReader."""
         pass
 
-    def _depth_first_traversal(self, json_data: Dict, path: List[str]) -> List[str]:
-        """Perform a depth-first traversal of the JSON structure.
-
-        Args:
-            json_data (Dict): The JSON data to traverse.
-            path (List[str]): The current path in the JSON structure.
-
-        Returns:
-            List[str]: A list of strings representing paths to the leaf nodes.
-        """
-        if isinstance(json_data, dict):
-            for key, value in json_data.items():
-                new_path = path + [key]
-                yield from self._depth_first_traversal(value, new_path)
-        elif isinstance(json_data, list):
-            for item in json_data:
-                yield from self._depth_first_traversal(item, path)
-        else:
-            yield " ".join(path + [str(json_data)])
-
-    def load_data(self, json_data: Dict) -> List[str]:
+    def load_data(self, json_data: Union[Dict, str]) -> List[str]:
         """Load data from a JSON structure.
 
         Args:
-            json_data (Dict): The JSON data to load.
+            json_data (Union[Dict, str]): The JSON data to load.
 
         Returns:
             List[str]: A list of strings representing the leaf nodes of the JSON.
         """
         if isinstance(json_data, str):
             json_data = json.loads(json_data)
+        else:
+            json_data = json_data
 
-        return list(self._depth_first_traversal(json_data, []))
+        json_output = json.dumps(json_data, indent=0)
+        lines = json_output.split("\n")
+        useful_lines = [line for line in lines if not re.match(r"^[{}\[\],]*$", line)]
+        return ["\n".join(useful_lines)]
 
 
 VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
@@ -96,7 +81,8 @@ class JSONLoader(BaseLoader):
 
         docs = loader.load_data(json_data)
         for doc in docs:
-            doc_content = clean_string(doc)
+            text = doc if isinstance(doc, str) else doc["text"]
+            doc_content = clean_string(text)
             data.append({"content": doc_content, "meta_data": {"url": content_url_str}})
             data_content.append(doc_content)
 
