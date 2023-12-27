@@ -76,4 +76,4 @@ class TestJsonSerializable(unittest.TestCase):
         config = BaseLlmConfig(template=Template("My custom template with $query, $context and $history."))
         s = config.serialize()
         new_config: BaseLlmConfig = BaseLlmConfig.deserialize(s)
-        self.assertEqual(config.template.template, new_config.template.template)
+        self.assertEqual(config.prompt.template, new_config.prompt.template)
