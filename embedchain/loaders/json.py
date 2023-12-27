@@ -96,7 +96,7 @@ class JSONLoader(BaseLoader):
 
         docs = loader.load_data(json_data)
         for doc in docs:
-            doc_content = clean_string(doc.text)
+            doc_content = clean_string(doc)
             data.append({"content": doc_content, "meta_data": {"url": content_url_str}})
             data_content.append(doc_content)
 

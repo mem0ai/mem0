@@ -7985,12 +7985,4 @@ youtube = ["youtube-transcript-api", "yt_dlp"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-<<<<<<< HEAD
-content-hash = "2d59f37483caac14b4c0e10331facdab174deba143480df53340756330214010"
-=======
-<<<<<<< HEAD
 content-hash = "335c42c91a2b5e4a1c3d8a7c39dee8665fd1eee0410e1bc6cb6cb1d6f6722445"
-=======
-content-hash = "247976a5aff845f45dd8837ed300d22b06d2bd3175a15ca0379d788bb40209c4"
->>>>>>> d8fcf42 (update dependencies)
->>>>>>> 572730f (update dependencies)

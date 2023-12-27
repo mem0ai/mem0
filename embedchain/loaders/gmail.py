@@ -40,7 +40,7 @@ class GmailReader:
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file("credentials.json", self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                creds = flow.run_local_server(port=8080)
             with open("token.json", "w") as token:
                 token.write(creds.to_json())
         return creds
