@@ -270,7 +270,7 @@ def detect_datatype(source: Any) -> DataType:
             logging.debug(f"Source of `{formatted_source}` detected as `github`.")
             return DataType.GITHUB
 
-        if is_google_drive_folder(url.netloc):
+        if is_google_drive_folder(url.netloc + url.path):
             logging.debug(f"Source of `{formatted_source}` detected as `google drive folder`.")
             return DataType.GOOGLE_DRIVE_FOLDER
 

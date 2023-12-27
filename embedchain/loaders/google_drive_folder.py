@@ -28,7 +28,6 @@ class GoogleDriveFolderLoader(BaseLoader):
                 folder_id=folder_id,
                 recursive=True,
                 file_loader_cls=UnstructuredFileIOLoader,
-                file_loader_kwargs={"mode": "elements"},
             )
 
             data = []
@@ -47,5 +46,3 @@ class GoogleDriveFolderLoader(BaseLoader):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "Google Drive requires extra dependencies. Install with `pip install embedchain[googledrive]`")
-
-
