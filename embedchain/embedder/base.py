@@ -75,3 +75,14 @@ class BaseEmbedder:
         """
 
         return EmbeddingFunc(embeddings.embed_documents)
+
+    def to_embeddings(self, data: str, **_):
+        """
+        Convert data to embeddings
+
+        :param data: data to convert to embeddings
+        :type data: str
+        :return: embeddings
+        :rtype: list[float]
+        """
+        return self.embedding_fn(data)[0]

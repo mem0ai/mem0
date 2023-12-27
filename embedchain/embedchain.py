@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
+from embedchain.cache import (adapt, gptcache_data_convert,
+                              gptcache_update_cache_callback)
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.apps.base_app_config import BaseAppConfig
@@ -21,10 +23,6 @@ from embedchain.models.data_type import (DataType, DirectDataType,
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
-
-from gptcache.adapter.adapter import adapt
-from gptcache.manager.scalar_data.base import Answer
-from gptcache.manager.scalar_data.base import DataType as CacheDataType
 
 load_dotenv()
 
@@ -550,13 +548,13 @@ class EmbedChain(JSONSerializable):
             contexts_data_for_llm_query = list(map(lambda x: x[0], contexts))
         else:
             contexts_data_for_llm_query = contexts
-            
-        if True:
+
+        if self.config.cache:
             print("Checking cache")
             answer = adapt(
                 llm_handler=self.llm.query,
-                cache_data_convert=self._cache_data_convert,
-                update_cache_callback=self._update_cache_callback,
+                cache_data_convert=gptcache_data_convert,
+                update_cache_callback=gptcache_update_cache_callback,
                 input_query=input_query,
                 contexts=contexts_data_for_llm_query,
                 config=config,
@@ -680,12 +678,3 @@ class EmbedChain(JSONSerializable):
     def delete_chat_history(self):
         self.llm.memory.delete_chat_history(app_id=self.config.id)
         self.llm.update_history(app_id=self.config.id)
-
-    def _cache_data_convert(self, cache_data):
-        print("Cache hits!!!!!!!!")
-        return cache_data
-
-    def _update_cache_callback(self, llm_data, update_cache_func, *args, **kwargs):
-        print("Cache Misss!!!!!!")
-        update_cache_func(Answer(llm_data, CacheDataType.STR))
-        return llm_data

@@ -33,8 +33,8 @@ class PipelineConfig(BaseAppConfig):
         defaults to None
         :type collection_name: Optional[str], optional
         """
+        super().__init__(cache=cache)
         self._setup_logging(log_level)
         self.id = id
         self.name = name
         self.collect_metrics = collect_metrics
-        self.cache = cache

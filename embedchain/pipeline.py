@@ -10,6 +10,8 @@ import requests
 import yaml
 
 from embedchain import Client
+from embedchain.cache import (Config, SearchDistanceEvaluation, cache,
+                              gptcache_data_manager, gptcache_pre_function)
 from embedchain.config import ChunkerConfig, PipelineConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
@@ -23,7 +25,6 @@ from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
-from embedchain.cache import cache
 
 # Setup the user directory if doesn't exist already
 Client.setup_dir()
@@ -109,9 +110,9 @@ class Pipeline(EmbedChain):
         self.db = db or ChromaDB()
         self.llm = llm or OpenAILlm()
         self._init_db()
-        
-        cache.initialize()
-        cache.set_openai_key()
+
+        if self.config.cache:
+            self._init_cache()
 
         # Send anonymous telemetry
         self._telemetry_props = {"class": self.__class__.__name__}
@@ -142,6 +143,15 @@ class Pipeline(EmbedChain):
         self.user_asks = []
         if self.auto_deploy:
             self.deploy()
+
+    def _init_cache(self):
+        cache.init(
+            pre_embedding_func=gptcache_pre_function,
+            embedding_func=self.embedding_model.to_embeddings,
+            data_manager=gptcache_data_manager(vector_dimension=self.embedding_model.vector_dimension),
+            similarity_evaluation=SearchDistanceEvaluation(),
+            config=Config(similarity_threshold=0.8),
+        )
 
     def _init_db(self):
         """
