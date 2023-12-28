@@ -358,10 +358,6 @@ def is_valid_json_string(source: str):
         _ = json.loads(source)
         return True
     except json.JSONDecodeError:
-        logging.error(
-            "Insert valid string format of JSON. \
-            Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
-        )
         return False
 
 

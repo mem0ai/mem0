@@ -27,6 +27,7 @@ class DirectoryLoader(BaseLoader):
         if not directory_path.is_dir():
             raise ValueError(f"Invalid path: {path}")
 
+        logging.info(f"Loading data from directory: {path}")
         data_list = self._process_directory(directory_path)
         doc_id = hashlib.sha256((str(data_list) + str(directory_path)).encode()).hexdigest()
 
@@ -44,6 +45,8 @@ class DirectoryLoader(BaseLoader):
             if file_path.is_file() and (not self.extensions or any(file_path.suffix == ext for ext in self.extensions)):
                 loader = self._predict_loader(file_path)
                 data_list.extend(loader.load_data(str(file_path))["data"])
+            elif file_path.is_dir():
+                logging.info(f"Loading data from directory: {file_path}")
         return data_list
 
     def _predict_loader(self, file_path: Path) -> BaseLoader:

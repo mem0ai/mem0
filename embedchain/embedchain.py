@@ -189,8 +189,7 @@ class EmbedChain(JSONSerializable):
             data_type = detect_datatype(source)
 
         # `source_hash` is the md5 hash of the source argument
-        hash_object = hashlib.md5(str(source).encode("utf-8"))
-        source_hash = hash_object.hexdigest()
+        source_hash = hashlib.md5(str(source).encode("utf-8")).hexdigest()
 
         self.user_asks.append([source, data_type.value, metadata])
 
