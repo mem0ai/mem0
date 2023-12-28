@@ -396,6 +396,7 @@ def validate_config(config_data):
                     Optional("top_p"): Or(float, int),
                     Optional("stream"): bool,
                     Optional("template"): str,
+                    Optional("prompt"): str,
                     Optional("system_prompt"): str,
                     Optional("deployment_name"): str,
                     Optional("where"): dict,
