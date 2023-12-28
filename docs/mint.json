@@ -131,7 +131,8 @@
                 "components/data-sources/substack",
                 "components/data-sources/discord",
                 "components/data-sources/beehiiv",
-                "components/data-sources/directory"
+                "components/data-sources/directory",
+                "components/data-sources/dropbox"
               ]
             },
             "components/data-sources/data-type-handling"
