@@ -85,4 +85,5 @@ class BaseEmbedder:
         :return: embeddings
         :rtype: list[float]
         """
-        return self.embedding_fn(data)[0]
+        embeddings = self.embedding_fn([data])
+        return embeddings[0]

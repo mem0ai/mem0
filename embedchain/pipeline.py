@@ -149,7 +149,7 @@ class Pipeline(EmbedChain):
             pre_embedding_func=gptcache_pre_function,
             embedding_func=self.embedding_model.to_embeddings,
             data_manager=gptcache_data_manager(vector_dimension=self.embedding_model.vector_dimension),
-            similarity_evaluation=SearchDistanceEvaluation(),
+            similarity_evaluation=SearchDistanceEvaluation(max_distance=1.0),
             config=Config(similarity_threshold=0.8),
         )
 
