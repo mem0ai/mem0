@@ -74,19 +74,19 @@ class BaseLlm(JSONSerializable):
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
 
-        template_contains_history = self.config._validate_template_history(self.config.template)
-        if template_contains_history:
-            # Template contains history
+        prompt_contains_history = self.config._validate_prompt_history(self.config.prompt)
+        if prompt_contains_history:
+            # Prompt contains history
             # If there is no history yet, we insert `- no history -`
-            prompt = self.config.template.substitute(
+            prompt = self.config.prompt.substitute(
                 context=context_string, query=input_query, history=self.history or "- no history -"
             )
-        elif self.history and not template_contains_history:
-            # History is present, but not included in the template.
-            # check if it's the default template without history
+        elif self.history and not prompt_contains_history:
+            # History is present, but not included in the prompt.
+            # check if it's the default prompt without history
             if (
-                not self.config._validate_template_history(self.config.template)
-                and self.config.template.template == DEFAULT_PROMPT
+                not self.config._validate_prompt_history(self.config.prompt)
+                and self.config.prompt.template == DEFAULT_PROMPT
             ):
                 # swap in the template with history
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
@@ -95,12 +95,12 @@ class BaseLlm(JSONSerializable):
             else:
                 # If we can't swap in the default, we still proceed but tell users that the history is ignored.
                 logging.warning(
-                    "Your bot contains a history, but template does not include `$history` key. History is ignored."
+                    "Your bot contains a history, but prompt does not include `$history` key. History is ignored."
                 )
-                prompt = self.config.template.substitute(context=context_string, query=input_query)
+                prompt = self.config.prompt.substitute(context=context_string, query=input_query)
         else:
             # basic use case, no history.
-            prompt = self.config.template.substitute(context=context_string, query=input_query)
+            prompt = self.config.prompt.substitute(context=context_string, query=input_query)
         return prompt
 
     def _append_search_and_context(self, context: str, web_search_result: str) -> str:
@@ -191,7 +191,7 @@ class BaseLlm(JSONSerializable):
                 return contexts
 
             if self.is_docs_site_instance:
-                self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+                self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
             if self.online:
@@ -242,7 +242,7 @@ class BaseLlm(JSONSerializable):
                 self.config = config
 
             if self.is_docs_site_instance:
-                self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+                self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
             if self.online:

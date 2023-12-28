@@ -25,7 +25,7 @@ def test_is_stream_bool():
 def test_template_string_gets_converted_to_Template_instance():
     config = BaseLlmConfig(template="test value $query $context")
     llm = BaseLlm(config=config)
-    assert isinstance(llm.config.template, Template)
+    assert isinstance(llm.config.prompt, Template)
 
 
 def test_is_get_llm_model_answer_implemented():
