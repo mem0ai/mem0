@@ -550,7 +550,7 @@ class EmbedChain(JSONSerializable):
             contexts_data_for_llm_query = contexts
 
         if self.config.cache:
-            print("Checking cache")
+            logging.info("[Cache] Cache enabled, checking cache...")
             answer = adapt(
                 llm_handler=self.llm.query,
                 cache_data_convert=gptcache_data_convert,
