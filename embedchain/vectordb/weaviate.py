@@ -205,7 +205,7 @@ class WeaviateDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -255,6 +255,7 @@ class WeaviateDB(BaseVectorDB):
                 .with_where(weaviate_where_clause)
                 .with_near_vector({"vector": query_vector})
                 .with_limit(n_results)
+                .with_additional(["distance"])
                 .do()
             )
         else:
@@ -262,6 +263,7 @@ class WeaviateDB(BaseVectorDB):
                 self.client.query.get(self.index_name, data_fields)
                 .with_near_vector({"vector": query_vector})
                 .with_limit(n_results)
+                .with_additional(["distance"])
                 .do()
             )
 
@@ -271,6 +273,8 @@ class WeaviateDB(BaseVectorDB):
             context = doc["text"]
             if citations:
                 metadata = doc["metadata"][0]
+                score = doc["_additional"]["distance"]
+                metadata["score"] = score
                 contexts.append((context, metadata))
             else:
                 contexts.append(context)

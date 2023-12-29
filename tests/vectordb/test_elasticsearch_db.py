@@ -66,8 +66,8 @@ class TestEsDB(unittest.TestCase):
 
         results_with_citations = self.db.query(query, n_results=2, where={}, skip_embedding=False, citations=True)
         expected_results_with_citations = [
-            ("This is a document.", {"url": "url_1", "doc_id": "doc_id_1"}),
-            ("This is another document.", {"url": "url_2", "doc_id": "doc_id_2"}),
+            ("This is a document.", {"url": "url_1", "doc_id": "doc_id_1", "score": 0.9}),
+            ("This is another document.", {"url": "url_2", "doc_id": "doc_id_2", "score": 0.8}),
         ]
         self.assertEqual(results_with_citations, expected_results_with_citations)
 

@@ -200,7 +200,7 @@ class ChromaDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         Query contents from vector database based on vector similarity
 
@@ -250,6 +250,7 @@ class ChromaDB(BaseVectorDB):
             context = result[0].page_content
             if citations:
                 metadata = result[0].metadata
+                metadata["score"] = result[1]
                 contexts.append((context, metadata))
             else:
                 contexts.append(context)

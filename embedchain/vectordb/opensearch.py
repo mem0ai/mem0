@@ -169,7 +169,7 @@ class OpenSearchDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -202,7 +202,7 @@ class OpenSearchDB(BaseVectorDB):
         if "app_id" in where:
             app_id = where["app_id"]
             pre_filter = {"bool": {"must": [{"term": {"metadata.app_id.keyword": app_id}}]}}
-        docs = docsearch.similarity_search(
+        docs = docsearch.similarity_search_with_score(
             input_query,
             search_type="script_scoring",
             space_type="cosinesimil",
@@ -215,10 +215,12 @@ class OpenSearchDB(BaseVectorDB):
         )
 
         contexts = []
-        for doc in docs:
+        for doc, score in docs:
             context = doc.page_content
             if citations:
-                contexts.append(tuple((context, doc.metadata)))
+                metadata = doc.metadata
+                metadata["score"] = score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
