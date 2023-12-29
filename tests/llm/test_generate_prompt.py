@@ -53,7 +53,7 @@ class TestGeneratePrompt(unittest.TestCase):
         result = self.app.llm.generate_prompt(input_query, contexts)
 
         # Assert
-        expected_result = config.template.substitute(context="Context 1 | Context 2 | Context 3", query=input_query)
+        expected_result = config.prompt.substitute(context="Context 1 | Context 2 | Context 3", query=input_query)
         self.assertEqual(result, expected_result)
 
     def test_generate_prompt_with_history(self):
@@ -61,7 +61,7 @@ class TestGeneratePrompt(unittest.TestCase):
         Test the 'generate_prompt' method with BaseLlmConfig containing a history attribute.
         """
         config = BaseLlmConfig()
-        config.template = Template("Context: $context | Query: $query | History: $history")
+        config.prompt = Template("Context: $context | Query: $query | History: $history")
         self.app.llm.config = config
         self.app.llm.set_history(["Past context 1", "Past context 2"])
         prompt = self.app.llm.generate_prompt("Test query", ["Test context"])

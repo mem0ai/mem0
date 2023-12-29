@@ -9,7 +9,7 @@ from langchain.docstore.document import Document
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
-from embedchain.config.apps.base_app_config import BaseAppConfig
+from embedchain.config.base_app_config import BaseAppConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
@@ -189,8 +189,7 @@ class EmbedChain(JSONSerializable):
             data_type = detect_datatype(source)
 
         # `source_hash` is the md5 hash of the source argument
-        hash_object = hashlib.md5(str(source).encode("utf-8"))
-        source_hash = hash_object.hexdigest()
+        source_hash = hashlib.md5(str(source).encode("utf-8")).hexdigest()
 
         self.user_asks.append([source, data_type.value, metadata])
 
@@ -516,7 +515,7 @@ class EmbedChain(JSONSerializable):
         where: Optional[Dict] = None,
         citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
+    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -567,7 +566,7 @@ class EmbedChain(JSONSerializable):
         where: Optional[Dict[str, str]] = None,
         citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
+    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an

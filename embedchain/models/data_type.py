@@ -38,6 +38,7 @@ class IndirectDataType(Enum):
     DIRECTORY = "directory"
     SLACK = "slack"
     DROPBOX = "dropbox"
+    TEXT_FILE = "text_file"
 
 
 class SpecialDataType(Enum):
@@ -75,3 +76,4 @@ class DataType(Enum):
     DIRECTORY = IndirectDataType.DIRECTORY.value
     SLACK = IndirectDataType.SLACK.value
     DROPBOX = IndirectDataType.DROPBOX.value
+    TEXT_FILE = IndirectDataType.TEXT_FILE.value
