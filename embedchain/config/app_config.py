@@ -17,6 +17,7 @@ class AppConfig(BaseAppConfig):
         id: Optional[str] = None,
         name: Optional[str] = None,
         collect_metrics: Optional[bool] = True,
+        **kwargs,
     ):
         """
         Initializes a configuration class instance for an App. This is the simplest form of an embedchain app.
@@ -28,11 +29,6 @@ class AppConfig(BaseAppConfig):
         :type id: Optional[str], optional
         :param collect_metrics: Send anonymous telemetry to improve embedchain, defaults to True
         :type collect_metrics: Optional[bool], optional
-        :param collection_name: Default collection name. It's recommended to use app.db.set_collection_name() instead,
-        defaults to None
-        :type collection_name: Optional[str], optional
         """
-        self._setup_logging(log_level)
-        self.id = id
         self.name = name
-        self.collect_metrics = collect_metrics
+        super().__init__(log_level=log_level, id=id, collect_metrics=collect_metrics, **kwargs)
