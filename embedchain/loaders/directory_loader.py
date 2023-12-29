@@ -7,7 +7,7 @@ from embedchain.config import AddConfig
 from embedchain.data_formatter.data_formatter import DataFormatter
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.loaders.local_text import LocalTextLoader
+from embedchain.loaders.text_file import TextFileLoader
 from embedchain.utils import detect_datatype
 
 
@@ -58,4 +58,4 @@ class DirectoryLoader(BaseLoader):
             )
         except Exception as e:
             self.errors.append(f"Error processing {file_path}: {e}")
-            return LocalTextLoader()
+            return TextFileLoader()
