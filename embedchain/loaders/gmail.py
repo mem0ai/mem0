@@ -2,12 +2,16 @@ import base64
 import hashlib
 import logging
 import os
-import quopri
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 from textwrap import dedent
+from typing import Dict, List, Optional
 
 from bs4 import BeautifulSoup
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string
@@ -16,206 +20,117 @@ from embedchain.utils import clean_string
 class GmailReader:
     SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-    def __init__(self, query, service=None, results_per_page=10):
+    def __init__(self, query: str, service=None, results_per_page: int = 10):
         self.query = query
-        self.service = service
+        self.service = service or self._initialize_service()
         self.results_per_page = results_per_page
 
-    def _get_credentials(self):
-        """Get valid user credentials from storage or generate them."""
-        try:
-            from google.auth.transport.requests import Request
-            from google.oauth2.credentials import Credentials
-            from google_auth_oauthlib.flow import InstalledAppFlow
-        except ImportError:
-            raise ImportError(
-                'Gmail loader requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
-            ) from None
+    @staticmethod
+    def _initialize_service():
+        credentials = GmailReader._get_credentials()
+        return build("gmail", "v1", credentials=credentials)
 
-        creds = None
-        if os.path.exists("token.json"):
-            creds = Credentials.from_authorized_user_file("token.json", self.SCOPES)
+    @staticmethod
+    def _get_credentials():
+        if not os.path.exists("credentials.json"):
+            raise FileNotFoundError("Missing 'credentials.json'. Download it from your Google Developer account.")
+
+        creds = (
+            Credentials.from_authorized_user_file("token.json", GmailReader.SCOPES)
+            if os.path.exists("token.json")
+            else None
+        )
+
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                flow = InstalledAppFlow.from_client_secrets_file("credentials.json", self.SCOPES)
+                flow = InstalledAppFlow.from_client_secrets_file("credentials.json", GmailReader.SCOPES)
                 creds = flow.run_local_server(port=8080)
             with open("token.json", "w") as token:
                 token.write(creds.to_json())
         return creds
 
-    def load_data(self):
-        """Load emails from the user's Gmail account based on the query."""
-        try:
-            from googleapiclient.discovery import build
-        except ImportError:
-            raise ImportError(
-                'Gmail loader requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
-            ) from None
-
-        if not self.service:
-            self.service = build("gmail", "v1", credentials=self._get_credentials())
-
-        results = []
+    def load_emails(self) -> List[Dict]:
         response = self.service.users().messages().list(userId="me", q=self.query).execute()
         messages = response.get("messages", [])
 
-        for message in messages:
-            msg = self.service.users().messages().get(userId="me", id=message["id"], format="raw").execute()
-            msg_bytes = base64.urlsafe_b64decode(msg["raw"])
-            mime_msg = message_from_bytes(msg_bytes)
-            results.append(self.parse_message(mime_msg))
+        return [self._parse_email(self._get_email(message["id"])) for message in messages]
 
-        return results
+    def _get_email(self, message_id: str):
+        raw_message = self.service.users().messages().get(userId="me", id=message_id, format="raw").execute()
+        return base64.urlsafe_b64decode(raw_message["raw"])
 
-    def parse_message(self, mime_msg):
-        """Parse a MIME message into a more readable format."""
-        parsed_email = {
-            "subject": self._get_mime_header(mime_msg, "Subject"),
-            "from": self._get_mime_header(mime_msg, "From"),
-            "to": self._get_mime_header(mime_msg, "To"),
-            "date": self._parse_date(mime_msg),
-            "body": self._get_mime_body(mime_msg),
+    def _parse_email(self, raw_email) -> Dict:
+        mime_msg = message_from_bytes(raw_email)
+        return {
+            "subject": self._get_header(mime_msg, "Subject"),
+            "from": self._get_header(mime_msg, "From"),
+            "to": self._get_header(mime_msg, "To"),
+            "date": self._format_date(mime_msg),
+            "body": self._get_body(mime_msg),
         }
-        return parsed_email
 
-    def _get_mime_header(self, mime_msg, header_name):
-        """Extract a header value from a MIME message."""
-        header = mime_msg.get(header_name)
-        return header if header else ""
+    @staticmethod
+    def _get_header(mime_msg, header_name: str) -> str:
+        return mime_msg.get(header_name, "")
 
-    def _parse_date(self, mime_msg):
-        """Parse and format the date from a MIME message."""
-        date_header = self._get_mime_header(mime_msg, "Date")
-        if date_header:
+    @staticmethod
+    def _format_date(mime_msg) -> Optional[str]:
+        date_header = GmailReader._get_header(mime_msg, "Date")
+        return parsedate_to_datetime(date_header).isoformat() if date_header else None
+
+    @staticmethod
+    def _get_body(mime_msg) -> str:
+        def decode_payload(part):
+            charset = part.get_content_charset() or "utf-8"
             try:
-                return parsedate_to_datetime(date_header)
-            except Exception:
-                return ""
-        return ""
+                return part.get_payload(decode=True).decode(charset)
+            except UnicodeDecodeError:
+                return part.get_payload(decode=True).decode(charset, errors="replace")
 
-    def _get_mime_body(self, mime_msg):
-        """Extract the body from a MIME message."""
         if mime_msg.is_multipart():
             for part in mime_msg.walk():
                 ctype = part.get_content_type()
                 cdispo = str(part.get("Content-Disposition"))
 
-                # skip any text/plain (txt) attachments
                 if ctype == "text/plain" and "attachment" not in cdispo:
-                    return part.get_payload(decode=True).decode()  # decode
+                    return decode_payload(part)
                 elif ctype == "text/html":
-                    return part.get_payload(decode=True).decode()  # to decode
+                    return decode_payload(part)
         else:
-            return mime_msg.get_payload(decode=True).decode()
+            return decode_payload(mime_msg)
 
         return ""
 
 
-def get_header(text: str, header: str) -> str:
-    start_string_position = text.find(header)
-    pos_start = text.find(":", start_string_position) + 1
-    pos_end = text.find("\n", pos_start)
-    header = text[pos_start:pos_end]
-    return header.strip()
-
-
 class GmailLoader(BaseLoader):
-    def load_data(self, query):
-        """Load data from gmail."""
-        if not os.path.isfile("credentials.json"):
-            raise FileNotFoundError(
-                "You must download the valid credentials file from your google \
-                dev account. Refer this `https://cloud.google.com/docs/authentication/api-keys`"
-            )
-
-        loader = GmailReader(query=query, service=None, results_per_page=20)
-        documents = loader.load_data()
-        logging.info(f"Gmail Loader: {len(documents)} mails found for query- {query}")
+    def load_data(self, query: str):
+        reader = GmailReader(query=query)
+        emails = reader.load_emails()
+        logging.info(f"Gmail Loader: {len(emails)} emails found for query '{query}'")
 
         data = []
-        data_contents = []
-        logging.info(f"Gmail Loader: {len(documents)} mails found")
-        for document in documents:
-            original_size = len(document.text)
+        for email in emails:
+            content = self._process_email(email)
+            data.append({"content": content, "meta_data": email})
 
-            snippet = document.metadata.get("snippet")
-            meta_data = {
-                "url": document.metadata.get("id"),
-                "date": get_header(document.text, "Date"),
-                "subject": get_header(document.text, "Subject"),
-                "from": get_header(document.text, "From"),
-                "to": get_header(document.text, "To"),
-                "search_query": query,
-            }
+        return {"doc_id": self._generate_doc_id(query, data), "data": data}
 
-            # Decode
-            decoded_bytes = quopri.decodestring(document.text)
-            decoded_str = decoded_bytes.decode("utf-8", errors="replace")
+    @staticmethod
+    def _process_email(email: Dict) -> str:
+        content = BeautifulSoup(email["body"], "html.parser").get_text()
+        content = clean_string(content)
+        return dedent(
+            f"""
+            Email from '{email['from']}' to '{email['to']}'
+            Subject: {email['subject']}
+            Date: {email['date']}
+            Content: {content}
+        """
+        )
 
-            # Slice
-            mail_start = decoded_str.find("<!DOCTYPE")
-            email_data = decoded_str[mail_start:]
-
-            # Web Page HTML Processing
-            soup = BeautifulSoup(email_data, "html.parser")
-
-            tags_to_exclude = [
-                "nav",
-                "aside",
-                "form",
-                "header",
-                "noscript",
-                "svg",
-                "canvas",
-                "footer",
-                "script",
-                "style",
-            ]
-
-            for tag in soup(tags_to_exclude):
-                tag.decompose()
-
-            ids_to_exclude = ["sidebar", "main-navigation", "menu-main-menu"]
-            for id in ids_to_exclude:
-                tags = soup.find_all(id=id)
-                for tag in tags:
-                    tag.decompose()
-
-            classes_to_exclude = [
-                "elementor-location-header",
-                "navbar-header",
-                "nav",
-                "header-sidebar-wrapper",
-                "blog-sidebar-wrapper",
-                "related-posts",
-            ]
-
-            for class_name in classes_to_exclude:
-                tags = soup.find_all(class_=class_name)
-                for tag in tags:
-                    tag.decompose()
-
-            content = soup.get_text()
-            content = clean_string(content)
-
-            cleaned_size = len(content)
-            if original_size != 0:
-                logging.info(
-                    f"[{id}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
-                )
-
-            result = f"""
-            email from '{meta_data.get('from')}' to '{meta_data.get('to')}'
-            subject: {meta_data.get('subject')}
-            date: {meta_data.get('date')}
-            preview: {snippet}
-            content: f{content}
-            """
-            data_content = dedent(result)
-            data.append({"content": data_content, "meta_data": meta_data})
-            data_contents.append(data_content)
-        doc_id = hashlib.sha256((query + ", ".join(data_contents)).encode()).hexdigest()
-        response_data = {"doc_id": doc_id, "data": data}
-        return response_data
+    @staticmethod
+    def _generate_doc_id(query: str, data: List[Dict]) -> str:
+        content_strings = [email["content"] for email in data]
+        return hashlib.sha256((query + ", ".join(content_strings)).encode()).hexdigest()
