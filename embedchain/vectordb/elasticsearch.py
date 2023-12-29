@@ -164,7 +164,7 @@ class ElasticsearchDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -202,7 +202,7 @@ class ElasticsearchDB(BaseVectorDB):
         if "app_id" in where:
             app_id = where["app_id"]
             query["script_score"]["query"] = {"match": {"metadata.app_id": app_id}}
-        _source = ["text", "metadata.url", "metadata.doc_id"]
+        _source = ["text", "metadata"]
         response = self.client.search(index=self._get_index(), query=query, _source=_source, size=n_results)
         docs = response["hits"]["hits"]
         contexts = []
@@ -210,9 +210,8 @@ class ElasticsearchDB(BaseVectorDB):
             context = doc["_source"]["text"]
             if citations:
                 metadata = doc["_source"]["metadata"]
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                metadata["score"] = doc["_score"]
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts

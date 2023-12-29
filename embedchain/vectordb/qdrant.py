@@ -170,7 +170,7 @@ class QdrantDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -219,9 +219,8 @@ class QdrantDB(BaseVectorDB):
             context = result.payload["text"]
             if citations:
                 metadata = result.payload["metadata"]
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                metadata["score"] = result.score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
