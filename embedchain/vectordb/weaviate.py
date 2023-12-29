@@ -271,9 +271,7 @@ class WeaviateDB(BaseVectorDB):
             context = doc["text"]
             if citations:
                 metadata = doc["metadata"][0]
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append((context, source, doc_id))
+                contexts.append((context, metadata))
             else:
                 contexts.append(context)
         return contexts

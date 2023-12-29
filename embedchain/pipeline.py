@@ -237,13 +237,7 @@ class Pipeline(EmbedChain):
             )
             result = []
             for c in context:
-                result.append(
-                    {
-                        "context": c[0],
-                        "source": c[1],
-                        "document_id": c[2],
-                    }
-                )
+                result.append({"context": c[0], "metadata": c[1]})
             return result
         else:
             # Make API call to the backend to get the results

@@ -187,9 +187,7 @@ class ZillizVectorDB(BaseVectorDB):
             data = query[0]["entity"]
             context = data["text"]
             if citations:
-                source = data["url"]
-                doc_id = data["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                contexts.append(tuple((context, data)))
             else:
                 contexts.append(context)
         return contexts

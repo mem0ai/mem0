@@ -154,9 +154,7 @@ class PineconeDB(BaseVectorDB):
             metadata = doc["metadata"]
             context = metadata["text"]
             if citations:
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts

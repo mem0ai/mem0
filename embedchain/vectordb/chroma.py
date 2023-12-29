@@ -250,9 +250,7 @@ class ChromaDB(BaseVectorDB):
             context = result[0].page_content
             if citations:
                 metadata = result[0].metadata
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append((context, source, doc_id))
+                contexts.append((context, metadata))
             else:
                 contexts.append(context)
         return contexts
