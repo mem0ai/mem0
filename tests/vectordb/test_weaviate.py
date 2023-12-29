@@ -29,7 +29,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         expected_class_obj = {
             "classes": [
@@ -96,7 +96,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         expected_client = db._get_or_create_db()
         self.assertEqual(expected_client, weaviate_client_mock)
@@ -115,7 +115,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
         db.BATCH_SIZE = 1
 
         embeddings = [[1, 2, 3], [4, 5, 6]]
@@ -159,7 +159,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
         db.query(input_query=["This is a test document."], n_results=1, where={}, skip_embedding=True)
@@ -184,7 +184,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
         db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"}, skip_embedding=True)
@@ -210,7 +210,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Reset the database.
         db.reset()
@@ -232,7 +232,7 @@ class TestWeaviateDb(unittest.TestCase):
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Reset the database.
         db.count()

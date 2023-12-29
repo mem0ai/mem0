@@ -2,7 +2,7 @@ import queue
 
 import streamlit as st
 
-from embedchain import Pipeline as App
+from embedchain import App
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.callbacks import (StreamingStdOutCallbackHandlerYield,
                                           generate)
@@ -35,7 +35,7 @@ with st.expander(":grey[Want to create your own Unacademy UPSC AI?]"):
     ```
 
     ```python
-    from embedchain import Pipeline as App
+    from embedchain import App
     unacademy_ai_app = App()
     unacademy_ai_app.add(
         "https://unacademy.com/content/upsc/study-material/plan-policy/atma-nirbhar-bharat-3-0/",

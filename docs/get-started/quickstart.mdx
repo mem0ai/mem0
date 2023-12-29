@@ -14,7 +14,7 @@ Creating an app involves 3 steps:
 <Steps>
   <Step title="⚙️ Import app instance">
     ```python
-    from embedchain import Pipeline as App
+    from embedchain import App
     app = App()
     ```
     <Accordion title="Customize your app by a simple YAML config" icon="gear-complex">
@@ -22,15 +22,15 @@ Creating an app involves 3 steps:
       Explore the custom configurations [here](https://docs.embedchain.ai/advanced/configuration).
       <CodeGroup>
       ```python yaml_app.py
-      from embedchain import Pipeline as App
+      from embedchain import App
       app = App.from_config(config_path="config.yaml")
       ```
       ```python json_app.py
-      from embedchain import Pipeline as App
+      from embedchain import App
       app = App.from_config(config_path="config.json")
       ```
       ```python app.py
-      from embedchain import Pipeline as App
+      from embedchain import App
       config = {} # Add your config here
       app = App.from_config(config=config)
       ```

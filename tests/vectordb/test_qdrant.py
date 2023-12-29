@@ -29,7 +29,7 @@ class TestQdrantDB(unittest.TestCase):
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         self.assertEqual(db.collection_name, "embedchain-store-1526")
         self.assertEqual(db.client, qdrant_client_mock.return_value)
@@ -46,7 +46,7 @@ class TestQdrantDB(unittest.TestCase):
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         resp = db.get(ids=[], where={})
         self.assertEqual(resp, {"ids": []})
@@ -65,7 +65,7 @@ class TestQdrantDB(unittest.TestCase):
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         embeddings = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
         documents = ["This is a test document.", "This is another test document."]
@@ -76,7 +76,7 @@ class TestQdrantDB(unittest.TestCase):
         qdrant_client_mock.return_value.upsert.assert_called_once_with(
             collection_name="embedchain-store-1526",
             points=Batch(
-                ids=["abc", "def"],
+                ids=["def", "ghi"],
                 payloads=[
                     {
                         "identifier": "123",
@@ -102,7 +102,7 @@ class TestQdrantDB(unittest.TestCase):
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
         db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"}, skip_embedding=True)
@@ -132,7 +132,7 @@ class TestQdrantDB(unittest.TestCase):
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         db.count()
         qdrant_client_mock.return_value.get_collection.assert_called_once_with(collection_name="embedchain-store-1526")
@@ -146,7 +146,7 @@ class TestQdrantDB(unittest.TestCase):
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         db.reset()
         qdrant_client_mock.return_value.delete_collection.assert_called_once_with(

@@ -2,7 +2,7 @@ import os
 
 import chainlit as cl
 
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 

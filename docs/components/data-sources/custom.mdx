@@ -5,7 +5,7 @@ title: '⚙️ Custom'
 When we say "custom", we mean that you can customize the loader and chunker to your needs. This is done by passing a custom loader and chunker to the `add` method.
 
 ```python
-from embedchain import Pipeline as App
+from embedchain import App
 import your_loader
 import your_chunker
 
@@ -27,7 +27,7 @@ app.add("source", data_type="custom", loader=loader, chunker=chunker)
 Example:
 
 ```python
-from embedchain import Pipeline as App
+from embedchain import App
 from embedchain.loaders.github import GithubLoader
 
 app = App()
