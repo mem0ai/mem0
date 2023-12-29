@@ -12,7 +12,8 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Cohere" href="#cohere"></Card>
-  <Card title="Ollama" href="#Ollama"></Card>
+  <Card title="Together" href="#together"></Card>
+  <Card title="Ollama" href="#ollama"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="JinaChat" href="#jinachat"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
@@ -323,6 +324,42 @@ llm:
   provider: cohere
   config:
     model: large
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+```
+
+</CodeGroup>
+
+## Together
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[together]'
+```
+
+Set the `TOGETHER_API_KEY` as environment variable which you can find on their [Account settings page](https://api.together.xyz/settings/api-keys).
+
+Once you have the API key, you are all set to use it with Embedchain.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import Pipeline as App
+
+os.environ["TOGETHER_API_KEY"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: together
+  config:
+    model: togethercomputer/RedPajama-INCITE-7B-Base
     temperature: 0.5
     max_tokens: 1000
     top_p: 1

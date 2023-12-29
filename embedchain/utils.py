@@ -358,10 +358,6 @@ def is_valid_json_string(source: str):
         _ = json.loads(source)
         return True
     except json.JSONDecodeError:
-        logging.error(
-            "Insert valid string format of JSON. \
-            Check the docs to see the supported formats - `https://docs.embedchain.ai/data-sources/json`"
-        )
         return False
 
 
@@ -384,6 +380,7 @@ def validate_config(config_data):
                     "anthropic",
                     "huggingface",
                     "cohere",
+                    "together",
                     "gpt4all",
                     "ollama",
                     "jina",
@@ -399,6 +396,7 @@ def validate_config(config_data):
                     Optional("top_p"): Or(float, int),
                     Optional("stream"): bool,
                     Optional("template"): str,
+                    Optional("prompt"): str,
                     Optional("system_prompt"): str,
                     Optional("deployment_name"): str,
                     Optional("where"): dict,

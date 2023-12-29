@@ -37,7 +37,7 @@ llm:
     max_tokens: 1000
     top_p: 1
     stream: false
-    template: |
+    prompt: |
       Use the following pieces of context to answer the query at the end.
       If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
@@ -81,6 +81,7 @@ curl --request POST \
 | `OPENAI_API_BASE`          | Azure OpenAI                   |
 | `OPENAI_API_VERSION`       | Azure OpenAI                   |
 | `COHERE_API_KEY`           | Cohere                         |
+| `TOGETHER_API_KEY`         | Together                       |
 | `ANTHROPIC_API_KEY`        | Anthropic                      |
 | `JINACHAT_API_KEY`         | Jina                           |
 | `HUGGINGFACE_ACCESS_TOKEN` | Huggingface                    |
