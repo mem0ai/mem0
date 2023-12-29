@@ -220,5 +220,4 @@ class TestZillizDBCollection:
 
             assert query_result_with_citations == [
                 ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "score": 0.0})
-                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"})
             ]
