@@ -342,8 +342,22 @@ def test_chroma_db_collection_query(app_with_settings):
         input_query=[0, 0, 0], where={}, n_results=2, skip_embedding=True, citations=True
     )
     expected_value_with_citations = [
-        ("document", {"url": "url_1", "doc_id": "doc_id_1"}),
-        ("document2", {"url": "url_2", "doc_id": "doc_id_2"}),
+        (
+            "document",
+            {
+                "url": "url_1",
+                "doc_id": "doc_id_1",
+                "score": 0.0,
+            },
+        ),
+        (
+            "document2",
+            {
+                "url": "url_2",
+                "doc_id": "doc_id_2",
+                "score": 1.0,
+            },
+        ),
     ]
     assert data_with_citations == expected_value_with_citations
 

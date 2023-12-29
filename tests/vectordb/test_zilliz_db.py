@@ -123,7 +123,14 @@ class TestZillizDBCollection:
         # Mock the MilvusClient search method
         with patch.object(zilliz_db.client, "search") as mock_search:
             # Mock the search result
-            mock_search.return_value = [[{"entity": {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"}}]]
+            mock_search.return_value = [
+                [
+                    {
+                        "distance": 0.5,
+                        "entity": {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "embeddings": [1, 2, 3]},
+                    }
+                ]
+            ]
 
             # Call the query method with skip_embedding=True
             query_result = zilliz_db.query(input_query=["query_text"], n_results=1, where={}, skip_embedding=True)
@@ -133,7 +140,7 @@ class TestZillizDBCollection:
                 collection_name=mock_config.collection_name,
                 data=["query_text"],
                 limit=1,
-                output_fields=["text", "url", "doc_id"],
+                output_fields=["*"],
             )
 
             # Assert that the query result matches the expected result
@@ -147,11 +154,11 @@ class TestZillizDBCollection:
                 collection_name=mock_config.collection_name,
                 data=["query_text"],
                 limit=1,
-                output_fields=["text", "url", "doc_id"],
+                output_fields=["*"],
             )
 
             assert query_result_with_citations == [
-                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"})
+                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "score": 0.5})
             ]
 
     @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
@@ -177,7 +184,14 @@ class TestZillizDBCollection:
             mock_embedder.embedding_fn.return_value = ["query_vector"]
 
             # Mock the search result
-            mock_search.return_value = [[{"entity": {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"}}]]
+            mock_search.return_value = [
+                [
+                    {
+                        "distance": 0.0,
+                        "entity": {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "embeddings": [1, 2, 3]},
+                    }
+                ]
+            ]
 
             # Call the query method with skip_embedding=False
             query_result = zilliz_db.query(input_query=["query_text"], n_results=1, where={}, skip_embedding=False)
@@ -187,7 +201,7 @@ class TestZillizDBCollection:
                 collection_name=mock_config.collection_name,
                 data=["query_vector"],
                 limit=1,
-                output_fields=["text", "url", "doc_id"],
+                output_fields=["*"],
             )
 
             # Assert that the query result matches the expected result
@@ -201,9 +215,9 @@ class TestZillizDBCollection:
                 collection_name=mock_config.collection_name,
                 data=["query_vector"],
                 limit=1,
-                output_fields=["text", "url", "doc_id"],
+                output_fields=["*"],
             )
 
             assert query_result_with_citations == [
-                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"})
+                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "score": 0.0})
             ]

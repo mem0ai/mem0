@@ -164,7 +164,7 @@ class ElasticsearchDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -210,6 +210,7 @@ class ElasticsearchDB(BaseVectorDB):
             context = doc["_source"]["text"]
             if citations:
                 metadata = doc["_source"]["metadata"]
+                metadata["score"] = doc["_score"]
                 contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)

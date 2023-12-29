@@ -127,7 +127,7 @@ class PineconeDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
@@ -154,6 +154,7 @@ class PineconeDB(BaseVectorDB):
             metadata = doc["metadata"]
             context = metadata["text"]
             if citations:
+                metadata["score"] = doc["score"]
                 contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)

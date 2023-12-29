@@ -135,7 +135,7 @@ class ZillizVectorDB(BaseVectorDB):
         skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         Query contents from vector data base based on vector similarity
 
@@ -159,7 +159,7 @@ class ZillizVectorDB(BaseVectorDB):
         if not isinstance(where, str):
             where = None
 
-        output_fields = ["text", "url", "doc_id"]
+        output_fields = ["*"]
         if skip_embedding:
             query_vector = input_query
             query_result = self.client.search(
@@ -181,12 +181,18 @@ class ZillizVectorDB(BaseVectorDB):
                 output_fields=output_fields,
                 **kwargs,
             )
-
+        query_result = query_result[0]
         contexts = []
         for query in query_result:
-            data = query[0]["entity"]
+            data = query["entity"]
+            score = query["distance"]
             context = data["text"]
+
+            if "embeddings" in data:
+                data.pop("embeddings")
+
             if citations:
+                data["score"] = score
                 contexts.append(tuple((context, data)))
             else:
                 contexts.append(context)
