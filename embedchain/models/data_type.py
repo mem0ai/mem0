@@ -37,6 +37,7 @@ class IndirectDataType(Enum):
     BEEHIIV = "beehiiv"
     DIRECTORY = "directory"
     SLACK = "slack"
+    DROPBOX = "dropbox"
     TEXT_FILE = "text_file"
 
 
@@ -74,4 +75,5 @@ class DataType(Enum):
     BEEHIIV = IndirectDataType.BEEHIIV.value
     DIRECTORY = IndirectDataType.DIRECTORY.value
     SLACK = IndirectDataType.SLACK.value
+    DROPBOX = IndirectDataType.DROPBOX.value
     TEXT_FILE = IndirectDataType.TEXT_FILE.value
