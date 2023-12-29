@@ -219,9 +219,7 @@ class QdrantDB(BaseVectorDB):
             context = result.payload["text"]
             if citations:
                 metadata = result.payload["metadata"]
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts

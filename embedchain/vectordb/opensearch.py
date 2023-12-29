@@ -218,9 +218,7 @@ class OpenSearchDB(BaseVectorDB):
         for doc in docs:
             context = doc.page_content
             if citations:
-                source = doc.metadata["url"]
-                doc_id = doc.metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                contexts.append(tuple((context, doc.metadata)))
             else:
                 contexts.append(context)
         return contexts

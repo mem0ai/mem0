@@ -150,7 +150,9 @@ class TestZillizDBCollection:
                 output_fields=["text", "url", "doc_id"],
             )
 
-            assert query_result_with_citations == [("result_doc", "url_1", "doc_id_1")]
+            assert query_result_with_citations == [
+                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"})
+            ]
 
     @patch("embedchain.vectordb.zilliz.MilvusClient", autospec=True)
     @patch("embedchain.vectordb.zilliz.connections", autospec=True)
@@ -202,4 +204,6 @@ class TestZillizDBCollection:
                 output_fields=["text", "url", "doc_id"],
             )
 
-            assert query_result_with_citations == [("result_doc", "url_1", "doc_id_1")]
+            assert query_result_with_citations == [
+                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1"})
+            ]
