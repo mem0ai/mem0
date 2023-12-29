@@ -4,11 +4,10 @@ import pytest
 import yaml
 
 from embedchain import App
-from embedchain.config import (AddConfig, AppConfig, BaseEmbedderConfig,
-                               BaseLlmConfig, ChromaDbConfig)
+from embedchain.config import ChromaDbConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.llm.base import BaseLlm
-from embedchain.vectordb.base import BaseVectorDB, BaseVectorDbConfig
+from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
 
@@ -21,13 +20,14 @@ def app():
 def test_app(app):
     assert isinstance(app.llm, BaseLlm)
     assert isinstance(app.db, BaseVectorDB)
-    assert isinstance(app.embedder, BaseEmbedder)
+    assert isinstance(app.embedding_model, BaseEmbedder)
 
 
 class TestConfigForAppComponents:
     def test_constructor_config(self):
         collection_name = "my-test-collection"
-        app = App(db_config=ChromaDbConfig(collection_name=collection_name))
+        db = ChromaDB(config=ChromaDbConfig(collection_name=collection_name))
+        app = App(db=db)
         assert app.db.config.collection_name == collection_name
 
     def test_component_config(self):
@@ -35,50 +35,6 @@ class TestConfigForAppComponents:
         database = ChromaDB(config=ChromaDbConfig(collection_name=collection_name))
         app = App(db=database)
         assert app.db.config.collection_name == collection_name
-
-    def test_different_configs_are_proper_instances(self):
-        app_config = AppConfig()
-        wrong_config = AddConfig()
-        with pytest.raises(TypeError):
-            App(config=wrong_config)
-
-        assert isinstance(app_config, AppConfig)
-
-        llm_config = BaseLlmConfig()
-        wrong_llm_config = "wrong_llm_config"
-
-        with pytest.raises(TypeError):
-            App(llm_config=wrong_llm_config)
-
-        assert isinstance(llm_config, BaseLlmConfig)
-
-        db_config = BaseVectorDbConfig()
-        wrong_db_config = "wrong_db_config"
-
-        with pytest.raises(TypeError):
-            App(db_config=wrong_db_config)
-
-        assert isinstance(db_config, BaseVectorDbConfig)
-
-        embedder_config = BaseEmbedderConfig()
-        wrong_embedder_config = "wrong_embedder_config"
-        with pytest.raises(TypeError):
-            App(embedder_config=wrong_embedder_config)
-
-        assert isinstance(embedder_config, BaseEmbedderConfig)
-
-    def test_components_raises_type_error_if_not_proper_instances(self):
-        wrong_llm = "wrong_llm"
-        with pytest.raises(TypeError):
-            App(llm=wrong_llm)
-
-        wrong_db = "wrong_db"
-        with pytest.raises(TypeError):
-            App(db=wrong_db)
-
-        wrong_embedder = "wrong_embedder"
-        with pytest.raises(TypeError):
-            App(embedder=wrong_embedder)
 
 
 class TestAppFromConfig:
@@ -92,14 +48,13 @@ class TestAppFromConfig:
         yaml_path = "configs/chroma.yaml"
         config_data = self.load_config_data(yaml_path)
 
-        app = App.from_config(yaml_path)
+        app = App.from_config(config_path=yaml_path)
 
         # Check if the App instance and its components were created correctly
         assert isinstance(app, App)
 
         # Validate the AppConfig values
         assert app.config.id == config_data["app"]["config"]["id"]
-        assert app.config.collection_name == config_data["app"]["config"]["collection_name"]
         # Even though not present in the config, the default value is used
         assert app.config.collect_metrics is True
 
@@ -118,8 +73,8 @@ class TestAppFromConfig:
 
         # Validate the Embedder config values
         embedder_config = config_data["embedder"]["config"]
-        assert app.embedder.config.model == embedder_config["model"]
-        assert app.embedder.config.deployment_name == embedder_config.get("deployment_name")
+        assert app.embedding_model.config.model == embedder_config["model"]
+        assert app.embedding_model.config.deployment_name == embedder_config.get("deployment_name")
 
     def test_from_opensource_config(self, mocker):
         mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
@@ -134,7 +89,6 @@ class TestAppFromConfig:
 
         # Validate the AppConfig values
         assert app.config.id == config_data["app"]["config"]["id"]
-        assert app.config.collection_name == config_data["app"]["config"]["collection_name"]
         assert app.config.collect_metrics == config_data["app"]["config"]["collect_metrics"]
 
         # Validate the LLM config values
@@ -153,4 +107,4 @@ class TestAppFromConfig:
 
         # Validate the Embedder config values
         embedder_config = config_data["embedder"]["config"]
-        assert app.embedder.config.deployment_name == embedder_config["deployment_name"]
+        assert app.embedding_model.config.deployment_name == embedder_config["deployment_name"]

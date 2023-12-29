@@ -11,7 +11,7 @@ Use the model provided on huggingface: `mistralai/Mistral-7B-v0.1`
 <CodeGroup>
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "hf_your_token"
 
@@ -40,7 +40,7 @@ Use the model `gpt-4-turbo` provided my openai.
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -65,7 +65,7 @@ llm:
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -90,7 +90,7 @@ llm:
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load llm configuration from opensource.yaml file
 app = App.from_config(config_path="opensource.yaml")
@@ -131,7 +131,7 @@ llm:
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'sk-xxx'
 
@@ -149,7 +149,7 @@ response = app.query("What is the net worth of Elon Musk?")
   Set up the app by adding an `id` in the config file. This keeps the data for future use. You can include this `id` in the yaml config or input it directly in `config` dict.
   ```python app1.py
   import os
-  from embedchain import Pipeline as App
+  from embedchain import App
 
   os.environ['OPENAI_API_KEY'] = 'sk-xxx'
 
@@ -167,7 +167,7 @@ response = app.query("What is the net worth of Elon Musk?")
   ```
   ```python app2.py
   import os
-  from embedchain import Pipeline as App
+  from embedchain import App
 
   os.environ['OPENAI_API_KEY'] = 'sk-xxx'
 

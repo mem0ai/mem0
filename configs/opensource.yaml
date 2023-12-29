@@ -1,7 +1,6 @@
 app:
   config:
     id: 'open-source-app'
-    collection_name: 'open-source-app'
     collect_metrics: false
 
 llm:

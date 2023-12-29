@@ -9,7 +9,7 @@ from services import get_app, get_apps, remove_app, save_app
 from sqlalchemy.orm import Session
 from utils import generate_error_message_for_api_keys
 
-from embedchain import Pipeline as App
+from embedchain import App
 from embedchain.client import Client
 
 Base.metadata.create_all(bind=engine)

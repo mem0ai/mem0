@@ -5,6 +5,7 @@ import pytest
 
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
+from embedchain.llm.openai import OpenAILlm
 
 
 @pytest.fixture
@@ -37,21 +38,10 @@ def test_query_config_app_passing(mock_get_answer):
 
     config = AppConfig(collect_metrics=False)
     chat_config = BaseLlmConfig(system_prompt="Test system prompt")
-    app = App(config=config, llm_config=chat_config)
+    llm = OpenAILlm(config=chat_config)
+    app = App(config=config, llm=llm)
     answer = app.llm.get_llm_model_answer("Test query")
 
-    assert app.llm.config.system_prompt == "Test system prompt"
-    assert answer == "Test answer"
-
-
-@patch("embedchain.llm.openai.OpenAILlm._get_answer")
-def test_app_passing(mock_get_answer):
-    mock_get_answer.return_value = MagicMock()
-    mock_get_answer.return_value = "Test answer"
-    config = AppConfig(collect_metrics=False)
-    chat_config = BaseLlmConfig()
-    app = App(config=config, llm_config=chat_config, system_prompt="Test system prompt")
-    answer = app.llm.get_llm_model_answer("Test query")
     assert app.llm.config.system_prompt == "Test system prompt"
     assert answer == "Test answer"
 
@@ -83,5 +73,7 @@ def test_query_with_where_in_query_config(app):
     assert answer == "Test answer"
     _, kwargs = mock_database_query.call_args
     assert kwargs.get("input_query") == "Test query"
-    assert kwargs.get("where") == {"attribute": "value"}
+    where = kwargs.get("where")
+    assert "app_id" in where
+    assert "attribute" in where
     mock_answer.assert_called_once()

@@ -29,7 +29,7 @@ class TestPinecone:
         # Create a PineconeDB instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Assert that the embedder was set
         assert db.embedder == embedder
@@ -48,7 +48,7 @@ class TestPinecone:
         # Create a PineconeDb instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=base_embedder)
+        App(config=app_config, db=db, embedding_model=base_embedder)
 
         # Add some documents to the database
         documents = ["This is a document.", "This is another document."]
@@ -76,7 +76,7 @@ class TestPinecone:
         # Create a PineconeDB instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=base_embedder)
+        App(config=app_config, db=db, embedding_model=base_embedder)
 
         # Query the database for documents that are similar to "document"
         input_query = ["document"]
@@ -94,7 +94,7 @@ class TestPinecone:
         # Create a PineconeDb instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=BaseEmbedder())
+        App(config=app_config, db=db, embedding_model=BaseEmbedder())
 
         # Reset the database
         db.reset()

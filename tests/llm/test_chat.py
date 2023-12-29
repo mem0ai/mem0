@@ -114,5 +114,7 @@ class TestApp(unittest.TestCase):
         self.assertEqual(answer, "Test answer")
         _args, kwargs = mock_database_query.call_args
         self.assertEqual(kwargs.get("input_query"), "Test query")
-        self.assertEqual(kwargs.get("where"), {"attribute": "value"})
+        where = kwargs.get("where")
+        assert "app_id" in where
+        assert "attribute" in where
         mock_answer.assert_called_once()

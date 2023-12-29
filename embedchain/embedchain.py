@@ -9,7 +9,7 @@ from langchain.docstore.document import Document
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
-from embedchain.config.apps.base_app_config import BaseAppConfig
+from embedchain.config.base_app_config import BaseAppConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder

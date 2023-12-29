@@ -8,6 +8,7 @@ from embedchain.config import AppConfig, ChromaDbConfig
 from embedchain.embedchain import EmbedChain
 from embedchain.llm.base import BaseLlm
 from embedchain.memory.base import ECChatMemory
+from embedchain.vectordb.chroma import ChromaDB
 
 os.environ["OPENAI_API_KEY"] = "test-api-key"
 
@@ -15,7 +16,7 @@ os.environ["OPENAI_API_KEY"] = "test-api-key"
 @pytest.fixture
 def app_instance():
     config = AppConfig(log_level="DEBUG", collect_metrics=False)
-    return App(config)
+    return App(config=config)
 
 
 def test_whole_app(app_instance, mocker):
@@ -44,9 +45,9 @@ def test_add_after_reset(app_instance, mocker):
     mocker.patch("embedchain.vectordb.chroma.chromadb.Client")
 
     config = AppConfig(log_level="DEBUG", collect_metrics=False)
-    chroma_config = {"allow_reset": True}
-
-    app_instance = App(config=config, db_config=ChromaDbConfig(**chroma_config))
+    chroma_config = ChromaDbConfig(allow_reset=True)
+    db = ChromaDB(config=chroma_config)
+    app_instance = App(config=config, db=db)
 
     # mock delete chat history
     mocker.patch.object(ECChatMemory, "delete_chat_history", autospec=True)

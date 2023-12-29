@@ -1,7 +1,6 @@
 app:
   config:
     id: 'my-app'
-    collection_name: 'my-app'
 
 llm:
   provider: openai

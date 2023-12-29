@@ -8,7 +8,7 @@ To use an entire directory as data source, just add `data_type` as `directory` a
 
 ```python
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
@@ -23,7 +23,7 @@ print(response)
 
 ```python
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 from embedchain.loaders.directory_loader import DirectoryLoader
 
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
