@@ -8,10 +8,16 @@ from textwrap import dedent
 from typing import Dict, List, Optional
 
 from bs4 import BeautifulSoup
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+
+try:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+except ImportError:
+    raise ImportError(
+        'Gmail requires extra dependencies. Install with `pip install --upgrade "embedchain[gmail]"`'
+    ) from None
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string

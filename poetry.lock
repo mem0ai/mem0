@@ -1795,13 +1795,13 @@ protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4
 
 [[package]]
 name = "google-api-core"
-version = "2.12.0"
+version = "2.15.0"
 description = "Google API client core library"
 optional = true
 python-versions = ">=3.7"
 files = [
-    {file = "google-api-core-2.12.0.tar.gz", hash = "sha256:c22e01b1e3c4dcd90998494879612c38d0a3411d1f7b679eb89e2abe3ce1f553"},
-    {file = "google_api_core-2.12.0-py3-none-any.whl", hash = "sha256:ec6054f7d64ad13b41e43d96f735acbd763b0f3b695dabaa2d579673f6a6e160"},
+    {file = "google-api-core-2.15.0.tar.gz", hash = "sha256:abc978a72658f14a2df1e5e12532effe40f94f868f6e23d95133bd6abcca35ca"},
+    {file = "google_api_core-2.15.0-py3-none-any.whl", hash = "sha256:2aa56d2be495551e66bbff7f729b790546f87d5c90e74781aa77233bcb395a8a"},
 ]
 
 [package.dependencies]
@@ -1824,14 +1824,32 @@ grpcgcp = ["grpcio-gcp (>=0.2.2,<1.0.dev0)"]
 grpcio-gcp = ["grpcio-gcp (>=0.2.2,<1.0.dev0)"]
 
 [[package]]
+name = "google-api-python-client"
+version = "2.111.0"
+description = "Google API Client Library for Python"
+optional = true
+python-versions = ">=3.7"
+files = [
+    {file = "google-api-python-client-2.111.0.tar.gz", hash = "sha256:3a45a53c031478d1c82c7162dd25c9a965247bca6bd438af0838a9d9b8219405"},
+    {file = "google_api_python_client-2.111.0-py2.py3-none-any.whl", hash = "sha256:b605adee2d09a843b97a59925757802904679e44e5599708cedb8939900dfbc7"},
+]
+
+[package.dependencies]
+google-api-core = ">=1.31.5,<2.0.dev0 || >2.3.0,<3.0.0.dev0"
+google-auth = ">=1.19.0,<3.0.0.dev0"
+google-auth-httplib2 = ">=0.1.0"
+httplib2 = ">=0.15.0,<1.dev0"
+uritemplate = ">=3.0.1,<5"
+
+[[package]]
 name = "google-auth"
-version = "2.23.3"
+version = "2.25.2"
 description = "Google Authentication Library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google-auth-2.23.3.tar.gz", hash = "sha256:6864247895eea5d13b9c57c9e03abb49cb94ce2dc7c58e91cba3248c7477c9e3"},
-    {file = "google_auth-2.23.3-py2.py3-none-any.whl", hash = "sha256:a8f4608e65c244ead9e0538f181a96c6e11199ec114d41f1d7b1bffa96937bda"},
+    {file = "google-auth-2.25.2.tar.gz", hash = "sha256:42f707937feb4f5e5a39e6c4f343a17300a459aaf03141457ba505812841cc40"},
+    {file = "google_auth-2.25.2-py2.py3-none-any.whl", hash = "sha256:473a8dfd0135f75bb79d878436e568f2695dce456764bf3a02b6f8c540b1d256"},
 ]
 
 [package.dependencies]
@@ -1845,6 +1863,39 @@ enterprise-cert = ["cryptography (==36.0.2)", "pyopenssl (==22.0.0)"]
 pyopenssl = ["cryptography (>=38.0.3)", "pyopenssl (>=20.0.0)"]
 reauth = ["pyu2f (>=0.1.5)"]
 requests = ["requests (>=2.20.0,<3.0.0.dev0)"]
+
+[[package]]
+name = "google-auth-httplib2"
+version = "0.2.0"
+description = "Google Authentication Library: httplib2 transport"
+optional = true
+python-versions = "*"
+files = [
+    {file = "google-auth-httplib2-0.2.0.tar.gz", hash = "sha256:38aa7badf48f974f1eb9861794e9c0cb2a0511a4ec0679b1f886d108f5640e05"},
+    {file = "google_auth_httplib2-0.2.0-py2.py3-none-any.whl", hash = "sha256:b65a0a2123300dd71281a7bf6e64d65a0759287df52729bdd1ae2e47dc311a3d"},
+]
+
+[package.dependencies]
+google-auth = "*"
+httplib2 = ">=0.19.0"
+
+[[package]]
+name = "google-auth-oauthlib"
+version = "1.2.0"
+description = "Google Authentication Library"
+optional = true
+python-versions = ">=3.6"
+files = [
+    {file = "google-auth-oauthlib-1.2.0.tar.gz", hash = "sha256:292d2d3783349f2b0734a0a0207b1e1e322ac193c2c09d8f7c613fb7cc501ea8"},
+    {file = "google_auth_oauthlib-1.2.0-py2.py3-none-any.whl", hash = "sha256:297c1ce4cb13a99b5834c74a1fe03252e1e499716718b190f56bcb9c4abc4faf"},
+]
+
+[package.dependencies]
+google-auth = ">=2.15.0"
+requests-oauthlib = ">=0.7.0"
+
+[package.extras]
+tool = ["click (>=6.0.0)"]
 
 [[package]]
 name = "google-cloud-aiplatform"
@@ -2449,6 +2500,20 @@ sniffio = "==1.*"
 [package.extras]
 http2 = ["h2 (>=3,<5)"]
 socks = ["socksio (==1.*)"]
+
+[[package]]
+name = "httplib2"
+version = "0.22.0"
+description = "A comprehensive HTTP client library."
+optional = true
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+files = [
+    {file = "httplib2-0.22.0-py3-none-any.whl", hash = "sha256:14ae0a53c1ba8f3d37e9e27cf37eabb0fb9980f435ba405d546948b009dd64dc"},
+    {file = "httplib2-0.22.0.tar.gz", hash = "sha256:d7a10bc5ef5ab08322488bde8c726eeee5c8618723fdb399597ec58f3d82df81"},
+]
+
+[package.dependencies]
+pyparsing = {version = ">=2.4.2,<3.0.0 || >3.0.0,<3.0.1 || >3.0.1,<3.0.2 || >3.0.2,<3.0.3 || >3.0.3,<4", markers = "python_version > \"3.0\""}
 
 [[package]]
 name = "httptools"
@@ -7315,6 +7380,17 @@ packaging = ">=21.3"
 Pillow = ">=8.0.0"
 
 [[package]]
+name = "uritemplate"
+version = "4.1.1"
+description = "Implementation of RFC 6570 URI Templates"
+optional = true
+python-versions = ">=3.6"
+files = [
+    {file = "uritemplate-4.1.1-py2.py3-none-any.whl", hash = "sha256:830c08b8d99bdd312ea4ead05994a38e8936266f84b9a7878232db50b044e02e"},
+    {file = "uritemplate-4.1.1.tar.gz", hash = "sha256:4346edfc5c3b79f694bccd6d6099a322bbeb628dbf2cd86eea55a456ce5124f0"},
+]
+
+[[package]]
 name = "urllib3"
 version = "1.26.17"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -7959,7 +8035,7 @@ discord = ["discord"]
 dropbox = ["dropbox"]
 elasticsearch = ["elasticsearch"]
 github = ["PyGithub", "gitpython"]
-gmail = ["requests"]
+gmail = ["google-api-core", "google-api-python-client", "google-auth", "google-auth-httplib2", "google-auth-oauthlib", "requests"]
 google = ["google-generativeai"]
 huggingface-hub = ["huggingface_hub"]
 images = ["ftfy", "pillow", "regex", "torch", "torchvision"]

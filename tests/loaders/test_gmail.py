@@ -4,17 +4,12 @@ from embedchain.loaders.gmail import GmailLoader
 
 
 @pytest.fixture
-def mock_quopri(mocker):
-    return mocker.patch("embedchain.loaders.gmail.quopri.decodestring", return_value=b"your_test_decoded_string")
-
-
-@pytest.fixture
 def mock_beautifulsoup(mocker):
     return mocker.patch("embedchain.loaders.gmail.BeautifulSoup", return_value=mocker.MagicMock())
 
 
 @pytest.fixture
-def gmail_loader(mock_quopri, mock_beautifulsoup):
+def gmail_loader(mock_beautifulsoup):
     return GmailLoader()
 
 

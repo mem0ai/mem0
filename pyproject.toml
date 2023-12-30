@@ -147,6 +147,11 @@ listparser = { version = "^0.19", optional = true }
 google-generativeai = { version = "^0.3.0", optional = true }
 modal = { version = "^0.56.4329", optional = true }
 dropbox = { version = "^11.36.2", optional = true }
+google-api-python-client = { version = "^2.111.0", optional = true }
+google-auth-oauthlib = { version = "^1.2.0", optional = true }
+google-auth = { version = "^2.25.2", optional = true }
+google-auth-httplib2 = { version = "^0.2.0", optional = true }
+google-api-core = { version = "^2.15.0", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
