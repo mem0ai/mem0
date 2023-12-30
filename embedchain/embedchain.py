@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
-from embedchain.cache import (adapt, gptcache_data_convert,
+from embedchain.cache import (adapt, get_gptcache_session,
+                              gptcache_data_convert,
                               gptcache_update_cache_callback)
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
@@ -555,6 +556,7 @@ class EmbedChain(JSONSerializable):
                 llm_handler=self.llm.query,
                 cache_data_convert=gptcache_data_convert,
                 update_cache_callback=gptcache_update_cache_callback,
+                session=get_gptcache_session(session_id=self.config.id),
                 input_query=input_query,
                 contexts=contexts_data_for_llm_query,
                 config=config,
@@ -614,9 +616,21 @@ class EmbedChain(JSONSerializable):
         else:
             contexts_data_for_llm_query = contexts
 
-        answer = self.llm.chat(
-            input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
-        )
+        if self.config.cache:
+            logging.info("[Cache] Cache enabled, checking cache...")
+            answer = adapt(
+                llm_handler=self.llm.chat,
+                cache_data_convert=gptcache_data_convert,
+                update_cache_callback=gptcache_update_cache_callback,
+                input_query=input_query,
+                contexts=contexts_data_for_llm_query,
+                config=config,
+                dry_run=dry_run,
+            )
+        else:
+            answer = self.llm.chat(
+                input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
+            )
 
         # add conversation in memory
         self.llm.add_history(self.config.id, input_query, answer)

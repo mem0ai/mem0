@@ -8,6 +8,7 @@ from gptcache.config import Config  # noqa: F401
 from gptcache.manager import get_data_manager
 from gptcache.manager.scalar_data.base import Answer
 from gptcache.manager.scalar_data.base import DataType as CacheDataType
+from gptcache.session import Session
 from gptcache.similarity_evaluation.distance import \
     SearchDistanceEvaluation  # noqa: F401
 
@@ -33,6 +34,14 @@ def gptcache_update_cache_callback(llm_data, update_cache_func, *args, **kwargs)
     logging.info("[Cache] Cache missed, updating cache...")
     update_cache_func(Answer(llm_data, CacheDataType.STR))
     return llm_data
+
+
+def _gptcache_session_hit_func(cur_session_id: str, cache_session_ids: list, cache_questions: list, cache_answer: str):
+    return cur_session_id in cache_session_ids
+
+
+def get_gptcache_session(session_id: str):
+    return Session(name=session_id, check_hit_func=_gptcache_session_hit_func)
 
 
 cache = cache
