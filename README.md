@@ -13,17 +13,17 @@
   <a href="https://pepy.tech/project/embedchain">
     <img src="https://static.pepy.tech/badge/embedchain" alt="Downloads">
   </a>
-  <a href="https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw">
+  <a href="https://embedchain.ai/slack">
     <img src="https://img.shields.io/badge/slack-embedchain-brightgreen.svg?logo=slack" alt="Slack">
   </a>
-  <a href="https://discord.gg/CUU9FPhRNt">
+  <a href="https://embedchain.ai/discord">
     <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Discord">
   </a>
   <a href="https://twitter.com/embedchain">
     <img src="https://img.shields.io/twitter/follow/embedchain" alt="Twitter">
   </a>
   <a href="https://colab.research.google.com/drive/138lMWhENGeEu7Q1-6lNbNTHGLZXBBz_B?usp=sharing">
-    <img src="https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667" alt="Open in Colab">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
   </a>
   <a href="https://codecov.io/gh/embedchain/embedchain">
     <img src="https://codecov.io/gh/embedchain/embedchain/graph/badge.svg?token=EMRRHZXW1Q" alt="codecov">
@@ -44,6 +44,7 @@ Embedchain streamlines the creation of RAG applications, offering a seamless pro
 ## 🔧 Quick install
 
 ### Python API
+
 ```bash
 pip install embedchain
 ```
@@ -63,7 +64,7 @@ For example, you can create an Elon Musk bot using the following code:
 
 ```python
 import os
-from embedchain import App
+from embedchain import Pipeline as App
 
 # Create a bot instance
 os.environ["OPENAI_API_KEY"] = "YOUR API KEY"
@@ -80,7 +81,7 @@ elon_bot.query("How many companies does Elon Musk run and name those?")
 
 You can also try it in your browser with Google Colab:
 
-[![Open in Colab](https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667)](https://colab.research.google.com/drive/17ON1LPonnXAtLaZEebnOktstB_1cJJmh?usp=sharing)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/17ON1LPonnXAtLaZEebnOktstB_1cJJmh?usp=sharing)
 
 ## 📖 Documentation
 Comprehensive guides and API documentation are available to help you get the most out of Embedchain:
@@ -92,7 +93,9 @@ Comprehensive guides and API documentation are available to help you get the mos
 
 ## 🔗 Join the Community
 
-Connect with fellow developers and users by joining our [Slack Workspace](https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw) or [Discord Community](https://discord.gg/CUU9FPhRNt). Dive into discussions, ask questions, and share your experiences.
+* Connect with fellow developers by joining our [Slack Community](https://embedchain.ai/slack) or [Discord Community](https://embedchain.ai/discord).
+
+* Dive into [GitHub Discussions](https://github.com/embedchain/embedchain/discussions), ask questions, or share your experiences.
 
 ## 🤝 Schedule a 1-on-1 Session
 
@@ -120,7 +123,7 @@ If you utilize this repository, please consider citing it with:
 ```
 @misc{embedchain,
   author = {Taranjeet Singh, Deshraj Yadav},
-  title = {Embedchain: Data platform for LLMs - load, index, retrieve, and sync any unstructured data},
+  title = {Embedchain: The Open Source RAG Framework},
   year = {2023},
   publisher = {GitHub},
   journal = {GitHub repository},
