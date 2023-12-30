@@ -305,7 +305,7 @@ def detect_datatype(source: Any) -> DataType:
 
         if source.endswith(".txt"):
             logging.debug(f"Source of `{formatted_source}` detected as `text`.")
-            return DataType.TEXT
+            return DataType.TEXT_FILE
 
         if source.endswith(".pdf"):
             logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
@@ -330,6 +330,10 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".json"):
             logging.debug(f"Source of `{formatted_source}` detected as `json`.")
             return DataType.JSON
+
+        if os.path.exists(source) and is_readable(open(source).read()):
+            logging.debug(f"Source of `{formatted_source}` detected as `text_file`.")
+            return DataType.TEXT_FILE
 
         # If the source is a valid file, that's not detectable as a type, an error is raised.
         # It does not fallback to text.
