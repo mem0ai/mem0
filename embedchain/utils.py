@@ -375,7 +375,6 @@ def validate_config(config_data):
                     Optional("log_level"): Or("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
                     Optional("collect_metrics"): bool,
                     Optional("collection_name"): str,
-                    Optional("cache"): bool,
                 }
             },
             Optional("llm"): {
@@ -436,6 +435,9 @@ def validate_config(config_data):
                 Optional("chunk_overlap"): int,
                 Optional("length_function"): str,
                 Optional("min_chunk_size"): int,
+            },
+            Optional("cache"): {
+                Optional("similarity_threshold"): float,
             },
         }
     )
