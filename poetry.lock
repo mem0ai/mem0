@@ -1733,20 +1733,6 @@ ssh = ["paramiko"]
 tqdm = ["tqdm"]
 
 [[package]]
-name = "ftfy"
-version = "6.1.1"
-description = "Fixes mojibake and other problems with Unicode, after the fact"
-optional = true
-python-versions = ">=3.7,<4"
-files = [
-    {file = "ftfy-6.1.1-py3-none-any.whl", hash = "sha256:0ffd33fce16b54cccaec78d6ec73d95ad370e5df5a25255c8966a6147bd667ca"},
-    {file = "ftfy-6.1.1.tar.gz", hash = "sha256:bfc2019f84fcd851419152320a6375604a0f1459c281b5b199b2cd0d2e727f8f"},
-]
-
-[package.dependencies]
-wcwidth = ">=0.2.5"
-
-[[package]]
 name = "gitdb"
 version = "4.0.11"
 description = "Git Object Database"
@@ -6446,7 +6432,7 @@ files = [
 ]
 
 [package.dependencies]
-greenlet = {version = "!=0.4.17", optional = true, markers = "platform_machine == \"win32\" or platform_machine == \"WIN32\" or platform_machine == \"AMD64\" or platform_machine == \"amd64\" or platform_machine == \"x86_64\" or platform_machine == \"ppc64le\" or platform_machine == \"aarch64\" or extra == \"asyncio\""}
+greenlet = {version = "!=0.4.17", markers = "platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\""}
 typing-extensions = ">=4.2.0"
 
 [package.extras]
@@ -7611,17 +7597,6 @@ files = [
 anyio = ">=3.0.0"
 
 [[package]]
-name = "wcwidth"
-version = "0.2.8"
-description = "Measures the displayed width of unicode strings in a terminal"
-optional = true
-python-versions = "*"
-files = [
-    {file = "wcwidth-0.2.8-py2.py3-none-any.whl", hash = "sha256:77f719e01648ed600dfa5402c347481c0992263b81a027344f3e1ba25493a704"},
-    {file = "wcwidth-0.2.8.tar.gz", hash = "sha256:8705c569999ffbb4f6a87c6d1b80f324bd6db952f5eb0b95bc07517f4c1813d4"},
-]
-
-[[package]]
 name = "weaviate-client"
 version = "3.24.2"
 description = "A python native Weaviate client"
@@ -8038,7 +8013,6 @@ github = ["PyGithub", "gitpython"]
 gmail = ["google-api-core", "google-api-python-client", "google-auth", "google-auth-httplib2", "google-auth-oauthlib", "requests"]
 google = ["google-generativeai"]
 huggingface-hub = ["huggingface_hub"]
-images = ["ftfy", "pillow", "regex", "torch", "torchvision"]
 llama2 = ["replicate"]
 milvus = ["pymilvus"]
 modal = ["modal"]
