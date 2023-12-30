@@ -106,8 +106,6 @@ tiktoken = { version = "^0.4.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }
 pytube = { version = "^15.0.0", optional = true }
 duckduckgo-search = { version = "^3.8.5", optional = true }
-llama-hub = { version = "^0.0.43", optional = true }
-llama-index = { version = "^0.8.65", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.0.0", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
@@ -149,6 +147,11 @@ listparser = { version = "^0.19", optional = true }
 google-generativeai = { version = "^0.3.0", optional = true }
 modal = { version = "^0.56.4329", optional = true }
 dropbox = { version = "^11.36.2", optional = true }
+google-api-python-client = { version = "^2.111.0", optional = true }
+google-auth-oauthlib = { version = "^1.2.0", optional = true }
+google-auth = { version = "^2.25.2", optional = true }
+google-auth-httplib2 = { version = "^0.2.0", optional = true }
+google-api-core = { version = "^2.15.0", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -166,7 +169,6 @@ pytest-asyncio = "^0.21.1"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
-community = ["llama-hub"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
@@ -193,7 +195,6 @@ dataloaders=[
 vertexai = ["google-cloud-aiplatform"]
 llama2 = ["replicate"]
 gmail = [
-    "llama-hub",
     "requests",
     "google-api-python-client",
     "google-auth",
@@ -201,7 +202,6 @@ gmail = [
     "google-auth-httplib2",
     "google-api-core",
 ]
-json = ["llama-hub"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 mysql = ["mysql-connector-python"]
 github = ["PyGithub", "gitpython"]

@@ -1,7 +1,6 @@
 import hashlib
 
 import pytest
-from llama_index.readers.schema.base import Document
 
 from embedchain.loaders.json import JSONLoader
 
@@ -42,8 +41,15 @@ def test_load_data_url(mocker):
 
     mocker.patch("os.path.isfile", return_value=False)
     mocker.patch(
-        "llama_hub.jsondata.base.JSONDataReader.load_data",
-        return_value=[Document(text="content1"), Document(text="content2")],
+        "embedchain.loaders.json.JSONReader.load_data",
+        return_value=[
+            {
+                "text": "content1",
+            },
+            {
+                "text": "content2",
+            },
+        ],
     )
 
     mock_response = mocker.Mock()
@@ -98,8 +104,15 @@ def test_load_data_from_json_string(mocker):
 
     mocker.patch("os.path.isfile", return_value=False)
     mocker.patch(
-        "llama_hub.jsondata.base.JSONDataReader.load_data",
-        return_value=[Document(text="content1"), Document(text="content2")],
+        "embedchain.loaders.json.JSONReader.load_data",
+        return_value=[
+            {
+                "text": "content1",
+            },
+            {
+                "text": "content2",
+            },
+        ],
     )
 
     result = JSONLoader.load_data(content)
