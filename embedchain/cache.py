@@ -2,7 +2,7 @@ import logging
 import os  # noqa: F401
 from typing import Any, Dict
 
-from gptcache import cache
+from gptcache import cache  # noqa: F401
 from gptcache.adapter.adapter import adapt  # noqa: F401
 from gptcache.config import Config  # noqa: F401
 from gptcache.manager import get_data_manager
@@ -13,16 +13,12 @@ from gptcache.similarity_evaluation.distance import \
     SearchDistanceEvaluation  # noqa: F401
 
 
-def gptcache_pre_function(data: Dict[str, Any], **params: Dict[str, Any]):  # noqa: F401
+def gptcache_pre_function(data: Dict[str, Any], **params: Dict[str, Any]):
     return data["input_query"]
 
 
-def gptcache_data_manager(vector_dimension):  # noqa: F401
-    # if not os.path.exists("./.cache/"):
-    #     os.mkdir("./.cache/")
-    return get_data_manager(
-        cache_base="sqlite", vector_base="chromadb", max_size=1000, eviction="LRU", data_path="data_map.txt"
-    )
+def gptcache_data_manager(vector_dimension):
+    return get_data_manager(cache_base="sqlite", vector_base="chromadb", max_size=1000, eviction="LRU")
 
 
 def gptcache_data_convert(cache_data):
@@ -30,7 +26,7 @@ def gptcache_data_convert(cache_data):
     return cache_data
 
 
-def gptcache_update_cache_callback(llm_data, update_cache_func, *args, **kwargs):  # noqa: F401
+def gptcache_update_cache_callback(llm_data, update_cache_func, *args, **kwargs):
     logging.info("[Cache] Cache missed, updating cache...")
     update_cache_func(Answer(llm_data, CacheDataType.STR))
     return llm_data
@@ -42,6 +38,3 @@ def _gptcache_session_hit_func(cur_session_id: str, cache_session_ids: list, cac
 
 def get_gptcache_session(session_id: str):
     return Session(name=session_id, check_hit_func=_gptcache_session_hit_func)
-
-
-cache = cache

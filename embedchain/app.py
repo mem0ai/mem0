@@ -9,9 +9,9 @@ from typing import Any, Dict, Optional
 import requests
 import yaml
 
-from embedchain.client import Client
 from embedchain.cache import (Config, SearchDistanceEvaluation, cache,
                               gptcache_data_manager, gptcache_pre_function)
+from embedchain.client import Client
 from embedchain.config import AppConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
@@ -110,7 +110,7 @@ class App(EmbedChain):
         self.db = db or ChromaDB()
         self.llm = llm or OpenAILlm()
         self._init_db()
-        
+
         if self.config.cache:
             self._init_cache()
 
