@@ -12,7 +12,7 @@ DESCRIBE_IMAGE_PROMPT = "Describe the image:"
 
 
 @register_deserializable
-class OpenAIGPT4Vision(BaseLoader):
+class ImageLoader(BaseLoader):
     def __init__(self, max_tokens: int = 500, api_key: str = None, prompt: str = None):
         super().__init__()
         self.custom_prompt = prompt or DESCRIBE_IMAGE_PROMPT

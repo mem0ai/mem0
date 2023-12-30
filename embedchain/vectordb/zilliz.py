@@ -112,12 +112,10 @@ class ZillizVectorDB(BaseVectorDB):
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
         **kwargs: Optional[Dict[str, any]],
     ):
         """Add to database"""
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
+        embeddings = self.embedder.embedding_fn(documents)
 
         for id, doc, metadata, embedding in zip(ids, documents, metadatas, embeddings):
             data = {**metadata, "id": id, "text": doc, "embeddings": embedding}
@@ -132,7 +130,6 @@ class ZillizVectorDB(BaseVectorDB):
         input_query: List[str],
         n_results: int,
         where: Dict[str, any],
-        skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
@@ -160,27 +157,16 @@ class ZillizVectorDB(BaseVectorDB):
             where = None
 
         output_fields = ["*"]
-        if skip_embedding:
-            query_vector = input_query
-            query_result = self.client.search(
-                collection_name=self.config.collection_name,
-                data=query_vector,
-                limit=n_results,
-                output_fields=output_fields,
-                **kwargs,
-            )
+        input_query_vector = self.embedder.embedding_fn([input_query])
+        query_vector = input_query_vector[0]
 
-        else:
-            input_query_vector = self.embedder.embedding_fn([input_query])
-            query_vector = input_query_vector[0]
-
-            query_result = self.client.search(
-                collection_name=self.config.collection_name,
-                data=[query_vector],
-                limit=n_results,
-                output_fields=output_fields,
-                **kwargs,
-            )
+        query_result = self.client.search(
+            collection_name=self.config.collection_name,
+            data=[query_vector],
+            limit=n_results,
+            output_fields=output_fields,
+            **kwargs,
+        )
         query_result = query_result[0]
         contexts = []
         for query in query_result:

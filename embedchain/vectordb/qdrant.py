@@ -126,7 +126,6 @@ class QdrantDB(BaseVectorDB):
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
         **kwargs: Optional[Dict[str, any]],
     ):
         """add data in vector database
@@ -138,12 +137,8 @@ class QdrantDB(BaseVectorDB):
         :type metadatas: List[object]
         :param ids: ids of docs
         :type ids: List[str]
-        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
-        generated or not
-        :type skip_embedding: bool
         """
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
+        embeddings = self.embedder.embedding_fn(documents)
 
         payloads = []
         qdrant_ids = []
@@ -167,7 +162,6 @@ class QdrantDB(BaseVectorDB):
         input_query: List[str],
         n_results: int,
         where: Dict[str, any],
-        skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
@@ -179,20 +173,13 @@ class QdrantDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
-        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
-        generated or not
-        :type skip_embedding: bool
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
         :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
-        if not skip_embedding:
-            query_vector = self.embedder.embedding_fn([input_query])[0]
-        else:
-            query_vector = input_query
-
+        query_vector = self.embedder.embedding_fn([input_query])[0]
         keys = set(where.keys() if where is not None else set())
 
         qdrant_must_filters = []

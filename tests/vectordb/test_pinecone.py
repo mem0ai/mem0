@@ -54,7 +54,7 @@ class TestPinecone:
         documents = ["This is a document.", "This is another document."]
         metadatas = [{}, {}]
         ids = ["doc1", "doc2"]
-        db.add(vectors, documents, metadatas, ids, True)
+        db.add(vectors, documents, metadatas, ids)
 
         expected_pinecone_upsert_args = [
             {"id": "doc1", "values": [0, 0, 0], "metadata": {"text": "This is a document."}},
@@ -81,7 +81,7 @@ class TestPinecone:
         # Query the database for documents that are similar to "document"
         input_query = ["document"]
         n_results = 1
-        db.query(input_query, n_results, where={}, skip_embedding=False)
+        db.query(input_query, n_results, where={})
 
         # Assert that the Pinecone client was called to query the database
         pinecone_client_mock.query.assert_called_once_with(
