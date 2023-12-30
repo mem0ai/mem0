@@ -41,7 +41,7 @@ You can create an embedchain pipeline instance using the following methods:
 ### Default setting
 
 ```python Code Example
-from embedchain import Pipeline as App
+from embedchain import App
 app = App()
 ```
 
@@ -49,7 +49,7 @@ app = App()
 ### Python Dict
 
 ```python Code Example
-from embedchain import Pipeline as App
+from embedchain import App
 
 config_dict = {
   'llm': {
@@ -76,7 +76,7 @@ app = App.from_config(config=config_dict)
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load llm configuration from config.yaml file
 app = App.from_config(config_path="config.yaml")
@@ -103,7 +103,7 @@ embedder:
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load llm configuration from config.json file
 app = App.from_config(config_path="config.json")
