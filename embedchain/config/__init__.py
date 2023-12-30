@@ -3,6 +3,7 @@
 from .add_config import AddConfig, ChunkerConfig
 from .app_config import AppConfig
 from .base_config import BaseConfig
+from .cache_config import CacheConfig
 from .embedder.base import BaseEmbedderConfig
 from .embedder.base import BaseEmbedderConfig as EmbedderConfig
 from .llm.base import BaseLlmConfig
