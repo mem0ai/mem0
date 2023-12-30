@@ -10,6 +10,8 @@ import requests
 import yaml
 
 from embedchain.client import Client
+from embedchain.cache import (Config, SearchDistanceEvaluation, cache,
+                              gptcache_data_manager, gptcache_pre_function)
 from embedchain.config import AppConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
@@ -108,6 +110,9 @@ class App(EmbedChain):
         self.db = db or ChromaDB()
         self.llm = llm or OpenAILlm()
         self._init_db()
+        
+        if self.config.cache:
+            self._init_cache()
 
         # Send anonymous telemetry
         self._telemetry_props = {"class": self.__class__.__name__}
@@ -146,6 +151,15 @@ class App(EmbedChain):
         self.db._set_embedder(self.embedding_model)
         self.db._initialize()
         self.db.set_collection_name(self.db.config.collection_name)
+
+    def _init_cache(self):
+        cache.init(
+            pre_embedding_func=gptcache_pre_function,
+            embedding_func=self.embedding_model.to_embeddings,
+            data_manager=gptcache_data_manager(vector_dimension=self.embedding_model.vector_dimension),
+            similarity_evaluation=SearchDistanceEvaluation(max_distance=1.0),
+            config=Config(similarity_threshold=0.8),
+        )
 
     def _init_client(self):
         """
