@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
 from embedchain.llm.base import BaseLlm
-from embedchain.memory.base import ECChatMemory
+from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
 
 
@@ -36,11 +36,11 @@ class TestApp(unittest.TestCase):
         with patch.object(BaseLlm, "add_history") as mock_history:
             first_answer = app.chat("Test query 1")
             self.assertEqual(first_answer, "Test answer")
-            mock_history.assert_called_with(app.config.id, "Test query 1", "Test answer")
+            mock_history.assert_called_with(app.config.id, "Test query 1", "Test answer", session_id="default")
 
-            second_answer = app.chat("Test query 2")
+            second_answer = app.chat("Test query 2", session_id="test_session")
             self.assertEqual(second_answer, "Test answer")
-            mock_history.assert_called_with(app.config.id, "Test query 2", "Test answer")
+            mock_history.assert_called_with(app.config.id, "Test query 2", "Test answer", session_id="test_session")
 
     @patch.object(App, "_retrieve_from_database", return_value=["Test context"])
     @patch.object(BaseLlm, "get_answer_from_llm", return_value="Test answer")
@@ -51,7 +51,7 @@ class TestApp(unittest.TestCase):
 
         Also tests that a dry run does not change the history
         """
-        with patch.object(ECChatMemory, "get_recent_memories") as mock_memory:
+        with patch.object(ChatHistory, "get") as mock_memory:
             mock_message = ChatMessage()
             mock_message.add_user_message("Test query 1")
             mock_message.add_ai_message("Test answer")
