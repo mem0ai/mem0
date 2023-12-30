@@ -55,6 +55,7 @@ class EmbedChain(JSONSerializable):
         """
 
         self.config = config
+        self.cache_config = None
         # Llm
         self.llm = llm
         # Database has support for config assignment for backwards compatibility
@@ -549,7 +550,7 @@ class EmbedChain(JSONSerializable):
         else:
             contexts_data_for_llm_query = contexts
 
-        if self.config.cache:
+        if self.cache_config is not None:
             logging.info("Cache enabled. Checking cache...")
             answer = adapt(
                 llm_handler=self.llm.query,
@@ -615,7 +616,7 @@ class EmbedChain(JSONSerializable):
         else:
             contexts_data_for_llm_query = contexts
 
-        if self.config.cache:
+        if self.cache_config is not None:
             logging.info("Cache enabled. Checking cache...")
             answer = adapt(
                 llm_handler=self.llm.chat,

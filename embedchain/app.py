@@ -436,7 +436,6 @@ class App(EmbedChain):
 
         if cache_config_data is not None:
             cache_config = CacheConfig(**cache_config_data)
-            app_config.cache = True
         else:
             cache_config = None
 

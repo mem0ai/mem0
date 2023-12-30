@@ -18,7 +18,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         id: Optional[str] = None,
         collect_metrics: bool = True,
         collection_name: Optional[str] = None,
-        cache: Optional[bool] = False,
     ):
         """
         Initializes a configuration class instance for an App.
@@ -41,7 +40,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         self.id = id
         self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False
         self.collection_name = collection_name
-        self.cache = cache
 
         if db:
             self._db = db
