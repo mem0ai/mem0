@@ -2,29 +2,43 @@ import hashlib
 import json
 import os
 import re
+from typing import Dict, List, Union
 
 import requests
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils import clean_string, is_valid_json_string
 
+
+class JSONReader:
+    def __init__(self) -> None:
+        """Initialize the JSONReader."""
+        pass
+
+    def load_data(self, json_data: Union[Dict, str]) -> List[str]:
+        """Load data from a JSON structure.
+
+        Args:
+            json_data (Union[Dict, str]): The JSON data to load.
+
+        Returns:
+            List[str]: A list of strings representing the leaf nodes of the JSON.
+        """
+        if isinstance(json_data, str):
+            json_data = json.loads(json_data)
+        else:
+            json_data = json_data
+
+        json_output = json.dumps(json_data, indent=0)
+        lines = json_output.split("\n")
+        useful_lines = [line for line in lines if not re.match(r"^[{}\[\],]*$", line)]
+        return ["\n".join(useful_lines)]
+
+
 VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
 
 
 class JSONLoader(BaseLoader):
-    @staticmethod
-    def _get_llama_hub_loader():
-        try:
-            from llama_hub.jsondata.base import \
-                JSONDataReader as LLHUBJSONLoader
-        except ImportError as e:
-            raise Exception(
-                f"Failed to install required packages: {e}, \
-                install them using `pip install --upgrade 'embedchain[json]`"
-            )
-
-        return LLHUBJSONLoader()
-
     @staticmethod
     def _check_content(content):
         if not isinstance(content, str):
@@ -40,14 +54,13 @@ class JSONLoader(BaseLoader):
         """Load a json file. Each data point is a key value pair."""
 
         JSONLoader._check_content(content)
-        loader = JSONLoader._get_llama_hub_loader()
+        loader = JSONReader()
 
         data = []
         data_content = []
 
         content_url_str = content
 
-        # Load json data from various sources.
         if os.path.isfile(content):
             with open(content, "r", encoding="utf-8") as json_file:
                 json_data = json.load(json_file)
@@ -68,7 +81,8 @@ class JSONLoader(BaseLoader):
 
         docs = loader.load_data(json_data)
         for doc in docs:
-            doc_content = clean_string(doc.text)
+            text = doc if isinstance(doc, str) else doc["text"]
+            doc_content = clean_string(text)
             data.append({"content": doc_content, "meta_data": {"url": content_url_str}})
             data_content.append(doc_content)
 
