@@ -63,7 +63,7 @@ class DataFormatter(JSONSerializable):
             DataType.DOCS_SITE: "embedchain.loaders.docs_site_loader.DocsSiteLoader",
             DataType.CSV: "embedchain.loaders.csv.CsvLoader",
             DataType.MDX: "embedchain.loaders.mdx.MdxLoader",
-            DataType.IMAGE: "embedchain.loaders.images.ImageLoader",
+            DataType.IMAGE: "embedchain.loaders.image.ImageLoader",
             DataType.UNSTRUCTURED: "embedchain.loaders.unstructured_file.UnstructuredLoader",
             DataType.JSON: "embedchain.loaders.json.JSONLoader",
             DataType.OPENAPI: "embedchain.loaders.openapi.OpenAPILoader",
