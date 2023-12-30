@@ -10,8 +10,38 @@ from embedchain import App
 app = App()
 
 app.add('https://arxiv.org/pdf/1706.03762.pdf', data_type='pdf_file')
-app.query("What is the paper 'attention is all you need' about?")
-# Answer: The paper "Attention Is All You Need" proposes a new network architecture called the Transformer, which is based solely on attention mechanisms. It suggests moving away from complex recurrent or convolutional neural networks and instead using attention mechanisms to connect the encoder and decoder in sequence transduction models.
+app.query("What is the paper 'attention is all you need' about?", citations=True)
+# Answer: The paper "Attention Is All You Need" proposes a new network architecture called the Transformer, which is based solely on attention mechanisms. It suggests that complex recurrent or convolutional neural networks can be replaced with a simpler architecture that connects the encoder and decoder through attention. The paper discusses how this approach can improve sequence transduction models, such as neural machine translation.
+# Contexts: 
+# [
+#     (
+#         'Provided proper attribution is ...',
+#         {
+#             'page': 0,
+#             'url': 'https://arxiv.org/pdf/1706.03762.pdf',
+#             'score': 0.3676220203221626,
+#             ...
+#         }
+#     ),
+#     (
+#         'Attention Visualizations Input ...',
+#         {
+#             'page': 12,
+#             'url': 'https://arxiv.org/pdf/1706.03762.pdf',
+#             'score': 0.41679039679873736,
+#             ...
+#         }
+#     ),
+#     (
+#         'sequence learning ...',
+#         {
+#             'page': 10,
+#             'url': 'https://arxiv.org/pdf/1706.03762.pdf',
+#             'score': 0.4188303600897153,
+#             ...
+#         }
+#     )
+# ]
 ```
 
 Note that we do not support password protected pdfs.
