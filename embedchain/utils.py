@@ -436,6 +436,9 @@ def validate_config(config_data):
                 Optional("length_function"): str,
                 Optional("min_chunk_size"): int,
             },
+            Optional("cache"): {
+                Optional("similarity_threshold"): float,
+            },
         }
     )
 
