@@ -622,6 +622,7 @@ class EmbedChain(JSONSerializable):
                 llm_handler=self.llm.chat,
                 cache_data_convert=gptcache_data_convert,
                 update_cache_callback=gptcache_update_cache_callback,
+                session=get_gptcache_session(session_id=self.config.id),
                 input_query=input_query,
                 contexts=contexts_data_for_llm_query,
                 config=config,
