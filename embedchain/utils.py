@@ -420,6 +420,8 @@ def validate_config(config_data):
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
                     Optional("api_key"): str,
+                    Optional("title"): str,
+                    Optional("task_type"): str,
                 },
             },
             Optional("embedding_model"): {
@@ -428,6 +430,8 @@ def validate_config(config_data):
                     Optional("model"): str,
                     Optional("deployment_name"): str,
                     Optional("api_key"): str,
+                    Optional("title"): str,
+                    Optional("task_type"): str,
                 },
             },
             Optional("chunker"): {
