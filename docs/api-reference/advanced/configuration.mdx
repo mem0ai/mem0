@@ -56,6 +56,9 @@ chunker:
   chunk_overlap: 100
   length_function: 'len'
   min_chunk_size: 0
+
+cache:
+  similarity_threshold: 0.8
 ```
 
 ```json config.json
@@ -98,6 +101,9 @@ chunker:
     "chunk_overlap": 100,
     "length_function": "len",
     "min_chunk_size": 0
+  },
+  "cache": {
+    "similarity_threshold": 0.8
   }
 }
 ```
@@ -148,6 +154,9 @@ config = {
         'chunk_overlap': 100,
         'length_function': 'len',
         'min_chunk_size': 0
+    },
+    'cache': {
+        'similarity_threshold': 0.8
     }
 }
 ```
@@ -192,7 +201,11 @@ Alright, let's dive into what each key means in the yaml config above:
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.
     - `length_function` (String): The function used to calculate the length of each chunk of text. In this case, it's set to 'len'. You can also use any function import directly as a string here.
     - `min_chunk_size` (Integer): The minimum size of each chunk of text that is sent to the language model. Must be less than `chunk_size`, and greater than `chunk_overlap`.
-
+6. `cache` Section: (Optional)
+    - `similarity_threshold` (Float): The similarity threshold for the cache, defaults to 0.8
+    <Note>
+    If you provide a cache section, the app will automatically configure and use a cache to store the results of the language model. This is useful if you want to speed up the response time and save inference cost of your app.
+    </Note>
 If you have questions about the configuration above, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />
