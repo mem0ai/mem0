@@ -2,8 +2,8 @@
   "$schema": "https://mintlify.com/schema.json",
   "name": "Embedchain",
   "logo": {
-    "dark": "/logo/dark.svg",
-    "light": "/logo/light.svg",
+    "dark": "/logo/dark-rt.svg",
+    "light": "/logo/light-rt.svg",
     "href": "https://github.com/embedchain/embedchain"
   },
   "favicon": "/favicon.png",
@@ -41,16 +41,6 @@
       "name": "Talk to founders",
       "icon": "calendar",
       "url": "https://cal.com/taranjeetio/ec"
-    },
-    {
-      "name": "Join our slack",
-      "icon": "slack",
-      "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
-    },
-    {
-      "name": "Join our discord",
-      "icon": "discord",
-      "url": "https://discord.gg/CUU9FPhRNt"
     }
   ],
   "topbarLinks": [
@@ -61,7 +51,7 @@
   ],
   "topbarCtaButton": {
     "name": "Join our slack",
-    "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
+    "url": "https://embedchain.ai/slack"
   },
   "primaryTab": {
     "name": "Documentation"
@@ -70,35 +60,23 @@
     {
       "group": "Get Started",
       "pages": [
-        "get-started/introduction",
         "get-started/quickstart",
+        "get-started/introduction",
+        "get-started/faq",
         {
-        "group": "🔗 Integrations",
+          "group": "🔗 Integrations",
           "pages": [
             "integration/langsmith",
             "integration/chainlit",
             "integration/streamlit-mistral"
           ]
-        },
-        "get-started/faq"
-      ]
-    },
-    {
-      "group": "Deployment",
-      "pages": [
-        "get-started/deployment",
-        "deployment/fly_io",
-        "deployment/modal_com",
-        "deployment/render_com",
-        "deployment/streamlit_io",
-        "deployment/gradio_app",
-        "deployment/huggingface_spaces",
-        "deployment/embedchain_ai"
+        }
       ]
     },
     {
       "group": "Use cases",
       "pages": [
+        "use-cases/introduction",
         "use-cases/chatbots",
         "use-cases/question-answering",
         "use-cases/semantic-search"
@@ -107,9 +85,11 @@
     {
       "group": "Components",
       "pages": [
+        "components/introduction",
         {
           "group": "Data sources",
           "pages": [
+
             "components/data-sources/overview",
             {
               "group": "Data types",
@@ -141,6 +121,19 @@
         "components/llms",
         "components/vector-databases",
         "components/embedding-models"
+      ]
+    },
+    {
+      "group": "Deployment",
+      "pages": [
+        "get-started/deployment",
+        "deployment/fly_io",
+        "deployment/modal_com",
+        "deployment/render_com",
+        "deployment/streamlit_io",
+        "deployment/gradio_app",
+        "deployment/huggingface_spaces",
+        "deployment/embedchain_ai"
       ]
     },
     {
@@ -240,6 +233,9 @@
     "posthog": {
       "apiKey": "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2",
       "apiHost": "https://app.embedchain.ai/ingest"
+    },
+    "ga4": {
+      "measurementId": "G-4QK7FJE6T3"
     }
   },
   "feedback": {
