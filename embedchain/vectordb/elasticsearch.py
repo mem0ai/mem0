@@ -114,7 +114,6 @@ class ElasticsearchDB(BaseVectorDB):
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
         **kwargs: Optional[Dict[str, any]],
     ) -> Any:
         """
@@ -127,12 +126,9 @@ class ElasticsearchDB(BaseVectorDB):
         :type metadatas: List[object]
         :param ids: ids of docs
         :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
         """
 
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
+        embeddings = self.embedder.embedding_fn(documents)
 
         for chunk in chunks(
             list(zip(ids, documents, metadatas, embeddings)), self.BATCH_SIZE, desc="Inserting batches in elasticsearch"
@@ -161,7 +157,6 @@ class ElasticsearchDB(BaseVectorDB):
         input_query: List[str],
         n_results: int,
         where: Dict[str, any],
-        skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
@@ -174,8 +169,6 @@ class ElasticsearchDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
         :return: The context of the document that matched your query, url of the source, doc_id
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
@@ -183,11 +176,8 @@ class ElasticsearchDB(BaseVectorDB):
         along with url of the source and doc_id (if citations flag is true)
         :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
-        if skip_embedding:
-            query_vector = input_query
-        else:
-            input_query_vector = self.embedder.embedding_fn(input_query)
-            query_vector = input_query_vector[0]
+        input_query_vector = self.embedder.embedding_fn(input_query)
+        query_vector = input_query_vector[0]
 
         # `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`
         query = {

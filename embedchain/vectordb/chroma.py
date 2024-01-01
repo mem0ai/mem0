@@ -132,7 +132,6 @@ class ChromaDB(BaseVectorDB):
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
         **kwargs: Optional[Dict[str, Any]],
     ) -> Any:
         """
@@ -146,13 +145,8 @@ class ChromaDB(BaseVectorDB):
         :type metadatas: List[object]
         :param ids: ids
         :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
-        :type skip_embedding: bool
         """
         size = len(documents)
-        if skip_embedding and (embeddings is None or len(embeddings) != len(documents)):
-            raise ValueError("Cannot add documents to chromadb with inconsistent embeddings")
-
         if len(documents) != size or len(metadatas) != size or len(ids) != size:
             raise ValueError(
                 "Cannot add documents to chromadb with inconsistent sizes. Documents size: {}, Metadata size: {},"
@@ -160,19 +154,11 @@ class ChromaDB(BaseVectorDB):
             )
 
         for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
-            if skip_embedding:
-                self.collection.add(
-                    embeddings=embeddings[i : i + self.BATCH_SIZE],
-                    documents=documents[i : i + self.BATCH_SIZE],
-                    metadatas=metadatas[i : i + self.BATCH_SIZE],
-                    ids=ids[i : i + self.BATCH_SIZE],
-                )
-            else:
-                self.collection.add(
-                    documents=documents[i : i + self.BATCH_SIZE],
-                    metadatas=metadatas[i : i + self.BATCH_SIZE],
-                    ids=ids[i : i + self.BATCH_SIZE],
-                )
+            self.collection.add(
+                documents=documents[i : i + self.BATCH_SIZE],
+                metadatas=metadatas[i : i + self.BATCH_SIZE],
+                ids=ids[i : i + self.BATCH_SIZE],
+            )
 
     def _format_result(self, results: QueryResult) -> list[tuple[Document, float]]:
         """
@@ -197,7 +183,6 @@ class ChromaDB(BaseVectorDB):
         input_query: List[str],
         n_results: int,
         where: Dict[str, any],
-        skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
@@ -210,8 +195,6 @@ class ChromaDB(BaseVectorDB):
         :type n_results: int
         :param where: to filter data
         :type where: Dict[str, Any]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :raises InvalidDimensionException: Dimensions do not match.
@@ -220,24 +203,14 @@ class ChromaDB(BaseVectorDB):
         :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
         try:
-            if skip_embedding:
-                result = self.collection.query(
-                    query_embeddings=[
-                        input_query,
-                    ],
-                    n_results=n_results,
-                    where=self._generate_where_clause(where),
-                    **kwargs,
-                )
-            else:
-                result = self.collection.query(
-                    query_texts=[
-                        input_query,
-                    ],
-                    n_results=n_results,
-                    where=self._generate_where_clause(where),
-                    **kwargs,
-                )
+            result = self.collection.query(
+                query_texts=[
+                    input_query,
+                ],
+                n_results=n_results,
+                where=self._generate_where_clause(where),
+                **kwargs,
+            )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
                 e.message()

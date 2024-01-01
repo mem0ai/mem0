@@ -438,7 +438,6 @@ class EmbedChain(JSONSerializable):
             documents=documents,
             metadatas=metadatas,
             ids=ids,
-            skip_embedding=(chunker.data_type == DataType.IMAGES),
             **kwargs,
         )
         count_new_chunks = self.db.count() - chunks_before_addition
@@ -490,21 +489,10 @@ class EmbedChain(JSONSerializable):
             if self.config.id is not None:
                 where.update({"app_id": self.config.id})
 
-        # We cannot query the database with the input query in case of an image search. This is because we need
-        # to bring down both the image and text to the same dimension to be able to compare them.
-        db_query = input_query
-        if hasattr(config, "query_type") and config.query_type == "Images":
-            # We import the clip processor here to make sure the package is not dependent on clip dependency even if the
-            # image dataset is not being used
-            from embedchain.models.clip_processor import ClipProcessor
-
-            db_query = ClipProcessor.get_text_features(query=input_query)
-
         contexts = self.db.query(
-            input_query=db_query,
+            input_query=input_query,
             n_results=query_config.number_documents,
             where=where,
-            skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
             citations=citations,
             **kwargs,
         )

@@ -1,0 +1,45 @@
+---
+title: "🖼️ Image"
+---
+
+
+To use an image as data source, just add `data_type` as `image` and pass in the path of the image (local or hosted).
+
+We use [GPT4 Vision](https://platform.openai.com/docs/guides/vision) to generate meaning of the image using a custom prompt, and then use the generated text as the data source.
+
+You would require an OpenAI API key with access to `gpt-4-vision-preview` model to use this feature.
+
+### Without customization
+
+```python
+import os
+from embedchain import App
+
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+
+app = App()
+app.add("./Elon-Musk.webp", data_type="image")
+response = app.query("Describe the man in the image.")
+print(response)
+# Answer: The man in the image is dressed in formal attire, wearing a dark suit jacket and a white collared shirt. He has short hair and is standing. He appears to be gazing off to the side with a reflective expression. The background is dark with faint, warm-toned vertical lines, possibly from a lit environment behind the individual or reflections. The overall atmosphere is somewhat moody and introspective.
+```
+
+### Customization
+
+```python
+import os
+from embedchain import App
+from embedchain.loaders.image import ImageLoader
+
+image_loader = ImageLoader(
+    max_tokens=100,
+    api_key="sk-xxx",
+    prompt="Is the person looking wealthy? Structure your thoughts around what you see in the image.",
+)
+
+app = App()
+app.add("./Elon-Musk.webp", data_type="image", loader=image_loader)
+response = app.query("Describe the man in the image.")
+print(response)
+# Answer: The man in the image appears to be well-dressed in a suit and shirt, suggesting that he may be in a professional or formal setting. His composed demeanor and confident posture further indicate a sense of self-assurance. Based on these visual cues, one could infer that the man may have a certain level of economic or social status, possibly indicating wealth or professional success.
+```

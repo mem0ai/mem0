@@ -92,7 +92,6 @@ class PineconeDB(BaseVectorDB):
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
         **kwargs: Optional[Dict[str, any]],
     ):
         """add data in vector database
@@ -124,7 +123,6 @@ class PineconeDB(BaseVectorDB):
         input_query: List[str],
         n_results: int,
         where: Dict[str, any],
-        skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
@@ -136,18 +134,13 @@ class PineconeDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
-        :param skip_embedding: Optional. if True, input_query is already embedded
-        :type skip_embedding: bool
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
         :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
-        if not skip_embedding:
-            query_vector = self.embedder.embedding_fn([input_query])[0]
-        else:
-            query_vector = input_query
+        query_vector = self.embedder.embedding_fn([input_query])[0]
         data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True, **kwargs)
         contexts = []
         for doc in data["matches"]:
