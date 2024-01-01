@@ -2,8 +2,8 @@
   "$schema": "https://mintlify.com/schema.json",
   "name": "Embedchain",
   "logo": {
-    "dark": "/logo/dark.svg",
-    "light": "/logo/light.svg",
+    "dark": "/logo/dark-rt.svg",
+    "light": "/logo/light-rt.svg",
     "href": "https://github.com/embedchain/embedchain"
   },
   "favicon": "/favicon.png",
@@ -41,16 +41,6 @@
       "name": "Talk to founders",
       "icon": "calendar",
       "url": "https://cal.com/taranjeetio/ec"
-    },
-    {
-      "name": "Join our slack",
-      "icon": "slack",
-      "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
-    },
-    {
-      "name": "Join our discord",
-      "icon": "discord",
-      "url": "https://discord.gg/CUU9FPhRNt"
     }
   ],
   "topbarLinks": [
@@ -61,7 +51,7 @@
   ],
   "topbarCtaButton": {
     "name": "Join our slack",
-    "url": "https://join.slack.com/t/embedchain/shared_invite/zt-22uwz3c46-Zg7cIh5rOBteT_xe1jwLDw"
+    "url": "https://embedchain.ai/slack"
   },
   "primaryTab": {
     "name": "Documentation"
@@ -70,17 +60,77 @@
     {
       "group": "Get Started",
       "pages": [
-        "get-started/introduction",
         "get-started/quickstart",
+        "get-started/introduction",
+        "get-started/faq",
         {
-        "group": "🔗 Integrations",
+          "group": "🔗 Integrations",
           "pages": [
             "integration/langsmith",
             "integration/chainlit",
             "integration/streamlit-mistral"
           ]
+        }
+      ]
+    },
+    {
+      "group": "Use cases",
+      "pages": [
+        "use-cases/introduction",
+        "use-cases/chatbots",
+        "use-cases/question-answering",
+        "use-cases/semantic-search"
+      ]
+    },
+    {
+      "group": "Components",
+      "pages": [
+        "components/introduction",
+        {
+          "group": "Data sources",
+          "pages": [
+
+            "components/data-sources/overview",
+            {
+              "group": "Data types",
+              "pages": [
+                "components/data-sources/pdf-file",
+                "components/data-sources/csv",
+                "components/data-sources/json",
+                "components/data-sources/text",
+                "components/data-sources/directory",
+                "components/data-sources/web-page",
+                "components/data-sources/youtube-channel",
+                "components/data-sources/youtube-video",
+                "components/data-sources/docs-site",
+                "components/data-sources/mdx",
+                "components/data-sources/docx",
+                "components/data-sources/notion",
+                "components/data-sources/sitemap",
+                "components/data-sources/xml",
+                "components/data-sources/qna",
+                "components/data-sources/openapi",
+                "components/data-sources/gmail",
+                "components/data-sources/github",
+                "components/data-sources/postgres",
+                "components/data-sources/mysql",
+                "components/data-sources/slack",
+                "components/data-sources/discord",
+                "components/data-sources/discourse",
+                "components/data-sources/substack",
+                "components/data-sources/beehiiv",
+                "components/data-sources/directory",
+                "components/data-sources/dropbox",
+                "components/data-sources/image",
+                "components/data-sources/custom"
+              ]
+            },
+            "components/data-sources/data-type-handling"
+          ]
         },
-        "get-started/faq"
+        "components/llms",
+        "components/vector-databases",
+        "components/embedding-models"
       ]
     },
     {
@@ -94,54 +144,6 @@
         "deployment/gradio_app",
         "deployment/huggingface_spaces",
         "deployment/embedchain_ai"
-      ]
-    },
-    {
-      "group": "Use cases",
-      "pages": [
-        "use-cases/chatbots",
-        "use-cases/question-answering",
-        "use-cases/semantic-search"
-      ]
-    },
-    {
-      "group": "Components",
-      "pages": [
-        {
-          "group": "Data sources",
-          "pages": [
-            "components/data-sources/overview",
-            {
-              "group": "Data types",
-              "pages": [
-                "components/data-sources/csv",
-                "components/data-sources/json",
-                "components/data-sources/docs-site",
-                "components/data-sources/docx",
-                "components/data-sources/mdx",
-                "components/data-sources/notion",
-                "components/data-sources/pdf-file",
-                "components/data-sources/qna",
-                "components/data-sources/sitemap",
-                "components/data-sources/text",
-                "components/data-sources/web-page",
-                "components/data-sources/openapi",
-                "components/data-sources/youtube-video",
-                "components/data-sources/discourse",
-                "components/data-sources/substack",
-                "components/data-sources/discord",
-                "components/data-sources/beehiiv",
-                "components/data-sources/directory",
-                "components/data-sources/dropbox",
-                "components/data-sources/image"
-              ]
-            },
-            "components/data-sources/data-type-handling"
-          ]
-        },
-        "components/llms",
-        "components/vector-databases",
-        "components/embedding-models"
       ]
     },
     {
@@ -241,6 +243,9 @@
     "posthog": {
       "apiKey": "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2",
       "apiHost": "https://app.embedchain.ai/ingest"
+    },
+    "ga4": {
+      "measurementId": "G-4QK7FJE6T3"
     }
   },
   "feedback": {
