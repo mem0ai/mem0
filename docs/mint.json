@@ -119,7 +119,9 @@
                 "components/data-sources/discourse",
                 "components/data-sources/substack",
                 "components/data-sources/beehiiv",
+                "components/data-sources/directory",
                 "components/data-sources/dropbox",
+                "components/data-sources/image",
                 "components/data-sources/custom"
               ]
             },

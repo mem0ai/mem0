@@ -24,7 +24,7 @@ class IndirectDataType(Enum):
     NOTION = "notion"
     CSV = "csv"
     MDX = "mdx"
-    IMAGES = "images"
+    IMAGE = "image"
     UNSTRUCTURED = "unstructured"
     JSON = "json"
     OPENAPI = "openapi"
@@ -62,7 +62,7 @@ class DataType(Enum):
     CSV = IndirectDataType.CSV.value
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
-    IMAGES = IndirectDataType.IMAGES.value
+    IMAGE = IndirectDataType.IMAGE.value
     UNSTRUCTURED = IndirectDataType.UNSTRUCTURED.value
     JSON = IndirectDataType.JSON.value
     OPENAPI = IndirectDataType.OPENAPI.value

@@ -249,7 +249,6 @@ class App(EmbedChain):
                 query,
                 n_results=num_documents,
                 where=where,
-                skip_embedding=False,
                 citations=True,
             )
             result = []
