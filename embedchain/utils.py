@@ -444,12 +444,12 @@ def validate_config(config_data):
                 Optional("similarity_evaluation"): {
                     Optional("strategy"): Or("distance", "exact"),
                     Optional("max_distance"): float,
-                    Optional("positive"): bool
+                    Optional("positive"): bool,
                 },
                 Optional("config"): {
                     Optional("similarity_threshold"): float,
                     Optional("auto_flush"): int,
-                }
+                },
             },
         }
     )
