@@ -18,6 +18,9 @@ title: '💬 chat'
 <ParamField path="where" type="dict" optional>
     A dictionary of key-value pairs to filter the chunks from the vector database. Defaults to `None`
 </ParamField>
+<ParamField path="session_id" type="str" optional>
+    Session ID of the chat. This can be used to maintain chat history of different user sessions. Default value: `default`
+</ParamField>
 <ParamField path="citations" type="bool" optional>
     Return citations along with the LLM answer. Defaults to `False`
 </ParamField>
@@ -106,4 +109,23 @@ app.add("https://www.forbes.com/profile/elon-musk")
 answer = app.chat("What is the net worth of Elon?")
 print(answer)
 # Answer: The net worth of Elon Musk is $221.9 billion.
+```
+
+### With session id
+
+If you want to maintain chat sessions for different users, you can simply pass the `session_id` keyword argument. See the example below:
+
+```python With session id
+from embedchain import App
+
+app = App()
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Chat on your data using `.chat()`
+app.chat("What is the net worth of Elon Musk?", session_id="user1")
+# 'The net worth of Elon Musk is $250.8 billion.'
+app.chat("What is the net worth of Bill Gates?", session_id="user2")
+# "I don't know the current net worth of Bill Gates."
+app.chat("What was my last question", session_id="user1")
+# 'Your last question was "What is the net worth of Elon Musk?"'
 ```
