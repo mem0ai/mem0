@@ -1,7 +1,14 @@
 import hashlib
 import re
 
-from langchain.document_loaders import UnstructuredFileIOLoader, GoogleDriveLoader
+try:
+    from googleapiclient.errors import HttpError
+except ImportError:
+    raise ImportError(
+        "Google Drive requires extra dependencies. Install with `pip install embedchain[googledrive]`"
+    ) from None
+
+from langchain.document_loaders import GoogleDriveLoader, UnstructuredFileIOLoader
 
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
@@ -15,8 +22,8 @@ class GoogleDriveFolderLoader(BaseLoader):
         if re.match(regex, url):
             return url.split("/")[-1]
         raise ValueError(
-            f"The url provided does {url} not match a google drive folder url. Example drive url: https://drive.google.com/drive/u/0/folders/xxxx"
-            # noqa: E501
+            f"The url provided {url} does not match a google drive folder url. Example drive url: "
+            f"https://drive.google.com/drive/u/0/folders/xxxx"
         )
 
     def load_data(self, url: str):
@@ -43,6 +50,5 @@ class GoogleDriveFolderLoader(BaseLoader):
             doc_id = hashlib.sha256((" ".join(all_content) + url).encode()).hexdigest()
             return {"doc_id": doc_id, "data": data}
 
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "Google Drive requires extra dependencies. Install with `pip install embedchain[googledrive]`")
+        except HttpError:
+            raise FileNotFoundError("Unable to locate folder or files, check provided drive URL and try again")
