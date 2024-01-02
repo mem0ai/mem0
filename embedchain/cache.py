@@ -11,6 +11,8 @@ from gptcache.manager.scalar_data.base import DataType as CacheDataType
 from gptcache.session import Session
 from gptcache.similarity_evaluation.distance import \
     SearchDistanceEvaluation  # noqa: F401
+from gptcache.similarity_evaluation.exact_match import \
+    ExactMatchEvaluation  # noqa: F401
 
 
 def gptcache_pre_function(data: Dict[str, Any], **params: Dict[str, Any]):
