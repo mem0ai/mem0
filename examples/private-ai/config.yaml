@@ -1,0 +1,10 @@
+llm:
+  provider: gpt4all
+  config:
+    model: 'orca-mini-3b-gguf2-q4_0.gguf'
+    max_tokens: 1000
+    top_p: 1
+embedder:
+  provider: huggingface
+  config:
+    model: 'sentence-transformers/all-MiniLM-L6-v2'
