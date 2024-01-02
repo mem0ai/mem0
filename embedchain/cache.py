@@ -25,13 +25,11 @@ def gptcache_data_manager(vector_dimension):
 
 def gptcache_data_convert(cache_data):
     logging.info("[Cache] Cache hit, returning cache data...")
-    print("Cache hit!!!!")
     return cache_data
 
 
 def gptcache_update_cache_callback(llm_data, update_cache_func, *args, **kwargs):
     logging.info("[Cache] Cache missed, updating cache...")
-    print("Cache miss!!!!")
     update_cache_func(Answer(llm_data, CacheDataType.STR))
     return llm_data
 
