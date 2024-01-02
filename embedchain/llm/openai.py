@@ -42,6 +42,7 @@ class OpenAILlm(BaseLlm):
             chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key)
         else:
             chat = ChatOpenAI(**kwargs, api_key=api_key)
+
         if self.functions is not None:
             from langchain.chains.openai_functions import \
                 create_openai_fn_runnable

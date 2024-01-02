@@ -56,6 +56,14 @@ chunker:
   chunk_overlap: 100
   length_function: 'len'
   min_chunk_size: 0
+
+cache:
+  similarity_evaluation:
+    strategy: distance
+    max_distance: 1.0
+  config:
+    similarity_threshold: 0.8
+    auto_flush: 50
 ```
 
 ```json config.json
@@ -98,7 +106,17 @@ chunker:
     "chunk_overlap": 100,
     "length_function": "len",
     "min_chunk_size": 0
-  }
+  },
+  "cache": {
+    "similarity_evaluation": {
+        "strategy": "distance",
+        "max_distance": 1.0,
+    },
+    "config": {
+        "similarity_threshold": 0.8,
+        "auto_flush": 50,
+    },
+  },
 }
 ```
 
@@ -148,7 +166,17 @@ config = {
         'chunk_overlap': 100,
         'length_function': 'len',
         'min_chunk_size': 0
-    }
+    },
+    'cache': {
+      'similarity_evaluation': {
+          'strategy': 'distance',
+          'max_distance': 1.0,
+      },
+      'config': {
+          'similarity_threshold': 0.8,
+          'auto_flush': 50,
+      },
+    },
 }
 ```
 </CodeGroup>
@@ -192,7 +220,17 @@ Alright, let's dive into what each key means in the yaml config above:
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.
     - `length_function` (String): The function used to calculate the length of each chunk of text. In this case, it's set to 'len'. You can also use any function import directly as a string here.
     - `min_chunk_size` (Integer): The minimum size of each chunk of text that is sent to the language model. Must be less than `chunk_size`, and greater than `chunk_overlap`.
-
+6. `cache` Section: (Optional)
+    - `similarity_evaluation` (Optional): The config for similarity evaluation strategy. If not provided, the default `distance` based similarity evaluation strategy is used.
+      - `strategy` (String): The strategy to use for similarity evaluation. Currently, only `distance` and `exact` based similarity evaluation is supported. Defaults to `distance`.
+      - `max_distance` (Float): The bound of maximum distance. Defaults to `1.0`.
+      - `positive` (Boolean): If the larger distance indicates more similar of two entities, set it `True`, otherwise `False`. Defaults to `False`.
+    - `config` (Optional): The config for initializing the cache. If not provided, sensible default values are used as mentioned below.
+      - `similarity_threshold` (Float): The threshold for similarity evaluation. Defaults to `0.8`.
+      - `auto_flush` (Integer): The number of queries after which the cache is flushed. Defaults to `20`.
+    <Note>
+    If you provide a cache section, the app will automatically configure and use a cache to store the results of the language model. This is useful if you want to speed up the response time and save inference cost of your app.
+    </Note>
 If you have questions about the configuration above, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />

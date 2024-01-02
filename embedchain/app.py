@@ -9,7 +9,8 @@ from typing import Any, Dict, Optional
 import requests
 import yaml
 
-from embedchain.cache import (Config, SearchDistanceEvaluation, cache,
+from embedchain.cache import (Config, ExactMatchEvaluation,
+                              SearchDistanceEvaluation, cache,
                               gptcache_data_manager, gptcache_pre_function)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig
@@ -156,12 +157,20 @@ class App(EmbedChain):
         self.db.set_collection_name(self.db.config.collection_name)
 
     def _init_cache(self):
+        if self.cache_config.similarity_eval_config.strategy == "exact":
+            similarity_eval_func = ExactMatchEvaluation()
+        else:
+            similarity_eval_func = SearchDistanceEvaluation(
+                max_distance=self.cache_config.similarity_eval_config.max_distance,
+                positive=self.cache_config.similarity_eval_config.positive,
+            )
+
         cache.init(
             pre_embedding_func=gptcache_pre_function,
             embedding_func=self.embedding_model.to_embeddings,
             data_manager=gptcache_data_manager(vector_dimension=self.embedding_model.vector_dimension),
-            similarity_evaluation=SearchDistanceEvaluation(max_distance=1.0),
-            config=Config(similarity_threshold=self.cache_config.similarity_threshold),
+            similarity_evaluation=similarity_eval_func,
+            config=Config(**self.cache_config.init_config.as_dict()),
         )
 
     def _init_client(self):
@@ -428,7 +437,7 @@ class App(EmbedChain):
         )
 
         if cache_config_data is not None:
-            cache_config = CacheConfig(**cache_config_data)
+            cache_config = CacheConfig.from_config(cache_config_data)
         else:
             cache_config = None
 

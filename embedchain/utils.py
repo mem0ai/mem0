@@ -441,7 +441,15 @@ def validate_config(config_data):
                 Optional("min_chunk_size"): int,
             },
             Optional("cache"): {
-                Optional("similarity_threshold"): float,
+                Optional("similarity_evaluation"): {
+                    Optional("strategy"): Or("distance", "exact"),
+                    Optional("max_distance"): float,
+                    Optional("positive"): bool,
+                },
+                Optional("config"): {
+                    Optional("similarity_threshold"): float,
+                    Optional("auto_flush"): int,
+                },
             },
         }
     )
