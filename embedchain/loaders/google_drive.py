@@ -8,14 +8,14 @@ except ImportError:
         "Google Drive requires extra dependencies. Install with `pip install embedchain[googledrive]`"
     ) from None
 
-from langchain.document_loaders import GoogleDriveLoader, UnstructuredFileIOLoader
+from langchain.document_loaders import GoogleDriveLoader as Loader, UnstructuredFileIOLoader
 
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
 
 @register_deserializable
-class GoogleDriveFolderLoader(BaseLoader):
+class GoogleDriveLoader(BaseLoader):
     @staticmethod
     def _get_drive_id_from_url(url: str):
         regex = r"^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)folders\/([a-zA-Z0-9_-]+)$"
@@ -31,7 +31,7 @@ class GoogleDriveFolderLoader(BaseLoader):
         folder_id: str = self._get_drive_id_from_url(url)
 
         try:
-            loader = GoogleDriveLoader(
+            loader = Loader(
                 folder_id=folder_id,
                 recursive=True,
                 file_loader_cls=UnstructuredFileIOLoader,

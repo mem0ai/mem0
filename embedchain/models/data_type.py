@@ -35,7 +35,7 @@ class IndirectDataType(Enum):
     CUSTOM = "custom"
     RSSFEED = "rss_feed"
     BEEHIIV = "beehiiv"
-    GOOGLE_DRIVE_FOLDER = "google_drive_folder"
+    GOOGLE_DRIVE = "google_drive"
     DIRECTORY = "directory"
     SLACK = "slack"
     DROPBOX = "dropbox"
@@ -74,7 +74,7 @@ class DataType(Enum):
     CUSTOM = IndirectDataType.CUSTOM.value
     RSSFEED = IndirectDataType.RSSFEED.value
     BEEHIIV = IndirectDataType.BEEHIIV.value
-    GOOGLE_DRIVE_FOLDER = IndirectDataType.GOOGLE_DRIVE_FOLDER.value
+    GOOGLE_DRIVE = IndirectDataType.GOOGLE_DRIVE.value
     DIRECTORY = IndirectDataType.DIRECTORY.value
     SLACK = IndirectDataType.SLACK.value
     DROPBOX = IndirectDataType.DROPBOX.value

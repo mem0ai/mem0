@@ -1,10 +1,10 @@
 ---
-title: 'Google Drive Folder'
+title: 'Google Drive'
 ---
 
-To use GoogleDriveFolderLoader you must install the extra dependencies with `pip install --upgrade embedchain[googledrive]`.
+To use GoogleDriveLoader you must install the extra dependencies with `pip install --upgrade embedchain[googledrive]`.
 
-The data_type must be `google_drive_folder`. Otherwise, it will be considered a regular web page.
+The data_type must be `google_drive`. Otherwise, it will be considered a regular web page.
 
 Google Drive requires the setup of credentials. This can be done by following the steps below:
 
@@ -24,5 +24,5 @@ from embedchain import Pipeline as App
 app = App()
 
 url = "https://drive.google.com/drive/u/0/folders/xxx-xxx"
-app.add(url, data_type="google_drive_folder")
+app.add(url, data_type="google_drive")
 ```

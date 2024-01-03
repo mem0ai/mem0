@@ -8,7 +8,7 @@ from embedchain.helpers.json_serializable import register_deserializable
 
 
 @register_deserializable
-class GoogleDriveFolderChunker(BaseChunker):
+class GoogleDriveChunker(BaseChunker):
     """Chunker for google drive folder."""
 
     def __init__(self, config: Optional[ChunkerConfig] = None):

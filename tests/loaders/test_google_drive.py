@@ -1,11 +1,11 @@
 import pytest
 
-from embedchain.loaders.google_drive_folder import GoogleDriveFolderLoader
+from embedchain.loaders.google_drive import GoogleDriveLoader
 
 
 @pytest.fixture
 def google_drive_folder_loader():
-    return GoogleDriveFolderLoader()
+    return GoogleDriveLoader()
 
 
 def test_load_data_invalid_drive_url(google_drive_folder_loader):
