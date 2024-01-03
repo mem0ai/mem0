@@ -109,7 +109,7 @@ class DataFormatter(JSONSerializable):
             DataType.DOCS_SITE: "embedchain.chunkers.docs_site.DocsSiteChunker",
             DataType.CSV: "embedchain.chunkers.table.TableChunker",
             DataType.MDX: "embedchain.chunkers.mdx.MdxChunker",
-            DataType.IMAGE: "embedchain.chunkers.images.ImagesChunker",
+            DataType.IMAGE: "embedchain.chunkers.image.ImageChunker",
             DataType.UNSTRUCTURED: "embedchain.chunkers.unstructured_file.UnstructuredFileChunker",
             DataType.JSON: "embedchain.chunkers.json.JSONChunker",
             DataType.OPENAPI: "embedchain.chunkers.openapi.OpenAPIChunker",
