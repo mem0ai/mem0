@@ -1,0 +1,16 @@
+---
+title: "📝 Substack"
+---
+
+To add any Substack data sources to your app, just add the main base url as the source and set the data_type to `substack`.
+
+```python
+from embedchain import App
+
+app = App()
+
+# source: for any substack just add the root URL
+app.add('https://www.lennysnewsletter.com', data_type='substack')
+app.query("Who is Brian Chesky?")
+# Answer: Brian Chesky is the co-founder and CEO of Airbnb.
+```

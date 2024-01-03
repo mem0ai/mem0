@@ -1,0 +1,22 @@
+---
+title: 🙌 OpenAPI
+---
+
+To add any OpenAPI spec yaml file (currently the json file will be detected as JSON data type), use the data_type as 'openapi'. 'openapi' allows remote urls and conventional file paths.
+
+```python
+from embedchain import App
+
+app = App()
+
+app.add("https://github.com/openai/openai-openapi/blob/master/openapi.yaml", data_type="openapi")
+# Or add using the local file path
+# app.add("configs/openai_openapi.yaml", data_type="openapi")
+
+app.query("What can OpenAI API endpoint do? Can you list the things it can learn from?")
+# Answer: The OpenAI API endpoint allows users to interact with OpenAI's models and perform various tasks such as generating text, answering questions, summarizing documents, translating languages, and more. The specific capabilities and tasks that the API can learn from may vary depending on the models and features provided by OpenAI. For more detailed information, it is recommended to refer to the OpenAI API documentation at https://platform.openai.com/docs/api-reference.
+```
+
+<Note>
+The yaml file added to the App must have the required OpenAPI fields otherwise the adding OpenAPI spec will fail. Please refer to [OpenAPI Spec Doc](https://spec.openapis.org/oas/v3.1.0)
+</Note>

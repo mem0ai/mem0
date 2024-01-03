@@ -28,7 +28,7 @@ def test_load_data(notion_loader):
     mock_page.text = mock_text
     mock_documents = [mock_page]
 
-    with patch("embedchain.loaders.notion.NotionPageReader") as mock_reader:
+    with patch("embedchain.loaders.notion.NotionPageLoader") as mock_reader:
         mock_reader.return_value.load_data.return_value = mock_documents
         result = notion_loader.load_data(source)
 

@@ -1,96 +1,82 @@
 ---
-title: '🚀 Quickstart'
-description: '💡 Start building LLM powered apps under 30 seconds'
+title: '⚡ Quickstart'
+description: '💡 Create a RAG app on your own data in a minute'
 ---
 
-Embedchain is a Data Platform for LLMs - load, index, retrieve, and sync any unstructured data. Using embedchain, you can easily create LLM powered apps over any data. 
+## Installation
 
-Install embedchain python package:
+First install the python package.
 
 ```bash
 pip install embedchain
 ```
 
-<Tip>
-Embedchain now supports OpenAI's latest `gpt-4-turbo` model. Checkout the [FAQs](/get-started/faq#how-to-use-gpt-4-turbo-model-released-on-openai-devday).
-</Tip>
+Once you have installed the package, depending upon your preference you can either use:
 
-Creating an app involves 3 steps:
+<CardGroup cols={2}>
+  <Card title="Open Source Models" icon="osi" href="#open-source-models">
+  This includes Open source LLMs like Mistral, Llama, etc.<br/>
+  Free to use, and runs locally on your machine.
+  </Card>
+  <Card title="Paid Models" icon="dollar-sign" href="#paid-models" color="#4A154B">
+    This includes paid LLMs like GPT 4, Claude, etc.<br/>
+    Cost money and are accessible via an API.
+  </Card>
+</CardGroup>
 
-<Steps>
-  <Step title="⚙️ Import app instance">
-    ```python
-    from embedchain import Pipeline as App
-    app = App()
-    ```
-    <Accordion title="Customize your app by a simple YAML config" icon="gear-complex">
-      Embedchain provides a wide range of options to customize your app. You can customize the model, data sources, and much more.
-      Explore the custom configurations [here](https://docs.embedchain.ai/advanced/configuration).
-      <CodeGroup>
-      ```python yaml_app.py
-      from embedchain import Pipeline as App
-      app = App.from_config(config_path="config.yaml")
-      ```
-      ```python json_app.py
-      from embedchain import Pipeline as App
-      app = App.from_config(config_path="config.json")
-      ```
-      ```python app.py
-      from embedchain import Pipeline as App
-      config = {} # Add your config here
-      app = App.from_config(config=config)
-      ```
-      </CodeGroup>
-    </Accordion>
-  </Step>
-  <Step title="🗃️ Add data sources">
-    ```python
-    app.add("https://en.wikipedia.org/wiki/Elon_Musk")
-    app.add("https://www.forbes.com/profile/elon-musk")
-    # app.add("path/to/file/elon_musk.pdf")
-    ```
-    <Accordion title="Embedchain supports adding data from many data sources." icon="files">
-      Embedchain supports adding data from many data sources including web pages, PDFs, databases, and more.
-      Explore the list of supported [data sources](https://docs.embedchain.ai/data-sources/overview).
-    </Accordion>
-  </Step>
-  <Step title="💬 Ask questions, chat, or search through your data with ease">
-    ```python
-    app.query("What is the net worth of Elon Musk today?")
-    # Answer: The net worth of Elon Musk today is $258.7 billion.
-    ```
-    <Accordion title="Want to chat with your app?" icon="face-thinking">
-      Embedchain provides a wide range of features to interact with your app. You can chat with your app, ask questions, search through your data, and much more.
-      ```python
-      app.chat("How many companies does Elon Musk run? Name those")
-      # Answer: Elon Musk runs 3 companies: Tesla, SpaceX, and Neuralink.
-      app.chat("What is his net worth today?")
-      # Answer: The net worth of Elon Musk today is $258.7 billion.
-      ```
-      To learn about other features, click [here](https://docs.embedchain.ai/get-started/introduction)
-    </Accordion>
-  </Step>
-  <Step title="🚀 Seamlessly launch your App on the Embedchain Platform!">
-    ```python
-    app.deploy()
-    # 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
-    # ec-xxxxxx
+## Open Source Models
 
-    # 🛠️ Creating pipeline on the platform...
-    # 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+This section gives a quickstart example of using Mistral as the Open source LLM and Sentence transformers as the Open source embedding model. These models are free and run mostly on your local machine.
 
-    # 🛠️ Adding data to your pipeline...
-    # ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
-    ```
-    <Accordion title="Share your app with others" icon="laptop-mobile">
-      You can now share your app with others from our platform.
-      Access your app on our [platform](https://app.embedchain.ai/).
-    </Accordion>
-  </Step>
-</Steps>
+We are using Mistral hosted at Hugging Face, so will you need a Hugging Face token to run this example. Its *free* and you can create one [here](https://huggingface.co/docs/hub/security-tokens).
 
-Putting it together, you can run your first app using the following Google Colab. Make sure to set the `OPENAI_API_KEY` 🔑 environment variable in the code.
+<CodeGroup>
+```python quickstart.py
+import os
+# replace this with your HF key
+os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "hf_xxxx"
 
-<a href="https://colab.research.google.com/drive/17ON1LPonnXAtLaZEebnOktstB_1cJJmh?usp=sharing">
-    <img src="https://camo.githubusercontent.com/84f0493939e0c4de4e6dbe113251b4bfb5353e57134ffd9fcab6b8714514d4d1/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667" alt="Open in Colab" />
-</a>
+from embedchain import App
+app = App.from_config("mistral.yaml")
+app.add("https://www.forbes.com/profile/elon-musk")
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+app.query("What is the net worth of Elon Musk today?")
+# Answer: The net worth of Elon Musk today is $258.7 billion.
+```
+```yaml mistral.yaml
+llm:
+  provider: huggingface
+  config:
+    model: 'mistralai/Mistral-7B-v0.1'
+embedder:
+  provider: huggingface
+  config:
+    model: 'sentence-transformers/all-mpnet-base-v2'
+```
+</CodeGroup>
+
+## Paid Models
+
+In this section, we will use both LLM and embedding model from OpenAI.
+
+```python quickstart.py
+import os
+# replace this with your OpenAI key
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+
+from embedchain import App
+app = App()
+app.add("https://www.forbes.com/profile/elon-musk")
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+app.query("What is the net worth of Elon Musk today?")
+# Answer: The net worth of Elon Musk today is $258.7 billion.
+```
+
+# Next Steps
+
+Now that you have created your first app, you can follow any of the links:
+
+* [Introduction](/get-started/introduction)
+* [Customization](/components/introduction)
+* [Use cases](/use-cases/introduction)
+* [Deployment](/get-started/deployment)

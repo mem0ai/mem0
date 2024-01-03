@@ -29,7 +29,7 @@ class TestPinecone:
         # Create a PineconeDB instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Assert that the embedder was set
         assert db.embedder == embedder
@@ -48,13 +48,13 @@ class TestPinecone:
         # Create a PineconeDb instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=base_embedder)
+        App(config=app_config, db=db, embedding_model=base_embedder)
 
         # Add some documents to the database
         documents = ["This is a document.", "This is another document."]
         metadatas = [{}, {}]
         ids = ["doc1", "doc2"]
-        db.add(vectors, documents, metadatas, ids, True)
+        db.add(vectors, documents, metadatas, ids)
 
         expected_pinecone_upsert_args = [
             {"id": "doc1", "values": [0, 0, 0], "metadata": {"text": "This is a document."}},
@@ -76,12 +76,12 @@ class TestPinecone:
         # Create a PineconeDB instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=base_embedder)
+        App(config=app_config, db=db, embedding_model=base_embedder)
 
         # Query the database for documents that are similar to "document"
         input_query = ["document"]
         n_results = 1
-        db.query(input_query, n_results, where={}, skip_embedding=False)
+        db.query(input_query, n_results, where={})
 
         # Assert that the Pinecone client was called to query the database
         pinecone_client_mock.query.assert_called_once_with(
@@ -94,7 +94,7 @@ class TestPinecone:
         # Create a PineconeDb instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=BaseEmbedder())
+        App(config=app_config, db=db, embedding_model=BaseEmbedder())
 
         # Reset the database
         db.reset()

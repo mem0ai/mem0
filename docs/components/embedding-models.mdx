@@ -8,6 +8,7 @@ Embedchain supports several embedding models from the following providers:
 
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
+  <Card title="GoogleAI" href="#google-ai"></Card>
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
@@ -24,7 +25,7 @@ Once you have obtained the key, you can use it like this:
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -44,6 +45,34 @@ embedder:
 
 </CodeGroup>
 
+## Google AI
+
+To use Google AI embedding function, you have to set the `GOOGLE_API_KEY` environment variable. You can obtain the Google API key from the [Google Maker Suite](https://makersuite.google.com/app/apikey)
+
+<CodeGroup>
+```python main.py
+import os
+from embedchain import App
+
+os.environ["GOOGLE_API_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+embedder:
+  provider: google
+  config:
+    model: 'models/embedding-001'
+    task_type: "retrieval_document"
+    title: "Embeddings for Embedchain"
+```
+</CodeGroup>
+<br/>
+<Note>
+For more details regarding the Google AI embedding model, please refer to the [Google AI documentation](https://ai.google.dev/tutorials/python_quickstart#use_embeddings).
+</Note>
+
 ## Azure OpenAI
 
 To use Azure OpenAI embedding model, you have to set some of the azure openai related environment variables as given in the code block below:
@@ -52,7 +81,7 @@ To use Azure OpenAI embedding model, you have to set some of the azure openai re
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["OPENAI_API_TYPE"] = "azure"
 os.environ["AZURE_OPENAI_ENDPOINT"] = "https://xxx.openai.azure.com/"
@@ -90,7 +119,7 @@ GPT4All supports generating high quality embeddings of arbitrary length document
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load embedding model configuration from config.yaml file
 app = App.from_config(config_path="config.yaml")
@@ -119,7 +148,7 @@ Hugging Face supports generating embeddings of arbitrary length documents of tex
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load embedding model configuration from config.yaml file
 app = App.from_config(config_path="config.yaml")
@@ -150,7 +179,7 @@ Embedchain supports Google's VertexAI embeddings model through a simple interfac
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load embedding model configuration from config.yaml file
 app = App.from_config(config_path="config.yaml")

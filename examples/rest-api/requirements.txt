@@ -1,6 +1,6 @@
 fastapi==0.104.0
 uvicorn==0.23.2
 embedchain==0.1.3
-embedchain[streamlit, community, opensource, elasticsearch, opensearch, poe, discord, slack, whatsapp, weaviate, pinecone, qdrant, images, huggingface_hub, cohere, milvus, dataloaders, vertexai, llama2, gmail, json]==0.1.3
+embedchain[streamlit, community, opensource, elasticsearch, opensearch, poe, discord, slack, whatsapp, weaviate, pinecone, qdrant, images, huggingface_hub, cohere, together, milvus, dataloaders, vertexai, llama2, gmail, json]==0.1.3
 sqlalchemy==2.0.22
 python-multipart==0.0.6

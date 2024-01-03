@@ -5,6 +5,7 @@ def generate_error_message_for_api_keys(error: ValueError) -> str:
         "OPENAI_API_BASE": "OPENAI_API_BASE",
         "OPENAI_API_VERSION": "OPENAI_API_VERSION",
         "COHERE_API_KEY": "COHERE_API_KEY",
+        "TOGETHER_API_KEY": "TOGETHER_API_KEY",
         "ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY",
         "JINACHAT_API_KEY": "JINACHAT_API_KEY",
         "HUGGINGFACE_ACCESS_TOKEN": "HUGGINGFACE_ACCESS_TOKEN",

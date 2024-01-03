@@ -120,7 +120,6 @@ class OpenSearchDB(BaseVectorDB):
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
         **kwargs: Optional[Dict[str, any]],
     ):
         """Add data in vector database.
@@ -130,17 +129,11 @@ class OpenSearchDB(BaseVectorDB):
             documents (List[str]): List of texts to add.
             metadatas (List[object]): List of metadata associated with docs.
             ids (List[str]): IDs of docs.
-            skip_embedding (bool): If True, then embeddings are assumed to be already generated.
         """
         for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
             batch_end = batch_start + self.BATCH_SIZE
             batch_documents = documents[batch_start:batch_end]
-
-            # Generate embeddings for the batch if not skipping embedding
-            if not skip_embedding:
-                batch_embeddings = self.embedder.embedding_fn(batch_documents)
-            else:
-                batch_embeddings = embeddings[batch_start:batch_end]
+            batch_embeddings = embeddings[batch_start:batch_end]
 
             # Create document entries for bulk upload
             batch_entries = [
@@ -166,10 +159,9 @@ class OpenSearchDB(BaseVectorDB):
         input_query: List[str],
         n_results: int,
         where: Dict[str, any],
-        skip_embedding: bool,
         citations: bool = False,
         **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+    ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
         query contents from vector data base based on vector similarity
 
@@ -179,15 +171,12 @@ class OpenSearchDB(BaseVectorDB):
         :type n_results: int
         :param where: Optional. to filter data
         :type where: Dict[str, any]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
         :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
         """
-        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
         docsearch = OpenSearchVectorSearch(
             index_name=self._get_index(),
@@ -202,7 +191,7 @@ class OpenSearchDB(BaseVectorDB):
         if "app_id" in where:
             app_id = where["app_id"]
             pre_filter = {"bool": {"must": [{"term": {"metadata.app_id.keyword": app_id}}]}}
-        docs = docsearch.similarity_search(
+        docs = docsearch.similarity_search_with_score(
             input_query,
             search_type="script_scoring",
             space_type="cosinesimil",
@@ -215,12 +204,12 @@ class OpenSearchDB(BaseVectorDB):
         )
 
         contexts = []
-        for doc in docs:
+        for doc, score in docs:
             context = doc.page_content
             if citations:
-                source = doc.metadata["url"]
-                doc_id = doc.metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                metadata = doc.metadata
+                metadata["score"] = score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts

@@ -24,7 +24,7 @@ class IndirectDataType(Enum):
     NOTION = "notion"
     CSV = "csv"
     MDX = "mdx"
-    IMAGES = "images"
+    IMAGE = "image"
     UNSTRUCTURED = "unstructured"
     JSON = "json"
     OPENAPI = "openapi"
@@ -36,6 +36,10 @@ class IndirectDataType(Enum):
     RSSFEED = "rss_feed"
     BEEHIIV = "beehiiv"
     GOOGLE_DRIVE_FOLDER = "google_drive_folder"
+    DIRECTORY = "directory"
+    SLACK = "slack"
+    DROPBOX = "dropbox"
+    TEXT_FILE = "text_file"
 
 
 class SpecialDataType(Enum):
@@ -59,7 +63,7 @@ class DataType(Enum):
     CSV = IndirectDataType.CSV.value
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
-    IMAGES = IndirectDataType.IMAGES.value
+    IMAGE = IndirectDataType.IMAGE.value
     UNSTRUCTURED = IndirectDataType.UNSTRUCTURED.value
     JSON = IndirectDataType.JSON.value
     OPENAPI = IndirectDataType.OPENAPI.value
@@ -71,3 +75,7 @@ class DataType(Enum):
     RSSFEED = IndirectDataType.RSSFEED.value
     BEEHIIV = IndirectDataType.BEEHIIV.value
     GOOGLE_DRIVE_FOLDER = IndirectDataType.GOOGLE_DRIVE_FOLDER.value
+    DIRECTORY = IndirectDataType.DIRECTORY.value
+    SLACK = IndirectDataType.SLACK.value
+    DROPBOX = IndirectDataType.DROPBOX.value
+    TEXT_FILE = IndirectDataType.TEXT_FILE.value

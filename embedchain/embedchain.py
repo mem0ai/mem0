@@ -7,9 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
+from embedchain.cache import (adapt, get_gptcache_session,
+                              gptcache_data_convert,
+                              gptcache_update_cache_callback)
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
-from embedchain.config.apps.base_app_config import BaseAppConfig
+from embedchain.config.base_app_config import BaseAppConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
@@ -52,6 +55,7 @@ class EmbedChain(JSONSerializable):
         """
 
         self.config = config
+        self.cache_config = None
         # Llm
         self.llm = llm
         # Database has support for config assignment for backwards compatibility
@@ -189,14 +193,13 @@ class EmbedChain(JSONSerializable):
             data_type = detect_datatype(source)
 
         # `source_hash` is the md5 hash of the source argument
-        hash_object = hashlib.md5(str(source).encode("utf-8"))
-        source_hash = hash_object.hexdigest()
+        source_hash = hashlib.md5(str(source).encode("utf-8")).hexdigest()
 
         self.user_asks.append([source, data_type.value, metadata])
 
         data_formatter = DataFormatter(data_type, config, loader, chunker)
         documents, metadatas, _ids, new_chunks = self._load_and_embed(
-            data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, dry_run, **kwargs
+            data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, config, dry_run, **kwargs
         )
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
@@ -339,6 +342,7 @@ class EmbedChain(JSONSerializable):
         src: Any,
         metadata: Optional[Dict[str, Any]] = None,
         source_hash: Optional[str] = None,
+        add_config: Optional[AddConfig] = None,
         dry_run=False,
         **kwargs: Optional[Dict[str, Any]],
     ):
@@ -359,12 +363,13 @@ class EmbedChain(JSONSerializable):
         app_id = self.config.id if self.config is not None else None
 
         # Create chunks
-        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id)
+        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id, config=add_config.chunker)
         # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         new_doc_id = embeddings_data["doc_id"]
+        embeddings = embeddings_data.get("embeddings")
         if existing_doc_id and existing_doc_id == new_doc_id:
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
@@ -429,11 +434,10 @@ class EmbedChain(JSONSerializable):
         chunks_before_addition = self.db.count()
 
         self.db.add(
-            embeddings=embeddings_data.get("embeddings", None),
+            embeddings=embeddings,
             documents=documents,
             metadatas=metadatas,
             ids=ids,
-            skip_embedding=(chunker.data_type == DataType.IMAGES),
             **kwargs,
         )
         count_new_chunks = self.db.count() - chunks_before_addition
@@ -485,21 +489,10 @@ class EmbedChain(JSONSerializable):
             if self.config.id is not None:
                 where.update({"app_id": self.config.id})
 
-        # We cannot query the database with the input query in case of an image search. This is because we need
-        # to bring down both the image and text to the same dimension to be able to compare them.
-        db_query = input_query
-        if hasattr(config, "query_type") and config.query_type == "Images":
-            # We import the clip processor here to make sure the package is not dependent on clip dependency even if the
-            # image dataset is not being used
-            from embedchain.models.clip_processor import ClipProcessor
-
-            db_query = ClipProcessor.get_text_features(query=input_query)
-
         contexts = self.db.query(
-            input_query=db_query,
+            input_query=input_query,
             n_results=query_config.number_documents,
             where=where,
-            skip_embedding=(hasattr(config, "query_type") and config.query_type == "Images"),
             citations=citations,
             **kwargs,
         )
@@ -514,7 +507,7 @@ class EmbedChain(JSONSerializable):
         where: Optional[Dict] = None,
         citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
+    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -545,9 +538,22 @@ class EmbedChain(JSONSerializable):
         else:
             contexts_data_for_llm_query = contexts
 
-        answer = self.llm.query(
-            input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
-        )
+        if self.cache_config is not None:
+            logging.info("Cache enabled. Checking cache...")
+            answer = adapt(
+                llm_handler=self.llm.query,
+                cache_data_convert=gptcache_data_convert,
+                update_cache_callback=gptcache_update_cache_callback,
+                session=get_gptcache_session(session_id=self.config.id),
+                input_query=input_query,
+                contexts=contexts_data_for_llm_query,
+                config=config,
+                dry_run=dry_run,
+            )
+        else:
+            answer = self.llm.query(
+                input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
+            )
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="query", properties=self._telemetry_props)
@@ -562,10 +568,11 @@ class EmbedChain(JSONSerializable):
         input_query: str,
         config: Optional[BaseLlmConfig] = None,
         dry_run=False,
+        session_id: str = "default",
         where: Optional[Dict[str, str]] = None,
         citations: bool = False,
         **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, str, str]]], str]:
+    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -581,6 +588,8 @@ class EmbedChain(JSONSerializable):
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
         :type dry_run: bool, optional
+        :param session_id: The session id to use for chat history, defaults to 'default'.
+        :type session_id: Optional[str], optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
         :type where: Optional[Dict[str, str]], optional
         :param kwargs: To read more params for the query function. Ex. we use citations boolean
@@ -598,12 +607,29 @@ class EmbedChain(JSONSerializable):
         else:
             contexts_data_for_llm_query = contexts
 
-        answer = self.llm.chat(
-            input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
-        )
+        # Update the history beforehand so that we can handle multiple chat sessions in the same python session
+        self.llm.update_history(app_id=self.config.id, session_id=session_id)
+
+        if self.cache_config is not None:
+            logging.info("Cache enabled. Checking cache...")
+            cache_id = f"{session_id}--{self.config.id}"
+            answer = adapt(
+                llm_handler=self.llm.chat,
+                cache_data_convert=gptcache_data_convert,
+                update_cache_callback=gptcache_update_cache_callback,
+                session=get_gptcache_session(session_id=cache_id),
+                input_query=input_query,
+                contexts=contexts_data_for_llm_query,
+                config=config,
+                dry_run=dry_run,
+            )
+        else:
+            answer = self.llm.chat(
+                input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
+            )
 
         # add conversation in memory
-        self.llm.add_history(self.config.id, input_query, answer)
+        self.llm.add_history(self.config.id, input_query, answer, session_id=session_id)
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
@@ -648,16 +674,13 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
-        self.delete_history()
+        self.delete_chat_history()
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
     def get_history(self, num_rounds: int = 10, display_format: bool = True):
-        return self.llm.memory.get_recent_memories(
-            app_id=self.config.id,
-            num_rounds=num_rounds,
-            display_format=display_format,
-        )
+        return self.llm.memory.get(app_id=self.config.id, num_rounds=num_rounds, display_format=display_format)
 
-    def delete_history(self):
-        self.llm.memory.delete_chat_history(app_id=self.config.id)
+    def delete_chat_history(self, session_id: str = "default"):
+        self.llm.memory.delete(app_id=self.config.id, session_id=session_id)
+        self.llm.update_history(app_id=self.config.id)

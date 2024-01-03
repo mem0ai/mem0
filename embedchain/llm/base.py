@@ -8,7 +8,7 @@ from embedchain.config.llm.base import (DEFAULT_PROMPT,
                                         DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
                                         DOCS_SITE_PROMPT_TEMPLATE)
 from embedchain.helpers.json_serializable import JSONSerializable
-from embedchain.memory.base import ECChatMemory
+from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
 
 
@@ -24,7 +24,7 @@ class BaseLlm(JSONSerializable):
         else:
             self.config = config
 
-        self.memory = ECChatMemory()
+        self.memory = ChatHistory()
         self.is_docs_site_instance = False
         self.online = False
         self.history: Any = None
@@ -45,18 +45,24 @@ class BaseLlm(JSONSerializable):
         """
         self.history = history
 
-    def update_history(self, app_id: str):
+    def update_history(self, app_id: str, session_id: str = "default"):
         """Update class history attribute with history in memory (for chat method)"""
-        chat_history = self.memory.get_recent_memories(app_id=app_id, num_rounds=10)
-        if chat_history:
-            self.set_history([str(history) for history in chat_history])
+        chat_history = self.memory.get(app_id=app_id, session_id=session_id, num_rounds=10)
+        self.set_history([str(history) for history in chat_history])
 
-    def add_history(self, app_id: str, question: str, answer: str, metadata: Optional[Dict[str, Any]] = None):
+    def add_history(
+        self,
+        app_id: str,
+        question: str,
+        answer: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        session_id: str = "default",
+    ):
         chat_message = ChatMessage()
         chat_message.add_user_message(question, metadata=metadata)
         chat_message.add_ai_message(answer, metadata=metadata)
-        self.memory.add(app_id=app_id, chat_message=chat_message)
-        self.update_history(app_id=app_id)
+        self.memory.add(app_id=app_id, chat_message=chat_message, session_id=session_id)
+        self.update_history(app_id=app_id, session_id=session_id)
 
     def generate_prompt(self, input_query: str, contexts: List[str], **kwargs: Dict[str, Any]) -> str:
         """
@@ -75,19 +81,19 @@ class BaseLlm(JSONSerializable):
         if web_search_result:
             context_string = self._append_search_and_context(context_string, web_search_result)
 
-        template_contains_history = self.config._validate_template_history(self.config.template)
-        if template_contains_history:
-            # Template contains history
+        prompt_contains_history = self.config._validate_prompt_history(self.config.prompt)
+        if prompt_contains_history:
+            # Prompt contains history
             # If there is no history yet, we insert `- no history -`
-            prompt = self.config.template.substitute(
+            prompt = self.config.prompt.substitute(
                 context=context_string, query=input_query, history=self.history or "- no history -"
             )
-        elif self.history and not template_contains_history:
-            # History is present, but not included in the template.
-            # check if it's the default template without history
+        elif self.history and not prompt_contains_history:
+            # History is present, but not included in the prompt.
+            # check if it's the default prompt without history
             if (
-                not self.config._validate_template_history(self.config.template)
-                and self.config.template.template == DEFAULT_PROMPT
+                not self.config._validate_prompt_history(self.config.prompt)
+                and self.config.prompt.template == DEFAULT_PROMPT
             ):
                 # swap in the template with history
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
@@ -96,12 +102,12 @@ class BaseLlm(JSONSerializable):
             else:
                 # If we can't swap in the default, we still proceed but tell users that the history is ignored.
                 logging.warning(
-                    "Your bot contains a history, but template does not include `$history` key. History is ignored."
+                    "Your bot contains a history, but prompt does not include `$history` key. History is ignored."
                 )
-                prompt = self.config.template.substitute(context=context_string, query=input_query)
+                prompt = self.config.prompt.substitute(context=context_string, query=input_query)
         else:
             # basic use case, no history.
-            prompt = self.config.template.substitute(context=context_string, query=input_query)
+            prompt = self.config.prompt.substitute(context=context_string, query=input_query)
         return prompt
 
     def _append_search_and_context(self, context: str, web_search_result: str) -> str:
@@ -147,21 +153,7 @@ class BaseLlm(JSONSerializable):
         logging.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
-    def _stream_query_response(self, answer: Any) -> Generator[Any, Any, None]:
-        """Generator to be used as streaming response
-
-        :param answer: Answer chunk from llm
-        :type answer: Any
-        :yield: Answer chunk from llm
-        :rtype: Generator[Any, Any, None]
-        """
-        streamed_answer = ""
-        for chunk in answer:
-            streamed_answer = streamed_answer + chunk
-            yield chunk
-        logging.info(f"Answer: {streamed_answer}")
-
-    def _stream_chat_response(self, answer: Any) -> Generator[Any, Any, None]:
+    def _stream_response(self, answer: Any) -> Generator[Any, Any, None]:
         """Generator to be used as streaming response
 
         :param answer: Answer chunk from llm
@@ -206,7 +198,7 @@ class BaseLlm(JSONSerializable):
                 return contexts
 
             if self.is_docs_site_instance:
-                self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+                self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
             if self.online:
@@ -217,18 +209,19 @@ class BaseLlm(JSONSerializable):
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
-
             if isinstance(answer, str):
                 logging.info(f"Answer: {answer}")
                 return answer
             else:
-                return self._stream_query_response(answer)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config
                 self.config: BaseLlmConfig = BaseLlmConfig.deserialize(prev_config)
 
-    def chat(self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run=False):
+    def chat(
+        self, input_query: str, contexts: List[str], config: BaseLlmConfig = None, dry_run=False, session_id: str = None
+    ):
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -246,6 +239,8 @@ class BaseLlm(JSONSerializable):
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
         :type dry_run: bool, optional
+        :param session_id: Session ID to use for the conversation, defaults to None
+        :type session_id: str, optional
         :return: The answer to the query or the dry run result
         :rtype: str
         """
@@ -258,7 +253,7 @@ class BaseLlm(JSONSerializable):
                 self.config = config
 
             if self.is_docs_site_instance:
-                self.config.template = DOCS_SITE_PROMPT_TEMPLATE
+                self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
             if self.online:
@@ -271,14 +266,12 @@ class BaseLlm(JSONSerializable):
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
-
             if isinstance(answer, str):
                 logging.info(f"Answer: {answer}")
-
                 return answer
             else:
                 # this is a streamed response and needs to be handled differently.
-                return self._stream_chat_response(answer)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config

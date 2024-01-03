@@ -85,7 +85,6 @@ class GithubLoader(BaseLoader):
                 logging.info("Fetch completed.")
             else:
                 logging.info("Cloning repository...")
-                Repo.clone_from(repo_url, local_path)
                 repo = Repo.clone_from(repo_url, local_path)
                 logging.info("Clone completed.")
             return repo.head.commit.tree

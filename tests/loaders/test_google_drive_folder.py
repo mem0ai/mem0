@@ -18,7 +18,7 @@ def test_load_data_invalid_drive_url(google_drive_folder_loader):
         google_drive_folder_loader.load_data(mock_invalid_drive_url)
 
 
-@pytest.skip(reason="This test won't work unless google api credentials are properly setup.")
+@pytest.mark.skip(reason="This test won't work unless google api credentials are properly setup.")
 def test_load_data_incorrect_drive_url(google_drive_folder_loader):
     mock_invalid_drive_url = "https://drive.google.com/drive/u/0/folders/xxxx"
     with pytest.raises(
@@ -27,7 +27,7 @@ def test_load_data_incorrect_drive_url(google_drive_folder_loader):
         google_drive_folder_loader.load_data(mock_invalid_drive_url)
 
 
-@pytest.skip(reason="This test won't work unless google api credentials are properly setup.")
+@pytest.mark.skip(reason="This test won't work unless google api credentials are properly setup.")
 def test_load_data(google_drive_folder_loader):
     mock_valid_url = "YOUR_VALID_URL"
     result = google_drive_folder_loader.load_data(mock_valid_url)

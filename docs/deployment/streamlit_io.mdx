@@ -1,0 +1,62 @@
+---
+title: 'Streamlit.io'
+description: 'Deploy your RAG application to streamlit.io platform'
+---
+
+Embedchain offers a Streamlit template to facilitate the development of RAG chatbot applications in just three easy steps.
+
+Follow the instructions given below to deploy your first application quickly:
+
+## Step-1: Create RAG app
+
+We provide a command line utility called `ec` in embedchain that inherits the template for `streamlit.io` platform and help you deploy the app. Follow the instructions to create a streamlit.io app using the template provided:
+
+```bash Install embedchain
+pip install embedchain
+```
+
+```bash Create application
+mkdir my-rag-app
+ec create --template=streamlit.io
+```
+
+This will generate a directory structure like this:
+
+```bash
+├── .streamlit
+│   └── secrets.toml
+├── app.py
+├── embedchain.json
+└── requirements.txt
+```
+
+Feel free to edit the files as required.
+- `app.py`: Contains API app code
+- `.streamlit/secrets.toml`: Contains secrets for your application
+- `embedchain.json`: Contains embedchain specific configuration for deployment (you don't need to configure this)
+- `requirements.txt`: Contains python dependencies for your application
+
+Add your `OPENAI_API_KEY` in `.streamlit/secrets.toml` file to run and deploy the app.
+
+## Step-2: Test app locally
+
+You can run the app locally by simply doing:
+
+```bash Run locally
+pip install -r requirements.txt
+ec dev
+```
+
+## Step-3: Deploy to streamlit.io
+
+![Streamlit App deploy button](https://github.com/embedchain/embedchain/assets/73601258/90658e28-29e5-4ceb-9659-37ff8b861a29)
+
+Use the deploy button from the streamlit website to deploy your app.
+
+You can refer this [guide](https://docs.streamlit.io/streamlit-community-cloud/deploy-your-app) if you run into any problems.
+
+## Seeking help?
+
+If you run into issues with deployment, please feel free to reach out to us via any of the following methods:
+
+<Snippet file="get-help.mdx" />

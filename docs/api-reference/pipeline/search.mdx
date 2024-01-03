@@ -1,0 +1,57 @@
+---
+title: '🔍 search'
+---
+
+`.search()` enables you to uncover the most pertinent context by performing a semantic search across your data sources based on a given query. Refer to the function signature below:
+
+### Parameters
+
+<ParamField path="query" type="str">
+    Question
+</ParamField>
+<ParamField path="num_documents" type="int" optional>
+    Number of relevant documents to fetch. Defaults to `3`
+</ParamField>
+
+### Returns
+
+<ResponseField name="answer" type="dict">
+    Return list of dictionaries that contain the relevant chunk and their source information.
+</ResponseField>
+
+## Usage
+
+Refer to the following example on how to use the search api:
+
+```python Code example
+from embedchain import App
+
+# Initialize app
+app = App()
+
+# Add data source
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Get relevant context using semantic search
+context = app.search("What is the net worth of Elon?", num_documents=2)
+print(context)
+# Context:
+# [
+#     {
+#         'context': 'Elon Musk PROFILEElon MuskCEO, Tesla$221.9BReal Time Net Worth ...',
+#         'metadata': {
+#             'source': 'https://www.forbes.com/profile/elon-musk',
+#             'document_id': 'some_document_id',
+#             'score': 0.404,
+#         }
+#     },
+#     {
+#         'context': 'company, which is now called X.Wealth HistoryHOVER TO REVEAL NET WORTH ...',
+#         'metadata': {
+#             'source': 'https://www.forbes.com/profile/elon-musk',
+#             'document_id': 'some_document_id',
+#             'score': 0.435,
+#         }
+#     }
+# ]
+```

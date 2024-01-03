@@ -1,0 +1,31 @@
+---
+title: 🚀 deploy
+---
+
+Using the `deploy()` method, Embedchain allows developers to easily launch their LLM-powered applications on the [Embedchain Platform](https://app.embedchain.ai). This platform facilitates seamless access to your data's context via a free and user-friendly REST API. Once your pipeline is deployed, you can update your data sources at any time.
+
+The `deploy()` method not only deploys your pipeline but also efficiently manages LLMs, vector databases, embedding models, and data syncing, enabling you to focus on querying, chatting, or searching without the hassle of infrastructure management.
+
+## Usage
+
+```python
+from embedchain import App
+
+# Initialize app
+app = App()
+
+# Add data source
+app.add("https://www.forbes.com/profile/elon-musk")
+
+# Deploy your pipeline to Embedchain Platform
+app.deploy()
+
+# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
+# ec-xxxxxx
+
+# 🛠️ Creating pipeline on the platform...
+# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
+
+# 🛠️ Adding data to your pipeline...
+# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
+```

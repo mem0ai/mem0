@@ -8,9 +8,12 @@ Embedchain comes with built-in support for various popular large language models
 
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
+  <Card title="Google AI" href="#google-ai"></Card>
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Cohere" href="#cohere"></Card>
+  <Card title="Together" href="#together"></Card>
+  <Card title="Ollama" href="#ollama"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="JinaChat" href="#jinachat"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
@@ -26,7 +29,7 @@ Once you have obtained the key, you can use it like this:
 
 ```python
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -41,7 +44,7 @@ If you are looking to configure the different parameters of the LLM, you can do 
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
@@ -59,9 +62,170 @@ llm:
     top_p: 1
     stream: false
 ```
-
 </CodeGroup>
 
+### Function Calling
+To enable [function calling](https://platform.openai.com/docs/guides/function-calling) in your application using embedchain and OpenAI, you need to pass functions into `OpenAILlm` class as an array of functions. Here are several ways in which you can achieve that:
+
+Examples:
+<Accordion title="Using Pydantic Models">
+  ```python
+import os
+from embedchain import App
+from embedchain.llm.openai import OpenAILlm
+import requests
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+
+class QA(BaseModel):
+    """
+    A question and answer pair.
+    """
+
+    question: str = Field(
+        ..., description="The question.", example="What is a mountain?"
+    )
+    answer: str = Field(
+        ..., description="The answer.", example="A mountain is a hill."
+    )
+    person_who_is_asking: str = Field(
+        ..., description="The person who is asking the question.", example="John"
+    )
+
+    @field_validator("question")
+    def question_must_end_with_a_question_mark(cls, v):
+        """
+        Validate that the question ends with a question mark.
+        """
+        if not v.endswith("?"):
+            raise ValueError("question must end with a question mark")
+        return v
+
+    @field_validator("answer")
+    def answer_must_end_with_a_period(cls, v):
+        """
+        Validate that the answer ends with a period.
+        """
+        if not v.endswith("."):
+            raise ValueError("answer must end with a period")
+        return v
+
+llm = OpenAILlm(config=None,functions=[QA])
+app = App(llm=llm)
+
+result = app.query("Hey I am Sid. What is a mountain? A mountain is a hill.")
+
+print(result)
+  ```
+  </Accordion>
+  
+  <Accordion title="Using OpenAI JSON schema">
+```python
+import os
+from embedchain import App
+from embedchain.llm.openai import OpenAILlm
+import requests
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+
+json_schema = {
+    "name": "get_qa",
+    "description": "A question and answer pair and the user who is asking the question.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "question": {"type": "string", "description": "The question."},
+            "answer": {"type": "string", "description": "The answer."},
+            "person_who_is_asking": {
+                "type": "string",
+                "description": "The person who is asking the question.",
+            }
+        },
+        "required": ["question", "answer", "person_who_is_asking"],
+    },
+}
+
+llm = OpenAILlm(config=None,functions=[json_schema])
+app = App(llm=llm)
+
+result = app.query("Hey I am Sid. What is a mountain? A mountain is a hill.")
+
+print(result)
+  ```
+  </Accordion>
+  <Accordion title="Using actual python functions">
+  ```python
+import os
+from embedchain import App
+from embedchain.llm.openai import OpenAILlm
+import requests
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+
+def find_info_of_pokemon(pokemon: str):
+    """
+    Find the information of the given pokemon.
+    Args:
+        pokemon: The pokemon.
+    """
+    req = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon}")
+    if req.status_code == 404:
+        raise ValueError("pokemon not found")
+    return req.json()
+
+llm = OpenAILlm(config=None,functions=[find_info_of_pokemon])
+app = App(llm=llm)
+
+result = app.query("Tell me more about the pokemon pikachu.")
+
+print(result)
+```
+</Accordion>
+
+## Google AI
+
+To use Google AI model, you have to set the `GOOGLE_API_KEY` environment variable. You can obtain the Google API key from the [Google Maker Suite](https://makersuite.google.com/app/apikey)
+
+<CodeGroup>
+```python main.py
+import os
+from embedchain import App
+
+os.environ["GOOGLE_API_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.query("What is the net worth of Elon Musk?")
+if app.llm.config.stream: # if stream is enabled, response is a generator
+    for chunk in response:
+        print(chunk)
+else:
+    print(response)
+```
+
+```yaml config.yaml
+llm:
+  provider: google
+  config:
+    model: gemini-pro
+    max_tokens: 1000
+    temperature: 0.5
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: google
+  config:
+    model: 'models/embedding-001'
+    task_type: "retrieval_document"
+    title: "Embeddings for Embedchain"
+```
+</CodeGroup>
 
 ## Azure OpenAI
 
@@ -71,7 +235,7 @@ To use Azure OpenAI model, you have to set some of the azure openai related envi
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["OPENAI_API_TYPE"] = "azure"
 os.environ["OPENAI_API_BASE"] = "https://xxx.openai.azure.com/"
@@ -110,7 +274,7 @@ To use anthropic's model, please set the `ANTHROPIC_API_KEY` which you find on t
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["ANTHROPIC_API_KEY"] = "xxx"
 
@@ -147,7 +311,7 @@ Once you have the API key, you are all set to use it with Embedchain.
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["COHERE_API_KEY"] = "xxx"
 
@@ -167,6 +331,68 @@ llm:
 
 </CodeGroup>
 
+## Together
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[together]'
+```
+
+Set the `TOGETHER_API_KEY` as environment variable which you can find on their [Account settings page](https://api.together.xyz/settings/api-keys).
+
+Once you have the API key, you are all set to use it with Embedchain.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["TOGETHER_API_KEY"] = "xxx"
+
+# load llm configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: together
+  config:
+    model: togethercomputer/RedPajama-INCITE-7B-Base
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+```
+
+</CodeGroup>
+
+## Ollama
+
+Setup Ollama using https://github.com/jmorganca/ollama
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+# load llm configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: ollama
+  config:
+    model: 'llama2'
+    temperature: 0.5
+    top_p: 1
+    stream: true
+```
+
+</CodeGroup>
+
 ## GPT4ALL
 
 Install related dependencies using the following command:
@@ -180,7 +406,7 @@ GPT4all is a free-to-use, locally running, privacy-aware chatbot. No GPU or inte
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load llm configuration from config.yaml file
 app = App.from_config(config_path="config.yaml")
@@ -212,7 +438,7 @@ Once you have the key, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["JINACHAT_API_KEY"] = "xxx"
 # load llm configuration from config.yaml file
@@ -248,7 +474,7 @@ Once you have the token, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
@@ -278,7 +504,7 @@ Once you have the token, load the app using the config yaml file:
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ["REPLICATE_API_TOKEN"] = "xxx"
 
@@ -305,7 +531,7 @@ Setup Google Cloud Platform application credentials by following the instruction
 <CodeGroup>
 
 ```python main.py
-from embedchain import Pipeline as App
+from embedchain import App
 
 # load llm configuration from config.yaml file
 app = App.from_config(config_path="config.yaml")

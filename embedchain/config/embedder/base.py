@@ -5,7 +5,9 @@ from embedchain.helpers.json_serializable import register_deserializable
 
 @register_deserializable
 class BaseEmbedderConfig:
-    def __init__(self, model: Optional[str] = None, deployment_name: Optional[str] = None):
+    def __init__(
+        self, model: Optional[str] = None, deployment_name: Optional[str] = None, api_key: Optional[str] = None
+    ):
         """
         Initialize a new instance of an embedder config class.
 
@@ -16,3 +18,4 @@ class BaseEmbedderConfig:
         """
         self.model = model
         self.deployment_name = deployment_name
+        self.api_key = api_key

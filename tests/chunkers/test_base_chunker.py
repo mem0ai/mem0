@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from embedchain.chunkers.base_chunker import BaseChunker
+from embedchain.config.add_config import ChunkerConfig
 from embedchain.models.data_type import DataType
 
 
@@ -33,6 +34,18 @@ def chunker(text_splitter_mock, data_type):
     chunker = BaseChunker(text_splitter)
     chunker.set_data_type(data_type)
     return chunker
+
+
+def test_create_chunks_with_config(chunker, text_splitter_mock, loader_mock, app_id, data_type):
+    text_splitter_mock.split_text.return_value = ["Chunk 1", "long chunk"]
+    loader_mock.load_data.return_value = {
+        "data": [{"content": "Content 1", "meta_data": {"url": "URL 1"}}],
+        "doc_id": "DocID",
+    }
+    config = ChunkerConfig(chunk_size=50, chunk_overlap=0, length_function=len, min_chunk_size=10)
+    result = chunker.create_chunks(loader_mock, "test_src", app_id, config)
+
+    assert result["documents"] == ["long chunk"]
 
 
 def test_create_chunks(chunker, text_splitter_mock, loader_mock, app_id, data_type):
