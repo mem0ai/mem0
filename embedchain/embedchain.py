@@ -612,11 +612,12 @@ class EmbedChain(JSONSerializable):
 
         if self.cache_config is not None:
             logging.info("Cache enabled. Checking cache...")
+            cache_id = f"{session_id}--{self.config.id}"
             answer = adapt(
                 llm_handler=self.llm.chat,
                 cache_data_convert=gptcache_data_convert,
                 update_cache_callback=gptcache_update_cache_callback,
-                session=get_gptcache_session(session_id=self.config.id),
+                session=get_gptcache_session(session_id=cache_id),
                 input_query=input_query,
                 contexts=contexts_data_for_llm_query,
                 config=config,
