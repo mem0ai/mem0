@@ -7,7 +7,7 @@ while True:
     user_input = input("Enter your question (type 'exit' to quit): ")
 
     # Break the loop if the user types 'exit'
-    if user_input.lower() == 'exit':
+    if user_input.lower() == "exit":
         break
 
     # Process the input and provide a response
