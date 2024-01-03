@@ -146,7 +146,7 @@ if prompt := st.chat_input("Ask me anything!"):
             full_response += "\n\n**Sources**:\n"
             sources = []
             for i, citation in enumerate(citations):
-                source = citation[1]
+                source = citation[1]["url"]
                 pattern = re.compile(r"([^/]+)\.[^\.]+\.pdf$")
                 match = pattern.search(source)
                 if match:
