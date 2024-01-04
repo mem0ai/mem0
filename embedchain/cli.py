@@ -2,10 +2,16 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
+import sys
+import tempfile
+import zipfile
+from pathlib import Path
 
 import click
 import pkg_resources
+import requests
 from rich.console import Console
 
 from embedchain.telemetry.posthog import AnonymousTelemetry
@@ -19,6 +25,23 @@ def cli():
 
 
 anonymous_telemetry = AnonymousTelemetry()
+
+
+api_process = None
+ui_process = None
+
+
+def signal_handler(sig, frame):
+    """Signal handler to catch termination signals and kill server processes."""
+    global api_process, ui_process
+    console.print("\n🛑 [bold yellow]Stopping servers...[/bold yellow]")
+    if api_process:
+        api_process.terminate()
+        console.print("🛑 [bold yellow]API server stopped.[/bold yellow]")
+    if ui_process:
+        ui_process.terminate()
+        console.print("🛑 [bold yellow]UI server stopped.[/bold yellow]")
+    sys.exit(0)
 
 
 def get_pkg_path_from_name(template: str):
@@ -414,3 +437,99 @@ def deploy():
         deploy_hf_spaces(ec_app_name)
     else:
         console.print("❌ [bold red]No recognized deployment platform found.[/bold red]")
+
+
+@cli.command()
+def runserver():
+    # Set up signal handling
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Check if 'api' and 'ui' directories exist
+    if os.path.exists("api") and os.path.exists("ui"):
+        pass
+    else:
+        # Step 1: Download the zip file
+        zip_url = "http://github.com/embedchain/ec-admin/archive/main.zip"
+        try:
+            response = requests.get(zip_url)
+            response.raise_for_status()
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                tmp_file.write(response.content)
+                zip_file_path = tmp_file.name
+            console.print("✅ [bold green]Downloaded zip file successfully.[/bold green]")
+        except requests.RequestException as e:
+            console.print(f"❌ [bold red]Failed to download zip file: {e}[/bold red]")
+            return
+
+        # Step 2: Extract the zip file
+        try:
+            with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
+                # Get the name of the root directory inside the zip file
+                root_dir = Path(zip_ref.namelist()[0])
+                for member in zip_ref.infolist():
+                    # Build the path to extract the file to, skipping the root directory
+                    target_file = Path(member.filename).relative_to(root_dir)
+                    source_file = zip_ref.open(member, "r")
+                    if member.is_dir():
+                        # Create directory if it doesn't exist
+                        os.makedirs(target_file, exist_ok=True)
+                    else:
+                        with open(target_file, "wb") as file:
+                            # Write the file
+                            shutil.copyfileobj(source_file, file)
+                console.print("✅ [bold green]Extracted zip file successfully.[/bold green]")
+        except zipfile.BadZipFile:
+            console.print("❌ [bold red]Error in extracting zip file. The file might be corrupted.[/bold red]")
+            return
+
+        # Step 3: Install API requirements
+        try:
+            os.chdir("api")
+            subprocess.run(["pip", "install", "-r", "requirements.txt"], check=True)
+            os.chdir("..")
+            console.print("✅ [bold green]Installed API requirements successfully.[/bold green]")
+        except Exception as e:
+            console.print(f"❌ [bold red]Failed to install API requirements: {e}[/bold red]")
+            return
+
+    # Step 4: Start the API server
+    try:
+        os.chdir("api")
+        api_process = subprocess.Popen(
+            ["uvicorn", "main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"], stdout=None, stderr=None
+        )
+        os.chdir("..")
+        console.print("✅ [bold green]API server started successfully.[/bold green]")
+    except Exception as e:
+        console.print(f"❌ [bold red]Failed to start the API server: {e}[/bold red]")
+        return
+
+    # Step 5: Install UI requirements and start the UI server
+    try:
+        os.chdir("ui")
+        subprocess.run(["yarn"], check=True)
+        ui_process = subprocess.Popen(["yarn", "dev"], stdout=None, stderr=None)
+        console.print("✅ [bold green]UI server started successfully.[/bold green]")
+    except Exception as e:
+        console.print(f"❌ [bold red]Failed to start the UI server: {e}[/bold red]")
+
+    # Wait for the subprocesses to complete
+    api_process.wait()
+    ui_process.wait()
+
+    # Step 6: Install UI requirements and start the UI server
+    try:
+        os.chdir("ui")
+        subprocess.run(["yarn"], check=True)
+        subprocess.Popen(["yarn", "dev"])
+        console.print("✅ [bold green]UI server started successfully.[/bold green]")
+    except Exception as e:
+        console.print(f"❌ [bold red]Failed to start the UI server: {e}[/bold red]")
+
+    # Keep the script running until it receives a kill signal
+    try:
+        api_process.wait()
+        ui_process.wait()
+    except KeyboardInterrupt:
+        console.print("\n🛑 [bold yellow]Stopping server...[/bold yellow]")
