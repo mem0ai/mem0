@@ -63,6 +63,7 @@
         "get-started/quickstart",
         "get-started/introduction",
         "get-started/faq",
+        "get-started/full-stack",
         {
           "group": "🔗 Integrations",
           "pages": [
