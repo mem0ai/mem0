@@ -174,7 +174,8 @@
         },
         "examples/full_stack",
         "examples/openai-assistant",
-        "examples/opensource-assistant"
+        "examples/opensource-assistant",
+        "examples/nextjs-assistant"
       ]
     },
     {
