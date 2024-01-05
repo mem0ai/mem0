@@ -4,7 +4,7 @@ If you run into problems with forking, please refer to [github docs](https://doc
 
 We will work from the examples/nextjs folder so change your current working directory by running the command - `cd <your_forked_repo>/examples/nextjs`
 
-### Installation
+# Installation
 
 First, lets start by install all the required packages and dependencies.
 
@@ -12,7 +12,7 @@ First, lets start by install all the required packages and dependencies.
 
 - We will use [Fly.io](https://fly.io/) to deploy our embedchain app and discord/slack bot. Follow the step one to install [Fly.io CLI](https://docs.embedchain.ai/deployment/fly_io#step-1-install-flyctl-command-line)
 
-### Developement
+# Developement
 
 1. We have already created an embedchain app using FastAPI in `ec_app` folder.
 
@@ -20,6 +20,7 @@ First, lets start by install all the required packages and dependencies.
 **NOTE**
 
 Create `.env` file in this folder and set your OpenAI API key as shown in `.env.example` file.
+
 ---
 
 To run the app in development:
@@ -64,5 +65,36 @@ python app.py  #To run the app in development mode
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your discord bot will be live!
 
-3. 
+3. For Slack bot, you will need to create the bot on slack developer portal and get the slack bot token and slack app token.
 
+### Setup
+
+- Create a workspace on Slack if you don't have one already by clicking [here](https://slack.com/intl/en-in/).
+- Create a new App on your Slack account by going [here](https://api.slack.com/apps).
+- Select `From Scratch`, then enter the Bot Name and select your workspace.
+- Go to `App Credentials` section on the `Basic Information` tab from the left sidebar, create your app token and save it in your `.env` file as `SLACK_APP_TOKEN`.
+- Go to `Socket Mode` tab from the left sidebar and enable the socket mode to listen to slack message from your workspace.
+- (Optional) Under the `App Home` tab you can change your App display name and default name.
+- Navigate to `Event Subscription` tab, and enable the event subscription so that we can listen to slack events.
+- Once you enable the event subscription, you will need to subscribe to bot events to authorize the bot to listen to app mention events of the bot. Do that by tapping on `Add Bot User Event` button and select `app_mention`.
+- On the left Sidebar, go to `OAuth and Permissions` and add the following scopes under `Bot Token Scopes`:
+```text
+app_mentions:read
+channels:history
+channels:read
+chat:write
+emoji:read
+reactions:write
+reactions:read
+```
+- Now select the option `Install to Workspace` and after it's done, copy the `Bot User OAuth Token` and set it in your `.env` file as `SLACK_BOT_TOKEN`.
+
+Once you have your slack bot token and slack app token. Create `.env` file and define your slack bot token, slack app token and endpoint of your embedchain app as shown in `.env.example` file.
+
+To run the app in development:
+
+```bash
+python app.py  #To run the app in development mode
+```
+
+Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your slack bot will be live!
