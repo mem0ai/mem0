@@ -3,6 +3,7 @@ from embedchain.chunkers.discourse import DiscourseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.gmail import GmailChunker
+from embedchain.chunkers.google_drive import GoogleDriveChunker
 from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
@@ -41,6 +42,7 @@ chunker_common_config = {
     SlackChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     DiscourseChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     CommonChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
+    GoogleDriveChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

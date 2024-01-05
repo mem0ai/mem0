@@ -197,6 +197,7 @@ gmail = [
     "google-auth-httplib2",
     "google-api-core",
 ]
+googledrive = ["google-api-python-client", "google-auth-oauthlib", "google-auth-httplib2"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 mysql = ["mysql-connector-python"]
 github = ["PyGithub", "gitpython"]
