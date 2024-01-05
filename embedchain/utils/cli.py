@@ -1,11 +1,10 @@
 import os
+import re
 import shutil
 import subprocess
 
 import pkg_resources
 from rich.console import Console
-
-from embedchain.telemetry.posthog import AnonymousTelemetry
 
 console = Console()
 

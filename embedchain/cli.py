@@ -1,11 +1,11 @@
 import json
-import time
 import os
 import shutil
 import signal
 import subprocess
-import tempfile
 import sys
+import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -14,21 +14,13 @@ import requests
 from rich.console import Console
 
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils.cli import (
-    get_pkg_path_from_name,
-    setup_fly_io_app,
-    setup_modal_com_app,
-    setup_render_com_app,
-    setup_streamlit_io_app,
-    setup_gradio_app,
-    setup_hf_app,
-    deploy_fly,
-    deploy_modal,
-    deploy_streamlit,
-    deploy_render,
-    deploy_gradio_app,
-    deploy_hf_spaces,
-)
+from embedchain.utils.cli import (deploy_fly, deploy_gradio_app,
+                                  deploy_hf_spaces, deploy_modal,
+                                  deploy_render, deploy_streamlit,
+                                  get_pkg_path_from_name, setup_fly_io_app,
+                                  setup_gradio_app, setup_hf_app,
+                                  setup_modal_com_app, setup_render_com_app,
+                                  setup_streamlit_io_app)
 
 console = Console()
 api_process = None
