@@ -1,6 +1,6 @@
 import yaml
 
-from embedchain.utils import validate_config
+from embedchain.utils.misc import validate_config
 
 CONFIG_YAMLS = [
     "configs/anthropic.yaml",

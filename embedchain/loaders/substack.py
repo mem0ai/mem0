@@ -7,7 +7,7 @@ import requests
 
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import is_readable
+from embedchain.utils.misc import is_readable
 
 
 @register_deserializable

@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from tqdm import tqdm
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 GITHUB_URL = "https://github.com"
 GITHUB_API_URL = "https://api.github.com"

@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 
 class DiscourseLoader(BaseLoader):

@@ -23,7 +23,7 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils import validate_config
+from embedchain.utils.misc import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
