@@ -14,31 +14,38 @@ First, lets start by install all the required packages and dependencies.
 
 # Developement
 
-1. We have already created an embedchain app using FastAPI in `ec_app` folder.
+## Embedchain App
+
+First, lets get started by creating an Embedchain app powered with the knowledge of NextJS. We have already created an embedchain app using FastAPI in `ec_app` folder for you. Feel free to ingest data of your choice to power the App.
 
 ---
 **NOTE**
 
-Create `.env` file in this folder and set your OpenAI API key as shown in `.env.example` file.
+Create `.env` file in this folder and set your OpenAI API key as shown in `.env.example` file. If you want to use other open-source models, feel free to change the app config in `app.py`. More details for using custom configuration for Embedchain app is [available here](https://docs.embedchain.ai/api-reference/advanced/configuration).
 
 ---
+
+Before running the ec commands to develope the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
 To run the app in development:
 
 ```bash
-ec dev  #To run the app in development mode
+ec dev  #To run the app in development environment
 ```
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, save the endpoint on which our discord and slack bot will send requests.
 
-2. For discord bot, you will need to create the bot on discord developer portal and get the discord bot token and your discord bot name.
 
-Follow the instructions from our [discord bot docs](https://docs.embedchain.ai/examples/discord_bot).
+## Discord bot
+
+For discord bot, you will need to create the bot on discord developer portal and get the discord bot token and your discord bot name.
+
+Follow the instructions from our [discord bot docs](https://docs.embedchain.ai/examples/discord_bot) to create the discord bot and get discord bot token.
 
 ---
 **NOTE**
 
-You do not need to set `OPENAI_API_KEY` to run this discord bot. Follow the remaining steps to create a discord bot app. We recommend you to give the following sets of bot permissions to run the discord bot without errors:
+You do not need to set `OPENAI_API_KEY` to run this discord bot. Follow the remaining instructions to create a discord bot app. We recommend you to give the following sets of bot permissions to run the discord bot without errors:
 
 ```
 (General Permissions)
@@ -63,11 +70,14 @@ To run the app in development:
 python app.py  #To run the app in development mode
 ```
 
-Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app name.
+Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your discord bot will be live!
 
-3. For Slack bot, you will need to create the bot on slack developer portal and get the slack bot token and slack app token.
+
+## Slack bot
+
+For Slack bot, you will need to create the bot on slack developer portal and get the slack bot token and slack app token.
 
 ### Setup
 
@@ -99,6 +109,6 @@ To run the app in development:
 python app.py  #To run the app in development mode
 ```
 
-Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app name.
+Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your slack bot will be live!
