@@ -27,7 +27,10 @@ Create `.env` file in this folder and set your OpenAI API key as shown in `.env.
 
 Before running the ec commands to develope/deploy the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
-Now, we need to launch this application with fly.io. You can see your app on [fly.io dashboard](https://fly.io/dashboard)
+Now, we need to launch this application with fly.io. You can see your app on [fly.io dashboard](https://fly.io/dashboard). Run the following command to launch your app on fly.io:
+```bash
+fly launch --no-deploy
+```
 
 To run the app in development:
 
@@ -74,7 +77,10 @@ python app.py  #To run the app in development environment
 
 Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
-Now, we need to launch this application with fly.io. You can see your app on [fly.io dashboard](https://fly.io/dashboard)
+Now, we need to launch this application with fly.io. You can see your app on [fly.io dashboard](https://fly.io/dashboard). Run the following command to launch your app on fly.io:
+```bash
+fly launch --no-deploy
+```
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your discord bot will be live!
 
@@ -115,6 +121,9 @@ python app.py  #To run the app in development environment
 
 Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
-Now, we need to launch this application with fly.io. You can see your app on [fly.io dashboard](https://fly.io/dashboard)
+Now, we need to launch this application with fly.io. You can see your app on [fly.io dashboard](https://fly.io/dashboard). Run the following command to launch your app on fly.io:
+```bash
+fly launch --no-deploy
+```
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your slack bot will be live!
