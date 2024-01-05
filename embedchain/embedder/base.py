@@ -5,7 +5,7 @@ from embedchain.config.embedder.base import BaseEmbedderConfig
 try:
     from chromadb.api.types import Embeddable, EmbeddingFunction, Embeddings
 except RuntimeError:
-    from embedchain.utils import use_pysqlite3
+    from embedchain.utils.misc import use_pysqlite3
 
     use_pysqlite3()
     from chromadb.api.types import Embeddable, EmbeddingFunction, Embeddings

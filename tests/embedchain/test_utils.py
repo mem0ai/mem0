@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain.models.data_type import DataType
-from embedchain.utils import detect_datatype
+from embedchain.utils.misc import detect_datatype
 
 
 class TestApp(unittest.TestCase):

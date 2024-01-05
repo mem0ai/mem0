@@ -7,7 +7,7 @@ from typing import Dict, List, Union
 import requests
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string, is_valid_json_string
+from embedchain.utils.misc import clean_string, is_valid_json_string
 
 
 class JSONReader:

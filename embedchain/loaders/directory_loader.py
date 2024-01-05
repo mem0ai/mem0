@@ -8,7 +8,7 @@ from embedchain.data_formatter.data_formatter import DataFormatter
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.text_file import TextFileLoader
-from embedchain.utils import detect_datatype
+from embedchain.utils.misc import detect_datatype
 
 
 @register_deserializable

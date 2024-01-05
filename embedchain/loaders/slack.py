@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 import certifi
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 SLACK_API_BASE_URL = "https://www.slack.com/api/"
 
