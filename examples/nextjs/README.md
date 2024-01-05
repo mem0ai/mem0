@@ -67,7 +67,7 @@ Once you have your discord bot token and discord app name. Navigate to `nextjs_d
 To run the app in development:
 
 ```bash
-python app.py  #To run the app in development mode
+python app.py  #To run the app in development environment
 ```
 
 Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
@@ -106,7 +106,7 @@ Once you have your slack bot token and slack app token. Navigate to `nextjs_slac
 To run the app in development:
 
 ```bash
-python app.py  #To run the app in development mode
+python app.py  #To run the app in development environment
 ```
 
 Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
