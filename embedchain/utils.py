@@ -183,6 +183,11 @@ def detect_datatype(source: Any) -> DataType:
         # currently the following two fields are required in openapi spec yaml config
         return "openapi" in yaml_content and "info" in yaml_content
 
+    def is_google_drive_folder(url):
+        # checks if url is a Google Drive folder url against a regex
+        regex = r"^drive\.google\.com\/drive\/(?:u\/\d+\/)folders\/([a-zA-Z0-9_-]+)$"
+        return re.match(regex, url)
+
     try:
         if not isinstance(source, str):
             raise ValueError("Source is not a string and thus cannot be a URL.")
@@ -196,8 +201,7 @@ def detect_datatype(source: Any) -> DataType:
     formatted_source = format_source(str(source), 30)
 
     if url:
-        from langchain.document_loaders.youtube import \
-            ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
+        from langchain.document_loaders.youtube import ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
 
         if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
@@ -265,6 +269,10 @@ def detect_datatype(source: Any) -> DataType:
         if "github.com" in url.netloc:
             logging.debug(f"Source of `{formatted_source}` detected as `github`.")
             return DataType.GITHUB
+
+        if is_google_drive_folder(url.netloc + url.path):
+            logging.debug(f"Source of `{formatted_source}` detected as `google drive folder`.")
+            return DataType.GOOGLE_DRIVE_FOLDER
 
         # If none of the above conditions are met, it's a general web page
         logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
