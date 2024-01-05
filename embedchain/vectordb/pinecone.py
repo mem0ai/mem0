@@ -10,7 +10,7 @@ except ImportError:
 
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
-from embedchain.utils import chunks
+from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
 
 

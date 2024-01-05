@@ -15,7 +15,7 @@ from embedchain.config import AddConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.models.data_type import DataType
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils import detect_datatype
+from embedchain.utils.misc import detect_datatype
 
 logging.basicConfig(level=logging.WARN)
 

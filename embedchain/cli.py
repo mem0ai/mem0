@@ -509,19 +509,6 @@ def runserver():
     try:
         os.chdir("ui")
         subprocess.run(["yarn"], check=True)
-        ui_process = subprocess.Popen(["yarn", "dev"], stdout=None, stderr=None)
-        console.print("✅ [bold green]UI server started successfully.[/bold green]")
-    except Exception as e:
-        console.print(f"❌ [bold red]Failed to start the UI server: {e}[/bold red]")
-
-    # Wait for the subprocesses to complete
-    api_process.wait()
-    ui_process.wait()
-
-    # Step 6: Install UI requirements and start the UI server
-    try:
-        os.chdir("ui")
-        subprocess.run(["yarn"], check=True)
         subprocess.Popen(["yarn", "dev"])
         console.print("✅ [bold green]UI server started successfully.[/bold green]")
     except Exception as e:

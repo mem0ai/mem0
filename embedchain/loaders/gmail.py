@@ -20,7 +20,7 @@ except ImportError:
     ) from None
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 
 class GmailReader:

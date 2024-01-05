@@ -14,7 +14,7 @@ try:
     from chromadb.config import Settings
     from chromadb.errors import InvalidDimensionException
 except RuntimeError:
-    from embedchain.utils import use_pysqlite3
+    from embedchain.utils.misc import use_pysqlite3
 
     use_pysqlite3()
     import chromadb

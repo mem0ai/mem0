@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 
 class MySQLLoader(BaseLoader):
