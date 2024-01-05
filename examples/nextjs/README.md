@@ -55,13 +55,15 @@ Read Message History
 ```
 ---
 
-Once you have your discord bot token and discord app name. Create `.env` file and define your discord bot token, discord bot name and endpoint of your embedchain app as shown in `.env.example` file.
+Once you have your discord bot token and discord app name. Navigate to `nextjs_discord` folder and create `.env` file and define your discord bot token, discord bot name and endpoint of your embedchain app as shown in `.env.example` file.
 
 To run the app in development:
 
 ```bash
 python app.py  #To run the app in development mode
 ```
+
+Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app name.
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your discord bot will be live!
 
@@ -89,12 +91,14 @@ reactions:read
 ```
 - Now select the option `Install to Workspace` and after it's done, copy the `Bot User OAuth Token` and set it in your `.env` file as `SLACK_BOT_TOKEN`.
 
-Once you have your slack bot token and slack app token. Create `.env` file and define your slack bot token, slack app token and endpoint of your embedchain app as shown in `.env.example` file.
+Once you have your slack bot token and slack app token. Navigate to `nextjs_slack` folder and create `.env` file and define your slack bot token, slack app token and endpoint of your embedchain app as shown in `.env.example` file.
 
 To run the app in development:
 
 ```bash
 python app.py  #To run the app in development mode
 ```
+
+Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app name.
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, your slack bot will be live!
