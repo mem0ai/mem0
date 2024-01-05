@@ -1,36 +1,33 @@
-Fork this repo on [Github](https://github.com/embedchain/embedchain) to create your own NextJS discord and slack bot powered by Embedchain app.
+Fork the Embedchain repo on [Github](https://github.com/embedchain/embedchain) to create your own NextJS discord and slack bot powered by Embedchain.
 
 If you run into problems with forking, please refer to [github docs](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) for forking a repo.
 
-We will work from the examples/nextjs folder so change your current working directory by running the command - `cd <your_forked_repo>/examples/nextjs`
+We will work from the `examples/nextjs` folder so change your current working directory by running the command - `cd <your_forked_repo>/examples/nextjs`
 
 # Installation
 
 First, lets start by install all the required packages and dependencies.
 
-- Install all the required python packages by running `pip install -r requirements.txt`.
+- Install all the required python packages by running ```pip install -r requirements.txt```
 
-- We will use [Fly.io](https://fly.io/) to deploy our embedchain app and discord/slack bot. Follow the step one to install [Fly.io CLI](https://docs.embedchain.ai/deployment/fly_io#step-1-install-flyctl-command-line)
+- We will use [Fly.io](https://fly.io/) to deploy our embedchain app, discord and slack bot. Follow the step one to install [Fly.io CLI](https://docs.embedchain.ai/deployment/fly_io#step-1-install-flyctl-command-line)
 
 # Developement
 
 ## Embedchain App
 
-First, lets get started by creating an Embedchain app powered with the knowledge of NextJS. We have already created an embedchain app using FastAPI in `ec_app` folder for you. Feel free to ingest data of your choice to power the App.
+First, we need an Embedchain app powered with the knowledge of NextJS. We have already created an embedchain app using FastAPI in `ec_app` folder for you. Feel free to ingest data of your choice to power the App.
 
----
-**NOTE**
-
-Create `.env` file in this folder and set your OpenAI API key as shown in `.env.example` file. If you want to use other open-source models, feel free to change the app config in `app.py`. More details for using custom configuration for Embedchain app is [available here](https://docs.embedchain.ai/api-reference/advanced/configuration).
-
----
+<Note>
+Navigate to `ec_app` folder and create `.env` file in this folder and set your OpenAI API key as shown in `.env.example` file. If you want to use other open-source models, feel free to use the app config in `app.py`. More details for using custom configuration for Embedchain app is [available here](https://docs.embedchain.ai/api-reference/advanced/configuration).
+</Note>
 
 Before running the ec commands to develope the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
 
-To run the app in development:
+To run the app in development, run the following command:
 
 ```bash
-ec dev  #To run the app in development environment
+ec dev
 ```
 
 Run `ec deploy` to deploy your app on Fly.io. Once you deploy your app, save the endpoint on which our discord and slack bot will send requests.
@@ -42,9 +39,7 @@ For discord bot, you will need to create the bot on discord developer portal and
 
 While keeping in mind the following note, create the discord bot by following the instructions from our [discord bot docs](https://docs.embedchain.ai/examples/discord_bot) and get discord bot token.
 
----
-**NOTE**
-
+<Note>
 You do not need to set `OPENAI_API_KEY` to run this discord bot. Follow the remaining instructions to create a discord bot app. We recommend you to give the following sets of bot permissions to run the discord bot without errors:
 
 ```
@@ -60,14 +55,14 @@ Manage Threads
 Embed Links
 Read Message History
 ```
----
+</Note>
 
 Once you have your discord bot token and discord app name. Navigate to `nextjs_discord` folder and create `.env` file and define your discord bot token, discord bot name and endpoint of your embedchain app as shown in `.env.example` file.
 
 To run the app in development:
 
 ```bash
-python app.py  #To run the app in development environment
+python app.py
 ```
 
 Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
@@ -106,7 +101,7 @@ Once you have your slack bot token and slack app token. Navigate to `nextjs_slac
 To run the app in development:
 
 ```bash
-python app.py  #To run the app in development environment
+python app.py
 ```
 
 Before deploying the app, open `fly.toml` file and update the `name` variable to something unique. This is important as `fly.io` requires users to provide a globally unique deployment app names.
