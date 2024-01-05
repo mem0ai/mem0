@@ -14,17 +14,19 @@ Make sure that you have installed the following:
 
 For the purpose of the demo, you have to set `OPENAI_API_KEY` to start with but you can choose any llm by changing the configuration easily.
 
-Now run the following command:
+Now run the following commands:
 
 ```bash
-ec runserver
+ec create-app my-app
+cd my-app
+ec start
 ```
 
 Once you run this command, Embedchain does the following:
 
 1. Fetch full stack template that uses FastAPI for backend, and Next.JS template for frontend
 2. Install necessary requirements
-3. Launch the frontend and backend server for you to interact with.
+3. Launch the frontend and backend server for you to interact with
 
 Once you are done, visit `http://localhost:3000` and you will see a chat UI as shown below.
 
