@@ -36,7 +36,7 @@ class JSONReader:
 
 
 VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
-
+MAX_CONTENT_LENGTH = 256
 
 class JSONLoader(BaseLoader):
     @staticmethod
@@ -53,6 +53,9 @@ class JSONLoader(BaseLoader):
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
 
+        if len(content) > MAX_CONTENT_LENGTH:
+            raise ValueError(f"The content is too long. Maximum allowed length is {MAX_CONTENT_LENGTH} characters.")
+            
         JSONLoader._check_content(content)
         loader = JSONReader()
 
