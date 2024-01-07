@@ -46,7 +46,6 @@ class JSONLoader(BaseLoader):
                     `json.dump(data, indent=0)` and add the stringified JSON. \
                         Check - `https://docs.embedchain.ai/data-sources/json`"
             )
-            
     @staticmethod
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
