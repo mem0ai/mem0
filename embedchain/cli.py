@@ -49,8 +49,9 @@ def cli():
 
 @cli.command()
 @click.argument("app_name")
+@click.option("--docker", is_flag=True, help="Use docker to create the app.")
 @click.pass_context
-def create_app(ctx, app_name):
+def create_app(ctx, app_name, docker):
     if Path(app_name).exists():
         console.print(
             f"❌ [red]Directory '{app_name}' already exists. Try using a new directory name, or remove it.[/red]"
@@ -98,7 +99,10 @@ def create_app(ctx, app_name):
         anonymous_telemetry.capture(event_name="ec_create_app", properties={"success": False})
         return
 
-    ctx.invoke(install_reqs)
+    if docker:
+        subprocess.run(["docker-compose", "build"], check=True)
+    else:
+        ctx.invoke(install_reqs)
 
 
 @cli.command()
@@ -126,7 +130,12 @@ def install_reqs():
 
 
 @cli.command()
-def start():
+@click.option("--docker", is_flag=True, help="Run inside docker.")
+def start(docker):
+    if docker:
+        subprocess.run(["docker-compose", "up"], check=True)
+        return
+
     # Set up signal handling
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
