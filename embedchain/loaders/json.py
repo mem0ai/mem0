@@ -49,13 +49,13 @@ class JSONLoader(BaseLoader):
                         Check - `https://docs.embedchain.ai/data-sources/json`"
             )
 
+        if len(content) > MAX_CONTENT_LENGTH:
+            raise ValueError(f"The content is too long. Maximum allowed length is {MAX_CONTENT_LENGTH} characters.")
+            
     @staticmethod
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
 
-        if len(content) > MAX_CONTENT_LENGTH:
-            raise ValueError(f"The content is too long. Maximum allowed length is {MAX_CONTENT_LENGTH} characters.")
-            
         JSONLoader._check_content(content)
         loader = JSONReader()
 
