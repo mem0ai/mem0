@@ -6,8 +6,7 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
-    from pymilvus import (Collection, CollectionSchema, DataType, FieldSchema,
-                          MilvusClient, connections, utility)
+    from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, MilvusClient, connections, utility
 except ImportError:
     raise ImportError(
         "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[milvus]`"
@@ -97,10 +96,10 @@ class ZillizVectorDB(BaseVectorDB):
         if ids is None or len(ids) == 0 or self.collection.num_entities == 0:
             return {"ids": []}
 
-        if not (self.collection.is_empty):
-            filter = f"id in {ids}"
+        if not self.collection.is_empty:
+            filter_ = f"id in {ids}"
             results = self.client.query(
-                collection_name=self.config.collection_name, filter=filter, output_fields=["id"]
+                collection_name=self.config.collection_name, filter=filter_, output_fields=["id"]
             )
             results = [res["id"] for res in results]
 
@@ -134,7 +133,7 @@ class ZillizVectorDB(BaseVectorDB):
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
-        Query contents from vector data base based on vector similarity
+        Query contents from vector database based on vector similarity
 
         :param input_query: list of query string
         :type input_query: List[str]

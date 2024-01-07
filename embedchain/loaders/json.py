@@ -15,7 +15,8 @@ class JSONReader:
         """Initialize the JSONReader."""
         pass
 
-    def load_data(self, json_data: Union[Dict, str]) -> List[str]:
+    @staticmethod
+    def load_data(json_data: Union[Dict, str]) -> List[str]:
         """Load data from a JSON structure.
 
         Args:

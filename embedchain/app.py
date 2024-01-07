@@ -9,9 +9,14 @@ from typing import Any, Dict, Optional
 import requests
 import yaml
 
-from embedchain.cache import (Config, ExactMatchEvaluation,
-                              SearchDistanceEvaluation, cache,
-                              gptcache_data_manager, gptcache_pre_function)
+from embedchain.cache import (
+    Config,
+    ExactMatchEvaluation,
+    SearchDistanceEvaluation,
+    cache,
+    gptcache_data_manager,
+    gptcache_pre_function,
+)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
@@ -27,7 +32,7 @@ from embedchain.utils.misc import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
-# Setup the user directory if doesn't exist already
+# Set up the user directory if it doesn't exist already
 Client.setup_dir()
 
 

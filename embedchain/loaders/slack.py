@@ -56,7 +56,8 @@ class SlackLoader(BaseLoader):
         )
         logging.info("Slack Loader setup successful!")
 
-    def _check_query(self, query):
+    @staticmethod
+    def _check_query(query):
         if not isinstance(query, str):
             raise ValueError(
                 f"Invalid query passed to Slack loader, found: {query}. Check `https://docs.embedchain.ai/data-sources/slack` to learn more."  # noqa:E501
