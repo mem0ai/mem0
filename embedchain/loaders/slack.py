@@ -16,10 +16,10 @@ class SlackLoader(BaseLoader):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__()
 
-        if config is not None:
-            self.config = config
-        else:
-            self.config = {"base_url": SLACK_API_BASE_URL}
+        self.config = config if config else {}
+
+        if "base_url" not in self.config:
+            self.config["base_url"] = SLACK_API_BASE_URL
 
         self.client = None
         self._setup_loader(self.config)
@@ -73,7 +73,7 @@ class SlackLoader(BaseLoader):
                 query=query,
                 sort="timestamp",
                 sort_dir="desc",
-                count=1000,
+                count=self.config.get("count", 100),
             )
 
             messages = results.get("messages")
