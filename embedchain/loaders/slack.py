@@ -73,7 +73,7 @@ class SlackLoader(BaseLoader):
                 query=query,
                 sort="timestamp",
                 sort_dir="desc",
-                count=1000,
+                count=100,
             )
 
             messages = results.get("messages")
