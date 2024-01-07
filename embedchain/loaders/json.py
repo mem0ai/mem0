@@ -34,7 +34,9 @@ class JSONReader:
         useful_lines = [line for line in lines if not re.match(r"^[{}\[\],]*$", line)]
         return ["\n".join(useful_lines)]
 
+
 VALID_URL_PATTERN = "^https:\/\/[0-9A-Za-z]+(\.[0-9A-Za-z]+)*\/[0-9A-Za-z_\/]*\.json$"
+
 
 class JSONLoader(BaseLoader):
     @staticmethod
@@ -46,6 +48,7 @@ class JSONLoader(BaseLoader):
                     `json.dump(data, indent=0)` and add the stringified JSON. \
                         Check - `https://docs.embedchain.ai/data-sources/json`"
             )
+            
     @staticmethod
     def load_data(content):
         """Load a json file. Each data point is a key value pair."""
