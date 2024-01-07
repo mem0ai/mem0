@@ -186,7 +186,7 @@ def create(template, extra_args):
         setup_streamlit_io_app()
     elif template == "gradio.app":
         setup_gradio_app()
-    elif template == "hf/gradio.app" or template == "hf/streamlit.app":
+    elif template == "hf/gradio.app" or template == "hf/streamlit.io":
         setup_hf_app()
     else:
         raise ValueError(f"Unknown template '{template}'.")
