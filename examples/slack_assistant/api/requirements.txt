@@ -1,0 +1,5 @@
+fastapi==0.108.0
+uvicorn==0.25.0
+embedchain[slack]
+beautifulsoup4
+sentence-transformers
