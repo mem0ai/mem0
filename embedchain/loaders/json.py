@@ -34,9 +34,7 @@ class JSONReader:
         useful_lines = [line for line in lines if not re.match(r"^[{}\[\],]*$", line)]
         return ["\n".join(useful_lines)]
 
-
-VALID_URL_PATTERN = "^https:\/\/[0-9A-z.]+.[0-9A-z.]+.[a-z]+\/.*\.json$"
-MAX_CONTENT_LENGTH = 256
+VALID_URL_PATTERN = "^https:\/\/[0-9A-Za-z]+(\.[0-9A-Za-z]+)*\/[0-9A-Za-z_\/]*\.json$"
 
 class JSONLoader(BaseLoader):
     @staticmethod
@@ -48,9 +46,6 @@ class JSONLoader(BaseLoader):
                     `json.dump(data, indent=0)` and add the stringified JSON. \
                         Check - `https://docs.embedchain.ai/data-sources/json`"
             )
-
-        if len(content) > MAX_CONTENT_LENGTH:
-            raise ValueError(f"The content is too long. Maximum allowed length is {MAX_CONTENT_LENGTH} characters.")
             
     @staticmethod
     def load_data(content):
