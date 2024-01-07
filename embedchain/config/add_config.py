@@ -1,7 +1,8 @@
 import builtins
 import logging
+from collections.abc import Callable
 from importlib import import_module
-from typing import Callable, Optional
+from typing import Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable

@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import requests
 
@@ -15,7 +15,7 @@ class NotionDocument:
     A simple Document class to hold the text and additional information of a page.
     """
 
-    def __init__(self, text: str, extra_info: Dict[str, Any]):
+    def __init__(self, text: str, extra_info: dict[str, Any]):
         self.text = text
         self.extra_info = extra_info
 
@@ -82,7 +82,7 @@ class NotionPageLoader:
         result_lines = "\n".join(result_lines_arr)
         return result_lines
 
-    def load_data(self, page_ids: List[str]) -> List[NotionDocument]:
+    def load_data(self, page_ids: list[str]) -> list[NotionDocument]:
         """Load data from the given list of page IDs."""
         docs = []
         for page_id in page_ids:

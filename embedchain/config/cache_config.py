@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -30,7 +30,7 @@ class CacheSimilarityEvalConfig(BaseConfig):
         self.positive = positive
 
     @staticmethod
-    def from_config(config: Optional[Dict[str, Any]]):
+    def from_config(config: Optional[dict[str, Any]]):
         if config is None:
             return CacheSimilarityEvalConfig()
         else:
@@ -65,7 +65,7 @@ class CacheInitConfig(BaseConfig):
         self.auto_flush = auto_flush
 
     @staticmethod
-    def from_config(config: Optional[Dict[str, Any]]):
+    def from_config(config: Optional[dict[str, Any]]):
         if config is None:
             return CacheInitConfig()
         else:
@@ -86,7 +86,7 @@ class CacheConfig(BaseConfig):
         self.init_config = init_config
 
     @staticmethod
-    def from_config(config: Optional[Dict[str, Any]]):
+    def from_config(config: Optional[dict[str, Any]]):
         if config is None:
             return CacheConfig()
         else:

@@ -1,4 +1,5 @@
-from typing import Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Optional, Union
 
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.stdout import StdOutCallbackHandler

@@ -1,7 +1,7 @@
 import json
 import logging
 from string import Template
-from typing import Any, Dict, Type, TypeVar, Union
+from typing import Any, Type, TypeVar, Union
 
 T = TypeVar("T", bound="JSONSerializable")
 
@@ -84,7 +84,7 @@ class JSONSerializable:
             return cls()
 
     @staticmethod
-    def _auto_encoder(obj: Any) -> Union[Dict[str, Any], None]:
+    def _auto_encoder(obj: Any) -> Union[dict[str, Any], None]:
         """
         Automatically encode an object for JSON serialization.
 
@@ -126,7 +126,7 @@ class JSONSerializable:
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
     @classmethod
-    def _auto_decoder(cls, dct: Dict[str, Any]) -> Any:
+    def _auto_decoder(cls, dct: dict[str, Any]) -> Any:
         """
         Automatically decode a dictionary to an object during JSON deserialization.
 

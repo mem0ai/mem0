@@ -1,12 +1,12 @@
 import hashlib
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.loaders.base_loader import BaseLoader
 
 
 class PostgresLoader(BaseLoader):
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
         if not config:
             raise ValueError(f"Must provide the valid config. Received: {config}")
@@ -15,7 +15,7 @@ class PostgresLoader(BaseLoader):
         self.cursor = None
         self._setup_loader(config=config)
 
-    def _setup_loader(self, config: Dict[str, Any]):
+    def _setup_loader(self, config: dict[str, Any]):
         try:
             import psycopg
         except ImportError as e:

@@ -2,7 +2,7 @@ import hashlib
 import logging
 import os
 import ssl
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import certifi
 
@@ -13,7 +13,7 @@ SLACK_API_BASE_URL = "https://www.slack.com/api/"
 
 
 class SlackLoader(BaseLoader):
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
 
         self.config = config if config else {}
@@ -24,7 +24,7 @@ class SlackLoader(BaseLoader):
         self.client = None
         self._setup_loader(self.config)
 
-    def _setup_loader(self, config: Dict[str, Any]):
+    def _setup_loader(self, config: dict[str, Any]):
         try:
             from slack_sdk import WebClient
         except ImportError as e:

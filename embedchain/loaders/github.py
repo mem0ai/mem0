@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import shlex
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from tqdm import tqdm
 
@@ -20,7 +20,7 @@ VALID_SEARCH_TYPES = set(["code", "repo", "pr", "issue", "discussion"])
 class GithubLoader(BaseLoader):
     """Load data from GitHub search query."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
         if not config:
             raise ValueError(
