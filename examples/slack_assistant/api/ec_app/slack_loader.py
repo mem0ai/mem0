@@ -3,20 +3,23 @@ import logging
 import os
 import ssl
 from typing import Any, Dict, Optional
+from urllib.parse import parse_qs, urlparse
 
 import certifi
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
-from urllib.parse import urlparse, parse_qs
+
 
 def get_thread_ts(url, parent_ts):
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
-    thread_ts = query_params.get('thread_ts', [None])[0]
+    thread_ts = query_params.get("thread_ts", [None])[0]
     return thread_ts if thread_ts else parent_ts
 
+
 SLACK_API_BASE_URL = "https://www.slack.com/api/"
+
 
 class SlackLoader(BaseLoader):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -88,17 +91,13 @@ class SlackLoader(BaseLoader):
             current_page = messages.get("pagination").get("page")
             print(f"Collecting {num_message} messages for {query=}, from {total_pages=}")
             message_data.extend(messages.get("matches", []))
-            for page in range(current_page+1, total_pages+1):
+            for page in range(current_page + 1, total_pages + 1):
                 results = self.client.search_messages(
-                    query=query,
-                    sort="timestamp",
-                    sort_dir="desc",
-                    count=self.config.get("count", 100),
-                    page=page
+                    query=query, sort="timestamp", sort_dir="desc", count=self.config.get("count", 100), page=page
                 )
                 messages = results.get("messages")
                 message_data.extend(messages.get("matches", []))
-            
+
             # group thread messages
             print("Grouping messages in threads...")
             message_threads = {}
@@ -106,7 +105,7 @@ class SlackLoader(BaseLoader):
                 url = message.get("permalink")
                 text = message.get("text")
                 content = clean_string(text)
-                
+
                 message_meta_data_keys = ["iid", "team", "ts", "type", "user", "username"]
                 meta_data = {}
                 for key in message.keys():
@@ -118,7 +117,7 @@ class SlackLoader(BaseLoader):
                     message_threads[thread_ts] = [(content, meta_data, meta_data.get("ts"))]
                 else:
                     message_threads[thread_ts].append((content, meta_data, meta_data.get("ts")))
-            
+
             for url, messages in message_threads.items():
                 messages = sorted(messages, key=lambda x: x[2])
                 content = "\n".join([f"@{message[1].get('username')}: {message[0]}" for message in messages])
