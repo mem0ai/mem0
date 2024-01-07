@@ -77,7 +77,7 @@ class SlackLoader(BaseLoader):
             )
 
             messages = results.get("messages")
-            num_message = results.get("total")
+            num_message = len(messages)
             logging.info(f"Found {num_message} messages for query: {query}")
 
             matches = messages.get("matches", [])
@@ -86,9 +86,13 @@ class SlackLoader(BaseLoader):
                 text = message.get("text")
                 content = clean_string(text)
 
-                message_meta_data_keys = ["channel", "iid", "team", "ts", "type", "user", "username"]
-                meta_data = message.fromkeys(message_meta_data_keys, "")
+                message_meta_data_keys = ["iid", "team", "ts", "type", "user", "username"]
+                meta_data = {}
+                for key in message.keys():
+                    if key in message_meta_data_keys:
+                        meta_data[key] = message.get(key)
                 meta_data.update({"url": url})
+
                 data.append(
                     {
                         "content": content,
