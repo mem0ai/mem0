@@ -32,7 +32,7 @@ class DirectoryLoader(BaseLoader):
         doc_id = hashlib.sha256((str(data_list) + str(directory_path)).encode()).hexdigest()
 
         for error in self.errors:
-            logging.warn(error)
+            logging.warning(error)
 
         return {"doc_id": doc_id, "data": data_list}
 

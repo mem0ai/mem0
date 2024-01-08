@@ -88,7 +88,7 @@ class ElasticsearchDB(BaseVectorDB):
         """
         Get existing doc ids present in vector database
 
-        :param ids: _list of doc ids to check for existance
+        :param ids: _list of doc ids to check for existence
         :type ids: List[str]
         :param where: to filter data
         :type where: Dict[str, any]
@@ -161,7 +161,7 @@ class ElasticsearchDB(BaseVectorDB):
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
-        query contents from vector data base based on vector similarity
+        query contents from vector database based on vector similarity
 
         :param input_query: list of query string
         :type input_query: List[str]

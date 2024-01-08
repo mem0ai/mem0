@@ -15,8 +15,8 @@ class EmbeddingFunc(EmbeddingFunction):
     def __init__(self, embedding_fn: Callable[[list[str]], list[str]]):
         self.embedding_fn = embedding_fn
 
-    def __call__(self, input: Embeddable) -> Embeddings:
-        return self.embedding_fn(input)
+    def __call__(self, input_: Embeddable) -> Embeddings:
+        return self.embedding_fn(input_)
 
 
 class BaseEmbedder:
@@ -29,7 +29,7 @@ class BaseEmbedder:
 
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         """
-        Intialize the embedder class.
+        Initialize the embedder class.
 
         :param config: embedder configuration option class, defaults to None
         :type config: Optional[BaseEmbedderConfig], optional

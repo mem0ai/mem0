@@ -31,7 +31,7 @@ class Client:
                 )
 
     @classmethod
-    def setup_dir(self):
+    def setup_dir(cls):
         """
         Loads the user id from the config file if it exists, otherwise generates a new
         one and saves it to the config file.

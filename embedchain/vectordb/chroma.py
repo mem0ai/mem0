@@ -75,7 +75,8 @@ class ChromaDB(BaseVectorDB):
         """Called during initialization"""
         return self.client
 
-    def _generate_where_clause(self, where: Dict[str, any]) -> str:
+    @staticmethod
+    def _generate_where_clause(where: Dict[str, any]) -> Dict[str, any]:
         # If only one filter is supplied, return it as is
         # (no need to wrap in $and based on chroma docs)
         if len(where.keys()) <= 1:
@@ -160,7 +161,8 @@ class ChromaDB(BaseVectorDB):
                 ids=ids[i : i + self.BATCH_SIZE],
             )
 
-    def _format_result(self, results: QueryResult) -> list[tuple[Document, float]]:
+    @staticmethod
+    def _format_result(results: QueryResult) -> list[tuple[Document, float]]:
         """
         Format Chroma results
 

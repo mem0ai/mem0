@@ -8,7 +8,7 @@ from embedchain.utils.misc import clean_string
 @register_deserializable
 class UnstructuredLoader(BaseLoader):
     def load_data(self, url):
-        """Load data from a Unstructured file."""
+        """Load data from an Unstructured file."""
         try:
             from langchain.document_loaders import UnstructuredFileLoader
         except ImportError:

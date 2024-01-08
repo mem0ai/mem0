@@ -113,10 +113,12 @@ class ChatHistory:
         count = self.cursor.fetchone()[0]
         return count
 
-    def _serialize_json(self, metadata: Dict[str, Any]):
+    @staticmethod
+    def _serialize_json(metadata: Dict[str, Any]):
         return json.dumps(metadata)
 
-    def _deserialize_json(self, metadata: str):
+    @staticmethod
+    def _deserialize_json(metadata: str):
         return json.loads(metadata)
 
     def close_connection(self):

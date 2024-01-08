@@ -18,7 +18,7 @@ VALID_SEARCH_TYPES = set(["code", "repo", "pr", "issue", "discussion"])
 
 
 class GithubLoader(BaseLoader):
-    """Load data from github search query."""
+    """Load data from GitHub search query."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__()
@@ -48,7 +48,7 @@ class GithubLoader(BaseLoader):
             self.client = None
 
     def _github_search_code(self, query: str):
-        """Search github code."""
+        """Search GitHub code."""
         data = []
         results = self.client.search_code(query)
         for result in tqdm(results, total=results.totalCount, desc="Loading code files from github"):
@@ -66,7 +66,8 @@ class GithubLoader(BaseLoader):
             )
         return data
 
-    def _get_github_repo_data(self, repo_url: str):
+    @staticmethod
+    def _get_github_repo_data(repo_url: str):
         local_hash = hashlib.sha256(repo_url.encode()).hexdigest()
         local_path = f"/tmp/{local_hash}"
         data = []
@@ -121,14 +122,14 @@ class GithubLoader(BaseLoader):
 
         return data
 
-    def _github_search_repo(self, query: str):
-        """Search github repo."""
+    def _github_search_repo(self, query: str) -> list[dict]:
+        """Search GitHub repo."""
         data = []
         logging.info(f"Searching github repos with query: {query}")
         results = self.client.search_repositories(query)
         # Add repo urls and descriptions
         urls = list(map(lambda x: x.html_url, results))
-        discriptions = list(map(lambda x: x.description, results))
+        descriptions = list(map(lambda x: x.description, results))
         data.append(
             {
                 "content": clean_string(desc),
@@ -136,7 +137,7 @@ class GithubLoader(BaseLoader):
                     "url": url,
                 },
             }
-            for url, desc in zip(urls, discriptions)
+            for url, desc in zip(urls, descriptions)
         )
 
         # Add repo contents
@@ -146,8 +147,8 @@ class GithubLoader(BaseLoader):
             data = self._get_github_repo_data(clone_url)
         return data
 
-    def _github_search_issues_and_pr(self, query: str, type: str):
-        """Search github issues and PRs."""
+    def _github_search_issues_and_pr(self, query: str, type: str) -> list[dict]:
+        """Search GitHub issues and PRs."""
         data = []
 
         query = f"{query} is:{type}"
@@ -161,7 +162,7 @@ class GithubLoader(BaseLoader):
             title = result.title
             body = result.body
             if not body:
-                logging.warn(f"Skipping issue because empty content for: {url}")
+                logging.warning(f"Skipping issue because empty content for: {url}")
                 continue
             labels = " ".join([label.name for label in result.labels])
             issue_comments = result.get_comments()
@@ -186,7 +187,7 @@ class GithubLoader(BaseLoader):
 
     # need to test more for discussion
     def _github_search_discussions(self, query: str):
-        """Search github discussions."""
+        """Search GitHub discussions."""
         data = []
 
         query = f"{query} is:discussion"
@@ -202,7 +203,7 @@ class GithubLoader(BaseLoader):
                     title = discussion.title
                     body = discussion.body
                     if not body:
-                        logging.warn(f"Skipping discussion because empty content for: {url}")
+                        logging.warning(f"Skipping discussion because empty content for: {url}")
                         continue
                     comments = []
                     comments_created_at = []
@@ -233,11 +234,14 @@ class GithubLoader(BaseLoader):
             data = self._github_search_issues_and_pr(query, search_type)
         elif search_type == "discussion":
             raise ValueError("GithubLoader does not support searching discussions yet.")
+        else:
+            raise NotImplementedError(f"{search_type} not supported")
 
         return data
 
-    def _get_valid_github_query(self, query: str):
-        """Check if query is valid and return search types and valid github query."""
+    @staticmethod
+    def _get_valid_github_query(query: str):
+        """Check if query is valid and return search types and valid GitHub query."""
         query_terms = shlex.split(query)
         # query must provide repo to load data from
         if len(query_terms) < 1 or "repo:" not in query:
@@ -273,7 +277,7 @@ class GithubLoader(BaseLoader):
         return types, query
 
     def load_data(self, search_query: str, max_results: int = 1000):
-        """Load data from github search query."""
+        """Load data from GitHub search query."""
 
         if not self.client:
             raise ValueError(

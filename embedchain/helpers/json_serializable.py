@@ -42,7 +42,7 @@ class JSONSerializable:
     A class to represent a JSON serializable object.
 
     This class provides methods to serialize and deserialize objects,
-    as well as save serialized objects to a file and load them back.
+    as well as to save serialized objects to a file and load them back.
     """
 
     _deserializable_classes = set()  # Contains classes that are whitelisted for deserialization.

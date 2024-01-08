@@ -49,7 +49,8 @@ class DocsSiteLoader(BaseLoader):
         urls = [link for link in self.visited_links if urlparse(link).netloc == urlparse(url).netloc]
         return urls
 
-    def _load_data_from_url(self, url):
+    @staticmethod
+    def _load_data_from_url(url: str) -> list:
         response = requests.get(url)
         if response.status_code != 200:
             logging.info(f"Failed to fetch the website: {response.status_code}")

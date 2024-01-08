@@ -10,12 +10,12 @@ class CacheSimilarityEvalConfig(BaseConfig):
     This is the evaluator to compare two embeddings according to their distance computed in embedding retrieval stage.
     In the retrieval stage, `search_result` is the distance used for approximate nearest neighbor search and have been
     put into `cache_dict`. `max_distance` is used to bound this distance to make it between [0-`max_distance`].
-    `positive` is used to indicate this distance is directly proportional to the similarity of two entites.
-    If `positive` is set `False`, `max_distance` will be used to substract this distance to get the final score.
+    `positive` is used to indicate this distance is directly proportional to the similarity of two entities.
+    If `positive` is set `False`, `max_distance` will be used to subtract this distance to get the final score.
 
     :param max_distance: the bound of maximum distance.
     :type max_distance: float
-    :param positive: if the larger distance indicates more similar of two entities, It is True. Otherwise it is False.
+    :param positive: if the larger distance indicates more similar of two entities, It is True. Otherwise, it is False.
     :type positive: bool
     """
 
@@ -29,6 +29,7 @@ class CacheSimilarityEvalConfig(BaseConfig):
         self.max_distance = max_distance
         self.positive = positive
 
+    @staticmethod
     def from_config(config: Optional[Dict[str, Any]]):
         if config is None:
             return CacheSimilarityEvalConfig()
@@ -63,6 +64,7 @@ class CacheInitConfig(BaseConfig):
         self.similarity_threshold = similarity_threshold
         self.auto_flush = auto_flush
 
+    @staticmethod
     def from_config(config: Optional[Dict[str, Any]]):
         if config is None:
             return CacheInitConfig()
@@ -83,6 +85,7 @@ class CacheConfig(BaseConfig):
         self.similarity_eval_config = similarity_eval_config
         self.init_config = init_config
 
+    @staticmethod
     def from_config(config: Optional[Dict[str, Any]]):
         if config is None:
             return CacheConfig()

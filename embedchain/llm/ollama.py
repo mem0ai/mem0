@@ -20,7 +20,8 @@ class OllamaLlm(BaseLlm):
     def get_llm_model_answer(self, prompt):
         return self._get_answer(prompt=prompt, config=self.config)
 
-    def _get_answer(self, prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
+    @staticmethod
+    def _get_answer(prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
         callback_manager = [StreamingStdOutCallbackHandler()] if config.stream else [StdOutCallbackHandler()]
 
         llm = Ollama(

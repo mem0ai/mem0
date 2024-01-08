@@ -24,7 +24,6 @@ class PostgresLoader(BaseLoader):
                     Run `pip install --upgrade 'embedchain[postgres]'`"
             ) from e
 
-        config_info = ""
         if "url" in config:
             config_info = config.get("url")
         else:
@@ -37,7 +36,8 @@ class PostgresLoader(BaseLoader):
         self.connection = psycopg.connect(conninfo=config_info)
         self.cursor = self.connection.cursor()
 
-    def _check_query(self, query):
+    @staticmethod
+    def _check_query(query):
         if not isinstance(query, str):
             raise ValueError(
                 f"Invalid postgres query: {query}. Provide the valid source to add from postgres, make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",  # noqa:E501

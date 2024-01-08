@@ -34,7 +34,8 @@ class DataFormatter(JSONSerializable):
         self.loader = self._get_loader(data_type=data_type, config=config.loader, loader=loader)
         self.chunker = self._get_chunker(data_type=data_type, config=config.chunker, chunker=chunker)
 
-    def _lazy_load(self, module_path: str):
+    @staticmethod
+    def _lazy_load(module_path: str):
         module_path, class_name = module_path.rsplit(".", 1)
         module = import_module(module_path)
         return getattr(module, class_name)
