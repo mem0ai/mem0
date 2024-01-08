@@ -415,6 +415,7 @@ def validate_config(config_data):
                     Optional("where"): dict,
                     Optional("query_type"): str,
                     Optional("api_key"): str,
+                    Optional("endpoint"): str,
                 },
             },
             Optional("vectordb"): {

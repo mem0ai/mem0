@@ -15,6 +15,14 @@ def huggingface_llm_config():
     os.environ.pop("HUGGINGFACE_ACCESS_TOKEN")
 
 
+@pytest.fixture
+def huggingface_endpoint_config():
+    os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "test_access_token"
+    config = BaseLlmConfig(endpoint="https://api-inference.huggingface.co/models/gpt2", model_kwargs={"device": "cpu"})
+    yield config
+    os.environ.pop("HUGGINGFACE_ACCESS_TOKEN")
+
+
 def test_init_raises_value_error_without_api_key(mocker):
     mocker.patch.dict(os.environ, clear=True)
     with pytest.raises(ValueError):
@@ -57,6 +65,17 @@ def test_hugging_face_mock(huggingface_llm_config, mocker):
     mocker.patch("embedchain.llm.huggingface.HuggingFaceHub", return_value=mock_llm_instance)
 
     llm = HuggingFaceLlm(huggingface_llm_config)
+    answer = llm.get_llm_model_answer("Test query")
+
+    assert answer == "Test answer"
+    mock_llm_instance.assert_called_once_with("Test query")
+
+
+def test_custom_endpoint(huggingface_endpoint_config, mocker):
+    mock_llm_instance = mocker.Mock(return_value="Test answer")
+    mocker.patch("embedchain.llm.huggingface.HuggingFaceEndpoint", return_value=mock_llm_instance)
+
+    llm = HuggingFaceLlm(huggingface_endpoint_config)
     answer = llm.get_llm_model_answer("Test query")
 
     assert answer == "Test answer"
