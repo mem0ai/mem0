@@ -133,7 +133,7 @@ class BaseLlmConfig(BaseConfig):
         self.callbacks = callbacks
         self.api_key = api_key
 
-        if type(prompt) is str:
+        if isinstance(prompt, str):
             prompt = Template(prompt)
 
         if self.validate_prompt(prompt):
