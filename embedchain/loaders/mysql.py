@@ -39,7 +39,8 @@ class MySQLLoader(BaseLoader):
                     Refer `https://docs.embedchain.ai/data-sources/mysql`.",
             )
 
-    def _check_query(self, query):
+    @staticmethod
+    def _check_query(query):
         if not isinstance(query, str):
             raise ValueError(
                 f"Invalid mysql query: {query}",

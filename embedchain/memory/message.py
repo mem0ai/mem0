@@ -54,7 +54,7 @@ class ChatMessage(JSONSerializable):
         if self.human_message:
             logging.info(
                 "Human message already exists in the chat message,\
-                overwritting it with new message."
+                overwriting it with new message."
             )
 
         self.human_message = BaseMessage(content=message, created_by="human", metadata=metadata)
@@ -63,7 +63,7 @@ class ChatMessage(JSONSerializable):
         if self.ai_message:
             logging.info(
                 "AI message already exists in the chat message,\
-                overwritting it with new message."
+                overwriting it with new message."
             )
 
         self.ai_message = BaseMessage(content=message, created_by="ai", metadata=metadata)

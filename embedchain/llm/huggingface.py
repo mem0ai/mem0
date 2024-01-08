@@ -48,7 +48,7 @@ class HuggingFaceLlm(BaseLlm):
             "max_new_tokens": config.max_tokens,
         }
 
-        if config.top_p > 0.0 and config.top_p < 1.0:
+        if 0.0 < config.top_p < 1.0:
             model_kwargs["top_p"] = config.top_p
         else:
             raise ValueError("`top_p` must be > 0.0 and < 1.0")

@@ -20,7 +20,8 @@ class ImageLoader(BaseLoader):
         self.api_key = api_key or os.environ["OPENAI_API_KEY"]
         self.client = OpenAI(api_key=self.api_key)
 
-    def _encode_image(self, image_path: str):
+    @staticmethod
+    def _encode_image(image_path: str):
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 

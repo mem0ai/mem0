@@ -19,7 +19,7 @@ from embedchain.utils.misc import detect_datatype
 
 logging.basicConfig(level=logging.WARN)
 
-# Setup the user directory if doesn't exist already
+# Set up the user directory if it doesn't exist already
 Client.setup_dir()
 
 
@@ -130,12 +130,14 @@ class OpenAIAssistant:
         messages = self._client.beta.threads.messages.list(thread_id=self.thread_id, order="desc")
         return list(messages)
 
-    def _format_message(self, thread_message):
+    @staticmethod
+    def _format_message(thread_message):
         thread_message = cast(ThreadMessage, thread_message)
         content = [c.text.value for c in thread_message.content if isinstance(c, MessageContentText)]
         return " ".join(content)
 
-    def _save_temp_data(self, data, source):
+    @staticmethod
+    def _save_temp_data(data, source):
         special_chars_pattern = r'[\\/:*?"<>|&=% ]+'
         sanitized_source = re.sub(special_chars_pattern, "_", source)[:256]
         temp_dir = tempfile.mkdtemp()

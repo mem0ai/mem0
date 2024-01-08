@@ -155,24 +155,26 @@ class BaseLlmConfig(BaseConfig):
         self.stream = stream
         self.where = where
 
-    def validate_prompt(self, prompt: Template) -> bool:
+    @staticmethod
+    def validate_prompt(prompt: Template) -> Optional[re.Match[str]]:
         """
         validate the prompt
 
         :param prompt: the prompt to validate
         :type prompt: Template
         :return: valid (true) or invalid (false)
-        :rtype: bool
+        :rtype: Optional[re.Match[str]]
         """
         return re.search(query_re, prompt.template) and re.search(context_re, prompt.template)
 
-    def _validate_prompt_history(self, prompt: Template) -> bool:
+    @staticmethod
+    def _validate_prompt_history(prompt: Template) -> Optional[re.Match[str]]:
         """
         validate the prompt with history
 
         :param prompt: the prompt to validate
         :type prompt: Template
         :return: valid (true) or invalid (false)
-        :rtype: bool
+        :rtype: Optional[re.Match[str]]
         """
         return re.search(history_re, prompt.template)

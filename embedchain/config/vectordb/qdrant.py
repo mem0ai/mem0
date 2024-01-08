@@ -7,8 +7,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 @register_deserializable
 class QdrantDBConfig(BaseVectorDbConfig):
     """
-    Config to initialize an qdrant client.
-    :param url. qdrant url or list of nodes url to be used for connection
+    Config to initialize a qdrant client.
+    :param: url. qdrant url or list of nodes url to be used for connection
     """
 
     def __init__(

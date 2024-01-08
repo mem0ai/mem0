@@ -7,7 +7,7 @@ def merge_metadata_dict(left: Optional[Dict[str, Any]], right: Optional[Dict[str
 
     Args:
         left (Dict[str, Any]): metadata of human message
-        right (Dict[str, Any]): metadata of ai message
+        right (Dict[str, Any]): metadata of AI message
 
     Returns:
         Dict[str, Any]: combined metadata dict with dedup

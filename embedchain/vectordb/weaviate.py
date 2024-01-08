@@ -305,7 +305,8 @@ class WeaviateDB(BaseVectorDB):
         """
         return f"{self.config.collection_name}_{self.embedder.vector_dimension}".capitalize()
 
-    def _query_with_cursor(self, query, cursor):
+    @staticmethod
+    def _query_with_cursor(query, cursor):
         if cursor is not None:
             query.with_after(cursor)
         results = query.do()
