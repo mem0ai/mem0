@@ -178,7 +178,7 @@ await app.addLocal("qna_pair", ["Question", "Answer"]);
 
 ## Testing
 
-Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
+Before you consume valuable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
 
 For this you can use the `dryRun` method.
 
