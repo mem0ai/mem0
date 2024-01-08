@@ -22,7 +22,7 @@ build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core"]
 
 [tool.ruff]
-select = ["E", "F"]
+select = ["ASYNC", "E", "F"]
 ignore = []
 fixable = ["ALL"]
 unfixable = []
