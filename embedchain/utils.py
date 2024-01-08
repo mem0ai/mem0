@@ -196,8 +196,7 @@ def detect_datatype(source: Any) -> DataType:
     formatted_source = format_source(str(source), 30)
 
     if url:
-        from langchain.document_loaders.youtube import \
-            ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
+        from langchain.document_loaders.youtube import ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
 
         if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
@@ -226,6 +225,10 @@ def detect_datatype(source: Any) -> DataType:
         if url.path.endswith(".docx"):
             logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
+
+        if url.path.endswith(".xlsx"):
+            logging.debug(f"Source of `{formatted_source}` detected as `excel`.")
+            return DataType.EXCEL
 
         if url.path.endswith(".yaml"):
             try:
@@ -310,6 +313,10 @@ def detect_datatype(source: Any) -> DataType:
         if source.endswith(".pdf"):
             logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
             return DataType.PDF_FILE
+
+        if source.endswith(".xlsx"):
+            logging.debug(f"Source of `{formatted_source}` detected as `excel`.")
+            return DataType.EXCEL
 
         if source.endswith(".yaml"):
             with open(source, "r") as file:
