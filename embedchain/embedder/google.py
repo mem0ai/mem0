@@ -13,11 +13,11 @@ class GoogleAIEmbeddingFunction(EmbeddingFunction):
         super().__init__()
         self.config = config or GoogleAIEmbedderConfig()
 
-    def __call__(self, input: str) -> Embeddings:
+    def __call__(self, input_: str) -> Embeddings:
         model = self.config.model
         title = self.config.title
         task_type = self.config.task_type
-        embeddings = genai.embed_content(model=model, content=input, task_type=task_type, title=title)
+        embeddings = genai.embed_content(model=model, content=input_, task_type=task_type, title=title)
         return embeddings["embedding"]
 
 

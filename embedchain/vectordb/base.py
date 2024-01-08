@@ -49,7 +49,7 @@ class BaseVectorDB(JSONSerializable):
         raise NotImplementedError
 
     def query(self):
-        """Query contents from vector data base based on vector similarity"""
+        """Query contents from vector database based on vector similarity"""
         raise NotImplementedError
 
     def count(self) -> int:

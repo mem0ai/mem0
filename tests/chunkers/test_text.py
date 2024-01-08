@@ -69,7 +69,8 @@ class TestTextChunker:
 
 
 class MockLoader:
-    def load_data(self, src):
+    @staticmethod
+    def load_data(src) -> dict:
         """
         Mock loader that returns a list of data dictionaries.
         Adjust this method to return different data for testing.

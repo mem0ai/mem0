@@ -163,7 +163,7 @@ class OpenSearchDB(BaseVectorDB):
         **kwargs: Optional[Dict[str, Any]],
     ) -> Union[List[Tuple[str, Dict]], List[str]]:
         """
-        query contents from vector data base based on vector similarity
+        query contents from vector database based on vector similarity
 
         :param input_query: list of query string
         :type input_query: List[str]
