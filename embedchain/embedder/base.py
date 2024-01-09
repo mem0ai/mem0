@@ -16,8 +16,8 @@ class EmbeddingFunc(EmbeddingFunction):
     def __init__(self, embedding_fn: Callable[[list[str]], list[str]]):
         self.embedding_fn = embedding_fn
 
-    def __call__(self, input_: Embeddable) -> Embeddings:
-        return self.embedding_fn(input_)
+    def __call__(self, input: Embeddable) -> Embeddings:
+        return self.embedding_fn(input)
 
 
 class BaseEmbedder:
