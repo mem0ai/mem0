@@ -43,8 +43,11 @@ class ExcelLoader(BaseLoader):
         # Create an ExcelFile object
         excel_file = pd.ExcelFile(content)
 
-        # Initialize an empty list to store data from each sheet
+        # Initialize an empty list to store data from each sheet with metadata
         data_records = []
+
+        # Initalize an empty list to store each sheet without metadata
+        data_content = []
 
         # Iterate over all sheets in the Excel file
         for sheet_name in excel_file.sheet_names:
@@ -67,8 +70,10 @@ class ExcelLoader(BaseLoader):
                 }
             )
 
+            data_content.append(csv_string)
+
         # Create doc_id for whole file
-        doc_id = hashlib.sha256((content + csv_string).encode()).hexdigest()
+        doc_id = hashlib.sha256((content + "".join(data_content)).encode()).hexdigest()
 
         # Close the ExcelFile object
         excel_file.close()
