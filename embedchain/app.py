@@ -9,14 +9,9 @@ from typing import Any, Dict, Optional
 import requests
 import yaml
 
-from embedchain.cache import (
-    Config,
-    ExactMatchEvaluation,
-    SearchDistanceEvaluation,
-    cache,
-    gptcache_data_manager,
-    gptcache_pre_function,
-)
+from embedchain.cache import (Config, ExactMatchEvaluation,
+                              SearchDistanceEvaluation, cache,
+                              gptcache_data_manager, gptcache_pre_function)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH

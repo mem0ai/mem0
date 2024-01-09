@@ -73,7 +73,7 @@ class BaseLlmConfig(BaseConfig):
         callbacks: Optional[List] = None,
         api_key: Optional[str] = None,
         endpoint: Optional[str] = None,
-        model_kwargs: Optional[Dict[str, Any]] = {},
+        model_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -115,6 +115,8 @@ class BaseLlmConfig(BaseConfig):
         :type model_kwargs: Optional[Dict[str, Any]], optional
         :param callbacks: Langchain callback functions to use, defaults to None
         :type callbacks: Optional[List], optional
+        :param query_type: The type of query to use, defaults to None
+        :type query_type: Optional[str], optional
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
@@ -142,6 +144,7 @@ class BaseLlmConfig(BaseConfig):
         self.api_key = api_key
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+
         if type(prompt) is str:
             prompt = Template(prompt)
 
