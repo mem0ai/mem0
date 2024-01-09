@@ -1392,7 +1392,7 @@ tests = ["dj-database-url", "dj-email-url", "django-cache-url", "pytest"]
 name = "et-xmlfile"
 version = "1.1.0"
 description = "An implementation of lxml.xmlfile for the standard library"
-optional = false
+optional = true
 python-versions = ">=3.6"
 files = [
     {file = "et_xmlfile-1.1.0-py3-none-any.whl", hash = "sha256:a2ba85d1d6a74ef63837eed693bcb89c3f752169b0e3e7ae5b16ca5e1b3deada"},
@@ -4165,7 +4165,7 @@ numpy = [
 name = "openpyxl"
 version = "3.1.2"
 description = "A Python library to read/write Excel 2010 xlsx/xlsm files"
-optional = false
+optional = true
 python-versions = ">=3.6"
 files = [
     {file = "openpyxl-3.1.2-py2.py3-none-any.whl", hash = "sha256:f91456ead12ab3c6c2e9491cf33ba6d08357d802192379bb482f1033ade496f5"},
@@ -4320,7 +4320,7 @@ files = [
 name = "pandas"
 version = "2.1.4"
 description = "Powerful data structures for data analysis, time series, and statistics"
-optional = false
+optional = true
 python-versions = ">=3.9"
 files = [
     {file = "pandas-2.1.4-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:bdec823dc6ec53f7a6339a0e34c68b144a7a1fd28d80c260534c39c62c5bf8c9"},
@@ -5486,7 +5486,7 @@ files = [
 name = "pytz"
 version = "2023.3.post1"
 description = "World timezone definitions, modern and historical"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "pytz-2023.3.post1-py2.py3-none-any.whl", hash = "sha256:ce42d816b81b68506614c11e8937d3aa9e41007ceb50bfdcb0749b921bf646c7"},
@@ -7247,7 +7247,7 @@ typing-extensions = ">=3.7.4"
 name = "tzdata"
 version = "2023.3"
 description = "Provider of IANA time zone data"
-optional = false
+optional = true
 python-versions = ">=2"
 files = [
     {file = "tzdata-2023.3-py2.py3-none-any.whl", hash = "sha256:7e65763eef3120314099b6939b5546db7adce1e7d6f2e179e3df563c70511eda"},
@@ -8118,4 +8118,4 @@ youtube = ["youtube-transcript-api", "yt_dlp"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "fb9bdc2ed4c003b9074a9a5b2e4396bc7afbf9ac175cf5878ed170d0796d784e"
+content-hash = "2a40cb7bde69265d39b4ac2af9b99257ab7a30767bfd657ae15cc7055345d013"

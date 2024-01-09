@@ -148,8 +148,8 @@ google-auth-oauthlib = { version = "^1.2.0", optional = true }
 google-auth = { version = "^2.25.2", optional = true }
 google-auth-httplib2 = { version = "^0.2.0", optional = true }
 google-api-core = { version = "^2.15.0", optional = true }
-openpyxl = "^3.1.2"
-pandas = "^2.1.4"
+pandas = {version = "^2.1.4", optional = true}
+openpyxl = {version = "^3.1.2", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -214,8 +214,6 @@ rss_feed = [
 google = ["google-generativeai"]
 modal = ["modal"]
 dropbox = ["dropbox"]
-
-[tool.poetry.group.docs.dependencies]
 
 [tool.poetry.scripts]
 ec = "embedchain.cli:cli"
