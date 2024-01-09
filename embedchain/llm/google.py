@@ -1,7 +1,8 @@
 import importlib
 import logging
 import os
-from typing import Any, Generator, Optional, Union
+from collections.abc import Generator
+from typing import Any, Optional, Union
 
 import google.generativeai as genai
 

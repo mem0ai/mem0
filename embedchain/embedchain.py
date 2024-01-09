@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
@@ -136,12 +136,12 @@ class EmbedChain(JSONSerializable):
         self,
         source: Any,
         data_type: Optional[DataType] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
         dry_run=False,
         loader: Optional[BaseLoader] = None,
         chunker: Optional[BaseChunker] = None,
-        **kwargs: Optional[Dict[str, Any]],
+        **kwargs: Optional[dict[str, Any]],
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -154,7 +154,7 @@ class EmbedChain(JSONSerializable):
         defaults to None
         :type data_type: Optional[DataType], optional
         :param metadata: Metadata associated with the data source., defaults to None
-        :type metadata: Optional[Dict[str, Any]], optional
+        :type metadata: Optional[dict[str, Any]], optional
         :param config: The `AddConfig` instance to use as configuration options., defaults to None
         :type config: Optional[AddConfig], optional
         :raises ValueError: Invalid data type
@@ -243,9 +243,9 @@ class EmbedChain(JSONSerializable):
         self,
         source: Any,
         data_type: Optional[DataType] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         config: Optional[AddConfig] = None,
-        **kwargs: Optional[Dict[str, Any]],
+        **kwargs: Optional[dict[str, Any]],
     ):
         """
         Adds the data from the given URL to the vector db.
@@ -261,7 +261,7 @@ class EmbedChain(JSONSerializable):
         defaults to None
         :type data_type: Optional[DataType], optional
         :param metadata: Metadata associated with the data source., defaults to None
-        :type metadata: Optional[Dict[str, Any]], optional
+        :type metadata: Optional[dict[str, Any]], optional
         :param config: The `AddConfig` instance to use as configuration options., defaults to None
         :type config: Optional[AddConfig], optional
         :raises ValueError: Invalid data type
@@ -342,11 +342,11 @@ class EmbedChain(JSONSerializable):
         loader: BaseLoader,
         chunker: BaseChunker,
         src: Any,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         source_hash: Optional[str] = None,
         add_config: Optional[AddConfig] = None,
         dry_run=False,
-        **kwargs: Optional[Dict[str, Any]],
+        **kwargs: Optional[dict[str, Any]],
     ):
         """
         Loads the data from the given URL, chunks it, and adds it to database.
@@ -359,7 +359,7 @@ class EmbedChain(JSONSerializable):
         :param source_hash: Hexadecimal hash of the source.
         :param dry_run: Optional. A dry run returns chunks and doesn't update DB.
         :type dry_run: bool, defaults to False
-        :return: (List) documents (embedded text), (List) metadata, (list) ids, (int) number of chunks
+        :return: (list) documents (embedded text), (list) metadata, (list) ids, (int) number of chunks
         """
         existing_doc_id = self._get_existing_doc_id(chunker=chunker, src=src)
         app_id = self.config.id if self.config is not None else None
@@ -464,8 +464,8 @@ class EmbedChain(JSONSerializable):
         config: Optional[BaseLlmConfig] = None,
         where=None,
         citations: bool = False,
-        **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, str, str]], list[str]]:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query
@@ -479,7 +479,7 @@ class EmbedChain(JSONSerializable):
         :param citations: A boolean to indicate if db should fetch citation source
         :type citations: bool
         :return: List of contents of the document that matched your query
-        :rtype: List[str]
+        :rtype: list[str]
         """
         query_config = config or self.llm.config
         if where is not None:
@@ -507,10 +507,10 @@ class EmbedChain(JSONSerializable):
         input_query: str,
         config: BaseLlmConfig = None,
         dry_run=False,
-        where: Optional[Dict] = None,
+        where: Optional[dict] = None,
         citations: bool = False,
-        **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
+        **kwargs: dict[str, Any],
+    ) -> Union[tuple[str, list[tuple[str, dict]]], str]:
         """
         Queries the vector database based on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -525,13 +525,13 @@ class EmbedChain(JSONSerializable):
         the LLM. The purpose is to test the prompt, not the response., defaults to False
         :type dry_run: bool, optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
-        :type where: Optional[Dict[str, str]], optional
+        :type where: Optional[dict[str, str]], optional
         :param kwargs: To read more params for the query function. Ex. we use citations boolean
         param to return context along with the answer
-        :type kwargs: Dict[str, Any]
+        :type kwargs: dict[str, Any]
         :return: The answer to the query, with citations if the citation flag is True
         or the dry run result
-        :rtype: str, if citations is False, otherwise Tuple[str,List[Tuple[str,str,str]]]
+        :rtype: str, if citations is False, otherwise tuple[str, list[tuple[str,str,str]]]
         """
         contexts = self._retrieve_from_database(
             input_query=input_query, config=config, where=where, citations=citations, **kwargs
@@ -572,10 +572,10 @@ class EmbedChain(JSONSerializable):
         config: Optional[BaseLlmConfig] = None,
         dry_run=False,
         session_id: str = "default",
-        where: Optional[Dict[str, str]] = None,
+        where: Optional[dict[str, str]] = None,
         citations: bool = False,
-        **kwargs: Dict[str, Any],
-    ) -> Union[Tuple[str, List[Tuple[str, Dict]]], str]:
+        **kwargs: dict[str, Any],
+    ) -> Union[tuple[str, list[tuple[str, dict]]], str]:
         """
         Queries the vector database on the given input query.
         Gets relevant doc based on the query and then passes it to an
@@ -594,13 +594,13 @@ class EmbedChain(JSONSerializable):
         :param session_id: The session id to use for chat history, defaults to 'default'.
         :type session_id: Optional[str], optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
-        :type where: Optional[Dict[str, str]], optional
+        :type where: Optional[dict[str, str]], optional
         :param kwargs: To read more params for the query function. Ex. we use citations boolean
         param to return context along with the answer
-        :type kwargs: Dict[str, Any]
+        :type kwargs: dict[str, Any]
         :return: The answer to the query, with citations if the citation flag is True
         or the dry run result
-        :rtype: str, if citations is False, otherwise Tuple[str,List[Tuple[str,str,str]]]
+        :rtype: str, if citations is False, otherwise tuple[str, list[tuple[str,str,str]]]
         """
         contexts = self._retrieve_from_database(
             input_query=input_query, config=config, where=where, citations=citations, **kwargs

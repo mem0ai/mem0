@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
@@ -12,7 +12,7 @@ from embedchain.llm.base import BaseLlm
 
 @register_deserializable
 class OpenAILlm(BaseLlm):
-    def __init__(self, config: Optional[BaseLlmConfig] = None, functions: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[BaseLlmConfig] = None, functions: Optional[dict[str, Any]] = None):
         self.functions = functions
         super().__init__(config=config)
 

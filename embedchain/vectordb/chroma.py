@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -76,7 +76,7 @@ class ChromaDB(BaseVectorDB):
         return self.client
 
     @staticmethod
-    def _generate_where_clause(where: Dict[str, any]) -> Dict[str, any]:
+    def _generate_where_clause(where: dict[str, any]) -> dict[str, any]:
         # If only one filter is supplied, return it as is
         # (no need to wrap in $and based on chroma docs)
         if len(where.keys()) <= 1:
@@ -105,18 +105,18 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
         :param ids: list of doc ids to check for existence
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: Optional. to filter data
-        :type where: Dict[str, Any]
+        :type where: dict[str, Any]
         :param limit: Optional. maximum number of documents
         :type limit: Optional[int]
         :return: Existing documents.
-        :rtype: List[str]
+        :rtype: list[str]
         """
         args = {}
         if ids:
@@ -129,23 +129,23 @@ class ChromaDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        **kwargs: Optional[Dict[str, Any]],
+        embeddings: list[list[float]],
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
+        **kwargs: Optional[dict[str, Any]],
     ) -> Any:
         """
         Add vectors to chroma database
 
         :param embeddings: list of embeddings to add
-        :type embeddings: List[List[str]]
+        :type embeddings: list[list[str]]
         :param documents: Documents
-        :type documents: List[str]
+        :type documents: list[str]
         :param metadatas: Metadatas
-        :type metadatas: List[object]
+        :type metadatas: list[object]
         :param ids: ids
-        :type ids: List[str]
+        :type ids: list[str]
         """
         size = len(documents)
         if len(documents) != size or len(metadatas) != size or len(ids) != size:
@@ -182,27 +182,27 @@ class ChromaDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
+        where: dict[str, any],
         citations: bool = False,
-        **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, Dict]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         Query contents from vector database based on vector similarity
 
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: Dict[str, Any]
+        :type where: dict[str, Any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         try:
             result = self.collection.query(

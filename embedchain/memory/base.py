@@ -2,7 +2,7 @@ import json
 import logging
 import sqlite3
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from embedchain.constants import SQLITE_PATH
 from embedchain.memory.message import ChatMessage
@@ -67,7 +67,7 @@ class ChatHistory:
         self.cursor.execute(DELETE_CHAT_HISTORY_QUERY, (app_id, session_id))
         self.connection.commit()
 
-    def get(self, app_id, session_id, num_rounds=10, display_format=False) -> List[ChatMessage]:
+    def get(self, app_id, session_id, num_rounds=10, display_format=False) -> list[ChatMessage]:
         """
         Get the most recent num_rounds rounds of conversations
         between human and AI, for a given app_id.
@@ -114,7 +114,7 @@ class ChatHistory:
         return count
 
     @staticmethod
-    def _serialize_json(metadata: Dict[str, Any]):
+    def _serialize_json(metadata: dict[str, Any]):
         return json.dumps(metadata)
 
     @staticmethod
