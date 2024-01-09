@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.helpers.json_serializable import JSONSerializable
 
@@ -18,9 +18,9 @@ class BaseMessage(JSONSerializable):
     created_by: str
 
     # Any additional info.
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
-    def __init__(self, content: str, created_by: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, content: str, created_by: str, metadata: Optional[dict[str, Any]] = None) -> None:
         super().__init__()
         self.content = content
         self.created_by = created_by

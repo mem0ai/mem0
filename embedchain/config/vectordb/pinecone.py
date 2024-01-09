@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Optional
 
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -12,7 +12,7 @@ class PineconeDBConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         vector_dimension: int = 1536,
         metric: Optional[str] = "cosine",
-        **extra_params: Dict[str, any],
+        **extra_params: dict[str, any],
     ):
         self.metric = metric
         self.vector_dimension = vector_dimension

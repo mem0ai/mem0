@@ -1,7 +1,7 @@
 import argparse
 import logging
 import os
-from typing import List, Optional
+from typing import Optional
 
 from embedchain.helpers.json_serializable import register_deserializable
 
@@ -53,7 +53,7 @@ class PoeBot(BaseBot, PoeBot):
         answer = self.handle_message(last_message, history)
         yield self.text_event(answer)
 
-    def handle_message(self, message, history: Optional[List[str]] = None):
+    def handle_message(self, message, history: Optional[list[str]] = None):
         if message.startswith("/add "):
             response = self.add_data(message)
         else:
@@ -70,7 +70,7 @@ class PoeBot(BaseBot, PoeBot):
     #         response = "Some error occurred while adding data."
     #     return response
 
-    def ask_bot(self, message, history: List[str]):
+    def ask_bot(self, message, history: list[str]):
         try:
             self.app.llm.set_history(history=history)
             response = self.query(message)

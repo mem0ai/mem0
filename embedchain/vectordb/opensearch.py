@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Optional, Union
 
 from tqdm import tqdm
 
@@ -78,17 +78,17 @@ class OpenSearchDB(BaseVectorDB):
         """Note: nothing to return here. Discuss later"""
 
     def get(
-        self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
-    ) -> Set[str]:
+        self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None
+    ) -> set[str]:
         """
         Get existing doc ids present in vector database
 
         :param ids: _list of doc ids to check for existence
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :return: ids
-        :type: Set[str]
+        :type: set[str]
         """
         query = {}
         if ids:
@@ -116,19 +116,19 @@ class OpenSearchDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: List[List[str]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        **kwargs: Optional[Dict[str, any]],
+        embeddings: list[list[str]],
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
+        **kwargs: Optional[dict[str, any]],
     ):
         """Add data in vector database.
 
         Args:
-            embeddings (List[List[str]]): List of embeddings to add.
-            documents (List[str]): List of texts to add.
-            metadatas (List[object]): List of metadata associated with docs.
-            ids (List[str]): IDs of docs.
+            embeddings (list[list[str]]): list of embeddings to add.
+            documents (list[str]): list of texts to add.
+            metadatas (list[object]): list of metadata associated with docs.
+            ids (list[str]): IDs of docs.
         """
         for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
             batch_end = batch_start + self.BATCH_SIZE
@@ -156,26 +156,26 @@ class OpenSearchDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
+        where: dict[str, any],
         citations: bool = False,
-        **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, Dict]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         query contents from vector database based on vector similarity
 
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         embeddings = OpenAIEmbeddings()
         docsearch = OpenSearchVectorSearch(

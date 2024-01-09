@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 try:
     import weaviate
@@ -117,13 +117,13 @@ class WeaviateDB(BaseVectorDB):
 
             self.client.schema.create(class_obj)
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
         :param ids: _list of doc ids to check for existance
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :return: ids
         :rtype: Set[str]
         """
@@ -153,21 +153,21 @@ class WeaviateDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        **kwargs: Optional[Dict[str, any]],
+        embeddings: list[list[float]],
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
+        **kwargs: Optional[dict[str, any]],
     ):
         """add data in vector database
         :param embeddings: list of embeddings for the corresponding documents to be added
-        :type documents: List[List[float]]
+        :type documents: list[list[float]]
         :param documents: list of texts to add
-        :type documents: List[str]
+        :type documents: list[str]
         :param metadatas: list of metadata associated with docs
-        :type metadatas: List[object]
+        :type metadatas: list[object]
         :param ids: ids of docs
-        :type ids: List[str]
+        :type ids: list[str]
         """
         embeddings = self.embedder.embedding_fn(documents)
         self.client.batch.configure(batch_size=self.BATCH_SIZE, timeout_retries=3)  # Configure batch
@@ -192,25 +192,25 @@ class WeaviateDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
+        where: dict[str, any],
         citations: bool = False,
-        **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, Dict]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         query_vector = self.embedder.embedding_fn([input_query])[0]
         keys = set(where.keys() if where is not None else set())

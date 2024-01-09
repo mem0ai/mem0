@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.config import AddConfig
 from embedchain.data_formatter.data_formatter import DataFormatter
@@ -15,7 +15,7 @@ from embedchain.utils.misc import detect_datatype
 class DirectoryLoader(BaseLoader):
     """Load data from a directory."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
         config = config or {}
         self.recursive = config.get("recursive", True)

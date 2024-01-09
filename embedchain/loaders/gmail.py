@@ -5,7 +5,7 @@ import os
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 from textwrap import dedent
-from typing import Dict, List, Optional
+from typing import Optional
 
 from bs4 import BeautifulSoup
 
@@ -57,7 +57,7 @@ class GmailReader:
                 token.write(creds.to_json())
         return creds
 
-    def load_emails(self) -> List[Dict]:
+    def load_emails(self) -> list[dict]:
         response = self.service.users().messages().list(userId="me", q=self.query).execute()
         messages = response.get("messages", [])
 
@@ -67,7 +67,7 @@ class GmailReader:
         raw_message = self.service.users().messages().get(userId="me", id=message_id, format="raw").execute()
         return base64.urlsafe_b64decode(raw_message["raw"])
 
-    def _parse_email(self, raw_email) -> Dict:
+    def _parse_email(self, raw_email) -> dict:
         mime_msg = message_from_bytes(raw_email)
         return {
             "subject": self._get_header(mime_msg, "Subject"),
@@ -124,7 +124,7 @@ class GmailLoader(BaseLoader):
         return {"doc_id": self._generate_doc_id(query, data), "data": data}
 
     @staticmethod
-    def _process_email(email: Dict) -> str:
+    def _process_email(email: dict) -> str:
         content = BeautifulSoup(email["body"], "html.parser").get_text()
         content = clean_string(content)
         return dedent(
@@ -137,6 +137,6 @@ class GmailLoader(BaseLoader):
         )
 
     @staticmethod
-    def _generate_doc_id(query: str, data: List[Dict]) -> str:
+    def _generate_doc_id(query: str, data: list[dict]) -> str:
         content_strings = [email["content"] for email in data]
         return hashlib.sha256((query + ", ".join(content_strings)).encode()).hexdigest()

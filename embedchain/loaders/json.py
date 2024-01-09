@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-from typing import Dict, List, Union
+from typing import Union
 
 import requests
 
@@ -16,14 +16,14 @@ class JSONReader:
         pass
 
     @staticmethod
-    def load_data(json_data: Union[Dict, str]) -> List[str]:
+    def load_data(json_data: Union[dict, str]) -> list[str]:
         """Load data from a JSON structure.
 
         Args:
-            json_data (Union[Dict, str]): The JSON data to load.
+            json_data (Union[dict, str]): The JSON data to load.
 
         Returns:
-            List[str]: A list of strings representing the leaf nodes of the JSON.
+            list[str]: A list of strings representing the leaf nodes of the JSON.
         """
         if isinstance(json_data, str):
             json_data = json.loads(json_data)

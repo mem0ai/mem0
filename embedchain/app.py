@@ -4,7 +4,7 @@ import logging
 import os
 import sqlite3
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import requests
 import yaml
@@ -364,7 +364,7 @@ class App(EmbedChain):
     def from_config(
         cls,
         config_path: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
         auto_deploy: bool = False,
         yaml_path: Optional[str] = None,
     ):
@@ -374,7 +374,7 @@ class App(EmbedChain):
         :param config_path: Path to the YAML or JSON configuration file.
         :type config_path: Optional[str]
         :param config: A dictionary containing the configuration.
-        :type config: Optional[Dict[str, Any]]
+        :type config: Optional[dict[str, Any]]
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
         :param yaml_path: (Deprecated) Path to the YAML configuration file. Use config_path instead.

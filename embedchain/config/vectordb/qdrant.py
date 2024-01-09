@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Optional
 
 from embedchain.config.vectordb.base import BaseVectorDbConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -15,10 +15,10 @@ class QdrantDBConfig(BaseVectorDbConfig):
         self,
         collection_name: Optional[str] = None,
         dir: Optional[str] = None,
-        hnsw_config: Optional[Dict[str, any]] = None,
-        quantization_config: Optional[Dict[str, any]] = None,
+        hnsw_config: Optional[dict[str, any]] = None,
+        quantization_config: Optional[dict[str, any]] = None,
         on_disk: Optional[bool] = None,
-        **extra_params: Dict[str, any],
+        **extra_params: dict[str, any],
     ):
         """
         Initializes a configuration class instance for a qdrant client.
@@ -28,9 +28,9 @@ class QdrantDBConfig(BaseVectorDbConfig):
         :param dir: Path to the database directory, where the database is stored, defaults to None
         :type dir: Optional[str], optional
         :param hnsw_config: Params for HNSW index
-        :type hnsw_config: Optional[Dict[str, any]], defaults to None
+        :type hnsw_config: Optional[dict[str, any]], defaults to None
         :param quantization_config: Params for quantization, if None - quantization will be disabled
-        :type quantization_config: Optional[Dict[str, any]], defaults to None
+        :type quantization_config: Optional[dict[str, any]], defaults to None
         :param on_disk: If true - point`s payload will not be stored in memory.
                 It will be read from the disk every time it is requested.
                 This setting saves RAM by (slightly) increasing the response time.

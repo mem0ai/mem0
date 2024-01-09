@@ -1,6 +1,6 @@
 import logging
 import os  # noqa: F401
-from typing import Any, Dict
+from typing import Any
 
 from gptcache import cache  # noqa: F401
 from gptcache.adapter.adapter import adapt  # noqa: F401
@@ -15,7 +15,7 @@ from gptcache.similarity_evaluation.exact_match import \
     ExactMatchEvaluation  # noqa: F401
 
 
-def gptcache_pre_function(data: Dict[str, Any], **params: Dict[str, Any]):
+def gptcache_pre_function(data: dict[str, Any], **params: dict[str, Any]):
     return data["input_query"]
 
 

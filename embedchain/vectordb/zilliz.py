@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from embedchain.config import ZillizDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -88,14 +88,14 @@ class ZillizVectorDB(BaseVectorDB):
             self.collection.create_index("embeddings", index)
         return self.collection
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
         :param ids: list of doc ids to check for existence
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: Optional. to filter data
-        :type where: Dict[str, Any]
+        :type where: dict[str, Any]
         :param limit: Optional. maximum number of documents
         :type limit: Optional[int]
         :return: Existing documents.
@@ -115,11 +115,11 @@ class ZillizVectorDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        **kwargs: Optional[Dict[str, any]],
+        embeddings: list[list[float]],
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
+        **kwargs: Optional[dict[str, any]],
     ):
         """Add to database"""
         embeddings = self.embedder.embedding_fn(documents)
@@ -134,17 +134,17 @@ class ZillizVectorDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
+        where: dict[str, any],
         citations: bool = False,
-        **kwargs: Optional[Dict[str, Any]],
-    ) -> Union[List[Tuple[str, Dict]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         Query contents from vector database based on vector similarity
 
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
@@ -154,7 +154,7 @@ class ZillizVectorDB(BaseVectorDB):
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
 
         if self.collection.is_empty:
@@ -200,7 +200,7 @@ class ZillizVectorDB(BaseVectorDB):
         """
         return self.collection.num_entities
 
-    def reset(self, collection_names: List[str] = None):
+    def reset(self, collection_names: list[str] = None):
         """
         Resets the database. Deletes all embeddings irreversibly.
         """
