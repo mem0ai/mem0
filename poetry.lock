@@ -4678,32 +4678,6 @@ files = [
 ]
 
 [[package]]
-name = "psutil"
-version = "5.9.5"
-description = "Cross-platform lib for process and system monitoring in Python."
-optional = true
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-files = [
-    {file = "psutil-5.9.5-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:be8929ce4313f9f8146caad4272f6abb8bf99fc6cf59344a3167ecd74f4f203f"},
-    {file = "psutil-5.9.5-cp27-cp27m-manylinux2010_i686.whl", hash = "sha256:ab8ed1a1d77c95453db1ae00a3f9c50227ebd955437bcf2a574ba8adbf6a74d5"},
-    {file = "psutil-5.9.5-cp27-cp27m-manylinux2010_x86_64.whl", hash = "sha256:4aef137f3345082a3d3232187aeb4ac4ef959ba3d7c10c33dd73763fbc063da4"},
-    {file = "psutil-5.9.5-cp27-cp27mu-manylinux2010_i686.whl", hash = "sha256:ea8518d152174e1249c4f2a1c89e3e6065941df2fa13a1ab45327716a23c2b48"},
-    {file = "psutil-5.9.5-cp27-cp27mu-manylinux2010_x86_64.whl", hash = "sha256:acf2aef9391710afded549ff602b5887d7a2349831ae4c26be7c807c0a39fac4"},
-    {file = "psutil-5.9.5-cp27-none-win32.whl", hash = "sha256:5b9b8cb93f507e8dbaf22af6a2fd0ccbe8244bf30b1baad6b3954e935157ae3f"},
-    {file = "psutil-5.9.5-cp27-none-win_amd64.whl", hash = "sha256:8c5f7c5a052d1d567db4ddd231a9d27a74e8e4a9c3f44b1032762bd7b9fdcd42"},
-    {file = "psutil-5.9.5-cp36-abi3-macosx_10_9_x86_64.whl", hash = "sha256:3c6f686f4225553615612f6d9bc21f1c0e305f75d7d8454f9b46e901778e7217"},
-    {file = "psutil-5.9.5-cp36-abi3-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:7a7dd9997128a0d928ed4fb2c2d57e5102bb6089027939f3b722f3a210f9a8da"},
-    {file = "psutil-5.9.5-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:89518112647f1276b03ca97b65cc7f64ca587b1eb0278383017c2a0dcc26cbe4"},
-    {file = "psutil-5.9.5-cp36-abi3-win32.whl", hash = "sha256:104a5cc0e31baa2bcf67900be36acde157756b9c44017b86b2c049f11957887d"},
-    {file = "psutil-5.9.5-cp36-abi3-win_amd64.whl", hash = "sha256:b258c0c1c9d145a1d5ceffab1134441c4c5113b2417fafff7315a917a026c3c9"},
-    {file = "psutil-5.9.5-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:c607bb3b57dc779d55e1554846352b4e358c10fff3abf3514a7a6601beebdb30"},
-    {file = "psutil-5.9.5.tar.gz", hash = "sha256:5410638e4df39c54d957fc51ce03048acd8e6d60abc0f5107af51e5fb566eb3c"},
-]
-
-[package.extras]
-test = ["enum34", "ipaddress", "mock", "pywin32", "wmi"]
-
-[[package]]
 name = "psycopg"
 version = "3.1.12"
 description = "PostgreSQL database adapter for Python"
@@ -5968,27 +5942,28 @@ pyasn1 = ">=0.1.3"
 
 [[package]]
 name = "ruff"
-version = "0.0.220"
-description = "An extremely fast Python linter, written in Rust."
+version = "0.1.11"
+description = "An extremely fast Python linter and code formatter, written in Rust."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "ruff-0.0.220-py3-none-macosx_10_7_x86_64.whl", hash = "sha256:152e6697aca6aea991cdd37922c34a3e4db4828822c4663122326e6051e0f68a"},
-    {file = "ruff-0.0.220-py3-none-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:127887a00d53beb7c0c78a8b4bbdda2f14f07db7b3571feb6855cb32862cb88d"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:91235ff448786f8f3b856c104fd6c4fe11e835b0db75da5fdf337e1ed5d454da"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:2f0a104afc32012048627317ae8b0940e3f11a717905aed3fc26931a873e3b29"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:eee1deddf1671860e056a78938176600108857a527c078038627b284a554723c"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:071082d09c953924eccfd88ffd0d71119ddd6fc7767f3c31549a1cd0651ba586"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:a5ddfc945a9076c9779b52c1f7296cf8d8e6919e619c4522617bc37b60eddd2e"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:15f387fd156430353fb61d2b609f1c38d2e9096e2fce31149da5cf08b73f04a8"},
-    {file = "ruff-0.0.220-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b5688983f21ac64bbcca8d84f4107733cc2d62c1354ea1a6b85eb9ead32328cc"},
-    {file = "ruff-0.0.220-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:e2b0c9dbff13649ded5ee92d6a47d720e8471461e0a4eba01bf3474f851cb2f0"},
-    {file = "ruff-0.0.220-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:9b540fa9f90f46f656b34fb73b738613562974599903a1f0d40bdd1a8180bfab"},
-    {file = "ruff-0.0.220-py3-none-musllinux_1_2_i686.whl", hash = "sha256:a061c17c2b0f81193fca5e53829b6c0569c5c7d393cc4fc1c192ce0a64d3b9ca"},
-    {file = "ruff-0.0.220-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:42677089abd7db6f8aefa3dbe7a82fea4e2a43a08bc7bf6d3f58ec3d76c63712"},
-    {file = "ruff-0.0.220-py3-none-win32.whl", hash = "sha256:f8821cfc204b38140afe870bcd4cc6c836bbd2f820b92df66b8fe8b8d71a3772"},
-    {file = "ruff-0.0.220-py3-none-win_amd64.whl", hash = "sha256:8a1d678a224afd7149afbe497c97c3ccdc6c42632ee84fb0e3f68d190c1ccec1"},
-    {file = "ruff-0.0.220.tar.gz", hash = "sha256:621f7f063c0d13570b709fb9904a329ddb9a614fdafc786718afd43e97440c34"},
+    {file = "ruff-0.1.11-py3-none-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:a7f772696b4cdc0a3b2e527fc3c7ccc41cdcb98f5c80fdd4f2b8c50eb1458196"},
+    {file = "ruff-0.1.11-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:934832f6ed9b34a7d5feea58972635c2039c7a3b434fe5ba2ce015064cb6e955"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ea0d3e950e394c4b332bcdd112aa566010a9f9c95814844a7468325290aabfd9"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:9bd4025b9c5b429a48280785a2b71d479798a69f5c2919e7d274c5f4b32c3607"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e1ad00662305dcb1e987f5ec214d31f7d6a062cae3e74c1cbccef15afd96611d"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:4b077ce83f47dd6bea1991af08b140e8b8339f0ba8cb9b7a484c30ebab18a23f"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:c4a88efecec23c37b11076fe676e15c6cdb1271a38f2b415e381e87fe4517f18"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:5b25093dad3b055667730a9b491129c42d45e11cdb7043b702e97125bcec48a1"},
+    {file = "ruff-0.1.11-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:231d8fb11b2cc7c0366a326a66dafc6ad449d7fcdbc268497ee47e1334f66f77"},
+    {file = "ruff-0.1.11-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:09c415716884950080921dd6237767e52e227e397e2008e2bed410117679975b"},
+    {file = "ruff-0.1.11-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:0f58948c6d212a6b8d41cd59e349751018797ce1727f961c2fa755ad6208ba45"},
+    {file = "ruff-0.1.11-py3-none-musllinux_1_2_i686.whl", hash = "sha256:190a566c8f766c37074d99640cd9ca3da11d8deae2deae7c9505e68a4a30f740"},
+    {file = "ruff-0.1.11-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:6464289bd67b2344d2a5d9158d5eb81025258f169e69a46b741b396ffb0cda95"},
+    {file = "ruff-0.1.11-py3-none-win32.whl", hash = "sha256:9b8f397902f92bc2e70fb6bebfa2139008dc72ae5177e66c383fa5426cb0bf2c"},
+    {file = "ruff-0.1.11-py3-none-win_amd64.whl", hash = "sha256:eb85ee287b11f901037a6683b2374bb0ec82928c5cbc984f575d0437979c521a"},
+    {file = "ruff-0.1.11-py3-none-win_arm64.whl", hash = "sha256:97ce4d752f964ba559c7023a86e5f8e97f026d511e48013987623915431c7ea9"},
+    {file = "ruff-0.1.11.tar.gz", hash = "sha256:f9d4d88cb6eeb4dfe20f9f0519bd2eaba8119bde87c3d5065c541dbae2b5a2cb"},
 ]
 
 [[package]]
@@ -8145,4 +8120,4 @@ youtube = ["youtube-transcript-api", "yt_dlp"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "8def3cb3aa4737793eaacd9358c092e0331f001044f5cacca513fc47faf44b06"
+content-hash = "e22ac2ddd59d53039c47f326504364ff3a8000df9a954d79fbe671c75e88599f"

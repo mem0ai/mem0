@@ -144,6 +144,7 @@ class BaseLlmConfig(BaseConfig):
         self.api_key = api_key
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+
         if isinstance(prompt, str):
             prompt = Template(prompt)
 
