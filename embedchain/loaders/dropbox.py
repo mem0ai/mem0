@@ -1,6 +1,5 @@
 import hashlib
 import os
-from typing import List
 
 from dropbox.files import FileMetadata
 
@@ -29,7 +28,7 @@ class DropboxLoader(BaseLoader):
         except exceptions.AuthError as ex:
             raise ValueError("Invalid Dropbox access token. Please verify your token and try again.") from ex
 
-    def _download_folder(self, path: str, local_root: str) -> List[FileMetadata]:
+    def _download_folder(self, path: str, local_root: str) -> list[FileMetadata]:
         """Download a folder from Dropbox and save it preserving the directory structure."""
         entries = self.dbx.files_list_folder(path).entries
         for entry in entries:
