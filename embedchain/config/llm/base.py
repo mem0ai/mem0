@@ -145,7 +145,7 @@ class BaseLlmConfig(BaseConfig):
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
 
-        if type(prompt) is str:
+        if isinstance(prompt, str):
             prompt = Template(prompt)
 
         if self.validate_prompt(prompt):
