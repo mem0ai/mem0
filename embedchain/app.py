@@ -393,7 +393,7 @@ class App(EmbedChain):
 
         if config_path:
             file_extension = os.path.splitext(config_path)[1]
-            with open(config_path, "r") as file:
+            with open(config_path, "r", encoding="UTF-8") as file:
                 if file_extension in [".yaml", ".yml"]:
                     config_data = yaml.safe_load(file)
                 elif file_extension == ".json":
