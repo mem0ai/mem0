@@ -18,12 +18,13 @@ from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.eval import ContextRelevance, EvalData, EvalMetric
+from embedchain.eval import AnswerRelevance, ContextRelevance
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
+from embedchain.utils.eval import EvalData, EvalMetric
 from embedchain.utils.misc import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
@@ -463,13 +464,14 @@ class App(EmbedChain):
         """
         if metric == EvalMetric.CONTEXT_RELEVANCY:
             eval_cls = ContextRelevance()
-            return eval_cls.evaluate_data(dataset)
+            return eval_cls.evaluate(dataset)
         elif metric == EvalMetric.ANSWER_RELEVANCY:
-            pass
+            eval_cls = AnswerRelevance()
+            return eval_cls.evaluate(dataset)
         elif metric == EvalMetric.GROUNDEDNESS:
-            pass
+            raise NotImplementedError("Groundedness metric is not implemented yet.")
         else:
-            raise ValueError(f"Invalid metric {metric} provided.")
+            raise NotImplementedError(f"{metric} metric is not implemented yet.")
 
     def evaluate(self, dataset: list[EvalData], metrics: list[EvalMetric]):
         """
@@ -491,10 +493,11 @@ class App(EmbedChain):
         for metric in metrics:
             result[metric.value] = self._eval(dataset, metric)
 
-        # Send anonymous telemetry
-        telemetry_props = self._telemetry_props
-        telemetry_props["dataset_size"] = len(dataset)
-        telemetry_props["metrics"] = metrics
-        self.telemetry.capture(event_name="evaluate", properties=telemetry_props)
+        if self.config.collect_metrics:
+            # Send anonymous telemetry
+            telemetry_props = self._telemetry_props
+            telemetry_props["dataset_size"] = len(dataset)
+            telemetry_props["metrics"] = list(map(lambda x: x.value, metrics))
+            self.telemetry.capture(event_name="evaluate", properties=telemetry_props)
 
         return result

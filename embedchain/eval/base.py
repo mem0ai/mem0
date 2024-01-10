@@ -1,6 +1,6 @@
 from abc import ABC
 
-from .utils import EvalData
+from embedchain.utils.eval import EvalData
 
 
 class BaseMetric(ABC):
@@ -14,7 +14,7 @@ class BaseMetric(ABC):
         Initialize the BaseMetric.
         """
 
-    def evaluate_data(self, dataset: list[EvalData]):
+    def evaluate(self, dataset: list[EvalData]):
         """Evaluate the dataset.
 
         param: dataset: The dataset to evaluate.
