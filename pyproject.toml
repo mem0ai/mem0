@@ -22,7 +22,7 @@ build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core"]
 
 [tool.ruff]
-select = ["E", "F"]
+select = ["ASYNC", "E", "F"]
 ignore = []
 fixable = ["ALL"]
 unfixable = []
@@ -152,7 +152,7 @@ google-api-core = { version = "^2.15.0", optional = true }
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pre-commit = "^3.2.2"
-ruff = "^0.0.220"
+ruff = "^0.1.11"
 pytest = "^7.3.1"
 pytest-mock = "^3.10.0"
 pytest-env = "^0.8.1"
