@@ -1,4 +1,5 @@
 import ast
+import concurrent.futures
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from typing import Any, Optional
 
 import requests
 import yaml
+from tqdm import tqdm
 
 from embedchain.cache import (Config, ExactMatchEvaluation,
                               SearchDistanceEvaluation, cache,
@@ -473,30 +475,41 @@ class App(EmbedChain):
         else:
             raise NotImplementedError(f"{metric} metric is not implemented yet.")
 
-    def evaluate(self, dataset: list[EvalData], metrics: list[EvalMetric]):
+    def evaluate(
+        self, question: str, metrics: list[EvalMetric] = [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY]
+    ):
         """
-        Evaluate the app on a dataset.
+        Evaluate the app on a question.
 
-        param: dataset: The dataset to evaluate the app on.
-        type: dataset: List of EvalData points with question, contexts and answer.
+        param: question: The question to evaluate for the current app.
+        type: question: str.
         param: metrics: The metrices to evaluate the app on.
         type: metrics: List of strings with combination of context_relevancy, answer_relevancy, and groundness.
         """
-        if not metrics or not dataset:
-            raise ValueError("Please provide both dataset and metrics.")
-
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError("Please set the OPENAI_API_KEY environment variable with permission to use `gpt4` model.")
 
+        answer, context = self.query(question, citations=True)
+        contexts = list(map(lambda x: x[0], context))
+
+        logging.info(f"Evaluating question: {question}, answer: {answer}, context: {contexts}")
+        data = EvalData(question=question, contexts=contexts, answer=answer)
+
         result = {}
-        # TODO: (Deven) add parallel processing for each metric
-        for metric in metrics:
-            result[metric.value] = self._eval(dataset, metric)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_metric = {executor.submit(self._eval, [data], metric): metric for metric in metrics}
+            for future in tqdm(
+                concurrent.futures.as_completed(future_to_metric),
+                total=len(future_to_metric),
+                desc="Evaluating matrics",
+            ):
+                metric = future_to_metric[future]
+                result[metric.value] = future.result()
 
         if self.config.collect_metrics:
             # Send anonymous telemetry
             telemetry_props = self._telemetry_props
-            telemetry_props["dataset_size"] = len(dataset)
+            telemetry_props["question"] = question
             telemetry_props["metrics"] = list(map(lambda x: x.value, metrics))
             self.telemetry.capture(event_name="evaluate", properties=telemetry_props)
 

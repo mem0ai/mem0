@@ -55,7 +55,6 @@ class AnswerRelevance(BaseMetric):
         )
         result = response.choices[0].message.content.strip()
         generated_questions = [result.split("\n")]
-        print("Generated Questions: ", generated_questions)
         return generated_questions
 
     def _generate_embedding(self, question: str) -> list[float]:
@@ -74,9 +73,6 @@ class AnswerRelevance(BaseMetric):
         """
         Compute the cosine similarity between original and a generated question.
         """
-        import pdb
-
-        pdb.set_trace()
         og_question_vec = np.asarray(original_question_embeddings).reshape(1, -1)
         gen_question_vec = np.asarray(generated_question_embeddings)
         norm = np.linalg.norm(og_question_vec, axis=1) * np.linalg.norm(gen_question_vec, axis=1)
