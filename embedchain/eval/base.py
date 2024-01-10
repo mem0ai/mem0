@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from embedchain.utils.eval import EvalData
 
@@ -14,9 +14,15 @@ class BaseMetric(ABC):
         Initialize the BaseMetric.
         """
 
+    @abstractmethod
     def evaluate(self, dataset: list[EvalData]):
-        """Evaluate the dataset.
-
-        param: dataset: The dataset to evaluate.
         """
-        raise NotImplementedError
+        Abstract method to evaluate the dataset.
+
+        This method should be implemented by subclasses to perform the actual
+        evaluation on the dataset.
+
+        :param dataset: dataset to evaluate
+        :type dataset: list[EvalData]
+        """
+        raise NotImplementedError()
