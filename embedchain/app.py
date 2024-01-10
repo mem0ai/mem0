@@ -18,6 +18,7 @@ from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
+from embedchain.eval import ContextRelevance, EvalData, EvalMetric
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -455,3 +456,45 @@ class App(EmbedChain):
             chunker=chunker_config_data,
             cache_config=cache_config,
         )
+
+    def _eval(self, dataset: list[EvalData], metric: EvalMetric):
+        """
+        Evaluate the app on a dataset for a given metric.
+        """
+        if metric == EvalMetric.CONTEXT_RELEVANCY:
+            eval_cls = ContextRelevance()
+            return eval_cls.evaluate_data(dataset)
+        elif metric == EvalMetric.ANSWER_RELEVANCY:
+            pass
+        elif metric == EvalMetric.GROUNDEDNESS:
+            pass
+        else:
+            raise ValueError(f"Invalid metric {metric} provided.")
+
+    def evaluate(self, dataset: list[EvalData], metrics: list[EvalMetric]):
+        """
+        Evaluate the app on a dataset.
+
+        param: dataset: The dataset to evaluate the app on.
+        type: dataset: List of EvalData points with question, contexts and answer.
+        param: metrics: The metrices to evaluate the app on.
+        type: metrics: List of strings with combination of context_relevancy, answer_relevancy, and groundness.
+        """
+        if not metrics or not dataset:
+            raise ValueError("Please provide both dataset and metrics.")
+
+        if "OPENAI_API_KEY" not in os.environ:
+            raise ValueError("Please set the OPENAI_API_KEY environment variable with permission to use `gpt4` model.")
+
+        result = {}
+        # TODO: (Deven) add parallel processing for each metric
+        for metric in metrics:
+            result[metric.value] = self._eval(dataset, metric)
+
+        # Send anonymous telemetry
+        telemetry_props = self._telemetry_props
+        telemetry_props["dataset_size"] = len(dataset)
+        telemetry_props["metrics"] = metrics
+        self.telemetry.capture(event_name="evaluate", properties=telemetry_props)
+
+        return result
