@@ -3,6 +3,7 @@ from string import Template
 from typing import Optional
 
 import numpy as np
+import pysbd
 from openai import OpenAI
 
 from ..base import BaseMetric
@@ -36,6 +37,20 @@ class ContextRelevance(BaseMetric):
         if not api_key:
             raise ValueError("Please set the OPENAI_API_KEY environment variable or pass the `api_key` in config.")
         self.client = OpenAI(api_key=api_key)
+        self.sbd = pysbd.Segmenter(language=self.config.language, clean=False)
+
+    def _sentence_segmenter(self, text: str) -> list[str]:
+        """
+        Segment text into sentences.
+
+        param: text: text to segment
+        type: text: str
+        return: list of sentences
+        rtype: list[str]
+        """
+        sentences = self.sbd.segment(text)
+        assert isinstance(sentences, list)
+        return sentences
 
     def _compute_score(self, data: EvalData) -> float:
         """
@@ -52,8 +67,10 @@ class ContextRelevance(BaseMetric):
             ],
             model=self.config.model_name,
         )
-        useful_context = response.choices[0].message.content
-        return len(useful_context) / len(original_context)
+        useful_context = response.choices[0].message.content.strip()
+        useful_context_sentences = self._sentence_segmenter(useful_context)
+        original_context_sentences = self._sentence_segmenter(original_context)
+        return len(useful_context_sentences) / len(original_context_sentences)
 
     def evaluate_data(self, dataset: list[EvalData]):
         """
