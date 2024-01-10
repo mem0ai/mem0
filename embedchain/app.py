@@ -5,7 +5,7 @@ import logging
 import os
 import sqlite3
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import requests
 import yaml
@@ -20,7 +20,7 @@ from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.eval import AnswerRelevance, ContextRelevance
+from embedchain.eval.metrics import AnswerRelevance, ContextRelevance
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -460,34 +460,33 @@ class App(EmbedChain):
             cache_config=cache_config,
         )
 
-    def _eval(self, dataset: list[EvalData], metric: EvalMetric):
+    def _eval(self, dataset: list[EvalData], metric: Union[EvalMetric, str]):
         """
         Evaluate the app on a dataset for a given metric.
         """
-        if metric == EvalMetric.CONTEXT_RELEVANCY:
-            eval_cls = ContextRelevance()
-            return eval_cls.evaluate(dataset)
-        elif metric == EvalMetric.ANSWER_RELEVANCY:
-            eval_cls = AnswerRelevance()
-            return eval_cls.evaluate(dataset)
-        elif metric == EvalMetric.GROUNDEDNESS:
-            raise NotImplementedError("Groundedness metric is not implemented yet.")
-        else:
-            raise NotImplementedError(f"{metric} metric is not implemented yet.")
+        metric_str = metric.value if isinstance(metric, EvalMetric) else metric
+        eval_class_map = {
+            EvalMetric.CONTEXT_RELEVANCY.value: ContextRelevance,
+            EvalMetric.ANSWER_RELEVANCY.value: AnswerRelevance,
+        }
 
-    def evaluate(
-        self, question: str, metrics: list[EvalMetric] = [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY]
-    ):
+        if metric_str in eval_class_map:
+            return eval_class_map[metric_str]().evaluate(dataset)
+
+        # Handle the case for custom metrics
+        if isinstance(metric, EvalMetric):
+            return metric.evaluate(dataset)
+        else:
+            raise ValueError(f"Invalid metric: {metric}")
+
+    def evaluate(self, question: str, metrics: Optional[list[Union[EvalMetric, str]]] = None):
         """
         Evaluate the app on a question.
-
-        param: question: The question to evaluate for the current app.
-        type: question: str.
-        param: metrics: The metrices to evaluate the app on.
-        type: metrics: List of strings with combination of context_relevancy, answer_relevancy, and groundness.
         """
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError("Please set the OPENAI_API_KEY environment variable with permission to use `gpt4` model.")
+
+        metrics = metrics or [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY]
 
         answer, context = self.query(question, citations=True)
         contexts = list(map(lambda x: x[0], context))
@@ -507,10 +506,10 @@ class App(EmbedChain):
                 result[metric.value] = future.result()
 
         if self.config.collect_metrics:
-            # Send anonymous telemetry
             telemetry_props = self._telemetry_props
-            telemetry_props["question"] = question
-            telemetry_props["metrics"] = list(map(lambda x: x.value, metrics))
+            telemetry_props["metrics"] = [
+                metric.value for metric in metrics if isinstance(metric, EvalMetric) or metric
+            ]
             self.telemetry.capture(event_name="evaluate", properties=telemetry_props)
 
         return result

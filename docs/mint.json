@@ -131,8 +131,7 @@
         },
         "components/llms",
         "components/vector-databases",
-        "components/embedding-models",
-        "components/evaluation"
+        "components/embedding-models"
       ]
     },
     {
@@ -209,8 +208,7 @@
             "api-reference/pipeline/search",
             "api-reference/pipeline/deploy",
             "api-reference/pipeline/reset",
-            "api-reference/pipeline/delete",
-            "api-reference/pipeline/evaluate"
+            "api-reference/pipeline/delete"
           ]
         },
         "api-reference/store/openai-assistant",
