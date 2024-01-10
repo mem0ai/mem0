@@ -1,0 +1,123 @@
+---
+title: 🔬 Evaluation
+---
+
+## Overview
+
+We provide out-of-the-box evaluation methods for your datasets. You can use them to evaluate your models and compare them with other models.
+
+Currently, we provide the following evaluation methods:
+
+<CardGroup cols={3}>
+    <Card title="Context Relevancy" href="#context_relevancy"></Card>
+    <Card title="Answer Relevancy" href="#answer_relevancy"></Card>
+</CardGroup>
+
+More evaluation metrics are coming soon! 🏗️
+
+## Usage
+
+We have found that the best way to evaluate datasets is with the help of OpenAI's `gpt-4` model. Hence, we require you to set `OPENAI_API_KEY` as an environment variable. If you don't want to set it, you can pass it in the config argument of the respective evaluation class, as shown in the examples below.
+
+We will assume the following dataset for the examples:
+
+```python
+from embedchain.utils.eval import EvalData
+
+data = [
+    (
+        "What is the net worth of Elon Musk?",
+        [
+            """Elon Musk PROFILEElon MuskCEO, ...""",
+            """a Twitter poll on whether the journalists' ...""",
+            """2016 and run by Jared Birchall.[335]...""",
+        ],
+        "As of the information provided, Elon Musk's net worth is $241.6 billion.",
+    ),
+    (
+        "which companies does Elon Musk own?",
+        [
+            """of December 2023[update], ...""",
+            """ThielCofounderView ProfileTeslaHolds ...""",
+            """Elon Musk PROFILEElon MuskCEO, ...""",
+        ],
+        "Elon Musk owns several companies, including Tesla, SpaceX, Neuralink, and The Boring Company.",
+    ),
+]
+
+dataset = []
+
+for d in data:
+    dataset.append(EvalData(question=d[0], contexts=d[1], answer=d[2]))
+```
+
+## Context Relevancy <a id="context_relevancy"></a>
+
+You can run the context relevancy evaluation with the following simple code:
+
+```python
+from embedchain.eval import ContextRelevance
+metric = ContextRelevance()
+score = metric.evaluate(dataset)    # dataset from above
+print(score)
+# 0.27975528364849833
+```
+
+In the above example, we used sensible defaults for the evaluation. However, you can also configure the evaluation metric as per your needs using the `ContextRelevanceConfig` class. 
+
+### ContextRelevanceConfig
+
+<ParamField path="model" type="str" optional>
+    The model to use for the evaluation. Defaults to `gpt-4`. We only support openai's models for now.
+</ParamField>
+<ParamField path="api_key" type="str" optional>
+    The openai api key to use for the evaluation. Defaults to `None`. If not provided, we will use the `OPENAI_API_KEY` environment variable.
+</ParamField>
+<ParamField path="language" type="str" optional>
+    The language of the dataset being evaluated. We need this to determine the understand the context provided in the dataset. Defaults to `en`.
+</ParamField>
+
+```python
+openai_api_key = "sk-xxx"
+metric = ContextRelevance(config=ContextRelevanceConfig(model='gpt-4', api_key=openai_api_key, language="en"))
+print(metric.evaluate(dataset))
+```
+
+
+## Answer Relevancy <a id="answer_relevancy"></a>
+
+You can run the answer relevancy evaluation with the following simple code:
+
+```python
+from embedchain.eval import AnswerRelevance
+metric = AnswerRelevance()
+score = metric.evaluate(dataset)    # dataset from above
+print(score)
+# 0.9505334177461916
+```
+
+In the above example, we used sensible defaults for the evaluation. However, you can also configure the evaluation metric as per your needs using the `AnswerRelevanceConfig` class.
+
+### AnswerRelevanceConfig
+
+<ParamField path="model" type="str" optional>
+    The model to use for the evaluation. Defaults to `gpt-4`. We only support openai's models for now.
+</ParamField>
+<ParamField path="embedder" type="str" optional>
+    The embedder to use for embedding the text. Defaults to `text-embedding-ada-002`. We only support openai's embedders for now.
+</ParamField>
+<ParamField path="api_key" type="str" optional>
+    The openai api key to use for the evaluation. Defaults to `None`. If not provided, we will use the `OPENAI_API_KEY` environment variable.
+</ParamField>
+<ParamField path="num_gen_questions" type="int" optional>
+    The number of questions to generate for each answer. We use the generated questions to compare the similarity with the original question to determine the score. Defaults to `1`.
+</ParamField>
+
+```python
+openai_api_key = "sk-xxx"
+metric = AnswerRelevance(config=AnswerRelevanceConfig(model='gpt-4',
+                                                      embedder="text-embedding-ada-002",
+                                                      api_key=openai_api_key,
+                                                      num_gen_questions=2))
+print(metric.evaluate(dataset))
+```

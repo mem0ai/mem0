@@ -1,0 +1,37 @@
+---
+title: '📝 evaluate'
+---
+
+`evaluate()` method is used to evaluate the performance of your app on a given question. You can find 
+the signature below:
+
+### Parameters
+
+<ParamField path="question" type="str">
+    The question to evaluate your app on.
+</ParamField>
+<ParamField path="metrics" type="list[EvalMetric]" optional>
+    The metrics to evaluate your app on. Defaults to all metrics: \["context_relevancy","answer_relevancy"\]
+</ParamField>
+
+### Returns
+
+<ResponseField name="metrics" type="dict">
+    Returns the metrics you have chosen to evaluate your app on as a dictionary.
+</ResponseField>
+
+## Usage
+
+```python
+from embedchain import App
+
+app = App()
+
+# add data sources
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.evaluate("what is the net worth of Elon Musk?")
+print(response)
+# {'answer_relevancy': 0.958019958036268, 'context_relevancy': 0.12903225806451613}
+```
