@@ -102,6 +102,7 @@ rich = "^13.7.0"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^3.11.0"
 gptcache = "^0.1.43"
+pysbd = "^0.3.4"
 tiktoken = { version = "^0.4.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }
 pytube = { version = "^15.0.0", optional = true }
