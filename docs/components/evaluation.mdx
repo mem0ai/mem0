@@ -27,30 +27,30 @@ We will assume the following dataset for the examples:
 from embedchain.utils.eval import EvalData
 
 data = [
-    (
-        "What is the net worth of Elon Musk?",
-        [
+    {
+        "question": "What is the net worth of Elon Musk?",
+        "contexts": [
             """Elon Musk PROFILEElon MuskCEO, ...""",
             """a Twitter poll on whether the journalists' ...""",
             """2016 and run by Jared Birchall.[335]...""",
         ],
-        "As of the information provided, Elon Musk's net worth is $241.6 billion.",
-    ),
-    (
-        "which companies does Elon Musk own?",
-        [
+        "answer": "As of the information provided, Elon Musk's net worth is $241.6 billion.",
+    },
+    {
+        "question": "which companies does Elon Musk own?",
+        "contexts": [
             """of December 2023[update], ...""",
             """ThielCofounderView ProfileTeslaHolds ...""",
             """Elon Musk PROFILEElon MuskCEO, ...""",
         ],
-        "Elon Musk owns several companies, including Tesla, SpaceX, Neuralink, and The Boring Company.",
-    ),
+        "answer": "Elon Musk owns several companies, including Tesla, SpaceX, Neuralink, and The Boring Company.",
+    },
 ]
 
 dataset = []
 
 for d in data:
-    dataset.append(EvalData(question=d[0], contexts=d[1], answer=d[2]))
+    dataset.append(EvalData(question=d["question"], contexts=d["contexts"], answer=d["answer"]))
 ```
 
 ## Context Relevancy <a id="context_relevancy"></a>
