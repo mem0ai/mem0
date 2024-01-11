@@ -28,14 +28,13 @@ class TestEsDB(unittest.TestCase):
         # Assert that the Elasticsearch client is stored in the ElasticsearchDB class.
         self.assertEqual(self.db.client, mock_client.return_value)
 
-        # Create some dummy data.
-        embeddings = [[1, 2, 3], [4, 5, 6]]
+        # Create some dummy data
         documents = ["This is a document.", "This is another document."]
         metadatas = [{"url": "url_1", "doc_id": "doc_id_1"}, {"url": "url_2", "doc_id": "doc_id_2"}]
         ids = ["doc_1", "doc_2"]
 
         # Add the data to the database.
-        self.db.add(embeddings, documents, metadatas, ids)
+        self.db.add(documents, metadatas, ids)
 
         search_response = {
             "hits": {

@@ -153,15 +153,12 @@ class WeaviateDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: list[list[float]],
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
         **kwargs: Optional[dict[str, any]],
     ):
         """add data in vector database
-        :param embeddings: list of embeddings for the corresponding documents to be added
-        :type documents: list[list[float]]
         :param documents: list of texts to add
         :type documents: list[str]
         :param metadatas: list of metadata associated with docs

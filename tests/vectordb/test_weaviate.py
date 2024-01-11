@@ -126,30 +126,29 @@ class TestWeaviateDb(unittest.TestCase):
         App(config=app_config, db=db, embedding_model=embedder)
         db.BATCH_SIZE = 1
 
-        embeddings = [[1, 2, 3], [4, 5, 6]]
         documents = ["This is a test document.", "This is another test document."]
         metadatas = [None, None]
         ids = ["123", "456"]
-        db.add(embeddings, documents, metadatas, ids)
+        db.add(documents, metadatas, ids)
 
         # Check if the document was added to the database.
         weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=1, timeout_retries=3)
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"text": documents[0]}, class_name="Embedchain_store_1526_metadata", vector=embeddings[0]
+            data_object={"text": documents[0]}, class_name="Embedchain_store_1526_metadata", vector=[0, 0, 0]
         )
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"text": documents[1]}, class_name="Embedchain_store_1526_metadata", vector=embeddings[1]
+            data_object={"text": documents[1]}, class_name="Embedchain_store_1526_metadata", vector=[1, 1, 1]
         )
 
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
             data_object={"identifier": ids[0], "text": documents[0]},
             class_name="Embedchain_store_1526",
-            vector=embeddings[0],
+            vector=[0, 0, 0],
         )
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
             data_object={"identifier": ids[1], "text": documents[1]},
             class_name="Embedchain_store_1526",
-            vector=embeddings[1],
+            vector=[1, 1, 1],
         )
 
     @patch("embedchain.vectordb.weaviate.weaviate")

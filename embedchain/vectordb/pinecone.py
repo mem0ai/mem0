@@ -88,7 +88,6 @@ class PineconeDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: list[list[float]],
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
