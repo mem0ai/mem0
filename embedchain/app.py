@@ -483,11 +483,14 @@ class App(EmbedChain):
             raise ValueError(f"Invalid metric: {metric}")
 
     def evaluate(
-        self, questions: Union[str, list[str]], metrics: Optional[list[Union[BaseMetric, str]]] = None, num_workers: int = 4
+        self,
+        questions: Union[str, list[str]],
+        metrics: Optional[list[Union[BaseMetric, str]]] = None,
+        num_workers: int = 4,
     ):
         """
         Evaluate the app on a question.
-        
+
         param: questions: A question or a list of questions to evaluate.
         type: questions: Union[str, list[str]]
         param: metrics: A list of metrics to evaluate. Defaults to all metrics.
