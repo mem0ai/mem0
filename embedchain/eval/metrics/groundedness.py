@@ -87,7 +87,7 @@ class Groundedness(BaseMetric):
         results = []
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_data = {executor.submit(self._compute_score, data): data for data in enumerate(dataset)}
+            future_to_data = {executor.submit(self._compute_score, data): data for data in dataset}
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_data),
                 total=len(future_to_data),

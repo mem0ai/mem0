@@ -475,13 +475,15 @@ class App(EmbedChain):
         if metric_str in eval_class_map:
             return eval_class_map[metric_str]().evaluate(dataset)
 
-        # Handle the case for custom metrics
+        # TODO: (Deven) Handle the case for custom metrics
         if isinstance(metric, EvalMetric):
             return metric.evaluate(dataset)
         else:
             raise ValueError(f"Invalid metric: {metric}")
 
-    def evaluate(self, question: str, metrics: Optional[list[Union[EvalMetric, str]]] = None):
+    def evaluate(
+        self, question: Union[str, list[str]], metrics: Optional[list[Union[EvalMetric, str]]] = None, **kwargs: Any
+    ):
         """
         Evaluate the app on a question.
         """
@@ -490,19 +492,39 @@ class App(EmbedChain):
 
         metrics = metrics or [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY, EvalMetric.GROUNDEDNESS]
 
-        answer, context = self.query(question, citations=True)
-        contexts = list(map(lambda x: x[0], context))
+        questions, answers, contexts = [], [], []
+        if isinstance(question, list):
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_to_data = {executor.submit(self.query, q, citations=True): q for q in question}
+                for future in tqdm(
+                    concurrent.futures.as_completed(future_to_data),
+                    total=len(future_to_data),
+                    desc="Getting answer and contexts for questions",
+                ):
+                    question = future_to_data[future]
+                    questions.append(question)
+                    answer, context = future.result()
+                    answers.append(answer)
+                    contexts.append(list(map(lambda x: x[0], context)))
+        else:
+            answer, context = self.query(question, citations=True)
+            questions = [question]
+            answers = [answer]
+            contexts = [list(map(lambda x: x[0], context))]
 
-        logging.info(f"Evaluating question: {question}, answer: {answer}, context: {contexts}")
-        data = EvalData(question=question, contexts=contexts, answer=answer)
+        logging.info(f"Collecting data from {len(questions)} questions for evaluation...")
+        dataset = []
+        for q, a, c in zip(questions, answers, contexts):
+            dataset.append(EvalData(question=q, answer=a, contexts=c))
 
+        logging.info(f"Evaluating {len(dataset)} data points...")
         result = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_metric = {executor.submit(self._eval, [data], metric): metric for metric in metrics}
+            future_to_metric = {executor.submit(self._eval, dataset, metric): metric for metric in metrics}
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_metric),
                 total=len(future_to_metric),
-                desc="Evaluating matrics",
+                desc="Evaluating metrics",
             ):
                 metric = future_to_metric[future]
                 result[metric.value] = future.result()
