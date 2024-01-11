@@ -15,7 +15,7 @@ from embedchain.utils.eval import EvalData, EvalMetric
 
 class Groundedness(BaseMetric):
     """
-    Metric for groundedness (aka faithfulness) of answer from the given contexts.
+    Metric for groundedness of answer from the given contexts.
     """
 
     def __init__(self, config: Optional[GroundednessConfig] = None):
@@ -70,7 +70,7 @@ class Groundedness(BaseMetric):
 
     def _compute_score(self, data: EvalData) -> float:
         """
-        Compute the groundedness score (aka faithfulness) for a single data point.
+        Compute the groundedness score for a single data point.
         """
         answer_claims_prompt = self._generate_answer_claim_prompt(data)
         claim_statements = self._get_claim_statements(answer_claims_prompt)
@@ -90,7 +90,7 @@ class Groundedness(BaseMetric):
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_data),
                 total=len(future_to_data),
-                desc="Evaluating groundedness (aka faithfulness)",
+                desc="Evaluating Groundedness",
             ):
                 data = future_to_data[future]
                 try:
