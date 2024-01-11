@@ -20,7 +20,8 @@ from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.eval.metrics import AnswerRelevance, ContextRelevance
+from embedchain.eval.metrics import (AnswerRelevance, ContextRelevance,
+                                     Groundedness)
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -468,6 +469,7 @@ class App(EmbedChain):
         eval_class_map = {
             EvalMetric.CONTEXT_RELEVANCY.value: ContextRelevance,
             EvalMetric.ANSWER_RELEVANCY.value: AnswerRelevance,
+            EvalMetric.GROUNDEDNESS.value: Groundedness,
         }
 
         if metric_str in eval_class_map:
@@ -486,7 +488,7 @@ class App(EmbedChain):
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError("Please set the OPENAI_API_KEY environment variable with permission to use `gpt4` model.")
 
-        metrics = metrics or [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY]
+        metrics = metrics or [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY, EvalMetric.GROUNDEDNESS]
 
         answer, context = self.query(question, citations=True)
         contexts = list(map(lambda x: x[0], context))

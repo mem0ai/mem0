@@ -89,4 +89,4 @@ class AnswerRelevance(BaseMetric):
                 except Exception as e:
                     logging.error(f"Error evaluating answer relevancy for {data}: {e}")
 
-        return np.mean(results) if results else 0
+        return np.mean(results) if results else 0.0

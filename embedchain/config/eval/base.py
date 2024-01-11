@@ -22,6 +22,45 @@ Context: $context
 Question: $question
 """  # noqa:E501
 
+CLAIMS_IN_ANSWER_PROMPT = """
+Please provide one or more statements from each sentence of the provided answer.
+You must provide the symantically equivalent statements for each sentence of the answer.
+You must provide the complete statement, if are not able to provide the complete statement, return empty string ("").
+Please only provide one statement per line WITHOUT numbers or bullets.
+If the question provided is not being answered in the provided answer, return empty string ("").
+You must only provide the statements and no other text.
+
+$question
+$answer
+"""  # noqa:E501
+
+CLAIMS_INFERENCE_PROMPT = """
+Given the context and the provided claim statements, please provide a verdict for each claim statement whether it can be completely infered from the given context or not.
+Use only "1" (yes), "0" (no) and "-1" (null) for "yes", "no" or "null" respectively.
+You must provide one verdict per line, ONLY WITH "1", "0" or "-1" as per your verdict to the given statement and nothing else.
+You must provide the verdicts in the same order as the claim statements.
+
+Contexts: 
+$context
+
+Claim statements: 
+$claim_statements
+"""  # noqa:E501
+
+
+class GroundednessConfig(BaseConfig):
+    def __init__(
+        self,
+        model: str = "gpt-4",
+        api_key: Optional[str] = None,
+        answer_claims_prompt: str = CLAIMS_IN_ANSWER_PROMPT,
+        claims_inference_prompt: str = CLAIMS_INFERENCE_PROMPT,
+    ):
+        self.model = model
+        self.api_key = api_key
+        self.answer_claims_prompt = answer_claims_prompt
+        self.claims_inference_prompt = claims_inference_prompt
+
 
 class AnswerRelevanceConfig(BaseConfig):
     def __init__(
