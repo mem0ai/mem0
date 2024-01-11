@@ -80,6 +80,7 @@ class VectorDBFactory:
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
+        "vectara": "embedchain.vectordb.vectara.VectaraDB",
         "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
     }
     provider_to_config_class = {
@@ -89,6 +90,7 @@ class VectorDBFactory:
         "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
         "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
         "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
+        "vectara": "embedchain.config.vectordb.vectara.VectaraDBConfig",
         "zilliz": "embedchain.config.vectordb.zilliz.ZillizDBConfig",
     }
 

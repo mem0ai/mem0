@@ -14,6 +14,7 @@ Utilizing a vector database alongside Embedchain is a seamless process. All you 
   <Card title="LanceDB" href="#lancedb"></Card>
   <Card title="Pinecone" href="#pinecone"></Card>
   <Card title="Qdrant" href="#qdrant"></Card>
+  <Card title="Vectara" href="#vectara"></Card>
   <Card title="Weaviate" href="#weaviate"></Card>
 </CardGroup>
 
@@ -226,6 +227,39 @@ vectordb:
   provider: weaviate
   config:
     collection_name: my_weaviate_index
+```
+</CodeGroup>
+
+<Snippet file="missing-vector-db-tip.mdx" />
+
+## Vectara
+
+Vectara is not strictly a vector database, rather it's an end-to-end GenAI platform.
+In order to use Vectara as a vector database with EmbedChain, 
+first [sign-up](https://vectara.com/integrations/embedchain) for a free account if you don't have one already, 
+and then set the environment variables 
+`VECTARA_CUSTOMER_ID`, `VECTARA_OAUTH_CLIENT_ID` and `VECTARA_OAUTH_SECRET` 
+(see [here](https://docs.vectara.com/docs/learn/authentication/oauth-2) for how to obtain those).
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+# load Vectara configuration from yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: vectara
+  config:
+    collection_name: my_vectara_corpus
+    allow_reset: true
+chunker:
+  chunk_size: 1000000
+  chunk_overlap: 0
+  length_function: 'len'
+  min_chunk_size: 0
 ```
 </CodeGroup>
 
