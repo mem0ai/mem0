@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from embedchain.config.eval.base import AnswerRelevanceConfig
 from embedchain.eval.base import BaseMetric
-from embedchain.utils.eval import EvalData
+from embedchain.utils.eval import EvalData, EvalMetric
 
 
 class AnswerRelevance(BaseMetric):
@@ -19,6 +19,7 @@ class AnswerRelevance(BaseMetric):
     """
 
     def __init__(self, config: Optional[AnswerRelevanceConfig] = AnswerRelevanceConfig()):
+        super().__init__(name=EvalMetric.ANSWER_RELEVANCY.value)
         self.config = config
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:

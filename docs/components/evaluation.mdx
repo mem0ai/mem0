@@ -11,6 +11,8 @@ Currently, we provide the following evaluation methods:
 <CardGroup cols={3}>
     <Card title="Context Relevancy" href="#context_relevancy"></Card>
     <Card title="Answer Relevancy" href="#answer_relevancy"></Card>
+    <Card title="Groundedness" href="#groundedness"></Card>
+    <Card title="Custom" href="#custom"></Card>
 </CardGroup>
 
 More evaluation metrics are coming soon! 🏗️
@@ -56,7 +58,7 @@ for d in data:
 You can run the context relevancy evaluation with the following simple code:
 
 ```python
-from embedchain.eval import ContextRelevance
+from embedchain.eval.metrics import ContextRelevance
 metric = ContextRelevance()
 score = metric.evaluate(dataset)    # dataset from above
 print(score)
@@ -76,6 +78,9 @@ In the above example, we used sensible defaults for the evaluation. However, you
 <ParamField path="language" type="str" optional>
     The language of the dataset being evaluated. We need this to determine the understand the context provided in the dataset. Defaults to `en`.
 </ParamField>
+<ParamField path="prompt" type="str" optional>
+    The prompt to extract the relevant sentences from the context. Defaults to `CONTEXT_RELEVANCY_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+</ParamField>
 
 ```python
 openai_api_key = "sk-xxx"
@@ -89,7 +94,7 @@ print(metric.evaluate(dataset))
 You can run the answer relevancy evaluation with the following simple code:
 
 ```python
-from embedchain.eval import AnswerRelevance
+from embedchain.eval.metrics import AnswerRelevance
 metric = AnswerRelevance()
 score = metric.evaluate(dataset)    # dataset from above
 print(score)
@@ -112,6 +117,9 @@ In the above example, we used sensible defaults for the evaluation. However, you
 <ParamField path="num_gen_questions" type="int" optional>
     The number of questions to generate for each answer. We use the generated questions to compare the similarity with the original question to determine the score. Defaults to `1`.
 </ParamField>
+<ParamField path="prompt" type="str" optional>
+    The prompt to extract the `num_gen_questions` number of questions from the provided answer. Defaults to `ANSWER_RELEVANCY_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+</ParamField>
 
 ```python
 openai_api_key = "sk-xxx"
@@ -120,4 +128,64 @@ metric = AnswerRelevance(config=AnswerRelevanceConfig(model='gpt-4',
                                                       api_key=openai_api_key,
                                                       num_gen_questions=2))
 print(metric.evaluate(dataset))
+```
+
+## Groundedness <a id="groundedness"></a>
+
+You can run the groundedness evaluation with the following simple code:
+
+```python
+from embedchain.eval.metrics import Groundedness
+metric = Groundedness()
+score = metric.evaluate(dataset)    # dataset from above
+print(score)
+# 1.0
+```
+
+In the above example, we used sensible defaults for the evaluation. However, you can also configure the evaluation metric as per your needs using the `GroundednessConfig` class.
+
+### GroundednessConfig
+
+<ParamField path="model" type="str" optional>
+    The model to use for the evaluation. Defaults to `gpt-4`. We only support openai's models for now.
+</ParamField>
+<ParamField path="api_key" type="str" optional>
+    The openai api key to use for the evaluation. Defaults to `None`. If not provided, we will use the `OPENAI_API_KEY` environment variable.
+</ParamField>
+<ParamField path="answer_claims_prompt" type="str" optional>
+    The prompt to extract the claims from the provided answer. Defaults to `GROUNDEDNESS_ANSWER_CLAIMS_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+</ParamField>
+<ParamField path="claims_inference_prompt" type="str" optional>
+    The prompt to get verdicts on the claims from the answer from the given context. Defaults to `GROUNDEDNESS_CLAIMS_INFERENCE_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+</ParamField>
+
+```python
+openai_api_key = "sk-xxx"
+metric = Groundedness(config=GroundednessConfig(model='gpt-4',
+                                                api_key=openai_api_key))
+print(metric.evaluate(dataset))
+```
+
+## Custom <a id="custom"></a>
+
+You can also create your own evaluation metric by extending the `BaseMetric` class. You can find the source code for the existing metrics at `embedchain.eval.metrics` path.
+
+<Note>
+You must provide the `name` of your custom metric in the `__init__` method of your class. This name will be used to identify your metric in the evaluation report.
+</Note>
+
+```python
+from embedchain.eval.metrics import BaseMetric
+from embedchain.utils.eval import EvalData
+from embedchain.config.base_config import BaseConfig
+from typing import Optional
+
+class CustomMetric(BaseMetric):
+    def __init__(self, config: Optional[BaseConfig] = None):
+        super().__init__(name="custom_metric")
+
+    def evaluate(self, dataset: list[EvalData]):
+        score = 0.0
+        # write your evaluation logic here
+        return score
 ```

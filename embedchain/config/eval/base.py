@@ -22,7 +22,7 @@ Context: $context
 Question: $question
 """  # noqa:E501
 
-CLAIMS_IN_ANSWER_PROMPT = """
+GROUNDEDNESS_ANSWER_CLAIMS_PROMPT = """
 Please provide one or more statements from each sentence of the provided answer.
 You must provide the symantically equivalent statements for each sentence of the answer.
 You must provide the complete statement, if are not able to provide the complete statement, return empty string ("").
@@ -34,7 +34,7 @@ $question
 $answer
 """  # noqa:E501
 
-CLAIMS_INFERENCE_PROMPT = """
+GROUNDEDNESS_CLAIMS_INFERENCE_PROMPT = """
 Given the context and the provided claim statements, please provide a verdict for each claim statement whether it can be completely infered from the given context or not.
 Use only "1" (yes), "0" (no) and "-1" (null) for "yes", "no" or "null" respectively.
 You must provide one verdict per line, ONLY WITH "1", "0" or "-1" as per your verdict to the given statement and nothing else.
@@ -53,8 +53,8 @@ class GroundednessConfig(BaseConfig):
         self,
         model: str = "gpt-4",
         api_key: Optional[str] = None,
-        answer_claims_prompt: str = CLAIMS_IN_ANSWER_PROMPT,
-        claims_inference_prompt: str = CLAIMS_INFERENCE_PROMPT,
+        answer_claims_prompt: str = GROUNDEDNESS_ANSWER_CLAIMS_PROMPT,
+        claims_inference_prompt: str = GROUNDEDNESS_CLAIMS_INFERENCE_PROMPT,
     ):
         self.model = model
         self.api_key = api_key

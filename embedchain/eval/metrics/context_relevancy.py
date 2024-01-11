@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from embedchain.config.eval.base import ContextRelevanceConfig
 from embedchain.eval.base import BaseMetric
-from embedchain.utils.eval import EvalData
+from embedchain.utils.eval import EvalData, EvalMetric
 
 
 class ContextRelevance(BaseMetric):
@@ -19,6 +19,7 @@ class ContextRelevance(BaseMetric):
     """
 
     def __init__(self, config: Optional[ContextRelevanceConfig] = ContextRelevanceConfig()):
+        super().__init__(name=EvalMetric.CONTEXT_RELEVANCY.value)
         self.config = config
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:

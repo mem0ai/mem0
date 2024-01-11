@@ -6,11 +6,15 @@ title: '📝 evaluate'
 
 ### Parameters
 
-<ParamField path="question" type="str">
-    The question to evaluate your app on.
+<ParamField path="question" type="Union[str, list[str]]">
+    A question or a list of questions to evaluate your app on.
 </ParamField>
-<ParamField path="metrics" type="list[EvalMetric]" optional>
-    The metrics to evaluate your app on. Defaults to all metrics: `["context_relevancy", "answer_relevancy"]`
+<ParamField path="metrics" type="Optional[list[Union[BaseMetric, str]]]" optional>
+    The metrics to evaluate your app on. Defaults to all metrics: `["context_relevancy", "answer_relevancy", "groundedness"]`
+</ParamField>
+<ParamField path="**kwargs" type="Any" optional>
+    Any additional keyword arguments to pass to the function. We currently support the following args:
+        - `max_workers` (int): Specify the number of threads to use for parallel processing.
 </ParamField>
 
 ### Returns
@@ -32,4 +36,7 @@ app.add("https://www.forbes.com/profile/elon-musk")
 # run evaluation
 app.evaluate("what is the net worth of Elon Musk?")
 # {'answer_relevancy': 0.958019958036268, 'context_relevancy': 0.12903225806451613}
+
+# or
+# app.evaluate(["what is the net worth of Elon Musk?", "which companies does Elon Musk own?"])
 ```

@@ -9,10 +9,11 @@ class BaseMetric(ABC):
     This class provides a common interface for all metrics.
     """
 
-    def __init__(self):
+    def __init__(self, name: str = "base_metric"):
         """
         Initialize the BaseMetric.
         """
+        self.name = name
 
     @abstractmethod
     def evaluate(self, dataset: list[EvalData]):

@@ -20,6 +20,7 @@ from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
+from embedchain.eval.base import BaseMetric
 from embedchain.eval.metrics import (AnswerRelevance, ContextRelevance,
                                      Groundedness)
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
@@ -461,11 +462,11 @@ class App(EmbedChain):
             cache_config=cache_config,
         )
 
-    def _eval(self, dataset: list[EvalData], metric: Union[EvalMetric, str]):
+    def _eval(self, dataset: list[EvalData], metric: Union[BaseMetric, str]):
         """
         Evaluate the app on a dataset for a given metric.
         """
-        metric_str = metric.value if isinstance(metric, EvalMetric) else metric
+        metric_str = metric.name if isinstance(metric, BaseMetric) else metric
         eval_class_map = {
             EvalMetric.CONTEXT_RELEVANCY.value: ContextRelevance,
             EvalMetric.ANSWER_RELEVANCY.value: AnswerRelevance,
@@ -475,14 +476,14 @@ class App(EmbedChain):
         if metric_str in eval_class_map:
             return eval_class_map[metric_str]().evaluate(dataset)
 
-        # TODO: (Deven) Handle the case for custom metrics
-        if isinstance(metric, EvalMetric):
+        # Handle the case for custom metrics
+        if isinstance(metric, BaseMetric):
             return metric.evaluate(dataset)
         else:
             raise ValueError(f"Invalid metric: {metric}")
 
     def evaluate(
-        self, question: Union[str, list[str]], metrics: Optional[list[Union[EvalMetric, str]]] = None, **kwargs: Any
+        self, question: Union[str, list[str]], metrics: Optional[list[Union[BaseMetric, str]]] = None, **kwargs: Any
     ):
         """
         Evaluate the app on a question.
@@ -490,11 +491,10 @@ class App(EmbedChain):
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError("Please set the OPENAI_API_KEY environment variable with permission to use `gpt4` model.")
 
-        metrics = metrics or [EvalMetric.CONTEXT_RELEVANCY, EvalMetric.ANSWER_RELEVANCY, EvalMetric.GROUNDEDNESS]
-
         questions, answers, contexts = [], [], []
         if isinstance(question, list):
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            max_workers = kwargs.get("max_workers", 4)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_data = {executor.submit(self.query, q, citations=True): q for q in question}
                 for future in tqdm(
                     concurrent.futures.as_completed(future_to_data),
@@ -512,6 +512,12 @@ class App(EmbedChain):
             answers = [answer]
             contexts = [list(map(lambda x: x[0], context))]
 
+        metrics = metrics or [
+            EvalMetric.CONTEXT_RELEVANCY.value,
+            EvalMetric.ANSWER_RELEVANCY.value,
+            EvalMetric.GROUNDEDNESS.value,
+        ]
+
         logging.info(f"Collecting data from {len(questions)} questions for evaluation...")
         dataset = []
         for q, a, c in zip(questions, answers, contexts):
@@ -519,7 +525,8 @@ class App(EmbedChain):
 
         logging.info(f"Evaluating {len(dataset)} data points...")
         result = {}
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        max_workers = kwargs.get("max_workers", 4)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_metric = {executor.submit(self._eval, dataset, metric): metric for metric in metrics}
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_metric),
@@ -527,13 +534,20 @@ class App(EmbedChain):
                 desc="Evaluating metrics",
             ):
                 metric = future_to_metric[future]
-                result[metric.value] = future.result()
+                if isinstance(metric, BaseMetric):
+                    result[metric.name] = future.result()
+                else:
+                    result[metric] = future.result()
 
         if self.config.collect_metrics:
             telemetry_props = self._telemetry_props
-            telemetry_props["metrics"] = [
-                metric.value for metric in metrics if isinstance(metric, EvalMetric) or metric
-            ]
+            metrics_names = []
+            for metric in metrics:
+                if isinstance(metric, BaseMetric):
+                    metrics_names.append(metric.name)
+                else:
+                    metrics_names.append(metric)
+            telemetry_props["metrics"] = metrics_names
             self.telemetry.capture(event_name="evaluate", properties=telemetry_props)
 
         return result
