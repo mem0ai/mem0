@@ -12,9 +12,8 @@ title: '📝 evaluate'
 <ParamField path="metrics" type="Optional[list[Union[BaseMetric, str]]]" optional>
     The metrics to evaluate your app on. Defaults to all metrics: `["context_relevancy", "answer_relevancy", "groundedness"]`
 </ParamField>
-<ParamField path="**kwargs" type="Any" optional>
-    Any additional keyword arguments to pass to the function. We currently support the following args:
-        - `max_workers` (int): Specify the number of threads to use for parallel processing.
+<ParamField path="num_workers" type="int" optional>
+    Specify the number of threads to use for parallel processing.
 </ParamField>
 
 ### Returns

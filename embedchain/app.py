@@ -483,32 +483,40 @@ class App(EmbedChain):
             raise ValueError(f"Invalid metric: {metric}")
 
     def evaluate(
-        self, question: Union[str, list[str]], metrics: Optional[list[Union[BaseMetric, str]]] = None, **kwargs: Any
+        self, questions: Union[str, list[str]], metrics: Optional[list[Union[BaseMetric, str]]] = None, num_workers: int = 4
     ):
         """
         Evaluate the app on a question.
+        
+        param: questions: A question or a list of questions to evaluate.
+        type: questions: Union[str, list[str]]
+        param: metrics: A list of metrics to evaluate. Defaults to all metrics.
+        type: metrics: Optional[list[Union[BaseMetric, str]]]
+        param: num_workers: Number of workers to use for parallel processing.
+        type: num_workers: int
+        return: A dictionary containing the evaluation results.
+        rtype: dict
         """
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError("Please set the OPENAI_API_KEY environment variable with permission to use `gpt4` model.")
 
-        questions, answers, contexts = [], [], []
-        if isinstance(question, list):
-            max_workers = kwargs.get("max_workers", 4)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_data = {executor.submit(self.query, q, citations=True): q for q in question}
+        queries, answers, contexts = [], [], []
+        if isinstance(questions, list):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+                future_to_data = {executor.submit(self.query, q, citations=True): q for q in questions}
                 for future in tqdm(
                     concurrent.futures.as_completed(future_to_data),
                     total=len(future_to_data),
                     desc="Getting answer and contexts for questions",
                 ):
                     question = future_to_data[future]
-                    questions.append(question)
+                    queries.append(question)
                     answer, context = future.result()
                     answers.append(answer)
                     contexts.append(list(map(lambda x: x[0], context)))
         else:
-            answer, context = self.query(question, citations=True)
-            questions = [question]
+            answer, context = self.query(questions, citations=True)
+            queries = [questions]
             answers = [answer]
             contexts = [list(map(lambda x: x[0], context))]
 
@@ -518,14 +526,14 @@ class App(EmbedChain):
             EvalMetric.GROUNDEDNESS.value,
         ]
 
-        logging.info(f"Collecting data from {len(questions)} questions for evaluation...")
+        logging.info(f"Collecting data from {len(queries)} questions for evaluation...")
         dataset = []
-        for q, a, c in zip(questions, answers, contexts):
+        for q, a, c in zip(queries, answers, contexts):
             dataset.append(EvalData(question=q, answer=a, contexts=c))
 
         logging.info(f"Evaluating {len(dataset)} data points...")
         result = {}
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             future_to_metric = {executor.submit(self._eval, dataset, metric): metric for metric in metrics}
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_metric),
