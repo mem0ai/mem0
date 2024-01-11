@@ -33,7 +33,7 @@ class Groundedness(BaseMetric):
         prompt = Template(self.config.answer_claims_prompt).substitute(question=data.question, answer=data.answer)
         return prompt
 
-    def _get_claim_statements(self, prompt: str) -> list[str]:
+    def _get_claim_statements(self, prompt: str) -> np.ndarray:
         """
         Get claim statements from the answer.
         """
@@ -42,7 +42,7 @@ class Groundedness(BaseMetric):
             messages=[{"role": "user", "content": f"{prompt}"}],
         )
         result = response.choices[0].message.content.strip()
-        claim_statements = [statement for statement in result.split("\n") if statement]
+        claim_statements = np.array([statement for statement in result.split("\n") if statement])
         return claim_statements
 
     def _generate_claim_inference_prompt(self, data: EvalData, claim_statements: list[str]) -> str:
@@ -54,7 +54,7 @@ class Groundedness(BaseMetric):
         )
         return prompt
 
-    def _get_claim_verdict_scores(self, prompt: str) -> list[int]:
+    def _get_claim_verdict_scores(self, prompt: str) -> np.ndarray:
         """
         Get verdicts for claim statements.
         """
@@ -65,9 +65,7 @@ class Groundedness(BaseMetric):
         result = response.choices[0].message.content.strip()
         claim_verdicts = result.split("\n")
         verdict_score_map = {"1": 1, "0": 0, "-1": np.nan}
-        verdict_scores = []
-        for verdict in claim_verdicts:
-            verdict_scores.append(verdict_score_map[verdict])
+        verdict_scores = np.array([verdict_score_map[verdict] for verdict in claim_verdicts])
         return verdict_scores
 
     def _compute_score(self, data: EvalData) -> float:
@@ -79,7 +77,7 @@ class Groundedness(BaseMetric):
 
         claim_inference_prompt = self._generate_claim_inference_prompt(data, claim_statements)
         verdict_scores = self._get_claim_verdict_scores(claim_inference_prompt)
-        return sum(verdict_scores) / len(claim_statements)
+        return np.sum(verdict_scores) / claim_statements.size
 
     def evaluate(self, dataset: list[EvalData]):
         """

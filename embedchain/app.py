@@ -525,8 +525,7 @@ class App(EmbedChain):
 
         logging.info(f"Evaluating {len(dataset)} data points...")
         result = {}
-        max_workers = kwargs.get("max_workers", 4)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_metric = {executor.submit(self._eval, dataset, metric): metric for metric in metrics}
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_metric),

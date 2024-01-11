@@ -19,11 +19,11 @@ More evaluation metrics are coming soon! 🏗️
 
 ## Usage
 
-We have found that the best way to evaluate datasets is with the help of OpenAI's `gpt-4` model. Hence, we require you to set `OPENAI_API_KEY` as an environment variable. If you don't want to set it, you can pass it in the config argument of the respective evaluation class, as shown in the examples below.
+We have found that the best way to evaluate datasets is with the help of OpenAI's `gpt-4` model. Hence, we require you to set `OPENAI_API_KEY` as an environment variable. If you don't want to set it, you can pass it in the config argument of the respective evaluation class, as shown in the examples later below.
 
-We will assume the following dataset for the examples:
-
-```python
+<Accordion title="We will assume the following dataset for the examples below">
+<CodeGroup>
+```python main.py
 from embedchain.utils.eval import EvalData
 
 data = [
@@ -52,8 +52,15 @@ dataset = []
 for d in data:
     dataset.append(EvalData(question=d["question"], contexts=d["contexts"], answer=d["answer"]))
 ```
+</CodeGroup>
+</Accordion>
 
 ## Context Relevancy <a id="context_relevancy"></a>
+
+Context relevancy is a metric to determine how relevant the context is to the question. We use OpenAI's `gpt-4` model to determine the relevancy of the context.
+We achieve this by prompting the model with the question and the context and asking it to return relevant sentences from the context. We then use the following formula to determine the score:
+
+context_relevance_score = (# of relevant sentences in context) $$\div$$ (total # of sentences in context)
 
 You can run the context relevancy evaluation with the following simple code:
 
@@ -90,6 +97,11 @@ print(metric.evaluate(dataset))
 
 
 ## Answer Relevancy <a id="answer_relevancy"></a>
+
+Answer relevancy is a metric to determine how relevant the answer is to the question. We use OpenAI's `gpt-4` model to determine the relevancy of the answer.
+We achieve this by prompting the model with the answer and asking it to generate questions from the answer. We then use the cosine similarity between the generated questions and the original question to determine the score.
+
+answer_relevancy_score = mean(cosine_similarity(generated_questions, original_question))
 
 You can run the answer relevancy evaluation with the following simple code:
 
@@ -131,6 +143,11 @@ print(metric.evaluate(dataset))
 ```
 
 ## Groundedness <a id="groundedness"></a>
+
+Groundedness is a metric to determine how grounded the answer is to the context. We use OpenAI's `gpt-4` model to determine the groundedness of the answer.
+We achieve this by prompting the model with the answer and asking it to generate claims from the answer. We then again prompt the model with the context and the generated claims to determine the verdict on the claims. We then use the following formula to determine the score:
+
+groundedness_score = (sum of all verdicts) $$\div$$ (total # of claims)
 
 You can run the groundedness evaluation with the following simple code:
 
