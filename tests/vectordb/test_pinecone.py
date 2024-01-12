@@ -43,8 +43,8 @@ class TestPinecone:
         embedding_function = mock.Mock()
         base_embedder = BaseEmbedder()
         base_embedder.set_embedding_fn(embedding_function)
-        vectors = [[0, 0, 0], [1, 1, 1]]
-        embedding_function.return_value = vectors
+        embedding_function.return_value = [[0, 0, 0], [1, 1, 1]]
+
         # Create a PineconeDb instance
         db = PineconeDB()
         app_config = AppConfig(collect_metrics=False)
@@ -54,7 +54,7 @@ class TestPinecone:
         documents = ["This is a document.", "This is another document."]
         metadatas = [{}, {}]
         ids = ["doc1", "doc2"]
-        db.add(vectors, documents, metadatas, ids)
+        db.add(documents, metadatas, ids)
 
         expected_pinecone_upsert_args = [
             {"id": "doc1", "values": [0, 0, 0], "metadata": {"text": "This is a document."}},

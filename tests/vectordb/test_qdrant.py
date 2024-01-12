@@ -75,11 +75,10 @@ class TestQdrantDB(unittest.TestCase):
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedding_model=embedder)
 
-        embeddings = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
         documents = ["This is a test document.", "This is another test document."]
         metadatas = [{}, {}]
         ids = ["123", "456"]
-        db.add(embeddings, documents, metadatas, ids)
+        db.add(documents, metadatas, ids)
         qdrant_client_mock.return_value.upsert.assert_called_once_with(
             collection_name="embedchain-store-1526",
             points=Batch(
@@ -96,7 +95,7 @@ class TestQdrantDB(unittest.TestCase):
                         "metadata": {"text": "This is another test document."},
                     },
                 ],
-                vectors=embeddings,
+                vectors=[[1, 2, 3], [4, 5, 6]],
             ),
         )
 

@@ -369,7 +369,7 @@ class EmbedChain(JSONSerializable):
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
         new_doc_id = embeddings_data["doc_id"]
-        embeddings = embeddings_data.get("embeddings")
+
         if existing_doc_id and existing_doc_id == new_doc_id:
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
@@ -433,13 +433,7 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
-        self.db.add(
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids,
-            **kwargs,
-        )
+        self.db.add(documents=documents, metadatas=metadatas, ids=ids, **kwargs)
         count_new_chunks = self.db.count() - chunks_before_addition
 
         print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
