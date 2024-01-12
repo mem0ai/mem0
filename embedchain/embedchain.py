@@ -663,13 +663,17 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
         self.connection.commit()
-        self.delete_chat_history()
+        self.delete_all_chat_history(app_id=self.config.id)
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
     def get_history(self, num_rounds: int = 10, display_format: bool = True):
         return self.llm.memory.get(app_id=self.config.id, num_rounds=num_rounds, display_format=display_format)
 
-    def delete_chat_history(self, session_id: str = "default"):
+    def delete_session_chat_history(self, session_id: str = "default"):
         self.llm.memory.delete(app_id=self.config.id, session_id=session_id)
         self.llm.update_history(app_id=self.config.id)
+
+    def delete_all_chat_history(self, app_id: str):
+        self.llm.memory.delete(app_id=app_id)
+        self.llm.update_history(app_id=app_id)
