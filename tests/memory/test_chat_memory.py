@@ -59,9 +59,26 @@ def test_delete_chat_history(chat_memory_instance):
 
         chat_memory_instance.add(app_id, session_id, chat_message)
 
+    session_id_2 = "test_session_2"
+
+    for i in range(1, 6):
+        human_message = f"Question {i}"
+        ai_message = f"Answer {i}"
+
+        chat_message = ChatMessage()
+        chat_message.add_user_message(human_message)
+        chat_message.add_ai_message(ai_message)
+
+        chat_memory_instance.add(app_id, session_id_2, chat_message)
+
     chat_memory_instance.delete(app_id, session_id)
 
     assert chat_memory_instance.count(app_id, session_id) == 0
+    assert chat_memory_instance.count(app_id) == 5
+
+    chat_memory_instance.delete(app_id)
+
+    assert chat_memory_instance.count(app_id) == 0
 
 
 @pytest.fixture
