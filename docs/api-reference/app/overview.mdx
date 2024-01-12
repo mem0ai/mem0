@@ -1,34 +1,34 @@
 ---
-title: "Pipeline"
+title: "App"
 ---
 
-Create a RAG pipeline object on Embedchain. This is the main entrypoint for a developer to interact with Embedchain APIs. A pipeline configures the llm, vector database, embedding model, and retrieval strategy of your choice.
+Create a RAG app object on Embedchain. This is the main entrypoint for a developer to interact with Embedchain APIs. An app configures the llm, vector database, embedding model, and retrieval strategy of your choice.
 
 ### Attributes
 
 <ParamField path="local_id" type="str">
-    Pipeline ID
+    App ID
 </ParamField>
 <ParamField path="name" type="str" optional>
-    Name of the pipeline
+    Name of the app
 </ParamField>
 <ParamField path="config" type="BaseConfig">
-    Configuration of the pipeline
+    Configuration of the app
 </ParamField>
 <ParamField path="llm" type="BaseLlm">
-    Configured LLM for the RAG pipeline
+    Configured LLM for the RAG app
 </ParamField>
 <ParamField path="db" type="BaseVectorDB">
-    Configured vector database for the RAG pipeline
+    Configured vector database for the RAG app
 </ParamField>
 <ParamField path="embedding_model" type="BaseEmbedder">
-    Configured embedding model for the RAG pipeline
+    Configured embedding model for the RAG app
 </ParamField>
 <ParamField path="chunker" type="ChunkerConfig">
     Chunker configuration
 </ParamField>
 <ParamField path="client" type="Client" optional>
-    Client object (used to deploy a pipeline to Embedchain platform)
+    Client object (used to deploy an app to Embedchain platform)
 </ParamField>
 <ParamField path="logger" type="logging.Logger">
     Logger object
@@ -36,7 +36,7 @@ Create a RAG pipeline object on Embedchain. This is the main entrypoint for a de
 
 ## Usage
 
-You can create an embedchain pipeline instance using the following methods:
+You can create an app instance using the following methods:
 
 ### Default setting
 

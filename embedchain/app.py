@@ -11,24 +11,28 @@ import requests
 import yaml
 from tqdm import tqdm
 
-from embedchain.cache import (Config, ExactMatchEvaluation,
-                              SearchDistanceEvaluation, cache,
-                              gptcache_data_manager, gptcache_pre_function)
+from embedchain.cache import (
+    Config,
+    ExactMatchEvaluation,
+    SearchDistanceEvaluation,
+    cache,
+    gptcache_data_manager,
+    gptcache_pre_function,
+)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig
 from embedchain.constants import SQLITE_PATH
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.eval.base import BaseMetric
-from embedchain.eval.metrics import (AnswerRelevance, ContextRelevance,
-                                     Groundedness)
+from embedchain.evaluation.base import BaseMetric
+from embedchain.evaluation.metrics import AnswerRelevance, ContextRelevance, Groundedness
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 from embedchain.llm.openai import OpenAILlm
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils.eval import EvalData, EvalMetric
+from embedchain.utils.evaluation import EvalData, EvalMetric
 from embedchain.utils.misc import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB

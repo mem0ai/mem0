@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from embedchain.utils.eval import EvalData
+from embedchain.utils.evaluation import EvalData
 
 
 class BaseMetric(ABC):
