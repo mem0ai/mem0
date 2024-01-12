@@ -73,21 +73,40 @@ class ChatHistory:
         self.cursor.execute(DELETE_CHAT_HISTORY_QUERY, params)
         self.connection.commit()
 
-    def get(self, app_id, session_id, num_rounds=10, display_format=False) -> list[ChatMessage]:
+    def get(
+        self, app_id, session_id: str = "default", num_rounds=10, fetch_all: bool = False, display_format=False
+    ) -> list[ChatMessage]:
         """
-        Get the most recent num_rounds rounds of conversations
-        between human and AI, for a given app_id.
+        Get the chat history for a given app_id.
+
+        param: app_id - The app_id to get chat history
+        param: session_id (optional) - The session_id to get chat history. Defaults to "default"
+        param: num_rounds (optional) - The number of rounds to get chat history. Defaults to 10
+        param: fetch_all (optional) - Whether to fetch all chat history or not. Defaults to False
+        param: display_format (optional) - Whether to return the chat history in display format. Defaults to False
         """
 
-        QUERY = """
+        base_query = """
             SELECT * FROM ec_chat_history
-            WHERE app_id=? AND session_id=?
-            ORDER BY created_at DESC
-            LIMIT ?
+            WHERE app_id=?
         """
+
+        if fetch_all:
+            additional_query = "ORDER BY created_at DESC"
+            params = (app_id,)
+        else:
+            additional_query = """
+                AND session_id=?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """
+            params = (app_id, session_id, num_rounds)
+
+        QUERY = base_query + additional_query
+
         self.cursor.execute(
             QUERY,
-            (app_id, session_id, num_rounds),
+            params,
         )
 
         results = self.cursor.fetchall()
@@ -97,7 +116,15 @@ class ChatHistory:
             metadata = self._deserialize_json(metadata=metadata)
             # Return list of dict if display_format is True
             if display_format:
-                history.append({"human": question, "ai": answer, "metadata": metadata, "timestamp": timestamp})
+                history.append(
+                    {
+                        "session_id": session_id,
+                        "human": question,
+                        "ai": answer,
+                        "metadata": metadata,
+                        "timestamp": timestamp,
+                    }
+                )
             else:
                 memory = ChatMessage()
                 memory.add_user_message(question, metadata=metadata)

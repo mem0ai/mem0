@@ -44,6 +44,10 @@ def test_get(chat_memory_instance):
 
     assert len(recent_memories) == 5
 
+    all_memories = chat_memory_instance.get(app_id, fetch_all=True)
+
+    assert len(all_memories) == 6
+
 
 def test_delete_chat_history(chat_memory_instance):
     app_id = "test_app"
