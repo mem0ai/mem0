@@ -77,25 +77,32 @@ class ChatHistory:
         self, app_id, session_id: str = "default", num_rounds=10, fetch_all: bool = False, display_format=False
     ) -> list[ChatMessage]:
         """
-        Get the most recent num_rounds rounds of conversations
-        between human and AI, for a given app_id.
+        Get the chat history for a given app_id.
+
+        param: app_id - The app_id to get chat history
+        param: session_id (optional) - The session_id to get chat history. Defaults to "default"
+        param: num_rounds (optional) - The number of rounds to get chat history. Defaults to 10
+        param: fetch_all (optional) - Whether to fetch all chat history or not. Defaults to False
+        param: display_format (optional) - Whether to return the chat history in display format. Defaults to False
+        """
+
+        base_query = """
+            SELECT * FROM ec_chat_history
+            WHERE app_id=?
         """
 
         if fetch_all:
-            QUERY = """
-                SELECT * FROM ec_chat_history
-                WHERE app_id=?
-                ORDER BY created_at DESC
-            """
+            additional_query = "ORDER BY created_at DESC"
             params = (app_id,)
         else:
-            QUERY = """
-                SELECT * FROM ec_chat_history
-                WHERE app_id=? AND session_id=?
+            additional_query = """
+                AND session_id=?
                 ORDER BY created_at DESC
                 LIMIT ?
             """
             params = (app_id, session_id, num_rounds)
+
+        QUERY = base_query + additional_query
 
         self.cursor.execute(
             QUERY,
