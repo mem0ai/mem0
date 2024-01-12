@@ -84,7 +84,7 @@ Once you have created your dataset, you can run evaluation on the dataset by pic
 For example, you can run evaluation on context relevancy metric using the following code:
 
 ```python
-from embedchain.eval.metrics import ContextRelevance
+from embedchain.evaluation.metrics import ContextRelevance
 metric = ContextRelevance()
 score = metric.evaluate(dataset)
 print(score)
@@ -112,20 +112,21 @@ context_relevance_score = num_relevant_sentences_in_context / num_of_sentences_i
 You can run the context relevancy evaluation with the following simple code:
 
 ```python
-from embedchain.eval.metrics import ContextRelevance
+from embedchain.evaluation.metrics import ContextRelevance
 
 metric = ContextRelevance()
 score = metric.evaluate(dataset)  # 'dataset' is definted in the create dataset section
 print(score)
 # 0.27975528364849833
 ```
+
 In the above example, we used sensible defaults for the evaluation. However, you can also configure the evaluation metric as per your needs using the `ContextRelevanceConfig` class.
 
 Here is a more advanced example of how to pass a custom evaluation config for evaluating on context relevance metric:
 
 ```python
-from embedchain.config.eval.base import ContextRelevanceConfig
-from embedchain.eval.metrics import ContextRelevance
+from embedchain.config.evaluation.base import ContextRelevanceConfig
+from embedchain.evaluation.metrics import ContextRelevance
 
 eval_config = ContextRelevanceConfig(model="gpt-4", api_key="sk-xxx", language="en")
 metric = ContextRelevance(config=eval_config)
@@ -144,7 +145,7 @@ metric.evaluate(dataset)
     The language of the dataset being evaluated. We need this to determine the understand the context provided in the dataset. Defaults to `en`.
 </ParamField>
 <ParamField path="prompt" type="str" optional>
-    The prompt to extract the relevant sentences from the context. Defaults to `CONTEXT_RELEVANCY_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+    The prompt to extract the relevant sentences from the context. Defaults to `CONTEXT_RELEVANCY_PROMPT`, which can be found at `embedchain.config.evaluation.base` path.
 </ParamField>
 
 
@@ -161,7 +162,7 @@ answer_relevancy_score = mean(cosine_similarity(generated_questions, original_qu
 You can run the answer relevancy evaluation with the following simple code:
 
 ```python
-from embedchain.eval.metrics import AnswerRelevance
+from embedchain.evaluation.metrics import AnswerRelevance
 
 metric = AnswerRelevance()
 score = metric.evaluate(dataset)
@@ -172,8 +173,8 @@ print(score)
 In the above example, we used sensible defaults for the evaluation. However, you can also configure the evaluation metric as per your needs using the `AnswerRelevanceConfig` class. Here is a more advanced example where you can provide your own evaluation config:
 
 ```python
-from embedchain.config.eval.base import AnswerRelevanceConfig
-from embedchain.eval.metrics import AnswerRelevance
+from embedchain.config.evaluation.base import AnswerRelevanceConfig
+from embedchain.evaluation.metrics import AnswerRelevance
 
 eval_config = AnswerRelevanceConfig(
     model='gpt-4',
@@ -200,7 +201,7 @@ score = metric.evaluate(dataset)
     The number of questions to generate for each answer. We use the generated questions to compare the similarity with the original question to determine the score. Defaults to `1`.
 </ParamField>
 <ParamField path="prompt" type="str" optional>
-    The prompt to extract the `num_gen_questions` number of questions from the provided answer. Defaults to `ANSWER_RELEVANCY_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+    The prompt to extract the `num_gen_questions` number of questions from the provided answer. Defaults to `ANSWER_RELEVANCY_PROMPT`, which can be found at `embedchain.config.evaluation.base` path.
 </ParamField>
 
 ## Groundedness <a id="groundedness"></a>
@@ -214,7 +215,7 @@ groundedness_score = (sum of all verdicts) / (total # of claims)
 You can run the groundedness evaluation with the following simple code:
 
 ```python
-from embedchain.eval.metrics import Groundedness
+from embedchain.evaluation.metrics import Groundedness
 metric = Groundedness()
 score = metric.evaluate(dataset)    # dataset from above
 print(score)
@@ -224,8 +225,8 @@ print(score)
 In the above example, we used sensible defaults for the evaluation. However, you can also configure the evaluation metric as per your needs using the `GroundednessConfig` class. Here is a more advanced example where you can configure the evaluation config:
 
 ```python
-from embedchain.config.eval.base import GroundednessConfig
-from embedchain.eval.metrics import Groundedness
+from embedchain.config.evaluation.base import GroundednessConfig
+from embedchain.evaluation.metrics import Groundedness
 
 eval_config = GroundednessConfig(model='gpt-4', api_key="sk-xxx")
 metric = Groundedness(config=eval_config)
@@ -242,15 +243,15 @@ score = metric.evaluate(dataset)
     The openai api key to use for the evaluation. Defaults to `None`. If not provided, we will use the `OPENAI_API_KEY` environment variable.
 </ParamField>
 <ParamField path="answer_claims_prompt" type="str" optional>
-    The prompt to extract the claims from the provided answer. Defaults to `GROUNDEDNESS_ANSWER_CLAIMS_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+    The prompt to extract the claims from the provided answer. Defaults to `GROUNDEDNESS_ANSWER_CLAIMS_PROMPT`, which can be found at `embedchain.config.evaluation.base` path.
 </ParamField>
 <ParamField path="claims_inference_prompt" type="str" optional>
-    The prompt to get verdicts on the claims from the answer from the given context. Defaults to `GROUNDEDNESS_CLAIMS_INFERENCE_PROMPT`, which can be found at `embedchain.config.eval.base` path.
+    The prompt to get verdicts on the claims from the answer from the given context. Defaults to `GROUNDEDNESS_CLAIMS_INFERENCE_PROMPT`, which can be found at `embedchain.config.evaluation.base` path.
 </ParamField>
 
 ## Custom <a id="custom_metric"></a>
 
-You can also create your own evaluation metric by extending the `BaseMetric` class. You can find the source code for the existing metrics at `embedchain.eval.metrics` path.
+You can also create your own evaluation metric by extending the `BaseMetric` class. You can find the source code for the existing metrics at `embedchain.evaluation.metrics` path.
 
 <Note>
 You must provide the `name` of your custom metric in the `__init__` method of your class. This name will be used to identify your metric in the evaluation report.
@@ -260,7 +261,7 @@ You must provide the `name` of your custom metric in the `__init__` method of yo
 from typing import Optional
 
 from embedchain.config.base_config import BaseConfig
-from embedchain.eval.metrics import BaseMetric
+from embedchain.evaluation.metrics import BaseMetric
 from embedchain.utils.eval import EvalData
 
 class MyCustomMetric(BaseMetric):

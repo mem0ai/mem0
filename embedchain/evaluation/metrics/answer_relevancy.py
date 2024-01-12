@@ -8,9 +8,9 @@ import numpy as np
 from openai import OpenAI
 from tqdm import tqdm
 
-from embedchain.config.eval.base import AnswerRelevanceConfig
-from embedchain.eval.base import BaseMetric
-from embedchain.utils.eval import EvalData, EvalMetric
+from embedchain.config.evaluation.base import AnswerRelevanceConfig
+from embedchain.evaluation.base import BaseMetric
+from embedchain.utils.evaluation import EvalData, EvalMetric
 
 
 class AnswerRelevance(BaseMetric):
