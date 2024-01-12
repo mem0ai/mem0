@@ -667,8 +667,11 @@ class EmbedChain(JSONSerializable):
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
-    def get_history(self, num_rounds: int = 10, display_format: bool = True):
-        return self.llm.memory.get(app_id=self.config.id, num_rounds=num_rounds, display_format=display_format)
+    def get_history(self, num_rounds: int = 10, display_format: bool = True, session_id: Optional[str] = "default"):
+        history = self.llm.memory.get(
+            app_id=self.config.id, session_id=session_id, num_rounds=num_rounds, display_format=display_format
+        )
+        return history
 
     def delete_session_chat_history(self, session_id: str = "default"):
         self.llm.memory.delete(app_id=self.config.id, session_id=session_id)
