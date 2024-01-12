@@ -1,6 +1,7 @@
 import logging
 import os
 
+import aiofiles
 import yaml
 from database import Base, SessionLocal, engine
 from fastapi import Depends, FastAPI, HTTPException, UploadFile
@@ -74,8 +75,8 @@ async def create_app_using_default_config(app_id: str, config: UploadFile = None
                 yaml.safe_load(contents)
                 # TODO: validate the config yaml file here
                 yaml_path = f"configs/{app_id}.yaml"
-                with open(yaml_path, "w") as file:
-                    file.write(str(contents, "utf-8"))
+                async with aiofiles.open(yaml_path, mode="w") as file_out:
+                    await file_out.write(str(contents, "utf-8"))
             except yaml.YAMLError as exc:
                 raise HTTPException(detail=f"Error parsing YAML: {exc}", status_code=400)
 

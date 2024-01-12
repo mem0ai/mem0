@@ -6,7 +6,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
 try:
-    from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, MilvusClient, connections, utility
+    from pymilvus import (Collection, CollectionSchema, DataType, FieldSchema,
+                          MilvusClient, connections, utility)
 except ImportError:
     raise ImportError(
         "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[milvus]`"
@@ -107,7 +108,6 @@ class ZillizVectorDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: list[list[float]],
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
