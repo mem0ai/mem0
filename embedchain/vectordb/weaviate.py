@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 try:
     import weaviate
@@ -151,13 +151,7 @@ class WeaviateDB(BaseVectorDB):
 
         return {"ids": existing_ids}
 
-    def add(
-        self,
-        documents: list[str],
-        metadatas: list[object],
-        ids: list[str],
-        **kwargs: Optional[dict[str, any]],
-    ):
+    def add(self, documents: list[str], metadatas: list[object], ids: list[str], **kwargs: Optional[dict[str, any]]):
         """add data in vector database
         :param documents: list of texts to add
         :type documents: list[str]
@@ -188,12 +182,7 @@ class WeaviateDB(BaseVectorDB):
                 )
 
     def query(
-        self,
-        input_query: list[str],
-        n_results: int,
-        where: dict[str, any],
-        citations: bool = False,
-        **kwargs: Optional[dict[str, Any]],
+        self, input_query: list[str], n_results: int, where: dict[str, any], citations: bool = False
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         query contents from vector database based on vector similarity

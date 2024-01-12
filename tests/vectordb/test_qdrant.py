@@ -95,8 +95,8 @@ class TestQdrantDB(unittest.TestCase):
                         "metadata": {"text": "This is another test document."},
                     },
                 ],
+                vectors=[[1, 2, 3], [4, 5, 6]],
             ),
-            vectors=[[0, 0, 0], [1, 1, 1]],
         )
 
     @patch("embedchain.vectordb.qdrant.QdrantClient")
