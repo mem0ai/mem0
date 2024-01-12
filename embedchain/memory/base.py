@@ -105,7 +105,7 @@ class ChatHistory:
                 history.append(memory)
         return history
 
-    def count(self, app_id: str, session_id: str):
+    def count(self, app_id: str, session_id: Optional[str] = None):
         """
         Count the number of chat messages for a given app_id and session_id.
 
@@ -114,8 +114,14 @@ class ChatHistory:
 
         :return: The number of chat messages for a given app_id and session_id
         """
-        QUERY = "SELECT COUNT(*) FROM ec_chat_history WHERE app_id=? AND session_id=?"
-        self.cursor.execute(QUERY, (app_id, session_id))
+        if session_id:
+            QUERY = "SELECT COUNT(*) FROM ec_chat_history WHERE app_id=? AND session_id=?"
+            params = (app_id, session_id)
+        else:
+            QUERY = "SELECT COUNT(*) FROM ec_chat_history WHERE app_id=?"
+            params = (app_id,)
+
+        self.cursor.execute(QUERY, params)
         count = self.cursor.fetchone()[0]
         return count
 
