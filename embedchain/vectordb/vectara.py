@@ -102,6 +102,7 @@ class VectaraDB(BaseVectorDB):
         }
 
         response = requests.request(method=http_method, url=url, headers=headers, params=params, data=json.dumps(data))
+        print(f"DEBUG response={response}")
         response.raise_for_status()
         return response.json()
 
@@ -219,8 +220,14 @@ class VectaraDB(BaseVectorDB):
         :type ids: list[str]
         """
         self._setup_vectara_corpus()
-        print("Adding documents to Vectara...")
+
+        existing_ids = self.get(ids=ids).get("ids")
+        new_ids = [id for id in ids if id not in existing_ids]
+        print(f"Adding {len(new_ids)} new documents to Vectara (out of {len(ids)} submitted to indexing)...")
+
         for id, text, metadata in zip(ids, documents, metadatas):
+            if id not in new_ids:
+                continue
             document_metadata = self._normalize(metadata)
             data = {
                 "customerId": self.customer_id,
@@ -296,7 +303,7 @@ class VectaraDB(BaseVectorDB):
             doc_num = x["documentIndex"]
             doc_md = {m["name"]: m["value"] for m in documents[doc_num]["metadata"]}
             md.update(doc_md)
-            res.append([x["text"], md])
+            res.append((x["text"], md))
 
         return res[:top_k]
 
