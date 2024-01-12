@@ -8,9 +8,9 @@ import pysbd
 from openai import OpenAI
 from tqdm import tqdm
 
-from embedchain.config.eval.base import ContextRelevanceConfig
-from embedchain.eval.base import BaseMetric
-from embedchain.utils.eval import EvalData, EvalMetric
+from embedchain.config.evaluation.base import ContextRelevanceConfig
+from embedchain.evaluation.base import BaseMetric
+from embedchain.utils.evaluation import EvalData, EvalMetric
 
 
 class ContextRelevance(BaseMetric):
