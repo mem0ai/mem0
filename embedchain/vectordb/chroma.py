@@ -129,17 +129,13 @@ class ChromaDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: list[list[float]],
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
-        **kwargs: Optional[dict[str, Any]],
     ) -> Any:
         """
         Add vectors to chroma database
 
-        :param embeddings: list of embeddings to add
-        :type embeddings: list[list[str]]
         :param documents: Documents
         :type documents: list[str]
         :param metadatas: Metadatas

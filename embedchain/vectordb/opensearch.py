@@ -114,22 +114,10 @@ class OpenSearchDB(BaseVectorDB):
             result["metadatas"].append({"doc_id": doc_id})
         return result
 
-    def add(
-        self,
-        embeddings: list[list[str]],
-        documents: list[str],
-        metadatas: list[object],
-        ids: list[str],
-        **kwargs: Optional[dict[str, any]],
-    ):
-        """Add data in vector database.
+    def add(self, documents: list[str], metadatas: list[object], ids: list[str], **kwargs: Optional[dict[str, any]]):
+        """Adds documents to the opensearch index"""
 
-        Args:
-            embeddings (list[list[str]]): list of embeddings to add.
-            documents (list[str]): list of texts to add.
-            metadatas (list[object]): list of metadata associated with docs.
-            ids (list[str]): IDs of docs.
-        """
+        embeddings = self.embedder.embedding_fn(documents)
         for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
             batch_end = batch_start + self.BATCH_SIZE
             batch_documents = documents[batch_start:batch_end]

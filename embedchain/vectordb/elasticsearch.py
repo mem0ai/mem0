@@ -110,7 +110,6 @@ class ElasticsearchDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: list[list[float]],
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
@@ -118,8 +117,6 @@ class ElasticsearchDB(BaseVectorDB):
     ) -> Any:
         """
         add data in vector database
-        :param embeddings: list of embeddings to add
-        :type embeddings: list[list[str]]
         :param documents: list of texts to add
         :type documents: list[str]
         :param metadatas: list of metadata associated with docs
