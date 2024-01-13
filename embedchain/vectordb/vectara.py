@@ -13,12 +13,10 @@ from embedchain.vectordb.base import BaseVectorDB
 
 from embedchain import App
 from embedchain.config import BaseLlmConfig
-from embedchain.cache import (adapt, get_gptcache_session,
-                              gptcache_data_convert,
-                              gptcache_update_cache_callback)
+from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
+
 
 class VectaraApp(App):
-
     def query(
         self,
         input_query: str,
@@ -49,8 +47,9 @@ class VectaraApp(App):
         :rtype: str, if citations is False, otherwise tuple[str, list[tuple[str,str,str]]]
         """
         # get the answer with Citation from Vectara
-        answer, contexts = self.db._vectara_query(query_str=input_query, top_k=10, 
-                                                  filter=self.db._form_filter_str(where), summarize=True, **kwargs)
+        answer, contexts = self.db._vectara_query(
+            query_str=input_query, top_k=10, filter=self.db._form_filter_str(where), summarize=True, **kwargs
+        )
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="query", properties=self._telemetry_props)
@@ -365,11 +364,7 @@ class VectaraDB(BaseVectorDB):
             md.update(doc_md)
             res.append((x["text"], md))
 
-        summary = (
-            result["responseSet"][0]["summary"][0]["text"]
-            if summarize
-            else None
-        )
+        summary = result["responseSet"][0]["summary"][0]["text"] if summarize else None
 
         return summary, res[:top_k]
 
@@ -396,7 +391,9 @@ class VectaraDB(BaseVectorDB):
         :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         self._setup_vectara_corpus()
-        _, res = self._vectara_query(query_str=input_query, top_k=n_results, filter=self._form_filter_str(where), **kwargs)
+        _, res = self._vectara_query(
+            query_str=input_query, top_k=n_results, filter=self._form_filter_str(where), **kwargs
+        )
         if citations:
             return res
         else:
