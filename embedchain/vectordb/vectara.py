@@ -3,12 +3,62 @@ import json
 import os
 import traceback
 from typing import Any, List, Mapping, Optional, Union
+import logging
 
 import requests
 
 from embedchain.config.vectordb.vectara import VectaraDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
+
+from embedchain import App
+from embedchain.config import BaseLlmConfig
+from embedchain.cache import (adapt, get_gptcache_session,
+                              gptcache_data_convert,
+                              gptcache_update_cache_callback)
+
+class VectaraApp(App):
+
+    def query(
+        self,
+        input_query: str,
+        config: BaseLlmConfig = None,
+        dry_run=False,
+        where: Optional[dict] = None,
+        citations: bool = False,
+        **kwargs: dict[str, Any],
+    ) -> Union[tuple[str, list[tuple[str, dict]]], str]:
+        """
+        Queries Vectara by using it's end-to-end RAG functionality.
+
+        :param input_query: The query to use.
+        :type input_query: str
+        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
+        To persistently use a config, declare it during app init., defaults to None
+        :type config: Optional[BaseLlmConfig], optional
+        :param dry_run: A dry run does everything except send the resulting prompt to
+        the LLM. The purpose is to test the prompt, not the response., defaults to False
+        :type dry_run: bool, optional
+        :param where: A dictionary of key-value pairs to filter the database results., defaults to None
+        :type where: Optional[dict[str, str]], optional
+        :param kwargs: To read more params for the query function. Ex. we use citations boolean
+        param to return context along with the answer
+        :type kwargs: dict[str, Any]
+        :return: The answer to the query, with citations if the citation flag is True
+        or the dry run result
+        :rtype: str, if citations is False, otherwise tuple[str, list[tuple[str,str,str]]]
+        """
+        # get the answer with Citation from Vectara
+        answer, contexts = self.db._vectara_query(query_str=input_query, top_k=10, 
+                                                  filter=self.db._form_filter_str(where), summarize=True, **kwargs)
+
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="query", properties=self._telemetry_props)
+
+        if citations:
+            return answer, contexts
+        else:
+            return answer
 
 
 @register_deserializable
@@ -47,9 +97,7 @@ class VectaraDB(BaseVectorDB):
 
     def _initialize(self):
         """
-        This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
-
-        So it's can't be done in __init__ in one step.
+        initialize the Vectara corpus
         """
         # Setup the Vectara corpus if it does not already exist
         self._setup_vectara_corpus()
@@ -102,7 +150,6 @@ class VectaraDB(BaseVectorDB):
         }
 
         response = requests.request(method=http_method, url=url, headers=headers, params=params, data=json.dumps(data))
-        print(f"DEBUG response={response}")
         response.raise_for_status()
         return response.json()
 
@@ -180,6 +227,7 @@ class VectaraDB(BaseVectorDB):
         existing_ids = []
         page_key = None
         filter_str = self._form_filter_str(where)
+
         while not finished:
             data = {
                 "corpusId": self.corpus_id,
@@ -257,7 +305,11 @@ class VectaraDB(BaseVectorDB):
         filter: str = "",
         lambda_val: float = 0.025,
         mmr_k: int = 50,
-        mmr_diversity_bias: float = 0.2,
+        mmr_diversity_bias: float = 0.3,
+        summarize: bool = False,
+        summary_k: int = 5,
+        summary_lang: str = "eng",
+        summary_prompt: str = "vectara-summary-ext-v1.2.0",
     ) -> List[Any]:
         """Query Vectara to get list of top_k results
         Args:
@@ -290,6 +342,14 @@ class VectaraDB(BaseVectorDB):
                 "rerankerId": 272725718,
                 "mmrConfig": {"diversityBias": mmr_diversity_bias},
             }
+        if summarize:
+            data["query"][0]["summary"] = {
+                "responseLang": summary_lang,
+                "maxSummarizedResults": summary_k,
+                "promptName": summary_prompt,
+            }
+
+        print(f"DEBUG data = {data}")
 
         result = self._request(endpoint="query", data=data)
 
@@ -305,7 +365,13 @@ class VectaraDB(BaseVectorDB):
             md.update(doc_md)
             res.append((x["text"], md))
 
-        return res[:top_k]
+        summary = (
+            result["responseSet"][0]["summary"][0]["text"]
+            if summarize
+            else None
+        )
+
+        return summary, res[:top_k]
 
     def query(
         self,
@@ -330,7 +396,7 @@ class VectaraDB(BaseVectorDB):
         :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         self._setup_vectara_corpus()
-        res = self._vectara_query(query_str=input_query, top_k=n_results, filter=self._form_filter_str(where), **kwargs)
+        _, res = self._vectara_query(query_str=input_query, top_k=n_results, filter=self._form_filter_str(where), **kwargs)
         if citations:
             return res
         else:

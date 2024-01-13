@@ -425,7 +425,7 @@ def validate_config(config_data):
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
             Optional("embedder"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
+                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google", "fake"),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),

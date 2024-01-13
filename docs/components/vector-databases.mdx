@@ -250,16 +250,19 @@ app = App.from_config(config_path="config.yaml")
 ```
 
 ```yaml config.yaml
+app:
+  config:
+    id: my_app
 vectordb:
   provider: vectara
   config:
-    collection_name: my_vectara_corpus
+    collection_name: vectara-demo
     allow_reset: true
+embedder:
+  provider: fake
 chunker:
   chunk_size: 1000000
   chunk_overlap: 0
-  length_function: 'len'
-  min_chunk_size: 0
 ```
 </CodeGroup>
 
