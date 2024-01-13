@@ -342,13 +342,11 @@ class VectaraDB(BaseVectorDB):
                 "mmrConfig": {"diversityBias": mmr_diversity_bias},
             }
         if summarize:
-            data["query"][0]["summary"] = {
+            data["query"][0]["summary"] = [{
                 "responseLang": summary_lang,
                 "maxSummarizedResults": summary_k,
-                "promptName": summary_prompt,
-            }
-
-        print(f"DEBUG data = {data}")
+                "summarizerPromptName": summary_prompt,
+            }]
 
         result = self._request(endpoint="query", data=data)
 
