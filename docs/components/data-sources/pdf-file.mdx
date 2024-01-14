@@ -4,13 +4,6 @@ title: '📰 PDF'
 
 You can load any pdf file from your local file system or through a URL.
 
-## Setup
-Install the following packages for loading youtube videos which help in transcription.
-
-```bash
-pip install pytube youtube-transcript-api
-```
-
 ## Usage
 
 ### Load from a local file
@@ -29,7 +22,7 @@ app = App()
 app.add('https://arxiv.org/pdf/1706.03762.pdf', data_type='pdf_file')
 app.query("What is the paper 'attention is all you need' about?", citations=True)
 # Answer: The paper "Attention Is All You Need" proposes a new network architecture called the Transformer, which is based solely on attention mechanisms. It suggests that complex recurrent or convolutional neural networks can be replaced with a simpler architecture that connects the encoder and decoder through attention. The paper discusses how this approach can improve sequence transduction models, such as neural machine translation.
-# Contexts: 
+# Contexts:
 # [
 #     (
 #         'Provided proper attribution is ...',
