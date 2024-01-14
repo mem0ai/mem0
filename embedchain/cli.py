@@ -292,7 +292,7 @@ def dev(debug, host, port):
         run_dev_modal_com()
     elif template == "render.com":
         run_dev_render_com(debug, host, port)
-    elif template == "streamlit.io" or template == "hf/streamlit.app":
+    elif template == "streamlit.io" or template == "hf/streamlit.io":
         run_dev_streamlit_io()
     elif template == "gradio.app" or template == "hf/gradio.app":
         run_dev_gradio()
