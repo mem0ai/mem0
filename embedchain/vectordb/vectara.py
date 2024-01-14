@@ -3,7 +3,7 @@ import json
 import os
 import traceback
 from typing import Any, List, Mapping, Optional, Union
-import logging
+import re
 
 import requests
 
@@ -15,13 +15,18 @@ from embedchain import App
 from embedchain.config import BaseLlmConfig
 from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
 
+BASE_URL = "https://api.vectara.io/v1"
+START_SNIPPET = "<%START%>"
+END_SNIPPET = "<%END%>"
 
 class VectaraApp(App):
+    def _remove_citation_from_text(self, text: str) -> str:
+        pattern = r'\[\d+\]'
+        return re.sub(pattern, '', text)
+
     def query(
         self,
         input_query: str,
-        config: BaseLlmConfig = None,
-        dry_run=False,
         where: Optional[dict] = None,
         citations: bool = False,
         **kwargs: dict[str, Any],
@@ -31,12 +36,6 @@ class VectaraApp(App):
 
         :param input_query: The query to use.
         :type input_query: str
-        :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
-        To persistently use a config, declare it during app init., defaults to None
-        :type config: Optional[BaseLlmConfig], optional
-        :param dry_run: A dry run does everything except send the resulting prompt to
-        the LLM. The purpose is to test the prompt, not the response., defaults to False
-        :type dry_run: bool, optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
         :type where: Optional[dict[str, str]], optional
         :param kwargs: To read more params for the query function. Ex. we use citations boolean
@@ -50,6 +49,9 @@ class VectaraApp(App):
         answer, contexts = self.db._vectara_query(
             query_str=input_query, top_k=10, filter=self.db._form_filter_str(where), summarize=True, **kwargs
         )
+        if not citations:
+            answer = self._remove_citation_from_text(answer)
+            answer = answer.replace(START_SNIPPET, '').replace(END_SNIPPET, '').replace(' . ', '. ')
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="query", properties=self._telemetry_props)
@@ -65,9 +67,6 @@ class VectaraDB(BaseVectorDB):
     """
     Vectara as vector database
     """
-
-    BATCH_SIZE = 100
-    BASE_URL = "https://api.vectara.io/v1"
 
     def __init__(
         self,
@@ -134,7 +133,7 @@ class VectaraDB(BaseVectorDB):
     def _request(
         self, endpoint: str, http_method: str = "POST", params: Mapping[str, Any] = None, data: Mapping[str, Any] = None
     ):
-        url = f"{self.BASE_URL}/{endpoint}"
+        url = f"{BASE_URL}/{endpoint}"
 
         current_ts = datetime.datetime.now().timestamp()
         if self.jwt_token_expires_ts is None or self.jwt_token_expires_ts - current_ts <= 60:
@@ -321,6 +320,8 @@ class VectaraDB(BaseVectorDB):
         }
         if len(filter) > 0:
             corpus_key["metadataFilter"] = filter
+        else:
+            corpus_key["metadataFilter"] = ""
 
         data = {
             "query": [
@@ -331,6 +332,8 @@ class VectaraDB(BaseVectorDB):
                     "contextConfig": {
                         "sentencesBefore": 2,
                         "sentencesAfter": 2,
+                        "startTag": START_SNIPPET,
+                        "endTag": END_SNIPPET
                     },
                     "corpusKey": [corpus_key],
                 }
@@ -342,11 +345,13 @@ class VectaraDB(BaseVectorDB):
                 "mmrConfig": {"diversityBias": mmr_diversity_bias},
             }
         if summarize:
-            data["query"][0]["summary"] = [{
-                "responseLang": summary_lang,
-                "maxSummarizedResults": summary_k,
-                "summarizerPromptName": summary_prompt,
-            }]
+            data["query"][0]["summary"] = [
+                {
+                    "responseLang": summary_lang,
+                    "maxSummarizedResults": summary_k,
+                    "summarizerPromptName": summary_prompt,
+                }
+            ]
 
         result = self._request(endpoint="query", data=data)
 
@@ -354,17 +359,18 @@ class VectaraDB(BaseVectorDB):
         documents = result["responseSet"][0]["document"]
 
         res = []
-        for x in responses:
+        for x in responses[:top_k]:
             md = {m["name"]: m["value"] for m in x["metadata"]}
             md["score"] = x["score"]
             doc_num = x["documentIndex"]
             doc_md = {m["name"]: m["value"] for m in documents[doc_num]["metadata"]}
             md.update(doc_md)
-            res.append((x["text"], md))
+            text = x['text']
+            res.append((text, md))
 
         summary = result["responseSet"][0]["summary"][0]["text"] if summarize else None
 
-        return summary, res[:top_k]
+        return summary, res
 
     def query(
         self,
