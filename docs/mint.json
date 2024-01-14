@@ -199,18 +199,18 @@
     {
       "group": "API Reference",
       "pages": [
-        "api-reference/pipeline/overview",
+        "api-reference/app/overview",
         {
-          "group": "Pipeline methods",
+          "group": "App methods",
           "pages": [
-            "api-reference/pipeline/add",
-            "api-reference/pipeline/query",
-            "api-reference/pipeline/chat",
-            "api-reference/pipeline/search",
-            "api-reference/pipeline/deploy",
-            "api-reference/pipeline/reset",
-            "api-reference/pipeline/delete",
-            "api-reference/pipeline/evaluate"
+            "api-reference/app/add",
+            "api-reference/app/query",
+            "api-reference/app/chat",
+            "api-reference/app/search",
+            "api-reference/app/deploy",
+            "api-reference/app/reset",
+            "api-reference/app/delete",
+            "api-reference/app/evaluate"
           ]
         },
         "api-reference/store/openai-assistant",
