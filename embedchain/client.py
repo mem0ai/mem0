@@ -50,6 +50,9 @@ class Client:
         with open(CONFIG_FILE, "w") as f:
             json.dump({"user_id": u_id}, f)
 
+        # if config file doesn't exist, this means the user is importing embedchain for the first time.
+        print("""Welcome to Embedchain!""")
+
     @classmethod
     def load_config(cls):
         if not os.path.exists(CONFIG_FILE):
