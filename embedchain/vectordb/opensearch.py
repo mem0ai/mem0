@@ -234,14 +234,6 @@ class OpenSearchDB(BaseVectorDB):
             # delete index in ES
             self.client.indices.delete(index=self._get_index())
 
-    def delete(self, where):
-        """Deletes a document from the OpenSearch index"""
-        if "doc_id" not in where:
-            raise ValueError("doc_id is required to delete a document")
-
-        query = {"query": {"bool": {"must": [{"term": {"metadata.doc_id": where["doc_id"]}}]}}}
-        self.client.delete_by_query(index=self._get_index(), body=query)
-
     def _get_index(self) -> str:
         """Get the OpenSearch index for a collection
 
@@ -249,3 +241,16 @@ class OpenSearchDB(BaseVectorDB):
         :rtype: str
         """
         return self.config.collection_name
+
+    @staticmethod
+    def _generate_query(where: dict):
+        """Generates an OpenSearch query from a where clause"""
+        must_clauses = [{"term": {f"metadata.{key}": value}} for key, value in where.items()]
+        query = {"query": {"bool": {"must": must_clauses}}}
+        return query
+
+    def delete(self, where):
+        """Deletes a document from the OpenSearch index"""
+        query = self._generate_query(where)
+        self.client.delete_by_query(index=self._get_index(), body=query)
+        self.client.indices.refresh(index=self._get_index())

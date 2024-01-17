@@ -297,3 +297,29 @@ class WeaviateDB(BaseVectorDB):
             query.with_after(cursor)
         results = query.do()
         return results
+
+    def _generate_query(self, where: dict):
+        weaviate_where_operands = []
+        for key, value in where.items():
+            weaviate_where_operands.append(
+                {
+                    "path": ["metadata", self.index_name + "_metadata", key],
+                    "operator": "Equal",
+                    "valueText": value,
+                }
+            )
+
+        if len(weaviate_where_operands) == 1:
+            weaviate_where_clause = weaviate_where_operands[0]
+        else:
+            weaviate_where_clause = {"operator": "And", "operands": weaviate_where_operands}
+
+        return weaviate_where_clause
+
+    def delete(self, where: dict):
+        """Delete from database.
+        :param where: to filter data
+        :type where: dict[str, any]
+        """
+        query = self._generate_query(where)
+        self.client.batch.delete_objects(self.index_name, where=query)

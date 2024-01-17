@@ -244,3 +244,18 @@ class ElasticsearchDB(BaseVectorDB):
         # NOTE: The method is preferred to an attribute, because if collection name changes,
         # it's always up-to-date.
         return f"{self.config.collection_name}_{self.embedder.vector_dimension}".lower()
+
+    @staticmethod
+    def _generate_query(where: dict):
+        """Generates an OpenSearch query from a where clause"""
+        must_clauses = [{"term": {f"metadata.{key}": value}} for key, value in where.items()]
+        query = {"query": {"bool": {"must": must_clauses}}}
+        return query
+
+    def delete(self, where: dict):
+        """
+        Delete from database.
+        """
+        query = self._generate_query(where)
+        self.client.delete_by_query(index=self._get_index(), body=query)
+        self.client.indices.refresh(index=self._get_index())

@@ -114,7 +114,7 @@ class PineconeDB(BaseVectorDB):
                 }
             )
 
-        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches..."):
+        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches"):
             self.client.upsert(chunk, **kwargs)
 
     def query(
@@ -140,7 +140,8 @@ class PineconeDB(BaseVectorDB):
         :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         query_vector = self.embedder.embedding_fn([input_query])[0]
-        data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True, **kwargs)
+        query_filter = self._generate_filter(where)
+        data = self.client.query(vector=query_vector, filter=query_filter, top_k=n_results, include_metadata=True, **kwargs)
         contexts = []
         for doc in data["matches"]:
             metadata = doc["metadata"]
@@ -192,3 +193,21 @@ class PineconeDB(BaseVectorDB):
         :rtype: str
         """
         return f"{self.config.collection_name}-{self.config.vector_dimension}".lower().replace("_", "-")
+
+    @staticmethod
+    def _generate_filter(where: dict):
+        query = {}
+        for k, v in where.items():
+            query[k] = {"$eq": v}
+        return query
+
+    def delete(self, where: dict):
+        """Delete from database.
+
+        :param ids: list of ids to delete
+        :type ids: list[str]
+        """
+        # Deleting with filters is not supported for `starter` index type.
+        # Follow `https://docs.pinecone.io/docs/metadata-filtering#deleting-vectors-by-metadata-filter` for more details.
+        db_filter = self._generate_filter(where)
+        self.client.delete(filter=db_filter)
