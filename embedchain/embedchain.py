@@ -620,7 +620,7 @@ class EmbedChain(JSONSerializable):
             )
         else:
             answer = self.llm.chat(
-                input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
+                input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run, session_id=session_id
             )
 
         # add conversation in memory
