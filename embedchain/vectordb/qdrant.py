@@ -109,6 +109,7 @@ class QdrantDB(BaseVectorDB):
 
         offset = 0
         existing_ids = []
+        metadatas = []
         while offset is not None:
             response = self.client.scroll(
                 collection_name=self.collection_name,
@@ -119,7 +120,8 @@ class QdrantDB(BaseVectorDB):
             offset = response[1]
             for doc in response[0]:
                 existing_ids.append(doc.payload["identifier"])
-        return {"ids": existing_ids}
+                metadatas.append(doc.payload["metadata"])
+        return {"ids": existing_ids, "metadata": metadatas}
 
     def add(
         self,
@@ -230,3 +232,21 @@ class QdrantDB(BaseVectorDB):
             raise TypeError("Collection name must be a string")
         self.config.collection_name = name
         self.collection_name = self._get_or_create_collection()
+
+    @staticmethod
+    def _generate_query(where: dict):
+        must_fields = []
+        for key, value in where.items():
+            must_fields.append(
+                models.FieldCondition(
+                    key=f"metadata.{key}",
+                    match=models.MatchValue(
+                        value=value,
+                    ),
+                )
+            )
+        return models.Filter(must=must_fields)
+
+    def delete(self, where: dict):
+        db_filter = self._generate_query(where)
+        self.client.delete(collection_name=self.collection_name, points_selector=db_filter)
