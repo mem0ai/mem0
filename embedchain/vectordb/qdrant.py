@@ -48,7 +48,6 @@ class QdrantDB(BaseVectorDB):
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
         self.collection_name = self._get_or_create_collection()
-        self.metadata_keys = {"data_type", "doc_id", "url", "hash", "app_id", "text"}
         all_collections = self.client.get_collections()
         collection_names = [collection.name for collection in all_collections.collections]
         if self.collection_name not in collection_names:
@@ -82,21 +81,23 @@ class QdrantDB(BaseVectorDB):
         :return: All the existing IDs
         :rtype: Set[str]
         """
-        if ids is None or len(ids) == 0:
-            return {"ids": []}
 
         keys = set(where.keys() if where is not None else set())
 
-        qdrant_must_filters = [
-            models.FieldCondition(
-                key="identifier",
-                match=models.MatchAny(
-                    any=ids,
-                ),
+        qdrant_must_filters = []
+
+        if ids is not None and len(ids) > 0:
+            qdrant_must_filters.append(
+                models.FieldCondition(
+                    key="identifier",
+                    match=models.MatchAny(
+                        any=ids,
+                    ),
+                )
             )
-        ]
-        if len(keys.intersection(self.metadata_keys)) != 0:
-            for key in keys.intersection(self.metadata_keys):
+
+        if len(keys) > 0:
+            for key in keys:
                 qdrant_must_filters.append(
                     models.FieldCondition(
                         key="metadata.{}".format(key),
@@ -180,16 +181,17 @@ class QdrantDB(BaseVectorDB):
         keys = set(where.keys() if where is not None else set())
 
         qdrant_must_filters = []
-        if len(keys.intersection(self.metadata_keys)) != 0:
-            for key in keys.intersection(self.metadata_keys):
+        if len(keys) > 0:
+            for key in keys:
                 qdrant_must_filters.append(
                     models.FieldCondition(
-                        key="payload.metadata.{}".format(key),
+                        key="metadata.{}".format(key),
                         match=models.MatchValue(
                             value=where.get(key),
                         ),
                     )
                 )
+
         results = self.client.search(
             collection_name=self.collection_name,
             query_filter=models.Filter(must=qdrant_must_filters),
