@@ -94,17 +94,18 @@ class ZillizVectorDB(BaseVectorDB):
         :return: Existing documents.
         :rtype: Set[str]
         """
-        if ids is None or len(ids) == 0 or self.collection.num_entities == 0:
-            return {"ids": []}
+        data_ids = []
+        metadatas = []
+        if ids is None or len(ids) == 0 or self.collection.num_entities == 0 or self.collection.is_empty:
+            return {"ids": data_ids, "metadatas": metadatas}
 
-        if not self.collection.is_empty:
-            filter_ = f"id in {ids}"
-            results = self.client.query(
-                collection_name=self.config.collection_name, filter=filter_, output_fields=["id"]
-            )
-            results = [res["id"] for res in results]
+        filter_ = f"id in {ids}"
+        results = self.client.query(collection_name=self.config.collection_name, filter=filter_, output_fields=["*"])
+        for res in results:
+            data_ids.append(res.pop("id"))
+            metadatas.append(res)
 
-        return {"ids": set(results)}
+        return {"ids": data_ids, "metadatas": metadatas}
 
     def add(
         self,
@@ -128,7 +129,7 @@ class ZillizVectorDB(BaseVectorDB):
         self,
         input_query: list[str],
         n_results: int,
-        where: dict[str, any],
+        where: dict[str, Any],
         citations: bool = False,
         **kwargs: Optional[dict[str, Any]],
     ) -> Union[list[tuple[str, dict]], list[str]]:
@@ -140,7 +141,7 @@ class ZillizVectorDB(BaseVectorDB):
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: str
+        :type where: dict[str, Any]
         :raises InvalidDimensionException: Dimensions do not match.
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
@@ -152,13 +153,13 @@ class ZillizVectorDB(BaseVectorDB):
         if self.collection.is_empty:
             return []
 
-        if not isinstance(where, str):
-            where = None
-
         output_fields = ["*"]
         input_query_vector = self.embedder.embedding_fn([input_query])
         query_vector = input_query_vector[0]
 
+        # TODO: (Deven) Ziliz search with filter doesn't work. Wait for them to fix it.
+        # Follow `https://github.com/milvus-io/milvus/issues/27913`
+        # query_filter = self._generate_zilliz_filter(where)
         query_result = self.client.search(
             collection_name=self.config.collection_name,
             data=[query_vector],
@@ -216,7 +217,13 @@ class ZillizVectorDB(BaseVectorDB):
             raise TypeError("Collection name must be a string")
         self.config.collection_name = name
 
-    def delete(self, keys: Union[list, str, int]):
+    def _generate_zilliz_filter(self, where: dict[str, str]):
+        operands = []
+        for key, value in where.items():
+            operands.append(f'("{key}" == "{value}")')
+        return " and ".join(operands)
+
+    def delete(self, where: dict[str, Any]):
         """
         Delete the embeddings from DB. Zilliz only support deleting with keys.
 
@@ -224,7 +231,9 @@ class ZillizVectorDB(BaseVectorDB):
         :param keys: Primary keys of the table entries to delete.
         :type keys: Union[list, str, int]
         """
-        self.client.delete(
-            collection_name=self.config.collection_name,
-            pks=keys,
-        )
+        if "keys" in where:
+            keys = where["keys"]
+            self.client.delete(
+                collection_name=self.config.collection_name,
+                pks=keys,
+            )
