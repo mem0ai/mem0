@@ -121,7 +121,7 @@ class QdrantDB(BaseVectorDB):
             for doc in response[0]:
                 existing_ids.append(doc.payload["identifier"])
                 metadatas.append(doc.payload["metadata"])
-        return {"ids": existing_ids, "metadata": metadatas}
+        return {"ids": existing_ids, "metadatas": metadatas}
 
     def add(
         self,
