@@ -119,7 +119,7 @@ class TestQdrantDB(unittest.TestCase):
             query_filter=models.Filter(
                 must=[
                     models.FieldCondition(
-                        key="payload.metadata.doc_id",
+                        key="metadata.doc_id",
                         match=models.MatchValue(
                             value="123",
                         ),
