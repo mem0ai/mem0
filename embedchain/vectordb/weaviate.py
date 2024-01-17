@@ -152,25 +152,41 @@ class WeaviateDB(BaseVectorDB):
             weaviate_where_clause = {"operator": "And", "operands": weaviate_where_operands}
 
         existing_ids = []
+        metadatas = []
         cursor = None
+        offset = 0
         has_iterated_once = False
+        query_metadata_keys = self.metadata_keys.union(keys)
         while cursor is not None or not has_iterated_once:
             has_iterated_once = True
-            results = self._query_with_cursor(
-                self.client.query.get(self.index_name, ["identifier"])
+            results = self._query_with_offset(
+                self.client.query.get(
+                    self.index_name,
+                    [
+                        "identifier",
+                        weaviate.LinkTo("metadata", self.index_name + "_metadata", list(query_metadata_keys)),
+                    ],
+                )
                 .with_where(weaviate_where_clause)
                 .with_additional(["id"])
                 .with_limit(limit or self.BATCH_SIZE),
-                cursor,
+                offset,
             )
+
             fetched_results = results["data"]["Get"].get(self.index_name, [])
-            if len(fetched_results) == 0:
+            if fetched_results is None or len(fetched_results) == 0:
                 break
+
             for result in fetched_results:
                 existing_ids.append(result["identifier"])
+                metadatas.append(result["metadata"][0])
                 cursor = result["_additional"]["id"]
+                offset += 1
 
-        return {"ids": existing_ids}
+            if limit is not None and len(existing_ids) >= limit:
+                break
+
+        return {"ids": existing_ids, "metadatas": metadatas}
 
     def add(self, documents: list[str], metadatas: list[object], ids: list[str], **kwargs: Optional[dict[str, any]]):
         """add data in vector database
@@ -312,8 +328,34 @@ class WeaviateDB(BaseVectorDB):
         return f"{self.config.collection_name}_{self.embedder.vector_dimension}".capitalize().replace("-", "_")
 
     @staticmethod
-    def _query_with_cursor(query, cursor):
-        if cursor is not None:
-            query.with_after(cursor)
+    def _query_with_offset(query, offset):
+        if offset:
+            query.with_offset(offset)
         results = query.do()
         return results
+
+    def _generate_query(self, where: dict):
+        weaviate_where_operands = []
+        for key, value in where.items():
+            weaviate_where_operands.append(
+                {
+                    "path": ["metadata", self.index_name + "_metadata", key],
+                    "operator": "Equal",
+                    "valueText": value,
+                }
+            )
+
+        if len(weaviate_where_operands) == 1:
+            weaviate_where_clause = weaviate_where_operands[0]
+        else:
+            weaviate_where_clause = {"operator": "And", "operands": weaviate_where_operands}
+
+        return weaviate_where_clause
+
+    def delete(self, where: dict):
+        """Delete from database.
+        :param where: to filter data
+        :type where: dict[str, any]
+        """
+        query = self._generate_query(where)
+        self.client.batch.delete_objects(self.index_name, where=query)
