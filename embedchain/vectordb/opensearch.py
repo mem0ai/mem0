@@ -96,7 +96,7 @@ class OpenSearchDB(BaseVectorDB):
         else:
             query["query"] = {"bool": {"must": []}}
 
-        if where is not None and len(where) > 0:
+        if where:
             for key, value in where.items():
                 query["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
 
