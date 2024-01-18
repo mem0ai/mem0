@@ -69,6 +69,7 @@ class ZillizVectorDB(BaseVectorDB):
                 FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
                 FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=2048),
                 FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.embedder.vector_dimension),
+                FieldSchema(name="metadata", dtype=DataType.JSON),
             ]
 
             schema = CollectionSchema(fields, enable_dynamic_field=True)
@@ -96,14 +97,22 @@ class ZillizVectorDB(BaseVectorDB):
         """
         data_ids = []
         metadatas = []
-        if ids is None or len(ids) == 0 or self.collection.num_entities == 0 or self.collection.is_empty:
+        if self.collection.num_entities == 0 or self.collection.is_empty:
             return {"ids": data_ids, "metadatas": metadatas}
 
-        filter_ = f"id in {ids}"
+        filter_ = ""
+        if ids:
+            filter_ = f'id in "{ids}"'
+
+        if where:
+            if filter_:
+                filter_ += " and "
+            filter_ = f"{self._generate_zilliz_filter(where)}"
+
         results = self.client.query(collection_name=self.config.collection_name, filter=filter_, output_fields=["*"])
         for res in results:
-            data_ids.append(res.pop("id"))
-            metadatas.append(res)
+            data_ids.append(res.get("id"))
+            metadatas.append(res.get("metadata", {}))
 
         return {"ids": data_ids, "metadatas": metadatas}
 
@@ -118,7 +127,7 @@ class ZillizVectorDB(BaseVectorDB):
         embeddings = self.embedder.embedding_fn(documents)
 
         for id, doc, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-            data = {**metadata, "id": id, "text": doc, "embeddings": embedding}
+            data = {"id": id, "text": doc, "embeddings": embedding, "metadata": metadata}
             self.client.insert(collection_name=self.config.collection_name, data=data, **kwargs)
 
         self.collection.load()
@@ -157,12 +166,11 @@ class ZillizVectorDB(BaseVectorDB):
         input_query_vector = self.embedder.embedding_fn([input_query])
         query_vector = input_query_vector[0]
 
-        # TODO: (Deven) Ziliz search with filter doesn't work. Wait for them to fix it.
-        # Follow `https://github.com/milvus-io/milvus/issues/27913`
-        # query_filter = self._generate_zilliz_filter(where)
+        query_filter = self._generate_zilliz_filter(where)
         query_result = self.client.search(
             collection_name=self.config.collection_name,
             data=[query_vector],
+            filter=query_filter,
             limit=n_results,
             output_fields=output_fields,
             **kwargs,
@@ -174,12 +182,10 @@ class ZillizVectorDB(BaseVectorDB):
             score = query["distance"]
             context = data["text"]
 
-            if "embeddings" in data:
-                data.pop("embeddings")
-
             if citations:
-                data["score"] = score
-                contexts.append(tuple((context, data)))
+                metadata = data.get("metadata", {})
+                metadata["score"] = score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
@@ -220,7 +226,7 @@ class ZillizVectorDB(BaseVectorDB):
     def _generate_zilliz_filter(self, where: dict[str, str]):
         operands = []
         for key, value in where.items():
-            operands.append(f'("{key}" == "{value}")')
+            operands.append(f'(metadata["{key}"] == "{value}")')
         return " and ".join(operands)
 
     def delete(self, where: dict[str, Any]):
@@ -231,9 +237,7 @@ class ZillizVectorDB(BaseVectorDB):
         :param keys: Primary keys of the table entries to delete.
         :type keys: Union[list, str, int]
         """
-        if "keys" in where:
-            keys = where["keys"]
-            self.client.delete(
-                collection_name=self.config.collection_name,
-                pks=keys,
-            )
+        data = self.get(where=where)
+        keys = data.get("ids", [])
+        if keys:
+            self.client.delete(collection_name=self.config.collection_name, pks=keys)
