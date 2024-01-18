@@ -400,6 +400,7 @@ def validate_config(config_data):
                     "llama2",
                     "vertexai",
                     "google",
+                    "aws_bedrock",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
