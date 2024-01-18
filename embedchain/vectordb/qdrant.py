@@ -11,6 +11,8 @@ try:
 except ImportError:
     raise ImportError("Qdrant requires extra dependencies. Install with `pip install embedchain[qdrant]`") from None
 
+from tqdm import tqdm
+
 from embedchain.config.vectordb.qdrant import QdrantDBConfig
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -146,7 +148,8 @@ class QdrantDB(BaseVectorDB):
             metadata["text"] = document
             qdrant_ids.append(str(uuid.uuid4()))
             payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
-        for i in range(0, len(qdrant_ids), self.BATCH_SIZE):
+
+        for i in tqdm(range(0, len(qdrant_ids), self.BATCH_SIZE), desc="Adding data in batches"):
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=Batch(
