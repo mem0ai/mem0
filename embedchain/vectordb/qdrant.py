@@ -86,7 +86,7 @@ class QdrantDB(BaseVectorDB):
 
         qdrant_must_filters = []
 
-        if ids is not None and len(ids) > 0:
+        if ids:
             qdrant_must_filters.append(
                 models.FieldCondition(
                     key="identifier",

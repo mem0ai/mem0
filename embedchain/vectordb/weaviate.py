@@ -131,7 +131,7 @@ class WeaviateDB(BaseVectorDB):
         """
         weaviate_where_operands = []
 
-        if ids is not None and len(ids) > 0:
+        if ids:
             for doc_id in ids:
                 weaviate_where_operands.append({"path": ["identifier"], "operator": "Equal", "valueText": doc_id})
 
@@ -174,7 +174,7 @@ class WeaviateDB(BaseVectorDB):
             )
 
             fetched_results = results["data"]["Get"].get(self.index_name, [])
-            if fetched_results is None or len(fetched_results) == 0:
+            if not fetched_results:
                 break
 
             for result in fetched_results:
