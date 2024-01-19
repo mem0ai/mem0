@@ -29,7 +29,7 @@ class AWSBedrockLlm(BaseLlm):
                 'Please install with `pip install --upgrade "embedchain[aws-bedrock]"`'
             ) from None
         
-        self.boto_client = boto3.client('bedrock', 'us-west-2')
+        self.boto_client = boto3.client('bedrock-runtime', 'us-west-2')
         
         messages = []
         if config.system_prompt:
