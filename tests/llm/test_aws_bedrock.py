@@ -11,11 +11,12 @@ def config(monkeypatch):
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test_secret_access_key")
     monkeypatch.setenv("OPENAI_API_KEY", "test_api_key")
     config = BaseLlmConfig(
-        model="meta.llama2-13b-chat-v1",
-        temperature=0.7,
-        max_tokens=50,
-        top_p=0.8,
-        stream=False,
+        model="amazon.titan-text-express-v1",
+        model_kwargs={
+            "temperature": 0.5,
+            "topP": 1,
+            "maxTokenCount": 1000,
+        }
     )
     yield config
     monkeypatch.delenv("AWS_ACCESS_KEY_ID")
