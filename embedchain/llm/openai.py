@@ -32,6 +32,7 @@ class OpenAILlm(BaseLlm):
             "model_kwargs": {},
         }
         api_key = config.api_key or os.environ["OPENAI_API_KEY"]
+        base_url = config.base_url or os.environ.get("OPENAI_API_BASE", None)
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
@@ -39,9 +40,9 @@ class OpenAILlm(BaseLlm):
                 StreamingStdOutCallbackHandler
 
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
-            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key)
+            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key, base_url=base_url)
         else:
-            chat = ChatOpenAI(**kwargs, api_key=api_key)
+            chat = ChatOpenAI(**kwargs, api_key=api_key, base_url=base_url)
 
         if self.functions is not None:
             from langchain.chains.openai_functions import \
