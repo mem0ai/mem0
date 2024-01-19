@@ -35,7 +35,7 @@ class TestFactories:
             ("gpt4all", {}, embedchain.embedder.gpt4all.GPT4AllEmbedder),
             (
                 "huggingface",
-                {"model": "sentence-transformers/all-mpnet-base-v2"},
+                {"model": "sentence-transformers/all-mpnet-base-v2", "vector_dimension": 768},
                 embedchain.embedder.huggingface.HuggingFaceEmbedder,
             ),
             ("vertexai", {"model": "textembedding-gecko"}, embedchain.embedder.vertexai.VertexAIEmbedder),
