@@ -200,9 +200,10 @@ Alright, let's dive into what each key means in the yaml config above:
         - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `prompt` (String): A prompt for the model to follow when generating responses, requires `$context` and `$query` variables.
         - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
-        -  `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
+        - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `number_documents` (Integer): Number of documents to pull from the vectordb as context, defaults to 1
         - `api_key` (String): The API key for the language model.
+        - `model_kwargs` (Dict): Keyword arguments to pass to the language model. Used for `aws_bedrock` provider, since it requires different arguments for each model.
 3. `vectordb` Section:
     - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
     - `config`:
