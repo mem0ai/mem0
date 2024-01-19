@@ -46,7 +46,7 @@ def test_get_llm_model_answer_empty_prompt(config, mocker):
 
 def test_get_llm_model_answer_with_streaming(config, mocker):
     config.stream = True
-    mocked_bedrock_chat = mocker.patch("embedchain.llm.aws_bedrock.BedrockChat")
+    mocked_bedrock_chat = mocker.patch("embedchain.llm.aws_bedrock.Bedrock")
 
     llm = AWSBedrockLlm(config)
     llm.get_llm_model_answer("Test query")
