@@ -8,7 +8,7 @@ You can configure different components of your app (`llm`, `embedding model`, or
 
 
 <Tip>
-Embedchain applications are configurable using YAML file, JSON file or by directly passing the config dictionary. Checkout the [docs here](/api-reference/pipeline/overview#usage) on how to use other formats.
+Embedchain applications are configurable using YAML file, JSON file or by directly passing the config dictionary. Checkout the [docs here](/api-reference/app/overview#usage) on how to use other formats.
 </Tip>
 
 <CodeGroup>
@@ -214,7 +214,11 @@ Alright, let's dive into what each key means in the yaml config above:
     - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
     - `config`:
         - `model` (String): The specific model used for text embedding, 'text-embedding-ada-002'.
+        - `vector_dimension` (Integer): The vector dimension of the embedding model. [Defaults](https://github.com/embedchain/embedchain/blob/e572b5a3dc1b66f1e9b3357d11a88c63b5ce06e3/embedchain/models/vector_dimensions.py)
         - `api_key` (String): The API key for the embedding model.
+        - `deployment_name` (String): The deployment name for the embedding model.
+        - `title` (String): The title for the embedding model for Google Embedder.
+        - `task_type` (String): The task type for the embedding model for Google Embedder.
 5. `chunker` Section:
     - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.

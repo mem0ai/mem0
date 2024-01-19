@@ -27,5 +27,5 @@ class GoogleAIEmbedder(BaseEmbedder):
         embedding_fn = GoogleAIEmbeddingFunction(config=config)
         self.set_embedding_fn(embedding_fn=embedding_fn)
 
-        vector_dimension = VectorDimensions.GOOGLE_AI.value
+        vector_dimension = self.config.vector_dimension or VectorDimensions.GOOGLE_AI.value
         self.set_vector_dimension(vector_dimension=vector_dimension)

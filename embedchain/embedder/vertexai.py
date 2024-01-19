@@ -15,5 +15,5 @@ class VertexAIEmbedder(BaseEmbedder):
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
         self.set_embedding_fn(embedding_fn=embedding_fn)
 
-        vector_dimension = VectorDimensions.VERTEX_AI.value
+        vector_dimension = self.config.vector_dimension or VectorDimensions.VERTEX_AI.value
         self.set_vector_dimension(vector_dimension=vector_dimension)
