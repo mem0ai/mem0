@@ -16,7 +16,7 @@ def config(monkeypatch):
             "temperature": 0.5,
             "topP": 1,
             "maxTokenCount": 1000,
-        }
+        },
     )
     yield config
     monkeypatch.delenv("AWS_ACCESS_KEY_ID")
