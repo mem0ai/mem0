@@ -623,8 +623,12 @@ llm:
 
 ## AWS Bedrock
 
-Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
-You will also need `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to authenticate the API with AWS. You can find these in your [AWS Console](https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/users).
+### Setup
+- Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- You will also need `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to authenticate the API with AWS. You can find these in your [AWS Console](https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/users).
+
+
+### Usage
 
 <CodeGroup>
 
@@ -642,13 +646,19 @@ app = App.from_config(config_path="config.yaml")
 llm:
   provider: aws_bedrock
   config:
-    model: anthropic.claude-v2:1
-    temperature: 0.5
-    max_tokens: 1000
-    top_p: 1
-    stream: false
+    model: amazon.titan-text-express-v1
+    # check notes below for model_kwargs
+    model_kwargs:
+      temperature: 0.5
+      topP: 1
+      maxTokenCount: 1000
 ```
 </CodeGroup>
+
+<br />
+<Note>
+  The model arguments are different for each providers. Please refer to the [AWS Bedrock Documentation](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/providers) to find the appropriate arguments for your model.
+</Note>
 
 <br/ >
 <Snippet file="missing-llm-tip.mdx" />

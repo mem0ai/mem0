@@ -1,7 +1,6 @@
 from typing import Optional
 
-from langchain.chat_models import BedrockChat
-from langchain.schema import HumanMessage, SystemMessage
+from langchain.llms import Bedrock
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -28,28 +27,22 @@ class AWSBedrockLlm(BaseLlm):
 
         self.boto_client = boto3.client("bedrock-runtime", "us-west-2")
 
-        messages = []
-        if config.system_prompt:
-            messages.append(SystemMessage(content=config.system_prompt))
-        messages.append(HumanMessage(content=prompt))
         kwargs = {
-            "model_id": config.model or "meta.llama2-13b-chat-v1",
+            "model_id": config.model or "amazon.titan-text-express-v1",
             "client": self.boto_client,
-            "model_kwargs": {
+            "model_kwargs": config.model_kwargs
+            or {
                 "temperature": config.temperature,
-                "max_tokens": config.max_tokens,
             },
         }
-        if config.top_p:
-            kwargs["model_kwargs"]["top_p"] = config.top_p
 
         if config.stream:
             from langchain.callbacks.streaming_stdout import \
                 StreamingStdOutCallbackHandler
 
             callbacks = [StreamingStdOutCallbackHandler()]
-            chat = BedrockChat(**kwargs, streaming=config.stream, callbacks=callbacks)
+            llm = Bedrock(**kwargs, streaming=config.stream, callbacks=callbacks)
         else:
-            chat = BedrockChat(**kwargs)
+            llm = Bedrock(**kwargs)
 
-        return chat(messages).content
+        return llm(prompt)
