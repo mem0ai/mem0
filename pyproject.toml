@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.66"
-description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
+version = "0.1.67"
+description = "Simplest open source retrieval(RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
     "Deshraj Yadav <deshraj@embedchain.ai>",
