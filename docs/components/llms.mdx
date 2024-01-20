@@ -20,6 +20,7 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Llama2" href="#llama2"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
+  <Card title="Mistral AI" href="#mistral-ai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -617,6 +618,48 @@ llm:
     model: 'chat-bison'
     temperature: 0.5
     top_p: 0.5
+```
+</CodeGroup>
+
+
+## Mistral AI
+
+Obtain the Mistral AI api key from their [console](https://console.mistral.ai/).
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["MISTRAL_API_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.query("what is the net worth of Elon Musk?")
+# As of January 16, 2024, Elon Musk's net worth is $225.4 billion.
+
+response = app.chat("which companies does elon own?")
+# Elon Musk owns Tesla, SpaceX, Boring Company, Twitter, and X.
+
+response = app.chat("what question did I ask you already?")
+# You have asked me several times already which companies Elon Musk owns, specifically Tesla, SpaceX, Boring Company, Twitter, and X.
+```
+  
+```yaml config.yaml
+llm:
+  provider: mistralai
+  config:
+    model: mistral-tiny
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+embedder:
+  provider: mistralai
+  config:
+    model: mistral-embed
 ```
 </CodeGroup>
 
