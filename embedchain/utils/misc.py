@@ -406,6 +406,7 @@ def validate_config(config_data):
                     "llama2",
                     "vertexai",
                     "google",
+                    "mistralai",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -431,7 +432,15 @@ def validate_config(config_data):
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
             Optional("embedder"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
+                Optional("provider"): Or(
+                    "openai",
+                    "gpt4all",
+                    "huggingface",
+                    "vertexai",
+                    "azure_openai",
+                    "google",
+                    "mistralai",
+                ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
@@ -442,7 +451,15 @@ def validate_config(config_data):
                 },
             },
             Optional("embedding_model"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
+                Optional("provider"): Or(
+                    "openai",
+                    "gpt4all",
+                    "huggingface",
+                    "vertexai",
+                    "azure_openai",
+                    "google",
+                    "mistralai",
+                ),
                 Optional("config"): {
                     Optional("model"): str,
                     Optional("deployment_name"): str,
