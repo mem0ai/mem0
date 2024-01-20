@@ -22,7 +22,7 @@ class MistralAILlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for MistralAI are not installed."
-                'Please install with `pip install --upgrade "embedchain[mistral]"`'
+                'Please install with `pip install --upgrade "embedchain[mistralai]"`'
             ) from None
         api_key = config.api_key or os.environ["MISTRAL_API_KEY"]
         client = MistralClient(api_key=api_key)
@@ -37,10 +37,12 @@ class MistralAILlm(BaseLlm):
             "top_p": config.top_p,
         }
 
+        # TODO: (Deven) Add support for streaming
         if config.stream:
+            answer = ""
             for chunk in client.chat_stream(**kwargs, messages=messages):
-                answer = chunk.choices[0].delta.content
-                yield answer
+                answer += chunk.choices[0].delta.content
+            return answer
         else:
             response = client.chat(**kwargs, messages=messages)
             answer = response.choices[0].message.content

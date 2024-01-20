@@ -16,7 +16,7 @@ class MistralAIEmbeddingFunction(EmbeddingFunction):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for MistralAI are not installed."
-                'Please install with `pip install --upgrade "embedchain[mistral]"`'
+                'Please install with `pip install --upgrade "embedchain[mistralai]"`'
             ) from None
         self.config = config
         api_key = self.config.api_key or os.environ["MISTRAL_API_KEY"]
