@@ -17,19 +17,19 @@ class MistralAILlm(BaseLlm):
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig):
         try:
-            from mistralai.client import MistralClient
-            from mistralai.models.chat_completion import ChatMessage
+            from langchain_core.messages import HumanMessage, SystemMessage
+            from langchain_mistralai.chat_models import ChatMistralAI
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for MistralAI are not installed."
                 'Please install with `pip install --upgrade "embedchain[mistralai]"`'
             ) from None
         api_key = config.api_key or os.environ["MISTRAL_API_KEY"]
-        client = MistralClient(api_key=api_key)
+        client = ChatMistralAI(mistral_api_key=api_key)
         messages = []
         if config.system_prompt:
-            messages.append(ChatMessage(role="system", content=config.system_prompt))
-        messages.append(ChatMessage(role="human", content=prompt))
+            messages.append(SystemMessage(content=config.system_prompt))
+        messages.append(HumanMessage(content=prompt))
         kwargs = {
             "model": config.model or "mistral-tiny",
             "temperature": config.temperature,
@@ -37,13 +37,13 @@ class MistralAILlm(BaseLlm):
             "top_p": config.top_p,
         }
 
-        # TODO: (Deven) Add support for streaming
+        # TODO: Add support for streaming
         if config.stream:
             answer = ""
-            for chunk in client.chat_stream(**kwargs, messages=messages):
-                answer += chunk.choices[0].delta.content
+            for chunk in client.stream(**kwargs, input=messages):
+                answer += chunk.content
             return answer
         else:
-            response = client.chat(**kwargs, messages=messages)
-            answer = response.choices[0].message.content
+            response = client.invoke(**kwargs, input=messages)
+            answer = response.content
             return answer
