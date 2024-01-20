@@ -10,6 +10,8 @@ from embedchain.llm.base import BaseLlm
 class MistralAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
+        if not self.config.api_key and "MISTRAL_API_KEY" not in os.environ:
+            raise ValueError("Please set the MISTRAL_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt):
         return MistralAILlm._get_answer(prompt=prompt, config=self.config)
@@ -24,7 +26,8 @@ class MistralAILlm(BaseLlm):
                 "The required dependencies for MistralAI are not installed."
                 'Please install with `pip install --upgrade "embedchain[mistralai]"`'
             ) from None
-        api_key = config.api_key or os.environ["MISTRAL_API_KEY"]
+
+        api_key = config.api_key or os.getenv("MISTRAL_API_KEY")
         client = ChatMistralAI(mistral_api_key=api_key)
         messages = []
         if config.system_prompt:
