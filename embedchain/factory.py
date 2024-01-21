@@ -22,6 +22,7 @@ class LlmFactory:
         "vertexai": "embedchain.llm.vertex_ai.VertexAILlm",
         "google": "embedchain.llm.google.GoogleLlm",
         "aws_bedrock": "embedchain.llm.aws_bedrock.AWSBedrockLlm",
+        "mistralai": "embedchain.llm.mistralai.MistralAILlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
@@ -51,6 +52,7 @@ class EmbedderFactory:
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
         "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
         "google": "embedchain.embedder.google.GoogleAIEmbedder",
+        "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
