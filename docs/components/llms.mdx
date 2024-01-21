@@ -21,6 +21,7 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Llama2" href="#llama2"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
   <Card title="Mistral AI" href="#mistral-ai"></Card>
+  <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -627,11 +628,8 @@ llm:
 Obtain the Mistral AI api key from their [console](https://console.mistral.ai/).
 
 <CodeGroup>
-
-```python main.py
-import os
-from embedchain import App
-
+ 
+ ```python main.py
 os.environ["MISTRAL_API_KEY"] = "xxx"
 
 app = App.from_config(config_path="config.yaml")
@@ -662,6 +660,46 @@ embedder:
     model: mistral-embed
 ```
 </CodeGroup>
+
+
+## AWS Bedrock
+
+### Setup
+- Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- You will also need `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to authenticate the API with AWS. You can find these in your [AWS Console](https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/users).
+
+
+### Usage
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["AWS_ACCESS_KEY_ID"] = "xxx"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: aws_bedrock
+  config:
+    model: amazon.titan-text-express-v1
+    # check notes below for model_kwargs
+    model_kwargs:
+      temperature: 0.5
+      topP: 1
+      maxTokenCount: 1000
+```
+</CodeGroup>
+
+<br />
+<Note>
+  The model arguments are different for each providers. Please refer to the [AWS Bedrock Documentation](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/providers) to find the appropriate arguments for your model.
+</Note>
 
 <br/ >
 <Snippet file="missing-llm-tip.mdx" />

@@ -406,6 +406,7 @@ def validate_config(config_data):
                     "llama2",
                     "vertexai",
                     "google",
+                    "aws_bedrock",
                     "mistralai",
                 ),
                 Optional("config"): {
@@ -423,6 +424,7 @@ def validate_config(config_data):
                     Optional("query_type"): str,
                     Optional("api_key"): str,
                     Optional("endpoint"): str,
+                    Optional("model_kwargs"): dict,
                 },
             },
             Optional("vectordb"): {
