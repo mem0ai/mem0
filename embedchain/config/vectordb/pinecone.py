@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from embedchain.config.vectordb.base import BaseVectorDbConfig
@@ -22,7 +23,8 @@ class PineconeDBConfig(BaseVectorDbConfig):
         self.extra_params = extra_params
         if pod_config is None and serverless_config is None:
             # If no config is provided, use the default pod spec config
-            self.pod_config = {"environment": "gcp-starter", "metadata_config": {"indexed": ["*"]}}
+            pod_environment = os.environ.get("PINECONE_ENV", "gcp-starter")
+            self.pod_config = {"environment": pod_environment, "metadata_config": {"indexed": ["*"]}}
         else:
             self.pod_config = pod_config
         self.serverless_config = serverless_config
