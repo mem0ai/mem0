@@ -41,7 +41,7 @@ class PineconeDB(BaseVectorDB):
                     "Please make sure the type is right and that you are passing an instance."
                 )
             self.config = config
-        self.client = self._setup_pinecone_index()
+        self._setup_pinecone_index()
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
 
@@ -54,18 +54,27 @@ class PineconeDB(BaseVectorDB):
 
     # Loads the Pinecone index or creates it if not present.
     def _setup_pinecone_index(self):
-        pinecone.init(
-            api_key=os.environ.get("PINECONE_API_KEY"),
-            environment=os.environ.get("PINECONE_ENV"),
-            **self.config.extra_params,
-        )
+        api_key = self.config.api_key or os.environ.get("PINECONE_API_KEY")
+        if not api_key:
+            raise ValueError("Please set the PINECONE_API_KEY environment variable.")
+        self.client = pinecone.Pinecone(api_key=api_key, **self.config.extra_params)
         self.index_name = self._get_index_name()
-        indexes = pinecone.list_indexes()
+        indexes = self.client.list_indexes().names()
         if indexes is None or self.index_name not in indexes:
-            pinecone.create_index(
-                name=self.index_name, metric=self.config.metric, dimension=self.config.vector_dimension
+            if self.config.pod_config:
+                spec = pinecone.PodSpec(**self.config.pod_config)
+            elif self.config.serverless_config:
+                spec = pinecone.ServerlessSpec(**self.config.serverless_config)
+            else:
+                raise ValueError("No pod_config or serverless_config found.")
+
+            self.client.create_index(
+                name=self.index_name,
+                metric=self.config.metric,
+                dimension=self.config.vector_dimension,
+                spec=spec,
             )
-        return pinecone.Index(self.index_name)
+        self.pinecone_index = self.client.Index(self.index_name)
 
     def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
@@ -81,7 +90,7 @@ class PineconeDB(BaseVectorDB):
         existing_ids = list()
         if ids is not None:
             for i in range(0, len(ids), 1000):
-                result = self.client.fetch(ids=ids[i : i + 1000])
+                result = self.pinecone_index.fetch(ids=ids[i : i + 1000])
                 batch_existing_ids = list(result.get("vectors").keys())
                 existing_ids.extend(batch_existing_ids)
         return {"ids": existing_ids}
@@ -114,8 +123,8 @@ class PineconeDB(BaseVectorDB):
                 }
             )
 
-        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches..."):
-            self.client.upsert(chunk, **kwargs)
+        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches"):
+            self.pinecone_index.upsert(chunk, **kwargs)
 
     def query(
         self,
@@ -140,7 +149,13 @@ class PineconeDB(BaseVectorDB):
         :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
         query_vector = self.embedder.embedding_fn([input_query])[0]
-        data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True, **kwargs)
+        data = self.pinecone_index.query(
+            vector=query_vector,
+            filter=where,
+            top_k=n_results,
+            include_metadata=True,
+            **kwargs,
+        )
         contexts = []
         for doc in data["matches"]:
             metadata = doc["metadata"]
@@ -170,7 +185,8 @@ class PineconeDB(BaseVectorDB):
         :return: number of documents
         :rtype: int
         """
-        return self.client.describe_index_stats()["total_vector_count"]
+        data = self.pinecone_index.describe_index_stats()
+        return data["total_vector_count"]
 
     def _get_or_create_db(self):
         """Called during initialization"""
@@ -181,7 +197,7 @@ class PineconeDB(BaseVectorDB):
         Resets the database. Deletes all embeddings irreversibly.
         """
         # Delete all data from the database
-        pinecone.delete_index(self.index_name)
+        self.client.delete_index(self.index_name)
         self._setup_pinecone_index()
 
     # Pinecone only allows alphanumeric characters and "-" in the index name
