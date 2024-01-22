@@ -19,10 +19,11 @@ BASE_URL = "https://api.vectara.io/v1"
 START_SNIPPET = "<%START%>"
 END_SNIPPET = "<%END%>"
 
+
 class VectaraApp(App):
     def _remove_citation_from_text(self, text: str) -> str:
-        pattern = r'\[\d+\]'
-        return re.sub(pattern, '', text)
+        pattern = r"\[\d+\]"
+        return re.sub(pattern, "", text)
 
     def query(
         self,
@@ -51,7 +52,7 @@ class VectaraApp(App):
         )
         if not citations:
             answer = self._remove_citation_from_text(answer)
-            answer = answer.replace(START_SNIPPET, '').replace(END_SNIPPET, '').replace(' . ', '. ')
+            answer = answer.replace(START_SNIPPET, "").replace(END_SNIPPET, "").replace(" . ", ". ")
 
         # Send anonymous telemetry
         self.telemetry.capture(event_name="query", properties=self._telemetry_props)
@@ -333,7 +334,7 @@ class VectaraDB(BaseVectorDB):
                         "sentencesBefore": 2,
                         "sentencesAfter": 2,
                         "startTag": START_SNIPPET,
-                        "endTag": END_SNIPPET
+                        "endTag": END_SNIPPET,
                     },
                     "corpusKey": [corpus_key],
                 }
@@ -365,7 +366,7 @@ class VectaraDB(BaseVectorDB):
             doc_num = x["documentIndex"]
             doc_md = {m["name"]: m["value"] for m in documents[doc_num]["metadata"]}
             md.update(doc_md)
-            text = x['text']
+            text = x["text"]
             res.append((text, md))
 
         summary = result["responseSet"][0]["summary"][0]["text"] if summarize else None
