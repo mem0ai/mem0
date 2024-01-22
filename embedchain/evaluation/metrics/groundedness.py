@@ -21,7 +21,7 @@ class Groundedness(BaseMetric):
     def __init__(self, config: Optional[GroundednessConfig] = None):
         super().__init__(name=EvalMetric.GROUNDEDNESS.value)
         self.config = config or GroundednessConfig()
-        api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
+        api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("Please set the OPENAI_API_KEY environment variable or pass the `api_key` in config.")
         self.client = OpenAI(api_key=api_key)

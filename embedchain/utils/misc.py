@@ -201,9 +201,16 @@ def detect_datatype(source: Any) -> DataType:
     formatted_source = format_source(str(source), 30)
 
     if url:
-        from langchain.document_loaders.youtube import ALLOWED_NETLOCK as YOUTUBE_ALLOWED_NETLOCS
+        YOUTUBE_ALLOWED_NETLOCKS = {
+            "www.youtube.com",
+            "m.youtube.com",
+            "youtu.be",
+            "youtube.com",
+            "vid.plus",
+            "www.youtube-nocookie.com",
+        }
 
-        if url.netloc in YOUTUBE_ALLOWED_NETLOCS:
+        if url.netloc in YOUTUBE_ALLOWED_NETLOCKS:
             logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
             return DataType.YOUTUBE_VIDEO
 
@@ -399,6 +406,8 @@ def validate_config(config_data):
                     "llama2",
                     "vertexai",
                     "google",
+                    "aws_bedrock",
+                    "mistralai",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -415,6 +424,7 @@ def validate_config(config_data):
                     Optional("query_type"): str,
                     Optional("api_key"): str,
                     Optional("endpoint"): str,
+                    Optional("model_kwargs"): dict,
                 },
             },
             Optional("vectordb"): {
@@ -425,7 +435,13 @@ def validate_config(config_data):
             },
             Optional("embedder"): {
                 Optional("provider"): Or(
-                    "openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google", "fake"
+                    "openai",
+                    "gpt4all",
+                    "huggingface",
+                    "vertexai",
+                    "azure_openai",
+                    "google",
+                    "mistralai",
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
@@ -433,16 +449,26 @@ def validate_config(config_data):
                     Optional("api_key"): str,
                     Optional("title"): str,
                     Optional("task_type"): str,
+                    Optional("vector_dimension"): int,
                 },
             },
             Optional("embedding_model"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
+                Optional("provider"): Or(
+                    "openai",
+                    "gpt4all",
+                    "huggingface",
+                    "vertexai",
+                    "azure_openai",
+                    "google",
+                    "mistralai",
+                ),
                 Optional("config"): {
                     Optional("model"): str,
                     Optional("deployment_name"): str,
                     Optional("api_key"): str,
                     Optional("title"): str,
                     Optional("task_type"): str,
+                    Optional("vector_dimension"): int,
                 },
             },
             Optional("chunker"): {
