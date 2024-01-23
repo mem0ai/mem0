@@ -98,8 +98,16 @@ class MockPineconeIndex:
     def fetch(self, *args, **kwargs):
         return {
             "vectors": {
-                "key_1": {},
-                "key_2": {},
+                "key_1": {
+                    "metadata": {
+                        "source": "1",
+                    }
+                },
+                "key_2": {
+                    "metadata": {
+                        "source": "2",
+                    }
+                },
             }
         }
 
@@ -174,7 +182,7 @@ def test_get(monkeypatch):
 
     pinecone_db = mock_pinecone_db()
     ids = pinecone_db.get(["key_1", "key_2"])
-    assert ids == {"ids": ["key_1", "key_2"]}
+    assert ids == {"ids": ["key_1", "key_2"], "metadatas": [{"source": "1"}, {"source": "2"}]}
 
 
 def test_add(monkeypatch):
