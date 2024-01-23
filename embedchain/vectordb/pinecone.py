@@ -197,15 +197,6 @@ class PineconeDB(BaseVectorDB):
         pinecone.delete_index(self.config.index_name)
         self._setup_pinecone_index()
 
-    # Pinecone only allows alphanumeric characters and "-" in the index name
-    def _get_index_name(self) -> str:
-        """Get the Pinecone index for a collection
-
-        :return: Pinecone index
-        :rtype: str
-        """
-        return f"{self.config.collection_name}-{self.config.vector_dimension}".lower().replace("_", "-")
-
     @staticmethod
     def _generate_filter(where: dict):
         query = {}
