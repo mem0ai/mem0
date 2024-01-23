@@ -56,9 +56,9 @@ class TestQdrantDB(unittest.TestCase):
         App(config=app_config, db=db, embedding_model=embedder)
 
         resp = db.get(ids=[], where={})
-        self.assertEqual(resp, {"ids": []})
+        self.assertEqual(resp, {"ids": [], "metadatas": []})
         resp2 = db.get(ids=["123", "456"], where={"url": "https://ai.ai"})
-        self.assertEqual(resp2, {"ids": []})
+        self.assertEqual(resp2, {"ids": [], "metadatas": []})
 
     @patch("embedchain.vectordb.qdrant.QdrantClient")
     @patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
@@ -119,7 +119,7 @@ class TestQdrantDB(unittest.TestCase):
             query_filter=models.Filter(
                 must=[
                     models.FieldCondition(
-                        key="payload.metadata.doc_id",
+                        key="metadata.doc_id",
                         match=models.MatchValue(
                             value="123",
                         ),
