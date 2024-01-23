@@ -674,3 +674,15 @@ class EmbedChain(JSONSerializable):
     def delete_all_chat_history(self, app_id: str):
         self.llm.memory.delete(app_id=app_id)
         self.llm.update_history(app_id=app_id)
+
+    def delete(self, source_id: str):
+        """
+        Deletes the data from the database.
+        :param source_hash: The hash of the source.
+        :type source_hash: str
+        """
+        self.db.delete(where={"hash": source_id})
+        logging.info(f"Successfully deleted {source_id}")
+        # Send anonymous telemetry
+        if self.config.collect_metrics:
+            self.telemetry.capture(event_name="delete", properties=self._telemetry_props)
