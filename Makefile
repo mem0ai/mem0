@@ -19,6 +19,9 @@ install_es:
 install_opensearch:
 	poetry install --extras opensearch
 
+install_redis:
+	poetry install --extras redis
+
 install_milvus:
 	poetry install --extras milvus
 

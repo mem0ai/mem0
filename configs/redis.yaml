@@ -1,0 +1,9 @@
+vectordb:
+  provider: redis
+  config:
+    collection_name: my-redis-index
+    redis_url: redis://localhost:6379
+    vector_config:
+      algorithm: hnsw
+      distance_metric: cosine
+      datatype: float32

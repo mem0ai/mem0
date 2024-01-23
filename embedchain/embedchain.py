@@ -314,7 +314,7 @@ class EmbedChain(JSONSerializable):
         # this means that doc content has changed.
         if existing_doc_id and existing_doc_id != new_doc_id:
             print("Doc content has changed. Recomputing chunks and embeddings intelligently.")
-            self.db.delete({"doc_id": existing_doc_id})
+            self.db.delete(where={"doc_id": existing_doc_id})
 
         # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
