@@ -20,6 +20,8 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Llama2" href="#llama2"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
+  <Card title="Mistral AI" href="#mistral-ai"></Card>
+  <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -250,7 +252,7 @@ app = App.from_config(config_path="config.yaml")
 llm:
   provider: azure_openai
   config:
-    model: gpt-35-turbo
+    model: gpt-3.5-turbo
     deployment_name: your_llm_deployment_name
     temperature: 0.5
     max_tokens: 1000
@@ -619,6 +621,85 @@ llm:
     top_p: 0.5
 ```
 </CodeGroup>
+
+
+## Mistral AI
+
+Obtain the Mistral AI api key from their [console](https://console.mistral.ai/).
+
+<CodeGroup>
+ 
+ ```python main.py
+os.environ["MISTRAL_API_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.query("what is the net worth of Elon Musk?")
+# As of January 16, 2024, Elon Musk's net worth is $225.4 billion.
+
+response = app.chat("which companies does elon own?")
+# Elon Musk owns Tesla, SpaceX, Boring Company, Twitter, and X.
+
+response = app.chat("what question did I ask you already?")
+# You have asked me several times already which companies Elon Musk owns, specifically Tesla, SpaceX, Boring Company, Twitter, and X.
+```
+  
+```yaml config.yaml
+llm:
+  provider: mistralai
+  config:
+    model: mistral-tiny
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+embedder:
+  provider: mistralai
+  config:
+    model: mistral-embed
+```
+</CodeGroup>
+
+
+## AWS Bedrock
+
+### Setup
+- Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- You will also need `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to authenticate the API with AWS. You can find these in your [AWS Console](https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/users).
+
+
+### Usage
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["AWS_ACCESS_KEY_ID"] = "xxx"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: aws_bedrock
+  config:
+    model: amazon.titan-text-express-v1
+    # check notes below for model_kwargs
+    model_kwargs:
+      temperature: 0.5
+      topP: 1
+      maxTokenCount: 1000
+```
+</CodeGroup>
+
+<br />
+<Note>
+  The model arguments are different for each providers. Please refer to the [AWS Bedrock Documentation](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/providers) to find the appropriate arguments for your model.
+</Note>
 
 <br/ >
 <Snippet file="missing-llm-tip.mdx" />

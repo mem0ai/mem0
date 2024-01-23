@@ -32,4 +32,5 @@ class OpenAIEmbedder(BaseEmbedder):
                 model_name=self.config.model,
             )
         self.set_embedding_fn(embedding_fn=embedding_fn)
-        self.set_vector_dimension(vector_dimension=VectorDimensions.OPENAI.value)
+        vector_dimension = self.config.vector_dimension or VectorDimensions.OPENAI.value
+        self.set_vector_dimension(vector_dimension=vector_dimension)
