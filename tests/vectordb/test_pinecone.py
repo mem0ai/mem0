@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig
+from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.vectordb.pinecone import PineconeDB
-from embedchain.config.vectordb.pinecone import PineconeDBConfig
 
 
 class TestPinecone:
