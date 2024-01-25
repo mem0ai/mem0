@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig
+from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.vectordb.pinecone import PineconeDB
 
@@ -100,7 +101,39 @@ class TestPinecone:
         db.reset()
 
         # Assert that the Pinecone client was called to delete the index
-        pinecone_mock.delete_index.assert_called_once_with(db.index_name)
+        pinecone_mock.delete_index.assert_called_once_with(db.config.index_name)
 
         # Assert that the index is recreated
-        pinecone_mock.Index.assert_called_with(db.index_name)
+        pinecone_mock.Index.assert_called_with(db.config.index_name)
+
+    @patch("embedchain.vectordb.pinecone.pinecone")
+    def test_custom_index_name_if_it_exists(self, pinecone_mock):
+        """Tests custom index name is used if it exists"""
+        pinecone_mock.list_indexes.return_value = ["custom_index_name"]
+        db_config = PineconeDBConfig(index_name="custom_index_name")
+        _ = PineconeDB(config=db_config)
+
+        pinecone_mock.list_indexes.assert_called_once()
+        pinecone_mock.create_index.assert_not_called()
+        pinecone_mock.Index.assert_called_with("custom_index_name")
+
+    @patch("embedchain.vectordb.pinecone.pinecone")
+    def test_custom_index_name_creation(self, pinecone_mock):
+        """Test custom index name is created if it doesn't exists already"""
+        pinecone_mock.list_indexes.return_value = []
+        db_config = PineconeDBConfig(index_name="custom_index_name")
+        _ = PineconeDB(config=db_config)
+
+        pinecone_mock.list_indexes.assert_called_once()
+        pinecone_mock.create_index.assert_called_once()
+        pinecone_mock.Index.assert_called_with("custom_index_name")
+
+    @patch("embedchain.vectordb.pinecone.pinecone")
+    def test_default_index_name_is_used(self, pinecone_mock):
+        """Test default index name is used if custom index name is not provided"""
+        db_config = PineconeDBConfig(collection_name="my-collection")
+        _ = PineconeDB(config=db_config)
+
+        pinecone_mock.list_indexes.assert_called_once()
+        pinecone_mock.create_index.assert_called_once()
+        pinecone_mock.Index.assert_called_with(f"{db_config.collection_name}-{db_config.vector_dimension}")

@@ -53,20 +53,21 @@ class PineconeDB(BaseVectorDB):
         if not self.embedder:
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
-    # Loads the Pinecone index or creates it if not present.
     def _setup_pinecone_index(self):
+        """
+        Loads the Pinecone index or creates it if not present.
+        """
         pinecone.init(
             api_key=os.environ.get("PINECONE_API_KEY"),
             environment=os.environ.get("PINECONE_ENV"),
             **self.config.extra_params,
         )
-        self.index_name = self._get_index_name()
         indexes = pinecone.list_indexes()
-        if indexes is None or self.index_name not in indexes:
+        if indexes is None or self.config.index_name not in indexes:
             pinecone.create_index(
-                name=self.index_name, metric=self.config.metric, dimension=self.config.vector_dimension
+                name=self.config.index_name, metric=self.config.metric, dimension=self.config.vector_dimension
             )
-        return pinecone.Index(self.index_name)
+        return pinecone.Index(self.config.index_name)
 
     def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
@@ -193,17 +194,8 @@ class PineconeDB(BaseVectorDB):
         Resets the database. Deletes all embeddings irreversibly.
         """
         # Delete all data from the database
-        pinecone.delete_index(self.index_name)
+        pinecone.delete_index(self.config.index_name)
         self._setup_pinecone_index()
-
-    # Pinecone only allows alphanumeric characters and "-" in the index name
-    def _get_index_name(self) -> str:
-        """Get the Pinecone index for a collection
-
-        :return: Pinecone index
-        :rtype: str
-        """
-        return f"{self.config.collection_name}-{self.config.vector_dimension}".lower().replace("_", "-")
 
     @staticmethod
     def _generate_filter(where: dict):
