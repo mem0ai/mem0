@@ -40,7 +40,27 @@ app.query("What is OpenAI?")
 embedder:
   provider: openai
   config:
-    model: 'text-embedding-ada-002'
+    model: 'text-embedding-3-small'
+```
+
+</CodeGroup>
+
+* OpenAI announced two new embedding models: `text-embedding-3-small` and `text-embedding-3-large`. Embedchain supports both these models. Below you can find YAML config for both:
+
+<CodeGroup>
+
+```yaml text-embedding-3-small.yaml
+embedder:
+  provider: openai
+  config:
+    model: 'text-embedding-3-small'
+```
+
+```yaml text-embedding-3-large.yaml
+embedder:
+  provider: openai
+  config:
+    model: 'text-embedding-3-large'
 ```
 
 </CodeGroup>
