@@ -1,9 +1,6 @@
 import pytest
 
-from embedchain import App
-from embedchain.config import AppConfig
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
-from embedchain.embedder.base import BaseEmbedder
 from embedchain.vectordb.pinecone import PineconeDB
 
 
@@ -161,7 +158,7 @@ def test_setup_pinecone_index(pinecone_pod_config, pinecone_serverless_config, m
     pinecone_db._setup_pinecone_index()
 
     assert pinecone_db.client is not None
-    assert pinecone_db.index_name == "test-collection-3"
+    assert pinecone_db.config.index_name == "test-collection-3"
     assert pinecone_db.client.list_indexes().names() == ["test_collection"]
     assert pinecone_db.pinecone_index is not None
 
@@ -169,7 +166,7 @@ def test_setup_pinecone_index(pinecone_pod_config, pinecone_serverless_config, m
     pinecone_db._setup_pinecone_index()
 
     assert pinecone_db.client is not None
-    assert pinecone_db.index_name == "test-collection-3"
+    assert pinecone_db.config.index_name == "test-collection-3"
     assert pinecone_db.client.list_indexes().names() == ["test_collection"]
     assert pinecone_db.pinecone_index is not None
 
@@ -204,6 +201,7 @@ def test_add(monkeypatch):
 
     pinecone_db.add(["text_3", "text_4"], [{"key_3": "value_3"}, {"key_4": "value_4"}], ["key_3", "key_4"])
     assert pinecone_db.count() == 4
+
 
 def test_query(monkeypatch):
     def mock_pinecone_db():

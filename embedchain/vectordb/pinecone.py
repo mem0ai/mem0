@@ -168,11 +168,11 @@ class PineconeDB(BaseVectorDB):
             **kwargs,
         )
         contexts = []
-        for doc in data["matches"]:
-            metadata = doc["metadata"]
-            context = metadata["text"]
+        for doc in data.get("matches", []):
+            metadata = doc.get("metadata", {})
+            context = metadata.get("text")
             if citations:
-                metadata["score"] = doc["score"]
+                metadata["score"] = doc.get("score")
                 contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
@@ -227,7 +227,7 @@ class PineconeDB(BaseVectorDB):
         # Follow `https://docs.pinecone.io/docs/metadata-filtering#deleting-vectors-by-metadata-filter` for more details
         db_filter = self._generate_filter(where)
         try:
-            self.client.delete(filter=db_filter)
+            self.pinecone_index.delete(filter=db_filter)
         except Exception as e:
             print(f"Failed to delete from Pinecone: {e}")
             return
