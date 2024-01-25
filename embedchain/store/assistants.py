@@ -88,7 +88,7 @@ class OpenAIAssistant:
         if Path(source).is_file():
             return source
         data_type = data_type or detect_datatype(source)
-        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig(), kwargs={})
+        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig())
         data = formatter.loader.load_data(source)["data"]
         return self._save_temp_data(data=data[0]["content"].encode(), source=source)
 
