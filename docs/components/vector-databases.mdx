@@ -189,6 +189,11 @@ vectordb:
 
 </CodeGroup>
 
+<br />
+<Note>
+You can optionally provide `index_name` as a config param in yaml file to specify the index name. If not provided, the index name will be `{collection_name}-{vector_dimension}`.
+</Note>
+
 ## Qdrant
 
 In order to use Qdrant as a vector database, set the environment variables `QDRANT_URL` and `QDRANT_API_KEY` which you can find on [Qdrant Dashboard](https://cloud.qdrant.io/).
