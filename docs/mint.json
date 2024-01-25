@@ -207,10 +207,11 @@
             "api-reference/app/query",
             "api-reference/app/chat",
             "api-reference/app/search",
+            "api-reference/app/get",
+            "api-reference/app/evaluate",
             "api-reference/app/deploy",
             "api-reference/app/reset",
-            "api-reference/app/delete",
-            "api-reference/app/evaluate"
+            "api-reference/app/delete"
           ]
         },
         "api-reference/store/openai-assistant",
