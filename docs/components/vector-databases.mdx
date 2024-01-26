@@ -167,7 +167,7 @@ Install pinecone related dependencies using the following command:
 pip install --upgrade 'embedchain[pinecone]'
 ```
 
-In order to use Pinecone as vector database, set the environment variables `PINECONE_API_KEY` and `PINECONE_ENV` which you can find on [Pinecone dashboard](https://app.pinecone.io/).
+In order to use Pinecone as vector database, set the environment variable `PINECONE_API_KEY` which you can find on [Pinecone dashboard](https://app.pinecone.io/).
 
 <CodeGroup>
 
@@ -175,23 +175,44 @@ In order to use Pinecone as vector database, set the environment variables `PINE
 from embedchain import App
 
 # load pinecone configuration from yaml file
-app = App.from_config(config_path="config.yaml")
+app = App.from_config(config_path="pod_config.yaml")
+# or
+app = App.from_config(config_path="serverless_config.yaml")
 ```
 
-```yaml config.yaml
+```yaml pod_config.yaml
 vectordb:
   provider: pinecone
   config:
     metric: cosine
     vector_dimension: 1536
     collection_name: my-pinecone-index
+    pod_config:
+      environment: gcp-starter
+      metadata_config:
+        indexed:
+          - "url"
+          - "hash"
+```
+
+```yaml serverless_config.yaml
+vectordb:
+  provider: pinecone
+  config:
+    metric: cosine
+    vector_dimension: 1536
+    collection_name: my-pinecone-index
+    serverless_config:
+      cloud: aws
+      region: us-west-2
 ```
 
 </CodeGroup>
 
 <br />
 <Note>
-You can optionally provide `index_name` as a config param in yaml file to specify the index name. If not provided, the index name will be `{collection_name}-{vector_dimension}`.
+You can find more information about Pinecone configuration [here](https://docs.pinecone.io/docs/manage-indexes#create-a-pod-based-index).
+You can also optionally provide `index_name` as a config param in yaml file to specify the index name. If not provided, the index name will be `{collection_name}-{vector_dimension}`.
 </Note>
 
 ## Qdrant
