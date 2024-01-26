@@ -123,7 +123,7 @@ cohere = { version = "^4.27", optional = true }
 together = { version = "^0.2.8", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
-pinecone-client = { version = "^2.2.4", optional = true }
+pinecone-client = { version = "^3.0.0", optional = true }
 qdrant-client = { version = "1.6.3", optional = true }
 unstructured = {extras = ["local-inference", "all-docs"], version = "^0.10.18", optional = true}
 huggingface_hub = { version = "^0.17.3", optional = true }
