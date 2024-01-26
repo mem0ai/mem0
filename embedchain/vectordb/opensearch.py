@@ -98,7 +98,7 @@ class OpenSearchDB(BaseVectorDB):
 
         if where:
             for key, value in where.items():
-                query["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
+                query["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
 
         # OpenSearch syntax is different from Elasticsearch
         response = self.client.search(index=self._get_index(), body=query, _source=True, size=limit)
