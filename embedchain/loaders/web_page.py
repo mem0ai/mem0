@@ -23,7 +23,7 @@ class WebPageLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a web page using a shared requests' session."""
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
         }
         response = self._session.get(url, headers=headers, timeout=30)
         response.raise_for_status()
