@@ -76,16 +76,21 @@ def test_get_llm_model_answer_without_system_prompt(config, mocker):
     )
 
 
-def test_get_llm_model_answer_with_tools(config, mocker):
+@pytest.mark.parametrize(
+    "mock_return, expected",
+    [
+        ([{"test": "test"}], '{"test": "test"}'),
+        ([], "Input could not be mapped to the function!"),
+    ],
+)
+def test_get_llm_model_answer_with_tools(config, mocker, mock_return, expected):
     mocked_openai_chat = mocker.patch("embedchain.llm.openai.ChatOpenAI")
     mocked_convert_to_openai_tool = mocker.patch("langchain_core.utils.function_calling.convert_to_openai_tool")
     mocked_json_output_tools_parser = mocker.patch("langchain.output_parsers.openai_tools.JsonOutputToolsParser")
-    mocked_openai_chat.return_value.bind.return_value.pipe.return_value.invoke.return_value.__getitem__.return_value = {
-        "test": "test"
-    }
+    mocked_openai_chat.return_value.bind.return_value.pipe.return_value.invoke.return_value = mock_return
 
     llm = OpenAILlm(config, tools={"test": "test"})
-    llm.get_llm_model_answer("Test query")
+    answer = llm.get_llm_model_answer("Test query")
 
     mocked_openai_chat.assert_called_once_with(
         model=config.model,
@@ -96,3 +101,5 @@ def test_get_llm_model_answer_with_tools(config, mocker):
     )
     mocked_convert_to_openai_tool.assert_called_once_with({"test": "test"})
     mocked_json_output_tools_parser.assert_called_once()
+
+    assert answer == expected
