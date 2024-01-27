@@ -15,7 +15,10 @@ from embedchain.utils.misc import clean_string
 class PdfFileLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a PDF file."""
-        loader = PyPDFLoader(url)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
+        }
+        loader = PyPDFLoader(url, headers=headers)
         data = []
         all_content = []
         pages = loader.load_and_split()
