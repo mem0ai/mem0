@@ -31,10 +31,13 @@ class SitemapLoader(BaseLoader):
     def load_data(self, sitemap_source):
         output = []
         web_page_loader = WebPageLoader()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
+        }
 
         if urlparse(sitemap_source).scheme in ("http", "https"):
             try:
-                response = requests.get(sitemap_source)
+                response = requests.get(sitemap_source, headers=headers)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, "xml")
             except requests.RequestException as e:
