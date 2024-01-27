@@ -64,8 +64,7 @@ class OpenAILlm(BaseLlm):
             convert_to_openai_tool
 
         openai_tools = [convert_to_openai_tool(tools)]
-        chat = chat.bind(tools=openai_tools)
-        chat = chat.pipe(JsonOutputToolsParser())
+        chat = chat.bind(tools=openai_tools).pipe(JsonOutputToolsParser())
         try:
             return json.dumps(chat.invoke(messages)[0])
         except IndexError:
