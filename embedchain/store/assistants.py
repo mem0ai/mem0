@@ -65,7 +65,7 @@ class OpenAIAssistant:
         self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
         return self._get_latest_response()
 
-    def delete_thread(self):
+    def delete_thread(self) -> None:
         self._client.beta.threads.delete(self.thread_id)
         self.thread_id = self._create_thread()
 
@@ -92,7 +92,7 @@ class OpenAIAssistant:
         data = formatter.loader.load_data(source)["data"]
         return self._save_temp_data(data=data[0]["content"].encode(), source=source)
 
-    def _add_file_to_assistant(self, file_path):
+    def _add_file_to_assistant(self, file_path) -> None:
         file_obj = self._client.files.create(file=open(file_path, "rb"), purpose="assistants")
         self._client.beta.assistants.files.create(assistant_id=self.assistant.id, file_id=file_obj.id)
 
@@ -102,7 +102,7 @@ class OpenAIAssistant:
             for ds in data_sources
         ]
 
-    def _send_message(self, message):
+    def _send_message(self, message) -> None:
         self._client.beta.threads.messages.create(thread_id=self.thread_id, role="user", content=message)
         self._wait_for_completion()
 
@@ -187,7 +187,7 @@ class AIAssistant:
                 metadata = {"assistant_id": self.assistant_id, "thread_id": "global_knowledge"}
                 self.pipeline.add(data_source["source"], data_source.get("data_type"), metadata=metadata)
 
-    def add(self, source, data_type=None):
+    def add(self, source, data_type=None) -> None:
         metadata = {"assistant_id": self.assistant_id, "thread_id": self.thread_id}
         self.pipeline.add(source, data_type=data_type, metadata=metadata)
         event_props = {
@@ -205,5 +205,5 @@ class AIAssistant:
         }
         return self.pipeline.chat(query, where=where)
 
-    def delete(self):
+    def delete(self) -> None:
         self.pipeline.reset()

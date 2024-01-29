@@ -115,17 +115,19 @@ class EmbedChain(JSONSerializable):
         return self.config.collect_metrics
 
     @collect_metrics.setter
-    def collect_metrics(self, value):
+    def collect_metrics(self, value: bool):
         if not isinstance(value, bool):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.config.collect_metrics = value
 
     @property
-    def online(self):
+    def online(self) -> bool:
+        # boolean, returns whether the app is online or not
         return self.llm.online
 
     @online.setter
-    def online(self, value):
+    def online(self, value: bool) -> None:
+        # boolean, sets the app online or offline
         if not isinstance(value, bool):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
         self.llm.online = value
@@ -202,6 +204,7 @@ class EmbedChain(JSONSerializable):
             data_formatter.loader, data_formatter.chunker, source, metadata, source_hash, config, dry_run, **kwargs
         )
         if data_type in {DataType.DOCS_SITE}:
+            # docs site data type. Bool used for setup of Base LLM in base.py
             self.is_docs_site_instance = True
 
         # Insert the data into the 'data' table
@@ -371,6 +374,7 @@ class EmbedChain(JSONSerializable):
         new_doc_id = embeddings_data["doc_id"]
 
         if existing_doc_id and existing_doc_id == new_doc_id:
+            #Detect if doc content has changed
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
 
