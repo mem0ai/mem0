@@ -7,11 +7,12 @@ When we say "custom", we mean that you can customize the loader and chunker to y
 ```python
 from embedchain import App
 import your_loader
-import your_chunker
+from my_module import CustomLoader
+from my_module import CustomChunker
 
 app = App()
-loader = your_loader()
-chunker = your_chunker()
+loader = CustomLoader()
+chunker = CustomChunker()
 
 app.add("source", data_type="custom", loader=loader, chunker=chunker)
 ```

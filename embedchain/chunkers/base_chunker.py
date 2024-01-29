@@ -39,11 +39,14 @@ class BaseChunker(JSONSerializable):
         for data in data_records:
             content = data["content"]
 
-            meta_data = data["meta_data"]
+            metadata = data["meta_data"]
             # add data type to meta data to allow query using data type
-            meta_data["data_type"] = self.data_type.value
-            meta_data["doc_id"] = doc_id
-            url = meta_data["url"]
+            metadata["data_type"] = self.data_type.value
+            metadata["doc_id"] = doc_id
+
+            # TODO: Currently defaulting to the src as the url. This is done intentianally since some
+            # of the data types like 'gmail' loader doesn't have the url in the meta data.
+            url = metadata.get("url", src)
 
             chunks = self.get_chunks(content)
             for chunk in chunks:
@@ -53,7 +56,7 @@ class BaseChunker(JSONSerializable):
                     id_map[chunk_id] = True
                     chunk_ids.append(chunk_id)
                     documents.append(chunk)
-                    metadatas.append(meta_data)
+                    metadatas.append(metadata)
         return {
             "documents": documents,
             "ids": chunk_ids,

@@ -129,3 +129,18 @@ app.chat("What is the net worth of Bill Gates?", session_id="user2")
 app.chat("What was my last question", session_id="user1")
 # 'Your last question was "What is the net worth of Elon Musk?"'
 ```
+
+### With custom context window
+
+If you want to customize the context window that you want to use during chat (default context window is 3 document chunks), you can do using the following code snippet:
+
+```python with custom chunks size
+from embedchain import App
+from embedchain.config import BaseLlmConfig
+
+app = App()
+app.add("https://www.forbes.com/profile/elon-musk")
+
+query_config = BaseLlmConfig(number_documents=5)
+app.chat("What is the net worth of Elon Musk?", config=query_config)
+```
