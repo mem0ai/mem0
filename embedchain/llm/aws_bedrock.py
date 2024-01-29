@@ -22,7 +22,7 @@ class AWSBedrockLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for AWSBedrock are not installed."
-                'Please install with `pip install --upgrade "embedchain[aws-bedrock]"`'
+                'Please install with `pip install --upgrade "embedchain[aws]"`'
             ) from None
 
         self.boto_client = boto3.client("bedrock-runtime", "us-west-2")

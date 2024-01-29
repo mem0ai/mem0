@@ -216,7 +216,7 @@ rss_feed = [
 google = ["google-generativeai"]
 modal = ["modal"]
 dropbox = ["dropbox"]
-aws_bedrock = ["boto3"]
+aws = ["boto3"]
 mistralai = ["langchain-mistralai"]
 
 [tool.poetry.group.docs.dependencies]
