@@ -154,8 +154,7 @@ langchain-openai = "^0.0.5"
 langchain-google-vertexai = { version = "^0.0.5", optional = true }
 sqlalchemy = "^2.0.27"
 alembic = "^1.13.1"
-redisvl = {git = "https://github.com/RedisVentures/redisvl.git", rev = "harden-0.1-schema"}
-redis = "^5.0.1"
+redisvl = "^0.1.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -177,7 +176,6 @@ streamlit = ["streamlit"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
-redis = ["redisvl", "redis"]
 poe = ["fastapi-poe"]
 discord = ["discord"]
 slack = ["slack-sdk", "flask"]
@@ -224,6 +222,7 @@ modal = ["modal"]
 dropbox = ["dropbox"]
 aws_bedrock = ["boto3"]
 mistralai = ["langchain-mistralai"]
+redis = ["redisvl"]
 
 [tool.poetry.group.docs.dependencies]
 

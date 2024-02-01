@@ -89,7 +89,7 @@ class TestRedisDB(unittest.TestCase):
                     "vector": [4, 5, 6],
                 },
             ],
-            key_field="id",
+            id_field="id",
             batch_size=db.BATCH_SIZE,
         )
 

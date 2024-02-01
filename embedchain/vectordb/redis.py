@@ -13,7 +13,7 @@ try:
     from redisvl.query import FilterQuery, VectorQuery
     from redisvl.query.filter import FilterExpression, Tag
     from redisvl.schema.schema import IndexSchema
-    from redisvl.utils.utils import array_to_buffer
+    from redisvl.redis.utils import array_to_buffer
 except ImportError as err:
     raise ImportError(
         f"{str(err)}: Redis requires extra dependencies. Install with `pip install --upgrade embedchain[redis]`"
@@ -46,6 +46,7 @@ class RedisDB(BaseVectorDB):
             self.client.ping()
         except redis.exceptions.ConnectionError as err:
             logging.exception(f"Error connection to Redis: {str(err)}")
+            raise
 
         index_name = prefix = self._get_or_create_collection()
 
@@ -54,24 +55,42 @@ class RedisDB(BaseVectorDB):
         self._metadata_json_path = f"$.{self.config.metadata_field_name}"
 
         # Setup schema for the index with fields
-        self._schema = IndexSchema(index={"name": index_name, "prefix": prefix, "storage_type": "json"})
+        self._schema = IndexSchema(
+            index={"name": index_name, "prefix": prefix, "storage_type": "json"}
+        )
         self._schema.add_fields(
             [
-                {"name": self.config.id_field_name, "type": "tag"},
-                {"name": self.config.text_field_name, "type": "text", "attrs": {"sortable": True}},
+                {
+                    "name": self.config.id_field_name,
+                    "type": "tag",
+                    "attrs": {"sortable": True}
+                },
+                {
+                    "name": self.config.text_field_name,
+                    "type": "text",
+                    "attrs": {"sortable": True}
+                },
             ]
         )
         for key in self._supported_metadata_keys:
-            self._schema.add_field({"name": key, "path": f"$.{self.config.metadata_field_name}.{key}", "type": "tag"})
+            self._schema.add_field({
+                "name": key,
+                "path": f"$.{self.config.metadata_field_name}.{key}",
+                "type": "tag",
+                "attrs": {"sortable": True}
+            })
 
         super().__init__(config=self.config)
 
     def _initialize(self):
-        """
-        This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
+        """This method is needed because `embedder` attribute needs to be set
+        externally before it can be initialized.
         """
         if not self.embedder:
-            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+            raise ValueError(
+                "Embedder not set. Please set an embedder with "
+                "`set_embedder` before initialization."
+            )
 
         index_name = self._get_or_create_collection()
 
@@ -81,7 +100,10 @@ class RedisDB(BaseVectorDB):
             vector_field = {
                 "name": self.config.vector_field_name,
                 "type": "vector",
-                "attrs": {**vector_config, "dims": self.embedder.vector_dimension},
+                "attrs": {
+                    **vector_config,
+                    "dims": self.embedder.vector_dimension
+                },
             }
             if "algorithm" not in vector_field["attrs"]:
                 vector_field["attrs"]["algorithm"] = "hnsw"
@@ -161,6 +183,7 @@ class RedisDB(BaseVectorDB):
             }
         except redis.exceptions.RedisError as err:
             logging.exception(f"A Redis error occurred while querying: {str(err)}")
+            raise
 
     def add(self, documents: List[str], metadatas: List[object], ids: List[str]) -> Any:
         """
@@ -186,9 +209,10 @@ class RedisDB(BaseVectorDB):
             )
         try:
             # Load dataset
-            self._index.load(data=data, key_field=self.config.id_field_name, batch_size=self.BATCH_SIZE)
+            self._index.load(data=data, id_field=self.config.id_field_name, batch_size=self.BATCH_SIZE)
         except redis.exceptions.ResponseError as err:
             logging.exception(f"Error while loading data to Redis: {str(err)}")
+            raise
 
     def query(
         self,
@@ -275,3 +299,4 @@ class RedisDB(BaseVectorDB):
             logging.info("Redis index deleted")
         except Exception as err:
             logging.exception(f"An unexpected error occurred: {str(err)}")
+            raise
