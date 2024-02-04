@@ -447,9 +447,11 @@ class EmbedChain(JSONSerializable):
                 # Add only valid batches
                 if batch:
                     self.db.add(documents=batch, metadatas=metadatas, ids=ids, **kwargs)
-            except BadRequestError as e:
+            except Exception as e:
                 print(f"Failed to add batch due to a bad request: {e}")
                 # Handle the error, e.g., by logging, retrying, or skipping
+                pass
+
 
         count_new_chunks = self.db.count() - chunks_before_addition
         print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
