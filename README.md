@@ -32,9 +32,6 @@
 
 <hr />
 
-
-> ### Checkout our latest [Sadhguru AI app](https://sadhguru-ai.streamlit.app/) built using Embedchain.
-
 ## What is Embedchain?
 
 Embedchain is an Open Source RAG Framework that makes it easy to create and deploy AI apps. At its core, Embedchain follows the design principle of being *"Conventional but Configurable"* to serve both software engineers and machine learning engineers.
