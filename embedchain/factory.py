@@ -59,6 +59,7 @@ class EmbedderFactory:
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
+        "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
     }
 
     @classmethod
