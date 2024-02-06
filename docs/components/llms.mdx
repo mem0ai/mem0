@@ -666,7 +666,8 @@ embedder:
 
 ### Setup
 - Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
-- You will also need `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to authenticate the API with AWS. You can find these in your [AWS Console](https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/users).
+- You will also need to authenticate the `boto3` client by using a method in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials)
+- You can optionally export an `AWS_REGION`
 
 
 ### Usage
@@ -679,6 +680,7 @@ from embedchain import App
 
 os.environ["AWS_ACCESS_KEY_ID"] = "xxx"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "xxx"
+os.environ["AWS_REGION"] = "us-west-2"
 
 app = App.from_config(config_path="config.yaml")
 ```
