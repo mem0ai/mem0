@@ -634,6 +634,41 @@ class EmbedChain(JSONSerializable):
         else:
             return answer
 
+    def search(self, query, num_documents=3, where=None, raw_filter=None):
+        """
+        Search for similar documents related to the query in the vector database.
+
+        Args:
+            query (str): The query to use.
+            num_documents (int, optional): Number of similar documents to fetch. Defaults to 3.
+            where (dict[str, any], optional): Filter criteria for the search.
+            raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
+
+        Raises:
+            ValueError: If both `raw_filter` and `where` are used simultaneously.
+
+        Returns:
+            list[dict]: A list of dictionaries, each containing the 'context' and 'metadata' of a document.
+        """
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="search", properties=self._telemetry_props)
+
+        if raw_filter and where:
+            raise ValueError("You can't use both `raw_filter` and `where` together.")
+
+        filter_type = "raw_filter" if raw_filter else "where"
+        filter_criteria = raw_filter if raw_filter else where
+
+        params = {
+            "input_query": query,
+            "n_results": num_documents,
+            "citations": True,
+            "app_id": self.config.id,
+            filter_type: filter_criteria,
+        }
+
+        return [{"context": c[0], "metadata": c[1]} for c in self.db.query(**params)]
+
     def set_collection_name(self, name: str):
         """
         Set the name of the collection. A collection is an isolated space for vectors.

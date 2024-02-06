@@ -79,6 +79,8 @@ class ChromaDB(BaseVectorDB):
     def _generate_where_clause(where: dict[str, any]) -> dict[str, any]:
         # If only one filter is supplied, return it as is
         # (no need to wrap in $and based on chroma docs)
+        if where is None:
+            return {}
         if len(where.keys()) <= 1:
             return where
         where_filters = []
@@ -180,9 +182,10 @@ class ChromaDB(BaseVectorDB):
         self,
         input_query: list[str],
         n_results: int,
-        where: dict[str, any],
+        where: Optional[dict[str, any]] = None,
+        raw_filter: Optional[dict[str, any]] = None,
         citations: bool = False,
-        **kwargs: Optional[dict[str, Any]],
+        **kwargs: Optional[dict[str, any]],
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         Query contents from vector database based on vector similarity
@@ -193,6 +196,8 @@ class ChromaDB(BaseVectorDB):
         :type n_results: int
         :param where: to filter data
         :type where: dict[str, Any]
+        :param raw_filter: Raw filter to apply
+        :type raw_filter: dict[str, Any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :raises InvalidDimensionException: Dimensions do not match.
@@ -200,14 +205,21 @@ class ChromaDB(BaseVectorDB):
         along with url of the source and doc_id (if citations flag is true)
         :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
+        if where and raw_filter:
+            raise ValueError("Both `where` and `raw_filter` cannot be used together.")
+
+        where_clause = {}
+        if raw_filter:
+            where_clause = raw_filter
+        if where:
+            where_clause = self._generate_where_clause(where)
         try:
             result = self.collection.query(
                 query_texts=[
                     input_query,
                 ],
                 n_results=n_results,
-                where=self._generate_where_clause(where),
-                **kwargs,
+                where=where_clause,
             )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
