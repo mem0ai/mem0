@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from fastapi import Body, FastAPI, responses
 from modal import Image, Secret, Stub, asgi_app
 
-from embedchain import Pipeline
+from embedchain import App
 
 load_dotenv(".env")
 
@@ -18,7 +18,7 @@ stub = Stub(
 )
 
 web_app = FastAPI()
-embedchain_app = Pipeline(name="embedchain-modal-app")
+embedchain_app = App(name="embedchain-modal-app")
 
 
 @web_app.post("/add")
