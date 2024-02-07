@@ -61,7 +61,7 @@ For example, you can create an Elon Musk bot using the following code:
 
 ```python
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 # Create a bot instance
 os.environ["OPENAI_API_KEY"] = "YOUR API KEY"
