@@ -109,11 +109,11 @@ def is_readable(s):
     :param s: string
     :return: True if the string is more than 95% printable.
     """
-    try:
-        printable_ratio = sum(c in string.printable for c in s) / len(s)
-    except ZeroDivisionError:
-        logging.warning("Empty string processed as unreadable")
-        printable_ratio = 0
+    len_s = len(s)
+    if len_s == 0:
+        return False
+    printable_chars = set(string.printable)
+    printable_ratio = sum(c in printable_chars for c in s) / len_s
     return printable_ratio > 0.95  # 95% of characters are printable
 
 
