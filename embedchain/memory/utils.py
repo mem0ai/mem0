@@ -20,16 +20,20 @@ def merge_metadata_dict(left: Optional[dict[str, Any]], right: Optional[dict[str
     elif not right:
         return left
 
+    # Create a copy of left to add data into
     merged = left.copy()
+
+    # Iterate over right dict items
     for k, v in right.items():
         if k not in merged:
             merged[k] = v
-        elif type(merged[k]) != type(v):
+        elif type(merged[k]) is not type(v):
             raise ValueError(f'additional_kwargs["{k}"] already exists in this message,' " but with a different type.")
-        elif isinstance(merged[k], str):
-            merged[k] += v
-        elif isinstance(merged[k], dict):
-            merged[k] = merge_metadata_dict(merged[k], v)
-        else:
-            raise ValueError(f"Additional kwargs key {k} already exists in this message.")
+        else:  # merged[k] shares the same type with v, reducing one isinstance() check
+            if isinstance(v, str):
+                merged[k] += v
+            elif isinstance(v, dict):
+                merged[k] = merge_metadata_dict(merged[k], v)
+            else:
+                raise ValueError(f"Additional kwargs key {k} already exists in this message.")
     return merged
