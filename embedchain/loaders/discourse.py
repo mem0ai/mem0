@@ -14,19 +14,19 @@ class DiscourseLoader(BaseLoader):
         super().__init__()
         if not config:
             raise ValueError(
-                "DiscourseLoader requires a config. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a config. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
         self.domain = config.get("domain")
         if not self.domain:
             raise ValueError(
-                "DiscourseLoader requires a domain. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a domain. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
     def _check_query(self, query):
         if not query or not isinstance(query, str):
             raise ValueError(
-                "DiscourseLoader requires a query. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a query. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
     def _load_post(self, post_id):
