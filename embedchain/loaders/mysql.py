@@ -1,13 +1,13 @@
 import hashlib
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 
 class MySQLLoader(BaseLoader):
-    def __init__(self, config: Optional[Dict[str, Any]]):
+    def __init__(self, config: Optional[dict[str, Any]]):
         super().__init__()
         if not config:
             raise ValueError(
@@ -20,7 +20,7 @@ class MySQLLoader(BaseLoader):
         self.cursor = None
         self._setup_loader(config=config)
 
-    def _setup_loader(self, config: Dict[str, Any]):
+    def _setup_loader(self, config: dict[str, Any]):
         try:
             import mysql.connector as sqlconnector
         except ImportError as e:
@@ -39,7 +39,8 @@ class MySQLLoader(BaseLoader):
                     Refer `https://docs.embedchain.ai/data-sources/mysql`.",
             )
 
-    def _check_query(self, query):
+    @staticmethod
+    def _check_query(query):
         if not isinstance(query, str):
             raise ValueError(
                 f"Invalid mysql query: {query}",

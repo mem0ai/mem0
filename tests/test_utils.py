@@ -1,6 +1,6 @@
 import yaml
 
-from embedchain.utils import validate_yaml_config
+from embedchain.utils.misc import validate_config
 
 CONFIG_YAMLS = [
     "configs/anthropic.yaml",
@@ -8,6 +8,8 @@ CONFIG_YAMLS = [
     "configs/chroma.yaml",
     "configs/chunker.yaml",
     "configs/cohere.yaml",
+    "configs/together.yaml",
+    "configs/ollama.yaml",
     "configs/full-stack.yaml",
     "configs/gpt4.yaml",
     "configs/gpt4all.yaml",
@@ -30,7 +32,7 @@ def test_all_config_yamls():
         assert config is not None
 
         try:
-            validate_yaml_config(config)
+            validate_config(config)
         except Exception as e:
             print(f"Error in {config_yaml}: {e}")
             raise e

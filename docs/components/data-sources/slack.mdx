@@ -1,0 +1,71 @@
+---
+title: '🤖 Slack'
+---
+
+## Pre-requisite
+- Download required packages by running `pip install --upgrade "embedchain[slack]"`.
+- Configure your slack bot token as environment variable `SLACK_USER_TOKEN`.
+    - Find your user token on your [Slack Account](https://api.slack.com/authentication/token-types)
+    - Make sure your slack user token includes [search](https://api.slack.com/scopes/search:read) scope.
+
+## Example
+
+### Get Started
+
+This will automatically retrieve data from the workspace associated with the user's token.
+
+```python
+import os
+from embedchain import App
+
+os.environ["SLACK_USER_TOKEN"] = "xoxp-xxx"
+app = App()
+
+app.add("in:general", data_type="slack")
+
+result = app.query("what are the messages in general channel?")
+
+print(result)
+```
+
+
+### Customize your SlackLoader
+1. Setup the Slack loader by configuring the Slack Webclient.
+```Python
+from embedchain.loaders.slack import SlackLoader
+
+os.environ["SLACK_USER_TOKEN"] = "xoxp-*"
+
+config = {
+    'base_url': slack_app_url,
+    'headers': web_headers,
+    'team_id': slack_team_id,
+}
+
+loader = SlackLoader(config)
+```
+
+NOTE: you can also pass the `config` with `base_url`, `headers`, `team_id` to setup your SlackLoader.
+
+2. Once you setup the loader, you can create an app and load data using the above slack loader
+```Python
+import os
+from embedchain.pipeline import Pipeline as App
+
+app = App()
+
+app.add("in:random", data_type="slack", loader=loader)
+question = "Which bots are available in the slack workspace's random channel?"
+# Answer: The available bot in the slack workspace's random channel is the Embedchain bot.
+```
+
+3. We automatically create a chunker to chunk your slack data, however if you wish to provide your own chunker class. Here is how you can do that:
+```Python
+from embedchain.chunkers.slack import SlackChunker
+from embedchain.config.add_config import ChunkerConfig
+
+slack_chunker_config = ChunkerConfig(chunk_size=1000, chunk_overlap=0, length_function=len)
+slack_chunker = SlackChunker(config=slack_chunker_config)
+
+app.add(slack_chunker, data_type="slack", loader=loader, chunker=slack_chunker)
+```

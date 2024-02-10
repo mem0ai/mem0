@@ -15,11 +15,11 @@ from embedchain.config import AddConfig
 from embedchain.data_formatter import DataFormatter
 from embedchain.models.data_type import DataType
 from embedchain.telemetry.posthog import AnonymousTelemetry
-from embedchain.utils import detect_datatype
+from embedchain.utils.misc import detect_datatype
 
 logging.basicConfig(level=logging.WARN)
 
-# Setup the user directory if doesn't exist already
+# Set up the user directory if it doesn't exist already
 Client.setup_dir()
 
 
@@ -88,7 +88,7 @@ class OpenAIAssistant:
         if Path(source).is_file():
             return source
         data_type = data_type or detect_datatype(source)
-        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig(), kwargs={})
+        formatter = DataFormatter(data_type=DataType(data_type), config=AddConfig())
         data = formatter.loader.load_data(source)["data"]
         return self._save_temp_data(data=data[0]["content"].encode(), source=source)
 
@@ -130,12 +130,14 @@ class OpenAIAssistant:
         messages = self._client.beta.threads.messages.list(thread_id=self.thread_id, order="desc")
         return list(messages)
 
-    def _format_message(self, thread_message):
+    @staticmethod
+    def _format_message(thread_message):
         thread_message = cast(ThreadMessage, thread_message)
         content = [c.text.value for c in thread_message.content if isinstance(c, MessageContentText)]
         return " ".join(content)
 
-    def _save_temp_data(self, data, source):
+    @staticmethod
+    def _save_temp_data(data, source):
         special_chars_pattern = r'[\\/:*?"<>|&=% ]+'
         sanitized_source = re.sub(special_chars_pattern, "_", source)[:256]
         temp_dir = tempfile.mkdtemp()
@@ -165,7 +167,7 @@ class AIAssistant:
         self.instructions = instructions
         self.assistant_id = assistant_id or str(uuid.uuid4())
         self.thread_id = thread_id or str(uuid.uuid4())
-        self.pipeline = Pipeline.from_config(yaml_path=yaml_path) if yaml_path else Pipeline()
+        self.pipeline = Pipeline.from_config(config_path=yaml_path) if yaml_path else Pipeline()
         self.pipeline.local_id = self.pipeline.config.id = self.thread_id
 
         if self.instructions:

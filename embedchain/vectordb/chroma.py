@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from chromadb import Collection, QueryResult
 from langchain.docstore.document import Document
@@ -14,7 +14,7 @@ try:
     from chromadb.config import Settings
     from chromadb.errors import InvalidDimensionException
 except RuntimeError:
-    from embedchain.utils import use_pysqlite3
+    from embedchain.utils.misc import use_pysqlite3
 
     use_pysqlite3()
     import chromadb
@@ -75,9 +75,12 @@ class ChromaDB(BaseVectorDB):
         """Called during initialization"""
         return self.client
 
-    def _generate_where_clause(self, where: Dict[str, any]) -> str:
+    @staticmethod
+    def _generate_where_clause(where: dict[str, any]) -> dict[str, any]:
         # If only one filter is supplied, return it as is
         # (no need to wrap in $and based on chroma docs)
+        if where is None:
+            return {}
         if len(where.keys()) <= 1:
             return where
         where_filters = []
@@ -104,18 +107,18 @@ class ChromaDB(BaseVectorDB):
         )
         return self.collection
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
         :param ids: list of doc ids to check for existence
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: Optional. to filter data
-        :type where: Dict[str, Any]
+        :type where: dict[str, Any]
         :param limit: Optional. maximum number of documents
         :type limit: Optional[int]
         :return: Existing documents.
-        :rtype: List[str]
+        :rtype: list[str]
         """
         args = {}
         if ids:
@@ -128,30 +131,21 @@ class ChromaDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        skip_embedding: bool,
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
     ) -> Any:
         """
         Add vectors to chroma database
 
-        :param embeddings: list of embeddings to add
-        :type embeddings: List[List[str]]
         :param documents: Documents
-        :type documents: List[str]
+        :type documents: list[str]
         :param metadatas: Metadatas
-        :type metadatas: List[object]
+        :type metadatas: list[object]
         :param ids: ids
-        :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
-        :type skip_embedding: bool
+        :type ids: list[str]
         """
         size = len(documents)
-        if skip_embedding and (embeddings is None or len(embeddings) != len(documents)):
-            raise ValueError("Cannot add documents to chromadb with inconsistent embeddings")
-
         if len(documents) != size or len(metadatas) != size or len(ids) != size:
             raise ValueError(
                 "Cannot add documents to chromadb with inconsistent sizes. Documents size: {}, Metadata size: {},"
@@ -159,21 +153,14 @@ class ChromaDB(BaseVectorDB):
             )
 
         for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
-            if skip_embedding:
-                self.collection.add(
-                    embeddings=embeddings[i : i + self.BATCH_SIZE],
-                    documents=documents[i : i + self.BATCH_SIZE],
-                    metadatas=metadatas[i : i + self.BATCH_SIZE],
-                    ids=ids[i : i + self.BATCH_SIZE],
-                )
-            else:
-                self.collection.add(
-                    documents=documents[i : i + self.BATCH_SIZE],
-                    metadatas=metadatas[i : i + self.BATCH_SIZE],
-                    ids=ids[i : i + self.BATCH_SIZE],
-                )
+            self.collection.add(
+                documents=documents[i : i + self.BATCH_SIZE],
+                metadatas=metadatas[i : i + self.BATCH_SIZE],
+                ids=ids[i : i + self.BATCH_SIZE],
+            )
 
-    def _format_result(self, results: QueryResult) -> list[tuple[Document, float]]:
+    @staticmethod
+    def _format_result(results: QueryResult) -> list[tuple[Document, float]]:
         """
         Format Chroma results
 
@@ -193,47 +180,47 @@ class ChromaDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
-        skip_embedding: bool,
+        where: Optional[dict[str, any]] = None,
+        raw_filter: Optional[dict[str, any]] = None,
         citations: bool = False,
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+        **kwargs: Optional[dict[str, any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         Query contents from vector database based on vector similarity
 
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: Dict[str, Any]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
+        :type where: dict[str, Any]
+        :param raw_filter: Raw filter to apply
+        :type raw_filter: dict[str, Any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :raises InvalidDimensionException: Dimensions do not match.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
+        if where and raw_filter:
+            raise ValueError("Both `where` and `raw_filter` cannot be used together.")
+
+        where_clause = {}
+        if raw_filter:
+            where_clause = raw_filter
+        if where:
+            where_clause = self._generate_where_clause(where)
         try:
-            if skip_embedding:
-                result = self.collection.query(
-                    query_embeddings=[
-                        input_query,
-                    ],
-                    n_results=n_results,
-                    where=self._generate_where_clause(where),
-                )
-            else:
-                result = self.collection.query(
-                    query_texts=[
-                        input_query,
-                    ],
-                    n_results=n_results,
-                    where=self._generate_where_clause(where),
-                )
+            result = self.collection.query(
+                query_texts=[
+                    input_query,
+                ],
+                n_results=n_results,
+                where=where_clause,
+            )
         except InvalidDimensionException as e:
             raise InvalidDimensionException(
                 e.message()
@@ -246,9 +233,8 @@ class ChromaDB(BaseVectorDB):
             context = result[0].page_content
             if citations:
                 metadata = result[0].metadata
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append((context, source, doc_id))
+                metadata["score"] = result[1]
+                contexts.append((context, metadata))
             else:
                 contexts.append(context)
         return contexts

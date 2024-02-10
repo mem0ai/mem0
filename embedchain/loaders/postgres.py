@@ -1,12 +1,12 @@
 import hashlib
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.loaders.base_loader import BaseLoader
 
 
 class PostgresLoader(BaseLoader):
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
         if not config:
             raise ValueError(f"Must provide the valid config. Received: {config}")
@@ -15,7 +15,7 @@ class PostgresLoader(BaseLoader):
         self.cursor = None
         self._setup_loader(config=config)
 
-    def _setup_loader(self, config: Dict[str, Any]):
+    def _setup_loader(self, config: dict[str, Any]):
         try:
             import psycopg
         except ImportError as e:
@@ -24,7 +24,6 @@ class PostgresLoader(BaseLoader):
                     Run `pip install --upgrade 'embedchain[postgres]'`"
             ) from e
 
-        config_info = ""
         if "url" in config:
             config_info = config.get("url")
         else:
@@ -37,7 +36,8 @@ class PostgresLoader(BaseLoader):
         self.connection = psycopg.connect(conninfo=config_info)
         self.cursor = self.connection.cursor()
 
-    def _check_query(self, query):
+    @staticmethod
+    def _check_query(query):
         if not isinstance(query, str):
             raise ValueError(
                 f"Invalid postgres query: {query}. Provide the valid source to add from postgres, make sure you are following `https://docs.embedchain.ai/data-sources/postgres`",  # noqa:E501

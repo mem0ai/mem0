@@ -1,0 +1,48 @@
+---
+title: 🗑 delete
+---
+
+## Delete Document
+
+`delete()` method allows you to delete a document previously added to the app.
+
+### Usage
+
+```python
+from embedchain import App
+
+app = App()
+
+forbes_doc_id = app.add("https://www.forbes.com/profile/elon-musk")
+wiki_doc_id = app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+
+app.delete(forbes_doc_id)   # deletes the forbes document
+```
+
+<Note>
+    If you do not have the document id, you can use `app.db.get()` method to get the document and extract the `hash` key from `metadatas` dictionary object, which serves as the document id.
+</Note>
+
+
+## Delete Chat Session History
+
+`delete_session_chat_history()` method allows you to delete all previous messages in a chat history.
+
+### Usage
+
+```python
+from embedchain import App
+
+app = App()
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+app.chat("What is the net worth of Elon Musk?")
+
+app.delete_session_chat_history()
+```
+
+<Note>
+    `delete_session_chat_history(session_id="session_1")` method also accepts `session_id` optional param for deleting chat history of a specific session.
+    It assumes the default session if no `session_id` is provided.
+</Note>

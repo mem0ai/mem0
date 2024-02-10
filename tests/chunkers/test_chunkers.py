@@ -3,6 +3,7 @@ from embedchain.chunkers.discourse import DiscourseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
 from embedchain.chunkers.gmail import GmailChunker
+from embedchain.chunkers.google_drive import GoogleDriveChunker
 from embedchain.chunkers.json import JSONChunker
 from embedchain.chunkers.mdx import MdxChunker
 from embedchain.chunkers.notion import NotionChunker
@@ -31,7 +32,7 @@ chunker_common_config = {
     QnaPairChunker: {"chunk_size": 300, "chunk_overlap": 0, "length_function": len},
     TableChunker: {"chunk_size": 300, "chunk_overlap": 0, "length_function": len},
     SitemapChunker: {"chunk_size": 500, "chunk_overlap": 0, "length_function": len},
-    WebPageChunker: {"chunk_size": 500, "chunk_overlap": 0, "length_function": len},
+    WebPageChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     XmlChunker: {"chunk_size": 500, "chunk_overlap": 50, "length_function": len},
     YoutubeVideoChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     JSONChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
@@ -40,7 +41,8 @@ chunker_common_config = {
     PostgresChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     SlackChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     DiscourseChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
-    CommonChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    CommonChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
+    GoogleDriveChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

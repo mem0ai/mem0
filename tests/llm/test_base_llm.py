@@ -25,7 +25,7 @@ def test_is_stream_bool():
 def test_template_string_gets_converted_to_Template_instance():
     config = BaseLlmConfig(template="test value $query $context")
     llm = BaseLlm(config=config)
-    assert isinstance(llm.config.template, Template)
+    assert isinstance(llm.config.prompt, Template)
 
 
 def test_is_get_llm_model_answer_implemented():
@@ -38,15 +38,9 @@ def test_is_get_llm_model_answer_implemented():
     assert llm.get_llm_model_answer() == "Implemented"
 
 
-def test_stream_query_response(base_llm):
+def test_stream_response(base_llm):
     answer = ["Chunk1", "Chunk2", "Chunk3"]
-    result = list(base_llm._stream_query_response(answer))
-    assert result == answer
-
-
-def test_stream_chat_response(base_llm):
-    answer = ["Chunk1", "Chunk2", "Chunk3"]
-    result = list(base_llm._stream_chat_response(answer))
+    result = list(base_llm._stream_response(answer))
     assert result == answer
 
 

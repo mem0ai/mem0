@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Optional, Union
 
 from tqdm import tqdm
 
@@ -78,17 +78,17 @@ class OpenSearchDB(BaseVectorDB):
         """Note: nothing to return here. Discuss later"""
 
     def get(
-        self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None
-    ) -> Set[str]:
+        self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None
+    ) -> set[str]:
         """
         Get existing doc ids present in vector database
 
         :param ids: _list of doc ids to check for existence
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :return: ids
-        :type: Set[str]
+        :type: set[str]
         """
         query = {}
         if ids:
@@ -96,9 +96,9 @@ class OpenSearchDB(BaseVectorDB):
         else:
             query["query"] = {"bool": {"must": []}}
 
-        if "app_id" in where:
-            app_id = where["app_id"]
-            query["query"]["bool"]["must"].append({"term": {"metadata.app_id.keyword": app_id}})
+        if where:
+            for key, value in where.items():
+                query["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
 
         # OpenSearch syntax is different from Elasticsearch
         response = self.client.search(index=self._get_index(), body=query, _source=True, size=limit)
@@ -114,77 +114,57 @@ class OpenSearchDB(BaseVectorDB):
             result["metadatas"].append({"doc_id": doc_id})
         return result
 
-    def add(
-        self,
-        embeddings: List[List[str]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        skip_embedding: bool,
-    ):
-        """add data in vector database
+    def add(self, documents: list[str], metadatas: list[object], ids: list[str], **kwargs: Optional[dict[str, any]]):
+        """Adds documents to the opensearch index"""
 
-        :param embeddings: list of embeddings to add
-        :type embeddings: List[List[str]]
-        :param documents: list of texts to add
-        :type documents: List[str]
-        :param metadatas: list of metadata associated with docs
-        :type metadatas: List[object]
-        :param ids: ids of docs
-        :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
-        :type skip_embedding: bool
-        """
+        embeddings = self.embedder.embedding_fn(documents)
+        for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
+            batch_end = batch_start + self.BATCH_SIZE
+            batch_documents = documents[batch_start:batch_end]
+            batch_embeddings = embeddings[batch_start:batch_end]
 
-        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
-            if not skip_embedding:
-                embeddings = self.embedder.embedding_fn(documents[i : i + self.BATCH_SIZE])
-
-            docs = []
-            for id, text, metadata, embeddings in zip(
-                ids[i : i + self.BATCH_SIZE],
-                documents[i : i + self.BATCH_SIZE],
-                metadatas[i : i + self.BATCH_SIZE],
-                embeddings[i : i + self.BATCH_SIZE],
-            ):
-                docs.append(
-                    {
-                        "_index": self._get_index(),
-                        "_id": id,
-                        "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
-                    }
+            # Create document entries for bulk upload
+            batch_entries = [
+                {
+                    "_index": self._get_index(),
+                    "_id": doc_id,
+                    "_source": {"text": text, "metadata": metadata, "embeddings": embedding},
+                }
+                for doc_id, text, metadata, embedding in zip(
+                    ids[batch_start:batch_end], batch_documents, metadatas[batch_start:batch_end], batch_embeddings
                 )
-            bulk(self.client, docs)
+            ]
+
+            # Perform bulk operation
+            bulk(self.client, batch_entries, **kwargs)
             self.client.indices.refresh(index=self._get_index())
-            # Sleep for 0.1 seconds to avoid rate limiting
+
+            # Sleep to avoid rate limiting
             time.sleep(0.1)
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
-        skip_embedding: bool,
+        where: dict[str, any],
         citations: bool = False,
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
-        query contents from vector data base based on vector similarity
+        query contents from vector database based on vector similarity
 
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
+        :type where: dict[str, any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
-        # TODO(rupeshbansal, deshraj): Add support for skip embeddings here if already exists
         embeddings = OpenAIEmbeddings()
         docsearch = OpenSearchVectorSearch(
             index_name=self._get_index(),
@@ -196,10 +176,12 @@ class OpenSearchDB(BaseVectorDB):
         )
 
         pre_filter = {"match_all": {}}  # default
-        if "app_id" in where:
-            app_id = where["app_id"]
-            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id.keyword": app_id}}]}}
-        docs = docsearch.similarity_search(
+        if len(where) > 0:
+            pre_filter = {"bool": {"must": []}}
+            for key, value in where.items():
+                pre_filter["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
+
+        docs = docsearch.similarity_search_with_score(
             input_query,
             search_type="script_scoring",
             space_type="cosinesimil",
@@ -208,15 +190,16 @@ class OpenSearchDB(BaseVectorDB):
             metadata_field="metadata",
             pre_filter=pre_filter,
             k=n_results,
+            **kwargs,
         )
 
         contexts = []
-        for doc in docs:
+        for doc, score in docs:
             context = doc.page_content
             if citations:
-                source = doc.metadata["url"]
-                doc_id = doc.metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                metadata = doc.metadata
+                metadata["score"] = score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
@@ -250,15 +233,14 @@ class OpenSearchDB(BaseVectorDB):
         """
         # Delete all data from the database
         if self.client.indices.exists(index=self._get_index()):
-            # delete index in Es
+            # delete index in ES
             self.client.indices.delete(index=self._get_index())
 
     def delete(self, where):
         """Deletes a document from the OpenSearch index"""
-        if "doc_id" not in where:
-            raise ValueError("doc_id is required to delete a document")
-
-        query = {"query": {"bool": {"must": [{"term": {"metadata.doc_id": where["doc_id"]}}]}}}
+        query = {"query": {"bool": {"must": []}}}
+        for key, value in where.items():
+            query["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
         self.client.delete_by_query(index=self._get_index(), body=query)
 
     def _get_index(self) -> str:

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 try:
     from elasticsearch import Elasticsearch
@@ -11,6 +11,7 @@ except ImportError:
 
 from embedchain.config import ElasticsearchDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
+from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
 
 
@@ -19,6 +20,8 @@ class ElasticsearchDB(BaseVectorDB):
     """
     Elasticsearch as vector database
     """
+
+    BATCH_SIZE = 100
 
     def __init__(
         self,
@@ -43,7 +46,14 @@ class ElasticsearchDB(BaseVectorDB):
                     "Please make sure the type is right and that you are passing an instance."
                 )
             self.config = config or es_config
-        self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
+        if self.config.ES_URL:
+            self.client = Elasticsearch(self.config.ES_URL, **self.config.ES_EXTRA_PARAMS)
+        elif self.config.CLOUD_ID:
+            self.client = Elasticsearch(cloud_id=self.config.CLOUD_ID, **self.config.ES_EXTRA_PARAMS)
+        else:
+            raise ValueError(
+                "Something is wrong with your config. Please check again - `https://docs.embedchain.ai/components/vector-databases#elasticsearch`"  # noqa: E501
+            )
 
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
@@ -74,14 +84,14 @@ class ElasticsearchDB(BaseVectorDB):
     def _get_or_create_collection(self, name):
         """Note: nothing to return here. Discuss later"""
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
-        :param ids: _list of doc ids to check for existance
-        :type ids: List[str]
+        :param ids: _list of doc ids to check for existence
+        :type ids: list[str]
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :return: ids
         :rtype: Set[str]
         """
@@ -89,83 +99,92 @@ class ElasticsearchDB(BaseVectorDB):
             query = {"bool": {"must": [{"ids": {"values": ids}}]}}
         else:
             query = {"bool": {"must": []}}
-        if "app_id" in where:
-            app_id = where["app_id"]
-            query["bool"]["must"].append({"term": {"metadata.app_id": app_id}})
 
-        response = self.client.search(index=self._get_index(), query=query, _source=False, size=limit)
+        if where:
+            for key, value in where.items():
+                query["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
+
+        response = self.client.search(index=self._get_index(), query=query, _source=True, size=limit)
         docs = response["hits"]["hits"]
         ids = [doc["_id"] for doc in docs]
-        return {"ids": set(ids)}
+        doc_ids = [doc["_source"]["metadata"]["doc_id"] for doc in docs]
+
+        # Result is modified for compatibility with other vector databases
+        # TODO: Add method in vector database to return result in a standard format
+        result = {"ids": ids, "metadatas": []}
+
+        for doc_id in doc_ids:
+            result["metadatas"].append({"doc_id": doc_id})
+
+        return result
 
     def add(
         self,
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        skip_embedding: bool,
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
+        **kwargs: Optional[dict[str, any]],
     ) -> Any:
         """
         add data in vector database
-        :param embeddings: list of embeddings to add
-        :type embeddings: List[List[str]]
         :param documents: list of texts to add
-        :type documents: List[str]
+        :type documents: list[str]
         :param metadatas: list of metadata associated with docs
-        :type metadatas: List[object]
+        :type metadatas: list[object]
         :param ids: ids of docs
-        :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
+        :type ids: list[str]
         """
 
-        docs = []
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
+        embeddings = self.embedder.embedding_fn(documents)
 
-        for id, text, metadata, embeddings in zip(ids, documents, metadatas, embeddings):
-            docs.append(
-                {
-                    "_index": self._get_index(),
-                    "_id": id,
-                    "_source": {"text": text, "metadata": metadata, "embeddings": embeddings},
-                }
-            )
-        bulk(self.client, docs)
+        for chunk in chunks(
+            list(zip(ids, documents, metadatas, embeddings)), self.BATCH_SIZE, desc="Inserting batches in elasticsearch"
+        ):  # noqa: E501
+            ids, docs, metadatas, embeddings = [], [], [], []
+            for id, text, metadata, embedding in chunk:
+                ids.append(id)
+                docs.append(text)
+                metadatas.append(metadata)
+                embeddings.append(embedding)
+
+            batch_docs = []
+            for id, text, metadata, embedding in zip(ids, docs, metadatas, embeddings):
+                batch_docs.append(
+                    {
+                        "_index": self._get_index(),
+                        "_id": id,
+                        "_source": {"text": text, "metadata": metadata, "embeddings": embedding},
+                    }
+                )
+            bulk(self.client, batch_docs, **kwargs)
         self.client.indices.refresh(index=self._get_index())
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
-        skip_embedding: bool,
+        where: dict[str, any],
         citations: bool = False,
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
-        query contents from vector data base based on vector similarity
+        query contents from vector database based on vector similarity
 
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
-        :param skip_embedding: Optional. If True, then the input_query is assumed to be already embedded.
-        :type skip_embedding: bool
+        :type where: dict[str, any]
         :return: The context of the document that matched your query, url of the source, doc_id
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
-        if skip_embedding:
-            query_vector = input_query
-        else:
-            input_query_vector = self.embedder.embedding_fn(input_query)
-            query_vector = input_query_vector[0]
+        input_query_vector = self.embedder.embedding_fn(input_query)
+        query_vector = input_query_vector[0]
 
         # `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`
         query = {
@@ -177,10 +196,12 @@ class ElasticsearchDB(BaseVectorDB):
                 },
             }
         }
-        if "app_id" in where:
-            app_id = where["app_id"]
-            query["script_score"]["query"] = {"match": {"metadata.app_id": app_id}}
-        _source = ["text", "metadata.url", "metadata.doc_id"]
+
+        if where:
+            for key, value in where.items():
+                query["script_score"]["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
+
+        _source = ["text", "metadata"]
         response = self.client.search(index=self._get_index(), query=query, _source=_source, size=n_results)
         docs = response["hits"]["hits"]
         contexts = []
@@ -188,9 +209,8 @@ class ElasticsearchDB(BaseVectorDB):
             context = doc["_source"]["text"]
             if citations:
                 metadata = doc["_source"]["metadata"]
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                metadata["score"] = doc["_score"]
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
@@ -236,3 +256,11 @@ class ElasticsearchDB(BaseVectorDB):
         # NOTE: The method is preferred to an attribute, because if collection name changes,
         # it's always up-to-date.
         return f"{self.config.collection_name}_{self.embedder.vector_dimension}".lower()
+
+    def delete(self, where):
+        """Delete documents from the database."""
+        query = {"query": {"bool": {"must": []}}}
+        for key, value in where.items():
+            query["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
+        self.client.delete_by_query(index=self._get_index(), body=query)
+        self.client.indices.refresh(index=self._get_index())

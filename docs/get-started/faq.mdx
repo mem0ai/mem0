@@ -2,23 +2,50 @@
 title: ❓ FAQs
 description: 'Collections of all the frequently asked questions'
 ---
+<AccordionGroup>
+<Accordion title="Does Embedchain support OpenAI's Assistant APIs?">
+Yes, it does. Please refer to the [OpenAI Assistant docs page](/examples/openai-assistant).
+</Accordion>
+<Accordion title="How to use MistralAI language model?">
+Use the model provided on huggingface: `mistralai/Mistral-7B-v0.1`
+<CodeGroup>
+```python main.py
+import os
+from embedchain import App
 
-#### Does Embedchain support OpenAI's Assistant APIs?
+os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "hf_your_token"
 
-Yes, it does. Please refer to the [OpenAI Assistant docs page](/get-started/openai-assistant).
+app = App.from_config("huggingface.yaml")
+```
+```yaml huggingface.yaml
+llm:
+  provider: huggingface
+  config:
+    model: 'mistralai/Mistral-7B-v0.1'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 0.5
+    stream: false
 
-#### How to use `gpt-4-turbo` model released on OpenAI DevDay?
-
+embedder:
+  provider: huggingface
+  config:
+    model: 'sentence-transformers/all-mpnet-base-v2'
+```
+</CodeGroup>
+</Accordion>
+<Accordion title="How to use ChatGPT 4 turbo model released on OpenAI DevDay?">
+Use the model `gpt-4-turbo` provided my openai.
 <CodeGroup>
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from gpt4_turbo.yaml file
-app = App.from_config(yaml_path="gpt4_turbo.yaml")
+app = App.from_config(config_path="gpt4_turbo.yaml")
 ```
 
 ```yaml gpt4_turbo.yaml
@@ -31,22 +58,19 @@ llm:
     top_p: 1
     stream: false
 ```
-
 </CodeGroup>
-
-
-#### How to use GPT-4 as the LLM model?
-
+</Accordion>
+<Accordion title="How to use GPT-4 as the LLM model?">
 <CodeGroup>
 
 ```python main.py
 import os
-from embedchain import Pipeline as App
+from embedchain import App
 
 os.environ['OPENAI_API_KEY'] = 'xxx'
 
 # load llm configuration from gpt4.yaml file
-app = App.from_config(yaml_path="gpt4.yaml")
+app = App.from_config(config_path="gpt4.yaml")
 ```
 
 ```yaml gpt4.yaml
@@ -61,19 +85,15 @@ llm:
 ```
 
 </CodeGroup>
-
-#### I don't have OpenAI credits. How can I use some open source model?
-
+</Accordion>
+<Accordion title="I don't have OpenAI credits. How can I use some open source model?">
 <CodeGroup>
 
 ```python main.py
-import os
-from embedchain import Pipeline as App
-
-os.environ['OPENAI_API_KEY'] = 'xxx'
+from embedchain import App
 
 # load llm configuration from opensource.yaml file
-app = App.from_config(yaml_path="opensource.yaml")
+app = App.from_config(config_path="opensource.yaml")
 ```
 
 ```yaml opensource.yaml
@@ -93,8 +113,79 @@ embedder:
 ```
 </CodeGroup>
 
-#### How to contact support?
+</Accordion>
+<Accordion title="How to stream response while using OpenAI model in Embedchain?">
+You can achieve this by setting `stream` to `true` in the config file.
 
+<CodeGroup>
+```yaml openai.yaml
+llm:
+  provider: openai
+  config:
+    model: 'gpt-3.5-turbo'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: true
+```
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['OPENAI_API_KEY'] = 'sk-xxx'
+
+app = App.from_config(config_path="openai.yaml")
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.query("What is the net worth of Elon Musk?")
+# response will be streamed in stdout as it is generated.
+```
+</CodeGroup>
+</Accordion>
+
+<Accordion title="How to persist data across multiple app sessions?">
+  Set up the app by adding an `id` in the config file. This keeps the data for future use. You can include this `id` in the yaml config or input it directly in `config` dict.
+  ```python app1.py
+  import os
+  from embedchain import App
+
+  os.environ['OPENAI_API_KEY'] = 'sk-xxx'
+
+  app1 = App.from_config(config={
+    "app": {
+      "config": {
+        "id": "your-app-id",
+      }
+    }
+  })
+
+  app1.add("https://www.forbes.com/profile/elon-musk")
+
+  response = app1.query("What is the net worth of Elon Musk?")
+  ```
+  ```python app2.py
+  import os
+  from embedchain import App
+
+  os.environ['OPENAI_API_KEY'] = 'sk-xxx'
+
+  app2 = App.from_config(config={
+    "app": {
+      "config": {
+        # this will persist and load data from app1 session
+        "id": "your-app-id",
+      }
+    }
+  })
+
+  response = app2.query("What is the net worth of Elon Musk?")
+  ```
+</Accordion>
+</AccordionGroup>
+
+#### Still have questions?
 If docs aren't sufficient, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />

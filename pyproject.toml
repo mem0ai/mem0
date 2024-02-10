@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.21"
-description = "Data platform for LLMs - Load, index, retrieve and sync any unstructured data"
+version = "0.1.76"
+description = "Simplest open source retrieval(RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
     "Deshraj Yadav <deshraj@embedchain.ai>",
@@ -13,13 +13,16 @@ exclude = [
     "configs",
     "notebooks"
 ]
+packages = [
+    { include = "embedchain" },
+]
 
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
 
 [tool.ruff]
-select = ["E", "F"]
+select = ["ASYNC", "E", "F"]
 ignore = []
 fixable = ["ALL"]
 unfixable = []
@@ -95,14 +98,15 @@ requests = "^2.31.0"
 openai = ">=1.1.1"
 chromadb = "^0.4.17"
 posthog = "^3.0.2"
+rich = "^13.7.0"
+beautifulsoup4 = "^4.12.2"
+pypdf = "^3.11.0"
+gptcache = "^0.1.43"
+pysbd = "^0.3.4"
 tiktoken = { version = "^0.4.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }
-beautifulsoup4 = { version = "^4.12.2", optional = true }
-pypdf = { version = "^3.11.0", optional = true }
 pytube = { version = "^15.0.0", optional = true }
 duckduckgo-search = { version = "^3.8.5", optional = true }
-llama-hub = { version = "^0.0.43", optional = true }
-llama-index = { version = "^0.8.65", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.0.0", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
@@ -116,15 +120,12 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^4.27", optional = true }
+together = { version = "^0.2.8", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
-pinecone-client = { version = "^2.2.4", optional = true }
+pinecone-client = { version = "^3.0.0", optional = true }
 qdrant-client = { version = "1.6.3", optional = true }
 unstructured = {extras = ["local-inference", "all-docs"], version = "^0.10.18", optional = true}
-pillow = { version = "10.0.1", optional = true }
-torchvision = { version = ">=0.15.1, !=0.15.2", optional = true }
-ftfy = { version = "6.1.1", optional = true }
-regex = { version = "2023.8.8", optional = true }
 huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = { version = "2.3.1", optional = true }
 google-cloud-aiplatform = { version = "^1.26.1", optional = true }
@@ -136,11 +137,25 @@ psycopg-pool = { version = "^3.1.8", optional = true }
 mysql-connector-python = { version = "^8.1.0", optional = true }
 gitpython = { version = "^3.1.38", optional = true }
 yt_dlp = { version = "^2023.11.14", optional = true }
+PyGithub = { version = "^1.59.1", optional = true }
+feedparser = { version = "^6.0.10", optional = true }
+newspaper3k = { version = "^0.2.8", optional = true }
+listparser = { version = "^0.19", optional = true }
+google-generativeai = { version = "^0.3.0", optional = true }
+modal = { version = "^0.56.4329", optional = true }
+dropbox = { version = "^11.36.2", optional = true }
+google-api-python-client = { version = "^2.111.0", optional = true }
+google-auth-oauthlib = { version = "^1.2.0", optional = true }
+google-auth = { version = "^2.25.2", optional = true }
+google-auth-httplib2 = { version = "^0.2.0", optional = true }
+google-api-core = { version = "^2.15.0", optional = true }
+boto3 = { version = "^1.34.20", optional = true }
+langchain-mistralai = { version = "^0.0.3", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pre-commit = "^3.2.2"
-ruff = "^0.0.220"
+ruff = "^0.1.11"
 pytest = "^7.3.1"
 pytest-mock = "^3.10.0"
 pytest-env = "^0.8.1"
@@ -153,7 +168,6 @@ pytest-asyncio = "^0.21.1"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
-community = ["llama-hub"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
@@ -164,16 +178,14 @@ whatsapp = ["twilio", "flask"]
 weaviate = ["weaviate-client"]
 pinecone = ["pinecone-client"]
 qdrant = ["qdrant-client"]
-images = ["torch", "ftfy", "regex", "pillow", "torchvision"]
 huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
+together = ["together"]
 milvus = ["pymilvus"]
 dataloaders=[
     "youtube-transcript-api",
-    "beautifulsoup4",
     "docx2txt",
     "duckduckgo-search",
-    "pypdf",
     "pytube",
     "sentence-transformers",
     "unstructured",
@@ -181,7 +193,6 @@ dataloaders=[
 vertexai = ["google-cloud-aiplatform"]
 llama2 = ["replicate"]
 gmail = [
-    "llama-hub",
     "requests",
     "google-api-python-client",
     "google-auth",
@@ -189,15 +200,26 @@ gmail = [
     "google-auth-httplib2",
     "google-api-core",
 ]
-json = ["llama-hub"]
+googledrive = ["google-api-python-client", "google-auth-oauthlib", "google-auth-httplib2"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 mysql = ["mysql-connector-python"]
-git = ["gitpython"]
+github = ["PyGithub", "gitpython"]
 youtube = [
     "yt_dlp",
     "youtube-transcript-api",
 ]
+rss_feed = [
+    "feedparser",
+    "listparser",
+    "newspaper3k"
+]
+google = ["google-generativeai"]
+modal = ["modal"]
+dropbox = ["dropbox"]
+aws_bedrock = ["boto3"]
+mistralai = ["langchain-mistralai"]
 
 [tool.poetry.group.docs.dependencies]
 
 [tool.poetry.scripts]
+ec = "embedchain.cli:cli"

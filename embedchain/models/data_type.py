@@ -24,18 +24,22 @@ class IndirectDataType(Enum):
     NOTION = "notion"
     CSV = "csv"
     MDX = "mdx"
-    IMAGES = "images"
+    IMAGE = "image"
     UNSTRUCTURED = "unstructured"
     JSON = "json"
     OPENAPI = "openapi"
     GMAIL = "gmail"
-    POSTGRES = "postgres"
-    MYSQL = "mysql"
-    SLACK = "slack"
-    DISCOURSE = "discourse"
     SUBSTACK = "substack"
-    GITHUB = "github"
     YOUTUBE_CHANNEL = "youtube_channel"
+    DISCORD = "discord"
+    CUSTOM = "custom"
+    RSSFEED = "rss_feed"
+    BEEHIIV = "beehiiv"
+    GOOGLE_DRIVE = "google_drive"
+    DIRECTORY = "directory"
+    SLACK = "slack"
+    DROPBOX = "dropbox"
+    TEXT_FILE = "text_file"
 
 
 class SpecialDataType(Enum):
@@ -59,15 +63,19 @@ class DataType(Enum):
     CSV = IndirectDataType.CSV.value
     MDX = IndirectDataType.MDX.value
     QNA_PAIR = SpecialDataType.QNA_PAIR.value
-    IMAGES = IndirectDataType.IMAGES.value
+    IMAGE = IndirectDataType.IMAGE.value
     UNSTRUCTURED = IndirectDataType.UNSTRUCTURED.value
     JSON = IndirectDataType.JSON.value
     OPENAPI = IndirectDataType.OPENAPI.value
     GMAIL = IndirectDataType.GMAIL.value
-    POSTGRES = IndirectDataType.POSTGRES.value
-    MYSQL = IndirectDataType.MYSQL.value
-    SLACK = IndirectDataType.SLACK.value
-    DISCOURSE = IndirectDataType.DISCOURSE.value
     SUBSTACK = IndirectDataType.SUBSTACK.value
-    GITHUB = IndirectDataType.GITHUB.value
     YOUTUBE_CHANNEL = IndirectDataType.YOUTUBE_CHANNEL.value
+    DISCORD = IndirectDataType.DISCORD.value
+    CUSTOM = IndirectDataType.CUSTOM.value
+    RSSFEED = IndirectDataType.RSSFEED.value
+    BEEHIIV = IndirectDataType.BEEHIIV.value
+    GOOGLE_DRIVE = IndirectDataType.GOOGLE_DRIVE.value
+    DIRECTORY = IndirectDataType.DIRECTORY.value
+    SLACK = IndirectDataType.SLACK.value
+    DROPBOX = IndirectDataType.DROPBOX.value
+    TEXT_FILE = IndirectDataType.TEXT_FILE.value

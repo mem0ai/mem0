@@ -38,10 +38,9 @@ class AnonymousTelemetry:
         posthog_logger = logging.getLogger("posthog")
         posthog_logger.disabled = True
 
-    def _get_user_id(self):
-        if not os.path.exists(CONFIG_DIR):
-            os.makedirs(CONFIG_DIR)
-
+    @staticmethod
+    def _get_user_id():
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)

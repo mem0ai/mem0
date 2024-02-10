@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from embedchain.models.data_type import DataType
-from embedchain.utils import detect_datatype
+from embedchain.utils.misc import detect_datatype
 
 
 class TestApp(unittest.TestCase):
@@ -85,12 +85,10 @@ class TestApp(unittest.TestCase):
             detect_datatype(["foo", "bar"])
 
     @patch("os.path.isfile")
-    def test_detect_datatype_regular_filesystem_file_not_detected(self, mock_isfile):
-        """Test error if a valid file is referenced, but it isn't a valid data_type"""
+    def test_detect_datatype_regular_filesystem_file_txt(self, mock_isfile):
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=True) as tmp:
             mock_isfile.return_value = True
-            with self.assertRaises(ValueError):
-                detect_datatype(tmp.name)
+            self.assertEqual(detect_datatype(tmp.name), DataType.TEXT_FILE)
 
     def test_detect_datatype_regular_filesystem_no_file(self):
         """Test that if a filepath is not actually an existing file, it is not handled as a file path."""

@@ -1,0 +1,22 @@
+---
+title: '📺 Youtube Video'
+---
+
+## Setup
+
+Make sure you have all the required packages installed before using this data type. You can install them by running the following command in your terminal.
+
+```bash
+pip install -U "embedchain[youtube]"
+```
+
+## Usage
+
+To add any youtube video to your app, use the data_type as `youtube_video`. Eg:
+
+```python
+from embedchain import App
+
+app = App()
+app.add('a_valid_youtube_url_here', data_type='youtube_video')
+```

@@ -1,16 +1,16 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
-def merge_metadata_dict(left: Optional[Dict[str, Any]], right: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def merge_metadata_dict(left: Optional[dict[str, Any]], right: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
     """
     Merge the metadatas of two BaseMessage types.
 
     Args:
-        left (Dict[str, Any]): metadata of human message
-        right (Dict[str, Any]): metadata of ai message
+        left (dict[str, Any]): metadata of human message
+        right (dict[str, Any]): metadata of AI message
 
     Returns:
-        Dict[str, Any]: combined metadata dict with dedup
+        dict[str, Any]: combined metadata dict with dedup
         to be saved in db.
     """
     if not left and not right:

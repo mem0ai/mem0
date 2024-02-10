@@ -2,29 +2,29 @@ import hashlib
 import logging
 import os
 import ssl
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import certifi
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 SLACK_API_BASE_URL = "https://www.slack.com/api/"
 
 
 class SlackLoader(BaseLoader):
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
 
-        if config is not None:
-            self.config = config
-        else:
-            self.config = {"base_url": SLACK_API_BASE_URL}
+        self.config = config if config else {}
+
+        if "base_url" not in self.config:
+            self.config["base_url"] = SLACK_API_BASE_URL
 
         self.client = None
         self._setup_loader(self.config)
 
-    def _setup_loader(self, config: Dict[str, Any]):
+    def _setup_loader(self, config: dict[str, Any]):
         try:
             from slack_sdk import WebClient
         except ImportError as e:
@@ -56,7 +56,8 @@ class SlackLoader(BaseLoader):
         )
         logging.info("Slack Loader setup successful!")
 
-    def _check_query(self, query):
+    @staticmethod
+    def _check_query(query):
         if not isinstance(query, str):
             raise ValueError(
                 f"Invalid query passed to Slack loader, found: {query}. Check `https://docs.embedchain.ai/data-sources/slack` to learn more."  # noqa:E501
@@ -73,11 +74,11 @@ class SlackLoader(BaseLoader):
                 query=query,
                 sort="timestamp",
                 sort_dir="desc",
-                count=1000,
+                count=self.config.get("count", 100),
             )
 
             messages = results.get("messages")
-            num_message = results.get("total")
+            num_message = len(messages)
             logging.info(f"Found {num_message} messages for query: {query}")
 
             matches = messages.get("matches", [])
@@ -86,9 +87,13 @@ class SlackLoader(BaseLoader):
                 text = message.get("text")
                 content = clean_string(text)
 
-                message_meta_data_keys = ["channel", "iid", "team", "ts", "type", "user", "username"]
-                meta_data = message.fromkeys(message_meta_data_keys, "")
+                message_meta_data_keys = ["iid", "team", "ts", "type", "user", "username"]
+                meta_data = {}
+                for key in message.keys():
+                    if key in message_meta_data_keys:
+                        meta_data[key] = message.get(key)
                 meta_data.update({"url": url})
+
                 data.append(
                     {
                         "content": content,

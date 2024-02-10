@@ -8,6 +8,11 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.vectordb.weaviate import WeaviateDB
 
 
+def mock_embedding_fn(texts: list[str]) -> list[list[float]]:
+    """A mock embedding function."""
+    return [[1, 2, 3], [4, 5, 6]]
+
+
 class TestWeaviateDb(unittest.TestCase):
     def test_incorrect_config_throws_error(self):
         """Test the init method of the WeaviateDb class throws error for incorrect config"""
@@ -24,17 +29,18 @@ class TestWeaviateDb(unittest.TestCase):
         weaviate_client_schema_mock.exists.return_value = False
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         expected_class_obj = {
             "classes": [
                 {
-                    "class": "Embedchain_store_1526",
+                    "class": "Embedchain_store_1536",
                     "vectorizer": "none",
                     "properties": [
                         {
@@ -47,12 +53,12 @@ class TestWeaviateDb(unittest.TestCase):
                         },
                         {
                             "name": "metadata",
-                            "dataType": ["Embedchain_store_1526_metadata"],
+                            "dataType": ["Embedchain_store_1536_metadata"],
                         },
                     ],
                 },
                 {
-                    "class": "Embedchain_store_1526_metadata",
+                    "class": "Embedchain_store_1536_metadata",
                     "vectorizer": "none",
                     "properties": [
                         {
@@ -82,7 +88,7 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Assert that the Weaviate client was initialized
         weaviate_mock.Client.assert_called_once()
-        self.assertEqual(db.index_name, "Embedchain_store_1526")
+        self.assertEqual(db.index_name, "Embedchain_store_1536")
         weaviate_client_schema_mock.create.assert_called_once_with(expected_class_obj)
 
     @patch("embedchain.vectordb.weaviate.weaviate")
@@ -91,12 +97,13 @@ class TestWeaviateDb(unittest.TestCase):
         weaviate_client_mock = weaviate_mock.Client.return_value
 
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         expected_client = db._get_or_create_db()
         self.assertEqual(expected_client, weaviate_client_mock)
@@ -110,39 +117,30 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
         db.BATCH_SIZE = 1
 
-        embeddings = [[1, 2, 3], [4, 5, 6]]
-        documents = ["This is a test document.", "This is another test document."]
-        metadatas = [None, None]
-        ids = ["123", "456"]
-        skip_embedding = True
-        db.add(embeddings, documents, metadatas, ids, skip_embedding)
+        documents = ["This is test document"]
+        metadatas = [None]
+        ids = ["id_1"]
+        db.add(documents, metadatas, ids)
 
         # Check if the document was added to the database.
         weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=1, timeout_retries=3)
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"text": documents[0]}, class_name="Embedchain_store_1526_metadata", vector=embeddings[0]
-        )
-        weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"text": documents[1]}, class_name="Embedchain_store_1526_metadata", vector=embeddings[1]
+            data_object={"text": documents[0]}, class_name="Embedchain_store_1536_metadata", vector=[1, 2, 3]
         )
 
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"identifier": ids[0], "text": documents[0]},
-            class_name="Embedchain_store_1526",
-            vector=embeddings[0],
-        )
-        weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
-            data_object={"identifier": ids[1], "text": documents[1]},
-            class_name="Embedchain_store_1526",
-            vector=embeddings[1],
+            data_object={"text": documents[0]},
+            class_name="Embedchain_store_1536_metadata",
+            vector=[1, 2, 3],
         )
 
     @patch("embedchain.vectordb.weaviate.weaviate")
@@ -154,20 +152,19 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
-        db.query(input_query=["This is a test document."], n_results=1, where={}, skip_embedding=True)
+        db.query(input_query=["This is a test document."], n_results=1, where={})
 
-        weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1526", ["text"])
-        weaviate_client_query_get_mock.with_near_vector.assert_called_once_with(
-            {"vector": ["This is a test document."]}
-        )
+        weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1536", ["text"])
+        weaviate_client_query_get_mock.with_near_vector.assert_called_once_with({"vector": [1, 2, 3]})
 
     @patch("embedchain.vectordb.weaviate.weaviate")
     def test_query_with_where(self, weaviate_mock):
@@ -179,23 +176,22 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
-        db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"}, skip_embedding=True)
+        db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"})
 
-        weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1526", ["text"])
+        weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1536", ["text"])
         weaviate_client_query_get_mock.with_where.assert_called_once_with(
-            {"operator": "Equal", "path": ["metadata", "Embedchain_store_1526_metadata", "doc_id"], "valueText": "123"}
+            {"operator": "Equal", "path": ["metadata", "Embedchain_store_1536_metadata", "doc_id"], "valueText": "123"}
         )
-        weaviate_client_query_get_where_mock.with_near_vector.assert_called_once_with(
-            {"vector": ["This is a test document."]}
-        )
+        weaviate_client_query_get_where_mock.with_near_vector.assert_called_once_with({"vector": [1, 2, 3]})
 
     @patch("embedchain.vectordb.weaviate.weaviate")
     def test_reset(self, weaviate_mock):
@@ -205,18 +201,19 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Reset the database.
         db.reset()
 
         weaviate_client_batch_mock.delete_objects.assert_called_once_with(
-            "Embedchain_store_1526", where={"path": ["identifier"], "operator": "Like", "valueText": ".*"}
+            "Embedchain_store_1536", where={"path": ["identifier"], "operator": "Like", "valueText": ".*"}
         )
 
     @patch("embedchain.vectordb.weaviate.weaviate")
@@ -227,14 +224,15 @@ class TestWeaviateDb(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Weaviate instance
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Reset the database.
         db.count()
 
-        weaviate_client_query.aggregate.assert_called_once_with("Embedchain_store_1526")
+        weaviate_client_query.aggregate.assert_called_once_with("Embedchain_store_1536")

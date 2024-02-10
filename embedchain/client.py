@@ -31,7 +31,7 @@ class Client:
                 )
 
     @classmethod
-    def setup_dir(self):
+    def setup_dir(cls):
         """
         Loads the user id from the config file if it exists, otherwise generates a new
         one and saves it to the config file.
@@ -39,9 +39,7 @@ class Client:
         :return: user id
         :rtype: str
         """
-        if not os.path.exists(CONFIG_DIR):
-            os.makedirs(CONFIG_DIR)
-
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)

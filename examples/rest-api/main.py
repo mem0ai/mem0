@@ -1,6 +1,7 @@
 import logging
 import os
 
+import aiofiles
 import yaml
 from database import Base, SessionLocal, engine
 from fastapi import Depends, FastAPI, HTTPException, UploadFile
@@ -9,7 +10,7 @@ from services import get_app, get_apps, remove_app, save_app
 from sqlalchemy.orm import Session
 from utils import generate_error_message_for_api_keys
 
-from embedchain import Pipeline as App
+from embedchain import App
 from embedchain.client import Client
 
 Base.metadata.create_all(bind=engine)
@@ -74,8 +75,8 @@ async def create_app_using_default_config(app_id: str, config: UploadFile = None
                 yaml.safe_load(contents)
                 # TODO: validate the config yaml file here
                 yaml_path = f"configs/{app_id}.yaml"
-                with open(yaml_path, "w") as file:
-                    file.write(str(contents, "utf-8"))
+                async with aiofiles.open(yaml_path, mode="w") as file_out:
+                    await file_out.write(str(contents, "utf-8"))
             except yaml.YAMLError as exc:
                 raise HTTPException(detail=f"Error parsing YAML: {exc}", status_code=400)
 
@@ -108,7 +109,7 @@ async def get_datasources_associated_with_app_id(app_id: str, db: Session = Depe
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         response = app.get_data_sources()
         return {"results": response}
@@ -147,7 +148,7 @@ async def add_datasource_to_an_app(body: SourceApp, app_id: str, db: Session = D
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         response = app.add(source=body.source, data_type=body.data_type)
         return DefaultResponse(response=response)
@@ -185,7 +186,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         response = app.query(body.query)
         return DefaultResponse(response=response)
@@ -227,7 +228,7 @@ async def query_an_app(body: QueryApp, app_id: str, db: Session = Depends(get_db
 #               status_code=400
 #             )
 
-#         app = App.from_config(yaml_path=db_app.config)
+#         app = App.from_config(config_path=db_app.config)
 
 #         response = app.chat(body.message)
 #         return DefaultResponse(response=response)
@@ -264,7 +265,7 @@ async def deploy_app(body: DeployAppRequest, app_id: str, db: Session = Depends(
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         api_key = body.api_key
         # this will save the api key in the embedchain.db
@@ -305,7 +306,7 @@ async def delete_app(app_id: str, db: Session = Depends(get_db)):
         if db_app is None:
             raise HTTPException(detail=f"App with id {app_id} does not exist, please create it first.", status_code=400)
 
-        app = App.from_config(yaml_path=db_app.config)
+        app = App.from_config(config_path=db_app.config)
 
         # reset app.db
         app.db.reset()

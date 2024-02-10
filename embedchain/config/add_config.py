@@ -1,6 +1,8 @@
 import builtins
+import logging
+from collections.abc import Callable
 from importlib import import_module
-from typing import Callable, Optional
+from typing import Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -14,18 +16,28 @@ class ChunkerConfig(BaseConfig):
 
     def __init__(
         self,
-        chunk_size: Optional[int] = None,
-        chunk_overlap: Optional[int] = None,
+        chunk_size: Optional[int] = 2000,
+        chunk_overlap: Optional[int] = 0,
         length_function: Optional[Callable[[str], int]] = None,
+        min_chunk_size: Optional[int] = 0,
     ):
-        self.chunk_size = chunk_size if chunk_size else 2000
-        self.chunk_overlap = chunk_overlap if chunk_overlap else 0
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.min_chunk_size = min_chunk_size
+        if self.min_chunk_size >= self.chunk_size:
+            raise ValueError(f"min_chunk_size {min_chunk_size} should be less than chunk_size {chunk_size}")
+        if self.min_chunk_size < self.chunk_overlap:
+            logging.warning(
+                f"min_chunk_size {min_chunk_size} should be greater than chunk_overlap {chunk_overlap}, otherwise it is redundant."  # noqa:E501
+            )
+
         if isinstance(length_function, str):
             self.length_function = self.load_func(length_function)
         else:
             self.length_function = length_function if length_function else len
 
-    def load_func(self, dotpath: str):
+    @staticmethod
+    def load_func(dotpath: str):
         if "." not in dotpath:
             return getattr(builtins, dotpath)
         else:
@@ -37,7 +49,7 @@ class ChunkerConfig(BaseConfig):
 @register_deserializable
 class LoaderConfig(BaseConfig):
     """
-    Config for the chunker used in `add` method
+    Config for the loader used in `add` method
     """
 
     def __init__(self):

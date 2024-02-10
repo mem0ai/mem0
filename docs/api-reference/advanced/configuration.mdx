@@ -1,0 +1,241 @@
+---
+title: 'Custom configurations'
+---
+
+Embedchain offers several configuration options for your LLM, vector database, and embedding model. All of these configuration options are optional and have sane defaults.
+
+You can configure different components of your app (`llm`, `embedding model`, or `vector database`) through a simple yaml configuration that Embedchain offers. Here is a generic full-stack example of the yaml config:
+
+
+<Tip>
+Embedchain applications are configurable using YAML file, JSON file or by directly passing the config dictionary. Checkout the [docs here](/api-reference/app/overview#usage) on how to use other formats.
+</Tip>
+
+<CodeGroup>
+```yaml config.yaml
+app:
+  config:
+    name: 'full-stack-app'
+
+llm:
+  provider: openai
+  config:
+    model: 'gpt-3.5-turbo'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+    api_key: sk-xxx
+    prompt: |
+      Use the following pieces of context to answer the query at the end.
+      If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+      $context
+
+      Query: $query
+
+      Helpful Answer:
+    system_prompt: |
+      Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.
+
+vectordb:
+  provider: chroma
+  config:
+    collection_name: 'full-stack-app'
+    dir: db
+    allow_reset: true
+
+embedder:
+  provider: openai
+  config:
+    model: 'text-embedding-ada-002'
+    api_key: sk-xxx
+
+chunker:
+  chunk_size: 2000
+  chunk_overlap: 100
+  length_function: 'len'
+  min_chunk_size: 0
+
+cache:
+  similarity_evaluation:
+    strategy: distance
+    max_distance: 1.0
+  config:
+    similarity_threshold: 0.8
+    auto_flush: 50
+```
+
+```json config.json
+{
+  "app": {
+    "config": {
+      "name": "full-stack-app"
+    }
+  },
+  "llm": {
+    "provider": "openai",
+    "config": {
+      "model": "gpt-3.5-turbo",
+      "temperature": 0.5,
+      "max_tokens": 1000,
+      "top_p": 1,
+      "stream": false,
+      "prompt": "Use the following pieces of context to answer the query at the end.\nIf you don't know the answer, just say that you don't know, don't try to make up an answer.\n$context\n\nQuery: $query\n\nHelpful Answer:",
+      "system_prompt": "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.",
+      "api_key": "sk-xxx"
+    }
+  },
+  "vectordb": {
+    "provider": "chroma",
+    "config": {
+      "collection_name": "full-stack-app",
+      "dir": "db",
+      "allow_reset": true
+    }
+  },
+  "embedder": {
+    "provider": "openai",
+    "config": {
+      "model": "text-embedding-ada-002",
+      "api_key": "sk-xxx"
+    }
+  },
+  "chunker": {
+    "chunk_size": 2000,
+    "chunk_overlap": 100,
+    "length_function": "len",
+    "min_chunk_size": 0
+  },
+  "cache": {
+    "similarity_evaluation": {
+        "strategy": "distance",
+        "max_distance": 1.0,
+    },
+    "config": {
+        "similarity_threshold": 0.8,
+        "auto_flush": 50,
+    },
+  },
+}
+```
+
+```python config.py
+config = {
+    'app': {
+        'config': {
+            'name': 'full-stack-app'
+        }
+    },
+    'llm': {
+        'provider': 'openai',
+        'config': {
+            'model': 'gpt-3.5-turbo',
+            'temperature': 0.5,
+            'max_tokens': 1000,
+            'top_p': 1,
+            'stream': False,
+            'prompt': (
+                "Use the following pieces of context to answer the query at the end.\n"
+                "If you don't know the answer, just say that you don't know, don't try to make up an answer.\n"
+                "$context\n\nQuery: $query\n\nHelpful Answer:"
+            ),
+            'system_prompt': (
+                "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare."
+            ),
+            'api_key': 'sk-xxx'
+        }
+    },
+    'vectordb': {
+        'provider': 'chroma',
+        'config': {
+            'collection_name': 'full-stack-app',
+            'dir': 'db',
+            'allow_reset': True
+        }
+    },
+    'embedder': {
+        'provider': 'openai',
+        'config': {
+            'model': 'text-embedding-ada-002',
+            'api_key': 'sk-xxx'
+        }
+    },
+    'chunker': {
+        'chunk_size': 2000,
+        'chunk_overlap': 100,
+        'length_function': 'len',
+        'min_chunk_size': 0
+    },
+    'cache': {
+      'similarity_evaluation': {
+          'strategy': 'distance',
+          'max_distance': 1.0,
+      },
+      'config': {
+          'similarity_threshold': 0.8,
+          'auto_flush': 50,
+      },
+    },
+}
+```
+</CodeGroup>
+
+Alright, let's dive into what each key means in the yaml config above:
+
+1. `app` Section:
+    - `config`:
+        - `name` (String): The name of your full-stack application.
+        - `id` (String): The id of your full-stack application.
+        <Note>Only use this to reload already created apps. We recommend users to not create their own ids.</Note>
+        - `collect_metrics` (Boolean): Indicates whether metrics should be collected for the app, defaults to `True`
+        - `log_level` (String): The log level for the app, defaults to `WARNING`
+2. `llm` Section:
+    - `provider` (String): The provider for the language model, which is set to 'openai'. You can find the full list of llm providers in [our docs](/components/llms).
+    - `config`:
+        - `model` (String): The specific model being used, 'gpt-3.5-turbo'.
+        - `temperature` (Float): Controls the randomness of the model's output. A higher value (closer to 1) makes the output more random.
+        - `max_tokens` (Integer): Controls how many tokens are used in the response.
+        - `top_p` (Float): Controls the diversity of word selection. A higher value (closer to 1) makes word selection more diverse.
+        - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
+        - `prompt` (String): A prompt for the model to follow when generating responses, requires `$context` and `$query` variables.
+        - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
+        - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
+        - `number_documents` (Integer): Number of documents to pull from the vectordb as context, defaults to 1
+        - `api_key` (String): The API key for the language model.
+        - `model_kwargs` (Dict): Keyword arguments to pass to the language model. Used for `aws_bedrock` provider, since it requires different arguments for each model.
+3. `vectordb` Section:
+    - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
+    - `config`:
+        - `collection_name` (String): The initial collection name for the vectordb, set to 'full-stack-app'.
+        - `dir` (String): The directory for the local database, set to 'db'.
+        - `allow_reset` (Boolean): Indicates whether resetting the vectordb is allowed, set to true.
+    <Note>We recommend you to checkout vectordb specific config [here](https://docs.embedchain.ai/components/vector-databases)</Note>
+4. `embedder` Section:
+    - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
+    - `config`:
+        - `model` (String): The specific model used for text embedding, 'text-embedding-ada-002'.
+        - `vector_dimension` (Integer): The vector dimension of the embedding model. [Defaults](https://github.com/embedchain/embedchain/blob/e572b5a3dc1b66f1e9b3357d11a88c63b5ce06e3/embedchain/models/vector_dimensions.py)
+        - `api_key` (String): The API key for the embedding model.
+        - `deployment_name` (String): The deployment name for the embedding model.
+        - `title` (String): The title for the embedding model for Google Embedder.
+        - `task_type` (String): The task type for the embedding model for Google Embedder.
+5. `chunker` Section:
+    - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
+    - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.
+    - `length_function` (String): The function used to calculate the length of each chunk of text. In this case, it's set to 'len'. You can also use any function import directly as a string here.
+    - `min_chunk_size` (Integer): The minimum size of each chunk of text that is sent to the language model. Must be less than `chunk_size`, and greater than `chunk_overlap`.
+6. `cache` Section: (Optional)
+    - `similarity_evaluation` (Optional): The config for similarity evaluation strategy. If not provided, the default `distance` based similarity evaluation strategy is used.
+      - `strategy` (String): The strategy to use for similarity evaluation. Currently, only `distance` and `exact` based similarity evaluation is supported. Defaults to `distance`.
+      - `max_distance` (Float): The bound of maximum distance. Defaults to `1.0`.
+      - `positive` (Boolean): If the larger distance indicates more similar of two entities, set it `True`, otherwise `False`. Defaults to `False`.
+    - `config` (Optional): The config for initializing the cache. If not provided, sensible default values are used as mentioned below.
+      - `similarity_threshold` (Float): The threshold for similarity evaluation. Defaults to `0.8`.
+      - `auto_flush` (Integer): The number of queries after which the cache is flushed. Defaults to `20`.
+    <Note>
+    If you provide a cache section, the app will automatically configure and use a cache to store the results of the language model. This is useful if you want to speed up the response time and save inference cost of your app.
+    </Note>
+If you have questions about the configuration above, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

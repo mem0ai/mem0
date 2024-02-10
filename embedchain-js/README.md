@@ -178,7 +178,7 @@ await app.addLocal("qna_pair", ["Question", "Answer"]);
 
 ## Testing
 
-Before you consume valueable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
+Before you consume valuable tokens, you should make sure that the embedding you have done works and that it's receiving the correct document from the database.
 
 For this you can use the `dryRun` method.
 
@@ -227,15 +227,6 @@ These questions may be trivial for some but for a lot of us, it needs research, 
 embedchain is a framework which takes care of all these nuances and provides a simple interface to create bots over any dataset.
 
 In the first release, we are making it easier for anyone to get a chatbot over any dataset up and running in less than a minute. All you need to do is create an app instance, add the data sets using `.add` function and then use `.query` function to get the relevant answer.
-
-# Tech Stack
-
-embedchain is built on the following stack:
-
-- [Langchain](https://github.com/hwchase17/langchain) as an LLM framework to load, chunk and index data
-- [OpenAI's Ada embedding model](https://platform.openai.com/docs/guides/embeddings) to create embeddings
-- [OpenAI's ChatGPT API](https://platform.openai.com/docs/guides/gpt/chat-completions-api) as LLM to get answers given the context
-- [Chroma](https://github.com/chroma-core/chroma) as the vector database to store embeddings
 
 # Team
 

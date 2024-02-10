@@ -1,32 +1,32 @@
 import hashlib
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import requests
 
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils import clean_string
+from embedchain.utils.misc import clean_string
 
 
 class DiscourseLoader(BaseLoader):
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
         if not config:
             raise ValueError(
-                "DiscourseLoader requires a config. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a config. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
         self.domain = config.get("domain")
         if not self.domain:
             raise ValueError(
-                "DiscourseLoader requires a domain. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a domain. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
     def _check_query(self, query):
         if not query or not isinstance(query, str):
             raise ValueError(
-                "DiscourseLoader requires a query. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a query. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
     def _load_post(self, post_id):

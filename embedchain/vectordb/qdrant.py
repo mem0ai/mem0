@@ -1,7 +1,7 @@
 import copy
 import os
 import uuid
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 try:
     from qdrant_client import QdrantClient
@@ -10,6 +10,8 @@ try:
     from qdrant_client.models import Distance, VectorParams
 except ImportError:
     raise ImportError("Qdrant requires extra dependencies. Install with `pip install embedchain[qdrant]`") from None
+
+from tqdm import tqdm
 
 from embedchain.config.vectordb.qdrant import QdrantDBConfig
 from embedchain.vectordb.base import BaseVectorDB
@@ -48,7 +50,6 @@ class QdrantDB(BaseVectorDB):
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
         self.collection_name = self._get_or_create_collection()
-        self.metadata_keys = {"data_type", "doc_id", "url", "hash", "app_id", "text"}
         all_collections = self.client.get_collections()
         collection_names = [collection.name for collection in all_collections.collections]
         if self.collection_name not in collection_names:
@@ -69,34 +70,36 @@ class QdrantDB(BaseVectorDB):
     def _get_or_create_collection(self):
         return f"{self.config.collection_name}-{self.embedder.vector_dimension}".lower().replace("_", "-")
 
-    def get(self, ids: Optional[List[str]] = None, where: Optional[Dict[str, any]] = None, limit: Optional[int] = None):
+    def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
         Get existing doc ids present in vector database
 
         :param ids: _list of doc ids to check for existence
-        :type ids: List[str]
+        :type ids: list[str]
         :param where: to filter data
-        :type where: Dict[str, any]
+        :type where: dict[str, any]
         :param limit: The number of entries to be fetched
         :type limit: Optional int, defaults to None
         :return: All the existing IDs
         :rtype: Set[str]
         """
-        if ids is None or len(ids) == 0:
-            return {"ids": []}
 
         keys = set(where.keys() if where is not None else set())
 
-        qdrant_must_filters = [
-            models.FieldCondition(
-                key="identifier",
-                match=models.MatchAny(
-                    any=ids,
-                ),
+        qdrant_must_filters = []
+
+        if ids:
+            qdrant_must_filters.append(
+                models.FieldCondition(
+                    key="identifier",
+                    match=models.MatchAny(
+                        any=ids,
+                    ),
+                )
             )
-        ]
-        if len(keys.intersection(self.metadata_keys)) != 0:
-            for key in keys.intersection(self.metadata_keys):
+
+        if len(keys) > 0:
+            for key in keys:
                 qdrant_must_filters.append(
                     models.FieldCondition(
                         key="metadata.{}".format(key),
@@ -108,6 +111,7 @@ class QdrantDB(BaseVectorDB):
 
         offset = 0
         existing_ids = []
+        metadatas = []
         while offset is not None:
             response = self.client.scroll(
                 collection_name=self.collection_name,
@@ -118,31 +122,25 @@ class QdrantDB(BaseVectorDB):
             offset = response[1]
             for doc in response[0]:
                 existing_ids.append(doc.payload["identifier"])
-        return {"ids": existing_ids}
+                metadatas.append(doc.payload["metadata"])
+        return {"ids": existing_ids, "metadatas": metadatas}
 
     def add(
         self,
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[object],
-        ids: List[str],
-        skip_embedding: bool,
+        documents: list[str],
+        metadatas: list[object],
+        ids: list[str],
+        **kwargs: Optional[dict[str, any]],
     ):
         """add data in vector database
-        :param embeddings: list of embeddings for the corresponding documents to be added
-        :type documents: List[List[float]]
         :param documents: list of texts to add
-        :type documents: List[str]
+        :type documents: list[str]
         :param metadatas: list of metadata associated with docs
-        :type metadatas: List[object]
+        :type metadatas: list[object]
         :param ids: ids of docs
-        :type ids: List[str]
-        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
-        generated or not
-        :type skip_embedding: bool
+        :type ids: list[str]
         """
-        if not skip_embedding:
-            embeddings = self.embedder.embedding_fn(documents)
+        embeddings = self.embedder.embedding_fn(documents)
 
         payloads = []
         qdrant_ids = []
@@ -150,7 +148,8 @@ class QdrantDB(BaseVectorDB):
             metadata["text"] = document
             qdrant_ids.append(str(uuid.uuid4()))
             payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
-        for i in range(0, len(qdrant_ids), self.BATCH_SIZE):
+
+        for i in tqdm(range(0, len(qdrant_ids), self.BATCH_SIZE), desc="Adding data in batches"):
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=Batch(
@@ -158,56 +157,52 @@ class QdrantDB(BaseVectorDB):
                     payloads=payloads[i : i + self.BATCH_SIZE],
                     vectors=embeddings[i : i + self.BATCH_SIZE],
                 ),
+                **kwargs,
             )
 
     def query(
         self,
-        input_query: List[str],
+        input_query: list[str],
         n_results: int,
-        where: Dict[str, any],
-        skip_embedding: bool,
+        where: dict[str, any],
         citations: bool = False,
-    ) -> Union[List[Tuple[str, str, str]], List[str]]:
+        **kwargs: Optional[dict[str, Any]],
+    ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         query contents from vector database based on vector similarity
         :param input_query: list of query string
-        :type input_query: List[str]
+        :type input_query: list[str]
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
-        :type where: Dict[str, any]
-        :param skip_embedding: A boolean flag indicating if the embedding for the documents to be added is to be
-        generated or not
-        :type skip_embedding: bool
+        :type where: dict[str, any]
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: List[str], if citations=False, otherwise List[Tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
-        if not skip_embedding:
-            query_vector = self.embedder.embedding_fn([input_query])[0]
-        else:
-            query_vector = input_query
-
+        query_vector = self.embedder.embedding_fn([input_query])[0]
         keys = set(where.keys() if where is not None else set())
 
         qdrant_must_filters = []
-        if len(keys.intersection(self.metadata_keys)) != 0:
-            for key in keys.intersection(self.metadata_keys):
+        if len(keys) > 0:
+            for key in keys:
                 qdrant_must_filters.append(
                     models.FieldCondition(
-                        key="payload.metadata.{}".format(key),
+                        key="metadata.{}".format(key),
                         match=models.MatchValue(
                             value=where.get(key),
                         ),
                     )
                 )
+
         results = self.client.search(
             collection_name=self.collection_name,
             query_filter=models.Filter(must=qdrant_must_filters),
             query_vector=query_vector,
             limit=n_results,
+            **kwargs,
         )
 
         contexts = []
@@ -215,9 +210,8 @@ class QdrantDB(BaseVectorDB):
             context = result.payload["text"]
             if citations:
                 metadata = result.payload["metadata"]
-                source = metadata["url"]
-                doc_id = metadata["doc_id"]
-                contexts.append(tuple((context, source, doc_id)))
+                metadata["score"] = result.score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
@@ -241,3 +235,21 @@ class QdrantDB(BaseVectorDB):
             raise TypeError("Collection name must be a string")
         self.config.collection_name = name
         self.collection_name = self._get_or_create_collection()
+
+    @staticmethod
+    def _generate_query(where: dict):
+        must_fields = []
+        for key, value in where.items():
+            must_fields.append(
+                models.FieldCondition(
+                    key=f"metadata.{key}",
+                    match=models.MatchValue(
+                        value=value,
+                    ),
+                )
+            )
+        return models.Filter(must=must_fields)
+
+    def delete(self, where: dict):
+        db_filter = self._generate_query(where)
+        self.client.delete(collection_name=self.collection_name, points_selector=db_filter)

@@ -1,0 +1,75 @@
+---
+title: '❓ Question Answering'
+---
+
+Utilizing large language models (LLMs) for question answering is a transformative application, bringing significant benefits to various real-world situations. Embedchain extensively supports tasks related to question answering, including summarization, content creation, language translation, and data analysis. The versatility of question answering with LLMs enables solutions for numerous practical applications such as:
+
+- **Educational Aid**: Enhancing learning experiences and aiding with homework
+- **Customer Support**: Addressing and resolving customer queries efficiently
+- **Research Assistance**: Facilitating academic and professional research endeavors
+- **Healthcare Information**: Providing fundamental medical knowledge
+- **Technical Support**: Resolving technology-related inquiries
+- **Legal Information**: Offering basic legal advice and information
+- **Business Insights**: Delivering market analysis and strategic business advice
+- **Language Learning** Assistance: Aiding in understanding and translating languages
+- **Travel Guidance**: Supplying information on travel and hospitality
+- **Content Development**: Assisting authors and creators with research and idea generation
+
+## Example: Build a Q&A System with Embedchain for Next.JS
+
+Quickly create a RAG pipeline to answer queries about the [Next.JS Framework](https://nextjs.org/) using Embedchain tools.
+
+### Step 1: Set Up Your RAG Pipeline
+
+First, let's create your RAG pipeline. Open your Python environment and enter:
+
+```python Create pipeline
+from embedchain import App
+app = App()
+```
+
+This initializes your application.
+
+### Step 2: Populate Your Pipeline with Data
+
+Now, let's add data to your pipeline. We'll include the Next.JS website and its documentation:
+
+```python Ingest data sources
+# Add Next.JS Website and docs
+app.add("https://nextjs.org/sitemap.xml", data_type="sitemap")
+
+# Add Next.JS Forum data
+app.add("https://nextjs-forum.com/sitemap.xml", data_type="sitemap")
+```
+
+This step incorporates over **15K pages** from the Next.JS website and forum into your pipeline. For more data source options, check the [Embedchain data sources overview](/components/data-sources/overview).
+
+### Step 3: Local Testing of Your Pipeline
+
+Test the pipeline on your local machine:
+
+```python Query App
+app.query("Summarize the features of Next.js 14?")
+```
+
+Run this query to see how your pipeline responds with information about Next.js 14.
+
+### (Optional) Step 4: Deploying Your RAG Pipeline
+
+Want to go live? Deploy your pipeline with these options:
+
+- Deploy on the Embedchain Platform
+- Self-host on your preferred cloud provider
+
+For detailed deployment instructions, follow these guides:
+
+- [Deploying on Embedchain Platform](/get-started/deployment#deploy-on-embedchain-platform)
+- [Self-hosting Guide](/get-started/deployment#self-hosting)
+
+## Need help?
+
+If you are looking to configure the RAG pipeline further, feel free to checkout the [API reference](/api-reference/pipeline/query).
+
+In case you run into issues, feel free to contact us via any of the following methods:
+
+<Snippet file="get-help.mdx" />

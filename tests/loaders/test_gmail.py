@@ -1,12 +1,6 @@
 import pytest
-from llama_hub.readwise.base import Document
 
 from embedchain.loaders.gmail import GmailLoader
-
-
-@pytest.fixture
-def mock_quopri(mocker):
-    return mocker.patch("embedchain.loaders.gmail.quopri.decodestring", return_value=b"your_test_decoded_string")
 
 
 @pytest.fixture
@@ -15,7 +9,7 @@ def mock_beautifulsoup(mocker):
 
 
 @pytest.fixture
-def gmail_loader(mock_quopri, mock_beautifulsoup):
+def gmail_loader(mock_beautifulsoup):
     return GmailLoader()
 
 
@@ -33,7 +27,12 @@ def test_load_data(gmail_loader, mocker):
         "id": "your_test_id",
         "snippet": "your_test_snippet",
     }
-    mock_gmail_reader_instance.load_data.return_value = [Document(text=text, extra_info=metadata)]
+    mock_gmail_reader_instance.load_data.return_value = [
+        {
+            "text": text,
+            "extra_info": metadata,
+        }
+    ]
 
     with mocker.patch("os.path.isfile", return_value=True):
         response_data = gmail_loader.load_data("your_query")

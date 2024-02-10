@@ -12,6 +12,11 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.vectordb.qdrant import QdrantDB
 
 
+def mock_embedding_fn(texts: list[str]) -> list[list[float]]:
+    """A mock embedding function."""
+    return [[1, 2, 3], [4, 5, 6]]
+
+
 class TestQdrantDB(unittest.TestCase):
     TEST_UUIDS = ["abc", "def", "ghi"]
 
@@ -25,11 +30,12 @@ class TestQdrantDB(unittest.TestCase):
         # Set the embedder
         embedder = BaseEmbedder()
         embedder.set_vector_dimension(1526)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         self.assertEqual(db.collection_name, "embedchain-store-1526")
         self.assertEqual(db.client, qdrant_client_mock.return_value)
@@ -42,16 +48,17 @@ class TestQdrantDB(unittest.TestCase):
         # Set the embedder
         embedder = BaseEmbedder()
         embedder.set_vector_dimension(1526)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         resp = db.get(ids=[], where={})
-        self.assertEqual(resp, {"ids": []})
+        self.assertEqual(resp, {"ids": [], "metadatas": []})
         resp2 = db.get(ids=["123", "456"], where={"url": "https://ai.ai"})
-        self.assertEqual(resp2, {"ids": []})
+        self.assertEqual(resp2, {"ids": [], "metadatas": []})
 
     @patch("embedchain.vectordb.qdrant.QdrantClient")
     @patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
@@ -61,22 +68,21 @@ class TestQdrantDB(unittest.TestCase):
         # Set the embedder
         embedder = BaseEmbedder()
         embedder.set_vector_dimension(1526)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
-        embeddings = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
         documents = ["This is a test document.", "This is another test document."]
         metadatas = [{}, {}]
         ids = ["123", "456"]
-        skip_embedding = True
-        db.add(embeddings, documents, metadatas, ids, skip_embedding)
+        db.add(documents, metadatas, ids)
         qdrant_client_mock.return_value.upsert.assert_called_once_with(
             collection_name="embedchain-store-1526",
             points=Batch(
-                ids=["abc", "def"],
+                ids=["def", "ghi"],
                 payloads=[
                     {
                         "identifier": "123",
@@ -89,7 +95,7 @@ class TestQdrantDB(unittest.TestCase):
                         "metadata": {"text": "This is another test document."},
                     },
                 ],
-                vectors=embeddings,
+                vectors=[[1, 2, 3], [4, 5, 6]],
             ),
         )
 
@@ -98,28 +104,29 @@ class TestQdrantDB(unittest.TestCase):
         # Set the embedder
         embedder = BaseEmbedder()
         embedder.set_vector_dimension(1526)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
-        db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"}, skip_embedding=True)
+        db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"})
 
         qdrant_client_mock.return_value.search.assert_called_once_with(
             collection_name="embedchain-store-1526",
             query_filter=models.Filter(
                 must=[
                     models.FieldCondition(
-                        key="payload.metadata.doc_id",
+                        key="metadata.doc_id",
                         match=models.MatchValue(
                             value="123",
                         ),
                     )
                 ]
             ),
-            query_vector=["This is a test document."],
+            query_vector=[1, 2, 3],
             limit=1,
         )
 
@@ -128,11 +135,12 @@ class TestQdrantDB(unittest.TestCase):
         # Set the embedder
         embedder = BaseEmbedder()
         embedder.set_vector_dimension(1526)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         db.count()
         qdrant_client_mock.return_value.get_collection.assert_called_once_with(collection_name="embedchain-store-1526")
@@ -142,11 +150,12 @@ class TestQdrantDB(unittest.TestCase):
         # Set the embedder
         embedder = BaseEmbedder()
         embedder.set_vector_dimension(1526)
+        embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
         db = QdrantDB()
         app_config = AppConfig(collect_metrics=False)
-        App(config=app_config, db=db, embedder=embedder)
+        App(config=app_config, db=db, embedding_model=embedder)
 
         db.reset()
         qdrant_client_mock.return_value.delete_collection.assert_called_once_with(

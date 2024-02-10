@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from embedchain.helpers.json_serializable import JSONSerializable
 
@@ -14,16 +14,16 @@ class BaseMessage(JSONSerializable):
     # The string content of the message.
     content: str
 
-    # The creator of the message. AI, Human, Bot etc.
-    by: str
+    # The created_by of the message. AI, Human, Bot etc.
+    created_by: str
 
     # Any additional info.
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
-    def __init__(self, content: str, creator: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, content: str, created_by: str, metadata: Optional[dict[str, Any]] = None) -> None:
         super().__init__()
         self.content = content
-        self.creator = creator
+        self.created_by = created_by
         self.metadata = metadata
 
     @property
@@ -36,7 +36,7 @@ class BaseMessage(JSONSerializable):
         return True
 
     def __str__(self) -> str:
-        return f"{self.creator}: {self.content}"
+        return f"{self.created_by}: {self.content}"
 
 
 class ChatMessage(JSONSerializable):
@@ -54,19 +54,19 @@ class ChatMessage(JSONSerializable):
         if self.human_message:
             logging.info(
                 "Human message already exists in the chat message,\
-                overwritting it with new message."
+                overwriting it with new message."
             )
 
-        self.human_message = BaseMessage(content=message, creator="human", metadata=metadata)
+        self.human_message = BaseMessage(content=message, created_by="human", metadata=metadata)
 
     def add_ai_message(self, message: str, metadata: Optional[dict] = None):
         if self.ai_message:
             logging.info(
                 "AI message already exists in the chat message,\
-                overwritting it with new message."
+                overwriting it with new message."
             )
 
-        self.ai_message = BaseMessage(content=message, creator="ai", metadata=metadata)
+        self.ai_message = BaseMessage(content=message, created_by="ai", metadata=metadata)
 
     def __str__(self) -> str:
         return f"{self.human_message}\n{self.ai_message}"
