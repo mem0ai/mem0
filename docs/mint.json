@@ -142,6 +142,7 @@
         "deployment/fly_io",
         "deployment/modal_com",
         "deployment/render_com",
+        "deployment/railway",
         "deployment/streamlit_io",
         "deployment/gradio_app",
         "deployment/huggingface_spaces",
