@@ -274,6 +274,9 @@ class WeaviateDB(BaseVectorDB):
                 .do()
             )
 
+        if results["data"]["Get"].get(self.index_name) is None:
+            return []
+
         docs = results["data"]["Get"].get(self.index_name)
         contexts = []
         for doc in docs:
