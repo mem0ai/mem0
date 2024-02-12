@@ -24,7 +24,7 @@ def test_get_llm_model_answer(anthropic_llm):
 
 
 def test_get_answer(anthropic_llm):
-    with patch("langchain.chat_models.ChatAnthropic") as mock_chat:
+    with patch("langchain_community.chat_models.ChatAnthropic") as mock_chat:
         mock_chat_instance = mock_chat.return_value
         mock_chat_instance.return_value = MagicMock(content="Test Response")
 
@@ -53,7 +53,7 @@ def test_get_messages(anthropic_llm):
 
 
 def test_get_answer_max_tokens_is_provided(anthropic_llm, caplog):
-    with patch("langchain.chat_models.ChatAnthropic") as mock_chat:
+    with patch("langchain_community.chat_models.ChatAnthropic") as mock_chat:
         mock_chat_instance = mock_chat.return_value
         mock_chat_instance.return_value = MagicMock(content="Test Response")
 

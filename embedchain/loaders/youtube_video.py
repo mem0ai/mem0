@@ -1,7 +1,7 @@
 import hashlib
 
 try:
-    from langchain.document_loaders import YoutubeLoader
+    from langchain_community.document_loaders import YoutubeLoader
 except ImportError:
     raise ImportError(
         'YouTube video requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'

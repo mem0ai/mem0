@@ -28,7 +28,7 @@ class RSSFeedLoader(BaseLoader):
     @staticmethod
     def get_rss_content(url: str):
         try:
-            from langchain.document_loaders import \
+            from langchain_community.document_loaders import \
                 RSSFeedLoader as LangchainRSSFeedLoader
         except ImportError:
             raise ImportError(
