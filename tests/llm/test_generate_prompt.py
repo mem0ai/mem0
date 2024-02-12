@@ -66,5 +66,5 @@ class TestGeneratePrompt(unittest.TestCase):
         self.app.llm.set_history(["Past context 1", "Past context 2"])
         prompt = self.app.llm.generate_prompt("Test query", ["Test context"])
 
-        expected_prompt = "Context: Test context | Query: Test query | History: ['Past context 1', 'Past context 2']"
+        expected_prompt = "Context: Test context | Query: Test query | History: Past context 1\nPast context 2"
         self.assertEqual(prompt, expected_prompt)
