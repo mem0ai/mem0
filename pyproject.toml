@@ -93,7 +93,7 @@ color = true
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-langchain = ">=0.0.339"
+langchain = "^0.0.336"
 requests = "^2.31.0"
 openai = ">=1.1.1"
 chromadb = "^0.4.17"
