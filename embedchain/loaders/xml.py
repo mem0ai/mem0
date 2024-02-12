@@ -1,7 +1,7 @@
 import hashlib
 
 try:
-    from langchain.document_loaders import UnstructuredXMLLoader
+    from langchain_community.document_loaders import UnstructuredXMLLoader
 except ImportError:
     raise ImportError(
         'XML file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'

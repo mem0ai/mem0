@@ -1,5 +1,5 @@
 import pytest
-from langchain.llms.gpt4all import GPT4All as LangchainGPT4All
+from langchain_community.llms.gpt4all import GPT4All as LangchainGPT4All
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.gpt4all import GPT4ALLLlm

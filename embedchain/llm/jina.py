@@ -1,8 +1,8 @@
 import os
 from typing import Optional
 
-from langchain.chat_models import JinaChat
 from langchain.schema import HumanMessage, SystemMessage
+from langchain_community.chat_models import JinaChat
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable

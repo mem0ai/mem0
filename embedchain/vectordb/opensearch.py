@@ -12,8 +12,8 @@ except ImportError:
         "OpenSearch requires extra dependencies. Install with `pip install --upgrade embedchain[opensearch]`"
     ) from None
 
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import OpenSearchVectorSearch
+from langchain_community.embeddings.openai import OpenAIEmbeddings
+from langchain_community.vectorstores import OpenSearchVectorSearch
 
 from embedchain.config import OpenSearchDBConfig
 from embedchain.helpers.json_serializable import register_deserializable

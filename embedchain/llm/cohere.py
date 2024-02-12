@@ -2,7 +2,7 @@ import importlib
 import os
 from typing import Optional
 
-from langchain.llms.cohere import Cohere
+from langchain_community.llms.cohere import Cohere
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable

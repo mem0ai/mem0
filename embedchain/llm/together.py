@@ -2,7 +2,7 @@ import importlib
 import os
 from typing import Optional
 
-from langchain.llms import Together
+from langchain_community.llms import Together
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
