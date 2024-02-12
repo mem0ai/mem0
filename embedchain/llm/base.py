@@ -5,9 +5,7 @@ from typing import Any, Optional
 from langchain.schema import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base import (DEFAULT_PROMPT,
-                                        DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
-                                        DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.config.llm.base import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
@@ -65,6 +63,14 @@ class BaseLlm(JSONSerializable):
         self.memory.add(app_id=app_id, chat_message=chat_message, session_id=session_id)
         self.update_history(app_id=app_id, session_id=session_id)
 
+    def _format_history(self) -> str:
+        """Format history to be used in prompt
+
+        :return: Formatted history
+        :rtype: str
+        """
+        return "\n".join(self.history)
+
     def generate_prompt(self, input_query: str, contexts: list[str], **kwargs: dict[str, Any]) -> str:
         """
         Generates a prompt based on the given query and context, ready to be
@@ -84,10 +90,8 @@ class BaseLlm(JSONSerializable):
 
         prompt_contains_history = self.config._validate_prompt_history(self.config.prompt)
         if prompt_contains_history:
-            # Prompt contains history
-            # If there is no history yet, we insert `- no history -`
             prompt = self.config.prompt.substitute(
-                context=context_string, query=input_query, history=self.history or "- no history -"
+                context=context_string, query=input_query, history=self._format_history() or "No history"
             )
         elif self.history and not prompt_contains_history:
             # History is present, but not included in the prompt.
@@ -98,7 +102,7 @@ class BaseLlm(JSONSerializable):
             ):
                 # swap in the template with history
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
-                    context=context_string, query=input_query, history=self.history
+                    context=context_string, query=input_query, history=self._format_history()
                 )
             else:
                 # If we can't swap in the default, we still proceed but tell users that the history is ignored.
