@@ -429,15 +429,35 @@ class EmbedChain(JSONSerializable):
 
         if dry_run:
             return list(documents), metadatas, ids, 0
-
+        
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
-        self.db.add(documents=documents, metadatas=metadatas, ids=ids, **kwargs)
-        count_new_chunks = self.db.count() - chunks_before_addition
+        
+        # Filter out empty documents and ensure they meet the API requirements
+        valid_documents = [doc for doc in documents if doc and isinstance(doc, str)]
 
+        documents = valid_documents
+
+        # Chunk documents into batches of 2048 and handle each batch
+        # helps wigth large loads of embeddings  that hit OpenAI limits
+        document_batches = [documents[i:i+2048] for i in range(0, len(documents), 2048)]
+        for batch in document_batches:
+            try:
+                # Add only valid batches
+                if batch:
+                    self.db.add(documents=batch, metadatas=metadatas, ids=ids, **kwargs)
+            except Exception as e:
+                print(f"Failed to add batch due to a bad request: {e}")
+                # Handle the error, e.g., by logging, retrying, or skipping
+                pass
+
+
+        count_new_chunks = self.db.count() - chunks_before_addition
         print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
+        
         return list(documents), metadatas, ids, count_new_chunks
+
 
     @staticmethod
     def _format_result(results):
@@ -473,7 +493,9 @@ class EmbedChain(JSONSerializable):
         :return: List of contents of the document that matched your query
         :rtype: list[str]
         """
+        print("Query passed in config:", config)
         query_config = config or self.llm.config
+        print("Final config:", query_config)
         if where is not None:
             where = where
         else:
@@ -484,6 +506,7 @@ class EmbedChain(JSONSerializable):
             if self.config.id is not None:
                 where.update({"app_id": self.config.id})
 
+        print('Number documents', query_config)
         contexts = self.db.query(
             input_query=input_query,
             n_results=query_config.number_documents,
@@ -634,6 +657,41 @@ class EmbedChain(JSONSerializable):
         else:
             return answer
 
+    def search(self, query, num_documents=3, where=None, raw_filter=None):
+        """
+        Search for similar documents related to the query in the vector database.
+
+        Args:
+            query (str): The query to use.
+            num_documents (int, optional): Number of similar documents to fetch. Defaults to 3.
+            where (dict[str, any], optional): Filter criteria for the search.
+            raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
+
+        Raises:
+            ValueError: If both `raw_filter` and `where` are used simultaneously.
+
+        Returns:
+            list[dict]: A list of dictionaries, each containing the 'context' and 'metadata' of a document.
+        """
+        # Send anonymous telemetry
+        self.telemetry.capture(event_name="search", properties=self._telemetry_props)
+
+        if raw_filter and where:
+            raise ValueError("You can't use both `raw_filter` and `where` together.")
+
+        filter_type = "raw_filter" if raw_filter else "where"
+        filter_criteria = raw_filter if raw_filter else where
+
+        params = {
+            "input_query": query,
+            "n_results": num_documents,
+            "citations": True,
+            "app_id": self.config.id,
+            filter_type: filter_criteria,
+        }
+
+        return [{"context": c[0], "metadata": c[1]} for c in self.db.query(**params)]
+
     def set_collection_name(self, name: str):
         """
         Set the name of the collection. A collection is an isolated space for vectors.
@@ -661,9 +719,19 @@ class EmbedChain(JSONSerializable):
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
-    def get_history(self, num_rounds: int = 10, display_format: bool = True, session_id: Optional[str] = "default"):
+    def get_history(
+        self,
+        num_rounds: int = 10,
+        display_format: bool = True,
+        session_id: Optional[str] = "default",
+        fetch_all: bool = False,
+    ):
         history = self.llm.memory.get(
-            app_id=self.config.id, session_id=session_id, num_rounds=num_rounds, display_format=display_format
+            app_id=self.config.id,
+            session_id=session_id,
+            num_rounds=num_rounds,
+            display_format=display_format,
+            fetch_all=fetch_all,
         )
         return history
 

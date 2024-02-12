@@ -250,30 +250,6 @@ class App(EmbedChain):
         r.raise_for_status()
         return r.json()
 
-    def search(self, query, num_documents=3):
-        """
-        Search for similar documents related to the query in the vector database.
-        """
-        # Send anonymous telemetry
-        self.telemetry.capture(event_name="search", properties=self._telemetry_props)
-
-        # TODO: Search will call the endpoint rather than fetching the data from the db itself when deploy=True.
-        if self.id is None:
-            where = {"app_id": self.local_id}
-            context = self.db.query(
-                query,
-                n_results=num_documents,
-                where=where,
-                citations=True,
-            )
-            result = []
-            for c in context:
-                result.append({"context": c[0], "metadata": c[1]})
-            return result
-        else:
-            # Make API call to the backend to get the results
-            NotImplementedError("Search is not implemented yet for the prod mode.")
-
     def _upload_file_to_presigned_url(self, presigned_url, file_path):
         try:
             with open(file_path, "rb") as file:

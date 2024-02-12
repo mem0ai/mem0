@@ -1,4 +1,3 @@
-import logging
 import os
 from typing import Optional, Union
 
@@ -99,10 +98,6 @@ class PineconeDB(BaseVectorDB):
                 batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
                 metadatas.extend([vectors.get(ids).get("metadata") for ids in batch_existing_ids])
-
-        if where is not None:
-            logging.warning("Filtering is not supported by Pinecone")
-
         return {"ids": existing_ids, "metadatas": metadatas}
 
     def add(
@@ -122,7 +117,6 @@ class PineconeDB(BaseVectorDB):
         :type ids: list[str]
         """
         docs = []
-        print("Adding documents to Pinecone...")
         embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
             docs.append(
@@ -140,26 +134,31 @@ class PineconeDB(BaseVectorDB):
         self,
         input_query: list[str],
         n_results: int,
-        where: dict[str, any],
+        where: Optional[dict[str, any]] = None,
+        raw_filter: Optional[dict[str, any]] = None,
         citations: bool = False,
+        app_id: Optional[str] = None,
         **kwargs: Optional[dict[str, any]],
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
-        query contents from vector database based on vector similarity
-        :param input_query: list of query string
-        :type input_query: list[str]
-        :param n_results: no of similar documents to fetch from database
-        :type n_results: int
-        :param where: Optional. to filter data
-        :type where: dict[str, any]
-        :param citations: we use citations boolean param to return context along with the answer.
-        :type citations: bool, default is False.
-        :return: The content of the document that matched your query,
-        along with url of the source and doc_id (if citations flag is true)
-        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
+        Query contents from vector database based on vector similarity.
+
+        Args:
+            input_query (list[str]): List of query strings.
+            n_results (int): Number of similar documents to fetch from the database.
+            where (dict[str, any], optional): Filter criteria for the search.
+            raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
+            citations (bool, optional): Flag to return context along with metadata. Defaults to False.
+            app_id (str, optional): Application ID to be passed to Pinecone.
+
+        Returns:
+            Union[list[tuple[str, dict]], list[str]]: List of document contexts, optionally with metadata.
         """
+        query_filter = raw_filter if raw_filter is not None else self._generate_filter(where)
+        if app_id:
+            query_filter["app_id"] = {"$eq": app_id}
+
         query_vector = self.embedder.embedding_fn([input_query])[0]
-        query_filter = self._generate_filter(where)
         data = self.pinecone_index.query(
             vector=query_vector,
             filter=query_filter,
@@ -167,16 +166,12 @@ class PineconeDB(BaseVectorDB):
             include_metadata=True,
             **kwargs,
         )
-        contexts = []
-        for doc in data.get("matches", []):
-            metadata = doc.get("metadata", {})
-            context = metadata.get("text")
-            if citations:
-                metadata["score"] = doc.get("score")
-                contexts.append(tuple((context, metadata)))
-            else:
-                contexts.append(context)
-        return contexts
+
+        return [
+            (metadata.get("text"), {**metadata, "score": doc.get("score")}) if citations else metadata.get("text")
+            for doc in data.get("matches", [])
+            for metadata in [doc.get("metadata", {})]
+        ]
 
     def set_collection_name(self, name: str):
         """

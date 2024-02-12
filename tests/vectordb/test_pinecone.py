@@ -7,7 +7,7 @@ from embedchain.vectordb.pinecone import PineconeDB
 @pytest.fixture
 def pinecone_pod_config():
     return PineconeDBConfig(
-        collection_name="test_collection",
+        index_name="test_collection",
         api_key="test_api_key",
         vector_dimension=3,
         pod_config={"environment": "test_environment", "metadata_config": {"indexed": ["*"]}},
@@ -17,7 +17,7 @@ def pinecone_pod_config():
 @pytest.fixture
 def pinecone_serverless_config():
     return PineconeDBConfig(
-        collection_name="test_collection",
+        index_name="test_collection",
         api_key="test_api_key",
         vector_dimension=3,
         serverless_config={
@@ -39,7 +39,7 @@ def test_pinecone_init_without_config(monkeypatch):
     monkeypatch.delenv("PINECONE_API_KEY")
 
 
-def test_pinecone_init_with_config(pinecone_pod_config, pinecone_serverless_config, monkeypatch):
+def test_pinecone_init_with_config(pinecone_pod_config, monkeypatch):
     monkeypatch.setattr("embedchain.vectordb.pinecone.PineconeDB._setup_pinecone_index", lambda x: x)
     monkeypatch.setattr("embedchain.vectordb.pinecone.PineconeDB._get_or_create_db", lambda x: x)
     pinecone_db = PineconeDB(config=pinecone_pod_config)
@@ -158,7 +158,7 @@ def test_setup_pinecone_index(pinecone_pod_config, pinecone_serverless_config, m
     pinecone_db._setup_pinecone_index()
 
     assert pinecone_db.client is not None
-    assert pinecone_db.config.index_name == "test-collection-3"
+    assert pinecone_db.config.index_name == "test_collection"
     assert pinecone_db.client.list_indexes().names() == ["test_collection"]
     assert pinecone_db.pinecone_index is not None
 
@@ -166,7 +166,7 @@ def test_setup_pinecone_index(pinecone_pod_config, pinecone_serverless_config, m
     pinecone_db._setup_pinecone_index()
 
     assert pinecone_db.client is not None
-    assert pinecone_db.config.index_name == "test-collection-3"
+    assert pinecone_db.config.index_name == "test_collection"
     assert pinecone_db.client.list_indexes().names() == ["test_collection"]
     assert pinecone_db.pinecone_index is not None
 
