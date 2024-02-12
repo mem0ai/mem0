@@ -24,7 +24,8 @@ DEFAULT_PROMPT_WITH_HISTORY = """
 
   $context
 
-  History: $history
+  History:
+  $history
 
   Query: $query
 

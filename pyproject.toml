@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.76"
+version = "0.1.77"
 description = "Simplest open source retrieval(RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",

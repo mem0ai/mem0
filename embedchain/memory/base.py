@@ -92,12 +92,12 @@ class ChatHistory:
         """
 
         if fetch_all:
-            additional_query = "ORDER BY created_at DESC"
+            additional_query = "ORDER BY created_at ASC"
             params = (app_id,)
         else:
             additional_query = """
                 AND session_id=?
-                ORDER BY created_at DESC
+                ORDER BY created_at ASC
                 LIMIT ?
             """
             params = (app_id, session_id, num_rounds)
