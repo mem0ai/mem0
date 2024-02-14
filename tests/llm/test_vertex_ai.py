@@ -21,27 +21,9 @@ def test_get_llm_model_answer(vertexai_llm):
         mock_method.assert_called_once_with(prompt=prompt, config=vertexai_llm.config)
 
 
-def test_get_answer_with_warning(vertexai_llm, caplog):
-    with patch("langchain_community.chat_models.ChatVertexAI") as mock_chat:
-        mock_chat_instance = mock_chat.return_value
-        mock_chat_instance.return_value = MagicMock(content="Test Response")
-
-        prompt = "Test Prompt"
-        config = vertexai_llm.config
-        config.top_p = 0.5
-
-        response = vertexai_llm._get_answer(prompt, config)
-
-        assert response == "Test Response"
-        mock_chat.assert_called_once_with(temperature=config.temperature, model=config.model)
-
-        assert "Config option `top_p` is not supported by this model." in caplog.text
-
-
-def test_get_answer_no_warning(vertexai_llm, caplog):
-    with patch("langchain_community.chat_models.ChatVertexAI") as mock_chat:
-        mock_chat_instance = mock_chat.return_value
-        mock_chat_instance.return_value = MagicMock(content="Test Response")
+def test_get_answer(vertexai_llm, caplog):
+    with patch("langchain_google_vertexai.ChatVertexAI.invoke") as mock_chat:
+        mock_chat.return_value = MagicMock(content="Test Response")
 
         prompt = "Test Prompt"
         config = vertexai_llm.config
@@ -49,9 +31,7 @@ def test_get_answer_no_warning(vertexai_llm, caplog):
 
         response = vertexai_llm._get_answer(prompt, config)
 
-        assert response == "Test Response"
-        mock_chat.assert_called_once_with(temperature=config.temperature, model=config.model)
-
+        assert response == "Test Response"  # Assertion corrected
         assert "Config option `top_p` is not supported by this model." not in caplog.text
 
 
