@@ -2,6 +2,7 @@ import json
 import os
 from typing import Any, Callable, Dict, Optional, Type, Union
 
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
@@ -41,8 +42,6 @@ class OpenAILlm(BaseLlm):
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
-            from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
             chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key)
         else:
