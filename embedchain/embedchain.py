@@ -429,11 +429,10 @@ class EmbedChain(JSONSerializable):
 
         if dry_run:
             return list(documents), metadatas, ids, 0
-        
+
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
-        
         # Filter out empty documents and ensure they meet the API requirements
         valid_documents = [doc for doc in documents if doc and isinstance(doc, str)]
 
@@ -441,7 +440,7 @@ class EmbedChain(JSONSerializable):
 
         # Chunk documents into batches of 2048 and handle each batch
         # helps wigth large loads of embeddings  that hit OpenAI limits
-        document_batches = [documents[i:i+2048] for i in range(0, len(documents), 2048)]
+        document_batches = [documents[i : i + 2048] for i in range(0, len(documents), 2048)]
         for batch in document_batches:
             try:
                 # Add only valid batches
@@ -452,12 +451,10 @@ class EmbedChain(JSONSerializable):
                 # Handle the error, e.g., by logging, retrying, or skipping
                 pass
 
-
         count_new_chunks = self.db.count() - chunks_before_addition
         print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
-        
-        return list(documents), metadatas, ids, count_new_chunks
 
+        return list(documents), metadatas, ids, count_new_chunks
 
     @staticmethod
     def _format_result(results):
@@ -493,9 +490,7 @@ class EmbedChain(JSONSerializable):
         :return: List of contents of the document that matched your query
         :rtype: list[str]
         """
-        print("Query passed in config:", config)
         query_config = config or self.llm.config
-        print("Final config:", query_config)
         if where is not None:
             where = where
         else:
@@ -506,7 +501,6 @@ class EmbedChain(JSONSerializable):
             if self.config.id is not None:
                 where.update({"app_id": self.config.id})
 
-        print('Number documents', query_config)
         contexts = self.db.query(
             input_query=input_query,
             n_results=query_config.number_documents,
