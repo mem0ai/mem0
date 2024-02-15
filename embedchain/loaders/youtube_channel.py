@@ -1,6 +1,4 @@
 import concurrent.futures
-import yt_dlp
-import concurrent.futures
 import hashlib
 import logging
 
@@ -16,15 +14,12 @@ class YoutubeChannelLoader(BaseLoader):
     def load_data(self, channel_name):
         # Check if dependencies are installed at the beginning
         try:
-            import concurrent.futures
             import yt_dlp
         except ImportError as e:
             raise ValueError(
-                "YoutubeLoader requires extra dependencies. Install with `pip install --upgrade 'embedchain[youtube_channel]'`"
+                "YoutubeLoader requires extra dependencies. Install with `pip install --upgrade 'embedchain[youtube_channel]'`"  # noqa: E501
             ) from e
 
-        data = []
-        data_urls = []
         youtube_url = f"https://www.youtube.com/{channel_name}/videos"
         youtube_video_loader = YoutubeVideoLoader()
 
