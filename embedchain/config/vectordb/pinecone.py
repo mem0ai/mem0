@@ -15,6 +15,7 @@ class PineconeDBConfig(BaseVectorDbConfig):
         metric: Optional[str] = "cosine",
         pod_config: Optional[dict[str, any]] = None,
         serverless_config: Optional[dict[str, any]] = None,
+        hybrid_search: bool = False,
         **extra_params: dict[str, any],
     ):
         self.metric = metric
@@ -22,6 +23,7 @@ class PineconeDBConfig(BaseVectorDbConfig):
         self.index_name = index_name
         self.vector_dimension = vector_dimension
         self.extra_params = extra_params
+        self.hybrid_search = hybrid_search
         if pod_config is None and serverless_config is None:
             # If no config is provided, use the default pod spec config
             pod_environment = os.environ.get("PINECONE_ENV", "gcp-starter")
@@ -32,5 +34,10 @@ class PineconeDBConfig(BaseVectorDbConfig):
 
         if self.pod_config and self.serverless_config:
             raise ValueError("Only one of pod_config or serverless_config can be provided.")
+
+        if self.hybrid_search and self.metric != "dotproduct":
+            raise ValueError(
+                "Hybrid search is only supported with dotproduct metric in Pinecone. See full docs here: https://docs.pinecone.io/docs/hybrid-search#limitations"
+            )  # noqa:E501
 
         super().__init__(collection_name=self.index_name, dir=None)

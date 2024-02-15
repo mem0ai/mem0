@@ -1,0 +1,36 @@
+---
+title: OpenSearch
+---
+
+Install related dependencies using the following command:
+
+```bash
+pip install --upgrade 'embedchain[opensearch]'
+```
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load opensearch configuration from yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: opensearch
+  config:
+    collection_name: 'my-app'
+    opensearch_url: 'https://localhost:9200'
+    http_auth:
+      - admin
+      - admin
+    vector_dimension: 1536
+    use_ssl: false
+    verify_certs: false
+```
+
+</CodeGroup>
+
+<Snippet file="missing-vector-db-tip.mdx" />

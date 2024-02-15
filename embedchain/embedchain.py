@@ -237,46 +237,6 @@ class EmbedChain(JSONSerializable):
 
         return source_hash
 
-    def add_local(
-        self,
-        source: Any,
-        data_type: Optional[DataType] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        config: Optional[AddConfig] = None,
-        **kwargs: Optional[dict[str, Any]],
-    ):
-        """
-        Adds the data from the given URL to the vector db.
-        Loads the data, chunks it, create embedding for each chunk
-        and then stores the embedding to vector database.
-
-        Warning:
-            This method is deprecated and will be removed in future versions. Use `add` instead.
-
-        :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
-        :type source: Any
-        :param data_type: Automatically detected, but can be forced with this argument. The type of the data to add,
-        defaults to None
-        :type data_type: Optional[DataType], optional
-        :param metadata: Metadata associated with the data source., defaults to None
-        :type metadata: Optional[dict[str, Any]], optional
-        :param config: The `AddConfig` instance to use as configuration options., defaults to None
-        :type config: Optional[AddConfig], optional
-        :raises ValueError: Invalid data type
-        :return: source_hash, a md5-hash of the source, in hexadecimal representation.
-        :rtype: str
-        """
-        logging.warning(
-            "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."  # noqa: E501
-        )
-        return self.add(
-            source=source,
-            data_type=data_type,
-            metadata=metadata,
-            config=config,
-            **kwargs,
-        )
-
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
         Get id of existing document for a given source, based on the data type
