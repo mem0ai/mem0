@@ -150,6 +150,12 @@ class JSONSerializable:
 
             obj = target_class.__new__(target_class)
             for key, value in dct.items():
+                if isinstance(value, dict) and "__type__" in value:
+                    if value["__type__"] == "Template":
+                        value = Template(value["data"])
+                    # For future custom types we can follow a similar pattern
+                    # elif value["__type__"] == "SomeOtherType":
+                    #     value = SomeOtherType.some_constructor(value["data"])
                 default_value = getattr(target_class, key, None)
                 setattr(obj, key, value or default_value)
 
