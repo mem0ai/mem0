@@ -1,6 +1,4 @@
 import json
-from typing import Any, Union
-import json
 import logging
 from string import Template
 from typing import Any, Type, TypeVar, Union
