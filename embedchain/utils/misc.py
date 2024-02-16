@@ -82,14 +82,11 @@ def clean_string(text):
     # Replacement of newline characters:
     text = text.replace("\n", " ")
 
-    # Stripping and reducing multiple spaces to single:
-    cleaned_text = re.sub(r"\s+", " ", text.strip())
+    # Stripping and reducing multiple spaces to single, and replacing hash characters:
+    cleaned_text = re.sub(r"\s+|#", " ", text.strip())
 
     # Removing backslashes:
     cleaned_text = cleaned_text.replace("\\", "")
-
-    # Replacing hash characters:
-    cleaned_text = cleaned_text.replace("#", " ")
 
     # Eliminating consecutive non-alphanumeric characters:
     # This regex identifies consecutive non-alphanumeric characters (i.e., not

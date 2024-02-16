@@ -1,5 +1,3 @@
-import re
-from github import Github
 import concurrent.futures
 import hashlib
 import logging
@@ -298,10 +296,3 @@ class GithubLoader(BaseLoader):
             "data": data,
         }
 
-
-def clean_string(text):
-    text = text.replace("\n", " ")
-    text = re.sub(r"\s+", " ", text.strip())
-    cleaned_text = re.sub(r"[\\#]|([^\w\s])\1*", r" \1", text)
-
-    return cleaned_text
