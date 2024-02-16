@@ -185,7 +185,9 @@ class GithubLoader(BaseLoader):
             )
         return data
 
+    # need to test more for discussion
     def _github_search_discussions(self, query: str):
+        """Search GitHub discussions."""
         data = []
 
         query = f"{query} is:discussion"
@@ -295,4 +297,3 @@ class GithubLoader(BaseLoader):
             "doc_id": hashlib.sha256(query.encode()).hexdigest(),
             "data": data,
         }
-
