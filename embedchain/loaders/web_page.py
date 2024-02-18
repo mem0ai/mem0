@@ -30,7 +30,7 @@ class WebPageLoader(BaseLoader):
         data = response.content
         content = self._get_clean_content(data, url)
 
-        meta_data = {"url": url}
+        metadata = {"url": url}
 
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
@@ -38,7 +38,7 @@ class WebPageLoader(BaseLoader):
             "data": [
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }

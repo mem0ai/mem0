@@ -22,13 +22,13 @@ class YoutubeVideoLoader(BaseLoader):
             raise ValueError(f"No data found for url: {url}")
         content = doc[0].page_content
         content = clean_string(content)
-        meta_data = doc[0].metadata
-        meta_data["url"] = url
+        metadata = doc[0].metadata
+        metadata["url"] = url
 
         output.append(
             {
                 "content": content,
-                "meta_data": meta_data,
+                "meta_data": metadata,
             }
         )
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()

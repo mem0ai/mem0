@@ -18,9 +18,9 @@ class DocxFileLoader(BaseLoader):
         output = []
         data = loader.load()
         content = data[0].page_content
-        meta_data = data[0].metadata
-        meta_data["url"] = "local"
-        output.append({"content": content, "meta_data": meta_data})
+        metadata = data[0].metadata
+        metadata["url"] = "local"
+        output.append({"content": content, "meta_data": metadata})
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
             "doc_id": doc_id,
