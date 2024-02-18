@@ -39,7 +39,7 @@ class DiscourseLoader(BaseLoader):
             return
         response_data = response.json()
         post_contents = clean_string(response_data.get("raw"))
-        meta_data = {
+        metadata = {
             "url": post_url,
             "created_at": response_data.get("created_at", ""),
             "username": response_data.get("username", ""),
@@ -48,7 +48,7 @@ class DiscourseLoader(BaseLoader):
         }
         data = {
             "content": post_contents,
-            "meta_data": meta_data,
+            "meta_data": metadata,
         }
         return data
 

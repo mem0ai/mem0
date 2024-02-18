@@ -17,14 +17,14 @@ class TextFileLoader(BaseLoader):
 
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
 
-        meta_data = {"url": url, "file_size": os.path.getsize(url), "file_type": url.split(".")[-1]}
+        metadata = {"url": url, "file_size": os.path.getsize(url), "file_type": url.split(".")[-1]}
 
         return {
             "doc_id": doc_id,
             "data": [
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }

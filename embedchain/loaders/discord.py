@@ -131,7 +131,7 @@ class DiscordLoader(BaseLoader):
         client = DiscordClient(intents=intents)
         client.run(self.token)
 
-        meta_data = {
+        metadata = {
             "url": channel_id,
         }
 
@@ -144,7 +144,7 @@ class DiscordLoader(BaseLoader):
             "data": [
                 {
                     "content": messages,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }

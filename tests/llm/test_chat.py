@@ -64,7 +64,7 @@ class TestApp(unittest.TestCase):
             self.assertEqual(len(app.llm.history), 1)
             history = app.llm.history
             dry_run = app.chat("Test query 2", dry_run=True)
-            self.assertIn("History:", dry_run)
+            self.assertIn("Conversation history:", dry_run)
             self.assertEqual(history, app.llm.history)
             self.assertEqual(len(app.llm.history), 1)
 

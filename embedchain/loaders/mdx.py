@@ -10,7 +10,7 @@ class MdxLoader(BaseLoader):
         """Load data from a mdx file."""
         with open(url, "r", encoding="utf-8") as infile:
             content = infile.read()
-        meta_data = {
+        metadata = {
             "url": url,
         }
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
@@ -19,7 +19,7 @@ class MdxLoader(BaseLoader):
             "data": [
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }

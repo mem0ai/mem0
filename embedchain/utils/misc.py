@@ -79,9 +79,6 @@ def clean_string(text):
         cleaned_text (str): The cleaned text after all the cleaning operations
         have been performed.
     """
-    # Replacement of newline characters:
-    text = text.replace("\n", " ")
-
     # Stripping and reducing multiple spaces to single:
     cleaned_text = re.sub(r"\s+", " ", text.strip())
 

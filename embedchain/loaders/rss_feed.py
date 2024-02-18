@@ -41,12 +41,12 @@ class RSSFeedLoader(BaseLoader):
         data = loader.load()
 
         for entry in data:
-            meta_data = RSSFeedLoader.serialize_metadata(entry.metadata)
-            meta_data.update({"url": url})
+            metadata = RSSFeedLoader.serialize_metadata(entry.metadata)
+            metadata.update({"url": url})
             output.append(
                 {
                     "content": entry.page_content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             )
 

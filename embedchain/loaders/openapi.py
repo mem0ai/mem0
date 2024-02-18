@@ -35,8 +35,8 @@ class OpenAPILoader(BaseLoader):
             yaml_data = yaml.load(file, Loader=yaml.SafeLoader)
             for i, (key, value) in enumerate(yaml_data.items()):
                 string_data = f"{key}: {value}"
-                meta_data = {"url": file_path, "row": i + 1}
-                data.append({"content": string_data, "meta_data": meta_data})
+                metadata = {"url": file_path, "row": i + 1}
+                data.append({"content": string_data, "meta_data": metadata})
                 data_content.append(string_data)
         doc_id = hashlib.sha256((content + ", ".join(data_content)).encode()).hexdigest()
         return {"doc_id": doc_id, "data": data}
