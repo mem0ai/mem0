@@ -5,7 +5,8 @@ import uuid
 
 import requests
 
-from embedchain.constants import CONFIG_DIR, CONFIG_FILE
+from embedchain.constants import CONFIG_DIR, CONFIG_FILE, DB_URI
+from embedchain.core.db.database import init_db, setup_engine
 
 
 class Client:
@@ -31,7 +32,7 @@ class Client:
                 )
 
     @classmethod
-    def setup_dir(cls):
+    def setup(cls):
         """
         Loads the user id from the config file if it exists, otherwise generates a new
         one and saves it to the config file.
@@ -40,6 +41,9 @@ class Client:
         :rtype: str
         """
         os.makedirs(CONFIG_DIR, exist_ok=True)
+        setup_engine(database_uri=DB_URI)
+        init_db()
+
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)
@@ -53,7 +57,7 @@ class Client:
     @classmethod
     def load_config(cls):
         if not os.path.exists(CONFIG_FILE):
-            cls.setup_dir()
+            cls.setup()
 
         with open(CONFIG_FILE, "r") as config_file:
             return json.load(config_file)

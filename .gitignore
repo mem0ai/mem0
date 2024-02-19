@@ -165,6 +165,7 @@ cython_debug/
 # Database
 db
 test-db
+!embedchain/core/db/
 
 .vscode
 .idea/
