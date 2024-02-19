@@ -324,7 +324,6 @@ class EmbedChain(JSONSerializable):
 
         # Create chunks
         embeddings_data = chunker.create_chunks(loader, src, app_id=app_id, config=add_config.chunker)
-        # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
         ids = embeddings_data["ids"]
@@ -334,87 +333,54 @@ class EmbedChain(JSONSerializable):
             print("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
 
-        # this means that doc content has changed.
         if existing_doc_id and existing_doc_id != new_doc_id:
             print("Doc content has changed. Recomputing chunks and embeddings intelligently.")
             self.db.delete({"doc_id": existing_doc_id})
 
-        # get existing ids, and discard doc if any common id exist.
         where = {"url": src}
         if chunker.data_type == DataType.JSON and is_valid_json_string(src):
-            url = hashlib.sha256((src).encode("utf-8")).hexdigest()
+            url = hashlib.sha256(src.encode("utf-8")).hexdigest()
             where = {"url": url}
 
-        # if data type is qna_pair, we check for question
         if chunker.data_type == DataType.QNA_PAIR:
             where = {"question": src[0]}
 
         if self.config.id is not None:
             where["app_id"] = self.config.id
 
-        db_result = self.db.get(ids=ids, where=where)  # optional filter
+        db_result = self.db.get(ids=ids, where=where)
         existing_ids = set(db_result["ids"])
-        if len(existing_ids):
-            data_dict = {id: (doc, meta) for id, doc, meta in zip(ids, documents, metadatas)}
-            data_dict = {id: value for id, value in data_dict.items() if id not in existing_ids}
-
-            if not data_dict:
-                src_copy = src
-                if len(src_copy) > 50:
-                    src_copy = src[:50] + "..."
-                print(f"All data from {src_copy} already exists in the database.")
-                # Make sure to return a matching return type
-                return [], [], [], 0
-
-            ids = list(data_dict.keys())
-            documents, metadatas = zip(*data_dict.values())
-
-        # Loop though all metadatas and add extras.
-        new_metadatas = []
+        new_metadata = []
         for m in metadatas:
-            # Add app id in metadatas so that they can be queried on later
+            m = m.copy()  # Create a copy to avoid modifying the original metadata
             if self.config.id:
                 m["app_id"] = self.config.id
-
-            # Add hashed source
             m["hash"] = source_hash
-
-            # Note: Metadata is the function argument
             if metadata:
-                # Spread whatever is in metadata into the new object.
                 m.update(metadata)
+            new_metadata.append(m)
 
-            new_metadatas.append(m)
-        metadatas = new_metadatas
+        if len(existing_ids) == len(ids):
+            print(f"All data from {src[:50]}... already exists in the database.")
+            return [], [], [], 0
 
-        if dry_run:
-            return list(documents), metadatas, ids, 0
+        new_documents = [doc for doc in documents if doc and isinstance(doc, str)]
 
-        # Count before, to calculate a delta in the end.
+        document_batches = [new_documents[i:i + 2048] for i in range(0, len(new_documents), 2048)]
         chunks_before_addition = self.db.count()
 
-        # Filter out empty documents and ensure they meet the API requirements
-        valid_documents = [doc for doc in documents if doc and isinstance(doc, str)]
-
-        documents = valid_documents
-
-        # Chunk documents into batches of 2048 and handle each batch
-        # helps wigth large loads of embeddings  that hit OpenAI limits
-        document_batches = [documents[i : i + 2048] for i in range(0, len(documents), 2048)]
         for batch in document_batches:
-            try:
-                # Add only valid batches
-                if batch:
-                    self.db.add(documents=batch, metadatas=metadatas, ids=ids, **kwargs)
-            except Exception as e:
-                print(f"Failed to add batch due to a bad request: {e}")
-                # Handle the error, e.g., by logging, retrying, or skipping
-                pass
+            if batch:
+                try:
+                    self.db.add(documents=batch, metadatas=new_metadata, ids=ids, **kwargs)
+                except Exception as e:
+                    print(f"Failed to add batch due to a bad request: {e}")
+                    pass
 
         count_new_chunks = self.db.count() - chunks_before_addition
         print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
 
-        return list(documents), metadatas, ids, count_new_chunks
+        return new_documents, new_metadata, ids, count_new_chunks
 
     @staticmethod
     def _format_result(results):
