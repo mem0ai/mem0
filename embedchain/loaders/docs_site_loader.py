@@ -43,7 +43,7 @@ class DocsSiteLoader(BaseLoader):
 
         self.visited_links.update(absolute_paths)
 
-        [_get_child_links_recursive(link) for link in absolute_paths if link not in self.visited_links]
+        [self._get_child_links_recursive(link) for link in absolute_paths if link not in self.visited_links]
 
     def _get_all_urls(self, url):
         self.visited_links = set()
