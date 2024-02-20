@@ -2,7 +2,6 @@ import concurrent.futures
 import hashlib
 import logging
 
-from tqdm import tqdm
 
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
