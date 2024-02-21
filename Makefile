@@ -10,7 +10,8 @@ install:
 	poetry install
 
 install_all:
-	poetry install --all-extras
+	poetry install --all-extrasi
+	pip install pinecone-text pinecone-client
 
 install_es:
 	poetry install --extras elasticsearch
@@ -40,7 +41,7 @@ lint:
 build:
 	poetry build
 
-deploy:
+publish:
 	poetry publish
 
 # for example: make test file=tests/test_factory.py
