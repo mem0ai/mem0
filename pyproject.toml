@@ -91,7 +91,7 @@ exclude = '''
 color = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<=3.13"
 python-dotenv = "^1.0.0"
 langchain = "^0.1.4"
 requests = "^2.31.0"
