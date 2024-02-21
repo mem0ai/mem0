@@ -11,7 +11,7 @@ install:
 
 install_all:
 	poetry install --all-extras
-	pip install pinecone-text pinecone-client
+	poetry run pip install pinecone-text pinecone-client
 
 install_es:
 	poetry install --extras elasticsearch
