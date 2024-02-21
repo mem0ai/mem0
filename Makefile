@@ -37,6 +37,12 @@ clean:
 lint:
 	poetry run ruff .
 
+build:
+	poetry build
+
+deploy:
+	poetry publish
+
 # for example: make test file=tests/test_factory.py
 test:
 	poetry run pytest $(file)
