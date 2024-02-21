@@ -39,7 +39,7 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
-        run: poetry install --all-extras
+        run: make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Lint with ruff
         run: make lint
