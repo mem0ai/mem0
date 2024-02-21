@@ -1,9 +1,9 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from embedchain.constants import DB_URI
 from embedchain.core.db.models import Base
 
 # this is the Alembic Config object, which provides
@@ -21,7 +21,7 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-config.set_main_option("sqlalchemy.url", DB_URI)
+config.set_main_option("sqlalchemy.url", os.environ.get("EMBEDCHAIN_DB_URI"))
 
 
 def run_migrations_offline() -> None:

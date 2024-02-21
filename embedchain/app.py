@@ -15,7 +15,7 @@ from embedchain.cache import (Config, ExactMatchEvaluation,
                               gptcache_data_manager, gptcache_pre_function)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig
-from embedchain.core.db.database import get_session
+from embedchain.core.db.database import get_session, init_db, setup_engine
 from embedchain.core.db.models import DataSource
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
@@ -86,15 +86,18 @@ class App(EmbedChain):
 
         logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
+
+        # Initialize the metadata db for the app
+        setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
+        init_db()
+
         self.auto_deploy = auto_deploy
         # Store the dict config as an attribute to be able to send it
         self.config_data = config_data if (config_data and validate_config(config_data)) else None
         self.client = None
         # pipeline_id from the backend
         self.id = None
-        self.chunker = None
-        if chunker:
-            self.chunker = ChunkerConfig(**chunker)
+        self.chunker = ChunkerConfig(**chunker) if chunker else None
         self.cache_config = cache_config
 
         self.config = config or AppConfig()
@@ -321,18 +324,18 @@ class App(EmbedChain):
         yaml_path: Optional[str] = None,
     ):
         """
-        Instantiate a Pipeline object from a configuration.
+        Instantiate a App object from a configuration.
 
         :param config_path: Path to the YAML or JSON configuration file.
         :type config_path: Optional[str]
         :param config: A dictionary containing the configuration.
         :type config: Optional[dict[str, Any]]
-        :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
+        :param auto_deploy: Whether to deploy the app automatically, defaults to False
         :type auto_deploy: bool, optional
         :param yaml_path: (Deprecated) Path to the YAML configuration file. Use config_path instead.
         :type yaml_path: Optional[str]
-        :return: An instance of the Pipeline class.
-        :rtype: Pipeline
+        :return: An instance of the App class.
+        :rtype: App
         """
         # Backward compatibility for yaml_path
         if yaml_path and not config_path:
@@ -366,7 +369,7 @@ class App(EmbedChain):
             raise Exception(f"Error occurred while validating the config. Error: {str(e)}")
 
         app_config_data = config_data.get("app", {}).get("config", {})
-        db_config_data = config_data.get("vectordb", {})
+        vector_db_config_data = config_data.get("vectordb", {})
         embedding_model_config_data = config_data.get("embedding_model", config_data.get("embedder", {}))
         llm_config_data = config_data.get("llm", {})
         chunker_config_data = config_data.get("chunker", {})
@@ -374,8 +377,8 @@ class App(EmbedChain):
 
         app_config = AppConfig(**app_config_data)
 
-        db_provider = db_config_data.get("provider", "chroma")
-        db = VectorDBFactory.create(db_provider, db_config_data.get("config", {}))
+        vector_db_provider = vector_db_config_data.get("provider", "chroma")
+        vector_db = VectorDBFactory.create(vector_db_provider, vector_db_config_data.get("config", {}))
 
         if llm_config_data:
             llm_provider = llm_config_data.get("provider", "openai")
@@ -396,7 +399,7 @@ class App(EmbedChain):
         return cls(
             config=app_config,
             llm=llm,
-            db=db,
+            db=vector_db,
             embedding_model=embedding_model,
             config_data=config_data,
             auto_deploy=auto_deploy,

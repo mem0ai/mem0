@@ -5,8 +5,7 @@ import uuid
 
 import requests
 
-from embedchain.constants import CONFIG_DIR, CONFIG_FILE, DB_URI
-from embedchain.core.db.database import init_db, setup_engine
+from embedchain.constants import CONFIG_DIR, CONFIG_FILE
 
 
 class Client:
@@ -41,8 +40,6 @@ class Client:
         :rtype: str
         """
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        setup_engine(database_uri=DB_URI)
-        init_db()
 
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
