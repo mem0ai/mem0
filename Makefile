@@ -10,7 +10,7 @@ install:
 	poetry install
 
 install_all:
-	poetry install --all-extrasi
+	poetry install --all-extras
 	pip install pinecone-text pinecone-client
 
 install_es:
