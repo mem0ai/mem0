@@ -61,4 +61,3 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
 
         logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=level)
         self.logger = logging.getLogger(__name__)
-        return

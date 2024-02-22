@@ -405,6 +405,7 @@ def validate_config(config_data):
                     "google",
                     "aws_bedrock",
                     "mistralai",
+                    "vllm",
                 ),
                 Optional("config"): {
                     Optional("model"): str,

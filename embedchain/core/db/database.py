@@ -11,8 +11,8 @@ from .models import Base
 
 
 class DatabaseManager:
-    def __init__(self, database_uri: str = "sqlite:///embedchain.db", echo: bool = False):
-        self.database_uri = database_uri
+    def __init__(self, echo: bool = False):
+        self.database_uri = os.environ.get("EMBEDCHAIN_DB_URI")
         self.echo = echo
         self.engine: Engine = None
         self._session_factory = None
@@ -58,7 +58,7 @@ database_manager = DatabaseManager()
 
 
 # Convenience functions for backward compatibility and ease of use
-def setup_engine(database_uri: str = "sqlite:///embedchain.db", echo: bool = False) -> None:
+def setup_engine(database_uri: str, echo: bool = False) -> None:
     database_manager.database_uri = database_uri
     database_manager.echo = echo
     database_manager.setup_engine()
