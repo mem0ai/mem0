@@ -88,16 +88,16 @@ class SlackLoader(BaseLoader):
                 content = clean_string(text)
 
                 message_meta_data_keys = ["iid", "team", "ts", "type", "user", "username"]
-                meta_data = {}
+                metadata = {}
                 for key in message.keys():
                     if key in message_meta_data_keys:
-                        meta_data[key] = message.get(key)
-                meta_data.update({"url": url})
+                        metadata[key] = message.get(key)
+                metadata.update({"url": url})
 
                 data.append(
                     {
                         "content": content,
-                        "meta_data": meta_data,
+                        "meta_data": metadata,
                     }
                 )
                 data_content.append(content)

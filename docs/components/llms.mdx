@@ -68,125 +68,75 @@ llm:
 </CodeGroup>
 
 ### Function Calling
-To enable [function calling](https://platform.openai.com/docs/guides/function-calling) in your application using embedchain and OpenAI, you need to pass functions into `OpenAILlm` class as an array of functions. Here are several ways in which you can achieve that:
+Embedchain supports OpenAI [Function calling](https://platform.openai.com/docs/guides/function-calling) with a single function. It accepts inputs in accordance with the [Langchain interface](https://python.langchain.com/docs/modules/model_io/chat/function_calling#legacy-args-functions-and-function_call).
 
-Examples:
-<Accordion title="Using Pydantic Models">
+<Accordion title="Pydantic Model">
   ```python
-import os
-from embedchain import App
-from embedchain.llm.openai import OpenAILlm
-import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
+  from pydantic import BaseModel
 
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
+  class multiply(BaseModel):
+      """Multiply two integers together."""
 
-class QA(BaseModel):
-    """
-    A question and answer pair.
-    """
-
-    question: str = Field(
-        ..., description="The question.", example="What is a mountain?"
-    )
-    answer: str = Field(
-        ..., description="The answer.", example="A mountain is a hill."
-    )
-    person_who_is_asking: str = Field(
-        ..., description="The person who is asking the question.", example="John"
-    )
-
-    @field_validator("question")
-    def question_must_end_with_a_question_mark(cls, v):
-        """
-        Validate that the question ends with a question mark.
-        """
-        if not v.endswith("?"):
-            raise ValueError("question must end with a question mark")
-        return v
-
-    @field_validator("answer")
-    def answer_must_end_with_a_period(cls, v):
-        """
-        Validate that the answer ends with a period.
-        """
-        if not v.endswith("."):
-            raise ValueError("answer must end with a period")
-        return v
-
-llm = OpenAILlm(config=None,functions=[QA])
-app = App(llm=llm)
-
-result = app.query("Hey I am Sid. What is a mountain? A mountain is a hill.")
-
-print(result)
+      a: int = Field(..., description="First integer")
+      b: int = Field(..., description="Second integer")
   ```
-  </Accordion>
+</Accordion>
   
-  <Accordion title="Using OpenAI JSON schema">
+<Accordion title="Python function">
+  ```python
+  def multiply(a: int, b: int) -> int:
+      """Multiply two integers together.
+
+      Args:
+          a: First integer
+          b: Second integer
+      """
+      return a * b
+  ```
+</Accordion>
+<Accordion title="OpenAI tool dictionary">
+  ```python
+  multiply = {
+    "type": "function",
+    "function": {
+      "name": "multiply",
+      "description": "Multiply two integers together.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "description": "First integer",
+            "type": "integer"
+          },
+          "b": {
+            "description": "Second integer",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ]
+      }
+    }
+  }
+  ```
+</Accordion>
+
+With any of the previous inputs, the OpenAI LLM can be queried to provide the appropriate arguments for the function.
+
 ```python
 import os
 from embedchain import App
 from embedchain.llm.openai import OpenAILlm
-import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
 
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
-json_schema = {
-    "name": "get_qa",
-    "description": "A question and answer pair and the user who is asking the question.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "question": {"type": "string", "description": "The question."},
-            "answer": {"type": "string", "description": "The answer."},
-            "person_who_is_asking": {
-                "type": "string",
-                "description": "The person who is asking the question.",
-            }
-        },
-        "required": ["question", "answer", "person_who_is_asking"],
-    },
-}
-
-llm = OpenAILlm(config=None,functions=[json_schema])
+llm = OpenAILlm(tools=multiply)
 app = App(llm=llm)
 
-result = app.query("Hey I am Sid. What is a mountain? A mountain is a hill.")
-
-print(result)
-  ```
-  </Accordion>
-  <Accordion title="Using actual python functions">
-  ```python
-import os
-from embedchain import App
-from embedchain.llm.openai import OpenAILlm
-import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
-
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
-
-def find_info_of_pokemon(pokemon: str):
-    """
-    Find the information of the given pokemon.
-    Args:
-        pokemon: The pokemon.
-    """
-    req = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon}")
-    if req.status_code == 404:
-        raise ValueError("pokemon not found")
-    return req.json()
-
-llm = OpenAILlm(config=None,functions=[find_info_of_pokemon])
-app = App(llm=llm)
-
-result = app.query("Tell me more about the pokemon pikachu.")
-
-print(result)
+result = app.query("What is the result of 125 multiplied by fifteen?")
 ```
-</Accordion>
 
 ## Google AI
 

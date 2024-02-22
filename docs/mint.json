@@ -88,9 +88,8 @@
       "pages": [
         "components/introduction",
         {
-          "group": "Data sources",
+          "group": "🗂️ Data sources",
           "pages": [
-
             "components/data-sources/overview",
             {
               "group": "Data types",
@@ -129,8 +128,19 @@
             "components/data-sources/data-type-handling"
           ]
         },
+        {
+          "group": "🗄️ Vector databases",
+          "pages": [
+                "components/vector-databases/chromadb",
+                "components/vector-databases/elasticsearch",
+                "components/vector-databases/pinecone",
+                "components/vector-databases/opensearch",
+                "components/vector-databases/qdrant",
+                "components/vector-databases/weaviate",
+                "components/vector-databases/zilliz"
+          ]
+        },
         "components/llms",
-        "components/vector-databases",
         "components/embedding-models",
         "components/evaluation"
       ]
@@ -142,6 +152,7 @@
         "deployment/fly_io",
         "deployment/modal_com",
         "deployment/render_com",
+        "deployment/railway",
         "deployment/streamlit_io",
         "deployment/gradio_app",
         "deployment/huggingface_spaces",

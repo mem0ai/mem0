@@ -19,7 +19,7 @@ class AnthropicLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain.chat_models import ChatAnthropic
+        from langchain_community.chat_models import ChatAnthropic
 
         chat = ChatAnthropic(
             anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model=config.model

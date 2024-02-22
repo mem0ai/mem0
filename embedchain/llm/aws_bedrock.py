@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from langchain.llms import Bedrock
+from langchain_community.llms import Bedrock
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable

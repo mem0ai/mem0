@@ -1,27 +1,22 @@
 import hashlib
 import json
 import logging
-import sqlite3
 from typing import Any, Optional, Union
 
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
-from embedchain.cache import (adapt, get_gptcache_session,
-                              gptcache_data_convert,
-                              gptcache_update_cache_callback)
+from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.base_app_config import BaseAppConfig
-from embedchain.constants import SQLITE_PATH
+from embedchain.core.db.models import DataSource
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import (DataType, DirectDataType,
-                                         IndirectDataType, SpecialDataType)
-from embedchain.telemetry.posthog import AnonymousTelemetry
+from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.utils.misc import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -53,7 +48,6 @@ class EmbedChain(JSONSerializable):
         :type system_prompt: Optional[str], optional
         :raises ValueError: No database or embedder provided.
         """
-
         self.config = config
         self.cache_config = None
         # Llm
@@ -85,30 +79,6 @@ class EmbedChain(JSONSerializable):
         self.user_asks = []
 
         self.chunker: Optional[ChunkerConfig] = None
-        # Send anonymous telemetry
-        self._telemetry_props = {"class": self.__class__.__name__}
-        self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
-        # Establish a connection to the SQLite database
-        self.connection = sqlite3.connect(SQLITE_PATH, check_same_thread=False)
-        self.cursor = self.connection.cursor()
-
-        # Create the 'data_sources' table if it doesn't exist
-        self.cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS data_sources (
-                pipeline_id TEXT,
-                hash TEXT,
-                type TEXT,
-                value TEXT,
-                metadata TEXT,
-                is_uploaded INTEGER DEFAULT 0,
-                PRIMARY KEY (pipeline_id, hash)
-            )
-        """
-        )
-        self.connection.commit()
-        # Send anonymous telemetry
-        self.telemetry.capture(event_name="init", properties=self._telemetry_props)
 
     @property
     def collect_metrics(self):
@@ -204,17 +174,21 @@ class EmbedChain(JSONSerializable):
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
-        # Insert the data into the 'data' table
-        self.cursor.execute(
-            """
-            INSERT OR REPLACE INTO data_sources (hash, pipeline_id, type, value, metadata)
-            VALUES (?, ?, ?, ?, ?)
-        """,
-            (source_hash, self.config.id, data_type.value, str(source), json.dumps(metadata)),
+        # Insert the data into the 'ec_data_sources' table
+        self.db_session.add(
+            DataSource(
+                hash=source_hash,
+                app_id=self.config.id,
+                type=data_type.value,
+                value=source,
+                metadata=json.dumps(metadata),
+            )
         )
-
-        # Commit the transaction
-        self.connection.commit()
+        try:
+            self.db_session.commit()
+        except Exception as e:
+            logging.error(f"Error adding data source: {e}")
+            self.db_session.rollback()
 
         if dry_run:
             data_chunks_info = {"chunks": documents, "metadata": metadatas, "count": len(documents), "type": data_type}
@@ -236,46 +210,6 @@ class EmbedChain(JSONSerializable):
             self.telemetry.capture(event_name="add", properties=event_properties)
 
         return source_hash
-
-    def add_local(
-        self,
-        source: Any,
-        data_type: Optional[DataType] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        config: Optional[AddConfig] = None,
-        **kwargs: Optional[dict[str, Any]],
-    ):
-        """
-        Adds the data from the given URL to the vector db.
-        Loads the data, chunks it, create embedding for each chunk
-        and then stores the embedding to vector database.
-
-        Warning:
-            This method is deprecated and will be removed in future versions. Use `add` instead.
-
-        :param source: The data to embed, can be a URL, local file or raw content, depending on the data type.
-        :type source: Any
-        :param data_type: Automatically detected, but can be forced with this argument. The type of the data to add,
-        defaults to None
-        :type data_type: Optional[DataType], optional
-        :param metadata: Metadata associated with the data source., defaults to None
-        :type metadata: Optional[dict[str, Any]], optional
-        :param config: The `AddConfig` instance to use as configuration options., defaults to None
-        :type config: Optional[AddConfig], optional
-        :raises ValueError: Invalid data type
-        :return: source_hash, a md5-hash of the source, in hexadecimal representation.
-        :rtype: str
-        """
-        logging.warning(
-            "The `add_local` method is deprecated and will be removed in future versions. Please use the `add` method for both local and remote files."  # noqa: E501
-        )
-        return self.add(
-            source=source,
-            data_type=data_type,
-            metadata=metadata,
-            config=config,
-            **kwargs,
-        )
 
     def _get_existing_doc_id(self, chunker: BaseChunker, src: Any):
         """
@@ -433,10 +367,27 @@ class EmbedChain(JSONSerializable):
         # Count before, to calculate a delta in the end.
         chunks_before_addition = self.db.count()
 
-        self.db.add(documents=documents, metadatas=metadatas, ids=ids, **kwargs)
-        count_new_chunks = self.db.count() - chunks_before_addition
+        # Filter out empty documents and ensure they meet the API requirements
+        valid_documents = [doc for doc in documents if doc and isinstance(doc, str)]
 
+        documents = valid_documents
+
+        # Chunk documents into batches of 2048 and handle each batch
+        # helps wigth large loads of embeddings  that hit OpenAI limits
+        document_batches = [documents[i : i + 2048] for i in range(0, len(documents), 2048)]
+        for batch in document_batches:
+            try:
+                # Add only valid batches
+                if batch:
+                    self.db.add(documents=batch, metadatas=metadatas, ids=ids, **kwargs)
+            except Exception as e:
+                print(f"Failed to add batch due to a bad request: {e}")
+                # Handle the error, e.g., by logging, retrying, or skipping
+                pass
+
+        count_new_chunks = self.db.count() - chunks_before_addition
         print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
+
         return list(documents), metadatas, ids, count_new_chunks
 
     @staticmethod
@@ -689,9 +640,14 @@ class EmbedChain(JSONSerializable):
         Resets the database. Deletes all embeddings irreversibly.
         `App` does not have to be reinitialized after using this method.
         """
+        try:
+            self.db_session.query(DataSource).filter_by(app_id=self.config.id).delete()
+            self.db_session.commit()
+        except Exception as e:
+            logging.error(f"Error deleting chat history: {e}")
+            self.db_session.rollback()
+            return None
         self.db.reset()
-        self.cursor.execute("DELETE FROM data_sources WHERE pipeline_id = ?", (self.config.id,))
-        self.connection.commit()
         self.delete_all_chat_history(app_id=self.config.id)
         # Send anonymous telemetry
         self.telemetry.capture(event_name="reset", properties=self._telemetry_props)

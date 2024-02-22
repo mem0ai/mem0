@@ -20,7 +20,7 @@ from embedchain.utils.misc import detect_datatype
 logging.basicConfig(level=logging.WARN)
 
 # Set up the user directory if it doesn't exist already
-Client.setup_dir()
+Client.setup()
 
 
 class OpenAIAssistant:
