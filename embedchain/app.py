@@ -381,6 +381,10 @@ class App(EmbedChain):
         vector_db = VectorDBFactory.create(vector_db_provider, vector_db_config_data.get("config", {}))
 
         if llm_config_data:
+            # Initialize the metadata db for the app here since llmfactory needs it for initialization of
+            # the llm memory
+            setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
+            init_db()
             llm_provider = llm_config_data.get("provider", "openai")
             llm = LlmFactory.create(llm_provider, llm_config_data.get("config", {}))
         else:
