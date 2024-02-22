@@ -19,7 +19,12 @@ class DatabaseManager:
 
     def setup_engine(self) -> None:
         """Initializes the database engine and session factory."""
-        self.engine = create_engine(self.database_uri, echo=self.echo, connect_args={"check_same_thread": False})
+        if not self.database_uri:
+            raise RuntimeError("Database URI is not set. Set the EMBEDCHAIN_DB_URI environment variable.")
+        connect_args = {}
+        if self.database_uri.startswith("sqlite"):
+            connect_args["check_same_thread"] = False
+        self.engine = create_engine(self.database_uri, echo=self.echo, connect_args=connect_args)
         self._session_factory = scoped_session(sessionmaker(bind=self.engine))
         Base.metadata.bind = self.engine
 
