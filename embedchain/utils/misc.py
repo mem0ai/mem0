@@ -406,9 +406,11 @@ def validate_config(config_data):
                     "aws_bedrock",
                     "mistralai",
                     "vllm",
+                    "groq",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
+                    Optional("model_name"): str,
                     Optional("number_documents"): int,
                     Optional("temperature"): float,
                     Optional("max_tokens"): int,
