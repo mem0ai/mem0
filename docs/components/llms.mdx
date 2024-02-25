@@ -22,6 +22,7 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Vertex AI" href="#vertex-ai"></Card>
   <Card title="Mistral AI" href="#mistral-ai"></Card>
   <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
+  <Card title="Groq" href="#groq"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -654,4 +655,60 @@ llm:
 </Note>
 
 <br/ >
+
+## Groq
+
+[Groq](https://groq.com/) is the creator of the world's first Language Processing Unit (LPU), providing exceptional speed performance for AI workloads running on their LPU Inference Engine.
+
+
+### Usage
+
+In order to use LLMs from Groq, go to their [platform](https://console.groq.com/keys) and get the API key.
+
+Set the API key as `GROQ_API_KEY` environment variable or pass in your app configuration to use the model as given below in the example.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+# Set your API key here or pass as the environment variable
+groq_api_key = "gsk_xxxx"
+
+config = {
+    "llm": {
+        "provider": "groq",
+        "config": {
+            "model": "mixtral-8x7b-32768",
+            "api_key": groq_api_key,
+            "stream": True
+        }
+    }
+}
+
+app = App.from_config(config=config)
+# Add your data source here
+app.add("https://docs.embedchain.ai/sitemap.xml", data_type="sitemap")
+app.query("Write a poem about Embedchain")
+
+# In the realm of data, vast and wide,
+# Embedchain stands with knowledge as its guide.
+# A platform open, for all to try,
+# Building bots that can truly fly.
+
+# With REST API, data in reach,
+# Deployment a breeze, as easy as a speech.
+# Updating data sources, anytime, anyday,
+# Embedchain's power, never sway.
+
+# A knowledge base, an assistant so grand,
+# Connecting to platforms, near and far.
+# Discord, WhatsApp, Slack, and more,
+# Embedchain's potential, never a bore.
+```
+</CodeGroup>
+
+<br/ >
+
 <Snippet file="missing-llm-tip.mdx" />

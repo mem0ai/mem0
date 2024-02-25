@@ -23,6 +23,7 @@ class LlmFactory:
         "google": "embedchain.llm.google.GoogleLlm",
         "aws_bedrock": "embedchain.llm.aws_bedrock.AWSBedrockLlm",
         "mistralai": "embedchain.llm.mistralai.MistralAILlm",
+        "groq": "embedchain.llm.groq.GroqLlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
