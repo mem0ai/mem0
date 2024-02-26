@@ -16,6 +16,7 @@ class PineconeDBConfig(BaseVectorDbConfig):
         pod_config: Optional[dict[str, any]] = None,
         serverless_config: Optional[dict[str, any]] = None,
         hybrid_search: bool = False,
+        bm25_encoder: any = None,
         **extra_params: dict[str, any],
     ):
         self.metric = metric
@@ -24,6 +25,7 @@ class PineconeDBConfig(BaseVectorDbConfig):
         self.vector_dimension = vector_dimension
         self.extra_params = extra_params
         self.hybrid_search = hybrid_search
+        self.bm25_encoder = bm25_encoder
         if pod_config is None and serverless_config is None:
             # If no config is provided, use the default pod spec config
             pod_environment = os.environ.get("PINECONE_ENV", "gcp-starter")
