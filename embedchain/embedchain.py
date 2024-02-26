@@ -6,17 +6,20 @@ from typing import Any, Optional, Union
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
-from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
+from embedchain.cache import (adapt, get_gptcache_session,
+                              gptcache_data_convert,
+                              gptcache_update_cache_callback)
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.base_app_config import BaseAppConfig
-from embedchain.core.db.models import DataSource
+from embedchain.core.db.models import ChatHistory, DataSource
 from embedchain.data_formatter import DataFormatter
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
+from embedchain.models.data_type import (DataType, DirectDataType,
+                                         IndirectDataType, SpecialDataType)
 from embedchain.utils.misc import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -642,9 +645,10 @@ class EmbedChain(JSONSerializable):
         """
         try:
             self.db_session.query(DataSource).filter_by(app_id=self.config.id).delete()
+            self.db_session.query(ChatHistory).filter_by(app_id=self.config.id).delete()
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error deleting chat history: {e}")
+            logging.error(f"Error deleting data sources: {e}")
             self.db_session.rollback()
             return None
         self.db.reset()
@@ -682,6 +686,13 @@ class EmbedChain(JSONSerializable):
         :param source_hash: The hash of the source.
         :type source_hash: str
         """
+        try:
+            self.db_session.query(DataSource).filter_by(hash=source_id, app_id=self.config.id).delete()
+            self.db_session.commit()
+        except Exception as e:
+            logging.error(f"Error deleting data sources: {e}")
+            self.db_session.rollback()
+            return None
         self.db.delete(where={"hash": source_id})
         logging.info(f"Successfully deleted {source_id}")
         # Send anonymous telemetry
