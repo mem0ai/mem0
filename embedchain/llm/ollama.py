@@ -33,4 +33,4 @@ class OllamaLlm(BaseLlm):
             callback_manager=CallbackManager(callback_manager),
         )
 
-        return llm(prompt)
+        return llm.invoke(prompt)
