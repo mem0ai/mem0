@@ -40,4 +40,4 @@ class CohereLlm(BaseLlm):
             p=config.top_p,
         )
 
-        return llm(prompt)
+        return llm.invoke(prompt)

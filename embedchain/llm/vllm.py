@@ -37,4 +37,4 @@ class VLLM(BaseLlm):
             llm_args.update(config.model_kwargs)
 
         llm = BaseVLLM(**llm_args)
-        return llm(prompt)
+        return llm.invoke(prompt)

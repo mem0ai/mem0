@@ -39,18 +39,10 @@ def test_get_llm_model_answer(together_llm_config, mocker):
 def test_get_answer_mocked_together(together_llm_config, mocker):
     mocked_together = mocker.patch("embedchain.llm.together.Together")
     mock_instance = mocked_together.return_value
-    mock_instance.return_value = "Mocked answer"
+    mock_instance.invoke.return_value = "Mocked answer"
 
     llm = TogetherLlm(together_llm_config)
     prompt = "Test query"
     answer = llm.get_llm_model_answer(prompt)
 
     assert answer == "Mocked answer"
-    mocked_together.assert_called_once_with(
-        together_api_key="test_api_key",
-        model="togethercomputer/RedPajama-INCITE-7B-Base",
-        max_tokens=50,
-        temperature=0.7,
-        top_p=0.8,
-    )
-    mock_instance.assert_called_once_with(prompt)

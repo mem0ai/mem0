@@ -48,4 +48,4 @@ class Llama2Llm(BaseLlm):
                 "top_p": self.config.top_p,
             },
         )
-        return llm(prompt)
+        return llm.invoke(prompt)
