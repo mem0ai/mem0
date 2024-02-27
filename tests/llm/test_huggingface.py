@@ -62,18 +62,19 @@ def test_get_llm_model_answer(huggingface_llm_config, mocker):
 
 def test_hugging_face_mock(huggingface_llm_config, mocker):
     mock_llm_instance = mocker.Mock(return_value="Test answer")
-    mocker.patch("embedchain.llm.huggingface.HuggingFaceHub", return_value=mock_llm_instance)
+    mock_hf_hub = mocker.patch("embedchain.llm.huggingface.HuggingFaceHub")
+    mock_hf_hub.return_value.invoke = mock_llm_instance
 
     llm = HuggingFaceLlm(huggingface_llm_config)
     answer = llm.get_llm_model_answer("Test query")
-
     assert answer == "Test answer"
     mock_llm_instance.assert_called_once_with("Test query")
 
 
 def test_custom_endpoint(huggingface_endpoint_config, mocker):
     mock_llm_instance = mocker.Mock(return_value="Test answer")
-    mocker.patch("embedchain.llm.huggingface.HuggingFaceEndpoint", return_value=mock_llm_instance)
+    mock_hf_endpoint = mocker.patch("embedchain.llm.huggingface.HuggingFaceEndpoint")
+    mock_hf_endpoint.return_value.invoke = mock_llm_instance
 
     llm = HuggingFaceLlm(huggingface_endpoint_config)
     answer = llm.get_llm_model_answer("Test query")
