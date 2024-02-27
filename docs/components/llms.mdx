@@ -451,7 +451,15 @@ pip install --upgrade 'embedchain[huggingface-hub]'
 
 First, set `HUGGINGFACE_ACCESS_TOKEN` in environment variable which you can obtain from [their platform](https://huggingface.co/settings/tokens).
 
-Once you have the token, load the app using the config yaml file:
+You can load the LLMs from Hugging Face using three ways:
+
+- [Hugging Face Hub](#hugging-face-hub)
+- [Hugging Face Local Pipelines](#hugging-face-local-pipelines)
+- [Hugging Face Inference Endpoint](#hugging-face-inference-endpoint)
+
+### Hugging Face Hub
+
+To load the model from Hugging Face Hub, use the following code:
 
 <CodeGroup>
 
@@ -461,24 +469,49 @@ from embedchain import App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+          "model": "bigscience/bloom-1b7",
+          "top_p": 0.5,
+          "max_length": 200,
+          "temperature": 0.1,
+      },
+  },
+}
 
-```yaml config.yaml
-llm:
-  provider: huggingface
-  config:
-    model: 'google/flan-t5-xxl'
-    temperature: 0.5
-    max_tokens: 1000
-    top_p: 0.5
-    stream: false
+app = App.from_config(config=config)
 ```
 </CodeGroup>
 
-### Custom Endpoints
+### Hugging Face Local Pipelines
 
+If you want to load the locally downloaded model from Hugging Face, you can do so by following the code provided below:
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+          "model": "Trendyol/Trendyol-LLM-7b-chat-v0.1",
+          "local": True,  # Necessary if you want to run model locally
+          "top_p": 0.5,
+          "max_tokens": 1000,
+          "temperature": 0.1,
+      },
+  }
+}
+app = App.from_config(config=config)
+```
+</CodeGroup>
+
+### Hugging Face Inference Endpoint
 
 You can also use [Hugging Face Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index#-inference-endpoints) to access custom endpoints. First, set the `HUGGINGFACE_ACCESS_TOKEN` as above.
 
@@ -487,34 +520,22 @@ Then, load the app using the config yaml file:
 <CodeGroup>
 
 ```python main.py
-import os
 from embedchain import App
 
-os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+        "endpoint": "https://api-inference.huggingface.co/models/gpt2",
+        "model_params": {"temprature": 0.1, "max_new_tokens": 100}
+      },
+  },
+}
+app = App.from_config(config=config)
 
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
-
-```yaml config.yaml
-llm:
-  provider: huggingface
-  config:
-    endpoint: https://api-inference.huggingface.co/models/gpt2 # replace with your personal endpoint
 ```
 </CodeGroup>
-
-If your endpoint requires additional parameters, you can pass them in the `model_kwargs` field:
-
-```
-llm:
-  provider: huggingface
-  config:
-    endpoint: <YOUR_ENDPOINT_URL_HERE>
-    model_kwargs:
-      max_new_tokens: 100
-      temperature: 0.5
-```
 
 Currently only supports `text-generation` and `text2text-generation` for now [[ref](https://api.python.langchain.com/en/latest/llms/langchain_community.llms.huggingface_endpoint.HuggingFaceEndpoint.html?highlight=huggingfaceendpoint#)].
 
