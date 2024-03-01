@@ -13,6 +13,7 @@ Embedchain supports several embedding models from the following providers:
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
+  <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -219,4 +220,56 @@ embedder:
     model: 'textembedding-gecko'
 ```
 
+</CodeGroup>
+
+## NVIDIA AI
+
+[NVIDIA AI Foundation Endpoints](https://www.nvidia.com/en-us/ai-data-science/foundation-models/) let you quickly use NVIDIA's AI models, such as Mixtral 8x7B, Llama 2 etc, through our API. These models are available in the [NVIDIA NGC catalog](https://catalog.ngc.nvidia.com/ai-foundation-models), fully optimized and ready to use on NVIDIA's AI platform. They are designed for high speed and easy customization, ensuring smooth performance on any accelerated setup.
+
+
+### Usage
+
+In order to use embedding models and LLMs from NVIDIA AI, create an account on [NVIDIA NGC Service](https://catalog.ngc.nvidia.com/).
+
+Generate an API key from their dashboard. Set the API key as `NVIDIA_API_KEY` environment variable. Note that the `NVIDIA_API_KEY` will start with `nvapi-`.
+
+Below is an example of how to use LLM model and embedding model from NVIDIA AI:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['NVIDIA_API_KEY'] = 'nvapi-xxxx'
+
+config = {
+    "app": {
+        "config": {
+            "id": "my-app",
+        },
+    },
+    "llm": {
+        "provider": "nvidia",
+        "config": {
+            "model": "nemotron_steerlm_8b",
+        },
+    },
+    "embedder": {
+        "provider": "nvidia",
+        "config": {
+            "model": "nvolveqa_40k",
+            "vector_dimension": 1024,
+        },
+    },
+}
+
+app = App.from_config(config=config)
+
+app.add("https://www.forbes.com/profile/elon-musk")
+answer = app.query("What is the net worth of Elon Musk today?")
+# Answer: The net worth of Elon Musk is subject to fluctuations based on the market value of his holdings in various companies.
+# As of March 1, 2024, his net worth is estimated to be approximately $210 billion. However, this figure can change rapidly due to stock market fluctuations and other factors.
+# Additionally, his net worth may include other assets such as real estate and art, which are not reflected in his stock portfolio.
+```
 </CodeGroup>

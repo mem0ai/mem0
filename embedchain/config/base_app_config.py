@@ -36,7 +36,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
         defaults to None
         :type collection_name: Optional[str], optional
         """
-        self._setup_logging(log_level)
         self.id = id
         self.collect_metrics = True if (collect_metrics is True or collect_metrics is None) else False
         self.collection_name = collection_name
@@ -52,12 +51,6 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
             logging.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
         return
 
-    def _setup_logging(self, debug_level):
-        level = logging.WARNING  # Default level
-        if debug_level is not None:
-            level = getattr(logging, debug_level.upper(), None)
-            if not isinstance(level, int):
-                raise ValueError(f"Invalid log level: {debug_level}")
-
-        logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=level)
+    def _setup_logging(self, log_level):
+        logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=log_level)
         self.logger = logging.getLogger(__name__)
