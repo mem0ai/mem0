@@ -407,6 +407,7 @@ def validate_config(config_data):
                     "mistralai",
                     "vllm",
                     "groq",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -443,6 +444,7 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
@@ -462,6 +464,7 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): str,

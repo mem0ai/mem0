@@ -84,7 +84,7 @@ class App(EmbedChain):
         if name and config:
             raise Exception("Cannot provide both name and config. Please provide only one of them.")
 
-        logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        # logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
 
         # Initialize the metadata db for the app
