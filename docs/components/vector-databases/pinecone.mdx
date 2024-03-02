@@ -98,6 +98,9 @@ app.add("/path/to/file.pdf", data_type="pdf_file", namespace="my-namespace")
 
 # Query
 app.query("<YOUR QUESTION HERE>", namespace="my-namespace")
+
+# Chat
+app.chat("<YOUR QUESTION HERE>", namespace="my-namespace")
 ```
 
 Under the hood, Embedchain fetches the relevant chunks from the documents you added by doing hybrid search on the pinecone index.
