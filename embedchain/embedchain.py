@@ -588,7 +588,7 @@ class EmbedChain(JSONSerializable):
         else:
             return answer
 
-    def search(self, query, num_documents=3, where=None, raw_filter=None):
+    def search(self, query, num_documents=3, where=None, raw_filter=None, namespace=None):
         """
         Search for similar documents related to the query in the vector database.
 
@@ -597,6 +597,7 @@ class EmbedChain(JSONSerializable):
             num_documents (int, optional): Number of similar documents to fetch. Defaults to 3.
             where (dict[str, any], optional): Filter criteria for the search.
             raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
+            namespace (str, optional): The namespace to search in. Defaults to None.
 
         Raises:
             ValueError: If both `raw_filter` and `where` are used simultaneously.
@@ -618,6 +619,7 @@ class EmbedChain(JSONSerializable):
             "n_results": num_documents,
             "citations": True,
             "app_id": self.config.id,
+            "namespace": namespace,
             filter_type: filter_criteria,
         }
 
