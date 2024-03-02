@@ -230,6 +230,9 @@ class PineconeDB(BaseVectorDB):
     @staticmethod
     def _generate_filter(where: dict):
         query = {}
+        if where is None:
+            return query
+
         for k, v in where.items():
             query[k] = {"$eq": v}
         return query
