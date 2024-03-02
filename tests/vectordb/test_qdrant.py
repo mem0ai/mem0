@@ -29,7 +29,7 @@ class TestQdrantDB(unittest.TestCase):
     def test_initialize(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
         embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
@@ -37,7 +37,7 @@ class TestQdrantDB(unittest.TestCase):
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedding_model=embedder)
 
-        self.assertEqual(db.collection_name, "embedchain-store-1526")
+        self.assertEqual(db.collection_name, "embedchain-store-1536")
         self.assertEqual(db.client, qdrant_client_mock.return_value)
         qdrant_client_mock.return_value.get_collections.assert_called_once()
 
@@ -47,7 +47,7 @@ class TestQdrantDB(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
         embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
@@ -67,7 +67,7 @@ class TestQdrantDB(unittest.TestCase):
 
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
         embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
@@ -80,9 +80,9 @@ class TestQdrantDB(unittest.TestCase):
         ids = ["123", "456"]
         db.add(documents, metadatas, ids)
         qdrant_client_mock.return_value.upsert.assert_called_once_with(
-            collection_name="embedchain-store-1526",
+            collection_name="embedchain-store-1536",
             points=Batch(
-                ids=["def", "ghi"],
+                ids=["abc", "def"],
                 payloads=[
                     {
                         "identifier": "123",
@@ -103,7 +103,7 @@ class TestQdrantDB(unittest.TestCase):
     def test_query(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
         embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
@@ -115,7 +115,7 @@ class TestQdrantDB(unittest.TestCase):
         db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"})
 
         qdrant_client_mock.return_value.search.assert_called_once_with(
-            collection_name="embedchain-store-1526",
+            collection_name="embedchain-store-1536",
             query_filter=models.Filter(
                 must=[
                     models.FieldCondition(
@@ -134,7 +134,7 @@ class TestQdrantDB(unittest.TestCase):
     def test_count(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
         embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
@@ -143,13 +143,13 @@ class TestQdrantDB(unittest.TestCase):
         App(config=app_config, db=db, embedding_model=embedder)
 
         db.count()
-        qdrant_client_mock.return_value.get_collection.assert_called_once_with(collection_name="embedchain-store-1526")
+        qdrant_client_mock.return_value.get_collection.assert_called_once_with(collection_name="embedchain-store-1536")
 
     @patch("embedchain.vectordb.qdrant.QdrantClient")
     def test_reset(self, qdrant_client_mock):
         # Set the embedder
         embedder = BaseEmbedder()
-        embedder.set_vector_dimension(1526)
+        embedder.set_vector_dimension(1536)
         embedder.set_embedding_fn(mock_embedding_fn)
 
         # Create a Qdrant instance
@@ -159,7 +159,7 @@ class TestQdrantDB(unittest.TestCase):
 
         db.reset()
         qdrant_client_mock.return_value.delete_collection.assert_called_once_with(
-            collection_name="embedchain-store-1526"
+            collection_name="embedchain-store-1536"
         )
 
 

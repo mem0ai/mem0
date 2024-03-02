@@ -31,28 +31,33 @@ This section gives a quickstart example of using Mistral as the Open source LLM 
 We are using Mistral hosted at Hugging Face, so will you need a Hugging Face token to run this example. Its *free* and you can create one [here](https://huggingface.co/docs/hub/security-tokens).
 
 <CodeGroup>
-```python quickstart.py
+```python huggingface_demo.py
 import os
-# replace this with your HF key
+# Replace this with your HF token
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "hf_xxxx"
 
 from embedchain import App
-app = App.from_config("mistral.yaml")
+
+config = {
+  'llm': {
+    'provider': 'huggingface',
+    'config': {
+      'model': 'mistralai/Mistral-7B-Instruct-v0.2',
+      'top_p': 0.5
+    }
+  },
+  'embedder': {
+    'provider': 'huggingface',
+    'config': {
+      'model': 'sentence-transformers/all-mpnet-base-v2'
+    }
+  }
+}
+app = App.from_config(config=config)
 app.add("https://www.forbes.com/profile/elon-musk")
 app.add("https://en.wikipedia.org/wiki/Elon_Musk")
 app.query("What is the net worth of Elon Musk today?")
 # Answer: The net worth of Elon Musk today is $258.7 billion.
-```
-```yaml mistral.yaml
-llm:
-  provider: huggingface
-  config:
-    model: 'mistralai/Mistral-7B-Instruct-v0.2'
-    top_p: 0.5
-embedder:
-  provider: huggingface
-  config:
-    model: 'sentence-transformers/all-mpnet-base-v2'
 ```
 </CodeGroup>
 
@@ -60,12 +65,13 @@ embedder:
 
 In this section, we will use both LLM and embedding model from OpenAI.
 
-```python quickstart.py
+```python openai_demo.py
 import os
-# replace this with your OpenAI key
+from embedchain import App
+
+# Replace this with your OpenAI key
 os.environ["OPENAI_API_KEY"] = "sk-xxxx"
 
-from embedchain import App
 app = App()
 app.add("https://www.forbes.com/profile/elon-musk")
 app.add("https://en.wikipedia.org/wiki/Elon_Musk")
