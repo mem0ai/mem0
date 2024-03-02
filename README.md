@@ -30,6 +30,10 @@
   </a>
 </p>
 
+<p align="center">
+    <a href="docs/README_ZH.md"><img src="https://img.shields.io/badge/文档-中文版-white.svg" alt="ZH doc"/></a>
+</p>
+
 <hr />
 
 ## What is Embedchain?
