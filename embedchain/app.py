@@ -106,7 +106,7 @@ class App(EmbedChain):
 
         self.config = config or AppConfig()
         self.name = self.config.name
-        self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
+        self.config.id = self.local_id = "default-app-id" if self.config.id is None else self.config.id
 
         if id is not None:
             # Init client first since user is trying to fetch the pipeline
