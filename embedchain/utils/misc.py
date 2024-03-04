@@ -79,9 +79,6 @@ def clean_string(text):
         cleaned_text (str): The cleaned text after all the cleaning operations
         have been performed.
     """
-    # Replacement of newline characters:
-    text = text.replace("\n", " ")
-
     # Stripping and reducing multiple spaces to single:
     cleaned_text = re.sub(r"\s+", " ", text.strip())
 
@@ -109,11 +106,11 @@ def is_readable(s):
     :param s: string
     :return: True if the string is more than 95% printable.
     """
-    try:
-        printable_ratio = sum(c in string.printable for c in s) / len(s)
-    except ZeroDivisionError:
-        logging.warning("Empty string processed as unreadable")
-        printable_ratio = 0
+    len_s = len(s)
+    if len_s == 0:
+        return False
+    printable_chars = set(string.printable)
+    printable_ratio = sum(c in printable_chars for c in s) / len_s
     return printable_ratio > 0.95  # 95% of characters are printable
 
 
@@ -406,9 +403,15 @@ def validate_config(config_data):
                     "llama2",
                     "vertexai",
                     "google",
+                    "aws_bedrock",
+                    "mistralai",
+                    "vllm",
+                    "groq",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
+                    Optional("model_name"): str,
                     Optional("number_documents"): int,
                     Optional("temperature"): float,
                     Optional("max_tokens"): int,
@@ -423,6 +426,8 @@ def validate_config(config_data):
                     Optional("api_key"): str,
                     Optional("base_url"): str,
                     Optional("endpoint"): str,
+                    Optional("model_kwargs"): dict,
+                    Optional("local"): bool,
                 },
             },
             Optional("vectordb"): {
@@ -432,7 +437,16 @@ def validate_config(config_data):
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
             Optional("embedder"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
+                Optional("provider"): Or(
+                    "openai",
+                    "gpt4all",
+                    "huggingface",
+                    "vertexai",
+                    "azure_openai",
+                    "google",
+                    "mistralai",
+                    "nvidia",
+                ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
@@ -444,7 +458,16 @@ def validate_config(config_data):
                 },
             },
             Optional("embedding_model"): {
-                Optional("provider"): Or("openai", "gpt4all", "huggingface", "vertexai", "azure_openai", "google"),
+                Optional("provider"): Or(
+                    "openai",
+                    "gpt4all",
+                    "huggingface",
+                    "vertexai",
+                    "azure_openai",
+                    "google",
+                    "mistralai",
+                    "nvidia",
+                ),
                 Optional("config"): {
                     Optional("model"): str,
                     Optional("deployment_name"): str,

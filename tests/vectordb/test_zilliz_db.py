@@ -130,7 +130,11 @@ class TestZillizDBCollection:
                 [
                     {
                         "distance": 0.0,
-                        "entity": {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "embeddings": [1, 2, 3]},
+                        "entity": {
+                            "text": "result_doc",
+                            "embeddings": [1, 2, 3],
+                            "metadata": {"url": "url_1", "doc_id": "doc_id_1"},
+                        },
                     }
                 ]
             ]
@@ -141,6 +145,7 @@ class TestZillizDBCollection:
             mock_search.assert_called_with(
                 collection_name=mock_config.collection_name,
                 data=["query_vector"],
+                filter="",
                 limit=1,
                 output_fields=["*"],
             )
@@ -155,10 +160,9 @@ class TestZillizDBCollection:
             mock_search.assert_called_with(
                 collection_name=mock_config.collection_name,
                 data=["query_vector"],
+                filter="",
                 limit=1,
                 output_fields=["*"],
             )
 
-            assert query_result_with_citations == [
-                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "score": 0.0})
-            ]
+            assert query_result_with_citations == [("result_doc", {"url": "url_1", "doc_id": "doc_id_1", "score": 0.0})]

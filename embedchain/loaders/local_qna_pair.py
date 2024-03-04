@@ -11,14 +11,14 @@ class LocalQnaPairLoader(BaseLoader):
         question, answer = content
         content = f"Q: {question}\nA: {answer}"
         url = "local"
-        meta_data = {"url": url, "question": question}
+        metadata = {"url": url, "question": question}
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
             "doc_id": doc_id,
             "data": [
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }

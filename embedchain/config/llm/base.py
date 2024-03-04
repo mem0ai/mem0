@@ -7,39 +7,60 @@ from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
 
 DEFAULT_PROMPT = """
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer.
+You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. Here are some guidelines to follow:
 
-  $context
+1. Refrain from explicitly mentioning the context provided in your response.
+2. The context should silently guide your answers without being directly acknowledged.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
 
-  Query: $query
+Context information:
+----------------------
+$context
+----------------------
 
-  Helpful Answer:
+Query: $query
+Answer:
 """  # noqa:E501
 
 DEFAULT_PROMPT_WITH_HISTORY = """
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer.
-  I will provide you with our conversation history.
+You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. You are also provided with the conversation history with the user. Make sure to use relevant context from conversation history as needed.
 
-  $context
+Here are some guidelines to follow:
 
-  History: $history
+1. Refrain from explicitly mentioning the context provided in your response.
+2. The context should silently guide your answers without being directly acknowledged.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
 
-  Query: $query
+Context information:
+----------------------
+$context
+----------------------
 
-  Helpful Answer:
+Conversation history:
+----------------------
+$history
+----------------------
+
+Query: $query
+Answer:
 """  # noqa:E501
 
 DOCS_SITE_DEFAULT_PROMPT = """
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
+You are an expert AI assistant for developer support product. Your responses must always be rooted in the context provided for each query. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
 
-  $context
+Here are some guidelines to follow:
 
-  Query: $query
+1. Refrain from explicitly mentioning the context provided in your response.
+2. The context should silently guide your answers without being directly acknowledged.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
 
-  Helpful Answer:
+Context information:
+----------------------
+$context
+----------------------
+
+Query: $query
+Answer:
 """  # noqa:E501
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
@@ -75,6 +96,7 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
+        local: Optional[bool] = False,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -118,6 +140,8 @@ class BaseLlmConfig(BaseConfig):
         :type callbacks: Optional[list], optional
         :param query_type: The type of query to use, defaults to None
         :type query_type: Optional[str], optional
+        :param local: If True, the model will be run locally, defaults to False (for huggingface provider)
+        :type local: Optional[bool], optional
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
@@ -146,6 +170,7 @@ class BaseLlmConfig(BaseConfig):
         self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+        self.local = local
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

@@ -5,31 +5,10 @@ description: 'Deploy your RAG application to embedchain.ai platform'
 
 ## Deploy on Embedchain Platform
 
-Embedchain enables developers to deploy their LLM-powered apps in production using the [Embedchain platform](https://app.embedchain.ai). The platform offers free access to context on your data through its REST API. Once the pipeline is deployed, you can update your data sources anytime after deployment.
+Embedchain enables developers to deploy their LLM-powered apps in production using the Embedchain platform. The platform offers free access to context on your data through its REST API. Once the pipeline is deployed, you can update your data sources anytime after deployment.
 
-See the example below on how to use the deploy your app (for free):
+Deployment to Embedchain Platform is currently available on an invitation-only basis. To request access, please submit your information via the provided [Google Form](https://forms.gle/vigN11h7b4Ywat668). We will review your request and respond promptly.
 
-```python
-from embedchain import App
-
-# Initialize app
-app = App()
-
-# Add data source
-app.add("https://www.forbes.com/profile/elon-musk")
-
-# Deploy your pipeline to Embedchain Platform
-app.deploy()
-
-# 🔑 Enter your Embedchain API key. You can find the API key at https://app.embedchain.ai/settings/keys/
-# ec-xxxxxx
-
-# 🛠️ Creating pipeline on the platform...
-# 🎉🎉🎉 Pipeline created successfully! View your pipeline: https://app.embedchain.ai/pipelines/xxxxx
-
-# 🛠️ Adding data to your pipeline...
-# ✅ Data of type: web_page, value: https://www.forbes.com/profile/elon-musk added successfully.
-```
 
 ## Seeking help?
 

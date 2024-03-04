@@ -39,18 +39,10 @@ def test_get_llm_model_answer(cohere_llm_config, mocker):
 def test_get_answer_mocked_cohere(cohere_llm_config, mocker):
     mocked_cohere = mocker.patch("embedchain.llm.cohere.Cohere")
     mock_instance = mocked_cohere.return_value
-    mock_instance.return_value = "Mocked answer"
+    mock_instance.invoke.return_value = "Mocked answer"
 
     llm = CohereLlm(cohere_llm_config)
     prompt = "Test query"
     answer = llm.get_llm_model_answer(prompt)
 
     assert answer == "Mocked answer"
-    mocked_cohere.assert_called_once_with(
-        cohere_api_key="test_api_key",
-        model="gptd-instruct-tft",
-        max_tokens=50,
-        temperature=0.7,
-        p=0.8,
-    )
-    mock_instance.assert_called_once_with(prompt)

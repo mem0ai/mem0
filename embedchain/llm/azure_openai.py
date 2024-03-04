@@ -16,7 +16,7 @@ class AzureOpenAILlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain.chat_models import AzureChatOpenAI
+        from langchain_community.chat_models import AzureChatOpenAI
 
         if not config.deployment_name:
             raise ValueError("Deployment name must be provided for Azure OpenAI")

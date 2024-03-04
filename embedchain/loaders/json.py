@@ -36,7 +36,9 @@ class JSONReader:
         return ["\n".join(useful_lines)]
 
 
-VALID_URL_PATTERN = "^https:\/\/[0-9A-Za-z]+(\.[0-9A-Za-z]+)*\/[0-9A-Za-z_\/]*\.json$"
+VALID_URL_PATTERN = (
+    "^https?://(?:www\.)?(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-zA-Z0-9.-]+)(?::\d+)?/(?:[^/\s]+/)*[^/\s]+\.json$"
+)
 
 
 class JSONLoader(BaseLoader):

@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional, Union
 
@@ -5,8 +6,10 @@ try:
     import pinecone
 except ImportError:
     raise ImportError(
-        "Pinecone requires extra dependencies. Install with `pip install --upgrade 'embedchain[pinecone]'`"
+        "Pinecone requires extra dependencies. Install with `pip install pinecone-text pinecone-client`"
     ) from None
+
+from pinecone_text.sparse import BM25Encoder
 
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -41,7 +44,14 @@ class PineconeDB(BaseVectorDB):
                     "Please make sure the type is right and that you are passing an instance."
                 )
             self.config = config
-        self.client = self._setup_pinecone_index()
+        self._setup_pinecone_index()
+
+        # Setup BM25Encoder if sparse vectors are to be used
+        self.bm25_encoder = None
+        if self.config.hybrid_search:
+            logging.info("Initializing BM25Encoder for sparse vectors..")
+            self.bm25_encoder = self.config.bm25_encoder if self.config.bm25_encoder else BM25Encoder.default()
+
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
 
@@ -52,20 +62,30 @@ class PineconeDB(BaseVectorDB):
         if not self.embedder:
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
-    # Loads the Pinecone index or creates it if not present.
     def _setup_pinecone_index(self):
-        pinecone.init(
-            api_key=os.environ.get("PINECONE_API_KEY"),
-            environment=os.environ.get("PINECONE_ENV"),
-            **self.config.extra_params,
-        )
-        self.index_name = self._get_index_name()
-        indexes = pinecone.list_indexes()
-        if indexes is None or self.index_name not in indexes:
-            pinecone.create_index(
-                name=self.index_name, metric=self.config.metric, dimension=self.config.vector_dimension
+        """
+        Loads the Pinecone index or creates it if not present.
+        """
+        api_key = self.config.api_key or os.environ.get("PINECONE_API_KEY")
+        if not api_key:
+            raise ValueError("Please set the PINECONE_API_KEY environment variable or pass it in config.")
+        self.client = pinecone.Pinecone(api_key=api_key, **self.config.extra_params)
+        indexes = self.client.list_indexes().names()
+        if indexes is None or self.config.index_name not in indexes:
+            if self.config.pod_config:
+                spec = pinecone.PodSpec(**self.config.pod_config)
+            elif self.config.serverless_config:
+                spec = pinecone.ServerlessSpec(**self.config.serverless_config)
+            else:
+                raise ValueError("No pod_config or serverless_config found.")
+
+            self.client.create_index(
+                name=self.config.index_name,
+                metric=self.config.metric,
+                dimension=self.config.vector_dimension,
+                spec=spec,
             )
-        return pinecone.Index(self.index_name)
+        self.pinecone_index = self.client.Index(self.config.index_name)
 
     def get(self, ids: Optional[list[str]] = None, where: Optional[dict[str, any]] = None, limit: Optional[int] = None):
         """
@@ -79,12 +99,17 @@ class PineconeDB(BaseVectorDB):
         :rtype: Set[str]
         """
         existing_ids = list()
+        metadatas = []
+
+        batch_size = 100
         if ids is not None:
-            for i in range(0, len(ids), 1000):
-                result = self.client.fetch(ids=ids[i : i + 1000])
-                batch_existing_ids = list(result.get("vectors").keys())
+            for i in range(0, len(ids), batch_size):
+                result = self.pinecone_index.fetch(ids=ids[i : i + batch_size])
+                vectors = result.get("vectors")
+                batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
-        return {"ids": existing_ids}
+                metadatas.extend([vectors.get(ids).get("metadata") for ids in batch_existing_ids])
+        return {"ids": existing_ids, "metadatas": metadatas}
 
     def add(
         self,
@@ -103,54 +128,71 @@ class PineconeDB(BaseVectorDB):
         :type ids: list[str]
         """
         docs = []
-        print("Adding documents to Pinecone...")
         embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
+            # Insert sparse vectors as well if the user wants to do the hybrid search
+            sparse_vector_dict = (
+                {"sparse_values": self.bm25_encoder.encode_documents(text)} if self.bm25_encoder else {}
+            )
             docs.append(
                 {
                     "id": id,
                     "values": embedding,
                     "metadata": {**metadata, "text": text},
-                }
+                    **sparse_vector_dict,
+                },
             )
 
-        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches..."):
-            self.client.upsert(chunk, **kwargs)
+        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches"):
+            self.pinecone_index.upsert(chunk, **kwargs)
 
     def query(
         self,
         input_query: list[str],
         n_results: int,
-        where: dict[str, any],
+        where: Optional[dict[str, any]] = None,
+        raw_filter: Optional[dict[str, any]] = None,
         citations: bool = False,
+        app_id: Optional[str] = None,
         **kwargs: Optional[dict[str, any]],
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
-        query contents from vector database based on vector similarity
-        :param input_query: list of query string
-        :type input_query: list[str]
-        :param n_results: no of similar documents to fetch from database
-        :type n_results: int
-        :param where: Optional. to filter data
-        :type where: dict[str, any]
-        :param citations: we use citations boolean param to return context along with the answer.
-        :type citations: bool, default is False.
-        :return: The content of the document that matched your query,
-        along with url of the source and doc_id (if citations flag is true)
-        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
+        Query contents from vector database based on vector similarity.
+
+        Args:
+            input_query (list[str]): List of query strings.
+            n_results (int): Number of similar documents to fetch from the database.
+            where (dict[str, any], optional): Filter criteria for the search.
+            raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
+            citations (bool, optional): Flag to return context along with metadata. Defaults to False.
+            app_id (str, optional): Application ID to be passed to Pinecone.
+
+        Returns:
+            Union[list[tuple[str, dict]], list[str]]: List of document contexts, optionally with metadata.
         """
+        query_filter = raw_filter if raw_filter is not None else self._generate_filter(where)
+        if app_id:
+            query_filter["app_id"] = {"$eq": app_id}
+
         query_vector = self.embedder.embedding_fn([input_query])[0]
-        data = self.client.query(vector=query_vector, filter=where, top_k=n_results, include_metadata=True, **kwargs)
-        contexts = []
-        for doc in data["matches"]:
-            metadata = doc["metadata"]
-            context = metadata["text"]
-            if citations:
-                metadata["score"] = doc["score"]
-                contexts.append(tuple((context, metadata)))
-            else:
-                contexts.append(context)
-        return contexts
+        params = {
+            "vector": query_vector,
+            "filter": query_filter,
+            "top_k": n_results,
+            "include_metadata": True,
+            **kwargs,
+        }
+
+        if self.bm25_encoder:
+            sparse_query_vector = self.bm25_encoder.encode_queries(input_query)
+            params["sparse_vector"] = sparse_query_vector
+
+        data = self.pinecone_index.query(**params)
+        return [
+            (metadata.get("text"), {**metadata, "score": doc.get("score")}) if citations else metadata.get("text")
+            for doc in data.get("matches", [])
+            for metadata in [doc.get("metadata", {})]
+        ]
 
     def set_collection_name(self, name: str):
         """
@@ -170,7 +212,8 @@ class PineconeDB(BaseVectorDB):
         :return: number of documents
         :rtype: int
         """
-        return self.client.describe_index_stats()["total_vector_count"]
+        data = self.pinecone_index.describe_index_stats()
+        return data["total_vector_count"]
 
     def _get_or_create_db(self):
         """Called during initialization"""
@@ -181,14 +224,29 @@ class PineconeDB(BaseVectorDB):
         Resets the database. Deletes all embeddings irreversibly.
         """
         # Delete all data from the database
-        pinecone.delete_index(self.index_name)
+        self.client.delete_index(self.config.index_name)
         self._setup_pinecone_index()
 
-    # Pinecone only allows alphanumeric characters and "-" in the index name
-    def _get_index_name(self) -> str:
-        """Get the Pinecone index for a collection
+    @staticmethod
+    def _generate_filter(where: dict):
+        query = {}
+        if where is None:
+            return query
 
-        :return: Pinecone index
-        :rtype: str
+        for k, v in where.items():
+            query[k] = {"$eq": v}
+        return query
+
+    def delete(self, where: dict):
+        """Delete from database.
+        :param ids: list of ids to delete
+        :type ids: list[str]
         """
-        return f"{self.config.collection_name}-{self.config.vector_dimension}".lower().replace("_", "-")
+        # Deleting with filters is not supported for `starter` index type.
+        # Follow `https://docs.pinecone.io/docs/metadata-filtering#deleting-vectors-by-metadata-filter` for more details
+        db_filter = self._generate_filter(where)
+        try:
+            self.pinecone_index.delete(filter=db_filter)
+        except Exception as e:
+            print(f"Failed to delete from Pinecone: {e}")
+            return

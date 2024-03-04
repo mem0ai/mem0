@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-from langchain.embeddings import AzureOpenAIEmbeddings
+from langchain_community.embeddings import AzureOpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder

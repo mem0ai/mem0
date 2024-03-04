@@ -20,6 +20,10 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Llama2" href="#llama2"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
+  <Card title="Mistral AI" href="#mistral-ai"></Card>
+  <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
+  <Card title="Groq" href="#groq"></Card>
+  <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -66,125 +70,75 @@ llm:
 </CodeGroup>
 
 ### Function Calling
-To enable [function calling](https://platform.openai.com/docs/guides/function-calling) in your application using embedchain and OpenAI, you need to pass functions into `OpenAILlm` class as an array of functions. Here are several ways in which you can achieve that:
+Embedchain supports OpenAI [Function calling](https://platform.openai.com/docs/guides/function-calling) with a single function. It accepts inputs in accordance with the [Langchain interface](https://python.langchain.com/docs/modules/model_io/chat/function_calling#legacy-args-functions-and-function_call).
 
-Examples:
-<Accordion title="Using Pydantic Models">
+<Accordion title="Pydantic Model">
   ```python
-import os
-from embedchain import App
-from embedchain.llm.openai import OpenAILlm
-import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
+  from pydantic import BaseModel
 
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
+  class multiply(BaseModel):
+      """Multiply two integers together."""
 
-class QA(BaseModel):
-    """
-    A question and answer pair.
-    """
-
-    question: str = Field(
-        ..., description="The question.", example="What is a mountain?"
-    )
-    answer: str = Field(
-        ..., description="The answer.", example="A mountain is a hill."
-    )
-    person_who_is_asking: str = Field(
-        ..., description="The person who is asking the question.", example="John"
-    )
-
-    @field_validator("question")
-    def question_must_end_with_a_question_mark(cls, v):
-        """
-        Validate that the question ends with a question mark.
-        """
-        if not v.endswith("?"):
-            raise ValueError("question must end with a question mark")
-        return v
-
-    @field_validator("answer")
-    def answer_must_end_with_a_period(cls, v):
-        """
-        Validate that the answer ends with a period.
-        """
-        if not v.endswith("."):
-            raise ValueError("answer must end with a period")
-        return v
-
-llm = OpenAILlm(config=None,functions=[QA])
-app = App(llm=llm)
-
-result = app.query("Hey I am Sid. What is a mountain? A mountain is a hill.")
-
-print(result)
+      a: int = Field(..., description="First integer")
+      b: int = Field(..., description="Second integer")
   ```
-  </Accordion>
-  
-  <Accordion title="Using OpenAI JSON schema">
+</Accordion>
+
+<Accordion title="Python function">
+  ```python
+  def multiply(a: int, b: int) -> int:
+      """Multiply two integers together.
+
+      Args:
+          a: First integer
+          b: Second integer
+      """
+      return a * b
+  ```
+</Accordion>
+<Accordion title="OpenAI tool dictionary">
+  ```python
+  multiply = {
+    "type": "function",
+    "function": {
+      "name": "multiply",
+      "description": "Multiply two integers together.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "description": "First integer",
+            "type": "integer"
+          },
+          "b": {
+            "description": "Second integer",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ]
+      }
+    }
+  }
+  ```
+</Accordion>
+
+With any of the previous inputs, the OpenAI LLM can be queried to provide the appropriate arguments for the function.
+
 ```python
 import os
 from embedchain import App
 from embedchain.llm.openai import OpenAILlm
-import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
 
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
-json_schema = {
-    "name": "get_qa",
-    "description": "A question and answer pair and the user who is asking the question.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "question": {"type": "string", "description": "The question."},
-            "answer": {"type": "string", "description": "The answer."},
-            "person_who_is_asking": {
-                "type": "string",
-                "description": "The person who is asking the question.",
-            }
-        },
-        "required": ["question", "answer", "person_who_is_asking"],
-    },
-}
-
-llm = OpenAILlm(config=None,functions=[json_schema])
+llm = OpenAILlm(tools=multiply)
 app = App(llm=llm)
 
-result = app.query("Hey I am Sid. What is a mountain? A mountain is a hill.")
-
-print(result)
-  ```
-  </Accordion>
-  <Accordion title="Using actual python functions">
-  ```python
-import os
-from embedchain import App
-from embedchain.llm.openai import OpenAILlm
-import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
-
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
-
-def find_info_of_pokemon(pokemon: str):
-    """
-    Find the information of the given pokemon.
-    Args:
-        pokemon: The pokemon.
-    """
-    req = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon}")
-    if req.status_code == 404:
-        raise ValueError("pokemon not found")
-    return req.json()
-
-llm = OpenAILlm(config=None,functions=[find_info_of_pokemon])
-app = App(llm=llm)
-
-result = app.query("Tell me more about the pokemon pikachu.")
-
-print(result)
+result = app.query("What is the result of 125 multiplied by fifteen?")
 ```
-</Accordion>
 
 ## Google AI
 
@@ -498,7 +452,15 @@ pip install --upgrade 'embedchain[huggingface-hub]'
 
 First, set `HUGGINGFACE_ACCESS_TOKEN` in environment variable which you can obtain from [their platform](https://huggingface.co/settings/tokens).
 
-Once you have the token, load the app using the config yaml file:
+You can load the LLMs from Hugging Face using three ways:
+
+- [Hugging Face Hub](#hugging-face-hub)
+- [Hugging Face Local Pipelines](#hugging-face-local-pipelines)
+- [Hugging Face Inference Endpoint](#hugging-face-inference-endpoint)
+
+### Hugging Face Hub
+
+To load the model from Hugging Face Hub, use the following code:
 
 <CodeGroup>
 
@@ -508,24 +470,49 @@ from embedchain import App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+          "model": "bigscience/bloom-1b7",
+          "top_p": 0.5,
+          "max_length": 200,
+          "temperature": 0.1,
+      },
+  },
+}
 
-```yaml config.yaml
-llm:
-  provider: huggingface
-  config:
-    model: 'google/flan-t5-xxl'
-    temperature: 0.5
-    max_tokens: 1000
-    top_p: 0.5
-    stream: false
+app = App.from_config(config=config)
 ```
 </CodeGroup>
 
-### Custom Endpoints
+### Hugging Face Local Pipelines
 
+If you want to load the locally downloaded model from Hugging Face, you can do so by following the code provided below:
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+          "model": "Trendyol/Trendyol-LLM-7b-chat-v0.1",
+          "local": True,  # Necessary if you want to run model locally
+          "top_p": 0.5,
+          "max_tokens": 1000,
+          "temperature": 0.1,
+      },
+  }
+}
+app = App.from_config(config=config)
+```
+</CodeGroup>
+
+### Hugging Face Inference Endpoint
 
 You can also use [Hugging Face Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index#-inference-endpoints) to access custom endpoints. First, set the `HUGGINGFACE_ACCESS_TOKEN` as above.
 
@@ -534,34 +521,22 @@ Then, load the app using the config yaml file:
 <CodeGroup>
 
 ```python main.py
-import os
 from embedchain import App
 
-os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+        "endpoint": "https://api-inference.huggingface.co/models/gpt2",
+        "model_params": {"temprature": 0.1, "max_new_tokens": 100}
+      },
+  },
+}
+app = App.from_config(config=config)
 
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
-
-```yaml config.yaml
-llm:
-  provider: huggingface
-  config:
-    endpoint: https://api-inference.huggingface.co/models/gpt2 # replace with your personal endpoint
 ```
 </CodeGroup>
-
-If your endpoint requires additional parameters, you can pass them in the `model_kwargs` field:
-
-```
-llm:
-  provider: huggingface
-  config:
-    endpoint: <YOUR_ENDPOINT_URL_HERE>
-    model_kwargs:
-      max_new_tokens: 100
-      temperature: 0.5
-```
 
 Currently only supports `text-generation` and `text2text-generation` for now [[ref](https://api.python.langchain.com/en/latest/llms/langchain_community.llms.huggingface_endpoint.HuggingFaceEndpoint.html?highlight=huggingfaceendpoint#)].
 
@@ -620,5 +595,194 @@ llm:
 ```
 </CodeGroup>
 
+
+## Mistral AI
+
+Obtain the Mistral AI api key from their [console](https://console.mistral.ai/).
+
+<CodeGroup>
+ 
+ ```python main.py
+os.environ["MISTRAL_API_KEY"] = "xxx"
+
+app = App.from_config(config_path="config.yaml")
+
+app.add("https://www.forbes.com/profile/elon-musk")
+
+response = app.query("what is the net worth of Elon Musk?")
+# As of January 16, 2024, Elon Musk's net worth is $225.4 billion.
+
+response = app.chat("which companies does elon own?")
+# Elon Musk owns Tesla, SpaceX, Boring Company, Twitter, and X.
+
+response = app.chat("what question did I ask you already?")
+# You have asked me several times already which companies Elon Musk owns, specifically Tesla, SpaceX, Boring Company, Twitter, and X.
+```
+  
+```yaml config.yaml
+llm:
+  provider: mistralai
+  config:
+    model: mistral-tiny
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+embedder:
+  provider: mistralai
+  config:
+    model: mistral-embed
+```
+</CodeGroup>
+
+
+## AWS Bedrock
+
+### Setup
+- Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- You will also need to authenticate the `boto3` client by using a method in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials)
+- You can optionally export an `AWS_REGION`
+
+
+### Usage
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["AWS_ACCESS_KEY_ID"] = "xxx"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "xxx"
+os.environ["AWS_REGION"] = "us-west-2"
+
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+llm:
+  provider: aws_bedrock
+  config:
+    model: amazon.titan-text-express-v1
+    # check notes below for model_kwargs
+    model_kwargs:
+      temperature: 0.5
+      topP: 1
+      maxTokenCount: 1000
+```
+</CodeGroup>
+
+<br />
+<Note>
+  The model arguments are different for each providers. Please refer to the [AWS Bedrock Documentation](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/providers) to find the appropriate arguments for your model.
+</Note>
+
 <br/ >
+
+## Groq
+
+[Groq](https://groq.com/) is the creator of the world's first Language Processing Unit (LPU), providing exceptional speed performance for AI workloads running on their LPU Inference Engine.
+
+
+### Usage
+
+In order to use LLMs from Groq, go to their [platform](https://console.groq.com/keys) and get the API key.
+
+Set the API key as `GROQ_API_KEY` environment variable or pass in your app configuration to use the model as given below in the example.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+# Set your API key here or pass as the environment variable
+groq_api_key = "gsk_xxxx"
+
+config = {
+    "llm": {
+        "provider": "groq",
+        "config": {
+            "model": "mixtral-8x7b-32768",
+            "api_key": groq_api_key,
+            "stream": True
+        }
+    }
+}
+
+app = App.from_config(config=config)
+# Add your data source here
+app.add("https://docs.embedchain.ai/sitemap.xml", data_type="sitemap")
+app.query("Write a poem about Embedchain")
+
+# In the realm of data, vast and wide,
+# Embedchain stands with knowledge as its guide.
+# A platform open, for all to try,
+# Building bots that can truly fly.
+
+# With REST API, data in reach,
+# Deployment a breeze, as easy as a speech.
+# Updating data sources, anytime, anyday,
+# Embedchain's power, never sway.
+
+# A knowledge base, an assistant so grand,
+# Connecting to platforms, near and far.
+# Discord, WhatsApp, Slack, and more,
+# Embedchain's potential, never a bore.
+```
+</CodeGroup>
+
+## NVIDIA AI
+
+[NVIDIA AI Foundation Endpoints](https://www.nvidia.com/en-us/ai-data-science/foundation-models/) let you quickly use NVIDIA's AI models, such as Mixtral 8x7B, Llama 2 etc, through our API. These models are available in the [NVIDIA NGC catalog](https://catalog.ngc.nvidia.com/ai-foundation-models), fully optimized and ready to use on NVIDIA's AI platform. They are designed for high speed and easy customization, ensuring smooth performance on any accelerated setup.
+
+
+### Usage
+
+In order to use LLMs from NVIDIA AI, create an account on [NVIDIA NGC Service](https://catalog.ngc.nvidia.com/).
+
+Generate an API key from their dashboard. Set the API key as `NVIDIA_API_KEY` environment variable. Note that the `NVIDIA_API_KEY` will start with `nvapi-`.
+
+Below is an example of how to use LLM model and embedding model from NVIDIA AI:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['NVIDIA_API_KEY'] = 'nvapi-xxxx'
+
+config = {
+    "app": {
+        "config": {
+            "id": "my-app",
+        },
+    },
+    "llm": {
+        "provider": "nvidia",
+        "config": {
+            "model": "nemotron_steerlm_8b",
+        },
+    },
+    "embedder": {
+        "provider": "nvidia",
+        "config": {
+            "model": "nvolveqa_40k",
+            "vector_dimension": 1024,
+        },
+    },
+}
+
+app = App.from_config(config=config)
+
+app.add("https://www.forbes.com/profile/elon-musk")
+answer = app.query("What is the net worth of Elon Musk today?")
+# Answer: The net worth of Elon Musk is subject to fluctuations based on the market value of his holdings in various companies.
+# As of March 1, 2024, his net worth is estimated to be approximately $210 billion. However, this figure can change rapidly due to stock market fluctuations and other factors.
+# Additionally, his net worth may include other assets such as real estate and art, which are not reflected in his stock portfolio.
+```
+</CodeGroup>
+
+<br/ >
+
 <Snippet file="missing-llm-tip.mdx" />
