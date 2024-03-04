@@ -44,7 +44,13 @@ class OpenAILlm(BaseLlm):
             kwargs["model_kwargs"]["top_p"] = config.top_p
         if config.stream:
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
-            chat = ChatOpenAI(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key, base_url=base_url)
+            chat = ChatOpenAI(
+                **kwargs,
+                streaming=config.stream,
+                callbacks=callbacks,
+                api_key=api_key,
+                base_url=base_url,
+            )
         else:
             chat = ChatOpenAI(**kwargs, api_key=api_key, base_url=base_url)
         if self.tools:
