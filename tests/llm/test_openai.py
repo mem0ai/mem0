@@ -73,6 +73,7 @@ def test_get_llm_model_answer_without_system_prompt(config, mocker):
         max_tokens=config.max_tokens,
         model_kwargs={"top_p": config.top_p},
         api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ["OPENAI_API_BASE"],
     )
 
 
@@ -98,6 +99,7 @@ def test_get_llm_model_answer_with_tools(config, mocker, mock_return, expected):
         max_tokens=config.max_tokens,
         model_kwargs={"top_p": config.top_p},
         api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ["OPENAI_API_BASE"],
     )
     mocked_convert_to_openai_tool.assert_called_once_with({"test": "test"})
     mocked_json_output_tools_parser.assert_called_once()
