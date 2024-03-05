@@ -17,7 +17,7 @@ class OpenAIEmbedder(BaseEmbedder):
             self.config.model = "text-embedding-ada-002"
 
         api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
-        api_base = self.config.api_base or os.environ["OPENAI_API_BASE"]
+        api_base = self.config.api_base or os.environ.get("OPENAI_API_BASE")
 
         if self.config.deployment_name:
             embeddings = AzureOpenAIEmbeddings(deployment=self.config.deployment_name)
