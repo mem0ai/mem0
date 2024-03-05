@@ -96,6 +96,7 @@ class BaseLlmConfig(BaseConfig):
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
         local: Optional[bool] = False,
+        base_url: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -169,6 +170,7 @@ class BaseLlmConfig(BaseConfig):
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
         self.local = local
+        self.base_url = base_url
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

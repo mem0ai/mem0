@@ -427,6 +427,7 @@ def validate_config(config_data):
                     Optional("endpoint"): str,
                     Optional("model_kwargs"): dict,
                     Optional("local"): bool,
+                    Optional("base_url"): str,
                 },
             },
             Optional("vectordb"): {

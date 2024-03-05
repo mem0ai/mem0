@@ -5,6 +5,7 @@ llm:
     temperature: 0.5
     top_p: 1
     stream: true
+    base_url: http://localhost:11434
 
 embedder:
   provider: huggingface
