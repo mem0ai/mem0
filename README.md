@@ -3,10 +3,6 @@
 </p>
 
 <p align="center">
-  <a href="https://runacap.com/ross-index/q3-2023/" target="_blank" rel="noopener"><img style="width: 260px; height: 56px" src="https://runacap.com/wp-content/uploads/2023/10/ROSS_badge_black_Q3_2023.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q3 2023 | Runa Capital" width="260" height="56"/></a>
-</p>
-
-<p align="center">
   <a href="https://pypi.org/project/embedchain/">
     <img src="https://img.shields.io/pypi/v/embedchain" alt="PyPI">
   </a>
@@ -64,15 +60,15 @@ import os
 from embedchain import App
 
 # Create a bot instance
-os.environ["OPENAI_API_KEY"] = "YOUR API KEY"
-elon_bot = App()
+os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>"
+app = App()
 
 # Embed online resources
-elon_bot.add("https://en.wikipedia.org/wiki/Elon_Musk")
-elon_bot.add("https://www.forbes.com/profile/elon-musk")
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+app.add("https://www.forbes.com/profile/elon-musk")
 
-# Query the bot
-elon_bot.query("How many companies does Elon Musk run and name those?")
+# Query the app
+app.query("How many companies does Elon Musk run and name those?")
 # Answer: Elon Musk currently runs several companies. As of my knowledge, he is the CEO and lead designer of SpaceX, the CEO and product architect of Tesla, Inc., the CEO and founder of Neuralink, and the CEO and founder of The Boring Company. However, please note that this information may change over time, so it's always good to verify the latest updates.
 ```
 
