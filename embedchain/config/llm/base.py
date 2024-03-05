@@ -93,6 +93,7 @@ class BaseLlmConfig(BaseConfig):
         query_type: Optional[str] = None,
         callbacks: Optional[list] = None,
         api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
         local: Optional[bool] = False,
@@ -167,6 +168,7 @@ class BaseLlmConfig(BaseConfig):
         self.query_type = query_type
         self.callbacks = callbacks
         self.api_key = api_key
+        self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
         self.local = local
