@@ -14,6 +14,7 @@ from embedchain.vectordb.chroma import ChromaDB
 @pytest.fixture
 def app():
     os.environ["OPENAI_API_KEY"] = "test_api_key"
+    os.environ["OPENAI_API_BASE"] = "test_api_base"
     return App()
 
 
