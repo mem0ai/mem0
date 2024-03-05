@@ -31,6 +31,7 @@ class OllamaLlm(BaseLlm):
             temperature=config.temperature,
             top_p=config.top_p,
             callback_manager=CallbackManager(callback_manager),
+            base_url=config.base_url,
         )
 
         return llm.invoke(prompt)
