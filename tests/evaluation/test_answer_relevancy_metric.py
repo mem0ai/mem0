@@ -30,6 +30,7 @@ def mock_data():
 @pytest.fixture
 def mock_answer_relevance_metric(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test_api_key")
+    monkeypatch.setenv("OPENAI_API_BASE", "test_api_base")
     metric = AnswerRelevance()
     return metric
 
