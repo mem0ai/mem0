@@ -406,9 +406,13 @@ def validate_config(config_data):
                     "aws_bedrock",
                     "mistralai",
                     "clarifai",
+                    "vllm",
+                    "groq",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
+                    Optional("model_name"): str,
                     Optional("number_documents"): int,
                     Optional("temperature"): float,
                     Optional("max_tokens"): int,
@@ -421,8 +425,11 @@ def validate_config(config_data):
                     Optional("where"): dict,
                     Optional("query_type"): str,
                     Optional("api_key"): str,
+                    Optional("base_url"): str,
                     Optional("endpoint"): str,
                     Optional("model_kwargs"): dict,
+                    Optional("local"): bool,
+                    Optional("base_url"): str,
                 },
             },
             Optional("vectordb"): {
@@ -440,12 +447,14 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
-                    "clarifai"
+                    "clarifai",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
                     Optional("api_key"): str,
+                    Optional("api_base"): str,
                     Optional("title"): str,
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
@@ -460,7 +469,8 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
-                    "clarifai"
+                    "clarifai",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): str,

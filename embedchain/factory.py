@@ -24,6 +24,8 @@ class LlmFactory:
         "aws_bedrock": "embedchain.llm.aws_bedrock.AWSBedrockLlm",
         "mistralai": "embedchain.llm.mistralai.MistralAILlm",
         "clarifai": "embedchain.llm.clarifai.ClarifaiLlm",
+        "groq": "embedchain.llm.groq.GroqLlm",
+        "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
@@ -55,14 +57,15 @@ class EmbedderFactory:
         "google": "embedchain.embedder.google.GoogleAIEmbedder",
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
         "clarifai": "embedchain.embedder.clarifai.ClarifaiEmbedder",
+        "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
-        "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
-        "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
+        "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
     }
 
     @classmethod

@@ -3,7 +3,6 @@ import concurrent.futures
 import json
 import logging
 import os
-import uuid
 from typing import Any, Optional, Union
 
 import requests
@@ -84,7 +83,7 @@ class App(EmbedChain):
         if name and config:
             raise Exception("Cannot provide both name and config. Please provide only one of them.")
 
-        logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        # logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
 
         # Initialize the metadata db for the app
@@ -102,7 +101,7 @@ class App(EmbedChain):
 
         self.config = config or AppConfig()
         self.name = self.config.name
-        self.config.id = self.local_id = str(uuid.uuid4()) if self.config.id is None else self.config.id
+        self.config.id = self.local_id = "default-app-id" if self.config.id is None else self.config.id
 
         if id is not None:
             # Init client first since user is trying to fetch the pipeline
@@ -295,7 +294,7 @@ class App(EmbedChain):
         data_sources = self.db_session.query(DataSource).filter_by(app_id=self.local_id).all()
         results = []
         for row in data_sources:
-            results.append({"data_type": row.data_type, "data_value": row.data_value, "metadata": row.metadata})
+            results.append({"data_type": row.type, "data_value": row.value, "metadata": row.meta_data})
         return results
 
     def deploy(self):

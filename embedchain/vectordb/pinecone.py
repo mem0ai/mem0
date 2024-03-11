@@ -49,9 +49,8 @@ class PineconeDB(BaseVectorDB):
         # Setup BM25Encoder if sparse vectors are to be used
         self.bm25_encoder = None
         if self.config.hybrid_search:
-            # TODO: Add support for fitting BM25Encoder on any corpus
             logging.info("Initializing BM25Encoder for sparse vectors..")
-            self.bm25_encoder = BM25Encoder.default()
+            self.bm25_encoder = self.config.bm25_encoder if self.config.bm25_encoder else BM25Encoder.default()
 
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
@@ -231,6 +230,9 @@ class PineconeDB(BaseVectorDB):
     @staticmethod
     def _generate_filter(where: dict):
         query = {}
+        if where is None:
+            return query
+
         for k, v in where.items():
             query[k] = {"$eq": v}
         return query

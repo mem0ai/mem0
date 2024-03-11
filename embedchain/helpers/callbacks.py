@@ -56,7 +56,7 @@ def generate(rq: queue.Queue):
     ```
     def askQuestion(callback_fn: StreamingStdOutCallbackHandlerYield):
         llm = OpenAI(streaming=True, callbacks=[callback_fn])
-        return llm(prompt="Write a poem about a tree.")
+        return llm.invoke(prompt="Write a poem about a tree.")
 
     @app.route("/", methods=["GET"])
     def generate_output():

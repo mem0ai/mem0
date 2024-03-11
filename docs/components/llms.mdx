@@ -23,6 +23,8 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="Vertex AI" href="#vertex-ai"></Card>
   <Card title="Mistral AI" href="#mistral-ai"></Card>
   <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
+  <Card title="Groq" href="#groq"></Card>
+  <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -82,7 +84,7 @@ Embedchain supports OpenAI [Function calling](https://platform.openai.com/docs/g
       b: int = Field(..., description="Second integer")
   ```
 </Accordion>
-  
+
 <Accordion title="Python function">
   ```python
   def multiply(a: int, b: int) -> int:
@@ -501,7 +503,15 @@ pip install --upgrade 'embedchain[huggingface-hub]'
 
 First, set `HUGGINGFACE_ACCESS_TOKEN` in environment variable which you can obtain from [their platform](https://huggingface.co/settings/tokens).
 
-Once you have the token, load the app using the config yaml file:
+You can load the LLMs from Hugging Face using three ways:
+
+- [Hugging Face Hub](#hugging-face-hub)
+- [Hugging Face Local Pipelines](#hugging-face-local-pipelines)
+- [Hugging Face Inference Endpoint](#hugging-face-inference-endpoint)
+
+### Hugging Face Hub
+
+To load the model from Hugging Face Hub, use the following code:
 
 <CodeGroup>
 
@@ -511,24 +521,49 @@ from embedchain import App
 
 os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
 
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+          "model": "bigscience/bloom-1b7",
+          "top_p": 0.5,
+          "max_length": 200,
+          "temperature": 0.1,
+      },
+  },
+}
 
-```yaml config.yaml
-llm:
-  provider: huggingface
-  config:
-    model: 'google/flan-t5-xxl'
-    temperature: 0.5
-    max_tokens: 1000
-    top_p: 0.5
-    stream: false
+app = App.from_config(config=config)
 ```
 </CodeGroup>
 
-### Custom Endpoints
+### Hugging Face Local Pipelines
 
+If you want to load the locally downloaded model from Hugging Face, you can do so by following the code provided below:
+
+<CodeGroup>
+```python main.py
+from embedchain import App
+
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+          "model": "Trendyol/Trendyol-LLM-7b-chat-v0.1",
+          "local": True,  # Necessary if you want to run model locally
+          "top_p": 0.5,
+          "max_tokens": 1000,
+          "temperature": 0.1,
+      },
+  }
+}
+app = App.from_config(config=config)
+```
+</CodeGroup>
+
+### Hugging Face Inference Endpoint
 
 You can also use [Hugging Face Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index#-inference-endpoints) to access custom endpoints. First, set the `HUGGINGFACE_ACCESS_TOKEN` as above.
 
@@ -537,34 +572,22 @@ Then, load the app using the config yaml file:
 <CodeGroup>
 
 ```python main.py
-import os
 from embedchain import App
 
-os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "xxx"
+config = {
+  "app": {"config": {"id": "my-app"}},
+  "llm": {
+      "provider": "huggingface",
+      "config": {
+        "endpoint": "https://api-inference.huggingface.co/models/gpt2",
+        "model_params": {"temprature": 0.1, "max_new_tokens": 100}
+      },
+  },
+}
+app = App.from_config(config=config)
 
-# load llm configuration from config.yaml file
-app = App.from_config(config_path="config.yaml")
-```
-
-```yaml config.yaml
-llm:
-  provider: huggingface
-  config:
-    endpoint: https://api-inference.huggingface.co/models/gpt2 # replace with your personal endpoint
 ```
 </CodeGroup>
-
-If your endpoint requires additional parameters, you can pass them in the `model_kwargs` field:
-
-```
-llm:
-  provider: huggingface
-  config:
-    endpoint: <YOUR_ENDPOINT_URL_HERE>
-    model_kwargs:
-      max_new_tokens: 100
-      temperature: 0.5
-```
 
 Currently only supports `text-generation` and `text2text-generation` for now [[ref](https://api.python.langchain.com/en/latest/llms/langchain_community.llms.huggingface_endpoint.HuggingFaceEndpoint.html?highlight=huggingfaceendpoint#)].
 
@@ -705,4 +728,112 @@ llm:
 </Note>
 
 <br/ >
+
+## Groq
+
+[Groq](https://groq.com/) is the creator of the world's first Language Processing Unit (LPU), providing exceptional speed performance for AI workloads running on their LPU Inference Engine.
+
+
+### Usage
+
+In order to use LLMs from Groq, go to their [platform](https://console.groq.com/keys) and get the API key.
+
+Set the API key as `GROQ_API_KEY` environment variable or pass in your app configuration to use the model as given below in the example.
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+# Set your API key here or pass as the environment variable
+groq_api_key = "gsk_xxxx"
+
+config = {
+    "llm": {
+        "provider": "groq",
+        "config": {
+            "model": "mixtral-8x7b-32768",
+            "api_key": groq_api_key,
+            "stream": True
+        }
+    }
+}
+
+app = App.from_config(config=config)
+# Add your data source here
+app.add("https://docs.embedchain.ai/sitemap.xml", data_type="sitemap")
+app.query("Write a poem about Embedchain")
+
+# In the realm of data, vast and wide,
+# Embedchain stands with knowledge as its guide.
+# A platform open, for all to try,
+# Building bots that can truly fly.
+
+# With REST API, data in reach,
+# Deployment a breeze, as easy as a speech.
+# Updating data sources, anytime, anyday,
+# Embedchain's power, never sway.
+
+# A knowledge base, an assistant so grand,
+# Connecting to platforms, near and far.
+# Discord, WhatsApp, Slack, and more,
+# Embedchain's potential, never a bore.
+```
+</CodeGroup>
+
+## NVIDIA AI
+
+[NVIDIA AI Foundation Endpoints](https://www.nvidia.com/en-us/ai-data-science/foundation-models/) let you quickly use NVIDIA's AI models, such as Mixtral 8x7B, Llama 2 etc, through our API. These models are available in the [NVIDIA NGC catalog](https://catalog.ngc.nvidia.com/ai-foundation-models), fully optimized and ready to use on NVIDIA's AI platform. They are designed for high speed and easy customization, ensuring smooth performance on any accelerated setup.
+
+
+### Usage
+
+In order to use LLMs from NVIDIA AI, create an account on [NVIDIA NGC Service](https://catalog.ngc.nvidia.com/).
+
+Generate an API key from their dashboard. Set the API key as `NVIDIA_API_KEY` environment variable. Note that the `NVIDIA_API_KEY` will start with `nvapi-`.
+
+Below is an example of how to use LLM model and embedding model from NVIDIA AI:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['NVIDIA_API_KEY'] = 'nvapi-xxxx'
+
+config = {
+    "app": {
+        "config": {
+            "id": "my-app",
+        },
+    },
+    "llm": {
+        "provider": "nvidia",
+        "config": {
+            "model": "nemotron_steerlm_8b",
+        },
+    },
+    "embedder": {
+        "provider": "nvidia",
+        "config": {
+            "model": "nvolveqa_40k",
+            "vector_dimension": 1024,
+        },
+    },
+}
+
+app = App.from_config(config=config)
+
+app.add("https://www.forbes.com/profile/elon-musk")
+answer = app.query("What is the net worth of Elon Musk today?")
+# Answer: The net worth of Elon Musk is subject to fluctuations based on the market value of his holdings in various companies.
+# As of March 1, 2024, his net worth is estimated to be approximately $210 billion. However, this figure can change rapidly due to stock market fluctuations and other factors.
+# Additionally, his net worth may include other assets such as real estate and art, which are not reflected in his stock portfolio.
+```
+</CodeGroup>
+
+<br/ >
+
 <Snippet file="missing-llm-tip.mdx" />

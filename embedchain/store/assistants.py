@@ -17,8 +17,6 @@ from embedchain.models.data_type import DataType
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils.misc import detect_datatype
 
-logging.basicConfig(level=logging.WARN)
-
 # Set up the user directory if it doesn't exist already
 Client.setup()
 
@@ -33,7 +31,7 @@ class OpenAIAssistant:
         model="gpt-4-1106-preview",
         data_sources=None,
         assistant_id=None,
-        log_level=logging.WARN,
+        log_level=logging.INFO,
         collect_metrics=True,
     ):
         self.name = name or "OpenAI Assistant"
@@ -156,10 +154,9 @@ class AIAssistant:
         assistant_id=None,
         thread_id=None,
         data_sources=None,
-        log_level=logging.WARN,
+        log_level=logging.INFO,
         collect_metrics=True,
     ):
-        logging.basicConfig(level=log_level)
 
         self.name = name or "AI Assistant"
         self.data_sources = data_sources or []
