@@ -56,6 +56,7 @@ class EmbedderFactory:
         "google": "embedchain.embedder.google.GoogleAIEmbedder",
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
+        "cohere": "embedchain.embedder.cohere.CohereEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
