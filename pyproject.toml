@@ -120,6 +120,7 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^4.27", optional = true }
+clarifai = { version = "^10.0.1", optional = true }
 together = { version = "^0.2.8", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }

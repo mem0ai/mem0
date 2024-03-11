@@ -8322,6 +8322,7 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [extras]
 aws-bedrock = ["boto3"]
 cohere = ["cohere"]
+clarifai = ["clarifai"]
 dataloaders = ["docx2txt", "duckduckgo-search", "pytube", "sentence-transformers", "unstructured", "youtube-transcript-api"]
 discord = ["discord"]
 dropbox = ["dropbox"]

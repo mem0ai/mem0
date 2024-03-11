@@ -405,7 +405,7 @@ def validate_config(config_data):
                     "google",
                     "aws_bedrock",
                     "mistralai",
-                    "vllm",
+                    "clarifai",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -440,6 +440,7 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "clarifai"
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
@@ -459,6 +460,7 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "clarifai"
                 ),
                 Optional("config"): {
                     Optional("model"): str,
