@@ -29,7 +29,7 @@ class ClarifaiLlm(BaseLlm):
                 'Please install with `pip install --upgrade "embedchain[clarifai]"`'
             ) from None
 
-        model_name = config.model or "https://clarifai.com/openai/chat-completion/models/GPT-4"
+        model_name = config.model
         logging.info(f"Using clarifai LLM model: {model_name}")
         api_key = config.api_key or os.getenv("CLARIFAI_PAT")
         model = Model(url=model_name, pat=api_key)
