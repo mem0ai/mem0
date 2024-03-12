@@ -14,6 +14,7 @@ Embedchain supports several embedding models from the following providers:
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
   <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
+  <Card title="Cohere" href="#cohere"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -272,4 +273,88 @@ answer = app.query("What is the net worth of Elon Musk today?")
 # As of March 1, 2024, his net worth is estimated to be approximately $210 billion. However, this figure can change rapidly due to stock market fluctuations and other factors.
 # Additionally, his net worth may include other assets such as real estate and art, which are not reflected in his stock portfolio.
 ```
+</CodeGroup>
+
+
+## Cohere
+
+To use embedding models and LLMs from COHERE, create an account on [COHERE](https://dashboard.cohere.com/welcome/login?redirect_uri=%2Fapi-keys).
+
+Generate an API key from their dashboard. Set the API key as `COHERE_API_KEY` environment variable.
+
+Once you have obtained the key, you can use it like this:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['COHERE_API_KEY'] = 'xxx'
+
+# load embedding model configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-english-light-v3.0'
+```
+
+</CodeGroup>
+
+* Cohere has few embedding models: `embed-english-v3.0`, `embed-multilingual-v3.0`, `embed-multilingual-light-v3.0`, `embed-english-v2.0`, `embed-english-light-v2.0` and `embed-multilingual-v2.0`. Embedchain supports all these models. Below you can find YAML config for all:
+
+<CodeGroup>
+
+```yaml embed-english-v3.0.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-english-v3.0'
+    vector_dimension: 1024
+```
+
+```yaml embed-multilingual-v3.0.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-multilingual-v3.0'
+    vector_dimension: 1024
+```
+
+```yaml embed-multilingual-light-v3.0.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-multilingual-light-v3.0'
+    vector_dimension: 384
+```
+
+```yaml embed-english-v2.0.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-english-v2.0'
+    vector_dimension: 4096
+```
+
+```yaml embed-english-light-v2.0.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-english-light-v2.0'
+    vector_dimension: 1024
+```
+
+```yaml embed-multilingual-v2.0.yaml
+embedder:
+  provider: cohere
+  config:
+    model: 'embed-multilingual-v2.0'
+    vector_dimension: 768
+```
+
 </CodeGroup>
