@@ -20,7 +20,7 @@ class ClarifaiEmbeddingFunction(EmbeddingFunction):
             ) from None
         self.config = config
         self.api_key = config.api_key or os.getenv("CLARIFAI_PAT")
-        self.model = config.model or "https://clarifai.com/clarifai/main/models/BAAI-bge-base-en-v15"
+        self.model = config.model
         self.model_obj = Model(url=self.model, pat=self.api_key)
         self.input_obj = Inputs(pat=self.api_key)
 
