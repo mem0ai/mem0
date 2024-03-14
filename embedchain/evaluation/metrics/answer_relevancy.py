@@ -12,6 +12,8 @@ from embedchain.config.evaluation.base import AnswerRelevanceConfig
 from embedchain.evaluation.base import BaseMetric
 from embedchain.utils.evaluation import EvalData, EvalMetric
 
+logger = logging.getLogger(__name__)
+
 
 class AnswerRelevance(BaseMetric):
     """
@@ -88,6 +90,6 @@ class AnswerRelevance(BaseMetric):
                 try:
                     results.append(future.result())
                 except Exception as e:
-                    logging.error(f"Error evaluating answer relevancy for {data}: {e}")
+                    logger.error(f"Error evaluating answer relevancy for {data}: {e}")
 
         return np.mean(results) if results else 0.0

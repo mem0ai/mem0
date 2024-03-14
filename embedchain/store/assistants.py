@@ -157,7 +157,6 @@ class AIAssistant:
         log_level=logging.INFO,
         collect_metrics=True,
     ):
-
         self.name = name or "AI Assistant"
         self.data_sources = data_sources or []
         self.log_level = log_level

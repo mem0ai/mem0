@@ -19,6 +19,8 @@ from embedchain.config import OpenSearchDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class OpenSearchDB(BaseVectorDB):
@@ -43,12 +45,12 @@ class OpenSearchDB(BaseVectorDB):
             **self.config.extra_params,
         )
         info = self.client.info()
-        logging.info(f"Connected to {info['version']['distribution']}. Version: {info['version']['number']}")
+        logger.info(f"Connected to {info['version']['distribution']}. Version: {info['version']['number']}")
         # Remove auth credentials from config after successful connection
         super().__init__(config=self.config)
 
     def _initialize(self):
-        logging.info(self.client.info())
+        logger.info(self.client.info())
         index_name = self._get_index()
         if self.client.indices.exists(index=index_name):
             print(f"Index '{index_name}' already exists.")

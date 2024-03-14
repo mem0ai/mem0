@@ -14,6 +14,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class WebPageLoader(BaseLoader):
@@ -87,7 +89,7 @@ class WebPageLoader(BaseLoader):
 
         cleaned_size = len(content)
         if original_size != 0:
-            logging.info(
+            logger.info(
                 f"[{url}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
             )
 

@@ -6,6 +6,8 @@ from embedchain.config.add_config import ChunkerConfig
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.models.data_type import DataType
 
+logger = logging.getLogger(__name__)
+
 
 class BaseChunker(JSONSerializable):
     def __init__(self, text_splitter):
@@ -27,7 +29,7 @@ class BaseChunker(JSONSerializable):
         chunk_ids = []
         id_map = {}
         min_chunk_size = config.min_chunk_size if config is not None else 1
-        logging.info(f"Skipping chunks smaller than {min_chunk_size} characters")
+        logger.info(f"Skipping chunks smaller than {min_chunk_size} characters")
         data_result = loader.load_data(src)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]

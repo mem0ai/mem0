@@ -12,6 +12,8 @@ from embedchain.config.evaluation.base import GroundednessConfig
 from embedchain.evaluation.base import BaseMetric
 from embedchain.utils.evaluation import EvalData, EvalMetric
 
+logger = logging.getLogger(__name__)
+
 
 class Groundedness(BaseMetric):
     """
@@ -97,6 +99,6 @@ class Groundedness(BaseMetric):
                     score = future.result()
                     results.append(score)
                 except Exception as e:
-                    logging.error(f"Error while evaluating groundedness for data point {data}: {e}")
+                    logger.error(f"Error while evaluating groundedness for data point {data}: {e}")
 
         return np.mean(results) if results else 0.0

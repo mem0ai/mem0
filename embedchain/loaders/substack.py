@@ -9,6 +9,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import is_readable
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class SubstackLoader(BaseLoader):
@@ -90,9 +92,9 @@ class SubstackLoader(BaseLoader):
                 if is_readable(data):
                     return data
                 else:
-                    logging.warning(f"Page is not readable (too many invalid characters): {link}")
+                    logger.warning(f"Page is not readable (too many invalid characters): {link}")
             except ParserRejectedMarkup as e:
-                logging.error(f"Failed to parse {link}: {e}")
+                logger.error(f"Failed to parse {link}: {e}")
             return None
 
         for link in links:

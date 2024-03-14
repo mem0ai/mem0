@@ -10,6 +10,8 @@ from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class GoogleLlm(BaseLlm):
@@ -36,7 +38,7 @@ class GoogleLlm(BaseLlm):
 
     def _get_answer(self, prompt: str) -> Union[str, Generator[Any, Any, None]]:
         model_name = self.config.model or "gemini-pro"
-        logging.info(f"Using Google LLM model: {model_name}")
+        logger.info(f"Using Google LLM model: {model_name}")
         model = genai.GenerativeModel(model_name=model_name)
 
         generation_config_params = {

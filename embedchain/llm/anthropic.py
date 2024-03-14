@@ -6,6 +6,8 @@ from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class AnthropicLlm(BaseLlm):
@@ -26,7 +28,7 @@ class AnthropicLlm(BaseLlm):
         )
 
         if config.max_tokens and config.max_tokens != 1000:
-            logging.warning("Config option `max_tokens` is not supported by this model.")
+            logger.warning("Config option `max_tokens` is not supported by this model.")
 
         messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
 

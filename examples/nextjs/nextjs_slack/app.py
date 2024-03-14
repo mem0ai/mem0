@@ -9,6 +9,8 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 load_dotenv(".env")
 
+logger = logging.getLogger(__name__)
+
 
 def remove_mentions(message):
     mention_pattern = re.compile(r"<@[^>]+>")
@@ -19,7 +21,7 @@ def remove_mentions(message):
 
 class SlackBotApp:
     def __init__(self) -> None:
-        logging.info("Slack Bot using Embedchain!")
+        logger.info("Slack Bot using Embedchain!")
 
     def add(self, _):
         raise ValueError("Add is not implemented yet")
@@ -35,11 +37,11 @@ class SlackBotApp:
             try:
                 response = response.json()
             except Exception:
-                logging.error(f"Failed to parse response: {response}")
+                logger.error(f"Failed to parse response: {response}")
                 response = {}
             return response
         except Exception:
-            logging.exception(f"Failed to query {query}.")
+            logger.exception(f"Failed to query {query}.")
             response = "An error occurred. Please try again!"
         return response
 

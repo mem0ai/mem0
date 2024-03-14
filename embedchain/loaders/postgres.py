@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 from embedchain.loaders.base_loader import BaseLoader
 
+logger = logging.getLogger(__name__)
+
 
 class PostgresLoader(BaseLoader):
     def __init__(self, config: Optional[dict[str, Any]] = None):
@@ -32,7 +34,7 @@ class PostgresLoader(BaseLoader):
                 conn_params.append(f"{key}={value}")
             config_info = " ".join(conn_params)
 
-        logging.info(f"Connecting to postrgres sql: {config_info}")
+        logger.info(f"Connecting to postrgres sql: {config_info}")
         self.connection = psycopg.connect(conninfo=config_info)
         self.cursor = self.connection.cursor()
 

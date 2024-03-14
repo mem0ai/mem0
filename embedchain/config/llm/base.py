@@ -6,6 +6,8 @@ from typing import Any, Optional
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_PROMPT = """
 You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. Here are some guidelines to follow:
 
@@ -147,7 +149,7 @@ class BaseLlmConfig(BaseConfig):
         :raises ValueError: Stream is not boolean
         """
         if template is not None:
-            logging.warning(
+            logger.warning(
                 "The `template` argument is deprecated and will be removed in a future version. "
                 + "Please use `prompt` instead."
             )

@@ -11,6 +11,8 @@ from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class HuggingFaceLlm(BaseLlm):
@@ -58,7 +60,7 @@ class HuggingFaceLlm(BaseLlm):
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
 
         model = config.model
-        logging.info(f"Using HuggingFaceHub with model {model}")
+        logger.info(f"Using HuggingFaceHub with model {model}")
         llm = HuggingFaceHub(
             huggingfacehub_api_token=os.environ["HUGGINGFACE_ACCESS_TOKEN"],
             repo_id=model,

@@ -8,6 +8,8 @@ from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import VectorDimensions
 
+logger = logging.getLogger(__name__)
+
 
 class NvidiaEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
@@ -17,7 +19,7 @@ class NvidiaEmbedder(BaseEmbedder):
         super().__init__(config=config)
 
         model = self.config.model or "nvolveqa_40k"
-        logging.info(f"Using NVIDIA embedding model: {model}")
+        logger.info(f"Using NVIDIA embedding model: {model}")
         embedder = NVIDIAEmbeddings(model=model)
         embedding_fn = BaseEmbedder._langchain_default_concept(embedder)
         self.set_embedding_fn(embedding_fn=embedding_fn)

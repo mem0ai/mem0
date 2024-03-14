@@ -9,6 +9,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
 
+logger = logging.getLogger(__name__)
+
 
 class NotionDocument:
     """
@@ -98,7 +100,7 @@ class NotionLoader(BaseLoader):
 
         id = source[-32:]
         formatted_id = f"{id[:8]}-{id[8:12]}-{id[12:16]}-{id[16:20]}-{id[20:]}"
-        logging.debug(f"Extracted notion page id as: {formatted_id}")
+        logger.debug(f"Extracted notion page id as: {formatted_id}")
 
         integration_token = os.getenv("NOTION_INTEGRATION_TOKEN")
         reader = NotionPageLoader(integration_token=integration_token)

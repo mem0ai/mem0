@@ -12,6 +12,8 @@ from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
 
+logger = logging.getLogger(__name__)
+
 
 class BaseLlm(JSONSerializable):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
@@ -108,7 +110,7 @@ class BaseLlm(JSONSerializable):
                 )
             else:
                 # If we can't swap in the default, we still proceed but tell users that the history is ignored.
-                logging.warning(
+                logger.warning(
                     "Your bot contains a history, but prompt does not include `$history` key. History is ignored."
                 )
                 prompt = self.config.prompt.substitute(context=context_string, query=input_query)
@@ -159,7 +161,7 @@ class BaseLlm(JSONSerializable):
                 'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
             ) from None
         search = DuckDuckGoSearchRun()
-        logging.info(f"Access search to get answers for {input_query}")
+        logger.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
     @staticmethod
@@ -175,7 +177,7 @@ class BaseLlm(JSONSerializable):
         for chunk in answer:
             streamed_answer = streamed_answer + chunk
             yield chunk
-        logging.info(f"Answer: {streamed_answer}")
+        logger.info(f"Answer: {streamed_answer}")
 
     def query(self, input_query: str, contexts: list[str], config: BaseLlmConfig = None, dry_run=False):
         """
@@ -214,13 +216,13 @@ class BaseLlm(JSONSerializable):
             if self.online:
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
             prompt = self.generate_prompt(input_query, contexts, **k)
-            logging.info(f"Prompt: {prompt}")
+            logger.info(f"Prompt: {prompt}")
             if dry_run:
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
-                logging.info(f"Answer: {answer}")
+                logger.info(f"Answer: {answer}")
                 return answer
             else:
                 return self._stream_response(answer)
@@ -270,14 +272,14 @@ class BaseLlm(JSONSerializable):
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
 
             prompt = self.generate_prompt(input_query, contexts, **k)
-            logging.info(f"Prompt: {prompt}")
+            logger.info(f"Prompt: {prompt}")
 
             if dry_run:
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
-                logging.info(f"Answer: {answer}")
+                logger.info(f"Answer: {answer}")
                 return answer
             else:
                 # this is a streamed response and needs to be handled differently.

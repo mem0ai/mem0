@@ -19,6 +19,8 @@ except ModuleNotFoundError:
     ) from None
 
 
+logger = logging.getLogger(__name__)
+
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
 
@@ -42,10 +44,10 @@ class SlackBot(BaseBot):
                     try:
                         response = self.chat_bot.chat(question)
                         self.send_slack_message(message["channel"], response)
-                        logging.info("Query answered successfully!")
+                        logger.info("Query answered successfully!")
                     except Exception as e:
                         self.send_slack_message(message["channel"], "An error occurred. Please try again!")
-                        logging.error("Error occurred during 'query' command:", e)
+                        logger.error("Error occurred during 'query' command:", e)
                 elif text.startswith("add"):
                     _, data_type, url_or_text = text.split(" ", 2)
                     if url_or_text.startswith("<") and url_or_text.endswith(">"):
@@ -55,10 +57,10 @@ class SlackBot(BaseBot):
                         self.send_slack_message(message["channel"], f"Added {data_type} : {url_or_text}")
                     except ValueError as e:
                         self.send_slack_message(message["channel"], f"Error: {str(e)}")
-                        logging.error("Error occurred during 'add' command:", e)
+                        logger.error("Error occurred during 'add' command:", e)
                     except Exception as e:
                         self.send_slack_message(message["channel"], f"Failed to add {data_type} : {url_or_text}")
-                        logging.error("Error occurred during 'add' command:", e)
+                        logger.error("Error occurred during 'add' command:", e)
 
     def send_slack_message(self, channel, message):
         response = self.client.chat_postMessage(channel=channel, text=message)
@@ -68,7 +70,7 @@ class SlackBot(BaseBot):
         app = Flask(__name__)
 
         def signal_handler(sig, frame):
-            logging.info("\nGracefully shutting down the SlackBot...")
+            logger.info("\nGracefully shutting down the SlackBot...")
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
