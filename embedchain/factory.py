@@ -25,6 +25,7 @@ class LlmFactory:
         "mistralai": "embedchain.llm.mistralai.MistralAILlm",
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
+        "vllm": "embedchain.llm.vllm.VLLM",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
