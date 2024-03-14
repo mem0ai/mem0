@@ -13,6 +13,8 @@ except ImportError:
         "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[milvus]`"
     ) from None
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class ZillizVectorDB(BaseVectorDB):
@@ -62,7 +64,7 @@ class ZillizVectorDB(BaseVectorDB):
         :type name: str
         """
         if utility.has_collection(name):
-            logging.info(f"[ZillizDB]: found an existing collection {name}, make sure the auto-id is disabled.")
+            logger.info(f"[ZillizDB]: found an existing collection {name}, make sure the auto-id is disabled.")
             self.collection = Collection(name)
         else:
             fields = [

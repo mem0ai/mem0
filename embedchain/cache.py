@@ -14,6 +14,8 @@ from gptcache.similarity_evaluation.distance import \
 from gptcache.similarity_evaluation.exact_match import \
     ExactMatchEvaluation  # noqa: F401
 
+logger = logging.getLogger(__name__)
+
 
 def gptcache_pre_function(data: dict[str, Any], **params: dict[str, Any]):
     return data["input_query"]
@@ -24,12 +26,12 @@ def gptcache_data_manager(vector_dimension):
 
 
 def gptcache_data_convert(cache_data):
-    logging.info("[Cache] Cache hit, returning cache data...")
+    logger.info("[Cache] Cache hit, returning cache data...")
     return cache_data
 
 
 def gptcache_update_cache_callback(llm_data, update_cache_func, *args, **kwargs):
-    logging.info("[Cache] Cache missed, updating cache...")
+    logger.info("[Cache] Cache missed, updating cache...")
     update_cache_func(Answer(llm_data, CacheDataType.STR))
     return llm_data
 

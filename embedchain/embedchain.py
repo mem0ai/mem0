@@ -25,6 +25,8 @@ from embedchain.vectordb.base import BaseVectorDB
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 
 class EmbedChain(JSONSerializable):
     def __init__(
@@ -143,10 +145,10 @@ class EmbedChain(JSONSerializable):
 
         try:
             DataType(source)
-            logging.warning(
+            logger.warning(
                 f"""Starting from version v0.0.40, Embedchain can automatically detect the data type. So, in the `add` method, the argument order has changed. You no longer need to specify '{source}' for the `source` argument. So the code snippet will be `.add("{data_type}", "{source}")`"""  # noqa #E501
             )
-            logging.warning(
+            logger.warning(
                 "Embedchain is swapping the arguments for you. This functionality might be deprecated in the future, so please adjust your code."  # noqa #E501
             )
             source, data_type = data_type, source
@@ -157,7 +159,7 @@ class EmbedChain(JSONSerializable):
             try:
                 data_type = DataType(data_type)
             except ValueError:
-                logging.info(
+                logger.info(
                     f"Invalid data_type: '{data_type}', using `custom` instead.\n Check docs to pass the valid data type: `https://docs.embedchain.ai/data-sources/overview`"  # noqa: E501
                 )
                 data_type = DataType.CUSTOM
@@ -190,12 +192,12 @@ class EmbedChain(JSONSerializable):
         try:
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error adding data source: {e}")
+            logger.error(f"Error adding data source: {e}")
             self.db_session.rollback()
 
         if dry_run:
             data_chunks_info = {"chunks": documents, "metadata": metadatas, "count": len(documents), "type": data_type}
-            logging.debug(f"Dry run info : {data_chunks_info}")
+            logger.debug(f"Dry run info : {data_chunks_info}")
             return data_chunks_info
 
         # Send anonymous telemetry
@@ -490,7 +492,7 @@ class EmbedChain(JSONSerializable):
             contexts_data_for_llm_query = contexts
 
         if self.cache_config is not None:
-            logging.info("Cache enabled. Checking cache...")
+            logger.info("Cache enabled. Checking cache...")
             answer = adapt(
                 llm_handler=self.llm.query,
                 cache_data_convert=gptcache_data_convert,
@@ -562,7 +564,7 @@ class EmbedChain(JSONSerializable):
         self.llm.update_history(app_id=self.config.id, session_id=session_id)
 
         if self.cache_config is not None:
-            logging.info("Cache enabled. Checking cache...")
+            logger.debug("Cache enabled. Checking cache...")
             cache_id = f"{session_id}--{self.config.id}"
             answer = adapt(
                 llm_handler=self.llm.chat,
@@ -575,6 +577,7 @@ class EmbedChain(JSONSerializable):
                 dry_run=dry_run,
             )
         else:
+            logger.debug("Cache disabled. Running chat without cache.")
             answer = self.llm.chat(
                 input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
             )
@@ -652,7 +655,7 @@ class EmbedChain(JSONSerializable):
             self.db_session.query(ChatHistory).filter_by(app_id=self.config.id).delete()
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error deleting data sources: {e}")
+            logger.error(f"Error deleting data sources: {e}")
             self.db_session.rollback()
             return None
         self.db.reset()
@@ -694,11 +697,11 @@ class EmbedChain(JSONSerializable):
             self.db_session.query(DataSource).filter_by(hash=source_id, app_id=self.config.id).delete()
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error deleting data sources: {e}")
+            logger.error(f"Error deleting data sources: {e}")
             self.db_session.rollback()
             return None
         self.db.delete(where={"hash": source_id})
-        logging.info(f"Successfully deleted {source_id}")
+        logger.info(f"Successfully deleted {source_id}")
         # Send anonymous telemetry
         if self.config.collect_metrics:
             self.telemetry.capture(event_name="delete", properties=self._telemetry_props)

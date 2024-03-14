@@ -8,6 +8,8 @@ from embedchain.core.db.models import ChatHistory as ChatHistoryModel
 from embedchain.memory.message import ChatMessage
 from embedchain.memory.utils import merge_metadata_dict
 
+logger = logging.getLogger(__name__)
+
 
 class ChatHistory:
     def __init__(self) -> None:
@@ -31,11 +33,11 @@ class ChatHistory:
         try:
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error adding chat memory to db: {e}")
+            logger.error(f"Error adding chat memory to db: {e}")
             self.db_session.rollback()
             return None
 
-        logging.info(f"Added chat memory to db with id: {memory_id}")
+        logger.info(f"Added chat memory to db with id: {memory_id}")
         return memory_id
 
     def delete(self, app_id: str, session_id: Optional[str] = None):
@@ -55,7 +57,7 @@ class ChatHistory:
         try:
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error deleting chat history: {e}")
+            logger.error(f"Error deleting chat history: {e}")
             self.db_session.rollback()
 
     def get(
