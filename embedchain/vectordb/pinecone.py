@@ -16,6 +16,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class PineconeDB(BaseVectorDB):
@@ -49,7 +51,7 @@ class PineconeDB(BaseVectorDB):
         # Setup BM25Encoder if sparse vectors are to be used
         self.bm25_encoder = None
         if self.config.hybrid_search:
-            logging.info("Initializing BM25Encoder for sparse vectors..")
+            logger.info("Initializing BM25Encoder for sparse vectors..")
             self.bm25_encoder = self.config.bm25_encoder if self.config.bm25_encoder else BM25Encoder.default()
 
         # Call parent init here because embedder is needed

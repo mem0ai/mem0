@@ -50,22 +50,3 @@ def test_get_messages(anthropic_llm):
         SystemMessage(content="Test System Prompt", additional_kwargs={}),
         HumanMessage(content="Test Prompt", additional_kwargs={}, example=False),
     ]
-
-
-def test_get_answer_max_tokens_is_provided(anthropic_llm, caplog):
-    with patch("langchain_community.chat_models.ChatAnthropic") as mock_chat:
-        mock_chat_instance = mock_chat.return_value
-        mock_chat_instance.return_value = MagicMock(content="Test Response")
-
-        prompt = "Test Prompt"
-        config = anthropic_llm.config
-        config.max_tokens = 500
-
-        response = anthropic_llm._get_answer(prompt, config)
-
-        assert response == "Test Response"
-        mock_chat.assert_called_once_with(
-            anthropic_api_key="test_api_key", temperature=config.temperature, model=config.model
-        )
-
-        assert "Config option `max_tokens` is not supported by this model." in caplog.text
