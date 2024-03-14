@@ -9,9 +9,14 @@ import requests
 import yaml
 from tqdm import tqdm
 
-from embedchain.cache import (Config, ExactMatchEvaluation,
-                              SearchDistanceEvaluation, cache,
-                              gptcache_data_manager, gptcache_pre_function)
+from embedchain.cache import (
+    Config,
+    ExactMatchEvaluation,
+    SearchDistanceEvaluation,
+    cache,
+    gptcache_data_manager,
+    gptcache_pre_function,
+)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig
 from embedchain.core.db.database import get_session, init_db, setup_engine
@@ -20,8 +25,7 @@ from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.evaluation.base import BaseMetric
-from embedchain.evaluation.metrics import (AnswerRelevance, ContextRelevance,
-                                           Groundedness)
+from embedchain.evaluation.metrics import AnswerRelevance, ContextRelevance, Groundedness
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -83,12 +87,10 @@ class App(EmbedChain):
         if name and config:
             raise Exception("Cannot provide both name and config. Please provide only one of them.")
 
-        logger.debug("4.0")
         # Initialize the metadata db for the app
         setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
         init_db()
 
-        logger.debug("4.0")
         self.auto_deploy = auto_deploy
         # Store the dict config as an attribute to be able to send it
         self.config_data = config_data if (config_data and validate_config(config_data)) else None
@@ -118,7 +120,6 @@ class App(EmbedChain):
         self.llm = llm or OpenAILlm()
         self._init_db()
 
-        logger.debug("4.1")
         # Session for the metadata db
         self.db_session = get_session()
 
@@ -126,7 +127,6 @@ class App(EmbedChain):
         if self.cache_config is not None:
             self._init_cache()
 
-        logger.debug("4.2")
         # Send anonymous telemetry
         self._telemetry_props = {"class": self.__class__.__name__}
         self.telemetry = AnonymousTelemetry(enabled=self.config.collect_metrics)
@@ -337,7 +337,6 @@ class App(EmbedChain):
         :return: An instance of the App class.
         :rtype: App
         """
-        logger.debug("6")
         # Backward compatibility for yaml_path
         if yaml_path and not config_path:
             config_path = yaml_path
