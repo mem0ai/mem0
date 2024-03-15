@@ -1,10 +1,10 @@
 from typing import Optional
 
 from embedchain.config.vectordb.base import BaseVectorDbConfig
-# from embedchain.helper.json_serializable import register_deserializable
+from embedchain.helper.json_serializable import register_deserializable
 
 
-# @register_deserializable
+@register_deserializable
 class LanceDBConfig(BaseVectorDbConfig):
     def __init__(
         self,

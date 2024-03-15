@@ -1,6 +1,4 @@
 from typing import Any, Dict, List, Optional, Union
-
-import pandas as pd
 import pyarrow as pa
 
 try:
@@ -35,10 +33,7 @@ class LanceDB(BaseVectorDB):
         else:
             self.config = LanceDBConfig()
 
-        if self.config.dir is None:
-            self.client = lancedb.connect("~/.lancedb")
-        else:
-            self.client = lancedb.connect(self.config.dir)
+        self.client = lancedb.connect(self.config.dir or "~/.lancedb")
 
         super().__init__(config=self.config)
 
@@ -104,12 +99,11 @@ class LanceDB(BaseVectorDB):
             if table_name not in self.client.table_names():
                 self.collection = self.client.create_table(table_name, schema=schema)
 
-            self.collection = self.client[table_name]
-
         else:
             self.client.drop_table(table_name)
             self.collection = self.client.create_table(table_name, schema=schema)
-            self.collection = self.client[table_name]
+
+        self.collection = self.client[table_name]
 
         return self.collection
 
@@ -129,20 +123,23 @@ class LanceDB(BaseVectorDB):
         if limit is not None:
             max_limit = limit
         else:
-            max_limit = 5
-        results = {"ids": [], "metadatas": []}
+            max_limit = 3
+        results = {"ids": None, "metadatas": None}
+
+        if where is not None:
+            where_clause = self._generate_where_clause(where)
+
+        self.collection.to_lance().take(list(map(int, ids)), columns=["id", "vector"]).to_pydict()
         if ids is not None:
-            if where is not None:
-                where_clause = self._generate_where_clause(where)
-                for id in ids:
-                    result = self.collection.search(id).where(where_clause).limit(max_limit).to_list()
-                    results["ids"].append([r["id"] for r in result])
-                    results["metadatas"].append([r["metadata"] for r in result])
-            else:
-                for id in ids:
-                    result = self.collection.search(id).limit(max_limit).to_list()
-                    results["ids"].append([r["id"] for r in result])
-                    results["metadatas"].append([r["metadata"] for r in result])
+            records = self.collection.to_lance().take(list(map(int, ids)), columns=["id", "vector"]).to_pydict()
+            for emb in records["vector"]:
+                if where is not None:
+                    result = self.collection.search(emb).where(where_clause).limit(max_limit).to_list()
+                else:
+                    result = self.collection.search(emb).limit(max_limit).to_list()
+                results["ids"] = [r["id"] for r in result]
+                results["metadatas"] = [r["metadata"] for r in result]
+
         return results
 
     def add(
@@ -187,8 +184,7 @@ class LanceDB(BaseVectorDB):
                 temp["id"] = id
                 data.append(temp)
 
-        df = pd.DataFrame(data)
-        self.collection.add(df)
+        self.collection.add(data=data)
 
     def _format_result(self, results) -> list:
         """

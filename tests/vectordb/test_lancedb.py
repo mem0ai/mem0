@@ -234,3 +234,27 @@ def generate_embeddings(dummy_embed, embed_size):
         generated_embedding.append(dummy_embed)
 
     return generated_embedding
+
+
+def test_lancedb_get_from_collection():
+    db = LanceDB(config=LanceDBConfig(allow_reset=True, dir="test-db"))
+    app = App(config=AppConfig(collect_metrics=False), db=db)
+    app.set_collection_name("test_get_collection_1")
+    app.db.reset()
+    assert app.db.count() == 0
+
+    embedding = generate_embeddings(0, 1536)
+    embedding1 = generate_embeddings(1, 1536)
+    embedding2 = generate_embeddings(1536, 1536)
+    app.db.add(
+        embeddings=[embedding, embedding, embedding1, embedding2],
+        ids=["0", "1", "2", "3"],
+        documents=["doc1", "doc2", "doc3", "doc4"],
+        metadatas=["test", "test", "test", "test"],
+        skip_embedding=True,
+    )
+    fetch_id = ["0"]
+
+    result = app.db.get(fetch_id)
+    print(result)
+    assert result["ids"] == ["0", "1", "2"]
