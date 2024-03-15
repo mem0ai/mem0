@@ -26,7 +26,7 @@ class ClarifaiEmbeddingFunction(EmbeddingFunction):
 
     def __call__(self, input: Union[str, list[str]]) -> Embeddings:
         if isinstance(input, str):
-            text = [input]
+            input = [input]
 
         batch_size = 32
         embeddings = []
@@ -39,7 +39,7 @@ class ClarifaiEmbeddingFunction(EmbeddingFunction):
                 response = self.model_obj.predict(input_batch)
                 embeddings.extend([list(output.data.embeddings[0].vector) for output in response.outputs])
         except Exception as e:
-            logger.error(f"Predict failed, exception: {e}")
+            print(f"Predict failed, exception: {e}")
 
         return embeddings
 
