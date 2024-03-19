@@ -35,21 +35,30 @@ class SupabaseVectorDB(BaseVectorDB):
 
     """
 
-    stores_text = True
-    flat_metadata = False
+    BATCH_SIZE = 100
+
     _client: Optional[Any] = None
     _collection: Optional[Collection] = None
+    _index_measure: str = vecs.IndexMeasure.cosine_distance
+    _index_method: str = vecs.IndexMethod.hnsw
+    _query_filters: Optional[dict[str, Union[str, int, bool]]] = None
 
     def __init__(
         self,
         postgres_connection_string: str,
         collection_name: str,
         dimension: int,
+        index_measure: str,
+        index_method: str,
+        query_filters: Optional[dict[str, Union[str, int, bool]]] = None,
         config: SupabaseDBConfig = None,
         **kwargs: Any,
     ) -> None:
 
         self._client = vecs.create_client(postgres_connection_string)
+        self._index_measure = index_measure
+        self._index_method = index_method
+        self._query_filters = query_filters
 
         try:
             self._collection = self._client.get_collection(name=collection_name)
@@ -81,7 +90,7 @@ class SupabaseVectorDB(BaseVectorDB):
         """
         Loads the Supabase index or creates it if not present.
         """
-        self._collection.create_index(measure=vecs.IndexMeasure.cosine_distance, method=vecs.IndexMethod.bktree)
+        self._collection.create_index(measure=self._index_measure, method=self._index_measure)
 
     def _get_or_create_db(self):
         """Created during initialization"""
@@ -107,9 +116,22 @@ class SupabaseVectorDB(BaseVectorDB):
 
     def query(self, query):
         """Query contents from the vector database based on vector similarity."""
-        # Query the Supabase collection for similar vectors based on provided query
-        # Implement your similarity search algorithm here
-        return []
+        # index theb query vector by calling the _create_index method
+
+        self._create_index()
+
+        if query is None:
+            raise ValueError("Query vector is not provided.")
+
+        data = self._collection.query(
+            data=query,
+            measure=self._index_measure,
+            filters=self._query_filters,
+        )
+        if data:
+            return data
+        else:
+            return []
 
     def count(self) -> int:
         """Count the number of documents/chunks embedded in the database."""

@@ -90,6 +90,7 @@ class VectorDBFactory:
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
         "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
+        "supabase": "embedchain.vectordb.supabase.SupabaseDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
