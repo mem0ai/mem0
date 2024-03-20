@@ -146,7 +146,7 @@ class QdrantDB(BaseVectorDB):
         qdrant_ids = []
         for id, document, metadata in zip(ids, documents, metadatas):
             metadata["text"] = document
-            qdrant_ids.append(str(uuid.uuid4()))
+            qdrant_ids.append(id)
             payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
 
         for i in tqdm(range(0, len(qdrant_ids), self.BATCH_SIZE), desc="Adding data in batches"):
