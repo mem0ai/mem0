@@ -4,8 +4,7 @@ from string import Template
 
 from embedchain import App
 from embedchain.config import AppConfig, BaseLlmConfig
-from embedchain.helpers.json_serializable import (JSONSerializable,
-                                                  register_deserializable)
+from embedchain.helpers.json_serializable import JSONSerializable, register_deserializable
 
 
 class TestJsonSerializable(unittest.TestCase):

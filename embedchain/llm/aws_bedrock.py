@@ -38,8 +38,7 @@ class AWSBedrockLlm(BaseLlm):
         }
 
         if config.stream:
-            from langchain.callbacks.streaming_stdout import \
-                StreamingStdOutCallbackHandler
+            from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
             callbacks = [StreamingStdOutCallbackHandler()]
             llm = Bedrock(**kwargs, streaming=config.stream, callbacks=callbacks)

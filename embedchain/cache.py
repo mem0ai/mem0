@@ -9,10 +9,8 @@ from gptcache.manager import get_data_manager
 from gptcache.manager.scalar_data.base import Answer
 from gptcache.manager.scalar_data.base import DataType as CacheDataType
 from gptcache.session import Session
-from gptcache.similarity_evaluation.distance import \
-    SearchDistanceEvaluation  # noqa: F401
-from gptcache.similarity_evaluation.exact_match import \
-    ExactMatchEvaluation  # noqa: F401
+from gptcache.similarity_evaluation.distance import SearchDistanceEvaluation  # noqa: F401
+from gptcache.similarity_evaluation.exact_match import ExactMatchEvaluation  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

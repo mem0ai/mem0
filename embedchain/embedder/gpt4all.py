@@ -9,8 +9,7 @@ class GPT4AllEmbedder(BaseEmbedder):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config=config)
 
-        from langchain.embeddings import \
-            GPT4AllEmbeddings as LangchainGPT4AllEmbeddings
+        from langchain.embeddings import GPT4AllEmbeddings as LangchainGPT4AllEmbeddings
 
         embeddings = LangchainGPT4AllEmbeddings()
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)

@@ -1,2 +1,1 @@
-from .base import (AnswerRelevanceConfig, ContextRelevanceConfig,  # noqa: F401
-                   GroundednessConfig)
+from .base import AnswerRelevanceConfig, ContextRelevanceConfig, GroundednessConfig  # noqa: F401
