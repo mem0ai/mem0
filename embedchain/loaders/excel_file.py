@@ -6,6 +6,10 @@ except ImportError:
     raise ImportError(
         'Excel file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
     ) from None
+try:
+    import openpyxl, xlrd
+except ImportError:
+    raise ImportError("Excel file requires extra dependencies. Install with `pip install openpyxl xlrd`") from None
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string

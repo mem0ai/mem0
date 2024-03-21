@@ -123,8 +123,6 @@ cohere = { version = "^4.27", optional = true }
 together = { version = "^0.2.8", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
-openpyxl = { version = "^3.1.2", optional = true }
-xlrd = { version = "^2.0.1", optional = true }
 qdrant-client = { version = "^1.6.3", optional = true }
 unstructured = {extras = ["local-inference", "all-docs"], version = "^0.10.18", optional = true}
 huggingface_hub = { version = "^0.17.3", optional = true }
@@ -192,9 +190,7 @@ dataloaders=[
     "duckduckgo-search",
     "pytube",
     "sentence-transformers",
-    "unstructured",
-    "openpyxl",
-    "xlrd"
+    "unstructured"
 ]
 vertexai = ["langchain-google-vertexai"]
 llama2 = ["replicate"]
