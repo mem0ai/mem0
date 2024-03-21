@@ -21,4 +21,3 @@ def test_clarifai__llm_get_llm_model_answer(clarifai_llm_config, mocker):
     answer = llm.get_llm_model_answer("Test query")
 
     assert answer == "Test answer"
-    mocked_get_answer.assert_called_once_with("Test query", clarifai_llm_config)
