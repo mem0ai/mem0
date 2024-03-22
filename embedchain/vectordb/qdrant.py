@@ -1,6 +1,5 @@
 import copy
 import os
-import uuid
 from typing import Any, Optional, Union
 
 try:
@@ -146,7 +145,9 @@ class QdrantDB(BaseVectorDB):
         qdrant_ids = []
         for id, document, metadata in zip(ids, documents, metadatas):
             metadata["text"] = document
-            qdrant_ids.append(id)
+            # Qdrant supports using both 64-bit unsigned integers and UUID as ID for points.
+            # https://qdrant.tech/documentation/concepts/points/?q=ExtendedPointId
+            qdrant_ids.append(id[-32:])
             payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
 
         for i in tqdm(range(0, len(qdrant_ids), self.BATCH_SIZE), desc="Adding data in batches"):
