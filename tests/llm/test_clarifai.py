@@ -16,7 +16,7 @@ def clarifai_llm_config(monkeypatch):
     monkeypatch.delenv("CLARIFAI_PAT")
 
 def test_clarifai__llm_get_llm_model_answer(clarifai_llm_config, mocker):
-    mocked_get_answer = mocker.patch("embedchain.llm.clarifai.ClarifaiLlm._get_answer", return_value="Test answer")
+    mocker.patch("embedchain.llm.clarifai.ClarifaiLlm._get_answer", return_value="Test answer")
     llm = ClarifaiLlm(clarifai_llm_config)
     answer = llm.get_llm_model_answer("Test query")
 
