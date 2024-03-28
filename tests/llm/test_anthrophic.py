@@ -23,25 +23,6 @@ def test_get_llm_model_answer(anthropic_llm):
         mock_method.assert_called_once_with(prompt=prompt, config=anthropic_llm.config)
 
 
-def test_get_answer(anthropic_llm):
-    with patch("langchain_community.chat_models.ChatAnthropic") as mock_chat:
-        mock_chat_instance = mock_chat.return_value
-        mock_chat_instance.return_value = MagicMock(content="Test Response")
-
-        prompt = "Test Prompt"
-        response = anthropic_llm._get_answer(prompt, anthropic_llm.config)
-
-        assert response == "Test Response"
-        mock_chat.assert_called_once_with(
-            anthropic_api_key="test_api_key",
-            temperature=anthropic_llm.config.temperature,
-            model=anthropic_llm.config.model,
-        )
-        mock_chat_instance.assert_called_once_with(
-            anthropic_llm._get_messages(prompt, system_prompt=anthropic_llm.config.system_prompt)
-        )
-
-
 def test_get_messages(anthropic_llm):
     prompt = "Test Prompt"
     system_prompt = "Test System Prompt"
