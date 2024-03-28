@@ -2,6 +2,11 @@ import logging
 import os
 from typing import Optional
 
+try:
+    from langchain_anthropic import ChatAnthropic
+except ImportError:
+    raise ImportError("Please install the langchain-anthropic package by running `pip install langchain-anthropic`.")
+
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -21,10 +26,9 @@ class AnthropicLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain_community.chat_models import ChatAnthropic
 
         chat = ChatAnthropic(
-            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model=config.model
+            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model_name=config.model
         )
 
         if config.max_tokens and config.max_tokens != 1000:
