@@ -1,0 +1,6 @@
+vectordb:
+  provider: supabase
+  config:
+    postgres_connection_string: "postgresql://<user>:<password>@<host>:<port>/<db_name>"
+    collection_name: "my-app"
+    dimension: 3

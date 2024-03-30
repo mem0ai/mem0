@@ -1,0 +1,34 @@
+---
+title: Supabase
+---
+
+Supabase python client requires `vecs` library to be installed. You can install it using pip:
+
+```bash
+pip install vecs
+```
+
+In order to create a Supabase client to use it as a vector database, you need a connection
+string "DB_Connection". You can get it from the Supabase dashboard. For more information, you can check the [official documentation](https://supabase.github.io/vecs/0.4/hosting/).
+
+Set the connection string as an environment variable "POSTGRESS_CONNECTION_STRING".
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load supabase configuration from yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+vectordb:
+  provider: supabase
+  config:
+    postgres_connection_string: "postgresql://<user>:<password>@<host>:<port>/<db_name>"
+    collection_name: "my-app"
+    dimension: 3
+```
+
+</CodeGroup>

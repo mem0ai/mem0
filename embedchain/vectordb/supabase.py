@@ -45,7 +45,6 @@ class SupabaseVectorDB(BaseVectorDB):
 
     def __init__(
         self,
-        postgres_connection_string: str,
         collection_name: str,
         dimension: int,
         index_measure: str,
@@ -55,6 +54,9 @@ class SupabaseVectorDB(BaseVectorDB):
         **kwargs: Any,
     ) -> None:
 
+        postgres_connection_string = self.config.postgres_connection_string or os.environ.get(
+            "POSTGRES_CONNECTION_STRING"
+        )
         self._client = vecs.create_client(postgres_connection_string)
         self._index_measure = index_measure
         self._index_method = index_method

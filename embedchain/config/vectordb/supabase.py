@@ -11,8 +11,7 @@ class SupabaseDBConfig(BaseVectorDbConfig):
     def __init__(
         self,
         url: str,
-        api_key: str,
-        postgres_connection_string: str,
+        postgres_connection_string: Optional[str],
         collection_name: str,
         dimension: int,
         index_measure: str = vecs.IndexMeasure.cosine_distance,
@@ -21,7 +20,6 @@ class SupabaseDBConfig(BaseVectorDbConfig):
         **extra_params: dict[str, Union[str, int, bool]],
     ):
         self.url = url
-        self.api_key = api_key
         self.extra_params = extra_params
         self.postgres_connection_string = postgres_connection_string
         self.collection_name = collection_name
@@ -37,4 +35,4 @@ class SupabaseDBConfig(BaseVectorDbConfig):
         if self.postgres_connection_string is None:
             raise ValueError("postgres_connection_string is required to establish Database connection")
 
-        super().__init__(url, api_key, dir=None)
+        super().__init__(url, dir=None)
