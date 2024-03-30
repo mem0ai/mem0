@@ -1,6 +1,7 @@
 import pytest
 import responses
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 
 @pytest.mark.parametrize(
@@ -204,6 +205,53 @@ def test_load_data_fails_to_fetch_website(loader, mocked_responses, mocker):
     assert result["doc_id"] is doc_id
     assert result["data"] == []
 
+def  test_load_data_get_all_urls(loader, mocked_responses, mocker):
+    child_url = "https://docs.embedchain.ai/quickstart"
+    html_body = """
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <li><a href="/">..</a></li>
+    <li><a href="/quickstart">.</a></li>
+</body>
+</html>
+"""
+    mocked_responses.get(child_url, body=html_body, status=200, content_type="text/html")
+    
+    child_url = "https://docs.embedchain.ai/introduction"
+    html_body = """
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <li><a href="/">..</a></li>
+    <li><a href="/introduction">.</a></li>
+</body>
+</html>
+"""
+    mocked_responses.get(child_url, body=html_body, status=200, content_type="text/html")
+    
+    url = "https://docs.embedchain.ai/"
+    html_body = """
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <li><a href="/quickstart">Quickstart</a></li>
+    <li><a href="/introduction">Introduction</a></li>
+</body>
+</html>
+"""
+    mocked_responses.get(url, body=html_body, status=200, content_type="text/html")
+    
+    mock_sha256 = mocker.patch("embedchain.loaders.docs_site_loader.hashlib.sha256")
+    doc_id = "mocked_hash"
+    mock_sha256.return_value.hexdigest.return_value = doc_id
+
+    result = loader._get_all_urls(url)
+    assert isinstance(result,list),"Method did not return a list as expected"
+
+    assert child_url in result,"Method did not retrieve child url correctly" 
+
+    assert all(urlparse(url).netloc == urlparse(link).netloc for link in result),"Method returns urls from different netloc"
 
 @pytest.fixture
 def loader():
