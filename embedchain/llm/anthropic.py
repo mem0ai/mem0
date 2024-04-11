@@ -26,7 +26,6 @@ class AnthropicLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-
         chat = ChatAnthropic(
             anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model_name=config.model
         )

@@ -179,6 +179,10 @@ class EmbedChain(JSONSerializable):
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
+        # Convert the source to a string if it is not already
+        if not isinstance(source, str):
+            source = str(source)
+
         # Insert the data into the 'ec_data_sources' table
         self.db_session.add(
             DataSource(
@@ -310,12 +314,12 @@ class EmbedChain(JSONSerializable):
         new_doc_id = embeddings_data["doc_id"]
 
         if existing_doc_id and existing_doc_id == new_doc_id:
-            print("Doc content has not changed. Skipping creating chunks and embeddings")
+            logger.info("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
 
         # this means that doc content has changed.
         if existing_doc_id and existing_doc_id != new_doc_id:
-            print("Doc content has changed. Recomputing chunks and embeddings intelligently.")
+            logger.info("Doc content has changed. Recomputing chunks and embeddings intelligently.")
             self.db.delete({"doc_id": existing_doc_id})
 
         # get existing ids, and discard doc if any common id exist.
@@ -341,7 +345,7 @@ class EmbedChain(JSONSerializable):
                 src_copy = src
                 if len(src_copy) > 50:
                     src_copy = src[:50] + "..."
-                print(f"All data from {src_copy} already exists in the database.")
+                logger.info(f"All data from {src_copy} already exists in the database.")
                 # Make sure to return a matching return type
                 return [], [], [], 0
 
@@ -388,12 +392,12 @@ class EmbedChain(JSONSerializable):
                 if batch_docs:
                     self.db.add(documents=batch_docs, metadatas=batch_meta, ids=batch_ids, **kwargs)
             except Exception as e:
-                print(f"Failed to add batch due to a bad request: {e}")
+                logger.info(f"Failed to add batch due to a bad request: {e}")
                 # Handle the error, e.g., by logging, retrying, or skipping
                 pass
 
         count_new_chunks = self.db.count() - chunks_before_addition
-        print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
+        logger.info(f"Successfully saved {str(src)[:100]} ({chunker.data_type}). New chunks count: {count_new_chunks}")
 
         return list(documents), metadatas, ids, count_new_chunks
 
