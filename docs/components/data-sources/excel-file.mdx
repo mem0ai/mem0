@@ -1,0 +1,18 @@
+---
+title: '📄 Excel file'
+---
+
+### Excel file
+
+To add any xlsx/xls file, use the data_type as `excel_file`. `excel_file` allows remote urls and conventional file paths. Eg:
+
+```python
+from embedchain import App
+
+app = App()
+app.add('https://example.com/content/intro.xlsx', data_type="excel_file")
+# Or add file using the local file path on your system
+# app.add('content/intro.xls', data_type="excel_file")
+
+app.query("Give brief information about data.")
+```

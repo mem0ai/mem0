@@ -190,7 +190,7 @@ dataloaders=[
     "duckduckgo-search",
     "pytube",
     "sentence-transformers",
-    "unstructured",
+    "unstructured"
 ]
 vertexai = ["langchain-google-vertexai"]
 llama2 = ["replicate"]
