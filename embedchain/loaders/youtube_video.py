@@ -35,7 +35,7 @@ class YoutubeVideoLoader(BaseLoader):
         video_id = url.split("v=")[1].split('&')[0]
         try:
             # Fetching transcript data
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
+            transcript = YouTubeTranscriptApi.get_transcript(video_id,languages=[ 'en','fr','de','es'])
             # convert transcript to json to avoid unicode symboles
             metadata["transcript"] = json.dumps(transcript, ensure_ascii=False)
         except Exception as e:
