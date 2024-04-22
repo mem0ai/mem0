@@ -11,3 +11,4 @@ class VectorDimensions(Enum):
     MISTRAL_AI = 1024
     NVIDIA_AI = 1024
     COHERE = 384
+    OLLAMA = 384
