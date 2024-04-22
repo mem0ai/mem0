@@ -459,7 +459,7 @@ def validate_config(config_data):
                     Optional("title"): str,
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
-                    Optional("url"): str,
+                    Optional("base_url"): str,
                 },
             },
             Optional("embedding_model"): {
@@ -481,7 +481,7 @@ def validate_config(config_data):
                     Optional("title"): str,
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
-                    Optional("url"): str,
+                    Optional("base_url"): str,
                 },
             },
             Optional("chunker"): {
