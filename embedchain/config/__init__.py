@@ -6,6 +6,7 @@ from .base_config import BaseConfig
 from .cache_config import CacheConfig
 from .embedder.base import BaseEmbedderConfig
 from .embedder.base import BaseEmbedderConfig as EmbedderConfig
+from .embedder.ollama import OllamaEmbedderConfig
 from .llm.base import BaseLlmConfig
 from .vectordb.chroma import ChromaDbConfig
 from .vectordb.elasticsearch import ElasticsearchDBConfig

@@ -8,6 +8,7 @@ llm:
     base_url: http://localhost:11434
 
 embedder:
-  provider: huggingface
+  provider: ollama
   config:
-    model: 'BAAI/bge-small-en-v1.5'
+    model: 'mxbai-embed-large:latest'
+    base_url: http://localhost:11434

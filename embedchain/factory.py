@@ -58,6 +58,7 @@ class EmbedderFactory:
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
         "cohere": "embedchain.embedder.cohere.CohereEmbedder",
+        "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
@@ -65,6 +66,7 @@ class EmbedderFactory:
         "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
     }
 
     @classmethod
