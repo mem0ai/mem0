@@ -431,6 +431,7 @@ def validate_config(config_data):
                     Optional("model_kwargs"): dict,
                     Optional("local"): bool,
                     Optional("base_url"): str,
+                    Optional("default_headers"): dict,
                 },
             },
             Optional("vectordb"): {
