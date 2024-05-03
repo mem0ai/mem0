@@ -76,6 +76,23 @@ def test_get_llm_model_answer_without_system_prompt(config, mocker):
         base_url=os.environ["OPENAI_API_BASE"],
     )
 
+def test_get_llm_model_answer_with_special_headers(config, mocker):
+    config.default_headers = {'test': 'test'}
+    mocked_openai_chat = mocker.patch("embedchain.llm.openai.ChatOpenAI")
+
+    llm = OpenAILlm(config)
+    llm.get_llm_model_answer("Test query")
+
+    mocked_openai_chat.assert_called_once_with(
+        model=config.model,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        model_kwargs={"top_p": config.top_p},
+        api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ["OPENAI_API_BASE"],
+        default_headers={'test': 'test'}
+    )
+
 
 @pytest.mark.parametrize(
     "mock_return, expected",
