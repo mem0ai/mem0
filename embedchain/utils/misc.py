@@ -450,6 +450,7 @@ def validate_config(config_data):
                     "mistralai",
                     "nvidia",
                     "ollama",
+                    "cohere",
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
