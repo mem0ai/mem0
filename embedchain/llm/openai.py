@@ -52,6 +52,8 @@ class OpenAILlm(BaseLlm):
                 callbacks=callbacks,
                 api_key=api_key,
                 base_url=base_url,
+                http_client=config.http_client,
+                http_async_client=config.http_async_client,
             )
         else:
             chat = ChatOpenAI(**kwargs, api_key=api_key, base_url=base_url)
