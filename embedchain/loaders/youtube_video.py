@@ -1,5 +1,6 @@
 import hashlib
-import json  
+import json
+import logging
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
 except ImportError:
