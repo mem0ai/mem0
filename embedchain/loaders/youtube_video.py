@@ -44,7 +44,7 @@ class YoutubeVideoLoader(BaseLoader):
 
 
         output.append(
-            {                           
+            {
                 "content": content,
                 "meta_data": metadata,
             }
