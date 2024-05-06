@@ -98,6 +98,8 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
+        http_client: Optional[Any] = None,
+        http_async_client: Optional[Any] = None,
         local: Optional[bool] = False,
         default_headers: Optional[Mapping[str, str]] = None,
     ):
@@ -175,6 +177,8 @@ class BaseLlmConfig(BaseConfig):
         self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+        self.http_client = http_client
+        self.http_async_client = http_async_client
         self.local = local
         self.default_headers = default_headers
 
