@@ -22,7 +22,10 @@ from embedchain.utils.misc import clean_string
 class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True)
+        video_id = YoutubeLoader.extract_video_id(url)
+        languages = [transcript.language_code for transcript in YouTubeTranscriptApi.list_transcripts(video_id)]
+        
+        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=languages)
         doc = loader.load()
         output = []
         if not len(doc):
