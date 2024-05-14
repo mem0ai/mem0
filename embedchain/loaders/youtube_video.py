@@ -1,12 +1,11 @@
 import hashlib
 import json
 import logging
+
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
 except ImportError:
-    raise ImportError(
-        'YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api "`'
-    )
+    raise ImportError('YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api "`')
 try:
     from langchain_community.document_loaders import YoutubeLoader
 except ImportError:
@@ -22,18 +21,18 @@ from embedchain.utils.misc import clean_string
 class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
-        video_id = url.split("v=")[1].split('&')[0]
+        video_id = url.split("v=")[1].split("&")[0]
         languages = ["en"]
         try:
             # Fetching transcript data
             languages = [transcript.language_code for transcript in YouTubeTranscriptApi.list_transcripts(video_id)]
-            transcript = YouTubeTranscriptApi.get_transcript(video_id,languages=languages)
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=languages)
             # convert transcript to json to avoid unicode symboles
             transcript = json.dumps(transcript, ensure_ascii=True)
         except Exception as e:
             logging.exception(f"Failed to fetch transcript for video {url}")
-            transcript = "Unavailable"   
-            
+            transcript = "Unavailable"
+
         loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=languages)
         doc = loader.load()
         output = []
