@@ -32,7 +32,8 @@ def test_load_data(youtube_video_loader):
     expected_data = [
         {
             "content": "This is a YouTube video content.",
-            "meta_data": {"url": video_url, "title": "Test Video"},
+            "meta_data": {"url": video_url, "title": "Test Video","transcript" : "Unavailable" },
+            
         }
     ]
 
