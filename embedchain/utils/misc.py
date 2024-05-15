@@ -410,6 +410,7 @@ def validate_config(config_data):
                     "vllm",
                     "groq",
                     "nvidia",
+                    "premai"
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -451,6 +452,7 @@ def validate_config(config_data):
                     "mistralai",
                     "nvidia",
                     "ollama",
+                    "premai"
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
@@ -474,6 +476,7 @@ def validate_config(config_data):
                     "mistralai",
                     "nvidia",
                     "ollama",
+                    "premai"
                 ),
                 Optional("config"): {
                     Optional("model"): str,
