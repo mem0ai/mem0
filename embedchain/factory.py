@@ -26,11 +26,13 @@ class LlmFactory:
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
         "vllm": "embedchain.llm.vllm.VLLM",
+        "premai": "embedchain.llm.premai.PremAILlm"
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
         "openai": "embedchain.config.llm.base.BaseLlmConfig",
         "anthropic": "embedchain.config.llm.base.BaseLlmConfig",
+        "premai": "embedchain.llm.premai.PremAIConfig"
     }
 
     @classmethod
@@ -59,6 +61,7 @@ class EmbedderFactory:
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
         "cohere": "embedchain.embedder.cohere.CohereEmbedder",
         "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
+        "premai": "embedchain.embedder.premai.PremAIEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
@@ -67,6 +70,7 @@ class EmbedderFactory:
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
+        "premai": "embedchain.embedder.premai.PremAIConfig",
     }
 
     @classmethod
