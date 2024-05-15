@@ -120,6 +120,7 @@ fastapi-poe = { version = "0.0.16", optional = true }
 discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^4.27", optional = true }
+premai = { version = "^0.3", optional = true }
 together = { version = "^0.2.8", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
@@ -182,6 +183,7 @@ weaviate = ["weaviate-client"]
 qdrant = ["qdrant-client"]
 huggingface_hub=["huggingface_hub"]
 cohere = ["cohere"]
+premai = ["premai"]
 together = ["together"]
 milvus = ["pymilvus"]
 dataloaders=[
