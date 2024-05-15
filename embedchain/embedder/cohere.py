@@ -1,6 +1,6 @@
 from typing import Optional
 
-from langchain_community.embeddings import CohereEmbeddings
+from langchain_cohere.embeddings import CohereEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
