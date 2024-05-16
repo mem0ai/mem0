@@ -26,13 +26,13 @@ class LlmFactory:
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
         "vllm": "embedchain.llm.vllm.VLLM",
-        "premai": "embedchain.llm.premai.PremAILlm"
+        "premai": "embedchain.llm.premai.PremAILlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
         "openai": "embedchain.config.llm.base.BaseLlmConfig",
         "anthropic": "embedchain.config.llm.base.BaseLlmConfig",
-        "premai": "embedchain.llm.premai.PremAIConfig"
+        "premai": "embedchain.llm.premai.PremAIConfig",
     }
 
     @classmethod
