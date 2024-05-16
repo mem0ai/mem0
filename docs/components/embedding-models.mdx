@@ -9,6 +9,7 @@ Embedchain supports several embedding models from the following providers:
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
   <Card title="GoogleAI" href="#google-ai"></Card>
+  <Card title="Prem AI" href="#prem-ai"></Card>
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
@@ -94,6 +95,55 @@ embedder:
 <Note>
 For more details regarding the Google AI embedding model, please refer to the [Google AI documentation](https://ai.google.dev/tutorials/python_quickstart#use_embeddings).
 </Note>
+
+## Prem AI
+
+[PremAI](https://app.premai.io) is a unified platform that lets you build powerful production-ready GenAI-powered applications with the least effort so that you can focus more on user experience and overall growth. 
+
+### Usage
+
+Refer to the [quick start](https://docs.premai.io/introduction) guide to getting started with the PremAI platform, create your first project and grab your API key.
+
+Please make sure you have premai python sdk installed. Otherwise you can do it using this command:
+
+```bash
+pip install -U premai
+```
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['PREMAI_API_KEY'] = 'xxx-xxxx'
+
+config = {
+    "app": {"config": {"id": "my-app"}},
+    "llm": {
+        "provider": "premai",
+        "config": {
+            "project_id": 4071,
+            "local": False,  
+            "top_p": 0.5,
+            "max_tokens": 1000,
+            "temperature": 0.1,
+        },
+    },
+    "embedder": {
+        "provider": "premai",
+        "config": {"model": "text-embedding-3-large", "project_id": 4071, "vector_dimension": 512},
+    },
+}
+app = App.from_config(config=config)
+
+app.add("https://www.forbes.com/profile/elon-musk")
+answer = app.query("What is the net worth of Elon Musk today?")
+
+
+# Answer: Elon Musk's net worth today is $194.3 billion.
+```
+</CodeGroup>
 
 ## Azure OpenAI
 
