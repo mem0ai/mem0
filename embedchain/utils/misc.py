@@ -6,7 +6,7 @@ import re
 import string
 from typing import Any
 
-from schema import Optional, Or, Schema
+from schema import Optional, Or, Schema, Use
 from tqdm import tqdm
 
 from embedchain.models.data_type import DataType
@@ -380,6 +380,68 @@ def is_valid_json_string(source: str):
 
 
 def validate_config(config_data):
+    common_llm_provider_config = {
+        Optional("model"): str,
+        Optional("model_name"): str,
+        Optional("number_documents"): int,
+        Optional("temperature"): float,
+        Optional("max_tokens"): int,
+        Optional("top_p"): Or(float, int),
+        Optional("stream"): bool,
+        Optional("template"): str,
+        Optional("prompt"): str,
+        Optional("system_prompt"): str,
+        Optional("deployment_name"): str,
+        Optional("where"): dict,
+        Optional("query_type"): str,
+        Optional("api_key"): str,
+        Optional("base_url"): str,
+        Optional("endpoint"): str,
+        Optional("model_kwargs"): dict,
+        Optional("local"): bool,
+        Optional("base_url"): str,
+        Optional("default_headers"): dict,
+    }
+
+    common_embedder_provider_config = {
+        Optional("model"): Optional(str),
+        Optional("deployment_name"): Optional(str),
+        Optional("api_key"): str,
+        Optional("api_base"): str,
+        Optional("title"): str,
+        Optional("task_type"): str,
+        Optional("vector_dimension"): int,
+        Optional("base_url"): str,
+    }
+
+    common_embedding_model_config = {
+        Optional("model"): str,
+        Optional("deployment_name"): str,
+        Optional("api_key"): str,
+        Optional("title"): str,
+        Optional("task_type"): str,
+        Optional("vector_dimension"): int,
+        Optional("base_url"): str,
+    }
+
+    def llm_provider_schema(provider):
+        if provider == "premai":
+            return dict(common_llm_provider_config, **{Optional("project_id"): int})
+        else:
+            return common_llm_provider_config
+
+    def embedder_provider_schema(provider):
+        if provider == "premai":
+            return dict(common_embedder_provider_config, **{Optional("project_id"): int})
+        else:
+            return common_embedder_provider_config
+
+    def embedding_model_schema(provider):
+        if provider == "prremai":
+            return dict(common_embedding_model_config, **{Optional("project_id"): int})
+        else:
+            return common_embedding_model_config
+
     schema = Schema(
         {
             Optional("app"): {
@@ -410,30 +472,9 @@ def validate_config(config_data):
                     "vllm",
                     "groq",
                     "nvidia",
-                    "premai"
+                    "premai",
                 ),
-                Optional("config"): {
-                    Optional("model"): str,
-                    Optional("model_name"): str,
-                    Optional("number_documents"): int,
-                    Optional("temperature"): float,
-                    Optional("max_tokens"): int,
-                    Optional("top_p"): Or(float, int),
-                    Optional("stream"): bool,
-                    Optional("template"): str,
-                    Optional("prompt"): str,
-                    Optional("system_prompt"): str,
-                    Optional("deployment_name"): str,
-                    Optional("where"): dict,
-                    Optional("query_type"): str,
-                    Optional("api_key"): str,
-                    Optional("base_url"): str,
-                    Optional("endpoint"): str,
-                    Optional("model_kwargs"): dict,
-                    Optional("local"): bool,
-                    Optional("base_url"): str,
-                    Optional("default_headers"): dict,
-                },
+                Optional("config"): Use(lambda config: llm_provider_schema(config.get("provider", ""))),
             },
             Optional("vectordb"): {
                 Optional("provider"): Or(
@@ -452,18 +493,9 @@ def validate_config(config_data):
                     "mistralai",
                     "nvidia",
                     "ollama",
-                    "premai"
+                    "premai",
                 ),
-                Optional("config"): {
-                    Optional("model"): Optional(str),
-                    Optional("deployment_name"): Optional(str),
-                    Optional("api_key"): str,
-                    Optional("api_base"): str,
-                    Optional("title"): str,
-                    Optional("task_type"): str,
-                    Optional("vector_dimension"): int,
-                    Optional("base_url"): str,
-                },
+                Optional("config"): Use(lambda config: embedder_provider_schema(config.get("provider", ""))),
             },
             Optional("embedding_model"): {
                 Optional("provider"): Or(
@@ -476,17 +508,9 @@ def validate_config(config_data):
                     "mistralai",
                     "nvidia",
                     "ollama",
-                    "premai"
+                    "premai",
                 ),
-                Optional("config"): {
-                    Optional("model"): str,
-                    Optional("deployment_name"): str,
-                    Optional("api_key"): str,
-                    Optional("title"): str,
-                    Optional("task_type"): str,
-                    Optional("vector_dimension"): int,
-                    Optional("base_url"): str,
-                },
+                Optional("config"): Use(lambda config: embedding_model_schema(config.get("provider", ""))),
             },
             Optional("chunker"): {
                 Optional("chunk_size"): int,
