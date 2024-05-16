@@ -1,0 +1,9 @@
+llm:
+  provider: premai
+  config:
+    project_id: 4071
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+embedder:
+  provider: premai
