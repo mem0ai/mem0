@@ -9,6 +9,7 @@ Embedchain comes with built-in support for various popular large language models
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
   <Card title="Google AI" href="#google-ai"></Card>
+  <Card title="Prem AI" href="#prem-ai"></Card>
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Cohere" href="#cohere"></Card>
@@ -181,6 +182,55 @@ embedder:
     title: "Embeddings for Embedchain"
 ```
 </CodeGroup>
+
+## Prem AI
+
+[PremAI](https://app.premai.io) is a unified platform that lets you build powerful production-ready GenAI-powered applications with the least effort so that you can focus more on user experience and overall growth. 
+
+### Usage
+
+Refer to the [quick start](https://docs.premai.io/introduction) guide to getting started with the PremAI platform, create your first project and grab your API key.
+
+Please make sure you have premai python sdk installed. Otherwise you can do it using this command:
+
+<CodeGroup>
+
+```bash
+pip install -U premai
+```
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ['PREMAI_API_KEY'] = 'xxx-xxxx'
+
+config = {
+    "app": {"config": {"id": "my-app"}},
+    "llm": {
+        "provider": "premai",
+        "config": {
+            "project_id": 4071,
+            "local": False,  
+            "top_p": 0.5,
+            "max_tokens": 1000,
+            "temperature": 0.1,
+        },
+    },
+    "embedder": {
+        "provider": "premai",
+        "config": {"model": "text-embedding-3-large", "project_id": 4071, "vector_dimension": 512},
+    },
+}
+
+app = App.from_config(config=config)
+app.add("https://en.wikipedia.org/wiki/OpenAI")
+response = app.query("What is OpenAI?")
+print(response)
+```
+</CodeGroup>
+
+You can know more about premai [here](https://app.premai.io)
 
 ## Azure OpenAI
 
