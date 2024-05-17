@@ -4,7 +4,8 @@ import shutil
 import pytest
 
 from embedchain import App
-from embedchain.config import AppConfig, LanceDBConfig
+from embedchain.config import AppConfig
+from embedchain.config.vectordb.lancedb import LanceDBConfig
 from embedchain.vectordb.lancedb import LanceDB
 
 os.environ["OPENAI_API_KEY"] = "test-api-key"
