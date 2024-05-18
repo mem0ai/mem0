@@ -12,7 +12,7 @@ class LanceDBConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         host: Optional[str] = None,
         port: Optional[str] = None,
-        allow_reset=False,
+        allow_reset=True,
     ):
         """
         Initializes a configuration class instance for LanceDB.

@@ -49,7 +49,6 @@ class LanceDB(BaseVectorDB):
         """
         return self.client
 
-    @staticmethod
     def _generate_where_clause(self, where: Dict[str, any]) -> str:
         """
         This method
@@ -57,8 +56,8 @@ class LanceDB(BaseVectorDB):
 
         where_filters = ""
 
-        if len(where.keys()) == 1:
-            where_filters = f"{where.keys()[0]} = {where.values()[0]}"
+        if len(list(where.keys())) == 1:
+            where_filters = f"{list(where.keys())[0]} = {list(where.values())[0]}"
             return where_filters
 
         where_items = list(where.items())
@@ -87,8 +86,7 @@ class LanceDB(BaseVectorDB):
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
         schema = pa.schema(
-            [
-                pa.field("vector", pa.list_(pa.float32(), list_size=self.embedder.vector_dimension)),
+            [   pa.field("vector", pa.list_(pa.float32(), list_size=self.embedder.vector_dimension)),
                 pa.field("doc", pa.string()),
                 pa.field("metadata", pa.string()),
                 pa.field("id", pa.string()),
@@ -124,19 +122,21 @@ class LanceDB(BaseVectorDB):
             max_limit = limit
         else:
             max_limit = 3
-        results = {"ids": None, "metadatas": None}
+        results = {"ids": [], "metadatas": []}
 
-        if where is not None:
+        where_clause = {}
+        if where:
             where_clause = self._generate_where_clause(where)
 
-        self.collection.to_lance().take(list(map(int, ids)), columns=["id", "vector"]).to_pydict()
         if ids is not None:
-            records = self.collection.to_lance().take(list(map(int, ids)), columns=["id", "vector"]).to_pydict()
-            for emb in records["vector"]:
+            print("Ids: ", ids)
+            records = self.collection.to_lance().scanner(filter=f"id IN {tuple(ids)}", columns=["id"]).to_table().to_pydict()
+            print("Records: ", records)
+            for id in records["id"]:
                 if where is not None:
-                    result = self.collection.search(emb).where(where_clause).limit(max_limit).to_list()
+                    result = self.collection.search(query=id, vector_column_name="id").where(where_clause).limit(max_limit).to_list()
                 else:
-                    result = self.collection.search(emb).limit(max_limit).to_list()
+                    result = self.collection.search(query=id, vector_column_name="id").limit(max_limit).to_list()
                 results["ids"] = [r["id"] for r in result]
                 results["metadatas"] = [r["metadata"] for r in result]
 
@@ -144,45 +144,29 @@ class LanceDB(BaseVectorDB):
 
     def add(
         self,
-        embeddings: List[List[float]],
         documents: List[str],
         metadatas: List[object],
         ids: List[str],
-        skip_embedding: bool,
     ) -> Any:
         """
         Add vectors to lancedb database
 
-        :param embeddings: list of embeddings to add
-        :type embeddings: List[List[float]]
         :param documents: Documents
         :type documents: List[str]
         :param metadatas: Metadatas
         :type metadatas: List[object]
         :param ids: ids
         :type ids: List[str]
-        :param skip_embedding: Optional. If True, then the embeddings are assumed to be already generated.
-        :type skip_embedding: bool
         """
-        if skip_embedding:
-            data = []
-            to_ingest = list(zip(embeddings, documents, metadatas, ids))
-            for emb, doc, meta, id in to_ingest:
-                temp = {}
-                temp["vector"] = emb
-                temp["doc"] = doc
-                temp["metadata"] = str(meta)
-                temp["id"] = id
-                data.append(temp)
-        else:
-            data = []
-            to_ingest = list(zip(documents, metadatas, ids))
-            for doc, meta, id in to_ingest:
-                temp = {}
-                temp["doc"] = doc
-                temp["metadata"] = str(meta)
-                temp["id"] = id
-                data.append(temp)
+        data = []
+        to_ingest = list(zip(documents, metadatas, ids))
+        for doc, meta, id in to_ingest:
+            temp = {}
+            temp["doc"] = doc
+            temp["vector"] = self.embedder.embedding_fn([doc])[0]
+            temp["metadata"] = str(meta)
+            temp["id"] = id
+            data.append(temp)
 
         self.collection.add(data=data)
 
@@ -195,12 +179,12 @@ class LanceDB(BaseVectorDB):
         :return: Formatted results
         :rtype: list[tuple[Document, float]]
         """
-        return results.to_list()
+        return results.tolist()
 
     def query(
         self,
         input_query: list[str],
-        n_results: int,
+        n_results: int = 3,
         where: Optional[dict[str, any]] = None,
         raw_filter: Optional[dict[str, any]] = None,
         citations: bool = False,
@@ -226,29 +210,23 @@ class LanceDB(BaseVectorDB):
         """
         if where and raw_filter:
             raise ValueError("Both `where` and `raw_filter` cannot be used together.")
-
-        where_clause = {}
-        if raw_filter:
-            where_clause = raw_filter
-        if where:
-            where_clause = self._generate_where_clause(where)
         try:
-            result = self.collection.search(query_embeddings=input_query).where(where_clause).limit(n_results)
-
+            query_embedding = self.embedder.embedding_fn([input_query])[0]
+            result = self.collection.search(query_embedding).limit(n_results).to_list()
         except Exception as e:
             e.message()
             +". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
 
-        results_formatted = self._format_result(result)
+        # results_formatted = self._format_result(result)
+        results_formatted = result
 
         contexts = []
         for result in results_formatted:
-            context = result[0]
             if citations:
-                metadata = context["metadata"]
-                contexts.append((context, metadata))
+                metadata = result["metadata"]
+                contexts.append((result["doc"], metadata))
             else:
-                contexts.append(context["doc"])
+                contexts.append(result["doc"])
         return contexts
 
     def set_collection_name(self, name: str):
