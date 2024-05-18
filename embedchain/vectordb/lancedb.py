@@ -129,9 +129,7 @@ class LanceDB(BaseVectorDB):
             where_clause = self._generate_where_clause(where)
 
         if ids is not None:
-            print("Ids: ", ids)
             records = self.collection.to_lance().scanner(filter=f"id IN {tuple(ids)}", columns=["id"]).to_table().to_pydict()
-            print("Records: ", records)
             for id in records["id"]:
                 if where is not None:
                     result = self.collection.search(query=id, vector_column_name="id").where(where_clause).limit(max_limit).to_list()
