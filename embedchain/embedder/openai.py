@@ -24,7 +24,7 @@ class OpenAIEmbedder(BaseEmbedder):
         azure_endpoint = None
         
         if deployment:
-            azure_api_key = os.environ["AZURE_OPENAI_API_KEY"]
+            azure_api_key = os.environ.get("AZURE_OPENAI_API_KEY")
             azure_endpoint = os.environ.get("AZURE_ENDPOINT")
             if azure_api_key is None or azure_endpoint is None:
                 raise ValueError(
