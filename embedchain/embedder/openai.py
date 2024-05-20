@@ -19,7 +19,7 @@ class OpenAIEmbedder(BaseEmbedder):
         
         api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
         api_base = self.config.api_base or os.environ.get("OPENAI_API_BASE")
-        deployment = self.config.deployment_name or os.environ.get('deployment_name')
+        deployment = self.config.deployment_name or os.environ.get('DEPLOYMENT_NAME')
         azure_api_key = None
         azure_endpoint = None
         
