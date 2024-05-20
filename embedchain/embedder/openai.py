@@ -32,7 +32,7 @@ class OpenAIEmbedder(BaseEmbedder):
                 )
                 
             embeddings = AzureOpenAIEmbeddings(deployment=deployment,
-                                               model = model,
+                                               model = self.config.model,
                                                azure_endpoint = azure_endpoint,
                                                openai_api_type='azure',
                                                openai_api_key = azure_api_key)
