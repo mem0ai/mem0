@@ -8,6 +8,7 @@ except ImportError:
     raise ImportError('YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api "`')
 try:
     from langchain_community.document_loaders import YoutubeLoader
+    from langchain_community.document_loaders.youtube import _parse_video_id
 except ImportError:
     raise ImportError(
         'YouTube video requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
@@ -21,7 +22,8 @@ from embedchain.utils.misc import clean_string
 class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
-        video_id = url.split("v=")[1].split("&")[0]
+        video_id = _parse_video_id(url)
+
         languages = ["en"]
         try:
             # Fetching transcript data
