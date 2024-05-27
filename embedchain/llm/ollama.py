@@ -28,14 +28,12 @@ class OllamaLlm(BaseLlm):
         else:
             callbacks = [StdOutCallbackHandler()]
 
-        callback_manager = CallbackManager(callbacks)
-
         llm = Ollama(
             model=config.model,
             system=config.system_prompt,
             temperature=config.temperature,
             top_p=config.top_p,
-            callback_manager=CallbackManager(callback_manager),
+            callback_manager=CallbackManager(callbacks),
             base_url=config.base_url,
         )
 
