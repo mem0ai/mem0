@@ -69,7 +69,8 @@
           "pages": [
             "integration/langsmith",
             "integration/chainlit",
-            "integration/streamlit-mistral"
+            "integration/streamlit-mistral",
+            "integration/openlit"
           ]
         }
       ]

@@ -1,0 +1,46 @@
+---
+title: ':telescope: OpenLIT'
+description: 'OpenTelemetry-native LLM application observabiliy and evaluations'
+---
+
+Embedchain now supports integration with [OpenLIT](https://github.com/openlit/openlit).
+
+Let's cover each step in detail.
+
+```bash
+# Setting environment variable for OpenTelemetry destination and authetication.
+export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
+export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
+```
+
+If you are using Python, you can use the following code to set environment variables
+
+1. Install the OpenLIT SDK
+```bash
+pip install openlit
+```
+
+2. Now create an app using Embedchain and everything will be automatically visible in the LangSmith
+
+```python
+from embedchain import App
+import OpenLIT
+
+# Initialize OpenLIT Auto Instrumentation for monitoring.
+openlit.init()
+
+# Initialize EmbedChain application.
+app = App()
+
+# Add data to your app
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+
+# Query your app
+app.query("How many companies did Elon found?")
+```
+
+With the LLM Observability data now being collected by OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application performance, behavior, and identify areas of improvement.
+
+To begin exploring your LLM Application's performance data within the OpenLIT UI, please see the [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
+
+If you want to integrate and send metrics and traces to your existing observability tools, refer to our [Connections Guide](https://docs.openlit.io/latest/connections/intro) for detailed instructions.
