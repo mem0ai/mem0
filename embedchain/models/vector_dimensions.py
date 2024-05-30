@@ -12,3 +12,4 @@ class VectorDimensions(Enum):
     NVIDIA_AI = 1024
     COHERE = 384
     OLLAMA = 384
+    ZHIPI_AI = 1024

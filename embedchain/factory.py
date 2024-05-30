@@ -60,6 +60,7 @@ class EmbedderFactory:
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
         "cohere": "embedchain.embedder.cohere.CohereEmbedder",
         "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
+        "zhipuai": "embedchain.embedder.zhipuai.ZhipuAIEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
@@ -68,6 +69,7 @@ class EmbedderFactory:
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
+        "zhipuai": "embedchain.config.embedder.base.BaseEmbedderConfig",
     }
 
     @classmethod
