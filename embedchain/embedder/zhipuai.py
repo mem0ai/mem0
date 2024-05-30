@@ -41,14 +41,27 @@ class ZhipiAIEmbeddingFunction(EmbeddingFunction[Documents]):
         self._model_name = model_name
 
     def __call__(self, input: Documents) -> Embeddings:
-        embeddings=[]
+        # 7000个token 搞一批
+        bulks=[[]]
+        _size=0
         for doc in input:
-            embedding = self._client.embeddings.create(
-                input=doc, model=self._model_name
-            ).data[0].embedding
-            embeddings.append(embedding)
+            _size+=len(doc)
+            if _size>7000:
+                bulks.append([doc])
+                _size=0
+            else:
+                bulks[-1].append(doc)
+        result=[]
+        for bulk in bulks:
+            embeddings = self._client.embeddings.create(
+                input=bulk, model=self._model_name
+            ).data
 
-        return cast(Embeddings, embeddings)
+            # Sort resulting embeddings by index
+            sorted_embeddings = sorted(embeddings, key=lambda e: e.index)
+            result+=sorted_embeddings
+        # Return just the embeddings
+        return cast(Embeddings, [item.embedding for item in result])
 
 
 class ZhipuAIEmbedder(BaseEmbedder):

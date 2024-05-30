@@ -800,13 +800,13 @@ Below is an example of how to use LLM model and embedding model from Zhipu AI:
 
 ```python main.py
 from embedchain import App
-
+import os
+os.environ["ZHIPU_API_KEY"]="your-zhipu-api-key"
 config = {
   'llm': {
     'provider': 'zhipuai',
     'config': {
       'model': 'glm-4',
-      'api_key':"your-zhipu-api-key",
       'temperature':0.1,
       'top_p':0.1,
       "stream":False,

@@ -15,6 +15,7 @@ Embedchain supports several embedding models from the following providers:
   <Card title="Vertex AI" href="#vertex-ai"></Card>
   <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
   <Card title="Cohere" href="#cohere"></Card>
+  <Card title="ZHIPU AI" href="#zhipu-ai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -357,4 +358,42 @@ embedder:
     vector_dimension: 768
 ```
 
+</CodeGroup>
+
+## Zhipu AI
+
+### Usage
+
+In order to use LLMs from Zhipu AI, create an account on [Zhipu AI open platform](https://open.bigmodel.cn/).
+
+Generate an API key from their dashboard. Set the API key as `ZHIPU_API_KEY` environment variable.
+
+Below is an example of how to use LLM model and embedding model from Zhipu AI:
+
+<CodeGroup>
+
+```python main.py
+
+from embedchain import App
+import os
+os.environ["ZHIPU_API_KEY"]="your-zhipu-api-key"
+config = {
+  'llm': {
+    'provider': 'zhipuai',
+    'config': {
+      'model': 'glm-4',
+      'api_key':"your-zhipu-api-key",
+      'temperature':0.1,
+      'top_p':0.1,
+      "stream":False,
+    }
+  },
+  "embedder": {
+        "provider": "zhipuai",
+    }
+}
+app = App.from_config(config=config)
+app.add("https://baike.baidu.com/item/%E5%9F%83%E9%9A%86%C2%B7%E9%A9%AC%E6%96%AF%E5%85%8B/3776526")
+print(app.query("马斯克在2001年初做了什么"))
+```
 </CodeGroup>

@@ -48,10 +48,10 @@ print(response)
 ```python
 from embedchain import App
 from embedchain.loaders.zhipu_image import ImageLoader
-
+import os
+os.environ["ZHIPU_API_KEY"]="your-zhipu-api-key"
 image_loader = ImageLoader(
     max_tokens=100,
-    api_key="your-zhipu-api-key",
     prompt="请仔细描述你在图中看到了什么",
 )
 config = {
@@ -59,7 +59,6 @@ config = {
     'provider': 'zhipuai',
     'config': {
       'model': 'glm-4',
-      'api_key':"your-zhipu-api-key",
       'temperature':0.1,
       'top_p':0.1,
       "stream":False,
