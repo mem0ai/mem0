@@ -27,7 +27,7 @@ class ZhipuAILlm(BaseLlm):
             yield chunk.choices[0].delta.content
 
     def get_llm_model_answer(self, prompt) -> str:
-        print("prompt:", prompt)
+        # print("prompt:", prompt)
         response = self._get_answer(prompt, self.config)
         return response
 

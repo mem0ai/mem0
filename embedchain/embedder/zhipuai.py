@@ -41,7 +41,7 @@ class ZhipiAIEmbeddingFunction(EmbeddingFunction[Documents]):
         self._model_name = model_name
 
     def __call__(self, input: Documents) -> Embeddings:
-        # 7000个token 搞一批
+        # about  7000 tokens  make a bulk
         bulks=[[]]
         _size=0
         for doc in input:

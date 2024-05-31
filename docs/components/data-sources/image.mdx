@@ -44,7 +44,7 @@ print(response)
 # Answer: The man in the image appears to be well-dressed in a suit and shirt, suggesting that he may be in a professional or formal setting. His composed demeanor and confident posture further indicate a sense of self-assurance. Based on these visual cues, one could infer that the man may have a certain level of economic or social status, possibly indicating wealth or professional success.
 ```
 
-### Customization ZhiAI image loader
+### ZhiAI image loader
 ```python
 from embedchain import App
 from embedchain.loaders.zhipu_image import ImageLoader
@@ -52,7 +52,7 @@ import os
 os.environ["ZHIPU_API_KEY"]="your-zhipu-api-key"
 image_loader = ImageLoader(
     max_tokens=100,
-    prompt="请仔细描述你在图中看到了什么",
+    prompt="Please describe in detail what you see in the picture.",
 )
 config = {
   'llm': {
@@ -65,32 +65,12 @@ config = {
     }
   },
   'embedder': {
-    'provider': 'huggingface',
-    'config': {
-      'model': 'sentence-transformers/all-mpnet-base-v2'
+        'provider': 'zhipuai',
     }
-  }
 }
 app = App.from_config(config=config)
 app.add("https://img1.baidu.com/it/u=1369931113,3388870256&fm=253&app=138&size=w931&n=0&f=JPEG&fmt=auto?sec=1703696400&t=f3028c7a1dca43a080aeb8239f09cc2f", data_type="image", loader=image_loader)
-response = app.query("请描述天空中的云朵")
+response = app.query("Please describe the clouds in the sky.")
 print(response)
-"""
-# 大模型的user prompt
-You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. Here are some guidelines to follow:
-
-1. Refrain from explicitly mentioning the context provided in your response.
-2. The context should silently guide your answers without being directly acknowledged.
-3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
-
-Context information:
-----------------------
-这是一张展示海洋和天空的风景照片。在图中，我们可以看到一片宁静的海洋，海水呈现出深蓝色调，并且有岩石露出水面。天空中布满了洁白的云朵，其中一些云朵的形状较为蓬松，而另一些则更加密集和厚重。整个场景给人一种宁静、宽广的感觉，仿佛置身于大自然的怀抱中。此外，图片上还有一些水印文字，如“图精灵616PIC.COM”等。
-----------------------
-
-Query: 请描述天空中的云朵
-Answer:
-# 大模型的输出
-天空中的云朵洁白无瑕，形状各异。有的云朵蓬松轻盈，如同棉花糖般柔软，而另一些则密集厚重，仿佛预示着天气的微妙变化。这些云朵在广阔的天空中交织出一幅美丽的画面，增添了几分诗意和想象的空间。
-"""
+# Answer: The clouds in the sky are pure white and flawless, with various shapes. Some clouds are fluffy and light, as soft as cotton candy, while others are dense and heavy, as if indicating subtle changes in the weather. These clouds interweave into a beautiful picture in the vast sky, adding a touch of poetic and imaginative space.
 ```
