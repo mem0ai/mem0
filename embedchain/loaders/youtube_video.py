@@ -45,7 +45,7 @@ class YoutubeVideoLoader(BaseLoader):
         metadata = doc[0].metadata
         metadata["url"] = url
         metadata["transcript"] = transcript
-
+        
         output.append(
             {
                 "content": content,
