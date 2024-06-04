@@ -29,11 +29,13 @@ response = app.query("What is Embedchain?")
 ```
 The `add` function of the app will accept any valid github query with qualifiers. It only supports loading github code, repository, issues and pull-requests.
 <Note>
-You must provide qualifiers `type:` and `repo:` in the query. The `type:` qualifier can be a combination of `code`, `repo`, `pr`, `issue`. The `repo:` qualifier must be a valid github repository name.
+You must provide qualifiers `type:` and `repo:` in the query. The `type:` qualifier can be a combination of `code`, `repo`, `pr`, `issue`, `branch`, `file`. The `repo:` qualifier must be a valid github repository name.
 </Note>
 
 <Card title="Valid queries" icon="lightbulb" iconType="duotone" color="#ca8b04">
     - `repo:embedchain/embedchain type:repo` - to load the repository
+    - `repo:embedchain/embedchain type:branch name:feature_test` - to load the branch of the repository
+    - `repo:embedchain/embedchain type:file path:README.md` - to load the specific file of the repository
     - `repo:embedchain/embedchain type:issue,pr` - to load the issues and pull-requests of the repository
     - `repo:embedchain/embedchain type:issue state:closed` - to load the closed issues of the repository
 </Card>

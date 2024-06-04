@@ -8,6 +8,8 @@ T = TypeVar("T", bound="JSONSerializable")
 # NOTE: Through inheritance, all of our classes should be children of JSONSerializable. (highest level)
 # NOTE: The @register_deserializable decorator should be added to all user facing child classes. (lowest level)
 
+logger = logging.getLogger(__name__)
+
 
 def register_deserializable(cls: Type[T]) -> Type[T]:
     """
@@ -57,7 +59,7 @@ class JSONSerializable:
         try:
             return json.dumps(self, default=self._auto_encoder, ensure_ascii=False)
         except Exception as e:
-            logging.error(f"Serialization error: {e}")
+            logger.error(f"Serialization error: {e}")
             return "{}"
 
     @classmethod
@@ -79,7 +81,7 @@ class JSONSerializable:
         try:
             return json.loads(json_str, object_hook=cls._auto_decoder)
         except Exception as e:
-            logging.error(f"Deserialization error: {e}")
+            logger.error(f"Deserialization error: {e}")
             # Return a default instance in case of failure
             return cls()
 

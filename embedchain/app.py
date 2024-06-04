@@ -32,6 +32,8 @@ from embedchain.utils.misc import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class App(EmbedChain):
@@ -50,10 +52,10 @@ class App(EmbedChain):
         embedding_model: BaseEmbedder = None,
         llm: BaseLlm = None,
         config_data: dict = None,
-        log_level=logging.WARN,
         auto_deploy: bool = False,
         chunker: ChunkerConfig = None,
         cache_config: CacheConfig = None,
+        log_level: int = logging.WARN,
     ):
         """
         Initialize a new `App` instance.
@@ -68,8 +70,6 @@ class App(EmbedChain):
         :type llm: BaseLlm, optional
         :param config_data: Config dictionary, defaults to None
         :type config_data: dict, optional
-        :param log_level: Log level to use, defaults to logging.WARN
-        :type log_level: int, optional
         :param auto_deploy: Whether to deploy the pipeline automatically, defaults to False
         :type auto_deploy: bool, optional
         :raises Exception: If an error occurs while creating the pipeline
@@ -82,9 +82,6 @@ class App(EmbedChain):
 
         if name and config:
             raise Exception("Cannot provide both name and config. Please provide only one of them.")
-
-        # logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        self.logger = logging.getLogger(__name__)
 
         # Initialize the metadata db for the app
         setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
@@ -238,7 +235,7 @@ class App(EmbedChain):
                 response.raise_for_status()
                 return response.status_code == 200
         except Exception as e:
-            self.logger.exception(f"Error occurred during file upload: {str(e)}")
+            logger.exception(f"Error occurred during file upload: {str(e)}")
             print("❌ Error occurred during file upload!")
             return False
 
@@ -272,7 +269,7 @@ class App(EmbedChain):
                 metadata = {"file_path": data_value, "s3_key": s3_key}
                 data_value = presigned_url
             else:
-                self.logger.error(f"File upload failed for hash: {data_hash}")
+                logger.error(f"File upload failed for hash: {data_hash}")
                 return False
         else:
             if data_type == "qna_pair":
@@ -357,15 +354,13 @@ class App(EmbedChain):
         elif config and isinstance(config, dict):
             config_data = config
         else:
-            logging.error(
+            logger.error(
                 "Please provide either a config file path (YAML or JSON) or a config dictionary. Falling back to defaults because no config is provided.",  # noqa: E501
             )
             config_data = {}
 
-        try:
-            validate_config(config_data)
-        except Exception as e:
-            raise Exception(f"Error occurred while validating the config. Error: {str(e)}")
+        # Validate the config
+        validate_config(config_data)
 
         app_config_data = config_data.get("app", {}).get("config", {})
         vector_db_config_data = config_data.get("vectordb", {})
@@ -477,12 +472,12 @@ class App(EmbedChain):
             EvalMetric.GROUNDEDNESS.value,
         ]
 
-        logging.info(f"Collecting data from {len(queries)} questions for evaluation...")
+        logger.info(f"Collecting data from {len(queries)} questions for evaluation...")
         dataset = []
         for q, a, c in zip(queries, answers, contexts):
             dataset.append(EvalData(question=q, answer=a, contexts=c))
 
-        logging.info(f"Evaluating {len(dataset)} data points...")
+        logger.info(f"Evaluating {len(dataset)} data points...")
         result = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             future_to_metric = {executor.submit(self._eval, dataset, metric): metric for metric in metrics}

@@ -26,6 +26,7 @@ class LlmFactory:
         "clarifai": "embedchain.llm.clarifai.ClarifaiLlm",
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
+        "vllm": "embedchain.llm.vllm.VLLM",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
@@ -58,6 +59,8 @@ class EmbedderFactory:
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
         "clarifai": "embedchain.embedder.clarifai.ClarifaiEmbedder",
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
+        "cohere": "embedchain.embedder.cohere.CohereEmbedder",
+        "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
@@ -66,6 +69,7 @@ class EmbedderFactory:
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
     }
 
     @classmethod

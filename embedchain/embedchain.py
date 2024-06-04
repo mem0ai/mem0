@@ -25,6 +25,8 @@ from embedchain.vectordb.base import BaseVectorDB
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 
 class EmbedChain(JSONSerializable):
     def __init__(
@@ -143,10 +145,10 @@ class EmbedChain(JSONSerializable):
 
         try:
             DataType(source)
-            logging.warning(
+            logger.warning(
                 f"""Starting from version v0.0.40, Embedchain can automatically detect the data type. So, in the `add` method, the argument order has changed. You no longer need to specify '{source}' for the `source` argument. So the code snippet will be `.add("{data_type}", "{source}")`"""  # noqa #E501
             )
-            logging.warning(
+            logger.warning(
                 "Embedchain is swapping the arguments for you. This functionality might be deprecated in the future, so please adjust your code."  # noqa #E501
             )
             source, data_type = data_type, source
@@ -157,7 +159,7 @@ class EmbedChain(JSONSerializable):
             try:
                 data_type = DataType(data_type)
             except ValueError:
-                logging.info(
+                logger.info(
                     f"Invalid data_type: '{data_type}', using `custom` instead.\n Check docs to pass the valid data type: `https://docs.embedchain.ai/data-sources/overview`"  # noqa: E501
                 )
                 data_type = DataType.CUSTOM
@@ -177,6 +179,10 @@ class EmbedChain(JSONSerializable):
         if data_type in {DataType.DOCS_SITE}:
             self.is_docs_site_instance = True
 
+        # Convert the source to a string if it is not already
+        if not isinstance(source, str):
+            source = str(source)
+
         # Insert the data into the 'ec_data_sources' table
         self.db_session.add(
             DataSource(
@@ -190,12 +196,12 @@ class EmbedChain(JSONSerializable):
         try:
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error adding data source: {e}")
+            logger.error(f"Error adding data source: {e}")
             self.db_session.rollback()
 
         if dry_run:
             data_chunks_info = {"chunks": documents, "metadata": metadatas, "count": len(documents), "type": data_type}
-            logging.debug(f"Dry run info : {data_chunks_info}")
+            logger.debug(f"Dry run info : {data_chunks_info}")
             return data_chunks_info
 
         # Send anonymous telemetry
@@ -308,12 +314,12 @@ class EmbedChain(JSONSerializable):
         new_doc_id = embeddings_data["doc_id"]
 
         if existing_doc_id and existing_doc_id == new_doc_id:
-            print("Doc content has not changed. Skipping creating chunks and embeddings")
+            logger.info("Doc content has not changed. Skipping creating chunks and embeddings")
             return [], [], [], 0
 
         # this means that doc content has changed.
         if existing_doc_id and existing_doc_id != new_doc_id:
-            print("Doc content has changed. Recomputing chunks and embeddings intelligently.")
+            logger.info("Doc content has changed. Recomputing chunks and embeddings intelligently.")
             self.db.delete({"doc_id": existing_doc_id})
 
         # get existing ids, and discard doc if any common id exist.
@@ -339,7 +345,7 @@ class EmbedChain(JSONSerializable):
                 src_copy = src
                 if len(src_copy) > 50:
                     src_copy = src[:50] + "..."
-                print(f"All data from {src_copy} already exists in the database.")
+                logger.info(f"All data from {src_copy} already exists in the database.")
                 # Make sure to return a matching return type
                 return [], [], [], 0
 
@@ -378,18 +384,20 @@ class EmbedChain(JSONSerializable):
         # Chunk documents into batches of 2048 and handle each batch
         # helps wigth large loads of embeddings  that hit OpenAI limits
         document_batches = [documents[i : i + 2048] for i in range(0, len(documents), 2048)]
-        for batch in document_batches:
+        metadata_batches = [metadatas[i : i + 2048] for i in range(0, len(metadatas), 2048)]
+        id_batches = [ids[i : i + 2048] for i in range(0, len(ids), 2048)]
+        for batch_docs, batch_meta, batch_ids in zip(document_batches, metadata_batches, id_batches):
             try:
                 # Add only valid batches
-                if batch:
-                    self.db.add(documents=batch, metadatas=metadatas, ids=ids, **kwargs)
+                if batch_docs:
+                    self.db.add(documents=batch_docs, metadatas=batch_meta, ids=batch_ids, **kwargs)
             except Exception as e:
-                print(f"Failed to add batch due to a bad request: {e}")
+                logger.info(f"Failed to add batch due to a bad request: {e}")
                 # Handle the error, e.g., by logging, retrying, or skipping
                 pass
 
         count_new_chunks = self.db.count() - chunks_before_addition
-        print(f"Successfully saved {src} ({chunker.data_type}). New chunks count: {count_new_chunks}")
+        logger.info(f"Successfully saved {str(src)[:100]} ({chunker.data_type}). New chunks count: {count_new_chunks}")
 
         return list(documents), metadatas, ids, count_new_chunks
 
@@ -488,7 +496,7 @@ class EmbedChain(JSONSerializable):
             contexts_data_for_llm_query = contexts
 
         if self.cache_config is not None:
-            logging.info("Cache enabled. Checking cache...")
+            logger.info("Cache enabled. Checking cache...")
             answer = adapt(
                 llm_handler=self.llm.query,
                 cache_data_convert=gptcache_data_convert,
@@ -560,7 +568,7 @@ class EmbedChain(JSONSerializable):
         self.llm.update_history(app_id=self.config.id, session_id=session_id)
 
         if self.cache_config is not None:
-            logging.info("Cache enabled. Checking cache...")
+            logger.debug("Cache enabled. Checking cache...")
             cache_id = f"{session_id}--{self.config.id}"
             answer = adapt(
                 llm_handler=self.llm.chat,
@@ -573,6 +581,7 @@ class EmbedChain(JSONSerializable):
                 dry_run=dry_run,
             )
         else:
+            logger.debug("Cache disabled. Running chat without cache.")
             answer = self.llm.chat(
                 input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
             )
@@ -650,7 +659,7 @@ class EmbedChain(JSONSerializable):
             self.db_session.query(ChatHistory).filter_by(app_id=self.config.id).delete()
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error deleting data sources: {e}")
+            logger.error(f"Error deleting data sources: {e}")
             self.db_session.rollback()
             return None
         self.db.reset()
@@ -692,11 +701,11 @@ class EmbedChain(JSONSerializable):
             self.db_session.query(DataSource).filter_by(hash=source_id, app_id=self.config.id).delete()
             self.db_session.commit()
         except Exception as e:
-            logging.error(f"Error deleting data sources: {e}")
+            logger.error(f"Error deleting data sources: {e}")
             self.db_session.rollback()
             return None
         self.db.delete(where={"hash": source_id})
-        logging.info(f"Successfully deleted {source_id}")
+        logger.info(f"Successfully deleted {source_id}")
         # Send anonymous telemetry
         if self.config.collect_metrics:
             self.telemetry.capture(event_name="delete", properties=self._telemetry_props)

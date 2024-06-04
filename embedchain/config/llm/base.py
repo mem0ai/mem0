@@ -1,10 +1,12 @@
 import logging
 import re
 from string import Template
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT = """
 You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. Here are some guidelines to follow:
@@ -96,7 +98,10 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
+        http_client: Optional[Any] = None,
+        http_async_client: Optional[Any] = None,
         local: Optional[bool] = False,
+        default_headers: Optional[Mapping[str, str]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -142,12 +147,14 @@ class BaseLlmConfig(BaseConfig):
         :type query_type: Optional[str], optional
         :param local: If True, the model will be run locally, defaults to False (for huggingface provider)
         :type local: Optional[bool], optional
+        :param default_headers: Set additional HTTP headers to be sent with requests to OpenAI
+        :type default_headers: Optional[Mapping[str, str]], optional
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
         """
         if template is not None:
-            logging.warning(
+            logger.warning(
                 "The `template` argument is deprecated and will be removed in a future version. "
                 + "Please use `prompt` instead."
             )
@@ -170,7 +177,10 @@ class BaseLlmConfig(BaseConfig):
         self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+        self.http_client = http_client
+        self.http_async_client = http_async_client
         self.local = local
+        self.default_headers = default_headers
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

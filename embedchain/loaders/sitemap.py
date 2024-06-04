@@ -19,6 +19,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class SitemapLoader(BaseLoader):
@@ -41,7 +43,7 @@ class SitemapLoader(BaseLoader):
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, "xml")
             except requests.RequestException as e:
-                logging.error(f"Error fetching sitemap from URL: {e}")
+                logger.error(f"Error fetching sitemap from URL: {e}")
                 return
         elif os.path.isfile(sitemap_source):
             with open(sitemap_source, "r") as file:
@@ -60,7 +62,7 @@ class SitemapLoader(BaseLoader):
                 loader_data = web_page_loader.load_data(link)
                 return loader_data.get("data")
             except ParserRejectedMarkup as e:
-                logging.error(f"Failed to parse {link}: {e}")
+                logger.error(f"Failed to parse {link}: {e}")
             return None
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -72,6 +74,6 @@ class SitemapLoader(BaseLoader):
                     if data:
                         output.extend(data)
                 except Exception as e:
-                    logging.error(f"Error loading page {link}: {e}")
+                    logger.error(f"Error loading page {link}: {e}")
 
         return {"doc_id": doc_id, "data": output}

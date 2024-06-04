@@ -5,6 +5,8 @@ from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.vectordb.base import BaseVectorDB
 
+logger = logging.getLogger(__name__)
+
 
 class BaseAppConfig(BaseConfig, JSONSerializable):
     """
@@ -42,15 +44,15 @@ class BaseAppConfig(BaseConfig, JSONSerializable):
 
         if db:
             self._db = db
-            logging.warning(
+            logger.warning(
                 "DEPRECATION WARNING: Please supply the database as the second parameter during app init. "
                 "Such as `app(config=config, db=db)`."
             )
 
         if collection_name:
-            logging.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
+            logger.warning("DEPRECATION WARNING: Please supply the collection name to the database config.")
         return
 
     def _setup_logging(self, log_level):
-        logging.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=log_level)
-        self.logger = logging.getLogger(__name__)
+        logger.basicConfig(format="%(asctime)s [%(name)s] [%(levelname)s] %(message)s", level=log_level)
+        self.logger = logger.getLogger(__name__)

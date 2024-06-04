@@ -14,6 +14,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class ElasticsearchDB(BaseVectorDB):
@@ -62,7 +64,7 @@ class ElasticsearchDB(BaseVectorDB):
         """
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
-        logging.info(self.client.info())
+        logger.info(self.client.info())
         index_settings = {
             "mappings": {
                 "properties": {

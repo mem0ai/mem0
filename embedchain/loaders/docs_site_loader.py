@@ -15,6 +15,8 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class DocsSiteLoader(BaseLoader):
@@ -28,7 +30,7 @@ class DocsSiteLoader(BaseLoader):
 
         response = requests.get(url)
         if response.status_code != 200:
-            logging.info(f"Failed to fetch the website: {response.status_code}")
+            logger.info(f"Failed to fetch the website: {response.status_code}")
             return
 
         soup = BeautifulSoup(response.text, "html.parser")
@@ -53,7 +55,7 @@ class DocsSiteLoader(BaseLoader):
     def _load_data_from_url(url: str) -> list:
         response = requests.get(url)
         if response.status_code != 200:
-            logging.info(f"Failed to fetch the website: {response.status_code}")
+            logger.info(f"Failed to fetch the website: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.content, "html.parser")
