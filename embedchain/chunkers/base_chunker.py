@@ -84,4 +84,4 @@ class BaseChunker(JSONSerializable):
 
     @staticmethod
     def get_word_count(documents) -> int:
-        return sum([len(document.split(" ")) for document in documents])
+        return sum(len(document.split(" ")) for document in documents)
