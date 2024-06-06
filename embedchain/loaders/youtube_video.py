@@ -31,7 +31,7 @@ class YoutubeVideoLoader(BaseLoader):
             transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=languages)
             # convert transcript to json to avoid unicode symboles
             transcript = json.dumps(transcript, ensure_ascii=True)
-        except Exception as e:
+        except Exception:
             logging.exception(f"Failed to fetch transcript for video {url}")
             transcript = "Unavailable"
 
@@ -45,7 +45,7 @@ class YoutubeVideoLoader(BaseLoader):
         metadata = doc[0].metadata
         metadata["url"] = url
         metadata["transcript"] = transcript
-        
+
         output.append(
             {
                 "content": content,
