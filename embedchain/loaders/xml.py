@@ -1,10 +1,11 @@
 import hashlib
 
 try:
+    import unstructured  # noqa: F401
     from langchain_community.document_loaders import UnstructuredXMLLoader
 except ImportError:
     raise ImportError(
-        'XML file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+        'XML file requires extra dependencies. Install with `pip install "unstructured[local-inference, all-docs]"`'
     ) from None
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
