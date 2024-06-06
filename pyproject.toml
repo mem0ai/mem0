@@ -91,7 +91,7 @@ exclude = '''
 color = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9,<=3.13"
 python-dotenv = "^1.0.0"
 langchain = "^0.1.4"
 requests = "^2.31.0"
@@ -124,7 +124,6 @@ together = { version = "^0.2.8", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
 qdrant-client = { version = "^1.6.3", optional = true }
-unstructured = {extras = ["local-inference", "all-docs"], version = "^0.14.2", optional = true}
 huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = { version = "2.4.3", optional = true }
 google-cloud-aiplatform = { version = "^1.26.1", optional = true }
@@ -190,8 +189,7 @@ dataloaders=[
     "docx2txt",
     "duckduckgo-search",
     "pytube",
-    "sentence-transformers",
-    "unstructured"
+    "sentence-transformers"
 ]
 vertexai = ["langchain-google-vertexai"]
 llama2 = ["replicate"]
