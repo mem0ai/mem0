@@ -419,6 +419,7 @@ def validate_config(config_data):
                     Optional("max_tokens"): int,
                     Optional("top_p"): Or(float, int),
                     Optional("stream"): bool,
+                    Optional("online"): bool,
                     Optional("template"): str,
                     Optional("prompt"): str,
                     Optional("system_prompt"): str,

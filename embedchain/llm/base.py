@@ -5,9 +5,7 @@ from typing import Any, Optional
 from langchain.schema import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base import (DEFAULT_PROMPT,
-                                        DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
-                                        DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.config.llm.base import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
@@ -29,7 +27,6 @@ class BaseLlm(JSONSerializable):
 
         self.memory = ChatHistory()
         self.is_docs_site_instance = False
-        self.online = False
         self.history: Any = None
 
     def get_llm_model_answer(self):
@@ -213,7 +210,7 @@ class BaseLlm(JSONSerializable):
                 self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
-            if self.online:
+            if self.config.online:
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
             prompt = self.generate_prompt(input_query, contexts, **k)
             logger.info(f"Prompt: {prompt}")
@@ -268,7 +265,7 @@ class BaseLlm(JSONSerializable):
                 self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
-            if self.online:
+            if self.config.online:
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
 
             prompt = self.generate_prompt(input_query, contexts, **k)
