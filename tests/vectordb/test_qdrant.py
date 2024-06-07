@@ -114,7 +114,7 @@ class TestQdrantDB(unittest.TestCase):
         App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
-        db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"})
+        db.query(input_query="This is a test document.", n_results=1, where={"doc_id": "123"})
 
         qdrant_client_mock.return_value.search.assert_called_once_with(
             collection_name="embedchain-store-1536",

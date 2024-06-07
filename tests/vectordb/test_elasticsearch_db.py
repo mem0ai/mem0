@@ -58,7 +58,7 @@ class TestEsDB(unittest.TestCase):
         mock_client.return_value.search.return_value = search_response
 
         # Query the database for the documents that are most similar to the query "This is a document".
-        query = ["This is a document"]
+        query = "This is a document"
         results_without_citations = self.db.query(query, n_results=2, where={})
         expected_results_without_citations = ["This is a document.", "This is another document."]
         self.assertEqual(results_without_citations, expected_results_without_citations)
