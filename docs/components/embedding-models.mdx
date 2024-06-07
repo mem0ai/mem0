@@ -15,6 +15,7 @@ Embedchain supports several embedding models from the following providers:
   <Card title="Vertex AI" href="#vertex-ai"></Card>
   <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
   <Card title="Cohere" href="#cohere"></Card>
+  <Card title="Ollama" href="#ollama"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -355,6 +356,33 @@ embedder:
   config:
     model: 'embed-multilingual-v2.0'
     vector_dimension: 768
+```
+
+</CodeGroup>
+
+## Ollama
+
+Ollama enables the use of embedding models, allowing you to generate high-quality embeddings directly on your local machine. Make sure to install [Ollama](https://ollama.com/download) and keep it running before using the embedding model.
+
+You can find the list of models at [Ollama Embedding Models](https://ollama.com/blog/embedding-models).
+
+Below is an example of how to use embedding model Ollama:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+# load embedding model configuration from config.yaml file
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+embedder:
+  provider: ollama
+  config:
+    model: 'all-minilm:latest'
 ```
 
 </CodeGroup>
