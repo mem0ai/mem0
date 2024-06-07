@@ -1,7 +1,6 @@
 import unittest
 import uuid
 
-import pytest
 from mock import patch
 from qdrant_client.http import models
 from qdrant_client.http.models import Batch
@@ -61,7 +60,6 @@ class TestQdrantDB(unittest.TestCase):
         resp2 = db.get(ids=["123", "456"], where={"url": "https://ai.ai"})
         self.assertEqual(resp2, {"ids": [], "metadatas": []})
 
-    @pytest.mark.skip(reason="Investigate the issue with the test case.")
     @patch("embedchain.vectordb.qdrant.QdrantClient")
     @patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
     def test_add(self, uuid_mock, qdrant_client_mock):
@@ -84,7 +82,7 @@ class TestQdrantDB(unittest.TestCase):
         qdrant_client_mock.return_value.upsert.assert_called_once_with(
             collection_name="embedchain-store-1536",
             points=Batch(
-                ids=["abc", "def"],
+                ids=["123", "456"],
                 payloads=[
                     {
                         "identifier": "123",

@@ -1,8 +1,6 @@
 import logging
 import os
 
-import pytest
-
 from embedchain.telemetry.posthog import AnonymousTelemetry
 
 
@@ -54,7 +52,6 @@ class TestAnonymousTelemetry:
             properties,
         )
 
-    @pytest.mark.skip(reason="Logging setup needs to be fixed to make this test to work")
     def test_capture_with_exception(self, mocker, caplog):
         os.environ["EC_TELEMETRY"] = "true"
         mock_posthog = mocker.patch("embedchain.telemetry.posthog.Posthog")
@@ -65,3 +62,4 @@ class TestAnonymousTelemetry:
         with caplog.at_level(logging.ERROR):
             telemetry.capture(event_name, properties)
         assert "Failed to send telemetry event" in caplog.text
+        caplog.clear()
