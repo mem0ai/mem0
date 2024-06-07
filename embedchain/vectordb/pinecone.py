@@ -150,7 +150,7 @@ class PineconeDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
         where: Optional[dict[str, any]] = None,
         raw_filter: Optional[dict[str, any]] = None,
@@ -162,7 +162,7 @@ class PineconeDB(BaseVectorDB):
         Query contents from vector database based on vector similarity.
 
         Args:
-            input_query (list[str]): List of query strings.
+            input_query (str): query string.
             n_results (int): Number of similar documents to fetch from the database.
             where (dict[str, any], optional): Filter criteria for the search.
             raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
