@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import cast
 
 from openai import OpenAI
-from openai.types.beta.threads import MessageContentText, ThreadMessage
+from openai.types.beta.threads import Message
+from openai.types.beta.threads.text_content_block import TextContentBlock
 
 from embedchain import Client, Pipeline
 from embedchain.config import AddConfig
@@ -130,8 +131,8 @@ class OpenAIAssistant:
 
     @staticmethod
     def _format_message(thread_message):
-        thread_message = cast(ThreadMessage, thread_message)
-        content = [c.text.value for c in thread_message.content if isinstance(c, MessageContentText)]
+        thread_message = cast(Message, thread_message)
+        content = [c.text.value for c in thread_message.content if isinstance(c, TextContentBlock)]
         return " ".join(content)
 
     @staticmethod
