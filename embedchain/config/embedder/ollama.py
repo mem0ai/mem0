@@ -12,4 +12,4 @@ class OllamaEmbedderConfig(BaseEmbedderConfig):
         base_url: Optional[str] = None,
     ):
         super().__init__(model)
-        self.base_url = base_url or "http://127.0.0.1:11434"
+        self.base_url = base_url or "http://localhost:11434"
