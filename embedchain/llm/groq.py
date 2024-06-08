@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Any
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.schema import HumanMessage, SystemMessage
@@ -20,9 +20,14 @@ class GroqLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
 
-    def get_llm_model_answer(self, prompt) -> str:
-        response = self._get_answer(prompt, self.config)
-        return response
+    def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
+        response, token_info = self._get_answer(prompt, self.config)
+        if self.config.token_usage:
+            model_name = "groq/" + self.config.model
+            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
+            response_token_info = {"input_tokens": token_info["prompt_tokens"], "output_tokens": token_info["completion_tokens"], "total_cost (USD)": round(total_cost, 10)}
+            return response, response_token_info
+        return response, None
 
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> str:
         messages = []
@@ -40,4 +45,6 @@ class GroqLlm(BaseLlm):
             chat = ChatGroq(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key)
         else:
             chat = ChatGroq(**kwargs)
-        return chat.invoke(messages).content
+
+        chat_response = chat.invoke(prompt)
+        return chat_response.content, chat_response.response_metadata["token_usage"]

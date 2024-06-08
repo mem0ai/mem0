@@ -1,8 +1,9 @@
 import importlib
 import os
-from typing import Optional
+from typing import Optional, Any
 
-from langchain_community.llms import Together
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain_together import ChatTogether
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -20,24 +21,33 @@ class TogetherLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for Together are not installed."
-                'Please install with `pip install --upgrade "embedchain[together]"`'
+                'Please install with `pip install langchain_together==0.1.3`'
             ) from None
 
         super().__init__(config=config)
 
-    def get_llm_model_answer(self, prompt):
+    def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
         if self.config.system_prompt:
             raise ValueError("TogetherLlm does not support `system_prompt`")
-        return TogetherLlm._get_answer(prompt=prompt, config=self.config)
+        
+        response, token_info = self._get_answer(prompt, self.config)
+        if self.config.token_usage:
+            model_name = "together/" + self.config.model
+            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
+            response_token_info = {"input_tokens": token_info["prompt_tokens"], "output_tokens": token_info["completion_tokens"], "total_cost (USD)": round(total_cost, 10)}
+            return response, response_token_info
+        return response, None
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        llm = Together(
-            together_api_key=os.environ["TOGETHER_API_KEY"],
-            model=config.model,
-            max_tokens=config.max_tokens,
-            temperature=config.temperature,
-            top_p=config.top_p,
-        )
-
-        return llm.invoke(prompt)
+        api_key = config.api_key or os.environ["TOGETHER_API_KEY"]
+        kwargs = {
+            "model_name": config.model or "mixtral-8x7b-32768",
+            "temperature": config.temperature,
+            "max_tokens": config.max_tokens,
+            "together_api_key": api_key,
+        }
+        
+        chat = ChatTogether(**kwargs)
+        chat_response = chat.invoke(prompt)
+        return chat_response.content, chat_response.response_metadata["token_usage"]

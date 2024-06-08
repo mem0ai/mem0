@@ -1,0 +1,2031 @@
+{
+    "openai/gpt-4": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00003,
+        "output_cost_per_token": 0.00006
+    },
+    "openai/gpt-4o": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000005,
+        "output_cost_per_token": 0.000015
+    },
+    "openai/gpt-4o-2024-05-13": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000005,
+        "output_cost_per_token": 0.000015
+    },
+    "openai/gpt-4-turbo-preview": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "openai/gpt-4-0314": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00003,
+        "output_cost_per_token": 0.00006
+    },
+    "openai/gpt-4-0613": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00003,
+        "output_cost_per_token": 0.00006
+    },
+    "openai/gpt-4-32k": {
+        "max_tokens": 4096,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00006,
+        "output_cost_per_token": 0.00012
+    },
+    "openai/gpt-4-32k-0314": {
+        "max_tokens": 4096,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00006,
+        "output_cost_per_token": 0.00012
+    },
+    "openai/gpt-4-32k-0613": {
+        "max_tokens": 4096,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00006,
+        "output_cost_per_token": 0.00012
+    },
+    "openai/gpt-4-turbo": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "openai/gpt-4-turbo-2024-04-09": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "openai/gpt-4-1106-preview": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "openai/gpt-4-0125-preview": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "openai/gpt-3.5-turbo": {
+        "max_tokens": 4097,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "openai/gpt-3.5-turbo-0301": {
+        "max_tokens": 4097,
+        "max_input_tokens": 4097,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "openai/gpt-3.5-turbo-0613": {
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "openai/gpt-3.5-turbo-1106": {
+        "max_tokens": 16385,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000010,
+        "output_cost_per_token": 0.0000020
+    },
+    "openai/gpt-3.5-turbo-0125": {
+        "max_tokens": 16385,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000005,
+        "output_cost_per_token": 0.0000015
+    },
+    "openai/gpt-3.5-turbo-16k": {
+        "max_tokens": 16385,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000004
+    },
+    "openai/gpt-3.5-turbo-16k-0613": {
+        "max_tokens": 16385,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000004
+    },
+    "openai/text-embedding-3-large": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "output_vector_size": 3072,
+        "input_cost_per_token": 0.00000013,
+        "output_cost_per_token": 0.000000
+    },
+    "openai/text-embedding-3-small": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "output_vector_size": 1536,
+        "input_cost_per_token": 0.00000002,
+        "output_cost_per_token": 0.000000
+    },
+    "openai/text-embedding-ada-002": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "output_vector_size": 1536, 
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.000000
+    },
+    "openai/text-embedding-ada-002-v2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.000000
+    },
+    "openai/babbage-002": {
+        "max_tokens": 16384,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000004,
+        "output_cost_per_token": 0.0000004
+    },
+    "openai/davinci-002": {
+        "max_tokens": 16384,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000002,
+        "output_cost_per_token": 0.000002
+    },    
+    "openai/gpt-3.5-turbo-instruct": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "openai/gpt-3.5-turbo-instruct-0914": {
+        "max_tokens": 4097,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4097,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "azure/gpt-4o": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000005,
+        "output_cost_per_token": 0.000015
+    },
+    "azure/gpt-4-turbo-2024-04-09": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "azure/gpt-4-0125-preview": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "azure/gpt-4-1106-preview": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "azure/gpt-4-0613": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00003,
+        "output_cost_per_token": 0.00006
+    },
+    "azure/gpt-4-32k-0613": {
+        "max_tokens": 4096,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00006,
+        "output_cost_per_token": 0.00012
+    },
+    "azure/gpt-4-32k": {
+        "max_tokens": 4096,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00006,
+        "output_cost_per_token": 0.00012
+    },
+    "azure/gpt-4": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00003,
+        "output_cost_per_token": 0.00006
+    },
+    "azure/gpt-4-turbo": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "azure/gpt-4-turbo-vision-preview": {
+        "max_tokens": 4096,
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003
+    },
+    "azure/gpt-3.5-turbo-16k-0613": {
+        "max_tokens": 4096,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000004
+    },
+    "azure/gpt-3.5-turbo-1106": {
+        "max_tokens": 4096,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "azure/gpt-3.5-turbo-0125": {
+        "max_tokens": 4096,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000005,
+        "output_cost_per_token": 0.0000015
+    },
+    "azure/gpt-3.5-turbo-16k": {
+        "max_tokens": 4096,
+        "max_input_tokens": 16385,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000004
+    },
+    "azure/gpt-3.5-turbo": {
+        "max_tokens": 4096,
+        "max_input_tokens": 4097,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000005,
+        "output_cost_per_token": 0.0000015
+    },
+    "azure/gpt-3.5-turbo-instruct-0914": {
+        "max_tokens": 4097,
+        "max_input_tokens": 4097,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "azure/gpt-3.5-turbo-instruct": {
+        "max_tokens": 4097,
+        "max_input_tokens": 4097,
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.000002
+    },
+    "azure/text-embedding-ada-002": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.000000
+    },
+    "azure/text-embedding-3-large": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "input_cost_per_token": 0.00000013,
+        "output_cost_per_token": 0.000000
+    },
+    "azure/text-embedding-3-small": {
+        "max_tokens": 8191,
+        "max_input_tokens": 8191,
+        "input_cost_per_token": 0.00000002,
+        "output_cost_per_token": 0.000000
+    }, 
+    "mistralai/mistral-tiny": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000025,
+        "output_cost_per_token": 0.00000025
+    },
+    "mistralai/mistral-small": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_token": 0.000003
+    },
+    "mistralai/mistral-small-latest": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_token": 0.000003
+    },
+    "mistralai/mistral-medium": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000027,
+        "output_cost_per_token": 0.0000081
+    },
+    "mistralai/mistral-medium-latest": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000027,
+        "output_cost_per_token": 0.0000081
+    },
+    "mistralai/mistral-medium-2312": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000027,
+        "output_cost_per_token": 0.0000081
+    },
+    "mistralai/mistral-large-latest": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000004,
+        "output_cost_per_token": 0.000012
+    },
+    "mistralai/mistral-large-2402": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000004,
+        "output_cost_per_token": 0.000012
+    },
+    "mistralai/open-mistral-7b": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000025,
+        "output_cost_per_token": 0.00000025
+    },
+    "mistralai/open-mixtral-8x7b": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000007,
+        "output_cost_per_token": 0.0000007
+    },
+    "mistralai/open-mixtral-8x22b": {
+        "max_tokens": 8191,
+        "max_input_tokens": 64000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000002,
+        "output_cost_per_token": 0.000006
+    },
+    "mistralai/codestral-latest": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_token": 0.000003
+    },
+    "mistralai/codestral-2405": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000001,
+        "output_cost_per_token": 0.000003
+    },
+    "mistralai/mistral-embed": {
+        "max_tokens": 8192,
+        "max_input_tokens": 8192,
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.0
+    },
+    "groq/llama2-70b-4096": {
+        "max_tokens": 4096,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00000070,
+        "output_cost_per_token": 0.00000080
+    },
+    "groq/llama3-8b-8192": {
+        "max_tokens": 8192,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000010,
+        "output_cost_per_token": 0.00000010
+    },
+    "groq/llama3-70b-8192": {
+        "max_tokens": 8192,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000064,
+        "output_cost_per_token": 0.00000080
+    },
+    "groq/mixtral-8x7b-32768": {
+        "max_tokens": 32768,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 32768,
+        "input_cost_per_token": 0.00000027,
+        "output_cost_per_token": 0.00000027
+    },
+    "groq/gemma-7b-it": {
+        "max_tokens": 8192,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000010,
+        "output_cost_per_token": 0.00000010
+    },
+    "anthropic/claude-instant-1": {
+        "max_tokens": 8191,
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000163,
+        "output_cost_per_token": 0.00000551
+    },
+    "anthropic/claude-instant-1.2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000000163,
+        "output_cost_per_token": 0.000000551
+    },
+    "anthropic/claude-2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024
+    },
+    "anthropic/claude-2.1": {
+        "max_tokens": 8191,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024
+    },
+    "anthropic/claude-3-haiku-20240307": {
+        "max_tokens": 4096,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00000025,
+        "output_cost_per_token": 0.00000125
+    },
+    "anthropic/claude-3-opus-20240229": {
+        "max_tokens": 4096,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000075
+    },
+    "anthropic/claude-3-sonnet-20240229": {
+        "max_tokens": 4096,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000015
+    },
+    "text-bison": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "text-bison@001": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "text-unicorn": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.000028,
+        "litellm_provider": "vertex_ai-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "text-unicorn@001": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.000028,
+        "litellm_provider": "vertex_ai-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "chat-bison": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "chat-bison@001": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "chat-bison@002": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "chat-bison-32k": {
+        "max_tokens": 8192,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "code-bison": {
+        "max_tokens": 1024,
+        "max_input_tokens": 6144,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-text-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "code-bison@001": {
+        "max_tokens": 1024,
+        "max_input_tokens": 6144,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "code-gecko@001": {
+        "max_tokens": 64,
+        "max_input_tokens": 2048,
+        "max_output_tokens": 64,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "code-gecko@002": {
+        "max_tokens": 64,
+        "max_input_tokens": 2048,
+        "max_output_tokens": 64,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "code-gecko": {
+        "max_tokens": 64,
+        "max_input_tokens": 2048,
+        "max_output_tokens": 64,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-text-models",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "codechat-bison": {
+        "max_tokens": 1024,
+        "max_input_tokens": 6144,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "codechat-bison@001": {
+        "max_tokens": 1024,
+        "max_input_tokens": 6144,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "codechat-bison-32k": {
+        "max_tokens": 8192,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "vertex_ai-code-chat-models",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-pro": {
+        "max_tokens": 8192,
+        "max_input_tokens": 32760,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.0-pro": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 32760,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.0-pro-001": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 32760,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.0-pro-002": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 32760,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-pro": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000625, 
+        "output_cost_per_token": 0.000001875,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-flash-001": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "max_video_length": 1,
+        "max_audio_length_hours": 8.4,
+        "max_audio_per_prompt": 1,
+        "max_pdf_size_mb": 30,
+        "input_cost_per_token": 0, 
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-flash-preview-0514": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "max_video_length": 1,
+        "max_audio_length_hours": 8.4,
+        "max_audio_per_prompt": 1,
+        "max_pdf_size_mb": 30,
+        "input_cost_per_token": 0, 
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-pro-001": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000625, 
+        "output_cost_per_token": 0.000001875,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-pro-preview-0514": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000625, 
+        "output_cost_per_token": 0.000001875,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-pro-preview-0215": { 
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000625, 
+        "output_cost_per_token": 0.000001875,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.5-pro-preview-0409": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.000000625, 
+        "output_cost_per_token": 0.000001875,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-experimental": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-language-models",
+        "mode": "chat",
+        "supports_function_calling": false,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-pro-vision": {
+        "max_tokens": 2048,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 2048,
+        "max_images_per_prompt": 16,
+        "max_videos_per_prompt": 1,
+        "max_video_length": 2,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-vision-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.0-pro-vision": {
+        "max_tokens": 2048,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 2048,
+        "max_images_per_prompt": 16,
+        "max_videos_per_prompt": 1,
+        "max_video_length": 2,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-vision-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini-1.0-pro-vision-001": {
+        "max_tokens": 2048,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 2048,
+        "max_images_per_prompt": 16,
+        "max_videos_per_prompt": 1,
+        "max_video_length": 2,
+        "input_cost_per_token": 0.00000025, 
+        "output_cost_per_token": 0.0000005,
+        "litellm_provider": "vertex_ai-vision-models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "vertex_ai/claude-3-sonnet@20240229": {
+        "max_tokens": 4096,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000015,
+        "litellm_provider": "vertex_ai-anthropic_models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true
+    },
+    "vertex_ai/claude-3-haiku@20240307": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00000025,
+        "output_cost_per_token": 0.00000125,
+        "litellm_provider": "vertex_ai-anthropic_models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true
+    },
+    "vertex_ai/claude-3-opus@20240229": {
+        "max_tokens": 4096,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000075,
+        "litellm_provider": "vertex_ai-anthropic_models",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true
+    },
+    "textembedding-gecko": {
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "textembedding-gecko-multilingual": {
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "textembedding-gecko-multilingual@001": {
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "textembedding-gecko@001": {
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "textembedding-gecko@003": {
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "text-embedding-preview-0409": {
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "input_cost_per_token_batch_requests": 0.000000005,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/pricing"
+    },
+    "text-multilingual-embedding-preview-0409":{
+        "max_tokens": 3072,
+        "max_input_tokens": 3072,
+        "output_vector_size": 768,
+        "input_cost_per_token": 0.00000000625,
+        "output_cost_per_token": 0,
+        "litellm_provider": "vertex_ai-embedding-models",
+        "mode": "embedding",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "palm/chat-bison": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "palm",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "palm/chat-bison-001": {
+        "max_tokens": 4096,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "palm",
+        "mode": "chat",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "palm/text-bison": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "palm",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "palm/text-bison-001": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "palm",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "palm/text-bison-safety-off": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "palm",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "palm/text-bison-safety-recitation-off": {
+        "max_tokens": 1024,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 1024,
+        "input_cost_per_token": 0.000000125,
+        "output_cost_per_token": 0.000000125,
+        "litellm_provider": "palm",
+        "mode": "completion",
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini/gemini-1.5-flash-latest": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "max_images_per_prompt": 3000,
+        "max_videos_per_prompt": 10,
+        "max_video_length": 1,
+        "max_audio_length_hours": 8.4,
+        "max_audio_per_prompt": 1,
+        "max_pdf_size_mb": 30,
+        "input_cost_per_token": 0, 
+        "output_cost_per_token": 0,
+        "litellm_provider": "gemini",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini/gemini-pro": {
+        "max_tokens": 8192,
+        "max_input_tokens": 32760,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0.0, 
+        "output_cost_per_token": 0.0,
+        "litellm_provider": "gemini",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini/gemini-1.5-pro": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0, 
+        "output_cost_per_token": 0,
+        "litellm_provider": "gemini",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "supports_tool_choice": true, 
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "gemini/gemini-1.5-pro-latest": {
+        "max_tokens": 8192,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 8192,
+        "input_cost_per_token": 0, 
+        "output_cost_per_token": 0,
+        "litellm_provider": "gemini",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "supports_tool_choice": true, 
+        "source": "https://ai.google.dev/models/gemini"
+    },
+    "gemini/gemini-pro-vision": {
+        "max_tokens": 2048,
+        "max_input_tokens": 30720,
+        "max_output_tokens": 2048,
+        "input_cost_per_token": 0.0, 
+        "output_cost_per_token": 0.0,
+        "litellm_provider": "gemini",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true,
+        "source": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#foundation_models"
+    },
+    "cohere/command-r": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00000050,
+        "output_cost_per_token": 0.0000015
+    },
+    "cohere/command-light": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000015
+    },
+    "cohere/command-r-plus": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000015
+    },
+    "cohere/command-nightly": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000015
+    },
+     "cohere/command": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000015
+    },
+     "cohere/command-medium-beta": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000015
+    },
+     "cohere/command-xlarge-beta": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000015
+    },
+    "ai21.j2-mid-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 8191, 
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.0000125,
+        "output_cost_per_token": 0.0000125,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "ai21.j2-ultra-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 8191, 
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.0000188,
+        "output_cost_per_token": 0.0000188,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "amazon.titan-text-lite-v1": {
+        "max_tokens": 4000, 
+        "max_input_tokens": 42000,
+        "max_output_tokens": 4000, 
+        "input_cost_per_token": 0.0000003,
+        "output_cost_per_token": 0.0000004,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "amazon.titan-text-express-v1": {
+        "max_tokens": 8000, 
+        "max_input_tokens": 42000,
+        "max_output_tokens": 8000, 
+        "input_cost_per_token": 0.0000013,
+        "output_cost_per_token": 0.0000017,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "amazon.titan-embed-text-v1": {
+        "max_tokens": 8192, 
+        "max_input_tokens": 8192, 
+        "output_vector_size": 1536,
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.0,
+        "litellm_provider": "bedrock", 
+        "mode": "embedding"
+    },
+    "amazon.titan-embed-text-v2:0": {
+        "max_tokens": 8192, 
+        "max_input_tokens": 8192, 
+        "output_vector_size": 1024,
+        "input_cost_per_token": 0.0000002,
+        "output_cost_per_token": 0.0,
+        "litellm_provider": "bedrock", 
+        "mode": "embedding"
+    },
+    "mistral.mistral-7b-instruct-v0:2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000015,
+        "output_cost_per_token": 0.0000002,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "mistral.mixtral-8x7b-instruct-v0:1": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000045,
+        "output_cost_per_token": 0.0000007,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "mistral.mistral-large-2402-v1:0": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/mistral.mixtral-8x7b-instruct-v0:1": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000045,
+        "output_cost_per_token": 0.0000007,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/mistral.mixtral-8x7b-instruct-v0:1": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000045,
+        "output_cost_per_token": 0.0000007,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-west-3/mistral.mixtral-8x7b-instruct-v0:1": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000059,
+        "output_cost_per_token": 0.00000091,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/mistral.mistral-7b-instruct-v0:2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000015,
+        "output_cost_per_token": 0.0000002,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/mistral.mistral-7b-instruct-v0:2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000015,
+        "output_cost_per_token": 0.0000002,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-west-3/mistral.mistral-7b-instruct-v0:2": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000002,
+        "output_cost_per_token": 0.00000026,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/mistral.mistral-large-2402-v1:0": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/mistral.mistral-large-2402-v1:0": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-west-3/mistral.mistral-large-2402-v1:0": {
+        "max_tokens": 8191,
+        "max_input_tokens": 32000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000104,
+        "output_cost_per_token": 0.0000312,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "anthropic.claude-3-sonnet-20240229-v1:0": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000003,
+        "output_cost_per_token": 0.000015,
+        "litellm_provider": "bedrock",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true
+    },
+    "anthropic.claude-3-haiku-20240307-v1:0": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.00000025,
+        "output_cost_per_token": 0.00000125,
+        "litellm_provider": "bedrock",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true
+    },
+    "anthropic.claude-3-opus-20240229-v1:0": {
+        "max_tokens": 4096,
+        "max_input_tokens": 200000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.000015,
+        "output_cost_per_token": 0.000075,
+        "litellm_provider": "bedrock",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_vision": true
+    },
+    "anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/1-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.0455,
+        "output_cost_per_second": 0.0455,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/6-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.02527,
+        "output_cost_per_second": 0.02527,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/1-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0415,
+        "output_cost_per_second": 0.0415,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/6-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.02305,
+        "output_cost_per_second": 0.02305,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/1-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0175,
+        "output_cost_per_second": 0.0175,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/6-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.00972,
+        "output_cost_per_second": 0.00972,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/1-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0175,
+        "output_cost_per_second": 0.0175,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/6-month-commitment/anthropic.claude-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.00972,
+        "output_cost_per_second": 0.00972,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/1-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0455,
+        "output_cost_per_second": 0.0455,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/6-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.02527,
+        "output_cost_per_second": 0.02527,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/1-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0415,
+        "output_cost_per_second": 0.0415,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/6-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.02305,
+        "output_cost_per_second": 0.02305,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/1-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0175,
+        "output_cost_per_second": 0.0175,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/6-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.00972,
+        "output_cost_per_second": 0.00972,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/1-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.0175,
+        "output_cost_per_second": 0.0175,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/6-month-commitment/anthropic.claude-v2": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000,
+        "max_output_tokens": 8191, 
+        "input_cost_per_second": 0.00972,
+        "output_cost_per_second": 0.00972,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/1-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.0455,
+        "output_cost_per_second": 0.0455,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/6-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.02527,
+        "output_cost_per_second": 0.02527,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.000008,
+        "output_cost_per_token": 0.000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/1-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.0415,
+        "output_cost_per_second": 0.0415,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/6-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.02305,
+        "output_cost_per_second": 0.02305,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/1-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.0175,
+        "output_cost_per_second": 0.0175,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/6-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.00972,
+        "output_cost_per_second": 0.00972,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/1-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.0175,
+        "output_cost_per_second": 0.0175,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/6-month-commitment/anthropic.claude-v2:1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.00972,
+        "output_cost_per_second": 0.00972,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000163,
+        "output_cost_per_token": 0.00000551,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000008,
+        "output_cost_per_token": 0.0000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/1-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.011,
+        "output_cost_per_second": 0.011,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-east-1/6-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.00611,
+        "output_cost_per_second": 0.00611,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/1-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.011,
+        "output_cost_per_second": 0.011,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/6-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.00611,
+        "output_cost_per_second": 0.00611,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/us-west-2/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.0000008,
+        "output_cost_per_token": 0.0000024,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000223,
+        "output_cost_per_token": 0.00000755,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/1-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.01475,
+        "output_cost_per_second": 0.01475,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/ap-northeast-1/6-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.008194,
+        "output_cost_per_second": 0.008194,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_token": 0.00000248,
+        "output_cost_per_token": 0.00000838,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/1-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.01635,
+        "output_cost_per_second": 0.01635,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/eu-central-1/6-month-commitment/anthropic.claude-instant-v1": {
+        "max_tokens": 8191, 
+        "max_input_tokens": 100000, 
+        "max_output_tokens": 8191,
+        "input_cost_per_second": 0.009083,
+        "output_cost_per_second": 0.009083,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "cohere.command-text-v14": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.0000015,
+        "output_cost_per_token": 0.0000020,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/*/1-month-commitment/cohere.command-text-v14": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096, 
+        "input_cost_per_second": 0.011,
+        "output_cost_per_second": 0.011,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/*/6-month-commitment/cohere.command-text-v14": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096, 
+        "input_cost_per_second": 0.0066027,
+        "output_cost_per_second": 0.0066027,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "cohere.command-light-text-v14": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.0000003,
+        "output_cost_per_token": 0.0000006,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/*/1-month-commitment/cohere.command-light-text-v14": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096, 
+        "input_cost_per_second": 0.001902,
+        "output_cost_per_second": 0.001902,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "bedrock/*/6-month-commitment/cohere.command-light-text-v14": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096,
+        "max_output_tokens": 4096, 
+        "input_cost_per_second": 0.0011416,
+        "output_cost_per_second": 0.0011416,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "cohere.command-r-plus-v1:0": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000030,
+        "output_cost_per_token": 0.000015,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "cohere.command-r-v1:0": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "input_cost_per_token": 0.0000005,
+        "output_cost_per_token": 0.0000015,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "cohere.embed-english-v3": {
+        "max_tokens": 512, 
+        "max_input_tokens": 512, 
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.000000,
+        "litellm_provider": "bedrock",
+        "mode": "embedding"
+    },
+    "cohere.embed-multilingual-v3": {
+        "max_tokens": 512, 
+        "max_input_tokens": 512, 
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.000000,
+        "litellm_provider": "bedrock",
+        "mode": "embedding"
+    },
+    "meta.llama2-13b-chat-v1": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.00000075,
+        "output_cost_per_token": 0.000001,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "meta.llama2-70b-chat-v1": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.00000195,
+        "output_cost_per_token": 0.00000256,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "meta.llama3-8b-instruct-v1:0": {
+        "max_tokens": 8192, 
+        "max_input_tokens": 8192, 
+        "max_output_tokens": 8192, 
+        "input_cost_per_token": 0.0000004,
+        "output_cost_per_token": 0.0000006,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "meta.llama3-70b-instruct-v1:0": {
+        "max_tokens": 8192, 
+        "max_input_tokens": 8192, 
+        "max_output_tokens": 8192, 
+        "input_cost_per_token": 0.00000265,
+        "output_cost_per_token": 0.0000035,
+        "litellm_provider": "bedrock",
+        "mode": "chat"
+    },
+    "sagemaker/meta-textgeneration-llama-2-7b": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.000,
+        "output_cost_per_token": 0.000,
+        "litellm_provider": "sagemaker",
+        "mode": "completion"
+    },
+    "sagemaker/meta-textgeneration-llama-2-7b-f": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.000,
+        "output_cost_per_token": 0.000,
+        "litellm_provider": "sagemaker",
+        "mode": "chat"
+    },
+    "sagemaker/meta-textgeneration-llama-2-13b": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.000,
+        "output_cost_per_token": 0.000,
+        "litellm_provider": "sagemaker",
+        "mode": "completion"
+    },
+    "sagemaker/meta-textgeneration-llama-2-13b-f": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.000,
+        "output_cost_per_token": 0.000,
+        "litellm_provider": "sagemaker",
+        "mode": "chat"
+    },
+    "sagemaker/meta-textgeneration-llama-2-70b": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.000,
+        "output_cost_per_token": 0.000,
+        "litellm_provider": "sagemaker",
+        "mode": "completion"
+    },
+    "sagemaker/meta-textgeneration-llama-2-70b-b-f": {
+        "max_tokens": 4096, 
+        "max_input_tokens": 4096, 
+        "max_output_tokens": 4096, 
+        "input_cost_per_token": 0.000,
+        "output_cost_per_token": 0.000,
+        "litellm_provider": "sagemaker",
+        "mode": "chat"
+    },
+    "together/together-ai-up-to-3b": {
+        "input_cost_per_token": 0.0000001,
+        "output_cost_per_token": 0.0000001,
+        "litellm_provider": "together_ai"
+    },
+    "together/together-ai-3.1b-7b": {
+        "input_cost_per_token": 0.0000002,
+        "output_cost_per_token": 0.0000002,
+        "litellm_provider": "together_ai"
+    },
+    "together/together-ai-7.1b-20b": {
+        "max_tokens": 1000,
+        "input_cost_per_token": 0.0000004,
+        "output_cost_per_token": 0.0000004,
+        "litellm_provider": "together_ai"
+    },
+    "together/together-ai-20.1b-40b": {
+        "input_cost_per_token": 0.0000008,
+        "output_cost_per_token": 0.0000008,
+        "litellm_provider": "together_ai"
+    },
+    "together/together-ai-40.1b-70b": {
+        "input_cost_per_token": 0.0000009,
+        "output_cost_per_token": 0.0000009,
+        "litellm_provider": "together_ai"
+    },
+    "together/mistralai/Mixtral-8x7B-Instruct-v0.1": {
+        "input_cost_per_token": 0.0000006,
+        "output_cost_per_token": 0.0000006,
+        "litellm_provider": "together_ai",
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true
+    },
+    "together/mistralai/Mistral-7B-Instruct-v0.1": {
+        "litellm_provider": "together_ai",
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true
+    },
+    "together/togethercomputer/CodeLlama-34b-Instruct": {
+        "litellm_provider": "together_ai",
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true
+    }
+}

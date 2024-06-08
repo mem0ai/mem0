@@ -23,9 +23,14 @@ class OpenAILlm(BaseLlm):
         self.tools = tools
         super().__init__(config=config)
 
-    def get_llm_model_answer(self, prompt) -> str:
-        response = self._get_answer(prompt, self.config)
-        return response
+    def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
+        response, token_info = self._get_answer(prompt, self.config)
+        if self.config.token_usage:
+            model_name = "openai/" + self.config.model
+            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
+            response_token_info = {"input_tokens": token_info["prompt_tokens"], "output_tokens": token_info["completion_tokens"], "total_cost (USD)": round(total_cost, 10)}
+            return response, response_token_info
+        return response, None
 
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> str:
         messages = []
@@ -60,7 +65,8 @@ class OpenAILlm(BaseLlm):
         if self.tools:
             return self._query_function_call(chat, self.tools, messages)
 
-        return chat.invoke(messages).content
+        chat_response = chat.invoke(messages)
+        return chat_response.content, chat_response.response_metadata["token_usage"]
 
     def _query_function_call(
         self,

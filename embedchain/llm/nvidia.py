@@ -1,6 +1,6 @@
 import os
 from collections.abc import Iterable
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.stdout import StdOutCallbackHandler
@@ -26,8 +26,14 @@ class NvidiaLlm(BaseLlm):
 
         super().__init__(config=config)
 
-    def get_llm_model_answer(self, prompt):
-        return self._get_answer(prompt=prompt, config=self.config)
+    def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
+        response, token_info = self._get_answer(prompt, self.config)
+        if self.config.token_usage:
+            model_name = "nvidia/" + self.config.model
+            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["input_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["output_tokens"]
+            response_token_info = {"input_tokens": token_info["input_tokens"], "output_tokens": token_info["output_tokens"], "total_cost (USD)": round(total_cost, 10)}
+            return response, response_token_info
+        return response, None
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> Union[str, Iterable]:
@@ -44,4 +50,5 @@ class NvidiaLlm(BaseLlm):
         if labels:
             params["labels"] = labels
         llm = ChatNVIDIA(**params, callback_manager=CallbackManager(callback_manager))
-        return llm.invoke(prompt).content if labels is None else llm.invoke(prompt, labels=labels).content
+        chat_response = llm.invoke(prompt) if labels is None else llm.invoke(prompt, labels=labels)
+        return chat_response.content, chat_response.response_metadata["token_usage"]

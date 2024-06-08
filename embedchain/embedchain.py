@@ -521,7 +521,7 @@ class EmbedChain(JSONSerializable):
                 dry_run=dry_run,
             )
         else:
-            answer = self.llm.query(
+            answer, token_info = self.llm.query(
                 input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
             )
 
@@ -529,9 +529,12 @@ class EmbedChain(JSONSerializable):
         self.telemetry.capture(event_name="query", properties=self._telemetry_props)
 
         if citations:
+            if self.llm.config.token_usage:
+                return answer, contexts, token_info
             return answer, contexts
-        else:
-            return answer
+        if self.llm.config.token_usage:
+            return answer, token_info
+        return answer
 
     def chat(
         self,
@@ -597,7 +600,7 @@ class EmbedChain(JSONSerializable):
             )
         else:
             logger.debug("Cache disabled. Running chat without cache.")
-            answer = self.llm.chat(
+            answer, token_info = self.llm.chat(
                 input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
             )
 
@@ -608,9 +611,12 @@ class EmbedChain(JSONSerializable):
         self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
 
         if citations:
+            if self.llm.config.token_usage:
+                return answer, contexts, token_info
             return answer, contexts
-        else:
-            return answer
+        if self.llm.config.token_usage:
+            return answer, token_info
+        return answer
 
     def search(self, query, num_documents=3, where=None, raw_filter=None, namespace=None):
         """
