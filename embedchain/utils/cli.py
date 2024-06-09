@@ -193,12 +193,15 @@ def read_env_file(env_file_path):
     dict: Dictionary of environment variables.
     """
     env_vars = {}
+    pattern = re.compile(r"(\w+)=(.*)")  # compile regular expression for better performance
     with open(env_file_path, "r") as file:
-        for line in file:
+        lines = file.readlines()  # readlines is faster as it reads all at once
+        for line in lines:
+            line = line.strip()
             # Ignore comments and empty lines
-            if line.strip() and not line.strip().startswith("#"):
+            if line and not line.startswith("#"):
                 # Assume each line is in the format KEY=VALUE
-                key_value_match = re.match(r"(\w+)=(.*)", line.strip())
+                key_value_match = pattern.match(line)
                 if key_value_match:
                     key, value = key_value_match.groups()
                     env_vars[key] = value
