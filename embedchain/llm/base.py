@@ -219,12 +219,19 @@ class BaseLlm(JSONSerializable):
             if dry_run:
                 return prompt
 
-            answer, token_info = self.get_answer_from_llm(prompt)
+            if self.config.token_usage:
+                answer, token_info = self.get_answer_from_llm(prompt)
+            else:
+                answer = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
                 logger.info(f"Answer: {answer}")
-                return answer, token_info
+                if self.config.token_usage:
+                    return answer, token_info
+                return answer
             else:
-                return self._stream_response(answer, token_info)
+                if self.config.token_usage:
+                    return self._stream_response(answer, token_info)
+                return self._stream_response(answer)
         finally:
             if config:
                 # Restore previous config
