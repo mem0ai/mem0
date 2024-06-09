@@ -2,7 +2,12 @@ import importlib
 import os
 from typing import Any, Optional
 
-from langchain_together import ChatTogether
+try:
+    from langchain_together import ChatTogether
+except ImportError:
+    raise ImportError(
+        "Please install the langchain_together package by running `pip install langchain_together==0.1.3`."
+    )
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -14,14 +19,6 @@ class TogetherLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         if "TOGETHER_API_KEY" not in os.environ:
             raise ValueError("Please set the TOGETHER_API_KEY environment variable.")
-
-        try:
-            importlib.import_module("together")
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "The required dependencies for Together are not installed."
-                "Please install with `pip install langchain_together==0.1.3`"
-            ) from None
 
         super().__init__(config=config)
 
