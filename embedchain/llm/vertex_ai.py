@@ -59,7 +59,8 @@ class VertexAILlm(BaseLlm):
         else:
             llm = ChatVertexAI(temperature=config.temperature, model=config.model)
 
-        chat_response = llm.invoke(prompt)
+        messages = VertexAILlm._get_messages(prompt)
+        chat_response = llm.invoke(messages)
         if config.token_usage:
             return chat_response.content, chat_response.response_metadata["usage_metadata"]
         return chat_response.content
