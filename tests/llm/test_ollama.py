@@ -11,6 +11,7 @@ def ollama_llm_config():
 
 
 def test_get_llm_model_answer(ollama_llm_config, mocker):
+    mocker.patch("embedchain.llm.ollama.Client.list", return_value={"models": [{"name": "llama2"}]})
     mocker.patch("embedchain.llm.ollama.OllamaLlm._get_answer", return_value="Test answer")
 
     llm = OllamaLlm(ollama_llm_config)
@@ -20,6 +21,7 @@ def test_get_llm_model_answer(ollama_llm_config, mocker):
 
 
 def test_get_answer_mocked_ollama(ollama_llm_config, mocker):
+    mocker.patch("embedchain.llm.ollama.Client.list", return_value={"models": [{"name": "llama2"}]})
     mocked_ollama = mocker.patch("embedchain.llm.ollama.Ollama")
     mock_instance = mocked_ollama.return_value
     mock_instance.invoke.return_value = "Mocked answer"

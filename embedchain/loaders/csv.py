@@ -27,9 +27,9 @@ class CsvLoader(BaseLoader):
             return StringIO(response.text)
         elif url.scheme == "file":
             path = url.path
-            return open(path, newline="")  # Open the file using the path from the URI
+            return open(path, newline="", encoding="utf-8")  # Open the file using the path from the URI
         else:
-            return open(content, newline="")  # Treat content as a regular file path
+            return open(content, newline="", encoding="utf-8")  # Treat content as a regular file path
 
     @staticmethod
     def load_data(content):
