@@ -1,6 +1,6 @@
 import importlib
 import os
-from typing import Optional, Any
+from typing import Any, Optional
 
 from langchain_cohere import ChatCohere
 
@@ -20,7 +20,7 @@ class CohereLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for Cohere are not installed."
-                'Please install with `pip install langchain_cohere==1.16.0`'
+                "Please install with `pip install langchain_cohere==1.16.0`"
             ) from None
 
         super().__init__(config=config)
@@ -28,14 +28,23 @@ class CohereLlm(BaseLlm):
     def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
         if self.config.system_prompt:
             raise ValueError("CohereLlm does not support `system_prompt`")
-        
+
         if self.config.token_usage:
             response, token_info = self._get_answer(prompt, self.config)
             model_name = "cohere/" + self.config.model
             if model_name not in self.config.model_pricing_map:
-                    raise ValueError(f"Model {model_name} not found in `model_prices_and_context_window.json`. You can disable token usage by setting `token_usage` to False.")
-            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["input_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["output_tokens"]
-            response_token_info = {"input_tokens": token_info["input_tokens"], "output_tokens": token_info["output_tokens"], "total_cost (USD)": round(total_cost, 10)}
+                raise ValueError(
+                    f"Model {model_name} not found in `model_prices_and_context_window.json`. \
+                    You can disable token usage by setting `token_usage` to False."
+                )
+            total_cost = (
+                self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["input_tokens"]
+            ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["output_tokens"]
+            response_token_info = {
+                "input_tokens": token_info["input_tokens"],
+                "output_tokens": token_info["output_tokens"],
+                "total_cost (USD)": round(total_cost, 10),
+            }
             return response, response_token_info
         return self._get_answer(prompt, self.config)
 
@@ -48,7 +57,7 @@ class CohereLlm(BaseLlm):
             "max_tokens": config.max_tokens,
             "together_api_key": api_key,
         }
-        
+
         chat = ChatCohere(**kwargs)
         chat_response = chat.invoke(prompt)
         if config.token_usage:

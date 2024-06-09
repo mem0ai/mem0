@@ -1,6 +1,6 @@
 import importlib
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_google_vertexai import ChatVertexAI
@@ -29,9 +29,20 @@ class VertexAILlm(BaseLlm):
             response, token_info = self._get_answer(prompt, self.config)
             model_name = "vertexai/" + self.config.model
             if model_name not in self.config.model_pricing_map:
-                    raise ValueError(f"Model {model_name} not found in `model_prices_and_context_window.json`. You can disable token usage by setting `token_usage` to False.")
-            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_token_count"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["candidates_token_count"]
-            response_token_info = {"input_tokens": token_info["prompt_token_count"], "output_tokens": token_info["candidates_token_count"], "total_cost (USD)": round(total_cost, 10)}
+                raise ValueError(
+                    f"Model {model_name} not found in `model_prices_and_context_window.json`. \
+                    You can disable token usage by setting `token_usage` to False."
+                )
+            total_cost = (
+                self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_token_count"]
+            ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info[
+                "candidates_token_count"
+            ]
+            response_token_info = {
+                "input_tokens": token_info["prompt_token_count"],
+                "output_tokens": token_info["candidates_token_count"],
+                "total_cost (USD)": round(total_cost, 10),
+            }
             return response, response_token_info
         return self._get_answer(prompt, self.config)
 
@@ -39,8 +50,6 @@ class VertexAILlm(BaseLlm):
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         if config.top_p and config.top_p != 1:
             logger.warning("Config option `top_p` is not supported by this model.")
-
-        messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
 
         if config.stream:
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]

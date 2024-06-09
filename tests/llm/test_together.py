@@ -42,9 +42,12 @@ def test_get_llm_model_answer_with_token_usage(together_llm_config, mocker):
         max_tokens=together_llm_config.max_tokens,
         top_p=together_llm_config.top_p,
         model=together_llm_config.model,
-        token_usage=True
+        token_usage=True,
     )
-    mocker.patch("embedchain.llm.together.TogetherLlm._get_answer", return_value=("Test answer", {"prompt_tokens": 1, "completion_tokens": 2}))
+    mocker.patch(
+        "embedchain.llm.together.TogetherLlm._get_answer",
+        return_value=("Test answer", {"prompt_tokens": 1, "completion_tokens": 2}),
+    )
 
     llm = TogetherLlm(test_config)
     answer, token_info = llm.get_llm_model_answer("Test query")

@@ -32,16 +32,17 @@ def test_get_messages(anthropic_llm):
         HumanMessage(content="Test Prompt", additional_kwargs={}, example=False),
     ]
 
+
 def test_get_llm_model_answer_with_token_usage(anthropic_llm):
     test_config = BaseLlmConfig(
-        temperature=anthropic_llm.config.temperature,
-        model=anthropic_llm.config.model,
-        token_usage=True
+        temperature=anthropic_llm.config.temperature, model=anthropic_llm.config.model, token_usage=True
     )
     anthropic_llm.config = test_config
-    with patch.object(AnthropicLlm, "_get_answer", return_value=("Test Response",{"input_tokens": 1, "output_tokens": 2})) as mock_method:
+    with patch.object(
+        AnthropicLlm, "_get_answer", return_value=("Test Response", {"input_tokens": 1, "output_tokens": 2})
+    ) as mock_method:
         prompt = "Test Prompt"
         response, token_info = anthropic_llm.get_llm_model_answer(prompt)
         assert response == "Test Response"
-        assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)":  1.265e-05}
+        assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 1.265e-05}
         mock_method.assert_called_once_with(prompt, anthropic_llm.config)

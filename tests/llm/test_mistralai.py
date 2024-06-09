@@ -66,9 +66,13 @@ def test_get_llm_model_answer_with_token_usage(monkeypatch, mistralai_llm_config
         max_tokens=mistralai_llm_config.max_tokens,
         top_p=mistralai_llm_config.top_p,
         model=mistralai_llm_config.model,
-        token_usage=True
+        token_usage=True,
     )
-    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda self, prompt, config: ("Generated Text", {"prompt_tokens": 1, "completion_tokens": 2}))
+    monkeypatch.setattr(
+        MistralAILlm,
+        "_get_answer",
+        lambda self, prompt, config: ("Generated Text", {"prompt_tokens": 1, "completion_tokens": 2}),
+    )
 
     llm = MistralAILlm(test_config)
     answer, token_info = llm.get_llm_model_answer("Test query")

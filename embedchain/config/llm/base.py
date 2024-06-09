@@ -1,6 +1,6 @@
+import json
 import logging
 import re
-import json
 from string import Template
 from typing import Any, Mapping, Optional
 
@@ -190,9 +190,9 @@ class BaseLlmConfig(BaseConfig):
         self.http_async_client = http_async_client
         self.local = local
         self.default_headers = default_headers
-        
+
         if token_usage:
-            f = open('model_prices_and_context_window.json')
+            f = open("model_prices_and_context_window.json")
             self.model_pricing_map = json.load(f)
 
         if isinstance(prompt, str):

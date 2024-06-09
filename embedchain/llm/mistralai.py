@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Any
+from typing import Any, Optional
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -18,9 +18,18 @@ class MistralAILlm(BaseLlm):
             response, token_info = self._get_answer(prompt, self.config)
             model_name = "mistralai/" + self.config.model
             if model_name not in self.config.model_pricing_map:
-                    raise ValueError(f"Model {model_name} not found in `model_prices_and_context_window.json`. You can disable token usage by setting `token_usage` to False.")
-            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
-            response_token_info = {"input_tokens": token_info["prompt_tokens"], "output_tokens": token_info["completion_tokens"], "total_cost (USD)": round(total_cost, 10)}
+                raise ValueError(
+                    f"Model {model_name} not found in `model_prices_and_context_window.json`. \
+                    You can disable token usage by setting `token_usage` to False."
+                )
+            total_cost = (
+                self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]
+            ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
+            response_token_info = {
+                "input_tokens": token_info["prompt_tokens"],
+                "output_tokens": token_info["completion_tokens"],
+                "total_cost (USD)": round(total_cost, 10),
+            }
             return response, response_token_info
         return self._get_answer(prompt, self.config)
 
@@ -59,4 +68,3 @@ class MistralAILlm(BaseLlm):
             if config.token_usage:
                 return chat_response.content, chat_response.response_metadata["token_usage"]
             return chat_response.content
-

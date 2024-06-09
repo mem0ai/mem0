@@ -57,9 +57,12 @@ def test_get_llm_model_answer_with_token_usage(config, mocker):
         stream=config.stream,
         system_prompt=config.system_prompt,
         model=config.model,
-        token_usage=True
+        token_usage=True,
     )
-    mocked_get_answer = mocker.patch("embedchain.llm.openai.OpenAILlm._get_answer", return_value=("Test answer", {"prompt_tokens": 1, "completion_tokens": 2}))
+    mocked_get_answer = mocker.patch(
+        "embedchain.llm.openai.OpenAILlm._get_answer",
+        return_value=("Test answer", {"prompt_tokens": 1, "completion_tokens": 2}),
+    )
 
     llm = OpenAILlm(test_config)
     answer, token_info = llm.get_llm_model_answer("Test query")

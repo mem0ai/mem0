@@ -1,6 +1,6 @@
 import os
 from collections.abc import Iterable
-from typing import Optional, Union, Any
+from typing import Any, Optional, Union
 
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.stdout import StdOutCallbackHandler
@@ -31,9 +31,18 @@ class NvidiaLlm(BaseLlm):
             response, token_info = self._get_answer(prompt, self.config)
             model_name = "nvidia/" + self.config.model
             if model_name not in self.config.model_pricing_map:
-                    raise ValueError(f"Model {model_name} not found in `model_prices_and_context_window.json`. You can disable token usage by setting `token_usage` to False.")
-            total_cost = (self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["input_tokens"]) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["output_tokens"]
-            response_token_info = {"input_tokens": token_info["input_tokens"], "output_tokens": token_info["output_tokens"], "total_cost (USD)": round(total_cost, 10)}
+                raise ValueError(
+                    f"Model {model_name} not found in `model_prices_and_context_window.json`. \
+                    You can disable token usage by setting `token_usage` to False."
+                )
+            total_cost = (
+                self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["input_tokens"]
+            ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["output_tokens"]
+            response_token_info = {
+                "input_tokens": token_info["input_tokens"],
+                "output_tokens": token_info["output_tokens"],
+                "total_cost (USD)": round(total_cost, 10),
+            }
             return response, response_token_info
         return self._get_answer(prompt, self.config)
 

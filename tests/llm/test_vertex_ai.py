@@ -33,10 +33,14 @@ def test_get_llm_model_answer_with_token_usage(vertexai_llm):
         max_tokens=vertexai_llm.config.max_tokens,
         top_p=vertexai_llm.config.top_p,
         model=vertexai_llm.config.model,
-        token_usage=True
+        token_usage=True,
     )
     vertexai_llm.config = test_config
-    with patch.object(VertexAILlm, "_get_answer", return_value=("Test Response", {"prompt_token_count": 1, "candidates_token_count": 2})):
+    with patch.object(
+        VertexAILlm,
+        "_get_answer",
+        return_value=("Test Response", {"prompt_token_count": 1, "candidates_token_count": 2}),
+    ):
         response, token_info = vertexai_llm.get_llm_model_answer("Test Query")
         assert response == "Test Response"
         assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 3.75e-07}

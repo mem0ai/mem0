@@ -498,7 +498,9 @@ class EmbedChain(JSONSerializable):
         :type kwargs: dict[str, Any]
         :return: The answer to the query, with citations if the citation flag is True
         or the dry run result
-        :rtype: str, if citations is False and token_usage is False, otherwise if citations is true then tuple[str, list[tuple[str,str,str]]] and if token_usage is true then tuple[str, list[tuple[str,str,str]], dict[str, Any]]
+        :rtype: str, if citations is False and token_usage is False, otherwise if citations is true then
+        tuple[str, list[tuple[str,str,str]]] and if token_usage is true then
+        tuple[str, list[tuple[str,str,str]], dict[str, Any]]
         """
         contexts = self._retrieve_from_database(
             input_query=input_query, config=config, where=where, citations=citations, **kwargs
@@ -577,7 +579,9 @@ class EmbedChain(JSONSerializable):
         :type kwargs: dict[str, Any]
         :return: The answer to the query, with citations if the citation flag is True
         or the dry run result
-        :rtype: str, if citations is False and token_usage is False, otherwise if citations is true then tuple[str, list[tuple[str,str,str]]] and if token_usage is true then tuple[str, list[tuple[str,str,str]], dict[str, Any]]
+        :rtype: str, if citations is False and token_usage is False, otherwise if citations is true then
+        tuple[str, list[tuple[str,str,str]]] and if token_usage is true then
+        tuple[str, list[tuple[str,str,str]], dict[str, Any]]
         """
         contexts = self._retrieve_from_database(
             input_query=input_query, config=config, where=where, citations=citations, **kwargs

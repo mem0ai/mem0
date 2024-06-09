@@ -42,9 +42,12 @@ def test_get_llm_model_answer_with_token_usage(cohere_llm_config, mocker):
         max_tokens=cohere_llm_config.max_tokens,
         top_p=cohere_llm_config.top_p,
         model=cohere_llm_config.model,
-        token_usage=True
+        token_usage=True,
     )
-    mocker.patch("embedchain.llm.cohere.CohereLlm._get_answer", return_value=("Test answer", {"input_tokens": 1, "output_tokens": 2}))
+    mocker.patch(
+        "embedchain.llm.cohere.CohereLlm._get_answer",
+        return_value=("Test answer", {"input_tokens": 1, "output_tokens": 2}),
+    )
 
     llm = CohereLlm(test_config)
     answer, token_info = llm.get_llm_model_answer("Test query")
