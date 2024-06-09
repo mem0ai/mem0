@@ -330,6 +330,7 @@ Setup Ollama using https://github.com/jmorganca/ollama
 
 ```python main.py
 import os
+os.environ["OLLAMA_HOST"] = "http://127.0.0.1:11434"
 from embedchain import App
 
 # load llm configuration from config.yaml file
@@ -345,6 +346,12 @@ llm:
     top_p: 1
     stream: true
     base_url: 'http://localhost:11434'
+embedder:
+  provider: ollama
+  config:
+    model: znbang/bge:small-en-v1.5-q8_0
+    base_url: http://localhost:11434
+
 ```
 
 </CodeGroup>
