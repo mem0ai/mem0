@@ -105,7 +105,6 @@ gptcache = "^0.1.43"
 pysbd = "^0.3.4"
 tiktoken = { version = "^0.7.0", optional = true }
 youtube-transcript-api = { version = "^0.6.1", optional = true }
-pytube = { version = "^15.0.0", optional = true }
 duckduckgo-search = { version = "^6.1.5", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.3.0", optional = true }
@@ -219,8 +218,6 @@ modal = ["modal"]
 dropbox = ["dropbox"]
 aws_bedrock = ["boto3"]
 mistralai = ["langchain-mistralai"]
-
-[tool.poetry.group.docs.dependencies]
 
 [tool.poetry.scripts]
 ec = "embedchain.cli:cli"
