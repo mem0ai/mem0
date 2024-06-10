@@ -155,8 +155,7 @@
         "deployment/railway",
         "deployment/streamlit_io",
         "deployment/gradio_app",
-        "deployment/huggingface_spaces",
-        "deployment/embedchain_ai"
+        "deployment/huggingface_spaces"
       ]
     },
     {
@@ -236,8 +235,7 @@
         "contribution/guidelines",
         "contribution/dev",
         "contribution/docs",
-        "contribution/python",
-        "contribution/javascript"
+        "contribution/python"
       ]
     },
     {
