@@ -89,6 +89,7 @@ class BaseLlmConfig(BaseConfig):
         max_tokens: int = 1000,
         top_p: float = 1,
         stream: bool = False,
+        online: bool = False,
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: dict[str, Any] = None,
@@ -129,6 +130,8 @@ class BaseLlmConfig(BaseConfig):
         :type top_p: float, optional
         :param stream: Control if response is streamed back to user, defaults to False
         :type stream: bool, optional
+        :param online: Controls whether to use internet for answering query, defaults to False
+        :type online: bool, optional
         :param deployment_name: t.b.a., defaults to None
         :type deployment_name: Optional[str], optional
         :param system_prompt: System prompt string, defaults to None
@@ -181,6 +184,7 @@ class BaseLlmConfig(BaseConfig):
         self.http_async_client = http_async_client
         self.local = local
         self.default_headers = default_headers
+        self.online = online
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

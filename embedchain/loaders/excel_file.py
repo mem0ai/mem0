@@ -2,10 +2,11 @@ import hashlib
 import importlib.util
 
 try:
+    import unstructured  # noqa: F401
     from langchain_community.document_loaders import UnstructuredExcelLoader
 except ImportError:
     raise ImportError(
-        'Excel file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+        'Excel file requires extra dependencies. Install with `pip install "unstructured[local-inference, all-docs]"`'
     ) from None
 
 if importlib.util.find_spec("openpyxl") is None and importlib.util.find_spec("xlrd") is None:

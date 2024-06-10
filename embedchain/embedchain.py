@@ -6,9 +6,7 @@ from typing import Any, Optional, Union
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
-from embedchain.cache import (adapt, get_gptcache_session,
-                              gptcache_data_convert,
-                              gptcache_update_cache_callback)
+from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.base_app_config import BaseAppConfig
@@ -18,8 +16,7 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import (DataType, DirectDataType,
-                                         IndirectDataType, SpecialDataType)
+from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
 from embedchain.utils.misc import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -97,13 +94,13 @@ class EmbedChain(JSONSerializable):
 
     @property
     def online(self):
-        return self.llm.online
+        return self.llm.config.online
 
     @online.setter
     def online(self, value):
         if not isinstance(value, bool):
             raise ValueError(f"Boolean value expected but got {type(value)}.")
-        self.llm.online = value
+        self.llm.config.online = value
 
     def add(
         self,
@@ -132,7 +129,14 @@ class EmbedChain(JSONSerializable):
         :type config: Optional[AddConfig], optional
         :raises ValueError: Invalid data type
         :param dry_run: Optional. A dry run displays the chunks to ensure that the loader and chunker work as intended.
-        deafaults to False
+        defaults to False
+        :type dry_run: bool
+        :param loader: The loader to use to load the data, defaults to None
+        :type loader: BaseLoader, optional
+        :param chunker: The chunker to use to chunk the data, defaults to None
+        :type chunker: BaseChunker, optional
+        :param kwargs: To read more params for the query function
+        :type kwargs: dict[str, Any]
         :return: source_hash, a md5-hash of the source, in hexadecimal representation.
         :rtype: str
         """
@@ -293,12 +297,19 @@ class EmbedChain(JSONSerializable):
         Loads the data from the given URL, chunks it, and adds it to database.
 
         :param loader: The loader to use to load the data.
+        :type loader: BaseLoader
         :param chunker: The chunker to use to chunk the data.
+        :type chunker: BaseChunker
         :param src: The data to be handled by the loader. Can be a URL for
         remote sources or local content for local loaders.
-        :param metadata: Optional. Metadata associated with the data source.
+        :type src: Any
+        :param metadata: Metadata associated with the data source.
+        :type metadata: dict[str, Any], optional
         :param source_hash: Hexadecimal hash of the source.
-        :param dry_run: Optional. A dry run returns chunks and doesn't update DB.
+        :type source_hash: str, optional
+        :param add_config: The `AddConfig` instance to use as configuration options.
+        :type add_config: AddConfig, optional
+        :param dry_run: A dry run returns chunks and doesn't update DB.
         :type dry_run: bool, defaults to False
         :return: (list) documents (embedded text), (list) metadata, (list) ids, (int) number of chunks
         """
@@ -474,12 +485,14 @@ class EmbedChain(JSONSerializable):
         :type input_query: str
         :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
-        :type config: Optional[BaseLlmConfig], optional
+        :type config: BaseLlmConfig, optional
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
         :type dry_run: bool, optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
-        :type where: Optional[dict[str, str]], optional
+        :type where: dict[str, str], optional
+        :param citations: A boolean to indicate if db should fetch citation source
+        :type citations: bool
         :param kwargs: To read more params for the query function. Ex. we use citations boolean
         param to return context along with the answer
         :type kwargs: dict[str, Any]
@@ -541,14 +554,16 @@ class EmbedChain(JSONSerializable):
         :type input_query: str
         :param config: The `BaseLlmConfig` instance to use as configuration options. This is used for one method call.
         To persistently use a config, declare it during app init., defaults to None
-        :type config: Optional[BaseLlmConfig], optional
+        :type config: BaseLlmConfig, optional
         :param dry_run: A dry run does everything except send the resulting prompt to
         the LLM. The purpose is to test the prompt, not the response., defaults to False
         :type dry_run: bool, optional
         :param session_id: The session id to use for chat history, defaults to 'default'.
-        :type session_id: Optional[str], optional
+        :type session_id: str, optional
         :param where: A dictionary of key-value pairs to filter the database results., defaults to None
-        :type where: Optional[dict[str, str]], optional
+        :type where: dict[str, str], optional
+        :param citations: A boolean to indicate if db should fetch citation source
+        :type citations: bool
         :param kwargs: To read more params for the query function. Ex. we use citations boolean
         param to return context along with the answer
         :type kwargs: dict[str, Any]

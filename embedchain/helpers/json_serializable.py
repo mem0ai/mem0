@@ -97,10 +97,8 @@ class JSONSerializable:
             dict: A dictionary representation of the object.
         """
         if hasattr(obj, "__dict__"):
-            dct = obj.__dict__.copy()
-            for key, value in list(
-                dct.items()
-            ):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
+            dct = {}
+            for key, value in obj.__dict__.items():
                 try:
                     # Recursive: If the value is an instance of a subclass of JSONSerializable,
                     # serialize it using the JSONSerializable serialize method.
@@ -120,8 +118,9 @@ class JSONSerializable:
                     # NOTE: Keep in mind that this logic needs to be applied to the decoder too.
                     else:
                         json.dumps(value)  # Try to serialize the value.
+                        dct[key] = value
                 except TypeError:
-                    del dct[key]  # If it fails, remove the key-value pair from the dictionary.
+                    pass  # If it fails, simply pass to skip this key-value pair of the dictionary.
 
             dct["__class__"] = obj.__class__.__name__
             return dct
