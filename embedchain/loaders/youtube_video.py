@@ -1,7 +1,13 @@
 import hashlib
+import json
+import logging
 
 try:
-    from langchain.document_loaders import YoutubeLoader
+    from youtube_transcript_api import YouTubeTranscriptApi
+except ImportError:
+    raise ImportError('YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api "`')
+try:
+    from langchain_community.document_loaders import YoutubeLoader
 except ImportError:
     raise ImportError(
         'YouTube video requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
@@ -22,13 +28,23 @@ class YoutubeVideoLoader(BaseLoader):
             raise ValueError(f"No data found for url: {url}")
         content = doc[0].page_content
         content = clean_string(content)
-        meta_data = doc[0].metadata
-        meta_data["url"] = url
+        metadata = doc[0].metadata
+        metadata["url"] = url
+
+        video_id = url.split("v=")[1].split("&")[0]
+        try:
+            # Fetching transcript data
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=["en"])
+            # convert transcript to json to avoid unicode symboles
+            metadata["transcript"] = json.dumps(transcript, ensure_ascii=True)
+        except Exception:
+            logging.exception(f"Failed to fetch transcript for video {url}")
+            metadata["transcript"] = "Unavailable"
 
         output.append(
             {
                 "content": content,
-                "meta_data": meta_data,
+                "meta_data": metadata,
             }
         )
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()

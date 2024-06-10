@@ -2,6 +2,7 @@ from embedchain.chunkers.common_chunker import CommonChunker
 from embedchain.chunkers.discourse import DiscourseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
 from embedchain.chunkers.docx_file import DocxFileChunker
+from embedchain.chunkers.excel_file import ExcelFileChunker
 from embedchain.chunkers.gmail import GmailChunker
 from embedchain.chunkers.google_drive import GoogleDriveChunker
 from embedchain.chunkers.json import JSONChunker
@@ -43,6 +44,7 @@ chunker_common_config = {
     DiscourseChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     CommonChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     GoogleDriveChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    ExcelFileChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

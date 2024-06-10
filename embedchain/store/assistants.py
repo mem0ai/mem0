@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import cast
 
 from openai import OpenAI
-from openai.types.beta.threads import MessageContentText, ThreadMessage
+from openai.types.beta.threads import Message
+from openai.types.beta.threads.text_content_block import TextContentBlock
 
 from embedchain import Client, Pipeline
 from embedchain.config import AddConfig
@@ -17,10 +18,8 @@ from embedchain.models.data_type import DataType
 from embedchain.telemetry.posthog import AnonymousTelemetry
 from embedchain.utils.misc import detect_datatype
 
-logging.basicConfig(level=logging.WARN)
-
 # Set up the user directory if it doesn't exist already
-Client.setup_dir()
+Client.setup()
 
 
 class OpenAIAssistant:
@@ -33,7 +32,7 @@ class OpenAIAssistant:
         model="gpt-4-1106-preview",
         data_sources=None,
         assistant_id=None,
-        log_level=logging.WARN,
+        log_level=logging.INFO,
         collect_metrics=True,
     ):
         self.name = name or "OpenAI Assistant"
@@ -132,8 +131,8 @@ class OpenAIAssistant:
 
     @staticmethod
     def _format_message(thread_message):
-        thread_message = cast(ThreadMessage, thread_message)
-        content = [c.text.value for c in thread_message.content if isinstance(c, MessageContentText)]
+        thread_message = cast(Message, thread_message)
+        content = [c.text.value for c in thread_message.content if isinstance(c, TextContentBlock)]
         return " ".join(content)
 
     @staticmethod
@@ -156,11 +155,9 @@ class AIAssistant:
         assistant_id=None,
         thread_id=None,
         data_sources=None,
-        log_level=logging.WARN,
+        log_level=logging.INFO,
         collect_metrics=True,
     ):
-        logging.basicConfig(level=log_level)
-
         self.name = name or "AI Assistant"
         self.data_sources = data_sources or []
         self.log_level = log_level

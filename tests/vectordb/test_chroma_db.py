@@ -34,15 +34,16 @@ def cleanup_db():
         print("Error: %s - %s." % (e.filename, e.strerror))
 
 
-@pytest.mark.skip(reason="ChromaDB client needs to be mocked")
-def test_chroma_db_init_with_host_and_port(chroma_db):
-    settings = chroma_db.client.get_settings()
-    assert settings.chroma_server_host == "test-host"
-    assert settings.chroma_server_http_port == "1234"
+@patch("embedchain.vectordb.chroma.chromadb.Client")
+def test_chroma_db_init_with_host_and_port(mock_client):
+    chroma_db = ChromaDB(config=ChromaDbConfig(host="test-host", port="1234"))  # noqa
+    called_settings: Settings = mock_client.call_args[0][0]
+    assert called_settings.chroma_server_host == "test-host"
+    assert called_settings.chroma_server_http_port == "1234"
 
 
-@pytest.mark.skip(reason="ChromaDB client needs to be mocked")
-def test_chroma_db_init_with_basic_auth():
+@patch("embedchain.vectordb.chroma.chromadb.Client")
+def test_chroma_db_init_with_basic_auth(mock_client):
     chroma_config = {
         "host": "test-host",
         "port": "1234",
@@ -52,12 +53,17 @@ def test_chroma_db_init_with_basic_auth():
         },
     }
 
-    db = ChromaDB(config=ChromaDbConfig(**chroma_config))
-    settings = db.client.get_settings()
-    assert settings.chroma_server_host == "test-host"
-    assert settings.chroma_server_http_port == "1234"
-    assert settings.chroma_client_auth_provider == chroma_config["chroma_settings"]["chroma_client_auth_provider"]
-    assert settings.chroma_client_auth_credentials == chroma_config["chroma_settings"]["chroma_client_auth_credentials"]
+    ChromaDB(config=ChromaDbConfig(**chroma_config))
+    called_settings: Settings = mock_client.call_args[0][0]
+    assert called_settings.chroma_server_host == "test-host"
+    assert called_settings.chroma_server_http_port == "1234"
+    assert (
+        called_settings.chroma_client_auth_provider == chroma_config["chroma_settings"]["chroma_client_auth_provider"]
+    )
+    assert (
+        called_settings.chroma_client_auth_credentials
+        == chroma_config["chroma_settings"]["chroma_client_auth_credentials"]
+    )
 
 
 @patch("embedchain.vectordb.chroma.chromadb.Client")

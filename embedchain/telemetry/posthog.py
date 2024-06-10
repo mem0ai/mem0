@@ -2,17 +2,11 @@ import json
 import logging
 import os
 import uuid
-from pathlib import Path
 
 from posthog import Posthog
 
 import embedchain
-
-HOME_DIR = str(Path.home())
-CONFIG_DIR = os.path.join(HOME_DIR, ".embedchain")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-
-logger = logging.getLogger(__name__)
+from embedchain.constants import CONFIG_DIR, CONFIG_FILE
 
 
 class AnonymousTelemetry:
@@ -63,4 +57,4 @@ class AnonymousTelemetry:
         try:
             self.posthog.capture(self.user_id, event_name, properties)
         except Exception:
-            logger.exception(f"Failed to send telemetry {event_name=}")
+            logging.exception(f"Failed to send telemetry {event_name=}")

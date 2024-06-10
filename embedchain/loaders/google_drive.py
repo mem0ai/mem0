@@ -8,8 +8,15 @@ except ImportError:
         "Google Drive requires extra dependencies. Install with `pip install embedchain[googledrive]`"
     ) from None
 
-from langchain.document_loaders import GoogleDriveLoader as Loader
-from langchain.document_loaders import UnstructuredFileIOLoader
+from langchain_community.document_loaders import GoogleDriveLoader as Loader
+
+try:
+    import unstructured  # noqa: F401
+    from langchain_community.document_loaders import UnstructuredFileIOLoader
+except ImportError:
+    raise ImportError(
+        'Unstructured file requires extra dependencies. Install with `pip install "unstructured[local-inference, all-docs]"`'  # noqa: E501
+    ) from None
 
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader

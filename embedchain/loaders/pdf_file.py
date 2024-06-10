@@ -1,7 +1,7 @@
 import hashlib
 
 try:
-    from langchain.document_loaders import PyPDFLoader
+    from langchain_community.document_loaders import PyPDFLoader
 except ImportError:
     raise ImportError(
         'PDF File requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
@@ -27,12 +27,12 @@ class PdfFileLoader(BaseLoader):
         for page in pages:
             content = page.page_content
             content = clean_string(content)
-            meta_data = page.metadata
-            meta_data["url"] = url
+            metadata = page.metadata
+            metadata["url"] = url
             data.append(
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             )
             all_content.append(content)

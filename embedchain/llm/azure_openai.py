@@ -5,6 +5,8 @@ from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class AzureOpenAILlm(BaseLlm):
@@ -16,7 +18,7 @@ class AzureOpenAILlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain.chat_models import AzureChatOpenAI
+        from langchain_community.chat_models import AzureChatOpenAI
 
         if not config.deployment_name:
             raise ValueError("Deployment name must be provided for Azure OpenAI")
@@ -31,7 +33,7 @@ class AzureOpenAILlm(BaseLlm):
         )
 
         if config.top_p and config.top_p != 1:
-            logging.warning("Config option `top_p` is not supported by this model.")
+            logger.warning("Config option `top_p` is not supported by this model.")
 
         messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
 

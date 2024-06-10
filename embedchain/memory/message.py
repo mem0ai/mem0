@@ -3,6 +3,8 @@ from typing import Any, Optional
 
 from embedchain.helpers.json_serializable import JSONSerializable
 
+logger = logging.getLogger(__name__)
+
 
 class BaseMessage(JSONSerializable):
     """
@@ -52,7 +54,7 @@ class ChatMessage(JSONSerializable):
 
     def add_user_message(self, message: str, metadata: Optional[dict] = None):
         if self.human_message:
-            logging.info(
+            logger.info(
                 "Human message already exists in the chat message,\
                 overwriting it with new message."
             )
@@ -61,7 +63,7 @@ class ChatMessage(JSONSerializable):
 
     def add_ai_message(self, message: str, metadata: Optional[dict] = None):
         if self.ai_message:
-            logging.info(
+            logger.info(
                 "AI message already exists in the chat message,\
                 overwriting it with new message."
             )

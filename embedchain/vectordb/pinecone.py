@@ -6,13 +6,17 @@ try:
     import pinecone
 except ImportError:
     raise ImportError(
-        "Pinecone requires extra dependencies. Install with `pip install --upgrade 'embedchain[pinecone]'`"
+        "Pinecone requires extra dependencies. Install with `pip install pinecone-text pinecone-client`"
     ) from None
+
+from pinecone_text.sparse import BM25Encoder
 
 from embedchain.config.vectordb.pinecone import PineconeDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
+
+logger = logging.getLogger(__name__)
 
 
 @register_deserializable
@@ -43,6 +47,13 @@ class PineconeDB(BaseVectorDB):
                 )
             self.config = config
         self._setup_pinecone_index()
+
+        # Setup BM25Encoder if sparse vectors are to be used
+        self.bm25_encoder = None
+        if self.config.hybrid_search:
+            logger.info("Initializing BM25Encoder for sparse vectors..")
+            self.bm25_encoder = self.config.bm25_encoder if self.config.bm25_encoder else BM25Encoder.default()
+
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
 
@@ -92,17 +103,14 @@ class PineconeDB(BaseVectorDB):
         existing_ids = list()
         metadatas = []
 
+        batch_size = 100
         if ids is not None:
-            for i in range(0, len(ids), 1000):
-                result = self.pinecone_index.fetch(ids=ids[i : i + 1000])
+            for i in range(0, len(ids), batch_size):
+                result = self.pinecone_index.fetch(ids=ids[i : i + batch_size])
                 vectors = result.get("vectors")
                 batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
                 metadatas.extend([vectors.get(ids).get("metadata") for ids in batch_existing_ids])
-
-        if where is not None:
-            logging.warning("Filtering is not supported by Pinecone")
-
         return {"ids": existing_ids, "metadatas": metadatas}
 
     def add(
@@ -122,15 +130,19 @@ class PineconeDB(BaseVectorDB):
         :type ids: list[str]
         """
         docs = []
-        print("Adding documents to Pinecone...")
         embeddings = self.embedder.embedding_fn(documents)
         for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
+            # Insert sparse vectors as well if the user wants to do the hybrid search
+            sparse_vector_dict = (
+                {"sparse_values": self.bm25_encoder.encode_documents(text)} if self.bm25_encoder else {}
+            )
             docs.append(
                 {
                     "id": id,
                     "values": embedding,
                     "metadata": {**metadata, "text": text},
-                }
+                    **sparse_vector_dict,
+                },
             )
 
         for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches"):
@@ -138,45 +150,51 @@ class PineconeDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
-        where: dict[str, any],
+        where: Optional[dict[str, any]] = None,
+        raw_filter: Optional[dict[str, any]] = None,
         citations: bool = False,
+        app_id: Optional[str] = None,
         **kwargs: Optional[dict[str, any]],
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
-        query contents from vector database based on vector similarity
-        :param input_query: list of query string
-        :type input_query: list[str]
-        :param n_results: no of similar documents to fetch from database
-        :type n_results: int
-        :param where: Optional. to filter data
-        :type where: dict[str, any]
-        :param citations: we use citations boolean param to return context along with the answer.
-        :type citations: bool, default is False.
-        :return: The content of the document that matched your query,
-        along with url of the source and doc_id (if citations flag is true)
-        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
+        Query contents from vector database based on vector similarity.
+
+        Args:
+            input_query (str): query string.
+            n_results (int): Number of similar documents to fetch from the database.
+            where (dict[str, any], optional): Filter criteria for the search.
+            raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.
+            citations (bool, optional): Flag to return context along with metadata. Defaults to False.
+            app_id (str, optional): Application ID to be passed to Pinecone.
+
+        Returns:
+            Union[list[tuple[str, dict]], list[str]]: List of document contexts, optionally with metadata.
         """
+        query_filter = raw_filter if raw_filter is not None else self._generate_filter(where)
+        if app_id:
+            query_filter["app_id"] = {"$eq": app_id}
+
         query_vector = self.embedder.embedding_fn([input_query])[0]
-        query_filter = self._generate_filter(where)
-        data = self.pinecone_index.query(
-            vector=query_vector,
-            filter=query_filter,
-            top_k=n_results,
-            include_metadata=True,
+        params = {
+            "vector": query_vector,
+            "filter": query_filter,
+            "top_k": n_results,
+            "include_metadata": True,
             **kwargs,
-        )
-        contexts = []
-        for doc in data.get("matches", []):
-            metadata = doc.get("metadata", {})
-            context = metadata.get("text")
-            if citations:
-                metadata["score"] = doc.get("score")
-                contexts.append(tuple((context, metadata)))
-            else:
-                contexts.append(context)
-        return contexts
+        }
+
+        if self.bm25_encoder:
+            sparse_query_vector = self.bm25_encoder.encode_queries(input_query)
+            params["sparse_vector"] = sparse_query_vector
+
+        data = self.pinecone_index.query(**params)
+        return [
+            (metadata.get("text"), {**metadata, "score": doc.get("score")}) if citations else metadata.get("text")
+            for doc in data.get("matches", [])
+            for metadata in [doc.get("metadata", {})]
+        ]
 
     def set_collection_name(self, name: str):
         """
@@ -214,6 +232,9 @@ class PineconeDB(BaseVectorDB):
     @staticmethod
     def _generate_filter(where: dict):
         query = {}
+        if where is None:
+            return query
+
         for k, v in where.items():
             query[k] = {"$eq": v}
         return query

@@ -2,9 +2,16 @@ import logging
 import os
 from typing import Optional
 
+try:
+    from langchain_anthropic import ChatAnthropic
+except ImportError:
+    raise ImportError("Please install the langchain-anthropic package by running `pip install langchain-anthropic`.")
+
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
+
+logger = logging.getLogger(__name__)
 
 
 @register_deserializable
@@ -19,14 +26,12 @@ class AnthropicLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain.chat_models import ChatAnthropic
-
         chat = ChatAnthropic(
-            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model=config.model
+            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model_name=config.model
         )
 
         if config.max_tokens and config.max_tokens != 1000:
-            logging.warning("Config option `max_tokens` is not supported by this model.")
+            logger.warning("Config option `max_tokens` is not supported by this model.")
 
         messages = BaseLlm._get_messages(prompt, system_prompt=config.system_prompt)
 

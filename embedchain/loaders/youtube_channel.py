@@ -7,6 +7,8 @@ from tqdm import tqdm
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
 
+logger = logging.getLogger(__name__)
+
 
 class YoutubeChannelLoader(BaseLoader):
     """Loader for youtube channel."""
@@ -36,7 +38,7 @@ class YoutubeChannelLoader(BaseLoader):
                         videos = [entry["url"] for entry in info_dict["entries"]]
                         return videos
             except Exception:
-                logging.error(f"Failed to fetch youtube videos for channel: {channel_name}")
+                logger.error(f"Failed to fetch youtube videos for channel: {channel_name}")
                 return []
 
         def _load_yt_video(video_link):
@@ -45,12 +47,12 @@ class YoutubeChannelLoader(BaseLoader):
                 if each_load_data:
                     return each_load_data.get("data")
             except Exception as e:
-                logging.error(f"Failed to load youtube video {video_link}: {e}")
+                logger.error(f"Failed to load youtube video {video_link}: {e}")
             return None
 
         def _add_youtube_channel():
             video_links = _get_yt_video_links()
-            logging.info("Loading videos from youtube channel...")
+            logger.info("Loading videos from youtube channel...")
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # Submitting all tasks and storing the future object with the video link
                 future_to_video = {
@@ -67,7 +69,7 @@ class YoutubeChannelLoader(BaseLoader):
                             data.extend(results)
                             data_urls.extend([result.get("meta_data").get("url") for result in results])
                     except Exception as e:
-                        logging.error(f"Failed to process youtube video {video}: {e}")
+                        logger.error(f"Failed to process youtube video {video}: {e}")
 
         _add_youtube_channel()
         doc_id = hashlib.sha256((youtube_url + ", ".join(data_urls)).encode()).hexdigest()
