@@ -187,7 +187,6 @@ dataloaders=[
     "youtube-transcript-api",
     "docx2txt",
     "duckduckgo-search",
-    "pytube",
     "sentence-transformers"
 ]
 vertexai = ["langchain-google-vertexai"]
@@ -221,3 +220,4 @@ mistralai = ["langchain-mistralai"]
 
 [tool.poetry.scripts]
 ec = "embedchain.cli:cli"
+[tool.poetry.group.docs.dependencies]

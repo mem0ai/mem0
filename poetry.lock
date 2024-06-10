@@ -7461,4 +7461,4 @@ youtube = ["youtube-transcript-api", "yt_dlp"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "f8e0602024356e02c763309e306a2ff9dfaac2b332dd7ef0c5f068cef4d38304"
+content-hash = "b03edb7524018ef89bf119e74f1efef2771e91cdb60ec88c62dbe8a3c53a6b42"
