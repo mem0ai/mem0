@@ -10,6 +10,8 @@ from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.text_file import TextFileLoader
 from embedchain.utils.misc import detect_datatype
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class DirectoryLoader(BaseLoader):
@@ -27,12 +29,12 @@ class DirectoryLoader(BaseLoader):
         if not directory_path.is_dir():
             raise ValueError(f"Invalid path: {path}")
 
-        logging.info(f"Loading data from directory: {path}")
+        logger.info(f"Loading data from directory: {path}")
         data_list = self._process_directory(directory_path)
         doc_id = hashlib.sha256((str(data_list) + str(directory_path)).encode()).hexdigest()
 
         for error in self.errors:
-            logging.warning(error)
+            logger.warning(error)
 
         return {"doc_id": doc_id, "data": data_list}
 
@@ -46,7 +48,7 @@ class DirectoryLoader(BaseLoader):
                 loader = self._predict_loader(file_path)
                 data_list.extend(loader.load_data(str(file_path))["data"])
             elif file_path.is_dir():
-                logging.info(f"Loading data from directory: {file_path}")
+                logger.info(f"Loading data from directory: {file_path}")
         return data_list
 
     def _predict_loader(self, file_path: Path) -> BaseLoader:

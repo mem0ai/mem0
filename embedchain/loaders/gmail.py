@@ -22,6 +22,8 @@ except ImportError:
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
 
+logger = logging.getLogger(__name__)
+
 
 class GmailReader:
     SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
@@ -114,7 +116,7 @@ class GmailLoader(BaseLoader):
     def load_data(self, query: str):
         reader = GmailReader(query=query)
         emails = reader.load_emails()
-        logging.info(f"Gmail Loader: {len(emails)} emails found for query '{query}'")
+        logger.info(f"Gmail Loader: {len(emails)} emails found for query '{query}'")
 
         data = []
         for email in emails:

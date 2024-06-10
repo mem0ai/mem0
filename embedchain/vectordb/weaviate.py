@@ -219,12 +219,12 @@ class WeaviateDB(BaseVectorDB):
                 )
 
     def query(
-        self, input_query: list[str], n_results: int, where: dict[str, any], citations: bool = False
+        self, input_query: str, n_results: int, where: dict[str, any], citations: bool = False
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         query contents from vector database based on vector similarity
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
@@ -273,6 +273,9 @@ class WeaviateDB(BaseVectorDB):
                 .with_additional(["distance"])
                 .do()
             )
+
+        if results["data"]["Get"].get(self.index_name) is None:
+            return []
 
         docs = results["data"]["Get"].get(self.index_name)
         contexts = []

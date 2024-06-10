@@ -8,25 +8,27 @@ import requests
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
 
+logger = logging.getLogger(__name__)
+
 
 class DiscourseLoader(BaseLoader):
     def __init__(self, config: Optional[dict[str, Any]] = None):
         super().__init__()
         if not config:
             raise ValueError(
-                "DiscourseLoader requires a config. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a config. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
         self.domain = config.get("domain")
         if not self.domain:
             raise ValueError(
-                "DiscourseLoader requires a domain. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a domain. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
     def _check_query(self, query):
         if not query or not isinstance(query, str):
             raise ValueError(
-                "DiscourseLoader requires a query. Check the documentation for the correct format - `https://docs.embedchain.ai/data-sources/discourse`"  # noqa: E501
+                "DiscourseLoader requires a query. Check the documentation for the correct format - `https://docs.embedchain.ai/components/data-sources/discourse`"  # noqa: E501
             )
 
     def _load_post(self, post_id):
@@ -35,11 +37,11 @@ class DiscourseLoader(BaseLoader):
         try:
             response.raise_for_status()
         except Exception as e:
-            logging.error(f"Failed to load post {post_id}: {e}")
+            logger.error(f"Failed to load post {post_id}: {e}")
             return
         response_data = response.json()
         post_contents = clean_string(response_data.get("raw"))
-        meta_data = {
+        metadata = {
             "url": post_url,
             "created_at": response_data.get("created_at", ""),
             "username": response_data.get("username", ""),
@@ -48,7 +50,7 @@ class DiscourseLoader(BaseLoader):
         }
         data = {
             "content": post_contents,
-            "meta_data": meta_data,
+            "meta_data": metadata,
         }
         return data
 
@@ -56,7 +58,7 @@ class DiscourseLoader(BaseLoader):
         self._check_query(query)
         data = []
         data_contents = []
-        logging.info(f"Searching data on discourse url: {self.domain}, for query: {query}")
+        logger.info(f"Searching data on discourse url: {self.domain}, for query: {query}")
         search_url = f"{self.domain}search.json?q={query}"
         response = requests.get(search_url)
         try:

@@ -2,7 +2,7 @@ import importlib
 import os
 from typing import Optional
 
-from langchain.llms.replicate import Replicate
+from langchain_community.llms.replicate import Replicate
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -48,4 +48,4 @@ class Llama2Llm(BaseLlm):
                 "top_p": self.config.top_p,
             },
         )
-        return llm(prompt)
+        return llm.invoke(prompt)

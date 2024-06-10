@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-from langchain.embeddings import AzureOpenAIEmbeddings
+from langchain_community.embeddings import AzureOpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
@@ -17,6 +17,7 @@ class OpenAIEmbedder(BaseEmbedder):
             self.config.model = "text-embedding-ada-002"
 
         api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
+        api_base = self.config.api_base or os.environ.get("OPENAI_API_BASE")
 
         if self.config.deployment_name:
             embeddings = AzureOpenAIEmbeddings(deployment=self.config.deployment_name)
@@ -28,6 +29,7 @@ class OpenAIEmbedder(BaseEmbedder):
                 )  # noqa:E501
             embedding_fn = OpenAIEmbeddingFunction(
                 api_key=api_key,
+                api_base=api_base,
                 organization_id=os.getenv("OPENAI_ORGANIZATION"),
                 model_name=self.config.model,
             )

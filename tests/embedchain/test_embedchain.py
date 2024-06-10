@@ -27,10 +27,7 @@ def test_whole_app(app_instance, mocker):
     mocker.patch.object(BaseLlm, "get_answer_from_llm", return_value=knowledge)
     mocker.patch.object(BaseLlm, "get_llm_model_answer", return_value=knowledge)
     mocker.patch.object(BaseLlm, "generate_prompt")
-    mocker.patch.object(
-        BaseLlm,
-        "add_history",
-    )
+    mocker.patch.object(BaseLlm, "add_history")
     mocker.patch.object(ChatHistory, "delete", autospec=True)
 
     app_instance.add(knowledge, data_type="text")

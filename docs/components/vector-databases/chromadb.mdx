@@ -1,0 +1,35 @@
+---
+title: ChromaDB
+---
+
+<CodeGroup>
+
+```python main.py
+from embedchain import App
+
+# load chroma configuration from yaml file
+app = App.from_config(config_path="config1.yaml")
+```
+
+```yaml config1.yaml
+vectordb:
+  provider: chroma
+  config:
+    collection_name: 'my-collection'
+    dir: db
+    allow_reset: true
+```
+
+```yaml config2.yaml
+vectordb:
+  provider: chroma
+  config:
+    collection_name: 'my-collection'
+    host: localhost
+    port: 5200
+    allow_reset: true
+```
+
+</CodeGroup>
+
+<Snippet file="missing-vector-db-tip.mdx" />

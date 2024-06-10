@@ -14,6 +14,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class ElasticsearchDB(BaseVectorDB):
@@ -62,7 +64,7 @@ class ElasticsearchDB(BaseVectorDB):
         """
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
-        logging.info(self.client.info())
+        logger.info(self.client.info())
         index_settings = {
             "mappings": {
                 "properties": {
@@ -161,7 +163,7 @@ class ElasticsearchDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
         where: dict[str, any],
         citations: bool = False,
@@ -170,8 +172,8 @@ class ElasticsearchDB(BaseVectorDB):
         """
         query contents from vector database based on vector similarity
 
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
@@ -183,7 +185,7 @@ class ElasticsearchDB(BaseVectorDB):
         along with url of the source and doc_id (if citations flag is true)
         :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
         """
-        input_query_vector = self.embedder.embedding_fn(input_query)
+        input_query_vector = self.embedder.embedding_fn([input_query])
         query_vector = input_query_vector[0]
 
         # `https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-script-score-query.html`

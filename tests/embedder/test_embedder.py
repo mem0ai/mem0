@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import pytest
 from chromadb.api.types import Documents, Embeddings
 
@@ -44,14 +42,6 @@ def test_set_vector_dimension(base_embedder):
 def test_set_vector_dimension_type_error(base_embedder):
     with pytest.raises(TypeError):
         base_embedder.set_vector_dimension(None)
-
-
-def test_langchain_default_concept():
-    embeddings = MagicMock()
-    embeddings.embed_documents.return_value = ["Embedding1", "Embedding2"]
-    embed_function = BaseEmbedder._langchain_default_concept(embeddings)
-    result = embed_function(["text1", "text2"])
-    assert result == ["Embedding1", "Embedding2"]
 
 
 def test_embedder_with_config():

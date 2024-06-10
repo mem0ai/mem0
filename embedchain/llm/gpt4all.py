@@ -26,7 +26,8 @@ class GPT4ALLLlm(BaseLlm):
     @staticmethod
     def _get_instance(model):
         try:
-            from langchain.llms.gpt4all import GPT4All as LangchainGPT4All
+            from langchain_community.llms.gpt4all import \
+                GPT4All as LangchainGPT4All
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The GPT4All python package is not installed. Please install it with `pip install --upgrade embedchain[opensource]`"  # noqa E501

@@ -1,45 +1,68 @@
 import logging
 import re
 from string import Template
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_PROMPT = """
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer.
+You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. Here are some guidelines to follow:
 
-  $context
+1. Refrain from explicitly mentioning the context provided in your response.
+2. The context should silently guide your answers without being directly acknowledged.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
 
-  Query: $query
+Context information:
+----------------------
+$context
+----------------------
 
-  Helpful Answer:
+Query: $query
+Answer:
 """  # noqa:E501
 
 DEFAULT_PROMPT_WITH_HISTORY = """
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer.
-  I will provide you with our conversation history.
+You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. You are also provided with the conversation history with the user. Make sure to use relevant context from conversation history as needed.
 
-  $context
+Here are some guidelines to follow:
 
-  History: $history
+1. Refrain from explicitly mentioning the context provided in your response.
+2. The context should silently guide your answers without being directly acknowledged.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
 
-  Query: $query
+Context information:
+----------------------
+$context
+----------------------
 
-  Helpful Answer:
+Conversation history:
+----------------------
+$history
+----------------------
+
+Query: $query
+Answer:
 """  # noqa:E501
 
 DOCS_SITE_DEFAULT_PROMPT = """
-  Use the following pieces of context to answer the query at the end.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
+You are an expert AI assistant for developer support product. Your responses must always be rooted in the context provided for each query. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
 
-  $context
+Here are some guidelines to follow:
 
-  Query: $query
+1. Refrain from explicitly mentioning the context provided in your response.
+2. The context should silently guide your answers without being directly acknowledged.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
 
-  Helpful Answer:
+Context information:
+----------------------
+$context
+----------------------
+
+Query: $query
+Answer:
 """  # noqa:E501
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
@@ -66,14 +89,20 @@ class BaseLlmConfig(BaseConfig):
         max_tokens: int = 1000,
         top_p: float = 1,
         stream: bool = False,
+        online: bool = False,
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: dict[str, Any] = None,
         query_type: Optional[str] = None,
         callbacks: Optional[list] = None,
         api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
+        http_client: Optional[Any] = None,
+        http_async_client: Optional[Any] = None,
+        local: Optional[bool] = False,
+        default_headers: Optional[Mapping[str, str]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -101,6 +130,8 @@ class BaseLlmConfig(BaseConfig):
         :type top_p: float, optional
         :param stream: Control if response is streamed back to user, defaults to False
         :type stream: bool, optional
+        :param online: Controls whether to use internet for answering query, defaults to False
+        :type online: bool, optional
         :param deployment_name: t.b.a., defaults to None
         :type deployment_name: Optional[str], optional
         :param system_prompt: System prompt string, defaults to None
@@ -117,12 +148,16 @@ class BaseLlmConfig(BaseConfig):
         :type callbacks: Optional[list], optional
         :param query_type: The type of query to use, defaults to None
         :type query_type: Optional[str], optional
+        :param local: If True, the model will be run locally, defaults to False (for huggingface provider)
+        :type local: Optional[bool], optional
+        :param default_headers: Set additional HTTP headers to be sent with requests to OpenAI
+        :type default_headers: Optional[Mapping[str, str]], optional
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
         """
         if template is not None:
-            logging.warning(
+            logger.warning(
                 "The `template` argument is deprecated and will be removed in a future version. "
                 + "Please use `prompt` instead."
             )
@@ -142,8 +177,14 @@ class BaseLlmConfig(BaseConfig):
         self.query_type = query_type
         self.callbacks = callbacks
         self.api_key = api_key
+        self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+        self.http_client = http_client
+        self.http_async_client = http_async_client
+        self.local = local
+        self.default_headers = default_headers
+        self.online = online
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

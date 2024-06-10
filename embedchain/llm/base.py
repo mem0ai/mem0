@@ -5,12 +5,12 @@ from typing import Any, Optional
 from langchain.schema import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base import (DEFAULT_PROMPT,
-                                        DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
-                                        DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.config.llm.base import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
+
+logger = logging.getLogger(__name__)
 
 
 class BaseLlm(JSONSerializable):
@@ -27,7 +27,6 @@ class BaseLlm(JSONSerializable):
 
         self.memory = ChatHistory()
         self.is_docs_site_instance = False
-        self.online = False
         self.history: Any = None
 
     def get_llm_model_answer(self):
@@ -65,6 +64,14 @@ class BaseLlm(JSONSerializable):
         self.memory.add(app_id=app_id, chat_message=chat_message, session_id=session_id)
         self.update_history(app_id=app_id, session_id=session_id)
 
+    def _format_history(self) -> str:
+        """Format history to be used in prompt
+
+        :return: Formatted history
+        :rtype: str
+        """
+        return "\n".join(self.history)
+
     def generate_prompt(self, input_query: str, contexts: list[str], **kwargs: dict[str, Any]) -> str:
         """
         Generates a prompt based on the given query and context, ready to be
@@ -84,10 +91,8 @@ class BaseLlm(JSONSerializable):
 
         prompt_contains_history = self.config._validate_prompt_history(self.config.prompt)
         if prompt_contains_history:
-            # Prompt contains history
-            # If there is no history yet, we insert `- no history -`
             prompt = self.config.prompt.substitute(
-                context=context_string, query=input_query, history=self.history or "- no history -"
+                context=context_string, query=input_query, history=self._format_history() or "No history"
             )
         elif self.history and not prompt_contains_history:
             # History is present, but not included in the prompt.
@@ -98,11 +103,11 @@ class BaseLlm(JSONSerializable):
             ):
                 # swap in the template with history
                 prompt = DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE.substitute(
-                    context=context_string, query=input_query, history=self.history
+                    context=context_string, query=input_query, history=self._format_history()
                 )
             else:
                 # If we can't swap in the default, we still proceed but tell users that the history is ignored.
-                logging.warning(
+                logger.warning(
                     "Your bot contains a history, but prompt does not include `$history` key. History is ignored."
                 )
                 prompt = self.config.prompt.substitute(context=context_string, query=input_query)
@@ -153,7 +158,7 @@ class BaseLlm(JSONSerializable):
                 'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
             ) from None
         search = DuckDuckGoSearchRun()
-        logging.info(f"Access search to get answers for {input_query}")
+        logger.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)
 
     @staticmethod
@@ -169,7 +174,7 @@ class BaseLlm(JSONSerializable):
         for chunk in answer:
             streamed_answer = streamed_answer + chunk
             yield chunk
-        logging.info(f"Answer: {streamed_answer}")
+        logger.info(f"Answer: {streamed_answer}")
 
     def query(self, input_query: str, contexts: list[str], config: BaseLlmConfig = None, dry_run=False):
         """
@@ -205,16 +210,16 @@ class BaseLlm(JSONSerializable):
                 self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
-            if self.online:
+            if self.config.online:
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
             prompt = self.generate_prompt(input_query, contexts, **k)
-            logging.info(f"Prompt: {prompt}")
+            logger.info(f"Prompt: {prompt}")
             if dry_run:
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
-                logging.info(f"Answer: {answer}")
+                logger.info(f"Answer: {answer}")
                 return answer
             else:
                 return self._stream_response(answer)
@@ -260,18 +265,18 @@ class BaseLlm(JSONSerializable):
                 self.config.prompt = DOCS_SITE_PROMPT_TEMPLATE
                 self.config.number_documents = 5
             k = {}
-            if self.online:
+            if self.config.online:
                 k["web_search_result"] = self.access_search_and_get_results(input_query)
 
             prompt = self.generate_prompt(input_query, contexts, **k)
-            logging.info(f"Prompt: {prompt}")
+            logger.info(f"Prompt: {prompt}")
 
             if dry_run:
                 return prompt
 
             answer = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
-                logging.info(f"Answer: {answer}")
+                logger.info(f"Answer: {answer}")
                 return answer
             else:
                 # this is a streamed response and needs to be handled differently.

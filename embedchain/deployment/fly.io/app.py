@@ -2,12 +2,12 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, responses
 from pydantic import BaseModel
 
-from embedchain import Pipeline
+from embedchain import App
 
 load_dotenv(".env")
 
 app = FastAPI(title="Embedchain FastAPI App")
-embedchain_app = Pipeline()
+embedchain_app = App()
 
 
 class SourceModel(BaseModel):

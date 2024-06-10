@@ -9,3 +9,6 @@ class VectorDimensions(Enum):
     HUGGING_FACE = 384
     GOOGLE_AI = 768
     MISTRAL_AI = 1024
+    NVIDIA_AI = 1024
+    COHERE = 384
+    OLLAMA = 384

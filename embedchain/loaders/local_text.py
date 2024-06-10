@@ -9,7 +9,7 @@ class LocalTextLoader(BaseLoader):
     def load_data(self, content):
         """Load data from a local text file."""
         url = "local"
-        meta_data = {
+        metadata = {
             "url": url,
         }
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
@@ -18,7 +18,7 @@ class LocalTextLoader(BaseLoader):
             "data": [
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }

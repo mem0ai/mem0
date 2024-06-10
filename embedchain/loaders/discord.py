@@ -5,6 +5,8 @@ import os
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class DiscordLoader(BaseLoader):
@@ -102,7 +104,7 @@ class DiscordLoader(BaseLoader):
 
         class DiscordClient(discord.Client):
             async def on_ready(self) -> None:
-                logging.info("Logged on as {0}!".format(self.user))
+                logger.info("Logged on as {0}!".format(self.user))
                 try:
                     channel = self.get_channel(int(channel_id))
                     if not isinstance(channel, discord.TextChannel):
@@ -121,7 +123,7 @@ class DiscordLoader(BaseLoader):
                                 messages.append(DiscordLoader._format_message(thread_message))
 
                 except Exception as e:
-                    logging.error(e)
+                    logger.error(e)
                     await self.close()
                 finally:
                     await self.close()
@@ -131,7 +133,7 @@ class DiscordLoader(BaseLoader):
         client = DiscordClient(intents=intents)
         client.run(self.token)
 
-        meta_data = {
+        metadata = {
             "url": channel_id,
         }
 
@@ -144,7 +146,7 @@ class DiscordLoader(BaseLoader):
             "data": [
                 {
                     "content": messages,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }
