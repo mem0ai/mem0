@@ -214,11 +214,11 @@ class BaseLlmConfig(BaseConfig):
     @staticmethod
     def _validate_prompt_history(prompt: Template) -> Optional[re.Match[str]]:
         """
-        validate the prompt with history
+        Validate the prompt with history
 
         :param prompt: the prompt to validate
         :type prompt: Template
         :return: valid (true) or invalid (false)
         :rtype: Optional[re.Match[str]]
         """
-        return re.search(history_re, prompt.template)
+        return history_re.search(prompt.template)
