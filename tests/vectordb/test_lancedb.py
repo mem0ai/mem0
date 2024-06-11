@@ -1,6 +1,4 @@
-import os
 import shutil
-
 import pytest
 
 from embedchain import App
