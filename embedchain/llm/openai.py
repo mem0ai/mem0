@@ -36,7 +36,7 @@ class OpenAILlm(BaseLlm):
             "model": config.model or "gpt-3.5-turbo",
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
-            "model_kwargs": {},
+            "model_kwargs": config.model_kwargs or {},
         }
         api_key = config.api_key or os.environ["OPENAI_API_KEY"]
         base_url = config.base_url or os.environ.get("OPENAI_API_BASE", None)
