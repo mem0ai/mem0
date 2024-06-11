@@ -42,6 +42,8 @@ class OpenAILlm(BaseLlm):
         base_url = config.base_url or os.environ.get("OPENAI_API_BASE", None)
         if config.top_p:
             kwargs["model_kwargs"]["top_p"] = config.top_p
+        if config.default_headers:
+            kwargs["default_headers"] = config.default_headers
         if config.stream:
             callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
             chat = ChatOpenAI(
@@ -50,6 +52,8 @@ class OpenAILlm(BaseLlm):
                 callbacks=callbacks,
                 api_key=api_key,
                 base_url=base_url,
+                http_client=config.http_client,
+                http_async_client=config.http_async_client,
             )
         else:
             chat = ChatOpenAI(**kwargs, api_key=api_key, base_url=base_url)
@@ -65,8 +69,7 @@ class OpenAILlm(BaseLlm):
         messages: list[BaseMessage],
     ) -> str:
         from langchain.output_parsers.openai_tools import JsonOutputToolsParser
-        from langchain_core.utils.function_calling import \
-            convert_to_openai_tool
+        from langchain_core.utils.function_calling import convert_to_openai_tool
 
         openai_tools = [convert_to_openai_tool(tools)]
         chat = chat.bind(tools=openai_tools).pipe(JsonOutputToolsParser())

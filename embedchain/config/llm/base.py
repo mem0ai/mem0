@@ -1,7 +1,7 @@
 import logging
 import re
 from string import Template
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -89,6 +89,7 @@ class BaseLlmConfig(BaseConfig):
         max_tokens: int = 1000,
         top_p: float = 1,
         stream: bool = False,
+        online: bool = False,
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: dict[str, Any] = None,
@@ -98,7 +99,10 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
+        http_client: Optional[Any] = None,
+        http_async_client: Optional[Any] = None,
         local: Optional[bool] = False,
+        default_headers: Optional[Mapping[str, str]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -126,6 +130,8 @@ class BaseLlmConfig(BaseConfig):
         :type top_p: float, optional
         :param stream: Control if response is streamed back to user, defaults to False
         :type stream: bool, optional
+        :param online: Controls whether to use internet for answering query, defaults to False
+        :type online: bool, optional
         :param deployment_name: t.b.a., defaults to None
         :type deployment_name: Optional[str], optional
         :param system_prompt: System prompt string, defaults to None
@@ -144,6 +150,8 @@ class BaseLlmConfig(BaseConfig):
         :type query_type: Optional[str], optional
         :param local: If True, the model will be run locally, defaults to False (for huggingface provider)
         :type local: Optional[bool], optional
+        :param default_headers: Set additional HTTP headers to be sent with requests to OpenAI
+        :type default_headers: Optional[Mapping[str, str]], optional
         :raises ValueError: If the template is not valid as template should
         contain $context and $query (and optionally $history)
         :raises ValueError: Stream is not boolean
@@ -172,7 +180,11 @@ class BaseLlmConfig(BaseConfig):
         self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
+        self.http_client = http_client
+        self.http_async_client = http_async_client
         self.local = local
+        self.default_headers = default_headers
+        self.online = online
 
         if isinstance(prompt, str):
             prompt = Template(prompt)
