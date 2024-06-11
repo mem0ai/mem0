@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Union
+
 import pyarrow as pa
 
 try:
@@ -86,7 +87,8 @@ class LanceDB(BaseVectorDB):
             raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
         schema = pa.schema(
-            [   pa.field("vector", pa.list_(pa.float32(), list_size=self.embedder.vector_dimension)),
+            [
+                pa.field("vector", pa.list_(pa.float32(), list_size=self.embedder.vector_dimension)),
                 pa.field("doc", pa.string()),
                 pa.field("metadata", pa.string()),
                 pa.field("id", pa.string()),
@@ -129,10 +131,17 @@ class LanceDB(BaseVectorDB):
             where_clause = self._generate_where_clause(where)
 
         if ids is not None:
-            records = self.collection.to_lance().scanner(filter=f"id IN {tuple(ids)}", columns=["id"]).to_table().to_pydict()
+            records = (
+                self.collection.to_lance().scanner(filter=f"id IN {tuple(ids)}", columns=["id"]).to_table().to_pydict()
+            )
             for id in records["id"]:
                 if where is not None:
-                    result = self.collection.search(query=id, vector_column_name="id").where(where_clause).limit(max_limit).to_list()
+                    result = (
+                        self.collection.search(query=id, vector_column_name="id")
+                        .where(where_clause)
+                        .limit(max_limit)
+                        .to_list()
+                    )
                 else:
                     result = self.collection.search(query=id, vector_column_name="id").limit(max_limit).to_list()
                 results["ids"] = [r["id"] for r in result]
