@@ -8,8 +8,6 @@ from embedchain.config import AppConfig
 from embedchain.config.vectordb.lancedb import LanceDBConfig
 from embedchain.vectordb.lancedb import LanceDB
 
-os.environ["OPENAI_API_KEY"] = "test-api-key"
-
 
 @pytest.fixture
 def lancedb():
