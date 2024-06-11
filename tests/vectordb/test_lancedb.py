@@ -1,4 +1,6 @@
+import os
 import shutil
+
 import pytest
 
 from embedchain import App
@@ -6,6 +8,7 @@ from embedchain.config import AppConfig
 from embedchain.config.vectordb.lancedb import LanceDBConfig
 from embedchain.vectordb.lancedb import LanceDB
 
+os.environ["OPENAI_API_KEY"] = "test-api-key"
 
 @pytest.fixture
 def lancedb():
@@ -29,14 +32,13 @@ def cleanup_db():
         print("Error: %s - %s." % (e.filename, e.strerror))
 
 
-@pytest.mark.skip(reason="Logging setup needs to be fixed to make this test to work")
 def test_lancedb_duplicates_throw_warning(caplog):
     db = LanceDB(config=LanceDBConfig(allow_reset=True, dir="test-db"))
     app = App(config=AppConfig(collect_metrics=False), db=db)
-    app.db.collection.add(documents=["doc1"], ids=["0"])
-    app.db.collection.add(documents=["doc1"], ids=["0"])
-    assert "Insert of existing embedding ID: 0" in caplog.text
-    assert "Add of existing embedding ID: 0" in caplog.text
+    app.db.add(ids=["0"], documents=["doc1"], metadatas=["test"])
+    app.db.add(ids=["0"], documents=["doc1"], metadatas=["test"])
+    assert "Insert of existing doc ID: 0" not in caplog.text
+    assert "Add of existing doc ID: 0" not in caplog.text
     app.db.reset()
 
 
@@ -47,8 +49,8 @@ def test_lancedb_duplicates_collections_no_warning(caplog):
     app.db.add(ids=["0"], documents=["doc1"], metadatas=["test"])
     app.set_collection_name("test_collection_2")
     app.db.add(ids=["0"], documents=["doc1"], metadatas=["test"])
-    assert "Insert of existing embedding ID: 0" not in caplog.text
-    assert "Add of existing embedding ID: 0" not in caplog.text
+    assert "Insert of existing doc ID: 0" not in caplog.text
+    assert "Add of existing doc ID: 0" not in caplog.text
     app.db.reset()
     app.set_collection_name("test_collection_1")
     app.db.reset()
@@ -129,7 +131,11 @@ def test_lancedb_collection_parallel_collections():
     assert app1.db.count() == 1
     assert app2.db.count() == 0
 
-    app1.db.add(ids=["1", "2"], documents=["doc1", "doc2"], metadatas=["test", "test"])
+    app1.db.add(
+        ids=["1", "2"],
+        documents=["doc1", "doc2"],
+        metadatas=["test", "test"]
+    )
     app2.db.add(ids=["0"], documents=["doc1"], metadatas=["test"])
 
     app1.set_collection_name("test_collection_2")
@@ -154,7 +160,11 @@ def test_lancedb_collection_ids_share_collections():
     app1.db.reset()
     app2.db.reset()
 
-    app1.db.add(ids=["0", "1"], documents=["doc1", "doc2"], metadatas=["test", "test"])
+    app1.db.add(
+        ids=["0", "1"],
+        documents=["doc1", "doc2"],
+        metadatas=["test", "test"]
+    )
     app2.db.add(ids=["2"], documents=["doc3"], metadatas=["test"])
 
     assert app1.db.count() == 2
