@@ -2,10 +2,7 @@ import hashlib
 import logging
 
 import requests
-from bs4 import BeautifulSoup
 
-from embedchain.loaders.base_loader import BaseLoader
-from embedchain.utils.misc import clean_string
 
 try:
     from bs4 import BeautifulSoup
