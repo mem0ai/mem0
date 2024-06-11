@@ -97,7 +97,6 @@ langchain = "^0.1.4"
 requests = "^2.31.0"
 openai = ">=1.1.1"
 chromadb = "^0.5.0"
-lancedb = "^0.6.2"
 posthog = "^3.0.2"
 rich = "^13.7.0"
 beautifulsoup4 = "^4.12.2"
@@ -122,6 +121,7 @@ discord = { version = "^2.3.2", optional = true }
 slack-sdk = { version = "3.21.3", optional = true }
 cohere = { version = "^5.3", optional = true }
 together = { version = "^0.2.8", optional = true }
+lancedb = { version = "^0.6.2", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
 qdrant-client = { version = "^1.6.3", optional = true }
@@ -169,11 +169,11 @@ pytest-cov = "^4.1.0"
 responses = "^0.23.3"
 mock = "^5.1.0"
 pytest-asyncio = "^0.21.1"
-ipykernel = "^6.29.4"
 
 [tool.poetry.extras]
 streamlit = ["streamlit"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
+lancedb = ["lancedb"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
 poe = ["fastapi-poe"]

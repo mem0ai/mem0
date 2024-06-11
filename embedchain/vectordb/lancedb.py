@@ -190,7 +190,7 @@ class LanceDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int = 3,
         where: Optional[dict[str, any]] = None,
         raw_filter: Optional[dict[str, any]] = None,
@@ -200,8 +200,8 @@ class LanceDB(BaseVectorDB):
         """
         Query contents from vector database based on vector similarity
 
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
@@ -218,7 +218,7 @@ class LanceDB(BaseVectorDB):
         if where and raw_filter:
             raise ValueError("Both `where` and `raw_filter` cannot be used together.")
         try:
-            query_embedding = self.embedder.embedding_fn([input_query])[0]
+            query_embedding = self.embedder.embedding_fn(input_query)[0]
             result = self.collection.search(query_embedding).limit(n_results).to_list()
         except Exception as e:
             e.message()
