@@ -52,7 +52,7 @@ class LanceDB(BaseVectorDB):
 
     def _generate_where_clause(self, where: Dict[str, any]) -> str:
         """
-        This method
+        This method generate where clause using dictionary containing attributes and their values
         """
 
         where_filters = ""
