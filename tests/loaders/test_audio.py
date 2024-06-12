@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 import hashlib
 import pytest
 from unittest.mock import mock_open, patch
@@ -23,14 +24,18 @@ def setup_audio_loader(mocker):
         del os.environ["DEEPGRAM_API_KEY"]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="Requires Python 3.10 or higher"
+)  # as `match` statement was introduced in python 3.10
 def test_initialization(setup_audio_loader):
     """Test initialization of AudioLoader."""
     loader, _ = setup_audio_loader
     assert loader is not None
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="Requires Python 3.10 or higher"
+)  # as `match` statement was introduced in python 3.10
 def test_load_data_from_url(setup_audio_loader):
     loader, mock_dbx = setup_audio_loader
     url = "https://example.com/audio.mp3"
@@ -59,7 +64,9 @@ def test_load_data_from_url(setup_audio_loader):
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="Requires Python 3.10 or higher"
+)  # as `match` statement was introduced in python 3.10
 def test_load_data_from_file(setup_audio_loader):
     loader, mock_dbx = setup_audio_loader
     file_path = "local_audio.mp3"
