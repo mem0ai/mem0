@@ -19,6 +19,7 @@ from embedchain.chunkers.text import TextChunker
 from embedchain.chunkers.web_page import WebPageChunker
 from embedchain.chunkers.xml import XmlChunker
 from embedchain.chunkers.youtube_video import YoutubeVideoChunker
+from embedchain.chunkers.audio import AudioChunker
 from embedchain.config.add_config import ChunkerConfig
 
 chunker_config = ChunkerConfig(chunk_size=500, chunk_overlap=0, length_function=len)
@@ -45,6 +46,7 @@ chunker_common_config = {
     CommonChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     GoogleDriveChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     ExcelFileChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    AudioChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 
