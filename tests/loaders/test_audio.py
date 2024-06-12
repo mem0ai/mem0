@@ -25,7 +25,7 @@ def setup_audio_loader(mocker):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 10), reason="Requires Python 3.10 or higher"
+    sys.version_info <= (3, 9), reason="Test skipped for Python 3.9 or lower"
 )  # as `match` statement was introduced in python 3.10
 def test_initialization(setup_audio_loader):
     """Test initialization of AudioLoader."""
@@ -34,7 +34,7 @@ def test_initialization(setup_audio_loader):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 10), reason="Requires Python 3.10 or higher"
+    sys.version_info <= (3, 9), reason="Test skipped for Python 3.9 or lower"
 )  # as `match` statement was introduced in python 3.10
 def test_load_data_from_url(setup_audio_loader):
     loader, mock_dbx = setup_audio_loader
@@ -65,7 +65,7 @@ def test_load_data_from_url(setup_audio_loader):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 10), reason="Requires Python 3.10 or higher"
+    sys.version_info <= (3, 9), reason="Test skipped for Python 3.9 or lower"
 )  # as `match` statement was introduced in python 3.10
 def test_load_data_from_file(setup_audio_loader):
     loader, mock_dbx = setup_audio_loader
