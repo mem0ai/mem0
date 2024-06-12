@@ -4,7 +4,7 @@ import hashlib
 import pytest
 from unittest.mock import mock_open, patch
 
-if sys.version_info >= (3, 10):  # as `match` statement was introduced in python 3.10
+if sys.version_info > (3, 10):  # as `match` statement was introduced in python 3.10
     from deepgram import PrerecordedOptions
     from embedchain.loaders.audio import AudioLoader
 
@@ -26,7 +26,7 @@ def setup_audio_loader(mocker):
 
 
 @pytest.mark.skipif(
-    sys.version_info <= (3, 9), reason="Test skipped for Python 3.9 or lower"
+    sys.version_info < (3, 10), reason="Test skipped for Python 3.9 or lower"
 )  # as `match` statement was introduced in python 3.10
 def test_initialization(setup_audio_loader):
     """Test initialization of AudioLoader."""
@@ -35,7 +35,7 @@ def test_initialization(setup_audio_loader):
 
 
 @pytest.mark.skipif(
-    sys.version_info <= (3, 9), reason="Test skipped for Python 3.9 or lower"
+    sys.version_info < (3, 10), reason="Test skipped for Python 3.9 or lower"
 )  # as `match` statement was introduced in python 3.10
 def test_load_data_from_url(setup_audio_loader):
     loader, mock_dbx = setup_audio_loader
@@ -66,7 +66,7 @@ def test_load_data_from_url(setup_audio_loader):
 
 
 @pytest.mark.skipif(
-    sys.version_info <= (3, 9), reason="Test skipped for Python 3.9 or lower"
+    sys.version_info < (3, 10), reason="Test skipped for Python 3.9 or lower"
 )  # as `match` statement was introduced in python 3.10
 def test_load_data_from_file(setup_audio_loader):
     loader, mock_dbx = setup_audio_loader
