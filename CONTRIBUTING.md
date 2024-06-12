@@ -67,7 +67,9 @@ We use `pytest` to test our code. You can run the tests by running the following
 poetry run pytest
 ```
 
-Several packages have been removed from Poetry to make the package lighter. Therefore, it is recommended to install the missing libraries individually to ensure all tests pass.
+
+Several packages have been removed from Poetry to make the package lighter. Therefore, it is recommended to run `make install_all` to install the remaining packages and ensure all tests pass.
+
 
 Make sure that all tests pass before submitting a pull request.
 
