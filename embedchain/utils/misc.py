@@ -237,6 +237,12 @@ def detect_datatype(source: Any) -> DataType:
             logger.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
+        if url.path.endswith(
+            (".mp3", ".mp4", ".mp2", ".aac", ".wav", ".flac", ".pcm", ".m4a", ".ogg", ".opus", ".webm")
+        ):
+            logger.debug(f"Source of `{formatted_source}` detected as `audio`.")
+            return DataType.AUDIO
+
         if url.path.endswith(".yaml"):
             try:
                 response = requests.get(source)
