@@ -41,6 +41,7 @@ class IndirectDataType(Enum):
     DROPBOX = "dropbox"
     TEXT_FILE = "text_file"
     EXCEL_FILE = "excel_file"
+    AUDIO = "audio"
 
 
 class SpecialDataType(Enum):
@@ -81,3 +82,4 @@ class DataType(Enum):
     DROPBOX = IndirectDataType.DROPBOX.value
     TEXT_FILE = IndirectDataType.TEXT_FILE.value
     EXCEL_FILE = IndirectDataType.EXCEL_FILE.value
+    AUDIO = IndirectDataType.AUDIO.value
