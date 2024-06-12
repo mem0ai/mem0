@@ -4,8 +4,9 @@ import hashlib
 import pytest
 from unittest.mock import mock_open, patch
 
-from deepgram import PrerecordedOptions
-from embedchain.loaders.audio import AudioLoader
+if sys.version_info >= (3, 10):  # as `match` statement was introduced in python 3.10
+    from deepgram import PrerecordedOptions
+    from embedchain.loaders.audio import AudioLoader
 
 
 @pytest.fixture
