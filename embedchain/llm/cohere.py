@@ -12,9 +12,6 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class CohereLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "COHERE_API_KEY" not in os.environ:
-            raise ValueError("Please set the COHERE_API_KEY environment variable.")
-
         try:
             importlib.import_module("cohere")
         except ModuleNotFoundError:
@@ -24,6 +21,8 @@ class CohereLlm(BaseLlm):
             ) from None
 
         super().__init__(config=config)
+        if not self.config.api_key and "COHERE_API_KEY" not in os.environ:
+            raise ValueError("Please set the COHERE_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt):
         if self.config.system_prompt:
@@ -32,8 +31,9 @@ class CohereLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
+        api_key = config.api_key or os.getenv("COHERE_API_KEY")
         llm = Cohere(
-            cohere_api_key=os.environ["COHERE_API_KEY"],
+            cohere_api_key=api_key,
             model=config.model,
             max_tokens=config.max_tokens,
             temperature=config.temperature,

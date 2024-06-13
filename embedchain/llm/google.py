@@ -16,9 +16,6 @@ logger = logging.getLogger(__name__)
 @register_deserializable
 class GoogleLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "GOOGLE_API_KEY" not in os.environ:
-            raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
-
         try:
             importlib.import_module("google.generativeai")
         except ModuleNotFoundError:
@@ -28,7 +25,11 @@ class GoogleLlm(BaseLlm):
             ) from None
 
         super().__init__(config)
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        if not self.config.api_key and "GOOGLE_API_KEY" not in os.environ:
+            raise ValueError("Please set the GOOGLE_API_KEY environment variable or pass it in the config.")
+
+        api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
+        genai.configure(api_key=api_key)
 
     def get_llm_model_answer(self, prompt):
         if self.config.system_prompt:

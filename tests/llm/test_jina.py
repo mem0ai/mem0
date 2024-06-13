@@ -74,5 +74,6 @@ def test_get_llm_model_answer_without_system_prompt(config, mocker):
     mocked_jinachat.assert_called_once_with(
         temperature=config.temperature,
         max_tokens=config.max_tokens,
+        jinachat_api_key=os.environ["JINACHAT_API_KEY"],
         model_kwargs={"top_p": config.top_p},
     )
