@@ -12,9 +12,6 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class TogetherLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "TOGETHER_API_KEY" not in os.environ:
-            raise ValueError("Please set the TOGETHER_API_KEY environment variable.")
-
         try:
             importlib.import_module("together")
         except ModuleNotFoundError:
@@ -24,6 +21,8 @@ class TogetherLlm(BaseLlm):
             ) from None
 
         super().__init__(config=config)
+        if not self.config.api_key and "TOGETHER_API_KEY" not in os.environ:
+            raise ValueError("Please set the TOGETHER_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt):
         if self.config.system_prompt:
@@ -32,8 +31,9 @@ class TogetherLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
+        api_key = config.api_key or os.getenv("TOGETHER_API_KEY")
         llm = Together(
-            together_api_key=os.environ["TOGETHER_API_KEY"],
+            together_api_key=api_key,
             model=config.model,
             max_tokens=config.max_tokens,
             temperature=config.temperature,

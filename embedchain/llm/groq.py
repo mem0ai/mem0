@@ -19,6 +19,8 @@ from embedchain.llm.base import BaseLlm
 class GroqLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config=config)
+        if not self.config.api_key and "GROQ_API_KEY" not in os.environ:
+            raise ValueError("Please set the GROQ_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt) -> str:
         response = self._get_answer(prompt, self.config)
