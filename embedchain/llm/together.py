@@ -16,10 +16,17 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class TogetherLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "TOGETHER_API_KEY" not in os.environ:
-            raise ValueError("Please set the TOGETHER_API_KEY environment variable.")
+        try:
+            importlib.import_module("together")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "The required dependencies for Together are not installed."
+                'Please install with `pip install --upgrade "embedchain[together]"`'
+            ) from None
 
         super().__init__(config=config)
+        if not self.config.api_key and "TOGETHER_API_KEY" not in os.environ:
+            raise ValueError("Please set the TOGETHER_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
         if self.config.system_prompt:

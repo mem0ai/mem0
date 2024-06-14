@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 @register_deserializable
 class AnthropicLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "ANTHROPIC_API_KEY" not in os.environ:
-            raise ValueError("Please set the ANTHROPIC_API_KEY environment variable.")
         super().__init__(config=config)
+        if not self.config.api_key and "ANTHROPIC_API_KEY" not in os.environ:
+            raise ValueError("Please set the ANTHROPIC_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
         if self.config.token_usage:
@@ -43,9 +43,8 @@ class AnthropicLlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        chat = ChatAnthropic(
-            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"], temperature=config.temperature, model_name=config.model
-        )
+        api_key = config.api_key or os.getenv("ANTHROPIC_API_KEY")
+        chat = ChatAnthropic(anthropic_api_key=api_key, temperature=config.temperature, model_name=config.model)
 
         if config.max_tokens and config.max_tokens != 1000:
             logger.warning("Config option `max_tokens` is not supported by this model.")

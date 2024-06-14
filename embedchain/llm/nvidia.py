@@ -21,10 +21,9 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class NvidiaLlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        if "NVIDIA_API_KEY" not in os.environ:
-            raise ValueError("NVIDIA_API_KEY environment variable must be set")
-
         super().__init__(config=config)
+        if not self.config.api_key and "NVIDIA_API_KEY" not in os.environ:
+            raise ValueError("Please set the NVIDIA_API_KEY environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
         if self.config.token_usage:
@@ -51,7 +50,7 @@ class NvidiaLlm(BaseLlm):
         callback_manager = [StreamingStdOutCallbackHandler()] if config.stream else [StdOutCallbackHandler()]
         model_kwargs = config.model_kwargs or {}
         labels = model_kwargs.get("labels", None)
-        params = {"model": config.model}
+        params = {"model": config.model, "nvidia_api_key": config.api_key or os.getenv("NVIDIA_API_KEY")}
         if config.system_prompt:
             params["system_prompt"] = config.system_prompt
         if config.temperature:

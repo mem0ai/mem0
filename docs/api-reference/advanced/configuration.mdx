@@ -26,6 +26,9 @@ llm:
     top_p: 1
     stream: false
     api_key: sk-xxx
+    model_kwargs:
+      response_format: 
+        type: json_object
     prompt: |
       Use the following pieces of context to answer the query at the end.
       If you don't know the answer, just say that you don't know, don't try to make up an answer.
@@ -83,7 +86,8 @@ cache:
       "stream": false,
       "prompt": "Use the following pieces of context to answer the query at the end.\nIf you don't know the answer, just say that you don't know, don't try to make up an answer.\n$context\n\nQuery: $query\n\nHelpful Answer:",
       "system_prompt": "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.",
-      "api_key": "sk-xxx"
+      "api_key": "sk-xxx",
+      "model_kwargs": {"response_format": {"type": "json_object"}}
     }
   },
   "vectordb": {
@@ -143,7 +147,8 @@ config = {
             'system_prompt': (
                 "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare."
             ),
-            'api_key': 'sk-xxx'
+            'api_key': 'sk-xxx',
+            "model_kwargs": {"response_format": {"type": "json_object"}}
         }
     },
     'vectordb': {
