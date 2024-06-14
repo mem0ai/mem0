@@ -48,6 +48,7 @@ class LanceDB(BaseVectorDB):
                 "Embedder not set. Please set an embedder with `_set_embedder()` function before initialization."
             )
         else:
+            # check embedder function is working or not
             try:
                 self.embedder.embedding_fn("Hello LanceDB")
             except Exception:
@@ -102,8 +103,7 @@ class LanceDB(BaseVectorDB):
                     pa.field("id", pa.string()),
                 ]
             )
-            # raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
-
+            
         else:
             schema = pa.schema(
                 [
