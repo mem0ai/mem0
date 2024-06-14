@@ -10,6 +10,7 @@ from embedchain.vectordb.lancedb import LanceDB
 
 os.environ["OPENAI_API_KEY"] = "test-api-key"
 
+
 @pytest.fixture
 def lancedb():
     return LanceDB(config=LanceDBConfig(dir="test-db", collection_name="test-coll"))
@@ -131,11 +132,7 @@ def test_lancedb_collection_parallel_collections():
     assert app1.db.count() == 1
     assert app2.db.count() == 0
 
-    app1.db.add(
-        ids=["1", "2"],
-        documents=["doc1", "doc2"],
-        metadatas=["test", "test"]
-    )
+    app1.db.add(ids=["1", "2"], documents=["doc1", "doc2"], metadatas=["test", "test"])
     app2.db.add(ids=["0"], documents=["doc1"], metadatas=["test"])
 
     app1.set_collection_name("test_collection_2")
@@ -160,11 +157,7 @@ def test_lancedb_collection_ids_share_collections():
     app1.db.reset()
     app2.db.reset()
 
-    app1.db.add(
-        ids=["0", "1"],
-        documents=["doc1", "doc2"],
-        metadatas=["test", "test"]
-    )
+    app1.db.add(ids=["0", "1"], documents=["doc1", "doc2"], metadatas=["test", "test"])
     app2.db.add(ids=["2"], documents=["doc3"], metadatas=["test"])
 
     assert app1.db.count() == 2

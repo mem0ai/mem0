@@ -35,6 +35,7 @@ class LanceDB(BaseVectorDB):
             self.config = LanceDBConfig()
 
         self.client = lancedb.connect(self.config.dir or "~/.lancedb")
+        self.embedder_check = True
 
         super().__init__(config=self.config)
 
@@ -42,6 +43,16 @@ class LanceDB(BaseVectorDB):
         """
         This method is needed because `embedder` attribute needs to be set externally before it can be initialized.
         """
+        if not self.embedder:
+            raise ValueError(
+                "Embedder not set. Please set an embedder with `_set_embedder()` function before initialization."
+            )
+        else:
+            try:
+                self.embedder.embedding_fn("Hello LanceDB")
+            except Exception:
+                self.embedder_check = False
+
         self._get_or_create_collection(self.config.collection_name)
 
     def _get_or_create_db(self):
@@ -83,17 +94,25 @@ class LanceDB(BaseVectorDB):
         :return: Created collection
         :rtype: Collection
         """
-        if not self.embedder:
-            raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
+        if not self.embedder_check:
+            schema = pa.schema(
+                [
+                    pa.field("doc", pa.string()),
+                    pa.field("metadata", pa.string()),
+                    pa.field("id", pa.string()),
+                ]
+            )
+            # raise ValueError("Embedder not set. Please set an embedder with `set_embedder` before initialization.")
 
-        schema = pa.schema(
-            [
-                pa.field("vector", pa.list_(pa.float32(), list_size=self.embedder.vector_dimension)),
-                pa.field("doc", pa.string()),
-                pa.field("metadata", pa.string()),
-                pa.field("id", pa.string()),
-            ]
-        )
+        else:
+            schema = pa.schema(
+                [
+                    pa.field("vector", pa.list_(pa.float32(), list_size=self.embedder.vector_dimension)),
+                    pa.field("doc", pa.string()),
+                    pa.field("metadata", pa.string()),
+                    pa.field("id", pa.string()),
+                ]
+            )
 
         if not reset:
             if table_name not in self.client.table_names():
@@ -167,13 +186,22 @@ class LanceDB(BaseVectorDB):
         """
         data = []
         to_ingest = list(zip(documents, metadatas, ids))
-        for doc, meta, id in to_ingest:
-            temp = {}
-            temp["doc"] = doc
-            temp["vector"] = self.embedder.embedding_fn([doc])[0]
-            temp["metadata"] = str(meta)
-            temp["id"] = id
-            data.append(temp)
+
+        if not self.embedder_check:
+            for doc, meta, id in to_ingest:
+                temp = {}
+                temp["doc"] = doc
+                temp["metadata"] = str(meta)
+                temp["id"] = id
+                data.append(temp)
+        else:
+            for doc, meta, id in to_ingest:
+                temp = {}
+                temp["doc"] = doc
+                temp["vector"] = self.embedder.embedding_fn([doc])[0]
+                temp["metadata"] = str(meta)
+                temp["id"] = id
+                data.append(temp)
 
         self.collection.add(data=data)
 
