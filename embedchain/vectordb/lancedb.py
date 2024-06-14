@@ -5,7 +5,7 @@ import pyarrow as pa
 try:
     import lancedb
 except ImportError:
-    raise ImportError("LanceDB is required. Install with `pip install embedchain[lancedb]`") from None
+    raise ImportError('LanceDB is required. Install with pip install "embedchain[lancedb]"') from None
 
 from embedchain.config.vectordb.lancedb import LanceDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -103,7 +103,7 @@ class LanceDB(BaseVectorDB):
                     pa.field("id", pa.string()),
                 ]
             )
-            
+
         else:
             schema = pa.schema(
                 [
@@ -250,9 +250,7 @@ class LanceDB(BaseVectorDB):
             result = self.collection.search(query_embedding).limit(n_results).to_list()
         except Exception as e:
             e.message()
-            +". This is commonly a side-effect when an embedding function, different from the one used to add the embeddings, is used to retrieve an embedding from the database."  # noqa E501
 
-        # results_formatted = self._format_result(result)
         results_formatted = result
 
         contexts = []

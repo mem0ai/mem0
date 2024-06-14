@@ -29,6 +29,7 @@ def cleanup_db():
     yield
     try:
         shutil.rmtree("test-db.lance")
+        shutil.rmtree("test-db-reset.lance")
     except OSError as e:
         print("Error: %s - %s." % (e.filename, e.strerror))
 
