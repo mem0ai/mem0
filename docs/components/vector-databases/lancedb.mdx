@@ -13,17 +13,15 @@ pip install "embedchain[lancedb]"
 LanceDB is a developer-friendly, open source database for AI. From hyper scalable vector search and advanced retrieval for RAG, to streaming training data and interactive exploration of large scale AI datasets.
 In order to use LanceDB as vector database, not need to set any key for local use. 
 
-```bash
+<CodeGroup>
+```python main.py
 import os
 from embedchain import App
 
 # set OPENAI_API_KEY as env variable
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
-```
 
-### Create Embedchain App and set config
-
-```bash
+# Create Embedchain App and set config
 app = App.from_config(config={
     "vectordb": {
         "provider": "lancedb",
@@ -33,11 +31,8 @@ app = App.from_config(config={
         }
     }
 )
-```
 
-### Add data source and start querying
-
-```bash
+# Add data source and start queryin
 app.add("https://www.forbes.com/profile/elon-musk")
 
 # query continuously
@@ -48,3 +43,6 @@ while(True):
     answer = app.query(question)
     print(answer)
 ```
+
+</CodeGroup>
+<Snippet file="missing-vector-db-tip.mdx" />
