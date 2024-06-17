@@ -64,3 +64,27 @@ def test_when_no_deployment_name_provided():
     with pytest.raises(ValueError):
         llm = AzureOpenAILlm(config)
         llm.get_llm_model_answer("Test Prompt")
+
+def test_with_api_version():
+    config = BaseLlmConfig(
+        deployment_name="azure_deployment",
+        temperature=0.7,
+        model="gpt-3.5-turbo",
+        max_tokens=50,
+        system_prompt="System Prompt",
+        api_version="2024-02-01",
+    )
+
+    with patch("langchain_community.chat_models.AzureChatOpenAI") as mock_chat:
+
+        llm = AzureOpenAILlm(config)
+        llm.get_llm_model_answer("Test Prompt")
+
+        mock_chat.assert_called_once_with(
+            deployment_name="azure_deployment",
+            openai_api_version="2024-02-01",
+            model_name="gpt-3.5-turbo",
+            temperature=0.7,
+            max_tokens=50,
+            streaming=False,
+        )

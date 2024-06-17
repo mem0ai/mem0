@@ -103,6 +103,7 @@ class BaseLlmConfig(BaseConfig):
         http_async_client: Optional[Any] = None,
         local: Optional[bool] = False,
         default_headers: Optional[Mapping[str, str]] = None,
+        api_version: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -185,6 +186,7 @@ class BaseLlmConfig(BaseConfig):
         self.local = local
         self.default_headers = default_headers
         self.online = online
+        self.api_version = api_version
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

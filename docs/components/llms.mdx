@@ -193,8 +193,8 @@ import os
 from embedchain import App
 
 os.environ["OPENAI_API_TYPE"] = "azure"
-os.environ["OPENAI_API_BASE"] = "https://xxx.openai.azure.com/"
-os.environ["OPENAI_API_KEY"] = "xxx"
+os.environ["AZURE_OPENAI_ENDPOINT"] = "https://xxx.openai.azure.com/"
+os.environ["AZURE_OPENAI_KEY"] = "xxx"
 os.environ["OPENAI_API_VERSION"] = "xxx"
 
 app = App.from_config(config_path="config.yaml")
