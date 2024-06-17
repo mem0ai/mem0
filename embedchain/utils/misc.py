@@ -1,3 +1,4 @@
+import datetime
 import itertools
 import json
 import logging
@@ -439,6 +440,7 @@ def validate_config(config_data):
                     Optional("local"): bool,
                     Optional("base_url"): str,
                     Optional("default_headers"): dict,
+                    Optional("api_version"): Or(str, datetime.date)
                 },
             },
             Optional("vectordb"): {
