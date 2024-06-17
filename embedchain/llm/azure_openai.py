@@ -25,7 +25,7 @@ class AzureOpenAILlm(BaseLlm):
 
         chat = AzureChatOpenAI(
             deployment_name=config.deployment_name,
-            openai_api_version="2023-05-15",
+            openai_api_version=str(config.api_version) if config.api_version else "2023-05-15",
             model_name=config.model or "gpt-3.5-turbo",
             temperature=config.temperature,
             max_tokens=config.max_tokens,

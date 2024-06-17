@@ -23,6 +23,7 @@ class LlmFactory:
         "google": "embedchain.llm.google.GoogleLlm",
         "aws_bedrock": "embedchain.llm.aws_bedrock.AWSBedrockLlm",
         "mistralai": "embedchain.llm.mistralai.MistralAILlm",
+        "clarifai": "embedchain.llm.clarifai.ClarifaiLlm",
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
         "vllm": "embedchain.llm.vllm.VLLM",
@@ -56,6 +57,7 @@ class EmbedderFactory:
         "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
         "google": "embedchain.embedder.google.GoogleAIEmbedder",
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
+        "clarifai": "embedchain.embedder.clarifai.ClarifaiEmbedder",
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
         "cohere": "embedchain.embedder.cohere.CohereEmbedder",
         "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
@@ -65,6 +67,7 @@ class EmbedderFactory:
         "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
         "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
     }
