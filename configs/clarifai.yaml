@@ -1,0 +1,12 @@
+llm:
+  provider: clarifai
+  config: 
+    model: "https://clarifai.com/mistralai/completion/models/mistral-7B-Instruct"
+    model_kwargs: 
+      temperature: 0.5
+      max_tokens: 1000
+
+embedder:
+  provider: clarifai
+  config: 
+    model: "https://clarifai.com/clarifai/main/models/BAAI-bge-base-en-v15"
