@@ -1,13 +1,16 @@
-import pytest
+import pytest, os
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.ollama import OllamaLlm
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from embedchain.core.db.database import init_db, setup_engine
 
 
 @pytest.fixture
 def ollama_llm_config():
     config = BaseLlmConfig(model="llama2", temperature=0.7, top_p=0.8, stream=True, system_prompt=None)
+    setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
+    init_db()
     yield config
 
 
@@ -37,6 +40,7 @@ def test_get_answer_mocked_ollama(ollama_llm_config, mocker):
 def test_get_llm_model_answer_with_streaming(ollama_llm_config, mocker):
     ollama_llm_config.stream = True
     ollama_llm_config.callbacks = [StreamingStdOutCallbackHandler()]
+    mocker.patch("embedchain.llm.ollama.Client.list", return_value={"models": [{"name": "llama2"}]})
     mocked_ollama_chat = mocker.patch("embedchain.llm.ollama.OllamaLlm._get_answer", return_value="Test answer")
 
     llm = OllamaLlm(ollama_llm_config)
