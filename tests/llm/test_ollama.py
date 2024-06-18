@@ -3,14 +3,11 @@ import pytest, os
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.ollama import OllamaLlm
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from embedchain.core.db.database import init_db, setup_engine
 
 
 @pytest.fixture
 def ollama_llm_config():
     config = BaseLlmConfig(model="llama2", temperature=0.7, top_p=0.8, stream=True, system_prompt=None)
-    setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
-    init_db()
     yield config
 
 
