@@ -1,4 +1,4 @@
-import pytest, os
+import pytest
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.ollama import OllamaLlm
