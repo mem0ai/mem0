@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
