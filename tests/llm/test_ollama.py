@@ -37,6 +37,7 @@ def test_get_answer_mocked_ollama(ollama_llm_config, mocker):
 def test_get_llm_model_answer_with_streaming(ollama_llm_config, mocker):
     ollama_llm_config.stream = True
     ollama_llm_config.callbacks = [StreamingStdOutCallbackHandler()]
+    mocker.patch("embedchain.llm.ollama.Client.list", return_value={"models": [{"name": "llama2"}]})
     mocked_ollama_chat = mocker.patch("embedchain.llm.ollama.OllamaLlm._get_answer", return_value="Test answer")
 
     llm = OllamaLlm(ollama_llm_config)
