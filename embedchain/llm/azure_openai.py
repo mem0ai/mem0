@@ -18,19 +18,28 @@ class AzureOpenAILlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
-        from langchain_community.chat_models import AzureChatOpenAI
+        from langchain_openai import AzureChatOpenAI
 
         if not config.deployment_name:
             raise ValueError("Deployment name must be provided for Azure OpenAI")
 
-        chat = AzureChatOpenAI(
-            deployment_name=config.deployment_name,
-            openai_api_version=str(config.api_version) if config.api_version else "2023-05-15",
-            model_name=config.model or "gpt-3.5-turbo",
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            streaming=config.stream,
-        )
+        if config.stream:
+            callbacks = config.callbacks if config.callbacks else [StreamingStdOutCallbackHandler()]
+            chat = AzureChatOpenAI(
+                deployment_name=config.deployment_name,
+                openai_api_version=str(config.api_version) if config.api_version else "2024-02-01",
+                model_name=config.model or "gpt-3.5-turbo",
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+                callbacks=callbacks,
+                streaming=config.stream)
+        else:
+            chat = AzureChatOpenAI(
+                deployment_name=config.deployment_name,
+                openai_api_version=str(config.api_version) if config.api_version else "2024-02-01",
+                model_name=config.model or "gpt-3.5-turbo",
+                temperature=config.temperature,
+                max_tokens=config.max_tokens)
 
         if config.top_p and config.top_p != 1:
             logger.warning("Config option `top_p` is not supported by this model.")
