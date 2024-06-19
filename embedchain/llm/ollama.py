@@ -6,7 +6,11 @@ from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.stdout import StdOutCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_community.llms.ollama import Ollama
-from ollama import Client
+
+try:
+    from ollama import Client
+except ImportError:
+    raise ImportError("Ollama requires extra dependencies. Install with `pip install ollama`") from None
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
