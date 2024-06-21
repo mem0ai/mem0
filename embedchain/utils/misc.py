@@ -446,7 +446,7 @@ def validate_config(config_data):
             },
             Optional("vectordb"): {
                 Optional("provider"): Or(
-                    "chroma", "elasticsearch", "opensearch", "pinecone", "qdrant", "weaviate", "zilliz"
+                    "chroma", "elasticsearch", "opensearch", "lancedb", "pinecone", "qdrant", "weaviate", "zilliz"
                 ),
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
