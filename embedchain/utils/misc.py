@@ -441,7 +441,7 @@ def validate_config(config_data):
                     Optional("local"): bool,
                     Optional("base_url"): str,
                     Optional("default_headers"): dict,
-                    Optional("api_version"): Or(str, datetime.date)
+                    Optional("api_version"): Or(str, datetime.date),
                 },
             },
             Optional("vectordb"): {
@@ -473,6 +473,7 @@ def validate_config(config_data):
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
                     Optional("base_url"): str,
+                    Optional("endpoint"): str,
                 },
             },
             Optional("embedding_model"): {
