@@ -19,8 +19,6 @@ class Llama2Llm(BaseLlm):
                 "The required dependencies for Llama2 are not installed."
                 'Please install with `pip install --upgrade "embedchain[llama2]"`'
             ) from None
-        if "REPLICATE_API_TOKEN" not in os.environ:
-            raise ValueError("Please set the REPLICATE_API_TOKEN environment variable.")
 
         # Set default config values specific to this llm
         if not config:
@@ -35,13 +33,17 @@ class Llama2Llm(BaseLlm):
             )
 
         super().__init__(config=config)
+        if not self.config.api_key and "REPLICATE_API_TOKEN" not in os.environ:
+            raise ValueError("Please set the REPLICATE_API_TOKEN environment variable or pass it in the config.")
 
     def get_llm_model_answer(self, prompt):
         # TODO: Move the model and other inputs into config
         if self.config.system_prompt:
             raise ValueError("Llama2 does not support `system_prompt`")
+        api_key = self.config.api_key or os.getenv("REPLICATE_API_TOKEN")
         llm = Replicate(
             model=self.config.model,
+            replicate_api_token=api_key,
             input={
                 "temperature": self.config.temperature,
                 "max_length": self.config.max_tokens,

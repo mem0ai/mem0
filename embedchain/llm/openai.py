@@ -36,7 +36,7 @@ class OpenAILlm(BaseLlm):
             "model": config.model or "gpt-3.5-turbo",
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
-            "model_kwargs": {},
+            "model_kwargs": config.model_kwargs or {},
         }
         api_key = config.api_key or os.environ["OPENAI_API_KEY"]
         base_url = config.base_url or os.environ.get("OPENAI_API_BASE", None)
@@ -69,7 +69,8 @@ class OpenAILlm(BaseLlm):
         messages: list[BaseMessage],
     ) -> str:
         from langchain.output_parsers.openai_tools import JsonOutputToolsParser
-        from langchain_core.utils.function_calling import convert_to_openai_tool
+        from langchain_core.utils.function_calling import \
+            convert_to_openai_tool
 
         openai_tools = [convert_to_openai_tool(tools)]
         chat = chat.bind(tools=openai_tools).pipe(JsonOutputToolsParser())

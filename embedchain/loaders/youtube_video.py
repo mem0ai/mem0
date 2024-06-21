@@ -61,6 +61,7 @@ class YoutubeVideoLoader(BaseLoader):
             "content": content,
             "meta_data": metadata,
         }]
+        
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
             "doc_id": doc_id,
