@@ -2,7 +2,14 @@ import os
 from typing import Optional
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.embeddings.huggingface import HuggingFaceInferenceAPIEmbeddings
+
+try:
+    from langchain_huggingface import HuggingFaceEndpointEmbeddings
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "The required dependencies for HuggingFaceHub are not installed."
+        "Please install with `pip install langchain_huggingface`"
+    ) from None
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
@@ -19,10 +26,9 @@ class HuggingFaceEmbedder(BaseEmbedder):
                     "Please set the HUGGINGFACE_ACCESS_TOKEN environment variable or pass API Key in the config."
                 )
 
-            embeddings = HuggingFaceInferenceAPIEmbeddings(
-                model_name=self.config.model,
-                api_url=self.config.endpoint,
-                api_key=self.config.api_key or os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
+            embeddings = HuggingFaceEndpointEmbeddings(
+                model=self.config.endpoint,
+                huggingfacehub_api_token=self.config.api_key or os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
             )
         else:
             embeddings = HuggingFaceEmbeddings(model_name=self.config.model)
