@@ -2,7 +2,6 @@ import os
 from typing import Optional
 
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-from langchain_community.embeddings import AzureOpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
@@ -17,13 +16,10 @@ class OpenAIEmbedder(BaseEmbedder):
             self.config.model = "text-embedding-ada-002"
 
         api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
-        api_base = self.config.api_base or os.environ.get("OPENAI_API_BASE")
-
+        api_base = self.config.api_base or os.environ.get("OPENAI_API_BAS   E")
 
         if api_key is None and os.getenv("OPENAI_ORGANIZATION") is None:
-            raise ValueError(
-                "OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided"
-            )  # noqa:E501
+            raise ValueError("OPENAI_API_KEY or OPENAI_ORGANIZATION environment variables not provided")  # noqa:E501
         embedding_fn = OpenAIEmbeddingFunction(
             api_key=api_key,
             api_base=api_base,
