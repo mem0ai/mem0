@@ -27,7 +27,7 @@ class ImageLoader(BaseLoader):
 
     def _create_completion_request(self, content: str):
         return self.client.chat.completions.create(
-            model="gpt-4-vision-preview", messages=[{"role": "user", "content": content}], max_tokens=self.max_tokens
+            model="gpt-4o", messages=[{"role": "user", "content": content}], max_tokens=self.max_tokens
         )
 
     def _process_url(self, url: str):
