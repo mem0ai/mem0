@@ -54,6 +54,7 @@ while(True):
 ```python main.py
 from embedchain import Pipeline as App
 
+# config for Embedchain App
 config = {
   'llm': {
     'provider': 'huggingface',
@@ -81,8 +82,10 @@ config = {
 
 app = App.from_config(config=config)
 
+# add data source and start query in
 app.add("https://www.tesla.com/ns_videos/2022-tesla-impact-report.pdf")
 
+# query
 app.chat("What are Tesla's key sustainability achievements in 2022?")
 ```
 
