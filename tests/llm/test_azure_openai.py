@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain.schema import HumanMessage, SystemMessage
@@ -29,9 +29,13 @@ def test_get_llm_model_answer(azure_openai_llm):
 
 def test_get_answer(azure_openai_llm):
     with patch("langchain_openai.AzureChatOpenAI") as mock_chat:
-        prompt = "Test Prompt"
-        azure_openai_llm._get_answer(prompt, azure_openai_llm.config)
+        mock_chat_instance = mock_chat.return_value
+        mock_chat_instance.invoke.return_value = MagicMock(content="Test Response")
 
+        prompt = "Test Prompt"
+        response = azure_openai_llm._get_answer(prompt, azure_openai_llm.config)
+
+        assert response == "Test Response"
         mock_chat.assert_called_once_with(
             deployment_name=azure_openai_llm.config.deployment_name,
             openai_api_version="2024-02-01",
