@@ -14,6 +14,7 @@ LanceDB is a developer-friendly, open source database for AI. From hyper scalabl
 In order to use LanceDB as vector database, not need to set any key for local use. 
 
 <CodeGroup>
+
 ```python main.py
 import os
 from embedchain import App
@@ -21,7 +22,7 @@ from embedchain import App
 # set OPENAI_API_KEY as env variable
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 
-# Create Embedchain App and set config
+# create Embedchain App and set config
 app = App.from_config(config={
     "vectordb": {
         "provider": "lancedb",
@@ -32,7 +33,7 @@ app = App.from_config(config={
     }
 )
 
-# Add data source and start queryin
+# add data source and start query in
 app.add("https://www.forbes.com/profile/elon-musk")
 
 # query continuously
@@ -45,4 +46,3 @@ while(True):
 ```
 
 </CodeGroup>
-<Snippet file="missing-vector-db-tip.mdx" />
