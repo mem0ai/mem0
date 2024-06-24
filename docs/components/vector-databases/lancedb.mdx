@@ -13,6 +13,7 @@ pip install "embedchain[lancedb]"
 LanceDB is a developer-friendly, open source database for AI. From hyper scalable vector search and advanced retrieval for RAG, to streaming training data and interactive exploration of large scale AI datasets.
 In order to use LanceDB as vector database, not need to set any key for local use. 
 
+### With OPENAI 
 <CodeGroup>
 
 ```python main.py
@@ -43,6 +44,46 @@ while(True):
         break
     answer = app.query(question)
     print(answer)
+```
+
+</CodeGroup>
+
+### With Local LLM 
+<CodeGroup>
+
+```python main.py
+from embedchain import Pipeline as App
+
+config = {
+  'llm': {
+    'provider': 'huggingface',
+    'config': {
+      'model': 'mistralai/Mistral-7B-v0.1',
+      'temperature': 0.1,
+      'max_tokens': 250,
+      'top_p': 0.1,
+      'stream': True
+    }
+  },
+  'embedder': {
+    'provider': 'huggingface',
+    'config': {
+      'model': 'sentence-transformers/all-mpnet-base-v2'
+    }
+  },
+  'vectordb': { 
+    'provider': 'lancedb', 
+    'config': { 
+      'collection_name': 'lancedb-index' 
+    } 
+  }
+}
+
+app = App.from_config(config=config)
+
+app.add("https://www.tesla.com/ns_videos/2022-tesla-impact-report.pdf")
+
+app.chat("What are Tesla's key sustainability achievements in 2022?")
 ```
 
 </CodeGroup>
