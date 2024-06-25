@@ -1,7 +1,6 @@
 import hashlib
 import json
-import logging
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 import yt_dlp
