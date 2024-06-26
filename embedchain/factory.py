@@ -50,7 +50,7 @@ class LlmFactory:
 
 class EmbedderFactory:
     provider_to_class = {
-        "azure_openai": "embedchain.embedder.openai.OpenAIEmbedder",
+        "azure_openai": "embedchain.embedder.azure_openai.AzureOpenAIEmbedder",
         "gpt4all": "embedchain.embedder.gpt4all.GPT4AllEmbedder",
         "huggingface": "embedchain.embedder.huggingface.HuggingFaceEmbedder",
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
