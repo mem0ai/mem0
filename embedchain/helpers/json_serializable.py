@@ -8,6 +8,8 @@ T = TypeVar("T", bound="JSONSerializable")
 # NOTE: Through inheritance, all of our classes should be children of JSONSerializable. (highest level)
 # NOTE: The @register_deserializable decorator should be added to all user facing child classes. (lowest level)
 
+logger = logging.getLogger(__name__)
+
 
 def register_deserializable(cls: Type[T]) -> Type[T]:
     """
@@ -57,7 +59,7 @@ class JSONSerializable:
         try:
             return json.dumps(self, default=self._auto_encoder, ensure_ascii=False)
         except Exception as e:
-            logging.error(f"Serialization error: {e}")
+            logger.error(f"Serialization error: {e}")
             return "{}"
 
     @classmethod
@@ -79,7 +81,7 @@ class JSONSerializable:
         try:
             return json.loads(json_str, object_hook=cls._auto_decoder)
         except Exception as e:
-            logging.error(f"Deserialization error: {e}")
+            logger.error(f"Deserialization error: {e}")
             # Return a default instance in case of failure
             return cls()
 
@@ -95,10 +97,8 @@ class JSONSerializable:
             dict: A dictionary representation of the object.
         """
         if hasattr(obj, "__dict__"):
-            dct = obj.__dict__.copy()
-            for key, value in list(
-                dct.items()
-            ):  # We use list() to get a copy of items to avoid dictionary size change during iteration.
+            dct = {}
+            for key, value in obj.__dict__.items():
                 try:
                     # Recursive: If the value is an instance of a subclass of JSONSerializable,
                     # serialize it using the JSONSerializable serialize method.
@@ -118,8 +118,9 @@ class JSONSerializable:
                     # NOTE: Keep in mind that this logic needs to be applied to the decoder too.
                     else:
                         json.dumps(value)  # Try to serialize the value.
+                        dct[key] = value
                 except TypeError:
-                    del dct[key]  # If it fails, remove the key-value pair from the dictionary.
+                    pass  # If it fails, simply pass to skip this key-value pair of the dictionary.
 
             dct["__class__"] = obj.__class__.__name__
             return dct

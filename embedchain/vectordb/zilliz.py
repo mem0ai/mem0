@@ -13,6 +13,8 @@ except ImportError:
         "Zilliz requires extra dependencies. Install with `pip install --upgrade embedchain[milvus]`"
     ) from None
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class ZillizVectorDB(BaseVectorDB):
@@ -62,13 +64,14 @@ class ZillizVectorDB(BaseVectorDB):
         :type name: str
         """
         if utility.has_collection(name):
-            logging.info(f"[ZillizDB]: found an existing collection {name}, make sure the auto-id is disabled.")
+            logger.info(f"[ZillizDB]: found an existing collection {name}, make sure the auto-id is disabled.")
             self.collection = Collection(name)
         else:
             fields = [
                 FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
                 FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=2048),
                 FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.embedder.vector_dimension),
+                FieldSchema(name="metadata", dtype=DataType.JSON),
             ]
 
             schema = CollectionSchema(fields, enable_dynamic_field=True)
@@ -94,17 +97,26 @@ class ZillizVectorDB(BaseVectorDB):
         :return: Existing documents.
         :rtype: Set[str]
         """
-        if ids is None or len(ids) == 0 or self.collection.num_entities == 0:
-            return {"ids": []}
+        data_ids = []
+        metadatas = []
+        if self.collection.num_entities == 0 or self.collection.is_empty:
+            return {"ids": data_ids, "metadatas": metadatas}
 
-        if not self.collection.is_empty:
-            filter_ = f"id in {ids}"
-            results = self.client.query(
-                collection_name=self.config.collection_name, filter=filter_, output_fields=["id"]
-            )
-            results = [res["id"] for res in results]
+        filter_ = ""
+        if ids:
+            filter_ = f'id in "{ids}"'
 
-        return {"ids": set(results)}
+        if where:
+            if filter_:
+                filter_ += " and "
+            filter_ = f"{self._generate_zilliz_filter(where)}"
+
+        results = self.client.query(collection_name=self.config.collection_name, filter=filter_, output_fields=["*"])
+        for res in results:
+            data_ids.append(res.get("id"))
+            metadatas.append(res.get("metadata", {}))
+
+        return {"ids": data_ids, "metadatas": metadatas}
 
     def add(
         self,
@@ -117,7 +129,7 @@ class ZillizVectorDB(BaseVectorDB):
         embeddings = self.embedder.embedding_fn(documents)
 
         for id, doc, metadata, embedding in zip(ids, documents, metadatas, embeddings):
-            data = {**metadata, "id": id, "text": doc, "embeddings": embedding}
+            data = {"id": id, "text": doc, "embeddings": embedding, "metadata": metadata}
             self.client.insert(collection_name=self.config.collection_name, data=data, **kwargs)
 
         self.collection.load()
@@ -126,21 +138,21 @@ class ZillizVectorDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
-        where: dict[str, any],
+        where: dict[str, Any],
         citations: bool = False,
         **kwargs: Optional[dict[str, Any]],
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         Query contents from vector database based on vector similarity
 
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data
-        :type where: str
+        :type where: dict[str, Any]
         :raises InvalidDimensionException: Dimensions do not match.
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
@@ -152,16 +164,15 @@ class ZillizVectorDB(BaseVectorDB):
         if self.collection.is_empty:
             return []
 
-        if not isinstance(where, str):
-            where = None
-
         output_fields = ["*"]
         input_query_vector = self.embedder.embedding_fn([input_query])
         query_vector = input_query_vector[0]
 
+        query_filter = self._generate_zilliz_filter(where)
         query_result = self.client.search(
             collection_name=self.config.collection_name,
             data=[query_vector],
+            filter=query_filter,
             limit=n_results,
             output_fields=output_fields,
             **kwargs,
@@ -173,12 +184,10 @@ class ZillizVectorDB(BaseVectorDB):
             score = query["distance"]
             context = data["text"]
 
-            if "embeddings" in data:
-                data.pop("embeddings")
-
             if citations:
-                data["score"] = score
-                contexts.append(tuple((context, data)))
+                metadata = data.get("metadata", {})
+                metadata["score"] = score
+                contexts.append(tuple((context, metadata)))
             else:
                 contexts.append(context)
         return contexts
@@ -216,7 +225,13 @@ class ZillizVectorDB(BaseVectorDB):
             raise TypeError("Collection name must be a string")
         self.config.collection_name = name
 
-    def delete(self, keys: Union[list, str, int]):
+    def _generate_zilliz_filter(self, where: dict[str, str]):
+        operands = []
+        for key, value in where.items():
+            operands.append(f'(metadata["{key}"] == "{value}")')
+        return " and ".join(operands)
+
+    def delete(self, where: dict[str, Any]):
         """
         Delete the embeddings from DB. Zilliz only support deleting with keys.
 
@@ -224,7 +239,7 @@ class ZillizVectorDB(BaseVectorDB):
         :param keys: Primary keys of the table entries to delete.
         :type keys: Union[list, str, int]
         """
-        self.client.delete(
-            collection_name=self.config.collection_name,
-            pks=keys,
-        )
+        data = self.get(where=where)
+        keys = data.get("ids", [])
+        if keys:
+            self.client.delete(collection_name=self.config.collection_name, pks=keys)

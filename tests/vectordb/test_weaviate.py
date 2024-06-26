@@ -161,7 +161,7 @@ class TestWeaviateDb(unittest.TestCase):
         App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
-        db.query(input_query=["This is a test document."], n_results=1, where={})
+        db.query(input_query="This is a test document.", n_results=1, where={})
 
         weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1536", ["text"])
         weaviate_client_query_get_mock.with_near_vector.assert_called_once_with({"vector": [1, 2, 3]})
@@ -185,7 +185,7 @@ class TestWeaviateDb(unittest.TestCase):
         App(config=app_config, db=db, embedding_model=embedder)
 
         # Query for the document.
-        db.query(input_query=["This is a test document."], n_results=1, where={"doc_id": "123"})
+        db.query(input_query="This is a test document.", n_results=1, where={"doc_id": "123"})
 
         weaviate_client_query_mock.get.assert_called_once_with("Embedchain_store_1536", ["text"])
         weaviate_client_query_get_mock.with_where.assert_called_once_with(

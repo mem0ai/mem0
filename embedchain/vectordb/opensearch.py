@@ -12,12 +12,14 @@ except ImportError:
         "OpenSearch requires extra dependencies. Install with `pip install --upgrade embedchain[opensearch]`"
     ) from None
 
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import OpenSearchVectorSearch
+from langchain_community.embeddings.openai import OpenAIEmbeddings
+from langchain_community.vectorstores import OpenSearchVectorSearch
 
 from embedchain.config import OpenSearchDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
+
+logger = logging.getLogger(__name__)
 
 
 @register_deserializable
@@ -43,12 +45,12 @@ class OpenSearchDB(BaseVectorDB):
             **self.config.extra_params,
         )
         info = self.client.info()
-        logging.info(f"Connected to {info['version']['distribution']}. Version: {info['version']['number']}")
+        logger.info(f"Connected to {info['version']['distribution']}. Version: {info['version']['number']}")
         # Remove auth credentials from config after successful connection
         super().__init__(config=self.config)
 
     def _initialize(self):
-        logging.info(self.client.info())
+        logger.info(self.client.info())
         index_name = self._get_index()
         if self.client.indices.exists(index=index_name):
             print(f"Index '{index_name}' already exists.")
@@ -96,9 +98,9 @@ class OpenSearchDB(BaseVectorDB):
         else:
             query["query"] = {"bool": {"must": []}}
 
-        if "app_id" in where:
-            app_id = where["app_id"]
-            query["query"]["bool"]["must"].append({"term": {"metadata.app_id.keyword": app_id}})
+        if where:
+            for key, value in where.items():
+                query["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
 
         # OpenSearch syntax is different from Elasticsearch
         response = self.client.search(index=self._get_index(), body=query, _source=True, size=limit)
@@ -144,7 +146,7 @@ class OpenSearchDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
         where: dict[str, any],
         citations: bool = False,
@@ -153,8 +155,8 @@ class OpenSearchDB(BaseVectorDB):
         """
         query contents from vector database based on vector similarity
 
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data
@@ -176,9 +178,11 @@ class OpenSearchDB(BaseVectorDB):
         )
 
         pre_filter = {"match_all": {}}  # default
-        if "app_id" in where:
-            app_id = where["app_id"]
-            pre_filter = {"bool": {"must": [{"term": {"metadata.app_id.keyword": app_id}}]}}
+        if len(where) > 0:
+            pre_filter = {"bool": {"must": []}}
+            for key, value in where.items():
+                pre_filter["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
+
         docs = docsearch.similarity_search_with_score(
             input_query,
             search_type="script_scoring",
@@ -236,10 +240,9 @@ class OpenSearchDB(BaseVectorDB):
 
     def delete(self, where):
         """Deletes a document from the OpenSearch index"""
-        if "doc_id" not in where:
-            raise ValueError("doc_id is required to delete a document")
-
-        query = {"query": {"bool": {"must": [{"term": {"metadata.doc_id": where["doc_id"]}}]}}}
+        query = {"query": {"bool": {"must": []}}}
+        for key, value in where.items():
+            query["query"]["bool"]["must"].append({"term": {f"metadata.{key}.keyword": value}})
         self.client.delete_by_query(index=self._get_index(), body=query)
 
     def _get_index(self) -> str:

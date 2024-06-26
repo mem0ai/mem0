@@ -23,6 +23,10 @@ class LlmFactory:
         "google": "embedchain.llm.google.GoogleLlm",
         "aws_bedrock": "embedchain.llm.aws_bedrock.AWSBedrockLlm",
         "mistralai": "embedchain.llm.mistralai.MistralAILlm",
+        "clarifai": "embedchain.llm.clarifai.ClarifaiLlm",
+        "groq": "embedchain.llm.groq.GroqLlm",
+        "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
+        "vllm": "embedchain.llm.vllm.VLLM",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
@@ -46,7 +50,7 @@ class LlmFactory:
 
 class EmbedderFactory:
     provider_to_class = {
-        "azure_openai": "embedchain.embedder.openai.OpenAIEmbedder",
+        "azure_openai": "embedchain.embedder.azure_openai.AzureOpenAIEmbedder",
         "gpt4all": "embedchain.embedder.gpt4all.GPT4AllEmbedder",
         "huggingface": "embedchain.embedder.huggingface.HuggingFaceEmbedder",
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
@@ -54,13 +58,20 @@ class EmbedderFactory:
         "google": "embedchain.embedder.google.GoogleAIEmbedder",
         "fake": "embedchain.embedder.fake.FakeEmbedder",
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
+        "clarifai": "embedchain.embedder.clarifai.ClarifaiEmbedder",
+        "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
+        "cohere": "embedchain.embedder.cohere.CohereEmbedder",
+        "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
     }
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
-        "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
-        "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
         "fake": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
+        "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
     }
 
     @classmethod
@@ -82,6 +93,7 @@ class VectorDBFactory:
         "chroma": "embedchain.vectordb.chroma.ChromaDB",
         "elasticsearch": "embedchain.vectordb.elasticsearch.ElasticsearchDB",
         "opensearch": "embedchain.vectordb.opensearch.OpenSearchDB",
+        "lancedb": "embedchain.vectordb.lancedb.LanceDB",
         "pinecone": "embedchain.vectordb.pinecone.PineconeDB",
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
@@ -92,6 +104,7 @@ class VectorDBFactory:
         "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
         "elasticsearch": "embedchain.config.vectordb.elasticsearch.ElasticsearchDBConfig",
         "opensearch": "embedchain.config.vectordb.opensearch.OpenSearchDBConfig",
+        "lancedb": "embedchain.config.vectordb.lancedb.LanceDBConfig",
         "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
         "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
         "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",

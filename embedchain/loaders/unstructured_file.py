@@ -10,10 +10,12 @@ class UnstructuredLoader(BaseLoader):
     def load_data(self, url):
         """Load data from an Unstructured file."""
         try:
-            from langchain.document_loaders import UnstructuredFileLoader
+            import unstructured  # noqa: F401
+            from langchain_community.document_loaders import \
+                UnstructuredFileLoader
         except ImportError:
             raise ImportError(
-                'Unstructured file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'  # noqa: E501
+                'Unstructured file requires extra dependencies. Install with `pip install "unstructured[local-inference, all-docs]"`'  # noqa: E501
             ) from None
 
         loader = UnstructuredFileLoader(url)
@@ -25,12 +27,12 @@ class UnstructuredLoader(BaseLoader):
         for page in pages:
             content = page.page_content
             content = clean_string(content)
-            meta_data = page.metadata
-            meta_data["url"] = url
+            metadata = page.metadata
+            metadata["url"] = url
             data.append(
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             )
             all_content.append(content)

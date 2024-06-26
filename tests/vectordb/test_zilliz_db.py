@@ -130,17 +130,22 @@ class TestZillizDBCollection:
                 [
                     {
                         "distance": 0.0,
-                        "entity": {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "embeddings": [1, 2, 3]},
+                        "entity": {
+                            "text": "result_doc",
+                            "embeddings": [1, 2, 3],
+                            "metadata": {"url": "url_1", "doc_id": "doc_id_1"},
+                        },
                     }
                 ]
             ]
 
-            query_result = zilliz_db.query(input_query=["query_text"], n_results=1, where={})
+            query_result = zilliz_db.query(input_query="query_text", n_results=1, where={})
 
             # Assert that MilvusClient.search was called with the correct parameters
             mock_search.assert_called_with(
                 collection_name=mock_config.collection_name,
                 data=["query_vector"],
+                filter="",
                 limit=1,
                 output_fields=["*"],
             )
@@ -149,16 +154,15 @@ class TestZillizDBCollection:
             assert query_result == ["result_doc"]
 
             query_result_with_citations = zilliz_db.query(
-                input_query=["query_text"], n_results=1, where={}, citations=True
+                input_query="query_text", n_results=1, where={}, citations=True
             )
 
             mock_search.assert_called_with(
                 collection_name=mock_config.collection_name,
                 data=["query_vector"],
+                filter="",
                 limit=1,
                 output_fields=["*"],
             )
 
-            assert query_result_with_citations == [
-                ("result_doc", {"text": "result_doc", "url": "url_1", "doc_id": "doc_id_1", "score": 0.0})
-            ]
+            assert query_result_with_citations == [("result_doc", {"url": "url_1", "doc_id": "doc_id_1", "score": 0.0})]

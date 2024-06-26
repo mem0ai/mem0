@@ -7,6 +7,8 @@ import requests
 
 from embedchain.constants import CONFIG_DIR, CONFIG_FILE
 
+logger = logging.getLogger(__name__)
+
 
 class Client:
     def __init__(self, api_key=None, host="https://apiv2.embedchain.ai"):
@@ -24,14 +26,14 @@ class Client:
         else:
             if "api_key" in self.config_data:
                 self.api_key = self.config_data["api_key"]
-                logging.info("API key loaded successfully!")
+                logger.info("API key loaded successfully!")
             else:
                 raise ValueError(
                     "You are not logged in. Please obtain an API key from https://app.embedchain.ai/settings/keys/"
                 )
 
     @classmethod
-    def setup_dir(cls):
+    def setup(cls):
         """
         Loads the user id from the config file if it exists, otherwise generates a new
         one and saves it to the config file.
@@ -40,6 +42,7 @@ class Client:
         :rtype: str
         """
         os.makedirs(CONFIG_DIR, exist_ok=True)
+
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)
@@ -53,7 +56,7 @@ class Client:
     @classmethod
     def load_config(cls):
         if not os.path.exists(CONFIG_FILE):
-            cls.setup_dir()
+            cls.setup()
 
         with open(CONFIG_FILE, "r") as config_file:
             return json.load(config_file)
@@ -63,7 +66,7 @@ class Client:
         with open(CONFIG_FILE, "w") as config_file:
             json.dump(self.config_data, config_file, indent=4)
 
-        logging.info("API key saved successfully!")
+        logger.info("API key saved successfully!")
 
     def clear(self):
         if "api_key" in self.config_data:
@@ -71,17 +74,17 @@ class Client:
             with open(CONFIG_FILE, "w") as config_file:
                 json.dump(self.config_data, config_file, indent=4)
             self.api_key = None
-            logging.info("API key deleted successfully!")
+            logger.info("API key deleted successfully!")
         else:
-            logging.warning("API key not found in the configuration file.")
+            logger.warning("API key not found in the configuration file.")
 
     def update(self, api_key):
         if self.check(api_key):
             self.api_key = api_key
             self.save()
-            logging.info("API key updated successfully!")
+            logger.info("API key updated successfully!")
         else:
-            logging.warning("Invalid API key provided. API key not updated.")
+            logger.warning("Invalid API key provided. API key not updated.")
 
     def check(self, api_key):
         validation_url = f"{self.host}/api/v1/accounts/api_keys/validate/"
@@ -89,8 +92,8 @@ class Client:
         if response.status_code == 200:
             return True
         else:
-            logging.warning(f"Response from API: {response.text}")
-            logging.warning("Invalid API key. Unable to validate.")
+            logger.warning(f"Response from API: {response.text}")
+            logger.warning("Invalid API key. Unable to validate.")
             return False
 
     def get(self):

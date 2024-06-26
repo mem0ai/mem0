@@ -1,0 +1,50 @@
+---
+title: '🔭 OpenLIT'
+description: 'OpenTelemetry-native Observability and Evals for LLMs & GPUs'
+---
+
+Embedchain now supports integration with [OpenLIT](https://github.com/openlit/openlit).
+
+## Getting Started
+
+### 1. Set environment variables
+```bash
+# Setting environment variable for OpenTelemetry destination and authetication.
+export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
+export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
+```
+
+### 2. Install the OpenLIT SDK
+Open your terminal and run:
+
+```shell
+pip install openlit
+```
+
+### 3. Setup Your Application for Monitoring
+Now create an app using Embedchain and initialize OpenTelemetry monitoring
+
+```python
+from embedchain import App
+import OpenLIT
+
+# Initialize OpenLIT Auto Instrumentation for monitoring.
+openlit.init()
+
+# Initialize EmbedChain application.
+app = App()
+
+# Add data to your app
+app.add("https://en.wikipedia.org/wiki/Elon_Musk")
+
+# Query your app
+app.query("How many companies did Elon found?")
+```
+
+### 4. Visualize
+
+Once you've set up data collection with OpenLIT, you can visualize and analyze this information to better understand your application's performance:
+
+- **Using OpenLIT UI:** Connect to OpenLIT's UI to start exploring performance metrics. Visit the OpenLIT [Quickstart Guide](https://docs.openlit.io/latest/quickstart) for step-by-step details.
+
+- **Integrate with existing Observability Tools:** If you use tools like Grafana or DataDog, you can integrate the data collected by OpenLIT. For instructions on setting up these connections, check the OpenLIT [Connections Guide](https://docs.openlit.io/latest/connections/intro).

@@ -14,6 +14,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class WebPageLoader(BaseLoader):
@@ -22,12 +24,15 @@ class WebPageLoader(BaseLoader):
 
     def load_data(self, url):
         """Load data from a web page using a shared requests' session."""
-        response = self._session.get(url, timeout=30)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
+        }
+        response = self._session.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.content
         content = self._get_clean_content(data, url)
 
-        meta_data = {"url": url}
+        metadata = {"url": url}
 
         doc_id = hashlib.sha256((content + url).encode()).hexdigest()
         return {
@@ -35,7 +40,7 @@ class WebPageLoader(BaseLoader):
             "data": [
                 {
                     "content": content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             ],
         }
@@ -84,7 +89,7 @@ class WebPageLoader(BaseLoader):
 
         cleaned_size = len(content)
         if original_size != 0:
-            logging.info(
+            logger.info(
                 f"[{url}] Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
             )
 

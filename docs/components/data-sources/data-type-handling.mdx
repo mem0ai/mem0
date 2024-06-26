@@ -37,7 +37,14 @@ Create a local index:
 ```python
 from embedchain import App
 
-naval_chat_bot = App()
+config = {
+    "app": {
+        "config": {
+            "id": "app-1"
+        }
+    }
+}
+naval_chat_bot = App.from_config(config=config)
 naval_chat_bot.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
 naval_chat_bot.add("https://navalmanack.s3.amazonaws.com/Eric-Jorgenson_The-Almanack-of-Naval-Ravikant_Final.pdf")
 ```
@@ -47,7 +54,14 @@ You can reuse the local index with the same code, but without adding new documen
 ```python
 from embedchain import App
 
-naval_chat_bot = App()
+config = {
+    "app": {
+        "config": {
+            "id": "app-1"
+        }
+    }
+}
+naval_chat_bot = App.from_config(config=config)
 print(naval_chat_bot.query("What unique capacity does Naval argue humans possess when it comes to understanding explanations or concepts?"))
 ```
 
@@ -58,7 +72,14 @@ You can reset the app by simply calling the `reset` method. This will delete the
 ```python
 from embedchain import App
 
-app = App()
+app = App()config = {
+    "app": {
+        "config": {
+            "id": "app-1"
+        }
+    }
+}
+naval_chat_bot = App.from_config(config=config)
 app.add("https://www.youtube.com/watch?v=3qHkcs3kG44")
 app.reset()
 ```

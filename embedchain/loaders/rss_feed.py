@@ -28,7 +28,7 @@ class RSSFeedLoader(BaseLoader):
     @staticmethod
     def get_rss_content(url: str):
         try:
-            from langchain.document_loaders import \
+            from langchain_community.document_loaders import \
                 RSSFeedLoader as LangchainRSSFeedLoader
         except ImportError:
             raise ImportError(
@@ -41,12 +41,12 @@ class RSSFeedLoader(BaseLoader):
         data = loader.load()
 
         for entry in data:
-            meta_data = RSSFeedLoader.serialize_metadata(entry.metadata)
-            meta_data.update({"url": url})
+            metadata = RSSFeedLoader.serialize_metadata(entry.metadata)
+            metadata.update({"url": url})
             output.append(
                 {
                     "content": entry.page_content,
-                    "meta_data": meta_data,
+                    "meta_data": metadata,
                 }
             )
 

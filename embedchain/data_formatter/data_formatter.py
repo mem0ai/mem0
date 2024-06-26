@@ -80,6 +80,8 @@ class DataFormatter(JSONSerializable):
             DataType.SLACK: "embedchain.loaders.slack.SlackLoader",
             DataType.DROPBOX: "embedchain.loaders.dropbox.DropboxLoader",
             DataType.TEXT_FILE: "embedchain.loaders.text_file.TextFileLoader",
+            DataType.EXCEL_FILE: "embedchain.loaders.excel_file.ExcelFileLoader",
+            DataType.AUDIO: "embedchain.loaders.audio.AudioLoader",
         }
 
         if data_type == DataType.CUSTOM or loader is not None:
@@ -127,6 +129,8 @@ class DataFormatter(JSONSerializable):
             DataType.SLACK: "embedchain.chunkers.common_chunker.CommonChunker",
             DataType.DROPBOX: "embedchain.chunkers.common_chunker.CommonChunker",
             DataType.TEXT_FILE: "embedchain.chunkers.common_chunker.CommonChunker",
+            DataType.EXCEL_FILE: "embedchain.chunkers.excel_file.ExcelFileChunker",
+            DataType.AUDIO: "embedchain.chunkers.audio.AudioChunker",
         }
 
         if chunker is not None:

@@ -6,6 +6,8 @@ from embedchain.config.add_config import ChunkerConfig
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.models.data_type import DataType
 
+logger = logging.getLogger(__name__)
+
 
 class BaseChunker(JSONSerializable):
     def __init__(self, text_splitter):
@@ -27,7 +29,7 @@ class BaseChunker(JSONSerializable):
         chunk_ids = []
         id_map = {}
         min_chunk_size = config.min_chunk_size if config is not None else 1
-        logging.info(f"Skipping chunks smaller than {min_chunk_size} characters")
+        logger.info(f"Skipping chunks smaller than {min_chunk_size} characters")
         data_result = loader.load_data(src)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]
@@ -39,11 +41,14 @@ class BaseChunker(JSONSerializable):
         for data in data_records:
             content = data["content"]
 
-            meta_data = data["meta_data"]
+            metadata = data["meta_data"]
             # add data type to meta data to allow query using data type
-            meta_data["data_type"] = self.data_type.value
-            meta_data["doc_id"] = doc_id
-            url = meta_data["url"]
+            metadata["data_type"] = self.data_type.value
+            metadata["doc_id"] = doc_id
+
+            # TODO: Currently defaulting to the src as the url. This is done intentianally since some
+            # of the data types like 'gmail' loader doesn't have the url in the meta data.
+            url = metadata.get("url", src)
 
             chunks = self.get_chunks(content)
             for chunk in chunks:
@@ -53,7 +58,7 @@ class BaseChunker(JSONSerializable):
                     id_map[chunk_id] = True
                     chunk_ids.append(chunk_id)
                     documents.append(chunk)
-                    metadatas.append(meta_data)
+                    metadatas.append(metadata)
         return {
             "documents": documents,
             "ids": chunk_ids,
@@ -79,4 +84,4 @@ class BaseChunker(JSONSerializable):
 
     @staticmethod
     def get_word_count(documents) -> int:
-        return sum([len(document.split(" ")) for document in documents])
+        return sum(len(document.split(" ")) for document in documents)

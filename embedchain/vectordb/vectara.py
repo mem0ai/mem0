@@ -1,19 +1,16 @@
 import datetime
 import json
 import os
+import re
 import traceback
 from typing import Any, List, Mapping, Optional, Union
-import re
 
 import requests
 
+from embedchain import App
 from embedchain.config.vectordb.vectara import VectaraDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
-
-from embedchain import App
-from embedchain.config import BaseLlmConfig
-from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
 
 BASE_URL = "https://api.vectara.io/v1"
 START_SNIPPET = "<%START%>"

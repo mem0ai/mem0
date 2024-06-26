@@ -75,3 +75,8 @@ class BaseVectorDB(JSONSerializable):
         :type name: str
         """
         raise NotImplementedError
+
+    def delete(self):
+        """Delete from database."""
+
+        raise NotImplementedError

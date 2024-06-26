@@ -19,6 +19,8 @@ from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.loaders.web_page import WebPageLoader
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class SitemapLoader(BaseLoader):
@@ -31,14 +33,17 @@ class SitemapLoader(BaseLoader):
     def load_data(self, sitemap_source):
         output = []
         web_page_loader = WebPageLoader()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
+        }
 
         if urlparse(sitemap_source).scheme in ("http", "https"):
             try:
-                response = requests.get(sitemap_source)
+                response = requests.get(sitemap_source, headers=headers)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, "xml")
             except requests.RequestException as e:
-                logging.error(f"Error fetching sitemap from URL: {e}")
+                logger.error(f"Error fetching sitemap from URL: {e}")
                 return
         elif os.path.isfile(sitemap_source):
             with open(sitemap_source, "r") as file:
@@ -57,7 +62,7 @@ class SitemapLoader(BaseLoader):
                 loader_data = web_page_loader.load_data(link)
                 return loader_data.get("data")
             except ParserRejectedMarkup as e:
-                logging.error(f"Failed to parse {link}: {e}")
+                logger.error(f"Failed to parse {link}: {e}")
             return None
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -69,6 +74,6 @@ class SitemapLoader(BaseLoader):
                     if data:
                         output.extend(data)
                 except Exception as e:
-                    logging.error(f"Error loading page {link}: {e}")
+                    logger.error(f"Error loading page {link}: {e}")
 
         return {"doc_id": doc_id, "data": output}

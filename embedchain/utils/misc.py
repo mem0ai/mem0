@@ -1,3 +1,4 @@
+import datetime
 import itertools
 import json
 import logging
@@ -10,6 +11,8 @@ from schema import Optional, Or, Schema
 from tqdm import tqdm
 
 from embedchain.models.data_type import DataType
+
+logger = logging.getLogger(__name__)
 
 
 def parse_content(content, type):
@@ -61,7 +64,7 @@ def parse_content(content, type):
 
     cleaned_size = len(content)
     if original_size != 0:
-        logging.info(
+        logger.info(
             f"Cleaned page size: {cleaned_size} characters, down from {original_size} (shrunk: {original_size-cleaned_size} chars, {round((1-(cleaned_size/original_size)) * 100, 2)}%)"  # noqa:E501
         )
 
@@ -79,9 +82,6 @@ def clean_string(text):
         cleaned_text (str): The cleaned text after all the cleaning operations
         have been performed.
     """
-    # Replacement of newline characters:
-    text = text.replace("\n", " ")
-
     # Stripping and reducing multiple spaces to single:
     cleaned_text = re.sub(r"\s+", " ", text.strip())
 
@@ -109,11 +109,11 @@ def is_readable(s):
     :param s: string
     :return: True if the string is more than 95% printable.
     """
-    try:
-        printable_ratio = sum(c in string.printable for c in s) / len(s)
-    except ZeroDivisionError:
-        logging.warning("Empty string processed as unreadable")
-        printable_ratio = 0
+    len_s = len(s)
+    if len_s == 0:
+        return False
+    printable_chars = set(string.printable)
+    printable_ratio = sum(c in printable_chars for c in s) / len_s
     return printable_ratio > 0.95  # 95% of characters are printable
 
 
@@ -211,32 +211,38 @@ def detect_datatype(source: Any) -> DataType:
         }
 
         if url.netloc in YOUTUBE_ALLOWED_NETLOCKS:
-            logging.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `youtube_video`.")
             return DataType.YOUTUBE_VIDEO
 
         if url.netloc in {"notion.so", "notion.site"}:
-            logging.debug(f"Source of `{formatted_source}` detected as `notion`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `notion`.")
             return DataType.NOTION
 
         if url.path.endswith(".pdf"):
-            logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
             return DataType.PDF_FILE
 
         if url.path.endswith(".xml"):
-            logging.debug(f"Source of `{formatted_source}` detected as `sitemap`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `sitemap`.")
             return DataType.SITEMAP
 
         if url.path.endswith(".csv"):
-            logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
 
         if url.path.endswith(".mdx") or url.path.endswith(".md"):
-            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `mdx`.")
             return DataType.MDX
 
         if url.path.endswith(".docx"):
-            logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
+
+        if url.path.endswith(
+            (".mp3", ".mp4", ".mp2", ".aac", ".wav", ".flac", ".pcm", ".m4a", ".ogg", ".opus", ".webm")
+        ):
+            logger.debug(f"Source of `{formatted_source}` detected as `audio`.")
+            return DataType.AUDIO
 
         if url.path.endswith(".yaml"):
             try:
@@ -245,14 +251,14 @@ def detect_datatype(source: Any) -> DataType:
                 try:
                     yaml_content = yaml.safe_load(response.text)
                 except yaml.YAMLError as exc:
-                    logging.error(f"Error parsing YAML: {exc}")
+                    logger.error(f"Error parsing YAML: {exc}")
                     raise TypeError(f"Not a valid data type. Error loading YAML: {exc}")
 
                 if is_openapi_yaml(yaml_content):
-                    logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
+                    logger.debug(f"Source of `{formatted_source}` detected as `openapi`.")
                     return DataType.OPENAPI
                 else:
-                    logging.error(
+                    logger.error(
                         f"Source of `{formatted_source}` does not contain all the required \
                         fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'"
                     )
@@ -261,35 +267,35 @@ def detect_datatype(source: Any) -> DataType:
                         make sure you have all the required fields in YAML config data"
                     )
             except requests.exceptions.RequestException as e:
-                logging.error(f"Error fetching URL {formatted_source}: {e}")
+                logger.error(f"Error fetching URL {formatted_source}: {e}")
 
         if url.path.endswith(".json"):
-            logging.debug(f"Source of `{formatted_source}` detected as `json_file`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `json_file`.")
             return DataType.JSON
 
         if "docs" in url.netloc or ("docs" in url.path and url.scheme != "file"):
             # `docs_site` detection via path is not accepted for local filesystem URIs,
             # because that would mean all paths that contain `docs` are now doc sites, which is too aggressive.
-            logging.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `docs_site`.")
             return DataType.DOCS_SITE
 
         if "github.com" in url.netloc:
-            logging.debug(f"Source of `{formatted_source}` detected as `github`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `github`.")
             return DataType.GITHUB
 
         if is_google_drive_folder(url.netloc + url.path):
-            logging.debug(f"Source of `{formatted_source}` detected as `google drive folder`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `google drive folder`.")
             return DataType.GOOGLE_DRIVE_FOLDER
 
         # If none of the above conditions are met, it's a general web page
-        logging.debug(f"Source of `{formatted_source}` detected as `web_page`.")
+        logger.debug(f"Source of `{formatted_source}` detected as `web_page`.")
         return DataType.WEB_PAGE
 
     elif not isinstance(source, str):
         # For datatypes where source is not a string.
 
         if isinstance(source, tuple) and len(source) == 2 and isinstance(source[0], str) and isinstance(source[1], str):
-            logging.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `qna_pair`.")
             return DataType.QNA_PAIR
 
         # Raise an error if it isn't a string and also not a valid non-string type (one of the previous).
@@ -303,37 +309,37 @@ def detect_datatype(source: Any) -> DataType:
         # Note: checking for string is not necessary anymore.
 
         if source.endswith(".docx"):
-            logging.debug(f"Source of `{formatted_source}` detected as `docx`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
         if source.endswith(".csv"):
-            logging.debug(f"Source of `{formatted_source}` detected as `csv`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `csv`.")
             return DataType.CSV
 
         if source.endswith(".xml"):
-            logging.debug(f"Source of `{formatted_source}` detected as `xml`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `xml`.")
             return DataType.XML
 
         if source.endswith(".mdx") or source.endswith(".md"):
-            logging.debug(f"Source of `{formatted_source}` detected as `mdx`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `mdx`.")
             return DataType.MDX
 
         if source.endswith(".txt"):
-            logging.debug(f"Source of `{formatted_source}` detected as `text`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `text`.")
             return DataType.TEXT_FILE
 
         if source.endswith(".pdf"):
-            logging.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `pdf_file`.")
             return DataType.PDF_FILE
 
         if source.endswith(".yaml"):
             with open(source, "r") as file:
                 yaml_content = yaml.safe_load(file)
                 if is_openapi_yaml(yaml_content):
-                    logging.debug(f"Source of `{formatted_source}` detected as `openapi`.")
+                    logger.debug(f"Source of `{formatted_source}` detected as `openapi`.")
                     return DataType.OPENAPI
                 else:
-                    logging.error(
+                    logger.error(
                         f"Source of `{formatted_source}` does not contain all the required \
                                   fields of OpenAPI yaml. Check 'https://spec.openapis.org/oas/v3.1.0'"
                     )
@@ -343,11 +349,11 @@ def detect_datatype(source: Any) -> DataType:
                     )
 
         if source.endswith(".json"):
-            logging.debug(f"Source of `{formatted_source}` detected as `json`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `json`.")
             return DataType.JSON
 
         if os.path.exists(source) and is_readable(open(source).read()):
-            logging.debug(f"Source of `{formatted_source}` detected as `text_file`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `text_file`.")
             return DataType.TEXT_FILE
 
         # If the source is a valid file, that's not detectable as a type, an error is raised.
@@ -363,11 +369,11 @@ def detect_datatype(source: Any) -> DataType:
 
         # check if the source is valid json string
         if is_valid_json_string(source):
-            logging.debug(f"Source of `{formatted_source}` detected as `json`.")
+            logger.debug(f"Source of `{formatted_source}` detected as `json`.")
             return DataType.JSON
 
         # Use text as final fallback.
-        logging.debug(f"Source of `{formatted_source}` detected as `text`.")
+        logger.debug(f"Source of `{formatted_source}` detected as `text`.")
         return DataType.TEXT
 
 
@@ -408,14 +414,20 @@ def validate_config(config_data):
                     "google",
                     "aws_bedrock",
                     "mistralai",
+                    "clarifai",
+                    "vllm",
+                    "groq",
+                    "nvidia",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
+                    Optional("model_name"): str,
                     Optional("number_documents"): int,
                     Optional("temperature"): float,
                     Optional("max_tokens"): int,
                     Optional("top_p"): Or(float, int),
                     Optional("stream"): bool,
+                    Optional("online"): bool,
                     Optional("template"): str,
                     Optional("prompt"): str,
                     Optional("system_prompt"): str,
@@ -423,13 +435,18 @@ def validate_config(config_data):
                     Optional("where"): dict,
                     Optional("query_type"): str,
                     Optional("api_key"): str,
+                    Optional("base_url"): str,
                     Optional("endpoint"): str,
                     Optional("model_kwargs"): dict,
+                    Optional("local"): bool,
+                    Optional("base_url"): str,
+                    Optional("default_headers"): dict,
+                    Optional("api_version"): Or(str, datetime.date),
                 },
             },
             Optional("vectordb"): {
                 Optional("provider"): Or(
-                    "chroma", "elasticsearch", "opensearch", "pinecone", "qdrant", "vectara", "weaviate", "zilliz"
+                    "chroma", "elasticsearch", "opensearch", "lancedb", "pinecone", "qdrant", "weaviate", "zilliz"
                 ),
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
@@ -442,14 +459,21 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "clarifai",
+                    "nvidia",
+                    "ollama",
+                    "cohere",
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
                     Optional("deployment_name"): Optional(str),
                     Optional("api_key"): str,
+                    Optional("api_base"): str,
                     Optional("title"): str,
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
+                    Optional("base_url"): str,
+                    Optional("endpoint"): str,
                 },
             },
             Optional("embedding_model"): {
@@ -461,6 +485,9 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "clarifai",
+                    "nvidia",
+                    "ollama",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
@@ -469,6 +496,7 @@ def validate_config(config_data):
                     Optional("title"): str,
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
+                    Optional("base_url"): str,
                 },
             },
             Optional("chunker"): {

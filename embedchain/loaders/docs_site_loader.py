@@ -15,6 +15,8 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 
+logger = logging.getLogger(__name__)
+
 
 @register_deserializable
 class DocsSiteLoader(BaseLoader):
@@ -22,26 +24,28 @@ class DocsSiteLoader(BaseLoader):
         self.visited_links = set()
 
     def _get_child_links_recursive(self, url):
+        if url in self.visited_links:
+            return
+
         parsed_url = urlparse(url)
         base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
         current_path = parsed_url.path
 
         response = requests.get(url)
         if response.status_code != 200:
-            logging.info(f"Failed to fetch the website: {response.status_code}")
+            logger.info(f"Failed to fetch the website: {response.status_code}")
             return
 
         soup = BeautifulSoup(response.text, "html.parser")
-        all_links = [link.get("href") for link in soup.find_all("a")]
+        all_links = (link.get("href") for link in soup.find_all("a", href=True))
 
-        child_links = [link for link in all_links if link and link.startswith(current_path) and link != current_path]
+        child_links = (link for link in all_links if link.startswith(current_path) and link != current_path)
 
-        absolute_paths = [urljoin(base_url, link) for link in child_links]
+        absolute_paths = set(urljoin(base_url, link) for link in child_links)
 
-        for link in absolute_paths:
-            if link not in self.visited_links:
-                self.visited_links.add(link)
-                self._get_child_links_recursive(link)
+        self.visited_links.update(absolute_paths)
+
+        [self._get_child_links_recursive(link) for link in absolute_paths if link not in self.visited_links]
 
     def _get_all_urls(self, url):
         self.visited_links = set()
@@ -53,7 +57,7 @@ class DocsSiteLoader(BaseLoader):
     def _load_data_from_url(url: str) -> list:
         response = requests.get(url)
         if response.status_code != 200:
-            logging.info(f"Failed to fetch the website: {response.status_code}")
+            logger.info(f"Failed to fetch the website: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.content, "html.parser")
