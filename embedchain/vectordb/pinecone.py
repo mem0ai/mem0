@@ -25,8 +25,6 @@ class PineconeDB(BaseVectorDB):
     Pinecone as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(
         self,
         config: Optional[PineconeDBConfig] = None,
@@ -103,10 +101,9 @@ class PineconeDB(BaseVectorDB):
         existing_ids = list()
         metadatas = []
 
-        batch_size = 100
         if ids is not None:
-            for i in range(0, len(ids), batch_size):
-                result = self.pinecone_index.fetch(ids=ids[i : i + batch_size])
+            for i in range(0, len(ids), self.config.batch_size):
+                result = self.pinecone_index.fetch(ids=ids[i : i + self.config.batch_size])
                 vectors = result.get("vectors")
                 batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
@@ -145,7 +142,7 @@ class PineconeDB(BaseVectorDB):
                 },
             )
 
-        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches"):
+        for chunk in chunks(docs, self.config.batch_size, desc="Adding chunks in batches"):
             self.pinecone_index.upsert(chunk, **kwargs)
 
     def query(
