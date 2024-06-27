@@ -20,8 +20,6 @@ class WeaviateDB(BaseVectorDB):
     Weaviate as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(
         self,
         config: Optional[WeaviateDBConfig] = None,
@@ -169,7 +167,7 @@ class WeaviateDB(BaseVectorDB):
                 )
                 .with_where(weaviate_where_clause)
                 .with_additional(["id"])
-                .with_limit(limit or self.BATCH_SIZE),
+                .with_limit(limit or self.config.batch_size),
                 offset,
             )
 
@@ -198,7 +196,7 @@ class WeaviateDB(BaseVectorDB):
         :type ids: list[str]
         """
         embeddings = self.embedder.embedding_fn(documents)
-        self.client.batch.configure(batch_size=self.BATCH_SIZE, timeout_retries=3)  # Configure batch
+        self.client.batch.configure(batch_size=self.config.batch_size, timeout_retries=3)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
             for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
                 doc = {"identifier": id, "text": text}

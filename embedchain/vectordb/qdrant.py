@@ -21,8 +21,6 @@ class QdrantDB(BaseVectorDB):
     Qdrant as vector database
     """
 
-    BATCH_SIZE = 10
-
     def __init__(self, config: QdrantDBConfig = None):
         """
         Qdrant as vector database
@@ -116,7 +114,7 @@ class QdrantDB(BaseVectorDB):
                 collection_name=self.collection_name,
                 scroll_filter=models.Filter(must=qdrant_must_filters),
                 offset=offset,
-                limit=self.BATCH_SIZE,
+                limit=self.config.batch_size,
             )
             offset = response[1]
             for doc in response[0]:
@@ -148,13 +146,13 @@ class QdrantDB(BaseVectorDB):
             qdrant_ids.append(id)
             payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
 
-        for i in tqdm(range(0, len(qdrant_ids), self.BATCH_SIZE), desc="Adding data in batches"):
+        for i in tqdm(range(0, len(qdrant_ids), self.config.batch_size), desc="Adding data in batches"):
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=Batch(
-                    ids=qdrant_ids[i : i + self.BATCH_SIZE],
-                    payloads=payloads[i : i + self.BATCH_SIZE],
-                    vectors=embeddings[i : i + self.BATCH_SIZE],
+                    ids=qdrant_ids[i : i + self.config.batch_size],
+                    payloads=payloads[i : i + self.config.batch_size],
+                    vectors=embeddings[i : i + self.config.batch_size],
                 ),
                 **kwargs,
             )

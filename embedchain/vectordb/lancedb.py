@@ -18,8 +18,6 @@ class LanceDB(BaseVectorDB):
     LanceDB as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(
         self,
         config: Optional[LanceDBConfig] = None,

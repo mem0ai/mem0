@@ -23,8 +23,6 @@ class ElasticsearchDB(BaseVectorDB):
     Elasticsearch as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(
         self,
         config: Optional[ElasticsearchDBConfig] = None,
@@ -140,7 +138,9 @@ class ElasticsearchDB(BaseVectorDB):
         embeddings = self.embedder.embedding_fn(documents)
 
         for chunk in chunks(
-            list(zip(ids, documents, metadatas, embeddings)), self.BATCH_SIZE, desc="Inserting batches in elasticsearch"
+            list(zip(ids, documents, metadatas, embeddings)),
+            self.config.batch_size,
+            desc="Inserting batches in elasticsearch",
         ):  # noqa: E501
             ids, docs, metadatas, embeddings = [], [], [], []
             for id, text, metadata, embedding in chunk:
