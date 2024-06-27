@@ -28,8 +28,6 @@ class OpenSearchDB(BaseVectorDB):
     OpenSearch as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(self, config: OpenSearchDBConfig):
         """OpenSearch as vector database.
 
@@ -120,8 +118,10 @@ class OpenSearchDB(BaseVectorDB):
         """Adds documents to the opensearch index"""
 
         embeddings = self.embedder.embedding_fn(documents)
-        for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
-            batch_end = batch_start + self.BATCH_SIZE
+        for batch_start in tqdm(
+            range(0, len(documents), self.config.batch_size), desc="Inserting batches in opensearch"
+        ):
+            batch_end = batch_start + self.config.batch_size
             batch_documents = documents[batch_start:batch_end]
             batch_embeddings = embeddings[batch_start:batch_end]
 

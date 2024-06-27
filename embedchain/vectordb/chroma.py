@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    BATCH_SIZE = 100
-
     def __init__(self, config: Optional[ChromaDbConfig] = None):
         """Initialize a new ChromaDB instance
 
@@ -155,11 +153,11 @@ class ChromaDB(BaseVectorDB):
                 " Ids size: {}".format(len(documents), len(metadatas), len(ids))
             )
 
-        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
+        for i in tqdm(range(0, len(documents), self.config.batch_size), desc="Inserting batches in chromadb"):
             self.collection.add(
-                documents=documents[i : i + self.BATCH_SIZE],
-                metadatas=metadatas[i : i + self.BATCH_SIZE],
-                ids=ids[i : i + self.BATCH_SIZE],
+                documents=documents[i : i + self.config.batch_size],
+                metadatas=metadatas[i : i + self.config.batch_size],
+                ids=ids[i : i + self.config.batch_size],
             )
 
     @staticmethod

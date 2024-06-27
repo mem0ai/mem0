@@ -217,6 +217,7 @@ Alright, let's dive into what each key means in the yaml config above:
         - `collection_name` (String): The initial collection name for the vectordb, set to 'full-stack-app'.
         - `dir` (String): The directory for the local database, set to 'db'.
         - `allow_reset` (Boolean): Indicates whether resetting the vectordb is allowed, set to true.
+        - `batch_size` (Integer): The batch size for docs insertion in vectordb, defaults to `100`
     <Note>We recommend you to checkout vectordb specific config [here](https://docs.embedchain.ai/components/vector-databases)</Note>
 4. `embedder` Section:
     - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
