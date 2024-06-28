@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import pytest
 from sqlalchemy import MetaData, create_engine
@@ -33,3 +34,9 @@ def disable_telemetry():
     os.environ["EC_TELEMETRY"] = "false"
     yield
     del os.environ["EC_TELEMETRY"]
+
+
+@pytest.fixture(autouse=True)
+def mock_alembic_command():
+    with mock.patch("alembic.command.upgrade") as mock_alembic:
+        yield
