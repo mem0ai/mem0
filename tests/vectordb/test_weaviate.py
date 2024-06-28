@@ -124,7 +124,6 @@ class TestWeaviateDb(unittest.TestCase):
         db = WeaviateDB()
         app_config = AppConfig(collect_metrics=False)
         App(config=app_config, db=db, embedding_model=embedder)
-        db.config.batch_size = 1
 
         documents = ["This is test document"]
         metadatas = [None]
@@ -132,7 +131,7 @@ class TestWeaviateDb(unittest.TestCase):
         db.add(documents, metadatas, ids)
 
         # Check if the document was added to the database.
-        weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=1, timeout_retries=3)
+        weaviate_client_batch_mock.configure.assert_called_once_with(batch_size=100, timeout_retries=3)
         weaviate_client_batch_enter_mock.add_data_object.assert_any_call(
             data_object={"text": documents[0]}, class_name="Embedchain_store_1536_metadata", vector=[1, 2, 3]
         )
