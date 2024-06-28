@@ -18,6 +18,7 @@ class QdrantDBConfig(BaseVectorDbConfig):
         hnsw_config: Optional[dict[str, any]] = None,
         quantization_config: Optional[dict[str, any]] = None,
         on_disk: Optional[bool] = None,
+        batch_size: Optional[int] = 10,
         **extra_params: dict[str, any],
     ):
         """
@@ -36,9 +37,12 @@ class QdrantDBConfig(BaseVectorDbConfig):
                 This setting saves RAM by (slightly) increasing the response time.
                 Note: those payload values that are involved in filtering and are indexed - remain in RAM.
         :type on_disk: bool, optional, defaults to None
+        :param batch_size: Number of items to insert in one batch, defaults to 10
+        :type batch_size: Optional[int], optional
         """
         self.hnsw_config = hnsw_config
         self.quantization_config = quantization_config
         self.on_disk = on_disk
+        self.batch_size = batch_size
         self.extra_params = extra_params
         super().__init__(collection_name=collection_name, dir=dir)

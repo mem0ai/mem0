@@ -10,7 +10,6 @@ class BaseVectorDbConfig(BaseConfig):
         dir: str = "db",
         host: Optional[str] = None,
         port: Optional[str] = None,
-        batch_size: Optional[int] = 100,
         **kwargs,
     ):
         """
@@ -24,8 +23,6 @@ class BaseVectorDbConfig(BaseConfig):
         :type host: Optional[str], optional
         :param host: Database connection remote port. Use this if you run Embedchain as a client, defaults to None
         :type port: Optional[str], optional
-        :param batch_size: Number of items to insert in one batch, defaults to 100
-        :type batch_size: Optional[int], optional
         :param kwargs: Additional keyword arguments
         :type kwargs: dict
         """
@@ -33,7 +30,6 @@ class BaseVectorDbConfig(BaseConfig):
         self.dir = dir
         self.host = host
         self.port = port
-        self.batch_size = batch_size
         # Assign additional keyword arguments
         if kwargs:
             for key, value in kwargs.items():
