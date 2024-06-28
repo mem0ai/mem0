@@ -37,6 +37,7 @@ class OpenSearchDB(BaseVectorDB):
         if config is None:
             raise ValueError("OpenSearchDBConfig is required")
         self.config = config
+        self.batch_size = self.config.batch_size
         self.client = OpenSearch(
             hosts=[self.config.opensearch_url],
             http_auth=self.config.http_auth,
@@ -118,10 +119,8 @@ class OpenSearchDB(BaseVectorDB):
         """Adds documents to the opensearch index"""
 
         embeddings = self.embedder.embedding_fn(documents)
-        for batch_start in tqdm(
-            range(0, len(documents), self.config.batch_size), desc="Inserting batches in opensearch"
-        ):
-            batch_end = batch_start + self.config.batch_size
+        for batch_start in tqdm(range(0, len(documents), self.batch_size), desc="Inserting batches in opensearch"):
+            batch_end = batch_start + self.batch_size
             batch_documents = documents[batch_start:batch_end]
             batch_embeddings = embeddings[batch_start:batch_end]
 
