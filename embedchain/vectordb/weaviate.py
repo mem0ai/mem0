@@ -38,6 +38,7 @@ class WeaviateDB(BaseVectorDB):
                     "Please make sure the type is right and that you are passing an instance."
                 )
             self.config = config
+        self.batch_size = self.config.batch_size
         self.client = weaviate.Client(
             url=os.environ.get("WEAVIATE_ENDPOINT"),
             auth_client_secret=weaviate.AuthApiKey(api_key=os.environ.get("WEAVIATE_API_KEY")),
@@ -167,7 +168,7 @@ class WeaviateDB(BaseVectorDB):
                 )
                 .with_where(weaviate_where_clause)
                 .with_additional(["id"])
-                .with_limit(limit or self.config.batch_size),
+                .with_limit(limit or self.batch_size),
                 offset,
             )
 
@@ -196,7 +197,7 @@ class WeaviateDB(BaseVectorDB):
         :type ids: list[str]
         """
         embeddings = self.embedder.embedding_fn(documents)
-        self.client.batch.configure(batch_size=self.config.batch_size, timeout_retries=3)  # Configure batch
+        self.client.batch.configure(batch_size=self.batch_size, timeout_retries=3)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
             for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
                 doc = {"identifier": id, "text": text}

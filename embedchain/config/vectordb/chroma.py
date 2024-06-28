@@ -12,6 +12,7 @@ class ChromaDbConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         host: Optional[str] = None,
         port: Optional[str] = None,
+        batch_size: Optional[int] = 100,
         allow_reset=False,
         chroma_settings: Optional[dict] = None,
     ):
@@ -26,6 +27,8 @@ class ChromaDbConfig(BaseVectorDbConfig):
         :type host: Optional[str], optional
         :param port: Database connection remote port. Use this if you run Embedchain as a client, defaults to None
         :type port: Optional[str], optional
+        :param batch_size: Number of items to insert in one batch, defaults to 100
+        :type batch_size: Optional[int], optional
         :param allow_reset: Resets the database. defaults to False
         :type allow_reset: bool
         :param chroma_settings: Chroma settings dict, defaults to None
@@ -34,4 +37,5 @@ class ChromaDbConfig(BaseVectorDbConfig):
 
         self.chroma_settings = chroma_settings
         self.allow_reset = allow_reset
+        self.batch_size = batch_size
         super().__init__(collection_name=collection_name, dir=dir, host=host, port=port)

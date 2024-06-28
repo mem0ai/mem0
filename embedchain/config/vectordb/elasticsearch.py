@@ -13,6 +13,7 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         dir: Optional[str] = None,
         es_url: Union[str, list[str]] = None,
         cloud_id: Optional[str] = None,
+        batch_size: Optional[int] = 100,
         **ES_EXTRA_PARAMS: dict[str, any],
     ):
         """
@@ -24,6 +25,10 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
         :type dir: Optional[str], optional
         :param es_url: elasticsearch url or list of nodes url to be used for connection, defaults to None
         :type es_url: Union[str, list[str]], optional
+        :param cloud_id: cloud id of the elasticsearch cluster, defaults to None
+        :type cloud_id: Optional[str], optional
+        :param batch_size: Number of items to insert in one batch, defaults to 100
+        :type batch_size: Optional[int], optional
         :param ES_EXTRA_PARAMS: extra params dict that can be passed to elasticsearch.
         :type ES_EXTRA_PARAMS: dict[str, Any], optional
         """
@@ -46,4 +51,6 @@ class ElasticsearchDBConfig(BaseVectorDbConfig):
             and not self.ES_EXTRA_PARAMS.get("bearer_auth")
         ):
             self.ES_EXTRA_PARAMS["api_key"] = os.environ.get("ELASTICSEARCH_API_KEY")
+
+        self.batch_size = batch_size
         super().__init__(collection_name=collection_name, dir=dir)

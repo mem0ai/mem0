@@ -35,6 +35,7 @@ class QdrantDB(BaseVectorDB):
                     "Please make sure the type is right and that you are passing an instance."
                 )
         self.config = config
+        self.batch_size = self.config.batch_size
         self.client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
@@ -114,7 +115,7 @@ class QdrantDB(BaseVectorDB):
                 collection_name=self.collection_name,
                 scroll_filter=models.Filter(must=qdrant_must_filters),
                 offset=offset,
-                limit=self.config.batch_size,
+                limit=self.batch_size,
             )
             offset = response[1]
             for doc in response[0]:
@@ -146,13 +147,13 @@ class QdrantDB(BaseVectorDB):
             qdrant_ids.append(id)
             payloads.append({"identifier": id, "text": document, "metadata": copy.deepcopy(metadata)})
 
-        for i in tqdm(range(0, len(qdrant_ids), self.config.batch_size), desc="Adding data in batches"):
+        for i in tqdm(range(0, len(qdrant_ids), self.batch_size), desc="Adding data in batches"):
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=Batch(
-                    ids=qdrant_ids[i : i + self.config.batch_size],
-                    payloads=payloads[i : i + self.config.batch_size],
-                    vectors=embeddings[i : i + self.config.batch_size],
+                    ids=qdrant_ids[i : i + self.batch_size],
+                    payloads=payloads[i : i + self.batch_size],
+                    vectors=embeddings[i : i + self.batch_size],
                 ),
                 **kwargs,
             )

@@ -48,6 +48,7 @@ class PineconeDB(BaseVectorDB):
 
         # Setup BM25Encoder if sparse vectors are to be used
         self.bm25_encoder = None
+        self.batch_size = self.config.batch_size
         if self.config.hybrid_search:
             logger.info("Initializing BM25Encoder for sparse vectors..")
             self.bm25_encoder = self.config.bm25_encoder if self.config.bm25_encoder else BM25Encoder.default()
@@ -102,8 +103,8 @@ class PineconeDB(BaseVectorDB):
         metadatas = []
 
         if ids is not None:
-            for i in range(0, len(ids), self.config.batch_size):
-                result = self.pinecone_index.fetch(ids=ids[i : i + self.config.batch_size])
+            for i in range(0, len(ids), self.batch_size):
+                result = self.pinecone_index.fetch(ids=ids[i : i + self.batch_size])
                 vectors = result.get("vectors")
                 batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
@@ -142,7 +143,7 @@ class PineconeDB(BaseVectorDB):
                 },
             )
 
-        for chunk in chunks(docs, self.config.batch_size, desc="Adding chunks in batches"):
+        for chunk in chunks(docs, self.batch_size, desc="Adding chunks in batches"):
             self.pinecone_index.upsert(chunk, **kwargs)
 
     def query(

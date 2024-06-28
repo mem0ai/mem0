@@ -55,6 +55,7 @@ class ElasticsearchDB(BaseVectorDB):
                 "Something is wrong with your config. Please check again - `https://docs.embedchain.ai/components/vector-databases#elasticsearch`"  # noqa: E501
             )
 
+        self.batch_size = self.config.batch_size
         # Call parent init here because embedder is needed
         super().__init__(config=self.config)
 
@@ -139,7 +140,7 @@ class ElasticsearchDB(BaseVectorDB):
 
         for chunk in chunks(
             list(zip(ids, documents, metadatas, embeddings)),
-            self.config.batch_size,
+            self.batch_size,
             desc="Inserting batches in elasticsearch",
         ):  # noqa: E501
             ids, docs, metadatas, embeddings = [], [], [], []
