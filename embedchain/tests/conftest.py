@@ -37,6 +37,6 @@ def disable_telemetry():
 
 
 @pytest.fixture(autouse=True)
-def mock_alembic_command():
-    with mock.patch("alembic.command.upgrade") as mock_alembic:
+def mock_alembic_command_upgrade():
+    with mock.patch("alembic.command.upgrade"):
         yield
