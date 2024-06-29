@@ -192,6 +192,8 @@ embedder:
   provider: huggingface
   config:
     model: 'sentence-transformers/all-mpnet-base-v2'
+    model_kwargs:
+        trust_remote_code: True # Only use if you trust your embedder
 ```
 
 </CodeGroup>

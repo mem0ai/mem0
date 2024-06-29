@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from embedchain.helpers.json_serializable import register_deserializable
 
@@ -13,6 +13,7 @@ class BaseEmbedderConfig:
         endpoint: Optional[str] = None,
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize a new instance of an embedder config class.
@@ -36,3 +37,4 @@ class BaseEmbedderConfig:
         self.endpoint = endpoint
         self.api_key = api_key
         self.api_base = api_base
+        self.model_kwargs = model_kwargs or {}
