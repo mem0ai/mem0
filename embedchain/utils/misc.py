@@ -474,6 +474,7 @@ def validate_config(config_data):
                     Optional("vector_dimension"): int,
                     Optional("base_url"): str,
                     Optional("endpoint"): str,
+                    Optional("model_kwargs"): dict,
                 },
             },
             Optional("embedding_model"): {
