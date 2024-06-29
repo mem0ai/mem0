@@ -30,6 +30,7 @@ class BaseEmbedderConfig:
         :type api_key: Optional[str], optional
         :param api_base: huggingface api base, defaults to None
         :type api_base: Optional[str], optional
+        :type model_kwargs: Optional[Dict[str, Any]], key-value pair defaults to None
         """
         self.model = model
         self.deployment_name = deployment_name
