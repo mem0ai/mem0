@@ -1,7 +1,7 @@
 import logging
 import re
 from string import Template
-from typing import Any, Mapping, Optional, Dict
+from typing import Any, Mapping, Optional, Dict, Union
 
 import httpx
 
@@ -101,8 +101,8 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
-        http_client_proxies: Optional[Dict | str] = None,
-        http_async_client_proxies: Optional[Dict | str] = None,
+        http_client_proxies: Optional[Union[Dict, str]] = None,
+        http_async_client_proxies: Optional[Union[Dict, str]] = None,
         local: Optional[bool] = False,
         default_headers: Optional[Mapping[str, str]] = None,
         api_version: Optional[str] = None,
