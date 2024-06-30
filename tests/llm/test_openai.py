@@ -1,5 +1,6 @@
 import os
 
+import httpx
 import pytest
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
@@ -7,15 +8,27 @@ from embedchain.config import BaseLlmConfig
 from embedchain.llm.openai import OpenAILlm
 
 
-@pytest.fixture
-def config():
+@pytest.fixture()
+def env_config():
     os.environ["OPENAI_API_KEY"] = "test_api_key"
     os.environ["OPENAI_API_BASE"] = "https://api.openai.com/v1/engines/"
+    yield
+    os.environ.pop("OPENAI_API_KEY")
+
+
+@pytest.fixture
+def config(env_config):
     config = BaseLlmConfig(
-        temperature=0.7, max_tokens=50, top_p=0.8, stream=False, system_prompt="System prompt", model="gpt-3.5-turbo"
+        temperature=0.7,
+        max_tokens=50,
+        top_p=0.8,
+        stream=False,
+        system_prompt="System prompt",
+        model="gpt-3.5-turbo",
+        http_client_proxies=None,
+        http_async_client_proxies=None,
     )
     yield config
-    os.environ.pop("OPENAI_API_KEY")
 
 
 def test_get_llm_model_answer(config, mocker):
@@ -75,6 +88,8 @@ def test_get_llm_model_answer_without_system_prompt(config, mocker):
         model_kwargs={"top_p": config.top_p},
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ["OPENAI_API_BASE"],
+        http_client=None,
+        http_async_client=None,
     )
 
 
@@ -93,6 +108,8 @@ def test_get_llm_model_answer_with_special_headers(config, mocker):
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ["OPENAI_API_BASE"],
         default_headers={"test": "test"},
+        http_client=None,
+        http_async_client=None,
     )
 
 
@@ -110,6 +127,8 @@ def test_get_llm_model_answer_with_model_kwargs(config, mocker):
         model_kwargs={"top_p": config.top_p, "response_format": {"type": "json_object"}},
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ["OPENAI_API_BASE"],
+        http_client=None,
+        http_async_client=None,
     )
 
 
@@ -136,8 +155,78 @@ def test_get_llm_model_answer_with_tools(config, mocker, mock_return, expected):
         model_kwargs={"top_p": config.top_p},
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ["OPENAI_API_BASE"],
+        http_client=None,
+        http_async_client=None,
     )
     mocked_convert_to_openai_tool.assert_called_once_with({"test": "test"})
     mocked_json_output_tools_parser.assert_called_once()
 
     assert answer == expected
+
+
+def test_get_llm_model_answer_with_http_client_proxies(env_config, mocker):
+    mocked_openai_chat = mocker.patch("embedchain.llm.openai.ChatOpenAI")
+    mock_http_client = mocker.Mock(spec=httpx.Client)
+    mock_http_client_instance = mocker.Mock(spec=httpx.Client)
+    mock_http_client.return_value = mock_http_client_instance
+
+    mocker.patch("httpx.Client", new=mock_http_client)
+
+    config = BaseLlmConfig(
+        temperature=0.7,
+        max_tokens=50,
+        top_p=0.8,
+        stream=False,
+        system_prompt="System prompt",
+        model="gpt-3.5-turbo",
+        http_client_proxies="http://testproxy.mem0.net:8000",
+    )
+
+    llm = OpenAILlm(config)
+    llm.get_llm_model_answer("Test query")
+
+    mocked_openai_chat.assert_called_once_with(
+        model=config.model,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        model_kwargs={"top_p": config.top_p},
+        api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ["OPENAI_API_BASE"],
+        http_client=mock_http_client_instance,
+        http_async_client=None,
+    )
+    mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+
+
+def test_get_llm_model_answer_with_http_async_client_proxies(env_config, mocker):
+    mocked_openai_chat = mocker.patch("embedchain.llm.openai.ChatOpenAI")
+    mock_http_async_client = mocker.Mock(spec=httpx.AsyncClient)
+    mock_http_async_client_instance = mocker.Mock(spec=httpx.AsyncClient)
+    mock_http_async_client.return_value = mock_http_async_client_instance
+
+    mocker.patch("httpx.AsyncClient", new=mock_http_async_client)
+
+    config = BaseLlmConfig(
+        temperature=0.7,
+        max_tokens=50,
+        top_p=0.8,
+        stream=False,
+        system_prompt="System prompt",
+        model="gpt-3.5-turbo",
+        http_async_client_proxies={"http://": "http://testproxy.mem0.net:8000"},
+    )
+
+    llm = OpenAILlm(config)
+    llm.get_llm_model_answer("Test query")
+
+    mocked_openai_chat.assert_called_once_with(
+        model=config.model,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        model_kwargs={"top_p": config.top_p},
+        api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ["OPENAI_API_BASE"],
+        http_client=None,
+        http_async_client=mock_http_async_client_instance,
+    )
+    mock_http_async_client.assert_called_once_with(proxies={"http://": "http://testproxy.mem0.net:8000"})
