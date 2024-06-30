@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from string import Template
 from typing import Any, Mapping, Optional, Dict
@@ -7,7 +6,6 @@ from typing import Any, Mapping, Optional, Dict
 import httpx
 
 from embedchain.config.base_config import BaseConfig
-from embedchain.core.db.database import setup_engine, init_db
 from embedchain.helpers.json_serializable import register_deserializable
 
 logger = logging.getLogger(__name__)
