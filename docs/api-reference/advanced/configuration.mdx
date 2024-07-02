@@ -30,6 +30,7 @@ llm:
       response_format: 
         type: json_object
     api_version: 2024-02-01
+    http_client_proxies: http://testproxy.mem0.net:8000
     prompt: |
       Use the following pieces of context to answer the query at the end.
       If you don't know the answer, just say that you don't know, don't try to make up an answer.
@@ -89,7 +90,8 @@ cache:
       "system_prompt": "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.",
       "api_key": "sk-xxx",
       "model_kwargs": {"response_format": {"type": "json_object"}},
-      "api_version": "2024-02-01"
+      "api_version": "2024-02-01",
+      "http_client_proxies": "http://testproxy.mem0.net:8000",
     }
   },
   "vectordb": {
@@ -150,7 +152,8 @@ config = {
                 "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare."
             ),
             'api_key': 'sk-xxx',
-            "model_kwargs": {"response_format": {"type": "json_object"}}
+            "model_kwargs": {"response_format": {"type": "json_object"}},
+            "http_client_proxies": "http://testproxy.mem0.net:8000",
         }
     },
     'vectordb': {
@@ -211,6 +214,8 @@ Alright, let's dive into what each key means in the yaml config above:
         - `number_documents` (Integer): Number of documents to pull from the vectordb as context, defaults to 1
         - `api_key` (String): The API key for the language model.
         - `model_kwargs` (Dict): Keyword arguments to pass to the language model. Used for `aws_bedrock` provider, since it requires different arguments for each model.
+        - `http_client_proxies` (Dict | String): The proxy server settings used to create `self.http_client` using `httpx.Client(proxies=http_client_proxies)`
+        - `http_async_client_proxies` (Dict | String): The proxy server settings for async calls used to create `self.http_async_client` using `httpx.AsyncClient(proxies=http_async_client_proxies)`
 3. `vectordb` Section:
     - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
     - `config`:

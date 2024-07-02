@@ -56,7 +56,13 @@ class OpenAILlm(BaseLlm):
                 http_async_client=config.http_async_client,
             )
         else:
-            chat = ChatOpenAI(**kwargs, api_key=api_key, base_url=base_url)
+            chat = ChatOpenAI(
+                **kwargs,
+                api_key=api_key,
+                base_url=base_url,
+                http_client=config.http_client,
+                http_async_client=config.http_async_client,
+            )
         if self.tools:
             return self._query_function_call(chat, self.tools, messages)
 
@@ -69,8 +75,7 @@ class OpenAILlm(BaseLlm):
         messages: list[BaseMessage],
     ) -> str:
         from langchain.output_parsers.openai_tools import JsonOutputToolsParser
-        from langchain_core.utils.function_calling import \
-            convert_to_openai_tool
+        from langchain_core.utils.function_calling import convert_to_openai_tool
 
         openai_tools = [convert_to_openai_tool(tools)]
         chat = chat.bind(tools=openai_tools).pipe(JsonOutputToolsParser())
