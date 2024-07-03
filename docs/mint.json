@@ -67,6 +67,7 @@
         {
           "group": "🔗 Integrations",
           "pages": [
+            "integration/helicone",
             "integration/langsmith",
             "integration/chainlit",
             "integration/streamlit-mistral",
