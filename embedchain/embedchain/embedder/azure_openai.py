@@ -16,8 +16,8 @@ class AzureOpenAIEmbedder(BaseEmbedder):
 
         embeddings = AzureOpenAIEmbeddings(
             deployment=self.config.deployment_name,
-            http_client=config.http_client,
-            http_async_client=config.http_async_client,
+            http_client=self.config.http_client,
+            http_async_client=self.config.http_async_client,
         )
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
 
