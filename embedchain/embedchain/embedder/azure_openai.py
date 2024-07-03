@@ -14,7 +14,11 @@ class AzureOpenAIEmbedder(BaseEmbedder):
         if self.config.model is None:
             self.config.model = "text-embedding-ada-002"
 
-        embeddings = AzureOpenAIEmbeddings(deployment=self.config.deployment_name)
+        embeddings = AzureOpenAIEmbeddings(
+            deployment=self.config.deployment_name,
+            http_client=config.http_client,
+            http_async_client=config.http_async_client,
+        )
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
 
         self.set_embedding_fn(embedding_fn=embedding_fn)
