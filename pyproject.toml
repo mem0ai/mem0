@@ -156,6 +156,7 @@ langchain-google-vertexai = { version = "^1.0.6", optional = true }
 sqlalchemy = "^2.0.27"
 alembic = "^1.13.1"
 langchain-cohere = "^0.1.4"
+langchain-community = "^0.0.38"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
