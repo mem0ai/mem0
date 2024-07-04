@@ -78,4 +78,10 @@ def test_get_llm_model_answer_with_token_usage(monkeypatch, mistralai_llm_config
     answer, token_info = llm.get_llm_model_answer("Test query")
 
     assert answer == "Generated Text"
-    assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 7.5e-07}
+    assert token_info == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
+        "total_cost": 7.5e-07,
+        "cost_currency": "USD",
+    }

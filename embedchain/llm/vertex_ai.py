@@ -39,9 +39,11 @@ class VertexAILlm(BaseLlm):
                 "candidates_token_count"
             ]
             response_token_info = {
-                "input_tokens": token_info["prompt_token_count"],
-                "output_tokens": token_info["candidates_token_count"],
-                "total_cost (USD)": round(total_cost, 10),
+                "prompt_tokens": token_info["prompt_token_count"],
+                "completion_tokens": token_info["candidates_token_count"],
+                "total_tokens": token_info["prompt_token_count"] + token_info["candidates_token_count"],
+                "total_cost": round(total_cost, 10),
+                "cost_currency": "USD",
             }
             return response, response_token_info
         return self._get_answer(prompt, self.config)

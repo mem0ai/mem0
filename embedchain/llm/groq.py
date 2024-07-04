@@ -35,9 +35,11 @@ class GroqLlm(BaseLlm):
                 self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]
             ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
             response_token_info = {
-                "input_tokens": token_info["prompt_tokens"],
-                "output_tokens": token_info["completion_tokens"],
-                "total_cost (USD)": round(total_cost, 10),
+                "prompt_tokens": token_info["prompt_tokens"],
+                "completion_tokens": token_info["completion_tokens"],
+                "total_tokens": token_info["prompt_tokens"] + token_info["completion_tokens"],
+                "total_cost": round(total_cost, 10),
+                "cost_currency": "USD",
             }
             return response, response_token_info
         return self._get_answer(prompt, self.config)

@@ -43,7 +43,13 @@ def test_get_llm_model_answer_with_token_usage(vertexai_llm):
     ):
         response, token_info = vertexai_llm.get_llm_model_answer("Test Query")
         assert response == "Test Response"
-        assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 3.75e-07}
+        assert token_info == {
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "total_tokens": 3,
+            "total_cost": 3.75e-07,
+            "cost_currency": "USD",
+        }
 
 
 @patch("embedchain.llm.vertex_ai.ChatVertexAI")

@@ -53,7 +53,13 @@ def test_get_llm_model_answer_with_token_usage(cohere_llm_config, mocker):
     answer, token_info = llm.get_llm_model_answer("Test query")
 
     assert answer == "Test answer"
-    assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 3.5e-06}
+    assert token_info == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
+        "total_cost": 3.5e-06,
+        "cost_currency": "USD",
+    }
 
 
 def test_get_answer_mocked_cohere(cohere_llm_config, mocker):

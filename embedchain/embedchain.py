@@ -537,10 +537,10 @@ class EmbedChain(JSONSerializable):
 
         if citations:
             if self.llm.config.token_usage:
-                return {"answer": answer, "contexts": contexts, "token_info": token_info}
+                return {"answer": answer, "contexts": contexts, "usage": token_info}
             return answer, contexts
         if self.llm.config.token_usage:
-            return {"answer": answer, "token_info": token_info}
+            return {"answer": answer, "usage": token_info}
 
         logger.warning(
             "Starting from v0.1.125 the return type of query method will be changed to tuple containing `answer`."
@@ -630,10 +630,10 @@ class EmbedChain(JSONSerializable):
 
         if citations:
             if self.llm.config.token_usage:
-                return {"answer": answer, "contexts": contexts, "token_info": token_info}
+                return {"answer": answer, "contexts": contexts, "usage": token_info}
             return answer, contexts
         if self.llm.config.token_usage:
-            return {"answer": answer, "token_info": token_info}
+            return {"answer": answer, "usage": token_info}
 
         logger.warning(
             "Starting from v0.1.125 the return type of query method will be changed to tuple containing `answer`."

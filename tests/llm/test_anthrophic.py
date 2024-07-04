@@ -44,5 +44,11 @@ def test_get_llm_model_answer_with_token_usage(anthropic_llm):
         prompt = "Test Prompt"
         response, token_info = anthropic_llm.get_llm_model_answer(prompt)
         assert response == "Test Response"
-        assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 1.265e-05}
+        assert token_info == {
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "total_tokens": 3,
+            "total_cost": 1.265e-05,
+            "cost_currency": "USD",
+        }
         mock_method.assert_called_once_with(prompt, anthropic_llm.config)

@@ -53,7 +53,13 @@ def test_get_llm_model_answer_with_token_usage(together_llm_config, mocker):
     answer, token_info = llm.get_llm_model_answer("Test query")
 
     assert answer == "Test answer"
-    assert token_info == {"input_tokens": 1, "output_tokens": 2, "total_cost (USD)": 3e-07}
+    assert token_info == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
+        "total_cost": 3e-07,
+        "cost_currency": "USD",
+    }
 
 
 def test_get_answer_mocked_together(together_llm_config, mocker):
