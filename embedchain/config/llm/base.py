@@ -2,7 +2,9 @@ import json
 import logging
 import re
 from string import Template
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Dict, Union
+
+import httpx
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -101,10 +103,11 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
-        http_client: Optional[Any] = None,
-        http_async_client: Optional[Any] = None,
+        http_client_proxies: Optional[Union[Dict, str]] = None,
+        http_async_client_proxies: Optional[Union[Dict, str]] = None,
         local: Optional[bool] = False,
         default_headers: Optional[Mapping[str, str]] = None,
+        api_version: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -152,6 +155,11 @@ class BaseLlmConfig(BaseConfig):
         :type callbacks: Optional[list], optional
         :param query_type: The type of query to use, defaults to None
         :type query_type: Optional[str], optional
+        :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
+        :type http_client_proxies: Optional[Dict | str], optional
+        :param http_async_client_proxies: The proxy server settings for async calls used to create
+        self.http_async_client, defaults to None
+        :type http_async_client_proxies: Optional[Dict | str], optional
         :param local: If True, the model will be run locally, defaults to False (for huggingface provider)
         :type local: Optional[bool], optional
         :param default_headers: Set additional HTTP headers to be sent with requests to OpenAI
@@ -186,10 +194,14 @@ class BaseLlmConfig(BaseConfig):
         self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
-        self.http_client = http_client
-        self.http_async_client = http_async_client
+        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_async_client = (
+            httpx.AsyncClient(proxies=http_async_client_proxies) if http_async_client_proxies else None
+        )
         self.local = local
         self.default_headers = default_headers
+        self.online = online
+        self.api_version = api_version
 
         if token_usage:
             f = open("model_prices_and_context_window.json")
