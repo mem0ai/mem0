@@ -156,6 +156,7 @@ langchain-google-vertexai = { version = "^1.0.6", optional = true }
 sqlalchemy = "^2.0.27"
 alembic = "^1.13.1"
 langchain-cohere = "^0.1.4"
+langchain-community = "^0.2.6"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -183,9 +184,8 @@ slack = ["slack-sdk", "flask"]
 whatsapp = ["twilio", "flask"]
 weaviate = ["weaviate-client"]
 qdrant = ["qdrant-client"]
-huggingface_hub=["huggingface_hub"]
-cohere = ["cohere"]
 together = ["together"]
+huggingface_hub=["huggingface_hub"]
 milvus = ["pymilvus"]
 dataloaders=[
     "youtube-transcript-api",

@@ -24,7 +24,7 @@ def test_mistralai_llm_init(monkeypatch):
 
 
 def test_get_llm_model_answer(monkeypatch, mistralai_llm_config):
-    def mock_get_answer(prompt, config):
+    def mock_get_answer(self, prompt, config):
         return "Generated Text"
 
     monkeypatch.setattr(MistralAILlm, "_get_answer", mock_get_answer)
@@ -36,7 +36,7 @@ def test_get_llm_model_answer(monkeypatch, mistralai_llm_config):
 
 def test_get_llm_model_answer_with_system_prompt(monkeypatch, mistralai_llm_config):
     mistralai_llm_config.system_prompt = "Test system prompt"
-    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda prompt, config: "Generated Text")
+    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda self, prompt, config: "Generated Text")
     llm = MistralAILlm(config=mistralai_llm_config)
     result = llm.get_llm_model_answer("test prompt")
 
@@ -44,7 +44,7 @@ def test_get_llm_model_answer_with_system_prompt(monkeypatch, mistralai_llm_conf
 
 
 def test_get_llm_model_answer_empty_prompt(monkeypatch, mistralai_llm_config):
-    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda prompt, config: "Generated Text")
+    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda self, prompt, config: "Generated Text")
     llm = MistralAILlm(config=mistralai_llm_config)
     result = llm.get_llm_model_answer("")
 
@@ -53,8 +53,35 @@ def test_get_llm_model_answer_empty_prompt(monkeypatch, mistralai_llm_config):
 
 def test_get_llm_model_answer_without_system_prompt(monkeypatch, mistralai_llm_config):
     mistralai_llm_config.system_prompt = None
-    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda prompt, config: "Generated Text")
+    monkeypatch.setattr(MistralAILlm, "_get_answer", lambda self, prompt, config: "Generated Text")
     llm = MistralAILlm(config=mistralai_llm_config)
     result = llm.get_llm_model_answer("test prompt")
 
     assert result == "Generated Text"
+
+
+def test_get_llm_model_answer_with_token_usage(monkeypatch, mistralai_llm_config):
+    test_config = BaseLlmConfig(
+        temperature=mistralai_llm_config.temperature,
+        max_tokens=mistralai_llm_config.max_tokens,
+        top_p=mistralai_llm_config.top_p,
+        model=mistralai_llm_config.model,
+        token_usage=True,
+    )
+    monkeypatch.setattr(
+        MistralAILlm,
+        "_get_answer",
+        lambda self, prompt, config: ("Generated Text", {"prompt_tokens": 1, "completion_tokens": 2}),
+    )
+
+    llm = MistralAILlm(test_config)
+    answer, token_info = llm.get_llm_model_answer("Test query")
+
+    assert answer == "Generated Text"
+    assert token_info == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
+        "total_cost": 7.5e-07,
+        "cost_currency": "USD",
+    }

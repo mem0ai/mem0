@@ -62,6 +62,35 @@ def test_get_llm_model_answer_empty_prompt(config, mocker):
     mocked_get_answer.assert_called_once_with("", config)
 
 
+def test_get_llm_model_answer_with_token_usage(config, mocker):
+    test_config = BaseLlmConfig(
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        top_p=config.top_p,
+        stream=config.stream,
+        system_prompt=config.system_prompt,
+        model=config.model,
+        token_usage=True,
+    )
+    mocked_get_answer = mocker.patch(
+        "embedchain.llm.openai.OpenAILlm._get_answer",
+        return_value=("Test answer", {"prompt_tokens": 1, "completion_tokens": 2}),
+    )
+
+    llm = OpenAILlm(test_config)
+    answer, token_info = llm.get_llm_model_answer("Test query")
+
+    assert answer == "Test answer"
+    assert token_info == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
+        "total_cost": 5.5e-06,
+        "cost_currency": "USD",
+    }
+    mocked_get_answer.assert_called_once_with("Test query", test_config)
+
+
 def test_get_llm_model_answer_with_streaming(config, mocker):
     config.stream = True
     mocked_openai_chat = mocker.patch("embedchain.llm.openai.ChatOpenAI")

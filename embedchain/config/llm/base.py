@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from string import Template
@@ -92,6 +93,7 @@ class BaseLlmConfig(BaseConfig):
         top_p: float = 1,
         stream: bool = False,
         online: bool = False,
+        token_usage: bool = False,
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: dict[str, Any] = None,
@@ -135,6 +137,8 @@ class BaseLlmConfig(BaseConfig):
         :type stream: bool, optional
         :param online: Controls whether to use internet for answering query, defaults to False
         :type online: bool, optional
+        :param token_usage: Controls whether to return token usage in response, defaults to False
+        :type token_usage: bool, optional
         :param deployment_name: t.b.a., defaults to None
         :type deployment_name: Optional[str], optional
         :param system_prompt: System prompt string, defaults to None
@@ -180,6 +184,8 @@ class BaseLlmConfig(BaseConfig):
         self.max_tokens = max_tokens
         self.model = model
         self.top_p = top_p
+        self.online = online
+        self.token_usage = token_usage
         self.deployment_name = deployment_name
         self.system_prompt = system_prompt
         self.query_type = query_type
@@ -196,6 +202,10 @@ class BaseLlmConfig(BaseConfig):
         self.default_headers = default_headers
         self.online = online
         self.api_version = api_version
+
+        if token_usage:
+            f = open("model_prices_and_context_window.json")
+            self.model_pricing_map = json.load(f)
 
         if isinstance(prompt, str):
             prompt = Template(prompt)
