@@ -209,6 +209,7 @@ Alright, let's dive into what each key means in the yaml config above:
         - `top_p` (Float): Controls the diversity of word selection. A higher value (closer to 1) makes word selection more diverse.
         - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `online` (Boolean): Controls whether to use internet to get more context for answering query (set to false).
+        - `token_usage` (Boolean): Controls whether to use token usage for the querying models (set to false).
         - `prompt` (String): A prompt for the model to follow when generating responses, requires `$context` and `$query` variables.
         - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
         - `number_documents` (Integer): Number of documents to pull from the vectordb as context, defaults to 1

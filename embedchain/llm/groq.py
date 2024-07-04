@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.schema import HumanMessage, SystemMessage
@@ -22,9 +22,27 @@ class GroqLlm(BaseLlm):
         if not self.config.api_key and "GROQ_API_KEY" not in os.environ:
             raise ValueError("Please set the GROQ_API_KEY environment variable or pass it in the config.")
 
-    def get_llm_model_answer(self, prompt) -> str:
-        response = self._get_answer(prompt, self.config)
-        return response
+    def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
+        if self.config.token_usage:
+            response, token_info = self._get_answer(prompt, self.config)
+            model_name = "groq/" + self.config.model
+            if model_name not in self.config.model_pricing_map:
+                raise ValueError(
+                    f"Model {model_name} not found in `model_prices_and_context_window.json`. \
+                    You can disable token usage by setting `token_usage` to False."
+                )
+            total_cost = (
+                self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]
+            ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
+            response_token_info = {
+                "prompt_tokens": token_info["prompt_tokens"],
+                "completion_tokens": token_info["completion_tokens"],
+                "total_tokens": token_info["prompt_tokens"] + token_info["completion_tokens"],
+                "total_cost": round(total_cost, 10),
+                "cost_currency": "USD",
+            }
+            return response, response_token_info
+        return self._get_answer(prompt, self.config)
 
     def _get_answer(self, prompt: str, config: BaseLlmConfig) -> str:
         messages = []
@@ -42,4 +60,8 @@ class GroqLlm(BaseLlm):
             chat = ChatGroq(**kwargs, streaming=config.stream, callbacks=callbacks, api_key=api_key)
         else:
             chat = ChatGroq(**kwargs)
-        return chat.invoke(messages).content
+
+        chat_response = chat.invoke(prompt)
+        if self.config.token_usage:
+            return chat_response.content, chat_response.response_metadata["token_usage"]
+        return chat_response.content

@@ -24,7 +24,32 @@ def test_get_llm_model_answer(vertexai_llm):
         prompt = "Test Prompt"
         response = vertexai_llm.get_llm_model_answer(prompt)
         assert response == "Test Response"
-        mock_method.assert_called_once_with(prompt=prompt, config=vertexai_llm.config)
+        mock_method.assert_called_once_with(prompt, vertexai_llm.config)
+
+
+def test_get_llm_model_answer_with_token_usage(vertexai_llm):
+    test_config = BaseLlmConfig(
+        temperature=vertexai_llm.config.temperature,
+        max_tokens=vertexai_llm.config.max_tokens,
+        top_p=vertexai_llm.config.top_p,
+        model=vertexai_llm.config.model,
+        token_usage=True,
+    )
+    vertexai_llm.config = test_config
+    with patch.object(
+        VertexAILlm,
+        "_get_answer",
+        return_value=("Test Response", {"prompt_token_count": 1, "candidates_token_count": 2}),
+    ):
+        response, token_info = vertexai_llm.get_llm_model_answer("Test Query")
+        assert response == "Test Response"
+        assert token_info == {
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "total_tokens": 3,
+            "total_cost": 3.75e-07,
+            "cost_currency": "USD",
+        }
 
 
 @patch("embedchain.llm.vertex_ai.ChatVertexAI")

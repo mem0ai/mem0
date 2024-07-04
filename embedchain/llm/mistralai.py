@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -13,8 +13,27 @@ class MistralAILlm(BaseLlm):
         if not self.config.api_key and "MISTRAL_API_KEY" not in os.environ:
             raise ValueError("Please set the MISTRAL_API_KEY environment variable or pass it in the config.")
 
-    def get_llm_model_answer(self, prompt):
-        return MistralAILlm._get_answer(prompt=prompt, config=self.config)
+    def get_llm_model_answer(self, prompt) -> tuple[str, Optional[dict[str, Any]]]:
+        if self.config.token_usage:
+            response, token_info = self._get_answer(prompt, self.config)
+            model_name = "mistralai/" + self.config.model
+            if model_name not in self.config.model_pricing_map:
+                raise ValueError(
+                    f"Model {model_name} not found in `model_prices_and_context_window.json`. \
+                    You can disable token usage by setting `token_usage` to False."
+                )
+            total_cost = (
+                self.config.model_pricing_map[model_name]["input_cost_per_token"] * token_info["prompt_tokens"]
+            ) + self.config.model_pricing_map[model_name]["output_cost_per_token"] * token_info["completion_tokens"]
+            response_token_info = {
+                "prompt_tokens": token_info["prompt_tokens"],
+                "completion_tokens": token_info["completion_tokens"],
+                "total_tokens": token_info["prompt_tokens"] + token_info["completion_tokens"],
+                "total_cost": round(total_cost, 10),
+                "cost_currency": "USD",
+            }
+            return response, response_token_info
+        return self._get_answer(prompt, self.config)
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig):
@@ -47,6 +66,7 @@ class MistralAILlm(BaseLlm):
                 answer += chunk.content
             return answer
         else:
-            response = client.invoke(**kwargs, input=messages)
-            answer = response.content
-            return answer
+            chat_response = client.invoke(**kwargs, input=messages)
+            if config.token_usage:
+                return chat_response.content, chat_response.response_metadata["token_usage"]
+            return chat_response.content
