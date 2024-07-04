@@ -7905,6 +7905,7 @@ qdrant = ["qdrant-client"]
 rss-feed = ["feedparser", "listparser", "newspaper3k"]
 slack = ["flask", "slack-sdk"]
 streamlit = []
+together = ["together"]
 vertexai = ["langchain-google-vertexai"]
 weaviate = ["weaviate-client"]
 whatsapp = ["flask", "twilio"]
@@ -7913,4 +7914,4 @@ youtube = ["youtube-transcript-api", "yt_dlp"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "f5288a2a408ea42690b66c425d3148f670c14ff04dca07dca53cd58407446c76"
+content-hash = "afc88f00bafd2b76a954c758a0556cba6d3854e98c444bc5e720319bf472caa8"
