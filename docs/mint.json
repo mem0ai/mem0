@@ -19,9 +19,7 @@
   "modeToggle": {
     "default": "dark"
   },
-  "openapi": [
-    "/rest-api.json"
-  ],
+  "openapi": ["/rest-api.json"],
   "metadata": {
     "og:image": "/images/og.png",
     "twitter:site": "@embedchain"
@@ -67,11 +65,11 @@
         {
           "group": "🔗 Integrations",
           "pages": [
-            "integration/helicone",
             "integration/langsmith",
             "integration/chainlit",
             "integration/streamlit-mistral",
-            "integration/openlit"
+            "integration/openlit",
+            "integration/helicone"
           ]
         }
       ]
@@ -133,13 +131,13 @@
         {
           "group": "🗄️ Vector databases",
           "pages": [
-                "components/vector-databases/chromadb",
-                "components/vector-databases/elasticsearch",
-                "components/vector-databases/pinecone",
-                "components/vector-databases/opensearch",
-                "components/vector-databases/qdrant",
-                "components/vector-databases/weaviate",
-                "components/vector-databases/zilliz"
+            "components/vector-databases/chromadb",
+            "components/vector-databases/elasticsearch",
+            "components/vector-databases/pinecone",
+            "components/vector-databases/opensearch",
+            "components/vector-databases/qdrant",
+            "components/vector-databases/weaviate",
+            "components/vector-databases/zilliz"
           ]
         },
         "components/llms",
@@ -162,9 +160,7 @@
     },
     {
       "group": "Community",
-      "pages": [
-        "community/connect-with-us"
-      ]
+      "pages": ["community/connect-with-us"]
     },
     {
       "group": "Examples",
@@ -204,9 +200,7 @@
     },
     {
       "group": "Showcase",
-      "pages": [
-        "examples/showcase"
-      ]
+      "pages": ["examples/showcase"]
     },
     {
       "group": "API Reference",
@@ -242,9 +236,7 @@
     },
     {
       "group": "Product",
-      "pages": [
-        "product/release-notes"
-      ]
+      "pages": ["product/release-notes"]
     }
   ],
   "footerSocials": {
