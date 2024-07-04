@@ -26,6 +26,7 @@ def test_azure_openai_embedder_with_http_client(monkeypatch):
             http_client=mock_http_client_instance,
             http_async_client=None,
         )
+        mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
 
 
 def test_azure_openai_embedder_with_http_async_client(monkeypatch):
