@@ -8,7 +8,6 @@ from typing import Any, Optional, Union
 import requests
 import yaml
 from tqdm import tqdm
-from mem0 import Mem0
 
 from embedchain.cache import (
     Config,
@@ -133,6 +132,10 @@ class App(EmbedChain):
         # If memory_config is provided, initializing the memory ...
         self.mem0_client = None
         if self.memory_config is not None:
+            try:
+                from mem0 import Mem0
+            except ImportError:
+                raise ImportError("Please install Mem0 with `pip install memzero`") from None
             self.mem0_client = Mem0(api_key=self.memory_config.api_key)
 
         # Send anonymous telemetry
