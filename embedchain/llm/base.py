@@ -85,10 +85,7 @@ class BaseLlm(JSONSerializable):
         :return: Formatted memories
         :rtype: str
         """
-        formatted_memories = []
-        for memory in memories:
-            formatted_memories.append(f"Question: {memory['input']}\nAnswer: {memory['text']}")
-        return "\n".join(formatted_memories)
+        return "\n".join([memory["text"] for memory in memories])
 
     def generate_prompt(self, input_query: str, contexts: list[str], **kwargs: dict[str, Any]) -> str:
         """
