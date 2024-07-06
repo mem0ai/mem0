@@ -12,3 +12,4 @@ from .vectordb.chroma import ChromaDbConfig
 from .vectordb.elasticsearch import ElasticsearchDBConfig
 from .vectordb.opensearch import OpenSearchDBConfig
 from .vectordb.zilliz import ZillizDBConfig
+from .mem0_config import Mem0Config

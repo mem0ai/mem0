@@ -50,6 +50,35 @@ Query: $query
 Answer:
 """  # noqa:E501
 
+DEFAULT_PROMPT_WITH_MEM0_MEMORY = """
+You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. You are also provided with the conversation history and memories with the user. Make sure to use relevant context from conversation history and memories as needed.
+
+Here are some guidelines to follow:
+
+1. Refrain from explicitly mentioning the context provided in your response.
+2. Take into consideration the conversation history and memories provided.
+3. The context should silently guide your answers without being directly acknowledged.
+4. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
+
+Context information:
+----------------------
+$context
+----------------------
+
+Conversation history:
+----------------------
+$history
+----------------------
+
+Memories/Preferences:
+----------------------
+$memories
+----------------------
+
+Query: $query
+Answer:
+"""  # noqa:E501
+
 DOCS_SITE_DEFAULT_PROMPT = """
 You are an expert AI assistant for developer support product. Your responses must always be rooted in the context provided for each query. Wherever possible, give complete code snippet. Dont make up any code snippet on your own.
 
@@ -70,6 +99,7 @@ Answer:
 
 DEFAULT_PROMPT_TEMPLATE = Template(DEFAULT_PROMPT)
 DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_HISTORY)
+DEFAULT_PROMPT_WITH_MEM0_MEMORY_TEMPLATE = Template(DEFAULT_PROMPT_WITH_MEM0_MEMORY)
 DOCS_SITE_PROMPT_TEMPLATE = Template(DOCS_SITE_DEFAULT_PROMPT)
 query_re = re.compile(r"\$\{*query\}*")
 context_re = re.compile(r"\$\{*context\}*")

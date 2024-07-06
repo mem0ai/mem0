@@ -520,6 +520,10 @@ def validate_config(config_data):
                     Optional("auto_flush"): int,
                 },
             },
+            Optional("memory"): {
+                "api_key": str,
+                Optional("top_k"): int,
+            },
         }
     )
 

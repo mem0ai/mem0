@@ -144,3 +144,28 @@ app.add("https://www.forbes.com/profile/elon-musk")
 query_config = BaseLlmConfig(number_documents=5)
 app.chat("What is the net worth of Elon Musk?", config=query_config)
 ```
+
+### With Mem0 to store chat history
+
+Mem0 is a cutting-edge long-term memory for LLMs to enable personalization for the GenAI stack. It enables LLMs to remember past interactions and provide more personalized responses.
+
+Follow these steps to use Mem0  to enable memory for personalization in your apps:
+- Install the [`mem0`](https://docs.mem0.ai/) package using `pip install memzero`. 
+- Get the api_key from [Mem0 Platform](https://app.mem0.ai/).
+- Provide api_key in config under `memory`, refer [Configurations](docs/api-reference/advanced/configuration.mdx).
+
+```python with mem0
+from embedchain import App
+
+config = {
+  "memory": {
+    "api_key": "m0-xxx",
+    "top_k": 5
+  }
+}
+
+app = App.from_config(config=config)
+app.add("https://www.forbes.com/profile/elon-musk")
+
+app.chat("What is the net worth of Elon Musk?")
+```
