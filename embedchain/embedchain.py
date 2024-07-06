@@ -639,7 +639,8 @@ class EmbedChain(JSONSerializable):
                 )
 
         # Add to Mem0 memory if enabled
-        # TODO: Prepending some text like "Remember user preferences from following user query: {input_query}" would be useful
+        # TODO: Might need to prepend with some text like: 
+        # "Remember user preferences from following user query: {input_query}"
         if self.mem0_client:
             self.mem0_client.add(data=input_query, agent_id=self.config.id, session_id=session_id)
 
