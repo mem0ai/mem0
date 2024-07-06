@@ -5,9 +5,7 @@ from typing import Any, Optional
 from langchain.schema import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base import (DEFAULT_PROMPT,
-                                        DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
-                                        DOCS_SITE_PROMPT_TEMPLATE)
+from embedchain.config.llm.base import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
@@ -157,7 +155,7 @@ class BaseLlm(JSONSerializable):
             from langchain.tools import DuckDuckGoSearchRun
         except ImportError:
             raise ImportError(
-                'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+                "Searching requires extra dependencies. Install with `pip install duckduckgo-search==6.1.5`"
             ) from None
         search = DuckDuckGoSearchRun()
         logger.info(f"Access search to get answers for {input_query}")
