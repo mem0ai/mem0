@@ -5,7 +5,9 @@ from typing import Any, Optional
 from langchain.schema import BaseMessage as LCBaseMessage
 
 from embedchain.config import BaseLlmConfig
-from embedchain.config.llm.base import DEFAULT_PROMPT, DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE, DOCS_SITE_PROMPT_TEMPLATE
+from embedchain.config.llm.base import (DEFAULT_PROMPT,
+                                        DEFAULT_PROMPT_WITH_HISTORY_TEMPLATE,
+                                        DOCS_SITE_PROMPT_TEMPLATE)
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
@@ -162,7 +164,7 @@ class BaseLlm(JSONSerializable):
         return search.run(input_query)
 
     @staticmethod
-    def _stream_response(answer: Any) -> Generator[Any, Any, None]:
+    def _stream_response(answer: Any, token_info: Optional[dict[str, Any]] = None) -> Generator[Any, Any, None]:
         """Generator to be used as streaming response
 
         :param answer: Answer chunk from llm
@@ -175,6 +177,8 @@ class BaseLlm(JSONSerializable):
             streamed_answer = streamed_answer + chunk
             yield chunk
         logger.info(f"Answer: {streamed_answer}")
+        if token_info:
+            logger.info(f"Token Info: {token_info}")
 
     def query(self, input_query: str, contexts: list[str], config: BaseLlmConfig = None, dry_run=False):
         """
@@ -217,11 +221,18 @@ class BaseLlm(JSONSerializable):
             if dry_run:
                 return prompt
 
-            answer = self.get_answer_from_llm(prompt)
+            if self.config.token_usage:
+                answer, token_info = self.get_answer_from_llm(prompt)
+            else:
+                answer = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
                 logger.info(f"Answer: {answer}")
+                if self.config.token_usage:
+                    return answer, token_info
                 return answer
             else:
+                if self.config.token_usage:
+                    return self._stream_response(answer, token_info)
                 return self._stream_response(answer)
         finally:
             if config:
@@ -274,13 +285,13 @@ class BaseLlm(JSONSerializable):
             if dry_run:
                 return prompt
 
-            answer = self.get_answer_from_llm(prompt)
+            answer, token_info = self.get_answer_from_llm(prompt)
             if isinstance(answer, str):
                 logger.info(f"Answer: {answer}")
-                return answer
+                return answer, token_info
             else:
                 # this is a streamed response and needs to be handled differently.
-                return self._stream_response(answer)
+                return self._stream_response(answer, token_info)
         finally:
             if config:
                 # Restore previous config

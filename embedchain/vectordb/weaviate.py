@@ -20,8 +20,6 @@ class WeaviateDB(BaseVectorDB):
     Weaviate as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(
         self,
         config: Optional[WeaviateDBConfig] = None,
@@ -40,6 +38,7 @@ class WeaviateDB(BaseVectorDB):
                     "Please make sure the type is right and that you are passing an instance."
                 )
             self.config = config
+        self.batch_size = self.config.batch_size
         self.client = weaviate.Client(
             url=os.environ.get("WEAVIATE_ENDPOINT"),
             auth_client_secret=weaviate.AuthApiKey(api_key=os.environ.get("WEAVIATE_API_KEY")),
@@ -169,7 +168,7 @@ class WeaviateDB(BaseVectorDB):
                 )
                 .with_where(weaviate_where_clause)
                 .with_additional(["id"])
-                .with_limit(limit or self.BATCH_SIZE),
+                .with_limit(limit or self.batch_size),
                 offset,
             )
 
@@ -198,7 +197,7 @@ class WeaviateDB(BaseVectorDB):
         :type ids: list[str]
         """
         embeddings = self.embedder.embedding_fn(documents)
-        self.client.batch.configure(batch_size=self.BATCH_SIZE, timeout_retries=3)  # Configure batch
+        self.client.batch.configure(batch_size=self.batch_size, timeout_retries=3)  # Configure batch
         with self.client.batch as batch:  # Initialize a batch process
             for id, text, metadata, embedding in zip(ids, documents, metadatas, embeddings):
                 doc = {"identifier": id, "text": text}
@@ -219,12 +218,12 @@ class WeaviateDB(BaseVectorDB):
                 )
 
     def query(
-        self, input_query: list[str], n_results: int, where: dict[str, any], citations: bool = False
+        self, input_query: str, n_results: int, where: dict[str, any], citations: bool = False
     ) -> Union[list[tuple[str, dict]], list[str]]:
         """
         query contents from vector database based on vector similarity
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data

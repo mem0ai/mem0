@@ -1,3 +1,4 @@
+from embedchain.chunkers.audio import AudioChunker
 from embedchain.chunkers.common_chunker import CommonChunker
 from embedchain.chunkers.discourse import DiscourseChunker
 from embedchain.chunkers.docs_site import DocsSiteChunker
@@ -45,6 +46,7 @@ chunker_common_config = {
     CommonChunker: {"chunk_size": 2000, "chunk_overlap": 0, "length_function": len},
     GoogleDriveChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
     ExcelFileChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
+    AudioChunker: {"chunk_size": 1000, "chunk_overlap": 0, "length_function": len},
 }
 
 

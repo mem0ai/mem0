@@ -28,8 +28,6 @@ class OpenSearchDB(BaseVectorDB):
     OpenSearch as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(self, config: OpenSearchDBConfig):
         """OpenSearch as vector database.
 
@@ -39,6 +37,7 @@ class OpenSearchDB(BaseVectorDB):
         if config is None:
             raise ValueError("OpenSearchDBConfig is required")
         self.config = config
+        self.batch_size = self.config.batch_size
         self.client = OpenSearch(
             hosts=[self.config.opensearch_url],
             http_auth=self.config.http_auth,
@@ -120,8 +119,8 @@ class OpenSearchDB(BaseVectorDB):
         """Adds documents to the opensearch index"""
 
         embeddings = self.embedder.embedding_fn(documents)
-        for batch_start in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in opensearch"):
-            batch_end = batch_start + self.BATCH_SIZE
+        for batch_start in tqdm(range(0, len(documents), self.batch_size), desc="Inserting batches in opensearch"):
+            batch_end = batch_start + self.batch_size
             batch_documents = documents[batch_start:batch_end]
             batch_embeddings = embeddings[batch_start:batch_end]
 
@@ -146,7 +145,7 @@ class OpenSearchDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
         where: dict[str, any],
         citations: bool = False,
@@ -155,8 +154,8 @@ class OpenSearchDB(BaseVectorDB):
         """
         query contents from vector database based on vector similarity
 
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: Optional. to filter data

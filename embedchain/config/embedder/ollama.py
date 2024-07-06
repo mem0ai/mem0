@@ -10,6 +10,7 @@ class OllamaEmbedderConfig(BaseEmbedderConfig):
         self,
         model: Optional[str] = None,
         base_url: Optional[str] = None,
+        vector_dimension: Optional[int] = None,
     ):
-        super().__init__(model)
-        self.base_url = base_url or "http://127.0.0.1:11434"
+        super().__init__(model=model, vector_dimension=vector_dimension)
+        self.base_url = base_url or "http://localhost:11434"

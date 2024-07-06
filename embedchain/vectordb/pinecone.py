@@ -25,8 +25,6 @@ class PineconeDB(BaseVectorDB):
     Pinecone as vector database
     """
 
-    BATCH_SIZE = 100
-
     def __init__(
         self,
         config: Optional[PineconeDBConfig] = None,
@@ -50,6 +48,7 @@ class PineconeDB(BaseVectorDB):
 
         # Setup BM25Encoder if sparse vectors are to be used
         self.bm25_encoder = None
+        self.batch_size = self.config.batch_size
         if self.config.hybrid_search:
             logger.info("Initializing BM25Encoder for sparse vectors..")
             self.bm25_encoder = self.config.bm25_encoder if self.config.bm25_encoder else BM25Encoder.default()
@@ -103,10 +102,9 @@ class PineconeDB(BaseVectorDB):
         existing_ids = list()
         metadatas = []
 
-        batch_size = 100
         if ids is not None:
-            for i in range(0, len(ids), batch_size):
-                result = self.pinecone_index.fetch(ids=ids[i : i + batch_size])
+            for i in range(0, len(ids), self.batch_size):
+                result = self.pinecone_index.fetch(ids=ids[i : i + self.batch_size])
                 vectors = result.get("vectors")
                 batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
@@ -145,12 +143,12 @@ class PineconeDB(BaseVectorDB):
                 },
             )
 
-        for chunk in chunks(docs, self.BATCH_SIZE, desc="Adding chunks in batches"):
+        for chunk in chunks(docs, self.batch_size, desc="Adding chunks in batches"):
             self.pinecone_index.upsert(chunk, **kwargs)
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
         where: Optional[dict[str, any]] = None,
         raw_filter: Optional[dict[str, any]] = None,
@@ -162,7 +160,7 @@ class PineconeDB(BaseVectorDB):
         Query contents from vector database based on vector similarity.
 
         Args:
-            input_query (list[str]): List of query strings.
+            input_query (str): query string.
             n_results (int): Number of similar documents to fetch from the database.
             where (dict[str, any], optional): Filter criteria for the search.
             raw_filter (dict[str, any], optional): Advanced raw filter criteria for the search.

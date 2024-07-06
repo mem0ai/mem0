@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.106"
+version = "0.1.115"
 description = "Simplest open source retrieval (RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -93,10 +93,10 @@ color = true
 [tool.poetry.dependencies]
 python = ">=3.9,<=3.13"
 python-dotenv = "^1.0.0"
-langchain = "^0.1.4"
+langchain = ">0.2,<=0.3"
 requests = "^2.31.0"
 openai = ">=1.1.1"
-chromadb = "^0.5.0"
+chromadb = "^0.4.24"
 posthog = "^3.0.2"
 rich = "^13.7.0"
 beautifulsoup4 = "^4.12.2"
@@ -114,8 +114,10 @@ gpt4all = { version = "2.0.2", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
 opensearch-py = { version = "2.3.1", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
+clarifai = { version = "^10.0.1", optional = true }
 cohere = { version = "^5.3", optional = true }
 together = { version = "^0.2.8", optional = true }
+lancedb = { version = "^0.6.2", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 docx2txt = { version = "^0.8", optional = true }
 qdrant-client = { version = "^1.6.3", optional = true }
@@ -133,12 +135,13 @@ google-auth-oauthlib = { version = "^1.2.0", optional = true }
 google-auth = { version = "^2.25.2", optional = true }
 google-auth-httplib2 = { version = "^0.2.0", optional = true }
 google-api-core = { version = "^2.15.0", optional = true }
-langchain-mistralai = { version = "^0.0.3", optional = true }
+langchain-mistralai = { version = "^0.1.9", optional = true }
 langchain-openai = "^0.1.7"
-langchain-google-vertexai = { version = "^0.0.5", optional = true }
+langchain-google-vertexai = { version = "^1.0.6", optional = true }
 sqlalchemy = "^2.0.27"
 alembic = "^1.13.1"
 langchain-cohere = "^0.1.4"
+langchain-community = "^0.2.6"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -156,11 +159,11 @@ pytest-asyncio = "^0.21.1"
 
 [tool.poetry.extras]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
+lancedb = ["lancedb"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
 weaviate = ["weaviate-client"]
 qdrant = ["qdrant-client"]
-cohere = ["cohere"]
 together = ["together"]
 milvus = ["pymilvus"]
 dataloaders=[

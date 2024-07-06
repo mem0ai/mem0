@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 class ChromaDB(BaseVectorDB):
     """Vector database using ChromaDB."""
 
-    BATCH_SIZE = 100
-
     def __init__(self, config: Optional[ChromaDbConfig] = None):
         """Initialize a new ChromaDB instance
 
@@ -44,6 +42,7 @@ class ChromaDB(BaseVectorDB):
 
         self.settings = Settings(anonymized_telemetry=False)
         self.settings.allow_reset = self.config.allow_reset if hasattr(self.config, "allow_reset") else False
+        self.batch_size = self.config.batch_size
         if self.config.chroma_settings:
             for key, value in self.config.chroma_settings.items():
                 if hasattr(self.settings, key):
@@ -155,12 +154,13 @@ class ChromaDB(BaseVectorDB):
                 " Ids size: {}".format(len(documents), len(metadatas), len(ids))
             )
 
-        for i in tqdm(range(0, len(documents), self.BATCH_SIZE), desc="Inserting batches in chromadb"):
+        for i in tqdm(range(0, len(documents), self.batch_size), desc="Inserting batches in chromadb"):
             self.collection.add(
-                documents=documents[i : i + self.BATCH_SIZE],
-                metadatas=metadatas[i : i + self.BATCH_SIZE],
-                ids=ids[i : i + self.BATCH_SIZE],
+                documents=documents[i : i + self.batch_size],
+                metadatas=metadatas[i : i + self.batch_size],
+                ids=ids[i : i + self.batch_size],
             )
+        self.config
 
     @staticmethod
     def _format_result(results: QueryResult) -> list[tuple[Document, float]]:
@@ -183,7 +183,7 @@ class ChromaDB(BaseVectorDB):
 
     def query(
         self,
-        input_query: list[str],
+        input_query: str,
         n_results: int,
         where: Optional[dict[str, any]] = None,
         raw_filter: Optional[dict[str, any]] = None,
@@ -193,8 +193,8 @@ class ChromaDB(BaseVectorDB):
         """
         Query contents from vector database based on vector similarity
 
-        :param input_query: list of query string
-        :type input_query: list[str]
+        :param input_query: query string
+        :type input_query: str
         :param n_results: no of similar documents to fetch from database
         :type n_results: int
         :param where: to filter data

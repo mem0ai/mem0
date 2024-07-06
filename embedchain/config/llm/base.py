@@ -1,7 +1,10 @@
+import json
 import logging
 import re
 from string import Template
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Dict, Union
+
+import httpx
 
 from embedchain.config.base_config import BaseConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -90,6 +93,7 @@ class BaseLlmConfig(BaseConfig):
         top_p: float = 1,
         stream: bool = False,
         online: bool = False,
+        token_usage: bool = False,
         deployment_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         where: dict[str, Any] = None,
@@ -99,10 +103,11 @@ class BaseLlmConfig(BaseConfig):
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         model_kwargs: Optional[dict[str, Any]] = None,
-        http_client: Optional[Any] = None,
-        http_async_client: Optional[Any] = None,
+        http_client_proxies: Optional[Union[Dict, str]] = None,
+        http_async_client_proxies: Optional[Union[Dict, str]] = None,
         local: Optional[bool] = False,
         default_headers: Optional[Mapping[str, str]] = None,
+        api_version: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -132,6 +137,8 @@ class BaseLlmConfig(BaseConfig):
         :type stream: bool, optional
         :param online: Controls whether to use internet for answering query, defaults to False
         :type online: bool, optional
+        :param token_usage: Controls whether to return token usage in response, defaults to False
+        :type token_usage: bool, optional
         :param deployment_name: t.b.a., defaults to None
         :type deployment_name: Optional[str], optional
         :param system_prompt: System prompt string, defaults to None
@@ -148,6 +155,11 @@ class BaseLlmConfig(BaseConfig):
         :type callbacks: Optional[list], optional
         :param query_type: The type of query to use, defaults to None
         :type query_type: Optional[str], optional
+        :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
+        :type http_client_proxies: Optional[Dict | str], optional
+        :param http_async_client_proxies: The proxy server settings for async calls used to create
+        self.http_async_client, defaults to None
+        :type http_async_client_proxies: Optional[Dict | str], optional
         :param local: If True, the model will be run locally, defaults to False (for huggingface provider)
         :type local: Optional[bool], optional
         :param default_headers: Set additional HTTP headers to be sent with requests to OpenAI
@@ -172,6 +184,8 @@ class BaseLlmConfig(BaseConfig):
         self.max_tokens = max_tokens
         self.model = model
         self.top_p = top_p
+        self.online = online
+        self.token_usage = token_usage
         self.deployment_name = deployment_name
         self.system_prompt = system_prompt
         self.query_type = query_type
@@ -180,11 +194,18 @@ class BaseLlmConfig(BaseConfig):
         self.base_url = base_url
         self.endpoint = endpoint
         self.model_kwargs = model_kwargs
-        self.http_client = http_client
-        self.http_async_client = http_async_client
+        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_async_client = (
+            httpx.AsyncClient(proxies=http_async_client_proxies) if http_async_client_proxies else None
+        )
         self.local = local
         self.default_headers = default_headers
         self.online = online
+        self.api_version = api_version
+
+        if token_usage:
+            f = open("model_prices_and_context_window.json")
+            self.model_pricing_map = json.load(f)
 
         if isinstance(prompt, str):
             prompt = Template(prompt)

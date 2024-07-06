@@ -26,6 +26,11 @@ llm:
     top_p: 1
     stream: false
     api_key: sk-xxx
+    model_kwargs:
+      response_format: 
+        type: json_object
+    api_version: 2024-02-01
+    http_client_proxies: http://testproxy.mem0.net:8000
     prompt: |
       Use the following pieces of context to answer the query at the end.
       If you don't know the answer, just say that you don't know, don't try to make up an answer.
@@ -83,7 +88,10 @@ cache:
       "stream": false,
       "prompt": "Use the following pieces of context to answer the query at the end.\nIf you don't know the answer, just say that you don't know, don't try to make up an answer.\n$context\n\nQuery: $query\n\nHelpful Answer:",
       "system_prompt": "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare.",
-      "api_key": "sk-xxx"
+      "api_key": "sk-xxx",
+      "model_kwargs": {"response_format": {"type": "json_object"}},
+      "api_version": "2024-02-01",
+      "http_client_proxies": "http://testproxy.mem0.net:8000",
     }
   },
   "vectordb": {
@@ -143,7 +151,9 @@ config = {
             'system_prompt': (
                 "Act as William Shakespeare. Answer the following questions in the style of William Shakespeare."
             ),
-            'api_key': 'sk-xxx'
+            'api_key': 'sk-xxx',
+            "model_kwargs": {"response_format": {"type": "json_object"}},
+            "http_client_proxies": "http://testproxy.mem0.net:8000",
         }
     },
     'vectordb': {
@@ -199,27 +209,33 @@ Alright, let's dive into what each key means in the yaml config above:
         - `top_p` (Float): Controls the diversity of word selection. A higher value (closer to 1) makes word selection more diverse.
         - `stream` (Boolean): Controls if the response is streamed back to the user (set to false).
         - `online` (Boolean): Controls whether to use internet to get more context for answering query (set to false).
+        - `token_usage` (Boolean): Controls whether to use token usage for the querying models (set to false).
         - `prompt` (String): A prompt for the model to follow when generating responses, requires `$context` and `$query` variables.
         - `system_prompt` (String): A system prompt for the model to follow when generating responses, in this case, it's set to the style of William Shakespeare.
         - `number_documents` (Integer): Number of documents to pull from the vectordb as context, defaults to 1
         - `api_key` (String): The API key for the language model.
         - `model_kwargs` (Dict): Keyword arguments to pass to the language model. Used for `aws_bedrock` provider, since it requires different arguments for each model.
+        - `http_client_proxies` (Dict | String): The proxy server settings used to create `self.http_client` using `httpx.Client(proxies=http_client_proxies)`
+        - `http_async_client_proxies` (Dict | String): The proxy server settings for async calls used to create `self.http_async_client` using `httpx.AsyncClient(proxies=http_async_client_proxies)`
 3. `vectordb` Section:
     - `provider` (String): The provider for the vector database, set to 'chroma'. You can find the full list of vector database providers in [our docs](/components/vector-databases).
     - `config`:
         - `collection_name` (String): The initial collection name for the vectordb, set to 'full-stack-app'.
         - `dir` (String): The directory for the local database, set to 'db'.
         - `allow_reset` (Boolean): Indicates whether resetting the vectordb is allowed, set to true.
+        - `batch_size` (Integer): The batch size for docs insertion in vectordb, defaults to `100`
     <Note>We recommend you to checkout vectordb specific config [here](https://docs.embedchain.ai/components/vector-databases)</Note>
 4. `embedder` Section:
     - `provider` (String): The provider for the embedder, set to 'openai'. You can find the full list of embedding model providers in [our docs](/components/embedding-models).
     - `config`:
         - `model` (String): The specific model used for text embedding, 'text-embedding-ada-002'.
-        - `vector_dimension` (Integer): The vector dimension of the embedding model. [Defaults](https://github.com/embedchain/embedchain/blob/e572b5a3dc1b66f1e9b3357d11a88c63b5ce06e3/embedchain/models/vector_dimensions.py)
+        - `vector_dimension` (Integer): The vector dimension of the embedding model. [Defaults](https://github.com/embedchain/embedchain/blob/main/embedchain/models/vector_dimensions.py)
         - `api_key` (String): The API key for the embedding model.
+        - `endpoint` (String): The endpoint for the HuggingFace embedding model.
         - `deployment_name` (String): The deployment name for the embedding model.
         - `title` (String): The title for the embedding model for Google Embedder.
         - `task_type` (String): The task type for the embedding model for Google Embedder.
+        - `model_kwargs` (Dict): Used to pass extra arguments to embedders.
 5. `chunker` Section:
     - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.

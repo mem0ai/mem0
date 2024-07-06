@@ -1,3 +1,4 @@
+import datetime
 import itertools
 import json
 import logging
@@ -237,6 +238,12 @@ def detect_datatype(source: Any) -> DataType:
             logger.debug(f"Source of `{formatted_source}` detected as `docx`.")
             return DataType.DOCX
 
+        if url.path.endswith(
+            (".mp3", ".mp4", ".mp2", ".aac", ".wav", ".flac", ".pcm", ".m4a", ".ogg", ".opus", ".webm")
+        ):
+            logger.debug(f"Source of `{formatted_source}` detected as `audio`.")
+            return DataType.AUDIO
+
         if url.path.endswith(".yaml"):
             try:
                 response = requests.get(source)
@@ -407,6 +414,7 @@ def validate_config(config_data):
                     "google",
                     "aws_bedrock",
                     "mistralai",
+                    "clarifai",
                     "vllm",
                     "groq",
                     "nvidia",
@@ -420,6 +428,7 @@ def validate_config(config_data):
                     Optional("top_p"): Or(float, int),
                     Optional("stream"): bool,
                     Optional("online"): bool,
+                    Optional("token_usage"): bool,
                     Optional("template"): str,
                     Optional("prompt"): str,
                     Optional("system_prompt"): str,
@@ -433,11 +442,14 @@ def validate_config(config_data):
                     Optional("local"): bool,
                     Optional("base_url"): str,
                     Optional("default_headers"): dict,
+                    Optional("api_version"): Or(str, datetime.date),
+                    Optional("http_client_proxies"): Or(str, dict),
+                    Optional("http_async_client_proxies"): Or(str, dict),
                 },
             },
             Optional("vectordb"): {
                 Optional("provider"): Or(
-                    "chroma", "elasticsearch", "opensearch", "pinecone", "qdrant", "weaviate", "zilliz"
+                    "chroma", "elasticsearch", "opensearch", "lancedb", "pinecone", "qdrant", "weaviate", "zilliz"
                 ),
                 Optional("config"): object,  # TODO: add particular config schema for each provider
             },
@@ -450,6 +462,7 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "clarifai",
                     "nvidia",
                     "ollama",
                     "cohere",
@@ -463,6 +476,8 @@ def validate_config(config_data):
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,
                     Optional("base_url"): str,
+                    Optional("endpoint"): str,
+                    Optional("model_kwargs"): dict,
                 },
             },
             Optional("embedding_model"): {
@@ -474,6 +489,7 @@ def validate_config(config_data):
                     "azure_openai",
                     "google",
                     "mistralai",
+                    "clarifai",
                     "nvidia",
                     "ollama",
                 ),

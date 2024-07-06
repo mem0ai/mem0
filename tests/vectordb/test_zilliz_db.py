@@ -139,7 +139,7 @@ class TestZillizDBCollection:
                 ]
             ]
 
-            query_result = zilliz_db.query(input_query=["query_text"], n_results=1, where={})
+            query_result = zilliz_db.query(input_query="query_text", n_results=1, where={})
 
             # Assert that MilvusClient.search was called with the correct parameters
             mock_search.assert_called_with(
@@ -154,7 +154,7 @@ class TestZillizDBCollection:
             assert query_result == ["result_doc"]
 
             query_result_with_citations = zilliz_db.query(
-                input_query=["query_text"], n_results=1, where={}, citations=True
+                input_query="query_text", n_results=1, where={}, citations=True
             )
 
             mock_search.assert_called_with(
