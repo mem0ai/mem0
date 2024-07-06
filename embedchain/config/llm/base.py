@@ -70,7 +70,7 @@ Conversation history:
 $history
 ----------------------
 
-Memories:
+Memories/Preferences:
 ----------------------
 $memories
 ----------------------
