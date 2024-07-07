@@ -52,6 +52,8 @@ class EmbedChain(JSONSerializable):
         """
         self.config = config
         self.cache_config = None
+        self.memory_config = None
+        self.mem0_client = None
         # Llm
         self.llm = llm
         # Database has support for config assignment for backwards compatibility
@@ -595,6 +597,12 @@ class EmbedChain(JSONSerializable):
         else:
             contexts_data_for_llm_query = contexts
 
+        memories = None
+        if self.mem0_client:
+            memories = self.mem0_client.search(
+                query=input_query, agent_id=self.config.id, session_id=session_id, limit=self.memory_config.top_k
+            )
+
         # Update the history beforehand so that we can handle multiple chat sessions in the same python session
         self.llm.update_history(app_id=self.config.id, session_id=session_id)
 
@@ -615,12 +623,26 @@ class EmbedChain(JSONSerializable):
             logger.debug("Cache disabled. Running chat without cache.")
             if self.llm.config.token_usage:
                 answer, token_info = self.llm.query(
-                    input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
+                    input_query=input_query,
+                    contexts=contexts_data_for_llm_query,
+                    config=config,
+                    dry_run=dry_run,
+                    memories=memories,
                 )
             else:
                 answer = self.llm.query(
-                    input_query=input_query, contexts=contexts_data_for_llm_query, config=config, dry_run=dry_run
+                    input_query=input_query,
+                    contexts=contexts_data_for_llm_query,
+                    config=config,
+                    dry_run=dry_run,
+                    memories=memories,
                 )
+
+        # Add to Mem0 memory if enabled
+        # TODO: Might need to prepend with some text like: 
+        # "Remember user preferences from following user query: {input_query}"
+        if self.mem0_client:
+            self.mem0_client.add(data=input_query, agent_id=self.config.id, session_id=session_id)
 
         # add conversation in memory
         self.llm.add_history(self.config.id, input_query, answer, session_id=session_id)

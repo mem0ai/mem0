@@ -842,7 +842,7 @@ answer = app.query("What is the net worth of Elon Musk today?")
 
 ## Token Usage
 
-You can get the cost of the query by setting `token_usage` to `True` in the config file. This will return the token details: `input_tokens`, `output_tokens`, `total_cost`.
+You can get the cost of the query by setting `token_usage` to `True` in the config file. This will return the token details: `prompt_tokens`, `completion_tokens`, `total_tokens`, `total_cost`, `cost_currency`.
 The list of paid LLMs that support token usage are:
 - OpenAI
 - Vertex AI
@@ -863,14 +863,24 @@ app = App.from_config(config_path="config.yaml")
 
 app.add("https://www.forbes.com/profile/elon-musk")
 
-response, token_usage = app.query("what is the net worth of Elon Musk?")
-# Elon Musk's net worth is $209.9 billion as of 6/9/24.
-# {'input_tokens': 1228, 'output_tokens': 21, 'total_cost (USD)': 0.001884}
+response = app.query("what is the net worth of Elon Musk?")
+# {'answer': 'Elon Musk's net worth is $209.9 billion as of 6/9/24.',
+#   'usage': {'prompt_tokens': 1228,
+#   'completion_tokens': 21, 
+#   'total_tokens': 1249, 
+#   'total_cost': 0.001884, 
+#   'cost_currency': 'USD'}
+# }
 
 
-response, token_usage = app.chat("Which companies did Elon Musk found?")
-# Elon Musk founded six companies, including Tesla, which is an electric car maker, SpaceX, a rocket producer, and the Boring Company, a tunneling startup.
-# {'input_tokens': 1616, 'output_tokens': 34, 'total_cost (USD)': 0.002492}
+response = app.chat("Which companies did Elon Musk found?")
+# {'answer': 'Elon Musk founded six companies, including Tesla, which is an electric car maker, SpaceX, a rocket producer, and the Boring Company, a tunneling startup.',
+#   'usage': {'prompt_tokens': 1616,
+#   'completion_tokens': 34,
+#   'total_tokens': 1650,
+#   'total_cost': 0.002492,
+#   'cost_currency': 'USD'}
+# }
 ```
   
 ```yaml config.yaml
