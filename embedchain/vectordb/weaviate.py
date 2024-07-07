@@ -9,7 +9,7 @@ except ImportError:
         "Weaviate requires extra dependencies. Install with `pip install --upgrade 'embedchain[weaviate]'`"
     ) from None
 
-from embedchain.config.vectordb.weaviate import WeaviateDBConfig
+from embedchain.config.vector_db.weaviate import WeaviateDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -44,7 +44,7 @@ class WeaviateDB(BaseVectorDB):
             auth_client_secret=weaviate.AuthApiKey(api_key=os.environ.get("WEAVIATE_API_KEY")),
             **self.config.extra_params,
         )
-        # Since weaviate uses graphQL, we need to keep track of metadata keys added in the vectordb.
+        # Since weaviate uses graphQL, we need to keep track of metadata keys added in the vector_db.
         # This is needed to filter data while querying.
         self.metadata_keys = {"data_type", "doc_id", "url", "hash", "app_id"}
 

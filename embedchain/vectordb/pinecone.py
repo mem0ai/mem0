@@ -11,7 +11,7 @@ except ImportError:
 
 from pinecone_text.sparse import BM25Encoder
 
-from embedchain.config.vectordb.pinecone import PineconeDBConfig
+from embedchain.config.vector_db.pinecone import PineconeDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.utils.misc import chunks
 from embedchain.vectordb.base import BaseVectorDB
