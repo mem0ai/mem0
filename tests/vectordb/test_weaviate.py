@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from embedchain import App
 from embedchain.config import AppConfig
-from embedchain.config.vectordb.pinecone import PineconeDBConfig
+from embedchain.config.vector_db.pinecone import PineconeDBConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.vectordb.weaviate import WeaviateDB
 

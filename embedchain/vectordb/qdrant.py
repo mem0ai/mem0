@@ -12,7 +12,7 @@ except ImportError:
 
 from tqdm import tqdm
 
-from embedchain.config.vectordb.qdrant import QdrantDBConfig
+from embedchain.config.vector_db.qdrant import QdrantDBConfig
 from embedchain.vectordb.base import BaseVectorDB
 
 

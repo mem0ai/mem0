@@ -7,7 +7,7 @@ try:
 except ImportError:
     raise ImportError('LanceDB is required. Install with pip install "embedchain[lancedb]"') from None
 
-from embedchain.config.vectordb.lancedb import LanceDBConfig
+from embedchain.config.vector_db.lancedb import LanceDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 

@@ -9,7 +9,7 @@ except ImportError:
         "Weaviate requires extra dependencies. Install with `pip install --upgrade 'embedchain[weaviate]'`"
     ) from None
 
-from embedchain.config.vectordb.weaviate import WeaviateDBConfig
+from embedchain.config.vector_db.weaviate import WeaviateDBConfig
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.vectordb.base import BaseVectorDB
 
