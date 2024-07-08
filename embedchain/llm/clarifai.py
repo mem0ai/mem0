@@ -24,7 +24,7 @@ class ClarifaiLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for Clarifai are not installed."
-                'Please install with `pip install --upgrade "embedchain[clarifai]"`'
+                "Please install with `pip install clarifai==10.0.1`"
             ) from None
 
         model_name = config.model

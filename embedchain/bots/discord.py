@@ -12,8 +12,7 @@ try:
     from discord.ext import commands
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
-        "The required dependencies for Discord are not installed."
-        'Please install with `pip install "embedchain[discord]"`'
+        "The required dependencies for Discord are not installed." "Please install with `pip install discord==2.3.2`"
     ) from None
 
 

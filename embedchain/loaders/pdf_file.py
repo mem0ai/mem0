@@ -1,11 +1,6 @@
 import hashlib
 
-try:
-    from langchain_community.document_loaders import PyPDFLoader
-except ImportError:
-    raise ImportError(
-        'PDF File requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
-    ) from None
+from langchain_community.document_loaders import PyPDFLoader
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string

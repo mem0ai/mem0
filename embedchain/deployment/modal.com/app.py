@@ -8,7 +8,18 @@ load_dotenv(".env")
 
 image = Image.debian_slim().pip_install(
     "embedchain",
-    "embedchain[dataloaders]",
+    "lanchain_community==0.2.6",
+    "youtube-transcript-api==0.6.1",
+    "pytube==15.0.0",
+    "beautifulsoup4==4.12.3",
+    "slack-sdk==3.21.3",
+    "huggingface_hub==0.23.0",
+    "gitpython==3.1.38",
+    "yt_dlp==2023.11.14",
+    "PyGithub==1.59.1",
+    "feedparser==6.0.10",
+    "newspaper3k==0.2.8",
+    "listparser==0.19",
 )
 
 stub = Stub(

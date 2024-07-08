@@ -7,7 +7,7 @@ try:
     from bs4 import BeautifulSoup
 except ImportError:
     raise ImportError(
-        'Webpage requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+        "Webpage requires extra dependencies. Install with `pip install beautifulsoup4==4.12.3`"
     ) from None
 
 from embedchain.helpers.json_serializable import register_deserializable

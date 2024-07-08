@@ -105,9 +105,6 @@ gptcache = "^0.1.43"
 pysbd = "^0.3.4"
 memzero = "^0.0.7"
 tiktoken = { version = "^0.7.0", optional = true }
-youtube-transcript-api = { version = "^0.6.1", optional = true }
-pytube = { version = "^15.0.0", optional = true }
-duckduckgo-search = { version = "^6.1.5", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.3.0", optional = true }
 # Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
@@ -115,19 +112,11 @@ gpt4all = { version = "2.0.2", optional = true }
 # 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
 opensearch-py = { version = "2.3.1", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
-flask = { version = "^2.3.3", optional = true }
-twilio = { version = "^8.5.0", optional = true }
-fastapi-poe = { version = "0.0.16", optional = true }
-discord = { version = "^2.3.2", optional = true }
-slack-sdk = { version = "3.21.3", optional = true }
-clarifai = { version = "^10.0.1", optional = true }
 cohere = { version = "^5.3", optional = true }
 together = { version = "^0.2.8", optional = true }
 lancedb = { version = "^0.6.2", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
-docx2txt = { version = "^0.8", optional = true }
 qdrant-client = { version = "^1.6.3", optional = true }
-huggingface_hub = { version = "^0.17.3", optional = true }
 pymilvus = { version = "2.4.3", optional = true }
 google-cloud-aiplatform = { version = "^1.26.1", optional = true }
 replicate = { version = "^0.15.4", optional = true }
@@ -136,21 +125,12 @@ psycopg = { version = "^3.1.12", optional = true }
 psycopg-binary = { version = "^3.1.12", optional = true }
 psycopg-pool = { version = "^3.1.8", optional = true }
 mysql-connector-python = { version = "^8.1.0", optional = true }
-gitpython = { version = "^3.1.38", optional = true }
-yt_dlp = { version = "^2023.11.14", optional = true }
-PyGithub = { version = "^1.59.1", optional = true }
-feedparser = { version = "^6.0.10", optional = true }
-newspaper3k = { version = "^0.2.8", optional = true }
-listparser = { version = "^0.19", optional = true }
 google-generativeai = { version = "^0.3.0", optional = true }
-modal = { version = "^0.56.4329", optional = true }
-dropbox = { version = "^11.36.2", optional = true }
 google-api-python-client = { version = "^2.111.0", optional = true }
 google-auth-oauthlib = { version = "^1.2.0", optional = true }
 google-auth = { version = "^2.25.2", optional = true }
 google-auth-httplib2 = { version = "^0.2.0", optional = true }
 google-api-core = { version = "^2.15.0", optional = true }
-boto3 = { version = "^1.34.20", optional = true }
 langchain-mistralai = { version = "^0.1.9", optional = true }
 langchain-openai = "^0.1.7"
 langchain-google-vertexai = { version = "^1.0.6", optional = true }
@@ -174,27 +154,14 @@ mock = "^5.1.0"
 pytest-asyncio = "^0.21.1"
 
 [tool.poetry.extras]
-streamlit = ["streamlit"]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 lancedb = ["lancedb"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
-poe = ["fastapi-poe"]
-discord = ["discord"]
-slack = ["slack-sdk", "flask"]
-whatsapp = ["twilio", "flask"]
 weaviate = ["weaviate-client"]
 qdrant = ["qdrant-client"]
 together = ["together"]
-huggingface_hub=["huggingface_hub"]
 milvus = ["pymilvus"]
-dataloaders=[
-    "youtube-transcript-api",
-    "docx2txt",
-    "duckduckgo-search",
-    "pytube",
-    "sentence-transformers"
-]
 vertexai = ["langchain-google-vertexai"]
 llama2 = ["replicate"]
 gmail = [
@@ -208,20 +175,7 @@ gmail = [
 googledrive = ["google-api-python-client", "google-auth-oauthlib", "google-auth-httplib2"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 mysql = ["mysql-connector-python"]
-github = ["PyGithub", "gitpython"]
-youtube = [
-    "yt_dlp",
-    "youtube-transcript-api",
-]
-rss_feed = [
-    "feedparser",
-    "listparser",
-    "newspaper3k"
-]
 google = ["google-generativeai"]
-modal = ["modal"]
-dropbox = ["dropbox"]
-aws_bedrock = ["boto3"]
 mistralai = ["langchain-mistralai"]
 
 [tool.poetry.group.docs.dependencies]

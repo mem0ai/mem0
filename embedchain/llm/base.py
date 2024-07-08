@@ -180,7 +180,7 @@ class BaseLlm(JSONSerializable):
             from langchain.tools import DuckDuckGoSearchRun
         except ImportError:
             raise ImportError(
-                'Searching requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+                "Searching requires extra dependencies. Install with `pip install duckduckgo-search==6.1.5`"
             ) from None
         search = DuckDuckGoSearchRun()
         logger.info(f"Access search to get answers for {input_query}")

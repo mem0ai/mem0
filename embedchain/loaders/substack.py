@@ -24,7 +24,7 @@ class SubstackLoader(BaseLoader):
             from bs4.builder import ParserRejectedMarkup
         except ImportError:
             raise ImportError(
-                'Substack requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+                "Substack requires extra dependencies. Install with `pip install beautifulsoup4==4.12.3`"
             ) from None
 
         if not url.endswith("sitemap.xml"):

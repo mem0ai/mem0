@@ -17,9 +17,7 @@ class DropboxLoader(BaseLoader):
         try:
             from dropbox import Dropbox, exceptions
         except ImportError:
-            raise ImportError(
-                'Dropbox requires extra dependencies. Install with `pip install --upgrade "embedchain[dropbox]"`'
-            )
+            raise ImportError("Dropbox requires extra dependencies. Install with `pip install dropbox==11.36.2`")
 
         try:
             dbx = Dropbox(access_token)

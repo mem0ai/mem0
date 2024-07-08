@@ -8,7 +8,7 @@ try:
     from bs4 import BeautifulSoup
 except ImportError:
     raise ImportError(
-        'DocsSite requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+        "DocsSite requires extra dependencies. Install with `pip install beautifulsoup4==4.12.3`"
     ) from None
 
 

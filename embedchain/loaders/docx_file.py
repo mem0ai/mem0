@@ -3,9 +3,7 @@ import hashlib
 try:
     from langchain_community.document_loaders import Docx2txtLoader
 except ImportError:
-    raise ImportError(
-        'Docx file requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
-    ) from None
+    raise ImportError("Docx file requires extra dependencies. Install with `pip install docx2txt==0.8`") from None
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 

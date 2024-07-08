@@ -30,7 +30,8 @@ class GithubLoader(BaseLoader):
             from github import Github
         except ImportError as e:
             raise ValueError(
-                "GithubLoader requires extra dependencies. Install with `pip install --upgrade 'embedchain[github]'`"
+                "GithubLoader requires extra dependencies. \
+                  Install with `pip install gitpython==3.1.38 PyGithub==1.59.1`"
             ) from e
 
         self.config = config

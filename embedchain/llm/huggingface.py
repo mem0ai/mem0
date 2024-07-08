@@ -22,7 +22,7 @@ class HuggingFaceLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for HuggingFaceHub are not installed."
-                'Please install with `pip install --upgrade "embedchain[huggingface-hub]"`'
+                "Please install with `pip install huggingface-hub==0.23.0`"
             ) from None
 
         super().__init__(config=config)

@@ -11,7 +11,7 @@ try:
     from fastapi_poe import PoeBot, run
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
-        "The required dependencies for Poe are not installed." 'Please install with `pip install "embedchain[poe]"`'
+        "The required dependencies for Poe are not installed." "Please install with `pip install fastapi-poe==0.0.16`"
     ) from None
 
 

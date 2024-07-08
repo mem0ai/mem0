@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
         "The required dependencies for Slack are not installed."
-        'Please install with `pip install --upgrade "embedchain[slack]"`'
+        "Please install with `pip install slack-sdk==3.21.3 flask==2.3.3`"
     ) from None
 
 

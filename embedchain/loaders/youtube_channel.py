@@ -18,7 +18,7 @@ class YoutubeChannelLoader(BaseLoader):
             import yt_dlp
         except ImportError as e:
             raise ValueError(
-                "YoutubeLoader requires extra dependencies. Install with `pip install --upgrade 'embedchain[youtube_channel]'`"  # noqa: E501
+                "YoutubeChannelLoader requires extra dependencies. Install with `pip install yt_dlp==2023.11.14 youtube-transcript-api==0.6.1`"  # noqa: E501
             ) from e
 
         data = []
