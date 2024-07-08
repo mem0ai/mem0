@@ -98,14 +98,14 @@ class VectorDBFactory:
         "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
     }
     provider_to_config_class = {
-        "chroma": "embedchain.config.vectordb.chroma.ChromaDbConfig",
-        "elasticsearch": "embedchain.config.vectordb.elasticsearch.ElasticsearchDBConfig",
-        "opensearch": "embedchain.config.vectordb.opensearch.OpenSearchDBConfig",
-        "lancedb": "embedchain.config.vectordb.lancedb.LanceDBConfig",
-        "pinecone": "embedchain.config.vectordb.pinecone.PineconeDBConfig",
-        "qdrant": "embedchain.config.vectordb.qdrant.QdrantDBConfig",
-        "weaviate": "embedchain.config.vectordb.weaviate.WeaviateDBConfig",
-        "zilliz": "embedchain.config.vectordb.zilliz.ZillizDBConfig",
+        "chroma": "embedchain.config.vector_db.chroma.ChromaDbConfig",
+        "elasticsearch": "embedchain.config.vector_db.elasticsearch.ElasticsearchDBConfig",
+        "opensearch": "embedchain.config.vector_db.opensearch.OpenSearchDBConfig",
+        "lancedb": "embedchain.config.vector_db.lancedb.LanceDBConfig",
+        "pinecone": "embedchain.config.vector_db.pinecone.PineconeDBConfig",
+        "qdrant": "embedchain.config.vector_db.qdrant.QdrantDBConfig",
+        "weaviate": "embedchain.config.vector_db.weaviate.WeaviateDBConfig",
+        "zilliz": "embedchain.config.vector_db.zilliz.ZillizDBConfig",
     }
 
     @classmethod
