@@ -12,7 +12,7 @@ try:
     from bs4.builder import ParserRejectedMarkup
 except ImportError:
     raise ImportError(
-        'Sitemap requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
+        "Sitemap requires extra dependencies. Install with `pip install beautifulsoup4==4.12.3`"
     ) from None
 
 from embedchain.helpers.json_serializable import register_deserializable
