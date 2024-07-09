@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
 
 from embedchain.config import BaseEmbedderConfig
