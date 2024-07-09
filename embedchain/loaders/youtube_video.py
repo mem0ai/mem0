@@ -5,14 +5,12 @@ import logging
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
 except ImportError:
-    raise ImportError('YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api "`')
+    raise ImportError("YouTube video requires extra dependencies. Install with `pip install youtube-transcript-api`")
 try:
     from langchain_community.document_loaders import YoutubeLoader
     from langchain_community.document_loaders.youtube import _parse_video_id
 except ImportError:
-    raise ImportError(
-        'YouTube video requires extra dependencies. Install with `pip install --upgrade "embedchain[dataloaders]"`'
-    ) from None
+    raise ImportError("YouTube video requires extra dependencies. Install with `pip install pytube==15.0.0`") from None
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string

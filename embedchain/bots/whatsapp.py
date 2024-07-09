@@ -20,7 +20,7 @@ class WhatsAppBot(BaseBot):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for WhatsApp are not installed. "
-                'Please install with `pip install --upgrade "embedchain[whatsapp]"`'
+                "Please install with `pip install twilio==8.5.0 flask==2.3.3`"
             ) from None
         super().__init__()
 

@@ -28,12 +28,11 @@ class RSSFeedLoader(BaseLoader):
     @staticmethod
     def get_rss_content(url: str):
         try:
-            from langchain_community.document_loaders import \
-                RSSFeedLoader as LangchainRSSFeedLoader
+            from langchain_community.document_loaders import RSSFeedLoader as LangchainRSSFeedLoader
         except ImportError:
             raise ImportError(
                 """RSSFeedLoader file requires extra dependencies.
-                Install with `pip install --upgrade "embedchain[rss_feed]"`"""
+                Install with `pip install feedparser==6.0.10 newspaper3k==0.2.8 listparser==0.19`"""
             ) from None
 
         output = []
