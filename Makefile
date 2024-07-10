@@ -21,3 +21,12 @@ lint:
 
 docs:
 	cd docs && mintlify dev
+
+build:
+	poetry build
+
+publish:
+	poetry publish
+
+clean:
+	poetry run rm -rf dist
