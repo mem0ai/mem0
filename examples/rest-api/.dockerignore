@@ -1,4 +1,0 @@
-.env
-app.db
-configs/**.yaml
-db
