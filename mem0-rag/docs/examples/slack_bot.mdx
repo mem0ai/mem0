@@ -1,0 +1,50 @@
+---
+title: '💼 Slack Bot'
+---
+
+### 🖼️ Setup
+
+1. Create a workspace on Slack if you don't have one already by clicking [here](https://slack.com/intl/en-in/).
+2. Create a new App on your Slack account by going [here](https://api.slack.com/apps).
+3. Select `From Scratch`, then enter the Bot Name and select your workspace.
+4. On the left Sidebar, go to `OAuth and Permissions` and add the following scopes under `Bot Token Scopes`:
+```text
+app_mentions:read
+channels:history
+channels:read
+chat:write
+```
+5. Now select the option `Install to Workspace` and after it's done, copy the `Bot User OAuth Token` and set it in your secrets as `SLACK_BOT_TOKEN`.
+6. Run your bot now,
+<Tabs>
+    <Tab title="docker">
+        ```bash
+        docker run --name slack-bot -e OPENAI_API_KEY=sk-xxx -e SLACK_BOT_TOKEN=xxx -p 8000:8000 embedchain/slack-bot
+        ```
+    </Tab>
+    <Tab title="python">
+        ```bash
+        pip install --upgrade "embedchain[slack]"
+        python3 -m embedchain.bots.slack --port 8000
+        ```
+</Tab>
+</Tabs>
+7. Expose your bot to the internet. You can use your machine's public IP or DNS. Otherwise, employ a proxy server like [ngrok](https://ngrok.com/) to make your local bot accessible.
+8. On the Slack API website go to `Event Subscriptions` on the left Sidebar and turn on `Enable Events`.
+9. In `Request URL`, enter your server or ngrok address.
+10. After it gets verified, click on `Subscribe to bot events`, add `message.channels` Bot User Event and click on `Save Changes`.
+11. Now go to your workspace, right click on the bot name in the sidebar, click `view app details`, then `add this app to a channel`.
+
+### 🚀 Usage Instructions
+
+- Go to the channel where you have added your bot.
+- To add data sources to the bot, use the command:
+```text
+add <data_type> <url_or_text>
+```
+- To ask queries from the bot, use the command:
+```text
+query <question>
+```
+
+🎉 Happy Chatting! 🎉

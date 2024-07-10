@@ -1,0 +1,26 @@
+pipeline:
+  config:
+    name: Example pipeline
+    id: pipeline-1  # Make sure that id is different every time you create a new pipeline
+
+vectordb:
+  provider: chroma
+  config:
+    collection_name: pipeline-1
+    dir: db
+    allow_reset: true
+
+llm:
+  provider: gpt4all
+  config:
+    model: 'orca-mini-3b-gguf2-q4_0.gguf'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedding_model:
+  provider: gpt4all
+  config:
+    model: 'all-MiniLM-L6-v2'
+    deployment_name: null

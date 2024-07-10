@@ -1,0 +1,20 @@
+---
+title: '📓 Notion'
+---
+
+To use notion you must install the extra dependencies with `pip install --upgrade embedchain[community]`.
+
+To load a notion page, use the data_type as `notion`. Since it is hard to automatically detect, it is advised to specify the `data_type` when adding a notion document.
+The next argument must **end** with the `notion page id`. The id is a 32-character string. Eg:
+
+```python
+from embedchain import App
+
+app = App()
+
+app.add("cfbc134ca6464fc980d0391613959196", data_type="notion")
+app.add("my-page-cfbc134ca6464fc980d0391613959196", data_type="notion")
+app.add("https://www.notion.so/my-page-cfbc134ca6464fc980d0391613959196", data_type="notion")
+
+app.query("Summarize the notion doc")
+```

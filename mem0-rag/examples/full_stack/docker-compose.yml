@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  backend:
+    container_name: embedchain-backend
+    restart: unless-stopped
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    image: embedchain/backend
+    ports:
+      - "8000:8000"
+
+  frontend:
+    container_name: embedchain-frontend
+    restart: unless-stopped
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    image: embedchain/frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - "backend"

@@ -1,0 +1,8 @@
+llm:
+  provider: huggingface
+  config:
+    model: 'google/flan-t5-xxl'
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 0.5
+    stream: false

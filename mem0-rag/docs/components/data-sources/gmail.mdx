@@ -1,0 +1,34 @@
+---
+title: '📬 Gmail'
+---
+
+To use GmailLoader you must install the extra dependencies with `pip install --upgrade embedchain[gmail]`.
+
+The `source` must be a valid Gmail search query, you can refer `https://support.google.com/mail/answer/7190?hl=en` to build a query.
+
+To load Gmail messages, you MUST use the data_type as `gmail`. Otherwise the source will be detected as simple `text`.
+
+To use this you need to save `credentials.json` in the directory from where you will run the loader. Follow these steps to get the credentials
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Create a project if you don't have one already.
+3. Create an `OAuth Consent Screen` in the project. You may need to select the `external` option.
+4. Make sure the consent screen is published.
+5. Enable the [Gmail API](https://console.cloud.google.com/apis/api/gmail.googleapis.com)
+6. Create credentials from the `Credentials` tab.
+7. Select the type `OAuth Client ID`.
+8. Choose the application type `Web application`. As a name you can choose `embedchain` or any other name as per your use case.
+9. Add an authorized redirect URI for `http://localhost:8080/`.
+10. You can leave everything else at default, finish the creation.
+11. When you are done, a modal opens where you can download the details in `json` format.
+12. Put the `.json` file in your current directory and rename it to `credentials.json`
+
+```python
+from embedchain import App
+
+app = App()
+
+gmail_filter = "to: me label:inbox"
+app.add(gmail_filter, data_type="gmail")
+app.query("Summarize my email conversations")
+```

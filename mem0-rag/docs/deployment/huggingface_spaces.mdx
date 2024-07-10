@@ -1,0 +1,103 @@
+---
+title: 'Huggingface.co'
+description: 'Deploy your RAG application to huggingface.co platform'
+---
+
+With Embedchain, you can directly host your apps in just three steps to huggingface spaces where you can view and deploy your app to the world.
+
+We support two types of deployment to huggingface spaces:
+
+<CardGroup cols={2}>
+    <Card title="" href="#using-streamlit-io">
+        Streamlit.io
+    </Card>
+    <Card title="" href="#using-gradio-app">
+        Gradio.app
+    </Card>
+</CardGroup>
+
+## Using streamlit.io
+
+### Step 1: Create a new RAG app
+
+Create a new RAG app using the following command:
+
+```bash
+mkdir my-rag-app
+ec create --template=hf/streamlit.io # inside my-rag-app directory
+```
+
+When you run this for the first time, you'll be asked to login to huggingface.co. Once you login, you'll need to create a **write** token. You can create a write token by going to [huggingface.co settings](https://huggingface.co/settings/token). Once you create a token, you'll be asked to enter the token in the terminal.
+
+This will also create an `embedchain.json` file in your app directory. Add a `name` key into the `embedchain.json` file. This will be the "repo-name" of your app in huggingface spaces.
+
+```json embedchain.json
+{
+    "name": "my-rag-app",
+    "provider": "hf/streamlit.io"
+}
+```
+
+### Step-2: Test app locally
+
+You can run the app locally by simply doing:
+
+```bash Run locally
+pip install -r requirements.txt
+ec dev
+```
+
+### Step-3: Deploy to huggingface spaces
+
+```bash Deploy to huggingface spaces
+ec deploy
+```
+
+This will deploy your app to huggingface spaces. You can view your app at `https://huggingface.co/spaces/<your-username>/my-rag-app`. This will get prompted in the terminal once the app is deployed.
+
+## Using gradio.app
+
+Similar to streamlit.io, you can deploy your app to gradio.app in just three steps.
+
+### Step 1: Create a new RAG app
+
+Create a new RAG app using the following command:
+
+```bash
+mkdir my-rag-app
+ec create --template=hf/gradio.app # inside my-rag-app directory
+```
+
+When you run this for the first time, you'll be asked to login to huggingface.co. Once you login, you'll need to create a **write** token. You can create a write token by going to [huggingface.co settings](https://huggingface.co/settings/token). Once you create a token, you'll be asked to enter the token in the terminal.
+
+This will also create an `embedchain.json` file in your app directory. Add a `name` key into the `embedchain.json` file. This will be the "repo-name" of your app in huggingface spaces.
+
+```json embedchain.json
+{
+    "name": "my-rag-app",
+    "provider": "hf/gradio.app"
+}
+```
+
+### Step-2: Test app locally
+
+You can run the app locally by simply doing:
+
+```bash Run locally
+pip install -r requirements.txt
+ec dev
+```
+
+### Step-3: Deploy to huggingface spaces
+
+```bash Deploy to huggingface spaces
+ec deploy
+```
+
+This will deploy your app to huggingface spaces. You can view your app at `https://huggingface.co/spaces/<your-username>/my-rag-app`. This will get prompted in the terminal once the app is deployed.
+
+## Seeking help?
+
+If you run into issues with deployment, please feel free to reach out to us via any of the following methods:
+
+<Snippet file="get-help.mdx" />

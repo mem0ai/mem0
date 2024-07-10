@@ -1,0 +1,44 @@
+---
+title: '📃 JSON'
+---
+
+To add any json file, use the data_type as `json`. Headers are included for each line, so for example if you have a json like `{"age": 18}`, then it will be added as `age: 18`.
+
+Here are the supported sources for loading `json`:
+
+```
+1. URL - valid url to json file that ends with ".json" extension.
+2. Local file - valid url to local json file that ends with ".json" extension.
+3. String - valid json string (e.g. - app.add('{"foo": "bar"}'))
+```
+
+<Tip>
+If you would like to add other data structures (e.g. list, dict etc.), convert it to a valid json first using `json.dumps()` function.
+</Tip>
+
+## Example
+
+<CodeGroup>
+
+```python python
+from embedchain import App
+
+app = App()
+
+# Add json file
+app.add("temp.json")
+
+app.query("What is the net worth of Elon Musk as of October 2023?")
+# As of October 2023, Elon Musk's net worth is $255.2 billion.
+```
+
+
+```json temp.json
+{
+    "question": "What is your net worth, Elon Musk?",
+    "answer": "As of October 2023, Elon Musk's net worth is $255.2 billion, making him one of the wealthiest individuals in the world."
+}
+```
+</CodeGroup>
+
+

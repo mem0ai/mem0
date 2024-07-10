@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  backend:
+    container_name: embedchain_api
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - variables.env
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/usr/src/api

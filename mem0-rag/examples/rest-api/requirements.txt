@@ -1,0 +1,24 @@
+fastapi==0.104.0
+uvicorn==0.23.2
+streamlit==1.29.0
+embedchain==0.1.3
+slack-sdk==3.21.3 
+flask==2.3.3
+fastapi-poe==0.0.16
+discord==2.3.2
+twilio==8.5.0
+huggingface-hub==0.17.3
+embedchain[community, opensource, elasticsearch, opensearch, weaviate, pinecone, qdrant, images, cohere, together, milvus, vertexai, llama2, gmail, json]==0.1.3
+sqlalchemy==2.0.22
+python-multipart==0.0.6
+youtube-transcript-api==0.6.1 
+pytube==15.0.0 
+beautifulsoup4==4.12.3
+slack-sdk==3.21.3
+huggingface_hub==0.23.0
+gitpython==3.1.38
+yt_dlp==2023.11.14
+PyGithub==1.59.1
+feedparser==6.0.10
+newspaper3k==0.2.8
+listparser==0.19

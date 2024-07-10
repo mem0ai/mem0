@@ -1,0 +1,52 @@
+---
+title: 📝 Github
+---
+
+1. Setup the Github loader by configuring the Github account with username and personal access token (PAT). Check out [this](https://docs.github.com/en/enterprise-server@3.6/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token) link to learn how to create a PAT.
+```Python
+from embedchain.loaders.github import GithubLoader
+
+loader = GithubLoader(
+    config={
+        "token":"ghp_xxxx"
+        }
+    )
+```
+
+2. Once you setup the loader, you can create an app and load data using the above Github loader
+```Python
+import os
+from embedchain.pipeline import Pipeline as App
+
+os.environ["OPENAI_API_KEY"] = "sk-xxxx"
+
+app = App()
+
+app.add("repo:embedchain/embedchain type:repo", data_type="github", loader=loader)
+
+response = app.query("What is Embedchain?")
+# Answer: Embedchain is a Data Platform for Large Language Models (LLMs). It allows users to seamlessly load, index, retrieve, and sync unstructured data in order to build dynamic, LLM-powered applications. There is also a JavaScript implementation called embedchain-js available on GitHub.
+```
+The `add` function of the app will accept any valid github query with qualifiers. It only supports loading github code, repository, issues and pull-requests.
+<Note>
+You must provide qualifiers `type:` and `repo:` in the query. The `type:` qualifier can be a combination of `code`, `repo`, `pr`, `issue`, `branch`, `file`. The `repo:` qualifier must be a valid github repository name.
+</Note>
+
+<Card title="Valid queries" icon="lightbulb" iconType="duotone" color="#ca8b04">
+    - `repo:embedchain/embedchain type:repo` - to load the repository
+    - `repo:embedchain/embedchain type:branch name:feature_test` - to load the branch of the repository
+    - `repo:embedchain/embedchain type:file path:README.md` - to load the specific file of the repository
+    - `repo:embedchain/embedchain type:issue,pr` - to load the issues and pull-requests of the repository
+    - `repo:embedchain/embedchain type:issue state:closed` - to load the closed issues of the repository
+</Card>
+
+3. We automatically create a chunker to chunk your GitHub data, however if you wish to provide your own chunker class. Here is how you can do that:
+```Python
+from embedchain.chunkers.common_chunker import CommonChunker
+from embedchain.config.add_config import ChunkerConfig
+
+github_chunker_config = ChunkerConfig(chunk_size=2000, chunk_overlap=0, length_function=len)
+github_chunker = CommonChunker(config=github_chunker_config)
+
+app.add(load_query, data_type="github", loader=loader, chunker=github_chunker)
+```
