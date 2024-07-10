@@ -1,125 +1,197 @@
-<p align="center">
-  <img src="docs/logo/dark.svg" width="400px" alt="Embedchain Logo">
-</p>
+# Mem0: Long-Term Memory for LLMs
 
-<p align="center">
-  <a href="https://pypi.org/project/embedchain/">
-    <img src="https://img.shields.io/pypi/v/embedchain" alt="PyPI">
-  </a>
-  <a href="https://pepy.tech/project/embedchain">
-    <img src="https://static.pepy.tech/badge/embedchain" alt="Downloads">
-  </a>
-  <a href="https://embedchain.ai/slack">
-    <img src="https://img.shields.io/badge/slack-embedchain-brightgreen.svg?logo=slack" alt="Slack">
-  </a>
-  <a href="https://embedchain.ai/discord">
-    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Discord">
-  </a>
-  <a href="https://twitter.com/embedchain">
-    <img src="https://img.shields.io/twitter/follow/embedchain" alt="Twitter">
-  </a>
-  <a href="https://colab.research.google.com/drive/138lMWhENGeEu7Q1-6lNbNTHGLZXBBz_B?usp=sharing">
-    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
-  </a>
-  <a href="https://codecov.io/gh/embedchain/embedchain">
-    <img src="https://codecov.io/gh/embedchain/embedchain/graph/badge.svg?token=EMRRHZXW1Q" alt="codecov">
-  </a>
-</p>
+Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
 
-<hr />
+## Features
 
-## What is Embedchain?
+- Persistent memory for users, sessions, and agents
+- Self-improving personalization
+- Simple API for easy integration
+- Cross-platform consistency
 
-Embedchain is an Open Source Framework for personalizing LLM responses. It makes it easy to create and deploy personalized AI apps. At its core, Embedchain follows the design principle of being *"Conventional but Configurable"* to serve both software engineers and machine learning engineers.
+## Quick Start
 
-Embedchain streamlines the creation of personalized LLM applications, offering a seamless process for managing various types of unstructured data. It efficiently segments data into manageable chunks, generates relevant embeddings, and stores them in a vector database for optimized retrieval. With a suite of diverse APIs, it enables users to extract contextual information, find precise answers, or engage in interactive chat conversations, all tailored to their own data.
+### Installation
 
-## 🔧 Quick install
-
-### Python API
 
 ```bash
-pip install embedchain
+pip install mem0ai
 ```
 
-## ✨ Live demo
+## Usage
 
-Checkout the [Chat with PDF](https://embedchain.ai/demo/chat-pdf) live demo we created using Embedchain. You can find the source code [here](https://github.com/embedchain/embedchain/tree/main/examples/chat-pdf).
-
-## 🔍 Usage
-
-<!-- Demo GIF or Image -->
-<p align="center">
-  <img src="docs/images/cover.gif" width="900px" alt="Embedchain Demo">
-</p>
-
-For example, you can create an Elon Musk bot using the following code:
+### Instantiate
 
 ```python
-import os
-from embedchain import App
+from mem0 import Memory
 
-# Create a bot instance
-os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>"
-app = App()
-
-# Embed online resources
-app.add("https://en.wikipedia.org/wiki/Elon_Musk")
-app.add("https://www.forbes.com/profile/elon-musk")
-
-# Query the app
-app.query("How many companies does Elon Musk run and name those?")
-# Answer: Elon Musk currently runs several companies. As of my knowledge, he is the CEO and lead designer of SpaceX, the CEO and product architect of Tesla, Inc., the CEO and founder of Neuralink, and the CEO and founder of The Boring Company. However, please note that this information may change over time, so it's always good to verify the latest updates.
+m = Memory()
 ```
 
-You can also try it in your browser with Google Colab:
+If you want to use Qdrant in server mode, use the following method to instantiate.
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/17ON1LPonnXAtLaZEebnOktstB_1cJJmh?usp=sharing)
+Run qdrant first:
 
-## 📖 Documentation
-Comprehensive guides and API documentation are available to help you get the most out of Embedchain:
+```bash
+docker pull qdrant/qdrant
 
-- [Introduction](https://docs.embedchain.ai/get-started/introduction#what-is-embedchain)
-- [Getting Started](https://docs.embedchain.ai/get-started/quickstart)
-- [Examples](https://docs.embedchain.ai/examples)
-- [Supported data types](https://docs.embedchain.ai/components/data-sources/overview)
-
-## 🔗 Join the Community
-
-* Connect with fellow developers by joining our [Slack Community](https://embedchain.ai/slack) or [Discord Community](https://embedchain.ai/discord).
-
-* Dive into [GitHub Discussions](https://github.com/embedchain/embedchain/discussions), ask questions, or share your experiences.
-
-## 🤝 Schedule a 1-on-1 Session
-
-Book a [1-on-1 Session](https://cal.com/taranjeetio/ec) with the founders, to discuss any issues, provide feedback, or explore how we can improve Embedchain for you.
-
-## 🌐 Contributing
-
-Contributions are welcome! Please check out the issues on the repository, and feel free to open a pull request.
-For more information, please see the [contributing guidelines](CONTRIBUTING.md).
-
-For more reference, please go through [Development Guide](https://docs.embedchain.ai/contribution/dev) and [Documentation Guide](https://docs.embedchain.ai/contribution/docs).
-
-<a href="https://github.com/embedchain/embedchain/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=embedchain/embedchain" />
-</a>
-
-## Anonymous Telemetry
-
-We collect anonymous usage metrics to enhance our package's quality and user experience. This includes data like feature usage frequency and system info, but never personal details. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the environment variable `EC_TELEMETRY=false`. We prioritize data security and don't share this data externally.
-
-## Citation
-
-If you utilize this repository, please consider citing it with:
-
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
 ```
-@misc{embedchain,
-  author = {Taranjeet Singh, Deshraj Yadav},
-  title = {Embedchain: The Open Source RAG Framework},
-  year = {2023},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/embedchain/embedchain}},
+
+Then, instantiate memory with qdrant server:
+
+```python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
 }
+
+m = Memory.from_config(config)
 ```
+
+### Store a Memory
+
+```python
+m.add("Likes to play cricket over weekend", user_id="alex", metadata={"foo": "bar"})
+# Output:
+# [
+#   {
+#     'id': 'm1',
+#     'event': 'add',
+#     'data': 'Likes to play cricket over weekend'
+#   }
+# ]
+
+# Similarly, you can store a memory for an agent
+m.add("Agent X is best travel agent in Paris", agent_id="agent-x", metadata={"type": "long-term"})
+```
+
+### Retrieve all memories
+
+#### 1. Get all memories
+```python
+m.get_all()
+# Output:
+# [
+#   {
+#     'id': 'm1',
+#     'text': 'Likes to play cricket over weekend',
+#     'metadata': {
+#       'data': 'Likes to play cricket over weekend'
+#     }
+#   },
+#   {
+#     'id': 'm2',
+#     'text': 'Agent X is best travel agent in Paris',
+#     'metadata': {
+#       'data': 'Agent X is best travel agent in Paris'
+#     }
+#   }
+# ]
+
+```
+#### 2. Get memories for specific user
+
+```python
+m.get_all(user_id="alex")
+```
+
+#### 3. Get memories for specific agent
+
+```python
+m.get_all(agent_id="agent-x")
+```
+
+#### 4. Get memories for a user during an agent run
+
+```python
+m.get_all(agent_id="agent-x", user_id="alex")
+```
+
+### Retrieve a Memory
+
+```python
+memory_id = "m1"
+m.get(memory_id)
+# Output:
+# {
+#   'id': '1',
+#   'text': 'Likes to play cricket over weekend',
+#   'metadata': {
+#     'data': 'Likes to play cricket over weekend'
+#   }
+# }
+```
+
+### Search for related memories
+
+```python
+m.search(query="What is my name", user_id="deshraj")
+```
+
+### Update a Memory
+
+```python
+m.update(memory_id="m1", data="Likes to play tennis")
+```
+
+### Get history of a Memory
+
+```python
+m.history(memory_id="m1")
+# Output:
+# [
+#   {
+#     'id': 'h1',
+#     'memory_id': 'm1',
+#     'prev_value': None,
+#     'new_value': 'Likes to play cricket over weekend',
+#     'event': 'add',
+#     'timestamp': '2024-06-12 21:00:54.466687',
+#     'is_deleted': 0
+#   },
+#   {
+#     'id': 'h2',
+#     'memory_id': 'm1',
+#     'prev_value': 'Likes to play cricket over weekend',
+#     'new_value': 'Likes to play tennis',
+#     'event': 'update',
+#     'timestamp': '2024-06-12 21:01:17.230943',
+#     'is_deleted': 0
+#   }
+# ]
+```
+
+### Delete a Memory
+
+#### Delete specific memory
+
+```python
+m.delete(memory_id="m1")
+```
+
+#### Delete memories for a user or agent
+
+```python
+m.delete_all(user_id="alex")
+m.delete_all(agent_id="agent-x")
+```
+
+#### Delete all Memories
+
+```python
+m.reset()
+```
+
+## License
+
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
