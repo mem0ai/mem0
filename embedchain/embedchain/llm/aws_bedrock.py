@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from langchain_community.llms import Bedrock
+from langchain_aws import Bedrock
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -26,7 +26,9 @@ class AWSBedrockLlm(BaseLlm):
                 "Please install with `pip install boto3==1.34.20`."
             ) from None
 
-        self.boto_client = boto3.client("bedrock-runtime", "us-west-2" or os.environ.get("AWS_REGION"))
+        self.boto_client = boto3.client(
+            "bedrock-runtime", os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+        )
 
         kwargs = {
             "model_id": config.model or "amazon.titan-text-express-v1",
@@ -38,7 +40,9 @@ class AWSBedrockLlm(BaseLlm):
         }
 
         if config.stream:
-            from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+            from langchain.callbacks.streaming_stdout import (
+                StreamingStdOutCallbackHandler,
+            )
 
             callbacks = [StreamingStdOutCallbackHandler()]
             llm = Bedrock(**kwargs, streaming=config.stream, callbacks=callbacks)
