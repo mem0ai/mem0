@@ -1,18 +1,11 @@
-# Mem0: Long-Term Memory for LLMs
+---
+title: Introduction
+description: 'Welcome to the Mem0 documentation'
+---
 
-Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
+Mem0 is the long-term memory for AI Agents.
 
-## Features
-
-- Persistent memory for users, sessions, and agents
-- Self-improving personalization
-- Simple API for easy integration
-- Cross-platform consistency
-
-## Quick Start
-
-### Installation
-
+## Installation
 
 ```bash
 pip install mem0ai
@@ -24,11 +17,10 @@ pip install mem0ai
 
 ```python
 from mem0 import Memory
-
 m = Memory()
 ```
 
-If you want to use Qdrant in server mode, use the following method to instantiate.
+Mem0 uses Qdrant by default for storing the semantic memories. If you want to use Qdrant in server mode, use the following method to instantiate.
 
 Run qdrant first:
 
@@ -61,7 +53,7 @@ m = Memory.from_config(config)
 ### Store a Memory
 
 ```python
-m.add("Likes to play cricket over weekend", user_id="alex", metadata={"foo": "bar"})
+m.add("Likes to play cricket over weekend", user_id="deshraj", metadata={"foo": "bar"})
 # Output:
 # [
 #   {
@@ -102,7 +94,7 @@ m.get_all()
 #### 2. Get memories for specific user
 
 ```python
-m.get_all(user_id="alex")
+m.get_all(user_id="deshraj")
 ```
 
 #### 3. Get memories for specific agent
@@ -114,7 +106,7 @@ m.get_all(agent_id="agent-x")
 #### 4. Get memories for a user during an agent run
 
 ```python
-m.get_all(agent_id="agent-x", user_id="alex")
+m.get_all(agent_id="agent-x", user_id="deshraj")
 ```
 
 ### Retrieve a Memory
@@ -173,24 +165,26 @@ m.history(memory_id="m1")
 
 ### Delete a Memory
 
-#### Delete specific memory
-
 ```python
 m.delete(memory_id="m1")
 ```
 
-#### Delete memories for a user or agent
+### Delete memories of a user or agent
 
 ```python
-m.delete_all(user_id="alex")
+m.delete_all(user_id="deshraj")
 m.delete_all(agent_id="agent-x")
 ```
 
-#### Delete all Memories
+### Delete all Memories
 
 ```python
 m.reset()
 ```
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change. Please make sure to update tests as appropriate.
 
 ## License
 

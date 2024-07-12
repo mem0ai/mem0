@@ -1,0 +1,16 @@
+
+llm:
+  provider: azure_openai
+  model: gpt-35-turbo
+  config:
+    deployment_name: ec_openai_azure
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: azure_openai
+  config:
+    model: text-embedding-ada-002
+    deployment_name: ec_embeddings_ada_002
