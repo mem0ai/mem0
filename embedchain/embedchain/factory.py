@@ -56,6 +56,7 @@ class EmbedderFactory:
         "openai": "embedchain.embedder.openai.OpenAIEmbedder",
         "vertexai": "embedchain.embedder.vertexai.VertexAIEmbedder",
         "google": "embedchain.embedder.google.GoogleAIEmbedder",
+        "aws_bedrock": "embedchain.embedder.aws_bedrock.AWSBedrockEmbedder",
         "mistralai": "embedchain.embedder.mistralai.MistralAIEmbedder",
         "clarifai": "embedchain.embedder.clarifai.ClarifaiEmbedder",
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
@@ -65,6 +66,7 @@ class EmbedderFactory:
     provider_to_config_class = {
         "azure_openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "google": "embedchain.config.embedder.google.GoogleAIEmbedderConfig",
+        "aws_bedrock": "embedchain.config.embedder.aws_bedrock.AWSBedrockEmbedderConfig",
         "gpt4all": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "huggingface": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",

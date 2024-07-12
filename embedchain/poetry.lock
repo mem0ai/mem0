@@ -1020,7 +1020,7 @@ tests = ["dj-database-url", "dj-email-url", "django-cache-url", "pytest"]
 name = "eval-type-backport"
 version = "0.2.0"
 description = "Like `typing._eval_type`, but lets older Python versions use newer typing features."
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "eval_type_backport-0.2.0-py3-none-any.whl", hash = "sha256:ac2f73d30d40c5a30a80b8739a789d6bb5e49fdffa66d7912667e2015d9c9933"},
@@ -1763,25 +1763,6 @@ docs = ["Sphinx", "furo"]
 test = ["objgraph", "psutil"]
 
 [[package]]
-name = "groq"
-version = "0.9.0"
-description = "The official Python library for the groq API"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "groq-0.9.0-py3-none-any.whl", hash = "sha256:d0e46f4ad645504672bb09c8100af3ced3a7db0d5119dc13e4aca535fc455874"},
-    {file = "groq-0.9.0.tar.gz", hash = "sha256:130ed5e35d3acfaab46b9e7a078eeaebf91052f4a9d71f86f87fb319b5fec332"},
-]
-
-[package.dependencies]
-anyio = ">=3.5.0,<5"
-distro = ">=1.7.0,<2"
-httpx = ">=0.23.0,<1"
-pydantic = ">=1.9.0,<3"
-sniffio = "*"
-typing-extensions = ">=4.7,<5"
-
-[[package]]
 name = "grpc-google-iam-v1"
 version = "0.13.1"
 description = "IAM API client library"
@@ -2409,6 +2390,22 @@ SQLAlchemy = ">=1.4,<3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
 
 [[package]]
+name = "langchain-aws"
+version = "0.1.11"
+description = "An integration package connecting AWS and LangChain"
+optional = true
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "langchain_aws-0.1.11-py3-none-any.whl", hash = "sha256:dc613da5c7869aa7d9a7ba8a65da67a9f804f0a71c9c8710233a8ce5b3d0847c"},
+    {file = "langchain_aws-0.1.11.tar.gz", hash = "sha256:9aa1540dc7de39e20b25335375fcd57268f020331bbc5d30e9b9528a512a4e98"},
+]
+
+[package.dependencies]
+boto3 = ">=1.34.131,<1.35.0"
+langchain-core = ">=0.2.17,<0.3"
+numpy = ">=1,<2"
+
+[[package]]
 name = "langchain-cohere"
 version = "0.1.9"
 description = "An integration package connecting Cohere and LangChain"
@@ -2721,23 +2718,20 @@ files = [
 
 [[package]]
 name = "mem0ai"
-version = "0.0.5"
+version = "0.0.9"
 description = "Long-term memory for AI Agents"
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "mem0ai-0.0.5-py3-none-any.whl", hash = "sha256:6f6e5356fd522adf0510322cd581476ea456fd7ccefca11b5ac050e9a6f00f36"},
-    {file = "mem0ai-0.0.5.tar.gz", hash = "sha256:f2ac35d15e4e620becb8d06b8ebeb1ffa85fac0b7cb2d3138056babec48dd5dd"},
+    {file = "mem0ai-0.0.9-py3-none-any.whl", hash = "sha256:d4de435729af4fd3d597d022ffb2af89a0630d6c3b4769792bbe27d2ce816858"},
+    {file = "mem0ai-0.0.9.tar.gz", hash = "sha256:e4374d5d04aa3f543cd3325f700e4b62f5358ae1c6fa5c44b2ff790c10c4e5f1"},
 ]
 
 [package.dependencies]
-boto3 = ">=1.34.144,<2.0.0"
-groq = ">=0.9.0,<0.10.0"
 openai = ">=1.33.0,<2.0.0"
 posthog = ">=3.5.0,<4.0.0"
 pydantic = ">=2.7.3,<3.0.0"
 qdrant-client = ">=1.9.1,<2.0.0"
-together = ">=1.2.1,<2.0.0"
 
 [[package]]
 name = "milvus-lite"
@@ -2748,6 +2742,7 @@ python-versions = ">=3.7"
 files = [
     {file = "milvus_lite-2.4.8-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:b7e90b34b214884cd44cdc112ab243d4cb197b775498355e2437b6cafea025fe"},
     {file = "milvus_lite-2.4.8-py3-none-macosx_11_0_arm64.whl", hash = "sha256:519dfc62709d8f642d98a1c5b1dcde7080d107e6e312d677fef5a3412a40ac08"},
+    {file = "milvus_lite-2.4.8-py3-none-manylinux2014_aarch64.whl", hash = "sha256:b21f36d24cbb0e920b4faad607019bb28c1b2c88b4d04680ac8c7697a4ae8a4d"},
     {file = "milvus_lite-2.4.8-py3-none-manylinux2014_x86_64.whl", hash = "sha256:08332a2b9abfe7c4e1d7926068937e46f8fb81f2707928b7bc02c9dc99cebe41"},
 ]
 
@@ -3726,7 +3721,7 @@ files = [
 name = "pillow"
 version = "10.4.0"
 description = "Python Imaging Library (Fork)"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "pillow-10.4.0-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:4d9667937cfa347525b319ae34375c37b9ee6b525440f3ef48542fcf66f2731e"},
@@ -4108,7 +4103,7 @@ files = [
 name = "pyarrow"
 version = "15.0.0"
 description = "Python library for Apache Arrow"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "pyarrow-15.0.0-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:0a524532fd6dd482edaa563b686d754c70417c2f72742a8c990b322d4c03a15d"},
@@ -5555,7 +5550,7 @@ blobfile = ["blobfile (>=2)"]
 name = "together"
 version = "1.2.1"
 description = "Python client for Together's Cloud Platform!"
-optional = false
+optional = true
 python-versions = "<4.0,>=3.8"
 files = [
     {file = "together-1.2.1-py3-none-any.whl", hash = "sha256:a94408074e0e50b3dab1d4001cb36a3fdbd0e4d6a0e659ecaae6b7b6355f5369"},
@@ -6605,4 +6600,4 @@ weaviate = ["weaviate-client"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "7857242f71bf8dd9374a9b244a2c0ca88ff455c5b83b478f65ed59b1958a69e6"
+content-hash = "6262bf682fb6725a4e03075f46280d539c46681b93f1a9872e831f7b57871292"

@@ -8,6 +8,7 @@ class VectorDimensions(Enum):
     VERTEX_AI = 768
     HUGGING_FACE = 384
     GOOGLE_AI = 768
+    AWS_BEDROCK = 1024
     MISTRAL_AI = 1024
     NVIDIA_AI = 1024
     COHERE = 384

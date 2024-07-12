@@ -1,0 +1,14 @@
+llm:
+  provider: aws_bedrock
+  config:
+    model: anthropic.claude-v2:1
+    temperature: 0.5
+    max_tokens: 8192
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: aws_bedrock
+  config:
+    model: amazon.titan-embed-text-v2:0
+    vector_dimension: 1024
