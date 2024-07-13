@@ -9,7 +9,7 @@ import requests
 import yaml
 from tqdm import tqdm
 
-from mem0 import Mem0
+from mem0 import Memory
 from embedchain.cache import (
     Config,
     ExactMatchEvaluation,
@@ -131,9 +131,9 @@ class App(EmbedChain):
             self._init_cache()
 
         # If memory_config is provided, initializing the memory ...
-        self.mem0_client = None
+        self.mem0_memory = None
         if self.memory_config is not None:
-            self.mem0_client = Mem0(api_key=self.memory_config.api_key)
+            self.mem0_memory = Memory()
 
         # Send anonymous telemetry
         self._telemetry_props = {"class": self.__class__.__name__}
