@@ -1,0 +1,195 @@
+---
+title: 🚀 Quickstart
+description: 'Get started with Mem0 quickly!'
+---
+
+> Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
+
+## Installation
+
+To install Mem0, you can use pip. Run the following command in your terminal:
+
+```bash
+pip install mem0ai
+```
+
+## Basic Usage
+
+### Initialize Mem0
+
+<Tabs>
+  <Tab title="Basic">
+```python
+from mem0 import Memory
+m = Memory()
+```
+  </Tab>
+  <Tab title="Advanced">
+If you want to run Mem0 in production, initialize using the following method:
+
+Run Qdrant first:
+
+```bash
+docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+Then, instantiate memory with qdrant server:
+
+```python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+m = Memory.from_config(config)
+```
+  </Tab>
+</Tabs>
+
+
+### Store a Memory
+
+```python
+# For a user
+result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+print(result)
+```
+
+Output:
+```python
+[
+  {
+    'id': 'm1',
+    'event': 'add',
+    'data': 'Likes to play cricket on weekends'
+  }
+]
+```
+
+### Retrieve Memories
+
+```python
+# Get all memories
+all_memories = m.get_all()
+print(all_memories)
+```
+
+Output:
+
+```python
+[
+  {
+    'id': 'm1',
+    'text': 'Likes to play cricket on weekends',
+    'metadata': {
+      'data': 'Likes to play cricket on weekends',
+      'category': 'hobbies'
+    }
+  },
+  # ... other memories ...
+]
+```
+
+```python
+# Get a single memory by ID
+specific_memory = m.get("m1")
+print(specific_memory)
+```
+
+Output:
+```python
+{
+  'id': 'm1',
+  'text': 'Likes to play cricket on weekends',
+  'metadata': {
+    'data': 'Likes to play cricket on weekends',
+    'category': 'hobbies'
+  }
+}
+```
+
+### Search Memories
+
+```python
+related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+print(related_memories)
+```
+
+Output:
+
+```python
+[
+  {
+    'id': 'm1',
+    'text': 'Likes to play cricket on weekends',
+    'metadata': {
+      'data': 'Likes to play cricket on weekends',
+      'category': 'hobbies'
+    },
+    'score': 0.85  # Similarity score
+  },
+  # ... other related memories ...
+]
+```
+
+### Update a Memory
+
+```python
+result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
+print(result)
+```
+
+Output:
+
+```python
+{
+  'id': 'm1',
+  'event': 'update',
+  'data': 'Likes to play tennis on weekends'
+}
+```
+
+### Memory History
+
+```python
+history = m.history(memory_id="m1")
+print(history)
+```
+Output:
+```python
+[
+  {
+    'id': 'h1',
+    'memory_id': 'm1',
+    'prev_value': None,
+    'new_value': 'Likes to play cricket on weekends',
+    'event': 'add',
+    'timestamp': '2024-07-14 10:00:54.466687',
+    'is_deleted': 0
+  },
+  {
+    'id': 'h2',
+    'memory_id': 'm1',
+    'prev_value': 'Likes to play cricket on weekends',
+    'new_value': 'Likes to play tennis on weekends',
+    'event': 'update',
+    'timestamp': '2024-07-14 10:15:17.230943',
+    'is_deleted': 0
+  }
+]
+```
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

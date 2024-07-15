@@ -14,6 +14,7 @@ from mem0.llms.utils.tools import (
     DELETE_MEMORY_TOOL,
     UPDATE_MEMORY_TOOL,
 )
+from mem0.configs.prompts import MEMORY_DEDUCTION_PROMPT
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
@@ -100,6 +101,7 @@ class Memory(MemoryBase):
         run_id=None,
         metadata=None,
         filters=None,
+        prompt=None,
     ):
         """
         Create a new memory.
@@ -116,7 +118,6 @@ class Memory(MemoryBase):
             str: ID of the created memory.
         """
         if metadata is None:
-            logging.warn("Metadata not provided. Using empty metadata.")
             metadata = {}
         embeddings = self.embedding_model.embed(data)
 
@@ -128,6 +129,18 @@ class Memory(MemoryBase):
         if run_id:
             filters["run_id"] = metadata["run_id"] = run_id
 
+        if not prompt:
+            prompt = MEMORY_DEDUCTION_PROMPT.format(user_input=data, metadata=metadata)
+        extracted_memories = self.llm.generate_response(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an expert at deducing facts, preferences and memories from unstructured text.",
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
+        extracted_memories = extracted_memories.choices[0].message.content
         existing_memories = self.vector_store.search(
             name=self.collection_name,
             query=embeddings,
@@ -148,7 +161,9 @@ class Memory(MemoryBase):
             for item in existing_memories
         ]
         logging.info(f"Total existing memories: {len(existing_memories)}")
-        messages = get_update_memory_messages(serialized_existing_memories, data)
+        messages = get_update_memory_messages(
+            serialized_existing_memories, extracted_memories
+        )
         # Add tools for noop, add, update, delete memory.
         tools = [ADD_MEMORY_TOOL, UPDATE_MEMORY_TOOL, DELETE_MEMORY_TOOL]
         response = self.llm.generate_response(messages=messages, tools=tools)

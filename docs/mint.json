@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/schema.json",
   "name": "Mem0.ai",
-  "favicon": "/logo/light.svg",
+  "favicon": "/logo/favicon.png",
   "colors": {
     "primary": "#3B2FC9",
     "light": "#6673FF",
@@ -16,6 +16,12 @@
     "light": "/logo/light.svg",
     "href": "https://github.com/embedchain/embedchain"
   },
+  "tabs": [
+    {
+      "name": "💡 Examples",
+      "url": "examples"
+    }
+  ],
   "topbarLinks": [
     {
       "name": "Support",
@@ -32,13 +38,27 @@
       "name": "Discord",
       "icon": "discord",
       "url": "https://mem0.ai/discord/"
+    },
+    {
+      "name": "Talk to founders",
+      "icon": "calendar",
+      "url": "https://cal.com/taranjeetio/meet"
     }
   ],
   "navigation": [
     {
       "group": "Get Started",
       "pages": [
-        "introduction"
+        "overview",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "💡 Examples",
+      "pages": [
+        "examples/overview",
+        "examples/personal-ai-tutor",
+        "examples/customer-support-agent"
       ]
     }
   ],
