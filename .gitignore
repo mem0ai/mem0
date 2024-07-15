@@ -182,3 +182,4 @@ notebooks/*.yaml
 
 # local directories for testing
 eval/
+qdrant_storage/

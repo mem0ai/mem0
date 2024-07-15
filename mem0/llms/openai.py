@@ -38,4 +38,3 @@ class OpenAILLM(LLMBase):
 
         response = self.client.chat.completions.create(**params)
         return response
-        # return response.choices[0].message["content"]
