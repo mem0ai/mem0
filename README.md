@@ -1,46 +1,76 @@
-# Mem0: Long-Term Memory for LLMs
+<p align="center">
+  <img src="docs/images/mem0-bg.png" width="500px" alt="Mem0 Logo">
+</p>
+
+<p align="center">
+  <a href="https://embedchain.ai/slack">
+    <img src="https://img.shields.io/badge/slack-embedchain-brightgreen.svg?logo=slack" alt="Slack">
+  </a>
+  <a href="https://embedchain.ai/discord">
+    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Discord">
+  </a>
+  <a href="https://twitter.com/mem0ai">
+    <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Twitter">
+  </a>
+</p>
+
+# Mem0: The Memory Layer for Personalized AI
 
 Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
 
-## Features
-
-- Persistent memory for users, sessions, and agents
-- Self-improving personalization
-- Simple API for easy integration
-- Cross-platform consistency
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
-
 
 ```bash
 pip install mem0ai
 ```
 
-## Usage
-
-### Instantiate
+### Basic Usage
 
 ```python
 from mem0 import Memory
 
+# Initialize Mem0
 m = Memory()
+
+# Store a memory from any unstructured text
+result = m.add("I am working on improving my tennis skills. Suggest some online courses.", user_id="alice", metadata={"category": "hobbies"})
+print(result)
+# Created memory: Improving her tennis skills. Looking for online suggestions.
+
+# Retrieve memories
+all_memories = m.get_all()
+print(all_memories)
+
+# Search memories
+related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+print(related_memories)
+
+# Update a memory
+result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
+print(result)
+
+# Get memory history
+history = m.history(memory_id="m1")
+print(history)
 ```
 
-If you want to use Qdrant in server mode, use the following method to instantiate.
+## 🔑 Core Features
 
-Run qdrant first:
+- **Multi-Level Memory**: User, Session, and AI Agent memory retention
+- **Adaptive Personalization**: Continuous improvement based on interactions
+- **Developer-Friendly API**: Simple integration into various applications
+- **Cross-Platform Consistency**: Uniform behavior across devices
+- **Managed Service**: Hassle-free hosted solution
 
-```bash
-docker pull qdrant/qdrant
+## 📖 Documentation
 
-docker run -p 6333:6333 -p 6334:6334 \
-    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
-    qdrant/qdrant
-```
+For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://docs.mem0.ai).
 
-Then, instantiate memory with qdrant server:
+## 🔧 Advanced Usage
+
+For production environments, you can use Qdrant as a vector store:
 
 ```python
 from mem0 import Memory
@@ -58,140 +88,19 @@ config = {
 m = Memory.from_config(config)
 ```
 
-### Store a Memory
+## 🗺️ Roadmap
 
-```python
-m.add("Likes to play cricket over weekend", user_id="alex", metadata={"foo": "bar"})
-# Output:
-# [
-#   {
-#     'id': 'm1',
-#     'event': 'add',
-#     'data': 'Likes to play cricket over weekend'
-#   }
-# ]
+- Integration with various LLM providers
+- Support for LLM frameworks
+- Integration with AI Agents frameworks
+- Customizable memory creation/update rules
+- Hosted platform support
 
-# Similarly, you can store a memory for an agent
-m.add("Agent X is best travel agent in Paris", agent_id="agent-x", metadata={"type": "long-term"})
-```
+## 🙋‍♂️ Support
+Join our Slack or Discord community for support and discussions.
+If you have any questions, feel free to reach out to us using one of the following methods:
 
-### Retrieve all memories
-
-#### 1. Get all memories
-```python
-m.get_all()
-# Output:
-# [
-#   {
-#     'id': 'm1',
-#     'text': 'Likes to play cricket over weekend',
-#     'metadata': {
-#       'data': 'Likes to play cricket over weekend'
-#     }
-#   },
-#   {
-#     'id': 'm2',
-#     'text': 'Agent X is best travel agent in Paris',
-#     'metadata': {
-#       'data': 'Agent X is best travel agent in Paris'
-#     }
-#   }
-# ]
-
-```
-#### 2. Get memories for specific user
-
-```python
-m.get_all(user_id="alex")
-```
-
-#### 3. Get memories for specific agent
-
-```python
-m.get_all(agent_id="agent-x")
-```
-
-#### 4. Get memories for a user during an agent run
-
-```python
-m.get_all(agent_id="agent-x", user_id="alex")
-```
-
-### Retrieve a Memory
-
-```python
-memory_id = "m1"
-m.get(memory_id)
-# Output:
-# {
-#   'id': '1',
-#   'text': 'Likes to play cricket over weekend',
-#   'metadata': {
-#     'data': 'Likes to play cricket over weekend'
-#   }
-# }
-```
-
-### Search for related memories
-
-```python
-m.search(query="What is my name", user_id="deshraj")
-```
-
-### Update a Memory
-
-```python
-m.update(memory_id="m1", data="Likes to play tennis")
-```
-
-### Get history of a Memory
-
-```python
-m.history(memory_id="m1")
-# Output:
-# [
-#   {
-#     'id': 'h1',
-#     'memory_id': 'm1',
-#     'prev_value': None,
-#     'new_value': 'Likes to play cricket over weekend',
-#     'event': 'add',
-#     'timestamp': '2024-06-12 21:00:54.466687',
-#     'is_deleted': 0
-#   },
-#   {
-#     'id': 'h2',
-#     'memory_id': 'm1',
-#     'prev_value': 'Likes to play cricket over weekend',
-#     'new_value': 'Likes to play tennis',
-#     'event': 'update',
-#     'timestamp': '2024-06-12 21:01:17.230943',
-#     'is_deleted': 0
-#   }
-# ]
-```
-
-### Delete a Memory
-
-#### Delete specific memory
-
-```python
-m.delete(memory_id="m1")
-```
-
-#### Delete memories for a user or agent
-
-```python
-m.delete_all(user_id="alex")
-m.delete_all(agent_id="agent-x")
-```
-
-#### Delete all Memories
-
-```python
-m.reset()
-```
-
-## License
-
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- [Join our Discord](https://embedchain.ai/discord)
+- [Join our Slack](https://embedchain.ai/slack)
+- [Follow us on Twitter](https://twitter.com/mem0ai)
+- [Email us](mailto:founders@mem0.ai)
