@@ -35,7 +35,7 @@ $answer
 """  # noqa:E501
 
 GROUNDEDNESS_CLAIMS_INFERENCE_PROMPT = """
-Given the context and the provided claim statements, please provide a verdict for each claim statement whether it can be completely infered from the given context or not.
+Given the context and the provided claim statements, please provide a verdict for each claim statement whether it can be completely inferred from the given context or not.
 Use only "1" (yes), "0" (no) and "-1" (null) for "yes", "no" or "null" respectively.
 You must provide one verdict per line, ONLY WITH "1", "0" or "-1" as per your verdict to the given statement and nothing else.
 You must provide the verdicts in the same order as the claim statements.
