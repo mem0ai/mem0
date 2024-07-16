@@ -54,6 +54,12 @@
       ]
     },
     {
+      "group": "LLMs",
+      "pages": [
+        "llms"
+      ]
+    },
+    {
       "group": "💡 Examples",
       "pages": [
         "examples/overview",

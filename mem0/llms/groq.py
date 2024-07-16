@@ -1,0 +1,40 @@
+from typing import Dict, List, Optional
+
+from groq import Groq
+
+from mem0.llms.base import LLMBase
+
+
+class GroqLLM(LLMBase):
+    def __init__(self, model="llama3-70b-8192"):
+        self.client = Groq()
+        self.model = model
+
+    def generate_response(
+        self,
+        messages: List[Dict[str, str]],
+        response_format=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+    ):
+        """
+        Generate a response based on the given messages using Groq.
+
+        Args:
+            messages (list): List of message dicts containing 'role' and 'content'.
+            response_format (str or object, optional): Format of the response. Defaults to "text".
+            tools (list, optional): List of tools that the model can call. Defaults to None.
+            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+
+        Returns:
+            str: The generated response.
+        """
+        params = {"model": self.model, "messages": messages}
+        if response_format:
+            params["response_format"] = response_format
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
+        response = self.client.chat.completions.create(**params)
+        return response

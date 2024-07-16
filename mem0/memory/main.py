@@ -7,8 +7,6 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from mem0.embeddings.openai import OpenAIEmbedding
-from mem0.llms.openai import OpenAILLM
 from mem0.llms.utils.tools import (
     ADD_MEMORY_TOOL,
     DELETE_MEMORY_TOOL,
@@ -21,7 +19,10 @@ from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import get_update_memory_messages
 from mem0.vector_stores.configs import VectorStoreConfig
+from mem0.llms.configs import LlmConfig
+from mem0.embeddings.configs import EmbedderConfig
 from mem0.vector_stores.qdrant import Qdrant
+from mem0.utils.factory import LlmFactory, EmbedderFactory
 
 # Setup user config
 setup_config()
@@ -44,6 +45,14 @@ class MemoryConfig(BaseModel):
         description="Configuration for the vector store",
         default_factory=VectorStoreConfig,
     )
+    llm: LlmConfig = Field(
+        description="Configuration for the language model",
+        default_factory=LlmConfig,
+    )
+    embedder: EmbedderConfig = Field(
+        description="Configuration for the embedding model",
+        default_factory=EmbedderConfig,
+    )
     history_db_path: str = Field(
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
@@ -57,7 +66,7 @@ class MemoryConfig(BaseModel):
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
-        self.embedding_model = OpenAIEmbedding()
+        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider)
         # Initialize the appropriate vector store based on the configuration
         vector_store_config = self.config.vector_store.config
         if self.config.vector_store.provider == "qdrant":
@@ -73,7 +82,7 @@ class Memory(MemoryBase):
                 f"Unsupported vector store type: {self.config.vector_store_type}"
             )
 
-        self.llm = OpenAILLM()
+        self.llm = LlmFactory.create(self.config.llm.provider)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.collection_name
         self.vector_store.create_col(

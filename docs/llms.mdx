@@ -1,0 +1,66 @@
+---
+title: 🤖 Large language models (LLMs)
+---
+
+## Overview
+
+Mem0 includes built-in support for various popular large language models. Memory can utilize the LLM provided by the user, ensuring efficient use for specific needs.
+
+<CardGroup cols={4}>
+  <Card title="OpenAI" href="#openai"></Card>
+  <Card title="Groq" href="#groq"></Card>
+</CardGroup>
+
+## OpenAI
+
+To use OpenAI LLM models, you have to set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+Once you have obtained the key, you can use it like this:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ['OPENAI_API_KEY'] = 'xxx'
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Groq
+
+[Groq](https://groq.com/) is the creator of the world's first Language Processing Unit (LPU), providing exceptional speed performance for AI workloads running on their LPU Inference Engine.
+
+In order to use LLMs from Groq, go to their [platform](https://console.groq.com/keys) and get the API key. Set the API key as `GROQ_API_KEY` environment variable to use the model as given below in the example.
+
+```python
+import os
+from mem0 import Memory
+
+os.environ['GROQ_API_KEY'] = 'xxx'
+
+config = {
+    "llm": {
+        "provider": "groq",
+        "config": {
+            "model": "mixtral-8x7b-32768",
+            "temperature": 0.1,
+            "max_tokens": 1000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
