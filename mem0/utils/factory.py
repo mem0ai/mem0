@@ -11,7 +11,8 @@ class LlmFactory:
     provider_to_class = {
         "ollama": "mem0.llms.ollama.py.OllamaLLM",
         "openai": "mem0.llms.openai.OpenAILLM",
-        "groq": "mem0.llms.groq.GroqLLM"
+        "groq": "mem0.llms.groq.GroqLLM",
+        "together": "mem0.llms.together.TogetherLLM"
     }
 
     @classmethod
