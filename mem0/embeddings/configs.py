@@ -19,3 +19,4 @@ class EmbedderConfig(BaseModel):
             return v
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")
+        

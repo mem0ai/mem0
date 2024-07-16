@@ -66,3 +66,4 @@ def test_generate_response_with_tools(mock_groq_client):
         tool_choice="auto"
     )
     assert response.choices[0].message.content == "Memory added successfully."
+    

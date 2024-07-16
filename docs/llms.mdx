@@ -26,6 +26,11 @@ os.environ['OPENAI_API_KEY'] = 'xxx'
 config = {
     "llm": {
         "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
     }
 }
 
@@ -48,6 +53,11 @@ os.environ['GROQ_API_KEY'] = 'xxx'
 config = {
     "llm": {
         "provider": "groq",
+        "config": {
+            "model": "mixtral-8x7b-32768",
+            "temperature": 0.1,
+            "max_tokens": 1000,
+        }
     }
 }
 
