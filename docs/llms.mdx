@@ -9,6 +9,7 @@ Mem0 includes built-in support for various popular large language models. Memory
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
   <Card title="Groq" href="#groq"></Card>
+  <Card title="Together" href="#together"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -57,6 +58,33 @@ config = {
             "model": "mixtral-8x7b-32768",
             "temperature": 0.1,
             "max_tokens": 1000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## TogetherAI
+
+To use TogetherAI LLM models, you have to set the `TOGETHER_API_KEY` environment variable. You can obtain the TogetherAI API key from their [Account settings page](https://api.together.xyz/settings/api-keys).
+
+Once you have obtained the key, you can use it like this:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ['TOGETHER_API_KEY'] = 'xxx'
+
+config = {
+    "llm": {
+        "provider": "togetherai",
+        "config": {
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "temperature": 0.2,
+            "max_tokens": 1500,
         }
     }
 }

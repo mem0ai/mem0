@@ -21,7 +21,7 @@ pydantic = "^2.7.3"
 openai = "^1.33.0"
 posthog = "^3.5.0"
 groq = "^0.9.0"
-
+together = "^1.2.1"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
