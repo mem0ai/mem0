@@ -29,7 +29,6 @@ class GroqLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        print(messages)
         params = {"model": self.model, "messages": messages}
         if response_format:
             params["response_format"] = response_format
