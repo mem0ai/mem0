@@ -27,7 +27,7 @@ def test_generate_response_without_tools(mock_together_client):
         model="mistralai/Mixtral-8x7B-Instruct-v0.1",
         messages=messages
     )
-    assert response.choices[0].message.content == "I'm doing well, thank you for asking!"
+    assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_together_client):
@@ -54,7 +54,15 @@ def test_generate_response_with_tools(mock_together_client):
     ]
     
     mock_response = Mock()
-    mock_response.choices = [Mock(message=Mock(content="Memory added successfully."))]
+    mock_message = Mock()
+    mock_message.content = "I've added the memory for you."
+    
+    mock_tool_call = Mock()
+    mock_tool_call.function.name = "add_memory"
+    mock_tool_call.function.arguments = '{"data": "Today is a sunny day."}'
+    
+    mock_message.tool_calls = [mock_tool_call]
+    mock_response.choices = [Mock(message=mock_message)]
     mock_together_client.chat.completions.create.return_value = mock_response
 
     response = llm.generate_response(messages, tools=tools)
@@ -65,5 +73,9 @@ def test_generate_response_with_tools(mock_together_client):
         tools=tools,
         tool_choice="auto"
     )
-    assert response.choices[0].message.content == "Memory added successfully."
+    
+    assert response["content"] == "I've added the memory for you."
+    assert len(response["tool_calls"]) == 1
+    assert response["tool_calls"][0]["name"] == "add_memory"
+    assert response["tool_calls"][0]["arguments"] == {'data': 'Today is a sunny day.'}
     
