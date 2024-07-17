@@ -1,0 +1,85 @@
+---
+title: MultiOn
+---
+
+Build personal browser agent remembers user preferences and automates web tasks. It integrates Mem0 for memory management with MultiOn for executing browser actions, enabling personalized and efficient web interactions.
+
+## Overview
+
+In this example, we will create a Browser based AI Agent that searches [arxiv.org](https://arxiv.org) for research papers relevant to user's research interests.
+
+## Setup and Configuration
+
+Install necessary libraries:
+
+```bash
+pip install mem0ai multion
+```
+
+First, we'll import the necessary libraries and set up our configurations.
+
+```python
+import os
+from mem0 import Memory
+from multion.client import MultiOn
+
+# Configuration
+OPENAI_API_KEY = 'sk-xxx'  # Replace with your actual OpenAI API key
+MULTION_API_KEY = 'your-multion-key'  # Replace with your actual MultiOn API key
+USER_ID = "deshraj"
+
+# Set up OpenAI API key
+os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
+
+# Initialize Mem0 and MultiOn
+memory = Memory()
+multion = MultiOn(api_key=MULTION_API_KEY)
+```
+
+## Add memories to Mem0
+
+Next, we'll define our user data and add it to Mem0.
+
+```python
+# Define user data
+USER_DATA = """
+About me
+- I'm Deshraj Yadav, Co-founder and CTO at Mem0, interested in AI and ML Infrastructure.
+- Previously, I was a Senior Autopilot Engineer at Tesla, leading the AI Platform for Autopilot.
+- I built EvalAI at Georgia Tech, an open-source platform for evaluating ML algorithms.
+- Outside of work, I enjoy playing cricket in two leagues in the San Francisco.
+"""
+
+# Add user data to memory
+memory.add(USER_DATA, user_id=USER_ID)
+print("User data added to memory.")
+```
+
+## Retrieving Relevant Memories
+
+Now, we'll define our search command and retrieve relevant memories from Mem0.
+
+```python
+# Define search command and retrieve relevant memories
+command = "Find papers on arxiv that I should read based on my interests."
+
+relevant_memories = memory.search(command, user_id=USER_ID, limit=3)
+relevant_memories_text = '\n'.join(mem['text'] for mem in relevant_memories)
+print(f"Relevant memories:")
+print(relevant_memories_text)
+```
+
+## Browsing arXiv
+
+Finally, we'll use MultiOn to browse arXiv based on our command and relevant memories.
+
+```python
+# Create prompt and browse arXiv
+prompt = f"{command}\n My past memories: {relevant_memories_text}"
+browse_result = multion.browse(cmd=prompt, url="https://arxiv.org/")
+print(browse_result)
+```
+
+## Conclusion
+
+By integrating Mem0 with MultiOn, you've created a personalized browser agent that remembers user preferences and automates web tasks. For more details and advanced usage, refer to the full [cookbook here](https://github.com/mem0ai/mem0/blob/main/cookbooks/mem0-multion.ipynb).
