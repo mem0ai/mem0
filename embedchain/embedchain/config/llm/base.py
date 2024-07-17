@@ -234,7 +234,7 @@ class BaseLlmConfig(BaseConfig):
         self.api_version = api_version
 
         if token_usage:
-            f = open("model_prices_and_context_window.json")
+            f = open("config/model_prices_and_context_window.json")
             self.model_pricing_map = json.load(f)
 
         if isinstance(prompt, str):

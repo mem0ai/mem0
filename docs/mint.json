@@ -54,11 +54,18 @@
       ]
     },
     {
+      "group": "Integrations",
+      "pages": [
+        "llms"
+      ]
+    },
+    {
       "group": "💡 Examples",
       "pages": [
         "examples/overview",
         "examples/personal-ai-tutor",
-        "examples/customer-support-agent"
+        "examples/customer-support-agent",
+        "examples/personal-travel-assistant"
       ]
     }
   ],
