@@ -54,9 +54,15 @@
       ]
     },
     {
-      "group": "Integrations",
+      "group": "LLMs",
       "pages": [
         "llms"
+      ]
+    },
+    {
+      "group": "Integrations",
+      "pages": [
+        "integrations/multion"
       ]
     },
     {
