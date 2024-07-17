@@ -149,7 +149,6 @@ class Memory(MemoryBase):
                 {"role": "user", "content": prompt},
             ]
         )
-        extracted_memories = extracted_memories.choices[0].message.content
         existing_memories = self.vector_store.search(
             name=self.collection_name,
             query=embeddings,
@@ -176,8 +175,7 @@ class Memory(MemoryBase):
         # Add tools for noop, add, update, delete memory.
         tools = [ADD_MEMORY_TOOL, UPDATE_MEMORY_TOOL, DELETE_MEMORY_TOOL]
         response = self.llm.generate_response(messages=messages, tools=tools)
-        response_message = response.choices[0].message
-        tool_calls = response_message.tool_calls
+        tool_calls = response["tool_calls"]
 
         response = []
         if tool_calls:
@@ -188,9 +186,9 @@ class Memory(MemoryBase):
                 "delete_memory": self._delete_memory_tool,
             }
             for tool_call in tool_calls:
-                function_name = tool_call.function.name
+                function_name = tool_call["name"]
                 function_to_call = available_functions[function_name]
-                function_args = json.loads(tool_call.function.arguments)
+                function_args = tool_call["arguments"]
                 logging.info(
                     f"[openai_func] func: {function_name}, args: {function_args}"
                 )
