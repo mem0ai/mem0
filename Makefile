@@ -3,9 +3,16 @@
 # Variables
 RUFF_OPTIONS = --line-length 120
 ISORT_OPTIONS = --profile black
+PROJECT_NAME := mem0ai
 
 # Default target
 all: format sort lint
+
+install:
+	poetry install
+
+install_all:
+	poetry install --all-extras
 
 # Format code with ruff
 format:
@@ -30,3 +37,6 @@ publish:
 
 clean:
 	poetry run rm -rf dist
+
+coverage:
+	poetry run pytest --cov=$(PROJECT_NAME) --cov-report=xml

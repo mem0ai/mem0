@@ -4,12 +4,16 @@ on:
   push:
     branches: [main]
     paths:
+      - 'mem0/**'
+      - 'tests/**'
       - 'embedchain/**'
       - 'embedchain/tests/**'
       - 'embedchain/examples/**'
   pull_request:
     paths:
-      - 'embedchain/embedchain/**'
+      - 'mem0/**'
+      - 'tests/**'
+      - 'embedchain/**'
       - 'embedchain/tests/**'
       - 'embedchain/examples/**'
 
@@ -19,6 +23,9 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
+        include:
+          - path: mem0
+          - path: embedchain
 
     steps:
       - uses: actions/checkout@v3
@@ -26,25 +33,46 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install poetry
         uses: snok/install-poetry@v1
         with:
           version: 1.4.2
           virtualenvs-create: true
           virtualenvs-in-project: true
+
       - name: Load cached venv
         id: cached-poetry-dependencies
         uses: actions/cache@v2
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
       - name: Install dependencies
-        run: cd embedchain && make install_all
+        run: |
+          if [ "${{ matrix.path }}" == "mem0" ]; then
+            make install_all
+          else
+            cd embedchain && make install_all
+          fi
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+
       - name: Lint with ruff
-        run: cd embedchain && make lint
+        run: |
+          if [ "${{ matrix.path }}" == "mem0" ]; then
+            make lint
+          else
+            cd embedchain && make lint
+          fi
+
       - name: Run tests and generate coverage report
-        run: cd embedchain && make coverage
+        run: |
+          if [ "${{ matrix.path }}" == "mem0" ]; then
+            make coverage
+          else
+            cd embedchain && make coverage
+          fi
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         with:
