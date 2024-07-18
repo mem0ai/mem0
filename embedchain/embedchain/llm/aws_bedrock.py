@@ -1,7 +1,12 @@
 import os
 from typing import Optional
 
-from langchain_aws import Bedrock
+try:
+    from langchain_aws import BedrockLLM
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "The required dependencies for AWSBedrock are not installed." "Please install with `pip install langchain_aws`"
+    ) from None
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
@@ -44,9 +49,9 @@ class AWSBedrockLlm(BaseLlm):
                 StreamingStdOutCallbackHandler,
             )
 
-            callbacks = [StreamingStdOutCallbackHandler()]
-            llm = Bedrock(**kwargs, streaming=config.stream, callbacks=callbacks)
-        else:
-            llm = Bedrock(**kwargs)
+            kwargs["streaming"] = True
+            kwargs["callbacks"] = [StreamingStdOutCallbackHandler()]
+
+        llm = BedrockLLM(**kwargs)
 
         return llm.invoke(prompt)
