@@ -20,6 +20,10 @@
     {
       "name": "💡 Examples",
       "url": "examples"
+    },
+    {
+      "name": "🖥️  Platform",
+      "url": "platform"
     }
   ],
   "topbarLinks": [
@@ -72,6 +76,13 @@
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
         "examples/personal-travel-assistant"
+      ]
+    },
+    {
+      "group": "🖥️  Platform",
+      "pages": [
+        "platform/overview",
+        "platform/quickstart"
       ]
     }
   ],
