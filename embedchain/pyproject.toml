@@ -103,7 +103,7 @@ beautifulsoup4 = "^4.12.2"
 pypdf = "^4.0.1"
 gptcache = "^0.1.43"
 pysbd = "^0.3.4"
-memzero = "^0.0.7"
+mem0ai = "^0.0.5"
 tiktoken = { version = "^0.7.0", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.3.0", optional = true }
@@ -113,7 +113,7 @@ gpt4all = { version = "2.0.2", optional = true }
 opensearch-py = { version = "2.3.1", optional = true }
 elasticsearch = { version = "^8.9.0", optional = true }
 cohere = { version = "^5.3", optional = true }
-together = { version = "^0.2.8", optional = true }
+together = { version = "^1.2.1", optional = true }
 lancedb = { version = "^0.6.2", optional = true }
 weaviate-client = { version = "^3.24.1", optional = true }
 qdrant-client = { version = "^1.6.3", optional = true }

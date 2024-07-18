@@ -250,7 +250,6 @@ Alright, let's dive into what each key means in the yaml config above:
       - `similarity_threshold` (Float): The threshold for similarity evaluation. Defaults to `0.8`.
       - `auto_flush` (Integer): The number of queries after which the cache is flushed. Defaults to `20`.
 7. `memory` Section: (Optional)
-    - `api_key` (String): The API key of mem0.
     - `top_k` (Integer): The number of top-k results to return. Defaults to `10`.
     <Note>
     If you provide a cache section, the app will automatically configure and use a cache to store the results of the language model. This is useful if you want to speed up the response time and save inference cost of your app.
