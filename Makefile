@@ -12,7 +12,7 @@ install:
 	poetry install
 
 install_all:
-	poetry install --all-extras
+	poetry install
 
 # Format code with ruff
 format:
