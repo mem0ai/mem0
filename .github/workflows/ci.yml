@@ -5,13 +5,13 @@ on:
     branches: [main]
     paths:
       - 'embedchain/**'
-      - 'tests/**'
-      - 'examples/**'
+      - 'embedchain/tests/**'
+      - 'embedchain/examples/**'
   pull_request:
     paths:
-      - 'embedchain/**'
-      - 'tests/**'
-      - 'examples/**'
+      - 'embedchain/embedchain/**'
+      - 'embedchain/tests/**'
+      - 'embedchain/examples/**'
 
 jobs:
   build:
@@ -39,12 +39,12 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
-        run: make install_all
+        run: cd embedchain && make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Lint with ruff
-        run: make lint
+        run: cd embedchain && make lint
       - name: Run tests and generate coverage report
-        run: make coverage
+        run: cd embedchain && make coverage
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         with:
