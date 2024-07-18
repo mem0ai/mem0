@@ -1,5 +1,7 @@
 import importlib
 
+from mem0.configs.llms.base import BaseLlmConfig
+
 
 def load_class(class_type):
     module_path, class_name = class_type.rsplit(".", 1)
@@ -18,11 +20,12 @@ class LlmFactory:
     }
 
     @classmethod
-    def create(cls, provider_name):
+    def create(cls, provider_name, config):
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
-            llm_instance = load_class(class_type)()
-            return llm_instance
+            llm_instance = load_class(class_type)
+            base_config = BaseLlmConfig(**config)
+            return llm_instance(base_config)
         else:
             raise ValueError(f"Unsupported Llm provider: {provider_name}")
         
