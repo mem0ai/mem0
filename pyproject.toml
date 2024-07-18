@@ -7,7 +7,7 @@ exclude = [
     "db",
     "configs",
     "notebooks",
-    "mem0-rag",
+    "embedchain",
 ]
 packages = [
     { include = "mem0" },
