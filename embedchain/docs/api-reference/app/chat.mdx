@@ -147,7 +147,7 @@ app.chat("What is the net worth of Elon Musk?", config=query_config)
 
 ### With Mem0 to store chat history
 
-Mem0 is a cutting-edge long-term memory for LLMs to enable personalization for the GenAI stack. It enables LLMs to remember past interactions and provide more personalized responses.
+Mem0 is a cutting-edge long-term memory for LLMs to enable personalization for the GenAI stack. It enables LLMs to remember past interactions and provide more personalized responses. 
 
 In order to use Mem0 to enable memory for personalization in your apps:
 - Install the [`mem0`](https://docs.mem0.ai/) package using `pip install mem0ai`. 
@@ -167,3 +167,9 @@ app.add("https://www.forbes.com/profile/elon-musk")
 
 app.chat("What is the net worth of Elon Musk?")
 ```
+
+## How Mem0 works:
+- Mem0 saves context derived from each user question into its memory.
+- When a user poses a new question, Mem0 retrieves relevant previous memories.
+- The `top_k` parameter in the memory configuration specifies the number of top memories to consider during retrieval.
+- Mem0 generates the final response by integrating the user's question, context from the data source, and the relevant memories.
