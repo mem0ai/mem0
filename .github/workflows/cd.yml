@@ -25,10 +25,10 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: poetry install
+        run: cd embedchain && poetry install
 
       - name: Build a binary wheel and a source tarball
-        run: poetry build
+        run: cd embedchain && poetry build
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
