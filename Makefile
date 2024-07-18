@@ -1,7 +1,6 @@
 .PHONY: format sort lint
 
 # Variables
-RUFF_OPTIONS = --line-length 120
 ISORT_OPTIONS = --profile black
 PROJECT_NAME := mem0ai
 
@@ -24,7 +23,7 @@ sort:
 
 # Lint code with ruff
 lint:
-	poetry run ruff check . $(RUFF_OPTIONS)
+	poetry run ruff .
 
 docs:
 	cd docs && mintlify dev

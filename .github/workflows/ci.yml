@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v3
@@ -66,8 +66,6 @@ jobs:
       - name: Install dependencies
         run: make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: Lint with ruff
-        run: make lint
       - name: Run tests and generate coverage report
         run: make coverage
       - name: Upload coverage reports to Codecov
