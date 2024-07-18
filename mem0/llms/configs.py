@@ -8,7 +8,7 @@ class LlmConfig(BaseModel):
         description="Provider of the LLM (e.g., 'ollama', 'openai')", default="openai"
     )
     config: Optional[dict] = Field(
-        description="Configuration for the specific LLM", default=None
+        description="Configuration for the specific LLM", default={}
     )
 
     @field_validator("config")

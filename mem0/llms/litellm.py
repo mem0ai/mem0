@@ -4,11 +4,15 @@ from typing import Dict, List, Optional
 import litellm
 
 from mem0.llms.base import LLMBase
+from mem0.configs.llms.base import BaseLlmConfig
 
 
 class LiteLLM(LLMBase):
-    def __init__(self, model="gpt-4o"):
-        self.model = model
+    def __init__(self, config: Optional[BaseLlmConfig] = None):
+        super().__init__(config)
+
+        if not self.config.model:
+            self.config.model="gpt-4o"
     
     def _parse_response(self, response, tools):
         """
@@ -57,10 +61,16 @@ class LiteLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        if not litellm.supports_function_calling(self.model):
-            raise ValueError(f"Model '{self.model}' in litellm does not support function calling.")
+        if not litellm.supports_function_calling(self.config.model):
+            raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
 
-        params = {"model": self.model, "messages": messages}
+        params = {
+            "model": self.config.model, 
+            "messages": messages, 
+            "temperature": self.config.temperature, 
+            "max_tokens": self.config.max_tokens, 
+            "top_p": self.config.top_p
+        }
         if response_format:
             params["response_format"] = response_format
         if tools:
