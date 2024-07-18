@@ -4,17 +4,74 @@ on:
   push:
     branches: [main]
     paths:
+      - 'mem0/**'
+      - 'tests/**'
       - 'embedchain/**'
       - 'embedchain/tests/**'
       - 'embedchain/examples/**'
   pull_request:
     paths:
-      - 'embedchain/embedchain/**'
+      - 'mem0/**'
+      - 'tests/**'
+      - 'embedchain/**'
       - 'embedchain/tests/**'
       - 'embedchain/examples/**'
 
 jobs:
-  build:
+  check_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      mem0_changed: ${{ steps.filter.outputs.mem0 }}
+      embedchain_changed: ${{ steps.filter.outputs.embedchain }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          mem0:
+            - 'mem0/**'
+            - 'tests/**'
+          embedchain:
+            - 'embedchain/**'
+            - 'embedchain/tests/**'
+            - 'embedchain/examples/**'
+
+  build_mem0:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.mem0_changed == 'true' || (needs.check_changes.outputs.mem0_changed == 'false' && needs.check_changes.outputs.embedchain_changed == 'false') }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.2
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        run: make install_all
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      - name: Run tests and generate coverage report
+        run: make test
+
+  build_embedchain:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.embedchain_changed == 'true' || (needs.check_changes.outputs.mem0_changed == 'false' && needs.check_changes.outputs.embedchain_changed == 'false') }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -37,7 +94,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
         run: cd embedchain && make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'

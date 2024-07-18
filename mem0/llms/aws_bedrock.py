@@ -14,7 +14,11 @@ class AWSBedrockLLM(LLMBase):
         if not self.config.model:
             self.config.model="anthropic.claude-3-5-sonnet-20240620-v1:0"
         self.client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION"), aws_access_key_id=os.environ.get("AWS_ACCESS_KEY"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
-        self.model_kwargs = {"temperature": self.config.temperature, "max_tokens_to_sample": self.config.max_tokens, "top_p": self.config.top_p}
+        self.model_kwargs = {
+            "temperature": self.config.temperature, 
+            "max_tokens_to_sample": self.config.max_tokens, 
+            "top_p": self.config.top_p
+        }
 
     def _format_messages(self, messages: List[Dict[str, str]]) -> str:
         """
