@@ -67,13 +67,7 @@ jobs:
         run: make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Run tests and generate coverage report
-        run: make coverage
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: make test
 
   build_embedchain:
     needs: check_changes

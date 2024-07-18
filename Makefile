@@ -37,5 +37,5 @@ publish:
 clean:
 	poetry run rm -rf dist
 
-coverage:
-	poetry run pytest --cov=$(PROJECT_NAME) --cov-report=xml
+test:
+	poetry run pytest
