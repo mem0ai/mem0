@@ -21,6 +21,7 @@ from mem0.memory.utils import get_update_memory_messages
 from mem0.vector_stores.configs import VectorStoreConfig
 from mem0.llms.configs import LlmConfig
 from mem0.embeddings.configs import EmbedderConfig
+from mem0.vector_stores.milvus import Milvus
 from mem0.vector_stores.qdrant import Qdrant
 from mem0.utils.factory import LlmFactory, EmbedderFactory
 
@@ -76,6 +77,11 @@ class Memory(MemoryBase):
                 path=vector_store_config.path,
                 url=vector_store_config.url,
                 api_key=vector_store_config.api_key,
+            )
+        elif self.config.vector_store.provider == "milvus":
+            self.vector_store = Milvus(
+                uri=vector_store_config.uri,
+                token=vector_store_config.token,
             )
         else:
             raise ValueError(

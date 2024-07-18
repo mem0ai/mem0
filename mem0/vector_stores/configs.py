@@ -26,14 +26,27 @@ class QdrantConfig(BaseModel):
         return values
 
 
+# TODO: 确定default name
+class MilvusConfig(BaseModel):
+    uri: Optional[str] = Field(
+        "./milvus_local.db" ,
+        description="URI for Milvus server, default set to local db; for performant Milvus on server uri e.g.http://localhost:19530 ; for zilliz cloud on cloud endpoint"
+    )
+    token: Optional[str] = Field(None, description="Token pair with uri depends on specific Milvus server")
+
+
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
         description="Provider of the vector store (e.g., 'qdrant', 'chromadb', 'elasticsearch')",
-        default="qdrant",
+        default="milvus",
     )
     config: QdrantConfig = Field(
         description="Configuration for the specific vector store",
         default=QdrantConfig(path="/tmp/qdrant"),
+    )
+    config: MilvusConfig = Field(
+        description="Configuration for the specific vector store",
+        default=MilvusConfig(path="/tmp/milvus"),
     )
 
     @field_validator("config")
@@ -41,5 +54,7 @@ class VectorStoreConfig(BaseModel):
         provider = values.data.get("provider")
         if provider == "qdrant":
             return QdrantConfig(**v.model_dump())
+        elif provider == "milvus":
+            return MilvusConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported vector store provider: {provider}")
