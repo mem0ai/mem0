@@ -23,7 +23,7 @@ class AWSBedrockLlm(BaseLlm):
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for AWSBedrock are not installed."
-                "Please install with `pip install boto3==1.34.20`"
+                "Please install with `pip install boto3==1.34.20`."
             ) from None
 
         self.boto_client = boto3.client("bedrock-runtime", "us-west-2" or os.environ.get("AWS_REGION"))
