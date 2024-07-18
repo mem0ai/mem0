@@ -5,13 +5,13 @@ on:
     branches: [main]
     paths:
       - 'embedchain/**'
-      - 'tests/**'
-      - 'examples/**'
+      - 'embedchain/tests/**'
+      - 'embedchain/examples/**'
   pull_request:
     paths:
-      - 'embedchain/**'
-      - 'tests/**'
-      - 'examples/**'
+      - 'embedchain/embedchain/**'
+      - 'embedchain/tests/**'
+      - 'embedchain/examples/**'
 
 jobs:
   build:
