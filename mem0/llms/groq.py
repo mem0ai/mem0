@@ -4,12 +4,16 @@ from typing import Dict, List, Optional
 from groq import Groq
 
 from mem0.llms.base import LLMBase
+from mem0.configs.llms.base import BaseLlmConfig
 
 
 class GroqLLM(LLMBase):
-    def __init__(self, model="llama3-70b-8192"):
+    def __init__(self, config: Optional[BaseLlmConfig] = None):
+        super().__init__(config)
+
+        if not self.config.model:
+            self.config.model="llama3-70b-8192"
         self.client = Groq()
-        self.model = model
 
     def _parse_response(self, response, tools):
         """
@@ -58,7 +62,13 @@ class GroqLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        params = {"model": self.model, "messages": messages}
+        params = {
+            "model": self.config.model, 
+            "messages": messages, 
+            "temperature": self.config.temperature, 
+            "max_tokens": self.config.max_tokens, 
+            "top_p": self.config.top_p
+        }
         if response_format:
             params["response_format"] = response_format
         if tools:

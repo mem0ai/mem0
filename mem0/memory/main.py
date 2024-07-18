@@ -82,7 +82,7 @@ class Memory(MemoryBase):
                 f"Unsupported vector store type: {self.config.vector_store_type}"
             )
 
-        self.llm = LlmFactory.create(self.config.llm.provider)
+        self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.collection_name
         self.vector_store.create_col(

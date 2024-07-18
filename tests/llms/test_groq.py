@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from mem0.llms.groq import GroqLLM
+from mem0.configs.llms.base import BaseLlmConfig
 
 @pytest.fixture
 def mock_groq_client():
@@ -11,7 +12,8 @@ def mock_groq_client():
 
 
 def test_generate_response_without_tools(mock_groq_client):
-    llm = GroqLLM()
+    config = BaseLlmConfig(model="llama3-70b-8192", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GroqLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"}
@@ -25,13 +27,17 @@ def test_generate_response_without_tools(mock_groq_client):
 
     mock_groq_client.chat.completions.create.assert_called_once_with(
         model="llama3-70b-8192",
-        messages=messages
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_groq_client):
-    llm = GroqLLM()
+    config = BaseLlmConfig(model="llama3-70b-8192", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GroqLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Add a new memory: Today is a sunny day."}
@@ -70,6 +76,9 @@ def test_generate_response_with_tools(mock_groq_client):
     mock_groq_client.chat.completions.create.assert_called_once_with(
         model="llama3-70b-8192",
         messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
         tools=tools,
         tool_choice="auto"
     )

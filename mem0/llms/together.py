@@ -4,12 +4,15 @@ from typing import Dict, List, Optional
 from together import Together
 
 from mem0.llms.base import LLMBase
-
+from mem0.configs.llms.base import BaseLlmConfig
 
 class TogetherLLM(LLMBase):
-    def __init__(self, model="mistralai/Mixtral-8x7B-Instruct-v0.1"):
+    def __init__(self, config: Optional[BaseLlmConfig] = None):
+        super().__init__(config)
+
+        if not self.config.model:
+            self.config.model="mistralai/Mixtral-8x7B-Instruct-v0.1"
         self.client = Together()
-        self.model = model
     
     def _parse_response(self, response, tools):
         """
@@ -58,7 +61,13 @@ class TogetherLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        params = {"model": self.model, "messages": messages}
+        params = {
+            "model": self.config.model, 
+            "messages": messages, 
+            "temperature": self.config.temperature, 
+            "max_tokens": self.config.max_tokens, 
+            "top_p": self.config.top_p
+        }
         if response_format:
             params["response_format"] = response_format
         if tools:
