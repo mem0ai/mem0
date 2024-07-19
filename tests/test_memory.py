@@ -45,7 +45,7 @@ def test_history(memory_store):
     assert memory_store.get(memory_id) == data
 
     new_data = "I like italian food."
-    memory_store.update(memory_id, add)
+    memory_store.update(memory_id, new_data)
     history = memory_store.history(memory_id)
     assert history == [data, new_data]
     assert memory_store.get(memory_id) == new_data

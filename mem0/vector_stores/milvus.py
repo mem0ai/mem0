@@ -113,3 +113,16 @@ class Milvus(VectorStoreBase):
     def col_info(self, name) -> Dict:
         return self.client.get_collection_stats(collection_name=name)
 
+    def list(self, name, filters=None, limit=100):
+        if filters:
+            filter_expression = self._generate_milvus_filter(filters)
+
+            result = self.client.query(
+                collection_name=name,
+                filter=filter_expression,
+                limit=limit
+            )
+
+            return [result]
+        else:
+            return None
