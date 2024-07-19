@@ -204,6 +204,58 @@ m.delete_all(user_id="alice") # Delete all memories
 m.reset() # Reset all memories
 ```
 
+## Chat
+
+Mem0 can be easily integrate into chat applications to enhance conversational agents with structured memory. 
+
+If you have a `Mem0 API key`, you can use it to initialize the client. Alternatively, you can initialize Mem0 without an API key if you're using it locally.
+
+Mem0 supports more than 100 language models (LLMs) through integration with various [providers](https://litellm.vercel.app/docs/providers).
+
+```python
+import os
+from mem0 import Mem0
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+client = Mem0(api_key=os.environ.get("MEM0_API_KEY"))
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "John likes to play cricket.",
+        }
+    ],
+    model="gpt-4o",
+)
+```
+
+### With Mem0 Config
+
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+client = Mem0(config=config)
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "What's the capital of France?",
+        }
+    ],
+    model="gpt-4o",
+)
+```
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
