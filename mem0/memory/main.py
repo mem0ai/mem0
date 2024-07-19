@@ -122,6 +122,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
+            prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
             str: ID of the created memory.
