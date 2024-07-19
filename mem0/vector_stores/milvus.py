@@ -42,7 +42,7 @@ class Milvus(VectorStoreBase):
         data = dict()
 
         for idx, vector in enumerate(vectors):
-            data['id'] = idx if ids is None else ids[idx]
+            data['id'] = str(idx) if ids is None else ids[idx]
             data['vector'] = vector
             data['payload'] = payloads[idx] if payloads else None
 
@@ -54,7 +54,6 @@ class Milvus(VectorStoreBase):
     def _generate_milvus_filter(self, filters: dict[str, str]):
         operands = []
         for key, value in filters.items():
-
             if isinstance(value, str):
                 operands.append(f'(payload["{key}"] == "{value}")')
             else:
