@@ -319,7 +319,7 @@ class EmbedChain(JSONSerializable):
         app_id = self.config.id if self.config is not None else None
 
         # Create chunks
-        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id, config=add_config.chunker)
+        embeddings_data = chunker.create_chunks(loader, src, app_id=app_id, config=add_config.chunker, **kwargs)
         # spread chunking results
         documents = embeddings_data["documents"]
         metadatas = embeddings_data["metadatas"]
@@ -405,6 +405,7 @@ class EmbedChain(JSONSerializable):
                 if batch_docs:
                     self.db.add(documents=batch_docs, metadatas=batch_meta, ids=batch_ids, **kwargs)
             except Exception as e:
+                print(e)
                 logger.info(f"Failed to add batch due to a bad request: {e}")
                 # Handle the error, e.g., by logging, retrying, or skipping
                 pass

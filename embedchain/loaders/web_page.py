@@ -13,7 +13,7 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
-
+from typing import Optional, Any
 logger = logging.getLogger(__name__)
 
 
@@ -22,8 +22,13 @@ class WebPageLoader(BaseLoader):
     # Shared session for all instances
     _session = requests.Session()
 
-    def load_data(self, url):
+    def load_data(self, url, **kwargs: Optional[dict[str, Any]]):
         """Load data from a web page and it's reference links using a shared requests' session."""
+        all_references = False
+        for key, value in kwargs.items():
+            if key == 'all_references':
+                all_references = kwargs['all_references']
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
         }
@@ -32,14 +37,16 @@ class WebPageLoader(BaseLoader):
         data = response.content
 
         reference_links = self.fetch_reference_links(response)
-        for i in reference_links:
-            try:
-                response = self._session.get(i, headers=headers, timeout=30)
-                response.raise_for_status()
-                data += response.content
-            except Exception as e:
-                logging.error(f"Failed to add URL {url}: {e}")
-                continue
+
+        if all_references:
+            for i in reference_links:
+                try:
+                    response = self._session.get(i, headers=headers, timeout=30)
+                    response.raise_for_status()
+                    data += response.content
+                except Exception as e:
+                    logging.error(f"Failed to add URL {url}: {e}")
+                    continue
 
         content = self._get_clean_content(data, url)
 

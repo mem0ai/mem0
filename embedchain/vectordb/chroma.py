@@ -136,6 +136,7 @@ class ChromaDB(BaseVectorDB):
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
+        **kwargs: Optional[dict[str, Any]],
     ) -> Any:
         """
         Add vectors to chroma database
