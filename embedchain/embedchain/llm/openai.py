@@ -60,7 +60,7 @@ class OpenAILlm(BaseLlm):
         api_key = config.api_key or os.environ["OPENAI_API_KEY"]
         base_url = config.base_url or os.environ.get("OPENAI_API_BASE", None)
         if config.top_p:
-            kwargs["model_kwargs"]["top_p"] = config.top_p
+            kwargs["top_p"] = config.top_p
         if config.default_headers:
             kwargs["default_headers"] = config.default_headers
         if config.stream:

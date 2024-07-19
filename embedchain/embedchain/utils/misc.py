@@ -521,7 +521,6 @@ def validate_config(config_data):
                 },
             },
             Optional("memory"): {
-                "api_key": str,
                 Optional("top_k"): int,
             },
         }

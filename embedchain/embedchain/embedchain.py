@@ -600,7 +600,7 @@ class EmbedChain(JSONSerializable):
         memories = None
         if self.mem0_memory:
             memories = self.mem0_memory.search(
-                query=input_query, agent_id=self.config.id, session_id=session_id, limit=self.memory_config.top_k
+                query=input_query, agent_id=self.config.id, user_id=session_id, limit=self.memory_config.top_k
             )
 
         # Update the history beforehand so that we can handle multiple chat sessions in the same python session
@@ -639,10 +639,9 @@ class EmbedChain(JSONSerializable):
                 )
 
         # Add to Mem0 memory if enabled
-        # TODO: Might need to prepend with some text like: 
-        # "Remember user preferences from following user query: {input_query}"
+        # Adding answer here because it would be much useful than input question itself
         if self.mem0_memory:
-            self.mem0_memory.add(data=input_query, agent_id=self.config.id, session_id=session_id)
+            self.mem0_memory.add(data=answer, agent_id=self.config.id, user_id=session_id)
 
         # add conversation in memory
         self.llm.add_history(self.config.id, input_query, answer, session_id=session_id)

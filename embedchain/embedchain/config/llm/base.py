@@ -51,14 +51,14 @@ Answer:
 """  # noqa:E501
 
 DEFAULT_PROMPT_WITH_MEM0_MEMORY = """
-You are a Q&A expert system. Your responses must always be rooted in the context provided for each query. You are also provided with the conversation history and memories with the user. Make sure to use relevant context from conversation history and memories as needed.
+You are an expert at answering questions based on provided memories. You are also provided with the context and conversation history of the user. Make sure to use relevant context from conversation history and context as needed.
 
 Here are some guidelines to follow:
-
 1. Refrain from explicitly mentioning the context provided in your response.
-2. Take into consideration the conversation history and memories provided.
-3. The context should silently guide your answers without being directly acknowledged.
-4. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
+2. Take into consideration the conversation history and context provided.
+3. Do not use phrases such as 'According to the context provided', 'Based on the context, ...' etc.
+
+Striclty return the query exactly as it is if it is not a question or if no relevant information is found.
 
 Context information:
 ----------------------
