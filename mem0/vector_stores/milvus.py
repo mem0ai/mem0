@@ -70,7 +70,7 @@ class Milvus(VectorStoreBase):
 
         hits = self.client.search(
             collection_name=name,
-            data=query,
+            data=[query],
             filter=filter_expression,
             limit=limit
         )

@@ -38,7 +38,7 @@ class MilvusConfig(BaseModel):
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
         description="Provider of the vector store (e.g., 'qdrant', 'chromadb', 'elasticsearch')",
-        default="milvus",
+        default="qdrant",
     )
     config: QdrantConfig = Field(
         description="Configuration for the specific vector store",

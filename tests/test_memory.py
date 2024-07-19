@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from mem0 import Memory
