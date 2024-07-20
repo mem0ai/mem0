@@ -30,7 +30,10 @@ pip install mem0ai
 ### Basic Usage
 
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "xxx"
 
 # Initialize Mem0
 m = Memory()
