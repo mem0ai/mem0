@@ -1,7 +1,10 @@
 import json
 from typing import Dict, List, Optional
 
-import litellm
+try:
+    import litellm
+except ImportError:
+    raise ImportError("litellm requires extra dependencies. Install with `pip install litellm`") from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
