@@ -72,6 +72,7 @@ print(history)
 
 For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://docs.mem0.ai).
 
+
 ## 🔧 Advanced Usage
 
 For production environments, you can use Qdrant as a vector store:
