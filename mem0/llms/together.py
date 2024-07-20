@@ -1,7 +1,10 @@
 import json
 from typing import Dict, List, Optional
 
-from together import Together
+try:
+    from together import Together
+except ImportError:
+    raise ImportError("Together requires extra dependencies. Install with `pip install together`") from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
