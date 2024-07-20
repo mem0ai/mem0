@@ -38,20 +38,6 @@ If you are looking to quick start, jump to one of the following links:
 
 - **Gaming AI**: In gaming, AI with long-term memory can create more immersive experiences by remembering player choices, strategies, and progress, adapting the game environment accordingly.
 
-## How Mem0 Works?
-
-Mem0 is designed to work seamlessly with Large Language Models (LLMs) to enhance their capabilities by providing a memory layer that retains information across interactions, sessions, and users. Here's how Mem0 works:
-
-- **VectorDB**: Mem0 uses a vector database to store memories and perform semantic searches using embeddings, allowing efficient retrieval of relevant information.
-
-- **Memory Update Mechanism**: When a user adds new text, Mem0 fetches older relevant memories and decides whether to update, delete, or do nothing to them, ensuring the memory remains relevant.
-
-- **Memory Identification**: Each memory is assigned a unique memory_id, allowing for precise retrieval, deletion, or updating of individual memories.
-
-- **Self-Improvement**: Mem0 continuously improves stored memories based on new information. Relevant memories are combined with new queries before being passed to the LLM, ensuring accurate and up-to-date responses.
-
-- **Dynamic Interaction**: Leveraging stored memories, Mem0 provides more contextually aware responses, enhancing the relevance and effectiveness of the AI's answers.
-
 ## How is Mem0 different from RAG?
 
 Mem0's memory implementation for Large Language Models (LLMs) offers several advantages over Retrieval-Augmented Generation (RAG):
