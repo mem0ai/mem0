@@ -1,7 +1,10 @@
 import json
 from typing import Dict, List, Optional
 
-from groq import Groq
+try:
+    from groq import Groq
+except ImportError:
+    raise ImportError("Groq requires extra dependencies. Install with `pip install groq`") from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig

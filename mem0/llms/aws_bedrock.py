@@ -2,7 +2,10 @@ import os
 import json
 from typing import Dict, List, Optional, Any
 
-import boto3
+try:
+    import boto3
+except ImportError:
+    raise ImportError("AWS Bedrock requires extra dependencies. Install with `pip install boto3`") from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
