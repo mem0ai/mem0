@@ -1,5 +1,3 @@
-import os
-import shutil
 import logging
 from typing import Optional
 
@@ -52,8 +50,6 @@ class Qdrant(VectorStoreBase):
             params = {}
             if path:
                 params["path"] = path
-                if os.path.exists(path) and os.path.isdir(path):
-                    shutil.rmtree(path)
             if api_key:
                 params["api_key"] = api_key
             if url:
