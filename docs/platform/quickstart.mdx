@@ -27,161 +27,249 @@ client = MemoryClient(api_key="your-api-key")
 
 ## 4. Memory Operations
 
-We provide a simple yet customizable interface for performing CRUD operations on memory. Here is how you can create and get memories:
+Mem0 provides a simple and customizable interface for performing CRUD operations on memory.
 
 
 ### 4.1 Create Memories
 
-For users (long-term memory):
+You can create long-term and short-term memories for your users, AI Agents, etc. Here are some examples:
 
-```python
-# create long-term memory for users
-client.add("Remember my name is Deshraj Yadav.", user_id="deshraj")
-client.add("I like to eat pizza and go out on weekends.", user_id="deshraj")
-client.add("Oh I am actually allergic to cheese to cannot eat pizza anymore.", user_id="deshraj")
+#### Long-term memory for a user
+
+```python Code
+from mem0 import MemoryClient
+client = MemoryClient(api_key="your-api-key")
+
+messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+]
+client.add(messages, user_id="alex")
 ```
 
-Output:
-```python
-{'message': 'Memory added successfully!'}
+#### Short-term memory for a user session
+
+```python Code
+from mem0 import MemoryClient
+client = MemoryClient(api_key="your-api-key")
+
+messages = [
+    {"role": "user", "content": "I'm planning a trip to Japan next month."},
+    {"role": "assistant", "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"},
+    {"role": "user", "content": "Yes, please! Especially in Tokyo."},
+    {"role": "assistant", "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."}
+]
+client.add(messages, user_id="alex123", session_id="trip-planning-2024")
 ```
 
-You can see all the memory operations happening on the platform itself.
+#### Long-term memory for agents
+
+```python Code
+from mem0 import MemoryClient
+client = MemoryClient(api_key="your-api-key")
+
+messages = [
+    {"role": "system", "content": "You are a personalized travel assistant. Remember user preferences and provide tailored recommendations."},
+    {"role": "assistant", "content": "Understood. I'll maintain personalized travel preferences for each user and provide customized recommendations based on their dietary restrictions, interests, and past interactions."}
+]
+client.add(messages, agent_id="travel-assistant")
+```
+
+You can monitor memory operations on the platform:
 
 ![Mem0 Platform Activity](/images/platform/activity.png)
 
 
-You can also add memories for a particular session or for an AI agent that you are building:
+### 4.2 Search Relevant Memories
 
-- For user sessions (short-term memory):
-
-```python
-client.add("Deshraj is building Gmail AI agent", user_id="deshraj", session_id="session-1")
-```
-
-- For agents (long-term memory):
-
-```python
-client.add("Return short responses when responding to emails", agent_id="gmail-agent")
-```
-
-### 4.2 Retrieve Memories
-
+You can also get related memories for a given natural language question using our search method.
 
 <CodeGroup>
-
 ```python Code
-client.get_all(user_id="deshraj")
+query = "What do you know about me?"
+client.search(query, user_id="alex")
 ```
 
-```python Output
+```json Output
 [
-  {
-    'id': 'dbce6e06-6adf-40b8-9187-3d30bd13b741',
-    'agent': None,
-    'consumer': {
-      'id': 8,
-      'user_id': 'deshraj',
-      'metadata': None,
-      'created_at': '2024-07-17T16:47:23.899900-07:00',
-      'updated_at': '2024-07-17T16:47:23.899918-07:00'
-    },
-    'app': None,
-    'run': None,
-    'hash': '57288ac8a87c4ac8d3ac7f2075d264ca',
-    'input': 'Remember my name is Deshraj Yadav.',
-    'text': 'My name is Deshraj Yadav.',
-    'metadata': None,
-    'created_at': '2024-07-17T16:47:25.670180-07:00',
-    'updated_at': '2024-07-17T16:47:25.670197-07:00'
-  },
-  {
-    'id': 'f6dec5d1-b5db-45f5-a2fb-3979a0f27d30',
-    'agent': None,
-    'consumer': {
-      'id': 8,
-      'user_id': 'deshraj',
-      # ... other consumer fields ...
-    },
-    # ... other fields ...
-    'text': 'I am allergic to cheese so I cannot eat pizza anymore.',
-    # ... remaining fields ...
-  },
-  # ... additional memory entries ...
+    {
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
 ]
 ```
 </CodeGroup>
 
-Similarly, you can get all memories for an agent:
+Similarly, you can search for agent memories by passing the `agent_id` argument. 
 
-```python
-agent_memories = client.get_all(agent_id="gmail-agent")
+```python Code
+client.search("What are the learnings from previous runs?", agent_id="travel-assistant")
 ```
 
-Get specific memory:
+### 4.3 Get All Memories
+
+Fetch all memories for a user, agent, or session using the get_all() method.
+
+#### Get all memories of an AI Agent
 
 <CodeGroup>
 
 ```python Code
-memory = client.get(memory_id="dbce6e06-6adf-40b8-9187-3d30bd13b741")
+client.get_all(agent_id="travel-assistant")
 ```
 
-```python Output
-{
-    'id': 'dbce6e06-6adf-40b8-9187-3d30bd13b741',
-    'agent': None,
-    'consumer': {
-      'id': 8,
-      'user_id': 'deshraj',
-      'metadata': None,
-      'created_at': '2024-07-17T16:47:23.899900-07:00',
-      'updated_at': '2024-07-17T16:47:23.899918-07:00'
-    },
-    'app': None,
-    'run': None,
-    'hash': '57288ac8a87c4ac8d3ac7f2075d264ca',
-    'input': 'Remember my name is Deshraj Yadav.',
-    'text': 'My name is Deshraj Yadav.',
-    'metadata': None,
-    'created_at': '2024-07-17T16:47:25.670180-07:00',
-    'updated_at': '2024-07-17T16:47:25.670197-07:00'
-}
+```json Output
+[
+    {
+        "id": "48677fae-16c4-4d57-9c27-f984f290722a",
+        "memory": "Will remember personalized travel preferences for each user.",
+        "input": [
+            {
+                "role": "system",
+                "content": "You are a personalized travel assistant. Remember user preferences and provide tailored recommendations."
+            },
+            {
+                "role": "assistant",
+                "content": "Understood. I'll maintain personalized travel preferences for each user and provide customized recommendations based on their dietary restrictions, interests, and past interactions."
+            }
+        ],
+        "agent_id": "travel-assistant",
+        "hash": "644d5f40af13d0525305d8dfadc00fd1",
+        "metadata": null,
+        "created_at": "2024-07-20T01:25:22.122299-07:00",
+        "updated_at": "2024-07-20T01:25:22.122327-07:00"
+    }
+]
 ```
 </CodeGroup>
 
-### 4.3 Update Memory
+#### Get all memories of user
 
-You can also update specific memory by using the following method:
+<CodeGroup>
+```python Code
+user_memories = client.get_all(user_id="alex")
+```
+
+```json Output
+[
+    {
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+</CodeGroup>
+
+#### Get short-term memories for a session
 
 <CodeGroup>
 
 ```python Code
-client.update(memory_id, data="Updated name is Deshraj Kumar")
+short_term_memories = client.get_all(user_id="alex123", session_id="trip-planning-2024")
+```
+
+```python Output
+[
+    {
+        "id": "582bbe6d-506b-48c6-a4c6-5df3b1e63428",
+        "memory": "Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
+        "input": [
+            {
+                "role": "user",
+                "content": "I'm planning a trip to Japan next month."
+            },
+            {
+                "role": "assistant",
+                "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"
+            },
+            {
+                "role": "user",
+                "content": "Yes, please! Especially in Tokyo."
+            },
+            {
+                "role": "assistant",
+                "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."
+            }
+        ],
+        "user_id": "alex123",
+        "hash": "d2088c936e259f2f5d2d75543d31401c",
+        "metadata": null,
+        "created_at": "2024-07-20T01:34:09.748379-07:00",
+        "updated_at": "2024-07-20T01:34:09.748391-07:00"
+    }
+]
+```
+</CodeGroup>
+
+
+#### Get specific memory
+
+<CodeGroup>
+
+```python Code
+memory = client.get(memory_id="582bbe6d-506b-48c6-a4c6-5df3b1e63428")
 ```
 
 ```python Output
 {
-    'id': 'dbce6e06-6adf-40b8-9187-3d30bd13b741',
-    'agent': None,
-    'consumer': {
-      'id': 8,
-      'user_id': 'deshraj',
-      'metadata': None,
-      'created_at': '2024-07-17T16:47:23.899900-07:00',
-      'updated_at': '2024-07-17T16:47:23.899918-07:00'
-    },
-    'app': None,
-    'run': None,
-    'hash': '57288ac8a87c4ac8d3ac7f2075d264ca',
-    'input': 'Updated name is Deshraj Kumar.',
-    'text': 'Name is Deshraj Kumar.',
-    'metadata': None,
-    'created_at': '2024-07-17T16:47:25.670180-07:00',
-    'updated_at': '2024-07-17T16:47:25.670197-07:00'
+    "id": "582bbe6d-506b-48c6-a4c6-5df3b1e63428",
+    "memory": "Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
+    "input": [
+        {
+            "role": "user",
+            "content": "I'm planning a trip to Japan next month."
+        },
+        {
+            "role": "assistant",
+            "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"
+        },
+        {
+            "role": "user",
+            "content": "Yes, please! Especially in Tokyo."
+        },
+        {
+            "role": "assistant",
+            "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."
+        }
+    ],
+    "user_id": "alex123",
+    "hash": "d2088c936e259f2f5d2d75543d31401c",
+    "metadata": null,
+    "created_at": "2024-07-20T01:34:09.748379-07:00",
+    "updated_at": "2024-07-20T01:34:09.748391-07:00"
 }
 ```
 </CodeGroup>
-
 
 ### 4.4 Memory History
 
@@ -190,145 +278,64 @@ Get history of how a memory has changed over time
 <CodeGroup>
 
 ```python Code
+# Add some message to create history
+messages = [{"role": "user", "content": "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."}]
+client.add(messages, user_id="alex")
+
+# Add second message to update history
+messages.append({'role': 'user', 'content': 'I turned vegetarian now.'})
+client.add(messages, user_id="alex")
+
+# Get history of how memory changed over time
+memory_id = "<memory-id-here>"
 history = client.history(memory_id)
+print(history)
 ```
 
-```python Output
-[
-    {
-        'id': '51193804-2ee6-4f81-b4e7-497e98b70858',
-        'memory': {
-            'id': 'dbce6e06-6adf-40b8-9187-3d30bd13b741',
-            'agent': None,
-            'consumer': {
-                'id': 8,
-                'user_id': 'deshraj',
-                'metadata': None,
-                'created_at': '2024-07-17T16:47:23.899900-07:00',
-                'updated_at': '2024-07-17T16:47:23.899918-07:00'
-            },
-            'app': None,
-            'run': None,
-            'hash': '57288ac8a87c4ac8d3ac7f2075d264ca',
-            'input': 'Remember my name is Deshraj Yadav.',
-            'text': 'My name is Deshraj Yadav.',
-            'metadata': None,
-            'created_at': '2024-07-17T16:47:25.670180-07:00',
-            'updated_at': '2024-07-17T16:47:25.670197-07:00'
-        },
-        'hash': '57288ac8a87c4ac8d3ac7f2075d264ca',
-        'event': 'ADD',
-        'input': 'Remember my name is Deshraj Yadav.',
-        'previous_text': None,
-        'text': 'My name is Deshraj Yadav.',
-        'metadata': None,
-        'created_at': '2024-07-17T16:47:25.686899-07:00',
-        'updated_at': '2024-07-17T16:47:25.670197-07:00',
-        'change_description': 'Memory ADD event'
-    }
-]
-```
-</CodeGroup>
-
-### 4.5 Search for relevant memories
-
-<CodeGroup>
-
-```python Code
-client.search("What does Deshraj like to eat?", user_id="deshraj", limit=3)
-```
-
-```python Output
+```json Output
 [
   {
-    "id": "dbce6e06-6adf-40b8-9187-3d30bd13b741",
-    "agent": null,
-    "consumer": {
-      "id": 8,
-      "user_id": "deshraj",
-      "metadata": null,
-      "created_at": "...",
-      "updated_at": "..."
-    },
-    "app": null,
-    "run": null,
-    "hash": "57288ac8a87c4ac8d3ac7f2075d264ca",
-    "input": "Remember my name is Deshraj Yadav.",
-    "text": "My name is Deshraj Yadav.",
-    "metadata": null,
-    "created_at": "2024-07-17T16:47:25.670180-07:00",
-    "updated_at": "..."
+    'id': '5a718c7e-7ed2-4c72-8c55-d7896dc61ca3',
+    'memory_id': 'c6c5da66-d851-4653-8a09-ec7b2c1c9cc9',
+    'input': [
+      {
+        'role': 'user',
+        'content': "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
+      }
+    ],
+    'old_memory': None,
+    'new_memory': 'Recently tried chicken and loved it. Interested in trying more non-vegetarian dishes.',
+    'event': 'ADD',
+    'metadata': None,
+    'created_at': '2024-07-20T02:13:35.842720-07:00',
+    'updated_at': '2024-07-20T02:13:35.818065-07:00'
   },
   {
-    "id": "091dbed6-74b4-4e15-b765-81be2abe0d6b",
-    "agent": null,
-    "consumer": {
-      "id": 8,
-      "user_id": "deshraj",
-      "metadata": null,
-      "created_at": "...",
-      "updated_at": "..."
-    },
-    "app": null,
-    "run": null,
-    "hash": "622a5a24d5ac54136414a22ec12f9520",
-    "input": "Oh I am actually allergic to cheese to cannot eat pizza anymore.",
-    "text": "I like to eat pizza and go out on weekends.",
-    "metadata": null,
-    "created_at": "2024-07-17T16:49:24.276695-07:00",
-    "updated_at": "..."
-  },
-  {
-    "id": "5fb8f85d-3383-4bad-9d46-f171272478a4",
-    "agent": null,
-    "consumer": {
-      "id": 8,
-      "user_id": "deshraj",
-      "metadata": null,
-      "created_at": "...",
-      "updated_at": "..."
-    },
-    "app": null,
-    "run": {
-      "id": 1,
-      "run_id": "session-1",
-      "name": "",
-      "metadata": null,
-      "created_at": "...",
-      "updated_at": "..."
-    },
-    "hash": "179ced9649ac2b85350ece4946b1ee9b",
-    "input": "Deshraj is building Gmail AI agent",
-    "text": "Deshraj is building Gmail AI agent",
-    "metadata": null,
-    "created_at": "2024-07-17T16:52:41.278920-07:00",
-    "updated_at": "..."
-  },
-  {
-    "id": "f6dec5d1-b5db-45f5-a2fb-3979a0f27d30",
-    "agent": null,
-    "consumer": {
-      "id": 8,
-      "user_id": "deshraj",
-      "metadata": null,
-      "created_at": "...",
-      "updated_at": "..."
-    },
-    "app": null,
-    "run": null,
-    "hash": "19248f0766044b5973fc0ef1bf3955ef",
-    "input": "Oh I am actually allergic to cheese to cannot eat pizza anymore.",
-    "text": "I am allergic to cheese so I cannot eat pizza anymore.",
-    "metadata": null,
-    "created_at": "2024-07-17T16:49:38.622084-07:00",
-    "updated_at": "..."
+    'id': 'e52e2c73-4b97-4154-9844-aa44c6ee57f5',
+    'memory_id': 'c6c5da66-d851-4653-8a09-ec7b2c1c9cc9',
+    'input': [
+      {
+        'role': 'user',
+        'content': "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
+      },
+      {
+        'role': 'user',
+        'content': 'I turned vegetarian now.'
+      }
+    ],
+    'old_memory': 'Recently tried chicken and loved it. Interested in trying more non-vegetarian dishes.',
+    'new_memory': '',
+    'event': 'DELETE',
+    'metadata': None,
+    'created_at': '2024-07-20T02:13:38.070492-07:00',
+    'updated_at': '2024-07-20T02:13:38.060219-07:00'
   }
 ]
 ```
 </CodeGroup>
 
 
-### 4.6 Delete Memory
+### 4.5 Delete Memory
 
 Delete specific memory:
 
@@ -356,3 +363,12 @@ client.delete_all(user_id="alex")
 {'message': 'Memories deleted successfully!'}
 ```
 </CodeGroup>
+
+Fun fact: You can also delete the memory using the `add()` method by passing natural language command. 
+
+```python Code
+client.add("Delete all of my food preferences", user_id="alex")
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

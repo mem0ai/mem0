@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mem0ai"
-version = "0.0.8"
+version = "0.0.9"
 description = "Long-term memory for AI Agents"
 authors = ["Deshraj Yadav <deshraj@mem0.ai>", "Taranjeet Singh <taranjeet@mem0.ai>"]
 exclude = [
