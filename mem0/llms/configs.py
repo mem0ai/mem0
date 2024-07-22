@@ -14,7 +14,7 @@ class LlmConfig(BaseModel):
     @field_validator("config")
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
-        if provider in ("openai", "ollama", "groq", "together", "aws_bedrock", "litellm"):
+        if provider in ("openai", "ollama", "groq", "together", "aws_bedrock", "litellm", "qwen"):
             return v
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
