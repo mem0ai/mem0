@@ -313,7 +313,7 @@ class Memory(MemoryBase):
         Returns:
             dict: Updated memory.
         """
-        capture_event("mem0.get_all", self, {"memory_id": memory_id})
+        capture_event("mem0.update", self, {"memory_id": memory_id})
         self._update_memory_tool(memory_id, data)
 
     def delete(self, memory_id):
