@@ -25,7 +25,7 @@
         "max_input_tokens": 128000,
         "max_output_tokens": 4096,
         "input_cost_per_token": 0.00000015,
-        "output_cost_per_token": 0.00000060,
+        "output_cost_per_token": 0.00000060
     },
     "openai/gpt-4o-2024-05-13": {
         "max_tokens": 4096,
