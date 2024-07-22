@@ -1,6 +1,6 @@
 import httpx
 from typing import Optional, List, Union
-
+import threading
 import litellm
 
 from mem0 import Memory, MemoryClient
@@ -8,15 +8,16 @@ from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
 
 class Mem0:
     def __init__(
-            self, 
+            self,
             config: Optional[dict] = None,
-            mem0_api_key: Optional[str] = None,
+            api_key: Optional[str] = None,
             host: Optional[str] = None
         ):
-        
-        if mem0_api_key:
-            self.mem0_client = MemoryClient(mem0_api_key, host)
+        if api_key:
+            self.is_platform = True
+            self.mem0_client = MemoryClient(api_key, host)
         else:
+            self.is_platform = False
             self.mem0_client = Memory.from_config(config) if config else Memory()
 
         self.chat = Chat(self.mem0_client)
@@ -30,7 +31,7 @@ class Chat:
 class Completions:
     def __init__(self, mem0_client):
         self.mem0_client = mem0_client
-    
+
     def create(
         self,
         model: str,
@@ -74,42 +75,19 @@ class Completions:
         api_key: Optional[str] = None,
         model_list: Optional[list] = None,  # pass in a list of api_base,keys, etc.
     ):
-        
         if not litellm.supports_function_calling(model):
             raise ValueError(f"Model '{model}' does not support function calling. Please use a model that supports function calling.")
-        
-        if messages[0]["role"] == "system":
-            messages[0]["content"] = MEMORY_ANSWER_PROMPT
-        else:
-            messages.insert(0, {"role": "system", "content": MEMORY_ANSWER_PROMPT})
-        
-        if messages[-1]["role"] == "user":
-            query = messages[-1]["content"]
-            self.mem0_client.add(
-                data=query,
-                user_id=user_id,
-                agent_id=agent_id,
-                run_id=run_id,
-                metadata=metadata,
-                filters=filters, 
-            ) # add the messages to memory
-        
-            # fetch relevant memories
-            relevant_memories = self.mem0_client.search(
-                query=query,
-                user_id=user_id,
-                agent_id=agent_id,
-                run_id=run_id,
-                filters=filters,
-                limit=limit,
-            )
 
-            relevant_memories = "\n".join([memory["text"] for memory in relevant_memories])
-            messages[-1]["content"] = f"- Memories: {relevant_memories}\n\n- Question: {messages[-1]['content']}"
+        prepared_messages = self._prepare_messages(messages)
+
+        if prepared_messages[-1]["role"] == "user":
+            self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)
+            relevant_memories = self._fetch_relevant_memories(messages, user_id, agent_id, run_id, filters, limit)
+            prepared_messages[-1]["content"] = self._format_query_with_memories(messages, relevant_memories)
 
         response = litellm.completion(
             model=model,
-            messages=messages,
+            messages=prepared_messages,
             temperature=temperature,
             top_p=top_p,
             n=n,
@@ -140,3 +118,38 @@ class Completions:
         )
 
         return response
+
+    def _prepare_messages(self, messages: List[dict]) -> List[dict]:
+        if not messages or messages[0]["role"] != "system":
+            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
+        messages[0]["content"] = MEMORY_ANSWER_PROMPT
+        return messages
+
+    def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
+        def add_task():
+            self.mem0_client.add(
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                run_id=run_id,
+                metadata=metadata,
+                filters=filters,
+            )
+        threading.Thread(target=add_task, daemon=True).start()
+
+    def _fetch_relevant_memories(self, messages, user_id, agent_id, run_id, filters, limit):
+        # Currently, only pass the last 6 messages to the search API to prevent long query
+        message_input = [f"{message['role']}: {message['content']}" for message in messages][-6:]
+        # TODO: Make it better by summarizing the past conversation
+        return self.mem0_client.search(
+            query="\n".join(message_input),
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            filters=filters,
+            limit=limit,
+        )
+
+    def _format_query_with_memories(self, query, relevant_memories):
+        memories_text = "\n".join(memory["text"] for memory in relevant_memories)
+        return f"- Relevant Memories/Facts: {memories_text}\n\n- User Question: {query}"
