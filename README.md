@@ -108,3 +108,7 @@ If you have any questions, feel free to reach out to us using one of the followi
 - [Join our Slack](https://embedchain.ai/slack)
 - [Follow us on Twitter](https://twitter.com/mem0ai)
 - [Email us](mailto:founders@mem0.ai)
+
+## 👥 Contributors
+
+<img src="https://markupgo.com/github/mem0ai/mem0/contributors?count=0&circleSize=44&circleRadius=44&circleSpacing=8&center=true" />
