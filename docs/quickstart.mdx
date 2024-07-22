@@ -60,14 +60,13 @@ m = Memory.from_config(config)
 
 ### Store a Memory
 
-```python
+<CodeGroup>
+```python Code
 # For a user
 result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
-print(result)
 ```
 
-Output:
-```python
+```json Output
 [
   {
     'id': 'm1',
@@ -76,18 +75,17 @@ Output:
   }
 ]
 ```
+</CodeGroup>
 
 ### Retrieve Memories
 
-```python
+<CodeGroup>
+```python Code
 # Get all memories
 all_memories = m.get_all()
-print(all_memories)
 ```
 
-Output:
-
-```python
+```json Output
 [
   {
     'id': 'm1',
@@ -100,15 +98,15 @@ Output:
   # ... other memories ...
 ]
 ```
+</CodeGroup>
 
-```python
+<CodeGroup>
+```python Code
 # Get a single memory by ID
 specific_memory = m.get("m1")
-print(specific_memory)
 ```
 
-Output:
-```python
+```json Output
 {
   'id': 'm1',
   'text': 'Likes to play cricket on weekends',
@@ -118,17 +116,16 @@ Output:
   }
 }
 ```
+</CodeGroup>
 
 ### Search Memories
 
-```python
+<CodeGroup>
+```python Code
 related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
-print(related_memories)
 ```
 
-Output:
-
-```python
+```json Output
 [
   {
     'id': 'm1',
@@ -142,32 +139,32 @@ Output:
   # ... other related memories ...
 ]
 ```
+</CodeGroup>
 
 ### Update a Memory
 
-```python
+<CodeGroup>
+```python Code
 result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
-print(result)
 ```
 
-Output:
-
-```python
+```json Output
 {
   'id': 'm1',
   'event': 'update',
   'data': 'Likes to play tennis on weekends'
 }
 ```
+</CodeGroup>
 
 ### Memory History
 
-```python
+<CodeGroup>
+```python Code
 history = m.history(memory_id="m1")
-print(history)
 ```
-Output:
-```python
+
+```json Output
 [
   {
     'id': 'h1',
@@ -189,6 +186,7 @@ Output:
   }
 ]
 ```
+</CodeGroup>
 
 ### Delete Memory
 
@@ -269,6 +267,37 @@ chat_completion = client.chat.completions.create(
     ],
     model="gpt-4o",
 )
+```
+
+## APIs
+
+Get started with using Mem0 APIs in your applications. For more details, refer to the [Platform](/platform/quickstart.mdx).
+
+Here is an example of how to use Mem0 APIs:
+
+```python
+from mem0 import MemoryClient
+client = MemoryClient(api_key="your-api-key") # get api_key from https://app.mem0.ai/
+
+# Store messages
+messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+]
+result = client.add(messages, user_id="alex")
+print(result)
+
+# Retrieve memories
+all_memories = client.get_all(user_id="alex")
+print(all_memories)
+
+# Search memories
+query = "What do you know about me?"
+related_memories = client.search(query, user_id="alex")
+
+# Get memory history
+history = client.history(memory_id="m1")
+print(history)
 ```
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
