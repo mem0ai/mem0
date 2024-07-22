@@ -14,10 +14,8 @@ class Mem0:
             host: Optional[str] = None
         ):
         if api_key:
-            self.is_platform = True
             self.mem0_client = MemoryClient(api_key, host)
         else:
-            self.is_platform = False
             self.mem0_client = Memory.from_config(config) if config else Memory()
 
         self.chat = Chat(self.mem0_client)
@@ -75,11 +73,13 @@ class Completions:
         api_key: Optional[str] = None,
         model_list: Optional[list] = None,  # pass in a list of api_base,keys, etc.
     ):
+        if not any([user_id, agent_id, run_id]):
+            raise ValueError("One of user_id, agent_id, run_id must be provided")
+
         if not litellm.supports_function_calling(model):
             raise ValueError(f"Model '{model}' does not support function calling. Please use a model that supports function calling.")
 
         prepared_messages = self._prepare_messages(messages)
-
         if prepared_messages[-1]["role"] == "user":
             self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)
             relevant_memories = self._fetch_relevant_memories(messages, user_id, agent_id, run_id, filters, limit)
@@ -150,6 +150,8 @@ class Completions:
             limit=limit,
         )
 
-    def _format_query_with_memories(self, query, relevant_memories):
-        memories_text = "\n".join(memory["text"] for memory in relevant_memories)
-        return f"- Relevant Memories/Facts: {memories_text}\n\n- User Question: {query}"
+    def _format_query_with_memories(self, messages, relevant_memories):
+        # TODO: Make sure that output format for both platform and open source is same so that we don't have to check for platform
+        key = "memory" if self.mem0_client.__class__.__name__ == "MemoryClient" else "text"
+        memories_text = "\n".join(memory[key] for memory in relevant_memories)
+        return f"- Relevant Memories/Facts: {memories_text}\n\n- User Question: {messages[-1]['content']}"
