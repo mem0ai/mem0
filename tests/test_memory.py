@@ -2,7 +2,6 @@ import pytest
 
 from mem0 import Memory
 
-
 @pytest.fixture
 def memory_store():
     return Memory()
