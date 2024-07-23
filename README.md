@@ -3,14 +3,14 @@
 </p>
 
 <p align="center">
-  <a href="https://embedchain.ai/slack">
-    <img src="https://img.shields.io/badge/slack-mem0-brightgreen.svg?logo=slack" alt="Slack">
+  <a href="https://mem0.ai/slack">
+    <img src="https://img.shields.io/badge/slack-mem0-brightgreen.svg?logo=slack" alt="Mem0 Slack">
   </a>
-  <a href="https://embedchain.ai/discord">
-    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Discord">
+  <a href="https://mem0.ai/discord">
+    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Mem0 Discord">
   </a>
-  <a href="https://twitter.com/mem0ai">
-    <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Twitter">
+  <a href="https://x.com/mem0ai">
+    <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Mem0 Twitter">
   </a>
   <a href="https://www.ycombinator.com/companies/mem0"><img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24"></a>
   <a href="https://www.npmjs.com/package/mem0ai"><img src="https://img.shields.io/npm/v/mem0ai?style=flat-square&label=npm+mem0ai" alt="mem0ai npm package"></a>
@@ -22,7 +22,7 @@
 Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
 
 > Note: The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
-## 🚀 Quick Start
+## 🚀 Quickstart
 
 ### Installation
 
@@ -30,7 +30,9 @@ Mem0 provides a smart, self-improving memory layer for Large Language Models, en
 pip install mem0ai
 ```
 
-### Basic Usage
+### Basic Usage (Open Source)
+
+If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
 
 ```python
 import os
