@@ -3,14 +3,14 @@
 </p>
 
 <p align="center">
-  <a href="https://embedchain.ai/slack">
-    <img src="https://img.shields.io/badge/slack-embedchain-brightgreen.svg?logo=slack" alt="Slack">
+  <a href="https://mem0.ai/slack">
+    <img src="https://img.shields.io/badge/slack-mem0-brightgreen.svg?logo=slack" alt="Mem0 Slack">
   </a>
-  <a href="https://embedchain.ai/discord">
-    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Discord">
+  <a href="https://mem0.ai/discord">
+    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Mem0 Discord">
   </a>
-  <a href="https://twitter.com/mem0ai">
-    <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Twitter">
+  <a href="https://x.com/mem0ai">
+    <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Mem0 Twitter">
   </a>
 </p>
 
