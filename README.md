@@ -50,6 +50,7 @@ print(result)
 
 # Retrieve memories
 all_memories = m.get_all()
+memory_id = all_memories[0]["id"] # get a memory_id
 print(all_memories)
 
 # Search memories
@@ -57,11 +58,11 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 print(related_memories)
 
 # Update a memory
-result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
+result = m.update(memory_id=memory_id, data="Likes to play tennis on weekends")
 print(result)
 
 # Get memory history
-history = m.history(memory_id="m1")
+history = m.history(memory_id=memory_id)
 print(history)
 ```
 
