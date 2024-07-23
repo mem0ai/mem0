@@ -1,5 +1,5 @@
 import ollama
-from llm.base import LLMBase
+from llms.base import LLMBase
 
 
 class OllamaLLM(LLMBase):
