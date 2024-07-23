@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/mem0-bg.png" width="500px" alt="Mem0 Logo">
+  <img src="docs/images/banner.png" width="800px" alt="Mem0 Logo">
 </p>
 
 <p align="center">
@@ -12,6 +12,9 @@
   <a href="https://x.com/mem0ai">
     <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Mem0 Twitter">
   </a>
+  <a href="https://www.ycombinator.com/companies/mem0"><img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24"></a>
+  <a href="https://www.npmjs.com/package/mem0ai"><img src="https://img.shields.io/npm/v/mem0ai?style=flat-square&label=npm+mem0ai" alt="mem0ai npm package"></a>
+  <a href="https://pypi.python.org/pypi/mem0ai"><img src="https://img.shields.io/pypi/v/mem0ai.svg?style=flat-square&label=pypi+mem0ai" alt="mem0ai Python package on PyPi"></a>
 </p>
 
 # Mem0: The Memory Layer for Personalized AI

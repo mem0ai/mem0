@@ -5,11 +5,16 @@ description: 'Get started with Mem0 Platform in minutes'
 
 ## 1. Installation
 
-Install the Mem0 Python package:
-
-```bash
+<CodeGroup>
+```bash pip
 pip install mem0ai
 ```
+
+```bash npm
+npm install mem0ai
+```
+
+</CodeGroup>
 
 ## 2. API Key Setup
 
@@ -20,15 +25,22 @@ pip install mem0ai
 
 ## 3. Instantiate Client
 
-```python
+<CodeGroup>
+```python Python
 from mem0 import MemoryClient
 client = MemoryClient(api_key="your-api-key")
 ```
 
+```javascript JavaScript
+const MemoryClient = require('mem0ai');
+const client = new MemoryClient('your-api-key');
+```
+
+</CodeGroup>
+
 ## 4. Memory Operations
 
 Mem0 provides a simple and customizable interface for performing CRUD operations on memory.
-
 
 ### 4.1 Create Memories
 
@@ -36,10 +48,9 @@ You can create long-term and short-term memories for your users, AI Agents, etc.
 
 #### Long-term memory for a user
 
-```python Code
-from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+<CodeGroup>
 
+```python Python
 messages = [
     {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
     {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
@@ -47,12 +58,35 @@ messages = [
 client.add(messages, user_id="alex")
 ```
 
+```javascript JavaScript
+const messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+];
+client.add(messages, { user_id: "alex" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+             {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+         ],
+         "user_id": "alex"
+     }'
+```
+</CodeGroup>
+
 #### Short-term memory for a user session
 
-```python Code
-from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+<CodeGroup>
 
+```python Python
 messages = [
     {"role": "user", "content": "I'm planning a trip to Japan next month."},
     {"role": "assistant", "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"},
@@ -62,12 +96,40 @@ messages = [
 client.add(messages, user_id="alex123", session_id="trip-planning-2024")
 ```
 
+```javascript JavaScript
+const messages = [
+    {"role": "user", "content": "I'm planning a trip to Japan next month."},
+    {"role": "assistant", "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"},
+    {"role": "user", "content": "Yes, please! Especially in Tokyo."},
+    {"role": "assistant", "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."}
+];
+client.add(messages, { user_id: "alex123", session_id: "trip-planning-2024" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "I'm planning a trip to Japan next month."},
+             {"role": "assistant", "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"},
+             {"role": "user", "content": "Yes, please! Especially in Tokyo."},
+             {"role": "assistant", "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."}
+         ],
+         "user_id": "alex123",
+         "session_id": "trip-planning-2024"
+     }'
+```
+</CodeGroup>
+
 #### Long-term memory for agents
 
-```python Code
-from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+<CodeGroup>
 
+```python Python
 messages = [
     {"role": "system", "content": "You are a personalized travel assistant. Remember user preferences and provide tailored recommendations."},
     {"role": "assistant", "content": "Understood. I'll maintain personalized travel preferences for each user and provide customized recommendations based on their dietary restrictions, interests, and past interactions."}
@@ -75,19 +137,60 @@ messages = [
 client.add(messages, agent_id="travel-assistant")
 ```
 
+```javascript JavaScript
+const messages = [
+    {"role": "system", "content": "You are a personalized travel assistant. Remember user preferences and provide tailored recommendations."},
+    {"role": "assistant", "content": "Understood. I'll maintain personalized travel preferences for each user and provide customized recommendations based on their dietary restrictions, interests, and past interactions."}
+];
+client.add(messages, { agent_id: "travel-assistant" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "system", "content": "You are a personalized travel assistant. Remember user preferences and provide tailored recommendations."},
+             {"role": "assistant", "content": "Understood. I'll maintain personalized travel preferences for each user and provide customized recommendations based on their dietary restrictions, interests, and past interactions."}
+         ],
+         "agent_id": "travel-assistant"
+     }'
+```
+</CodeGroup>
+
 You can monitor memory operations on the platform:
 
 ![Mem0 Platform Activity](/images/platform/activity.png)
-
 
 ### 4.2 Search Relevant Memories
 
 You can also get related memories for a given natural language question using our search method.
 
 <CodeGroup>
-```python Code
+
+```python Python
 query = "What do you know about me?"
 client.search(query, user_id="alex")
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+client.search(query, { user_id: "alex" })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "user_id": "alex"
+     }'
 ```
 
 ```json Output
@@ -115,78 +218,46 @@ client.search(query, user_id="alex")
 ```
 </CodeGroup>
 
-Similarly, you can search for agent memories by passing the `agent_id` argument. 
-
-```python Code
-client.search("What are the learnings from previous runs?", agent_id="travel-assistant")
-```
-
 ### 4.3 Get All Memories
 
-Fetch all memories for a user, agent, or session using the get_all() method.
+Fetch all memories for a user, agent, or session using the getAll() method.
 
 #### Get all memories of an AI Agent
 
 <CodeGroup>
-
-```python Code
+```python Python
 client.get_all(agent_id="travel-assistant")
 ```
 
-```json Output
-[
-    {
-        "id": "48677fae-16c4-4d57-9c27-f984f290722a",
-        "memory": "Will remember personalized travel preferences for each user.",
-        "input": [
-            {
-                "role": "system",
-                "content": "You are a personalized travel assistant. Remember user preferences and provide tailored recommendations."
-            },
-            {
-                "role": "assistant",
-                "content": "Understood. I'll maintain personalized travel preferences for each user and provide customized recommendations based on their dietary restrictions, interests, and past interactions."
-            }
-        ],
-        "agent_id": "travel-assistant",
-        "hash": "644d5f40af13d0525305d8dfadc00fd1",
-        "metadata": null,
-        "created_at": "2024-07-20T01:25:22.122299-07:00",
-        "updated_at": "2024-07-20T01:25:22.122327-07:00"
-    }
-]
+```javascript JavaScript
+client.getAll({ agent_id: "travel-assistant" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
 
 #### Get all memories of user
 
 <CodeGroup>
-```python Code
+
+```python Python
 user_memories = client.get_all(user_id="alex")
 ```
 
-```json Output
-[
-    {
-        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
-        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
-        "input": [
-            {
-                "role": "user",
-                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-            },
-            {
-                "role": "assistant",
-                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-            }
-        ],
-        "user_id": "alex",
-        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
-        "metadata": null,
-        "created_at": "2024-07-20T01:30:36.275141-07:00",
-        "updated_at": "2024-07-20T01:30:36.275172-07:00"
-    }
-]
+```javascript JavaScript
+client.getAll({ user_id: "alex" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
 
@@ -194,80 +265,39 @@ user_memories = client.get_all(user_id="alex")
 
 <CodeGroup>
 
-```python Code
+```python Python
 short_term_memories = client.get_all(user_id="alex123", session_id="trip-planning-2024")
 ```
 
-```python Output
-[
-    {
-        "id": "582bbe6d-506b-48c6-a4c6-5df3b1e63428",
-        "memory": "Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
-        "input": [
-            {
-                "role": "user",
-                "content": "I'm planning a trip to Japan next month."
-            },
-            {
-                "role": "assistant",
-                "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"
-            },
-            {
-                "role": "user",
-                "content": "Yes, please! Especially in Tokyo."
-            },
-            {
-                "role": "assistant",
-                "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."
-            }
-        ],
-        "user_id": "alex123",
-        "hash": "d2088c936e259f2f5d2d75543d31401c",
-        "metadata": null,
-        "created_at": "2024-07-20T01:34:09.748379-07:00",
-        "updated_at": "2024-07-20T01:34:09.748391-07:00"
-    }
-]
+```javascript JavaScript
+client.getAll({ user_id: "alex123", session_id: "trip-planning-2024" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&session_id=trip-planning-2024" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
-
 
 #### Get specific memory
 
 <CodeGroup>
 
-```python Code
+```python Python
 memory = client.get(memory_id="582bbe6d-506b-48c6-a4c6-5df3b1e63428")
 ```
 
-```python Output
-{
-    "id": "582bbe6d-506b-48c6-a4c6-5df3b1e63428",
-    "memory": "Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
-    "input": [
-        {
-            "role": "user",
-            "content": "I'm planning a trip to Japan next month."
-        },
-        {
-            "role": "assistant",
-            "content": "That's exciting, Alex! A trip to Japan next month sounds wonderful. Would you like some recommendations for vegetarian-friendly restaurants in Japan?"
-        },
-        {
-            "role": "user",
-            "content": "Yes, please! Especially in Tokyo."
-        },
-        {
-            "role": "assistant",
-            "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."
-        }
-    ],
-    "user_id": "alex123",
-    "hash": "d2088c936e259f2f5d2d75543d31401c",
-    "metadata": null,
-    "created_at": "2024-07-20T01:34:09.748379-07:00",
-    "updated_at": "2024-07-20T01:34:09.748391-07:00"
-}
+```javascript JavaScript
+client.get("582bbe6d-506b-48c6-a4c6-5df3b1e63428")
+    .then(memory => console.log(memory))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e63428" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
 
@@ -277,7 +307,7 @@ Get history of how a memory has changed over time
 
 <CodeGroup>
 
-```python Code
+```python Python
 # Add some message to create history
 messages = [{"role": "user", "content": "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."}]
 client.add(messages, user_id="alex")
@@ -292,48 +322,51 @@ history = client.history(memory_id)
 print(history)
 ```
 
-```json Output
-[
-  {
-    'id': '5a718c7e-7ed2-4c72-8c55-d7896dc61ca3',
-    'memory_id': 'c6c5da66-d851-4653-8a09-ec7b2c1c9cc9',
-    'input': [
-      {
-        'role': 'user',
-        'content': "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
-      }
-    ],
-    'old_memory': None,
-    'new_memory': 'Recently tried chicken and loved it. Interested in trying more non-vegetarian dishes.',
-    'event': 'ADD',
-    'metadata': None,
-    'created_at': '2024-07-20T02:13:35.842720-07:00',
-    'updated_at': '2024-07-20T02:13:35.818065-07:00'
-  },
-  {
-    'id': 'e52e2c73-4b97-4154-9844-aa44c6ee57f5',
-    'memory_id': 'c6c5da66-d851-4653-8a09-ec7b2c1c9cc9',
-    'input': [
-      {
-        'role': 'user',
-        'content': "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
-      },
-      {
-        'role': 'user',
-        'content': 'I turned vegetarian now.'
-      }
-    ],
-    'old_memory': 'Recently tried chicken and loved it. Interested in trying more non-vegetarian dishes.',
-    'new_memory': '',
-    'event': 'DELETE',
-    'metadata': None,
-    'created_at': '2024-07-20T02:13:38.070492-07:00',
-    'updated_at': '2024-07-20T02:13:38.060219-07:00'
-  }
-]
+```javascript JavaScript
+// Add some message to create history
+let messages = [{ role: "user", content: "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.." }];
+client.add(messages, { user_id: "alex" })
+    .then(result => {
+        // Add second message to update history
+        messages.push({ role: 'user', content: 'I turned vegetarian now.' });
+        return client.add(messages, { user_id: "alex" });
+    })
+    .then(result => {
+        // Get history of how memory changed over time
+        const memoryId = result.id; // Assuming the API returns the memory ID
+        return client.history(memoryId);
+    })
+    .then(history => console.log(history))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# First, add the initial memory
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [{"role": "user", "content": "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."}],
+         "user_id": "alex"
+     }'
+
+# Then, update the memory
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."},
+             {"role": "user", "content": "I turned vegetarian now."}
+         ],
+         "user_id": "alex"
+     }'
+
+# Finally, get the history (replace <memory-id-here> with the actual memory ID)
+curl -X GET "https://api.mem0.ai/v1/memories/<memory-id-here>/history/" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
-
 
 ### 4.5 Delete Memory
 
@@ -341,33 +374,66 @@ Delete specific memory:
 
 <CodeGroup>
 
-```python Code
+```python Python
 client.delete(memory_id)
 ```
 
-```python Output
-{'message': 'Memory deleted successfully!'}
+```javascript JavaScript
+client.delete("memory-id-here")
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X DELETE "https://api.mem0.ai/v1/memories/memory-id-here" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
-
 
 Delete all memories of a user:
 
 <CodeGroup>
 
-```python Code
+```python Python
 client.delete_all(user_id="alex")
 ```
 
-```python Output
-{'message': 'Memories deleted successfully!'}
+```javascript JavaScript
+client.deleteAll({ user_id: "alex" })
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X DELETE "https://api.mem0.ai/v1/memories/?user_id=alex" \
+     -H "Authorization: Token your-api-key"
 ```
 </CodeGroup>
 
-Fun fact: You can also delete the memory using the `add()` method by passing natural language command. 
+Fun fact: You can also delete the memory using the `add()` method by passing a natural language command:
 
-```python Code
+<CodeGroup>
+
+```python Python
 client.add("Delete all of my food preferences", user_id="alex")
+```
+
+```javascript JavaScript
+client.add("Delete all of my food preferences", { user_id: "alex" })
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [{"role": "user", "content": "Delete all of my food preferences"}],
+         "user_id": "alex"
+     }'
+```
+</CodeGroup>
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
