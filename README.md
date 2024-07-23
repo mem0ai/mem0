@@ -19,7 +19,7 @@
 Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
 
 > Note: The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
-## 🚀 Quick Start
+## 🚀 Quickstart
 
 ### Installation
 
@@ -27,7 +27,9 @@ Mem0 provides a smart, self-improving memory layer for Large Language Models, en
 pip install mem0ai
 ```
 
-### Basic Usage
+### Basic Usage (Open Source)
+
+If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
 
 ```python
 import os
