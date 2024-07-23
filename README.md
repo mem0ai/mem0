@@ -52,11 +52,12 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 print(related_memories)
 
 # Update a memory
-result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
+id=result[0]['id']
+result = m.update(memory_id=id, data="Likes to play tennis on weekends")
 print(result)
 
 # Get memory history
-history = m.history(memory_id="m1")
+history = m.history(memory_id=id)
 print(history)
 ```
 
