@@ -14,7 +14,7 @@
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg",
-    "href": "https://github.com/embedchain/embedchain"
+    "href": "https://github.com/mem0ai/mem0"
   },
   "tabs": [
     {
@@ -34,14 +34,14 @@
   ],
   "anchors": [
     {
-      "name": "Slack",
+      "name": "Mem0 Slack",
       "icon": "slack",
-      "url": "https://mem0.ai/slack/"
+      "url": "https://mem0.ai/slack"
     },
     {
-      "name": "Discord",
+      "name": "Mem0 Discord",
       "icon": "discord",
-      "url": "https://mem0.ai/discord/"
+      "url": "https://mem0.ai/discord"
     },
     {
       "name": "Talk to founders",
