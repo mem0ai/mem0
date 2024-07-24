@@ -7,17 +7,12 @@ from typing import Any, Optional, Union
 
 import requests
 import yaml
+from mem0 import Memory
 from tqdm import tqdm
 
-from mem0 import Memory
-from embedchain.cache import (
-    Config,
-    ExactMatchEvaluation,
-    SearchDistanceEvaluation,
-    cache,
-    gptcache_data_manager,
-    gptcache_pre_function,
-)
+from embedchain.cache import (Config, ExactMatchEvaluation,
+                              SearchDistanceEvaluation, cache,
+                              gptcache_data_manager, gptcache_pre_function)
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig, Mem0Config
 from embedchain.core.db.database import get_session, init_db, setup_engine
@@ -26,7 +21,8 @@ from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.evaluation.base import BaseMetric
-from embedchain.evaluation.metrics import AnswerRelevance, ContextRelevance, Groundedness
+from embedchain.evaluation.metrics import (AnswerRelevance, ContextRelevance,
+                                           Groundedness)
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm

@@ -1,0 +1,16 @@
+
+llm:
+  provider: aws_bedrock
+  config:
+    model: 'amazon.titan-text-express-v1'
+    deployment_name: ec_titan_express_v1
+    temperature: 0.5
+    max_tokens: 1000
+    top_p: 1
+    stream: false
+
+embedder:
+  provider: aws_bedrock
+  config:
+    model: amazon.titan-embed-text-v2:0
+    deployment_name: ec_embeddings_titan_v2

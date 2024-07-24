@@ -71,7 +71,7 @@ class EmbedderFactory:
         "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
-        "aws_bedrock": "embedchain.config.embedder.base.AWSBedrockEmbedderConfig",
+        "aws_bedrock": "embedchain.config.embedder.aws_bedrock.AWSBedrockEmbedderConfig",
     }
 
     @classmethod

@@ -1,10 +1,10 @@
 import os
 
 from flask import Blueprint, jsonify, make_response, request
-from models import APIKey
 from paths import DB_DIRECTORY_OPEN_AI
 
 from embedchain import App
+from models import APIKey
 
 sources_bp = Blueprint("sources", __name__)
 
