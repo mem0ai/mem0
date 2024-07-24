@@ -66,6 +66,8 @@ history = m.history(memory_id=memory_id)
 print(history)
 ```
 
+## [ollama adapter](./mem0ai4ollama.md)
+
 ## 🔑 Core Features
 
 - **Multi-Level Memory**: User, Session, and AI Agent memory retention
