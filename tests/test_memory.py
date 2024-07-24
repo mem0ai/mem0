@@ -59,3 +59,15 @@ def test_list_memories(memory_store):
     memories = memory_store.list()
     assert data1 in memories
     assert data2 in memories
+
+
+def test_search_memories(memory_store):
+    data1 = "Alice likes tennis."
+    metadata1 = {"category": "hobbies"}
+    data2 = "Bob likes chess."
+    metadata2 = {"category": "hobbies"}
+    memory_store.create(data=data1, user_id="alice", metadata=metadata1)
+    memory_store.create(data=data2, user_id="bob", metadata=metadata2)
+    results = memory_store.search(query="What are Alice's hobbies?", user_id="alice")
+    assert len(results) > 0
+    assert any("tennis" in result["text"] for result in results)
