@@ -1,5 +1,5 @@
 import ollama
-from embedding.base import EmbeddingBase
+from .base import EmbeddingBase
 
 
 class OllamaEmbedding(EmbeddingBase):

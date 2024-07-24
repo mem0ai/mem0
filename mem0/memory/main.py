@@ -85,11 +85,11 @@ class Memory(MemoryBase):
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.collection_name
+
+        
+        vsize=self.config.embedding_model_dims
         self.vector_store.create_col(
-            name=self.collection_name, vector_size=self.embedding_model.dims
-        )
-        self.vector_store.create_col(
-            name=self.collection_name, vector_size=self.embedding_model.dims
+            name=self.collection_name, vector_size=vsize
         )
         capture_event("mem0.init", self)
 
