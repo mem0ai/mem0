@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
 from mem0.llms.together import TogetherLLM
-from mem0.configs.llms.base import BaseLlmConfig
 
 @pytest.fixture
 def mock_together_client():
