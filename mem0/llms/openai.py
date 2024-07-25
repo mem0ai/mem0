@@ -8,8 +8,8 @@ from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
 class OpenAILLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
-        super().__init__(config)
+    def __init__(self, configDict: Optional[Dict] = None):
+        super().__init__(BaseLlmConfig(**configDict))
 
         if not self.config.model:
             self.config.model="gpt-4o"
@@ -97,4 +97,5 @@ class OpenAILLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**params)
+        print(response)
         return self._parse_response(response, tools)

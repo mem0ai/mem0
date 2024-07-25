@@ -18,6 +18,7 @@ class LlmFactory:
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
+        "portkey": "mem0.llms.portkey.PortkeyLLM",
     }
 
     @classmethod
@@ -25,8 +26,7 @@ class LlmFactory:
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             llm_instance = load_class(class_type)
-            base_config = BaseLlmConfig(**config)
-            return llm_instance(base_config)
+            return llm_instance(config)
         else:
             raise ValueError(f"Unsupported Llm provider: {provider_name}")
         
