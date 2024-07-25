@@ -1,4 +1,4 @@
-from embedding.base import EmbeddingBase
+from mem0.embeddings.base import EmbeddingBase
 
 try:
     from fastembed import TextEmbedding
