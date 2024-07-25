@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 import litellm
 
 from mem0.llms.base import LLMBase
-from mem0.configs.llms.base import BaseLlmConfig
 
 
 class LiteLLM(LLMBase):

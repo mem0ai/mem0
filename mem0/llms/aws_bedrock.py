@@ -8,7 +8,6 @@ except ImportError:
     raise ImportError("AWS Bedrock requires extra dependencies. Install with `pip install boto3`") from None
 
 from mem0.llms.base import LLMBase
-from mem0.configs.llms.base import BaseLlmConfig
 
 class AWSBedrockLLM(LLMBase):    
     def __init__(self, configDict: Optional[Dict] = None):

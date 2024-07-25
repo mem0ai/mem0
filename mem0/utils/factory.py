@@ -1,6 +1,5 @@
 import importlib
 
-from mem0.configs.llms.base import BaseLlmConfig
 
 
 def load_class(class_type):

@@ -5,7 +5,6 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 
 from mem0.llms.base import LLMBase
-from mem0.configs.llms.base import BaseLlmConfig
 
 class OpenAILLM(LLMBase):
     def __init__(self, configDict: Optional[Dict] = None):
