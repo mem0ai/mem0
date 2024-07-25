@@ -5,13 +5,13 @@ import aiofiles
 import yaml
 from database import Base, SessionLocal, engine
 from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from models import DefaultResponse, DeployAppRequest, QueryApp, SourceApp
 from services import get_app, get_apps, remove_app, save_app
 from sqlalchemy.orm import Session
+from utils import generate_error_message_for_api_keys
 
 from embedchain import App
 from embedchain.client import Client
-from models import DefaultResponse, DeployAppRequest, QueryApp, SourceApp
-from utils import generate_error_message_for_api_keys
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,4 @@
 from flask import Blueprint, jsonify, make_response, request
-
 from models import APIKey, BotList, db
 
 dashboard_bp = Blueprint("dashboard", __name__)

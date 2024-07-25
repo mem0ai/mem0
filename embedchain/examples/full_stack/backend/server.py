@@ -1,12 +1,11 @@
 import os
 
 from flask import Flask
+from models import db
 from paths import DB_DIRECTORY_OPEN_AI, ROOT_DIRECTORY
 from routes.chat_response import chat_response_bp
 from routes.dashboard import dashboard_bp
 from routes.sources import sources_bp
-
-from models import db
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(ROOT_DIRECTORY, "database", "user_data.db")

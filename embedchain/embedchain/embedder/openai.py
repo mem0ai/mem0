@@ -3,6 +3,7 @@ from typing import Optional
 
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
+
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.models import VectorDimensions

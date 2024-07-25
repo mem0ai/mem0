@@ -1,7 +1,6 @@
 import hashlib
 
 from langchain_community.document_loaders import PyPDFLoader
-
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
