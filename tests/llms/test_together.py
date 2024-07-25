@@ -12,7 +12,7 @@ def mock_together_client():
 
 
 def test_generate_response_without_tools(mock_together_client):
-    config = BaseLlmConfig(model="mistralai/Mixtral-8x7B-Instruct-v0.1", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = {"model":"mistralai/Mixtral-8x7B-Instruct-v0.1", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = TogetherLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -36,7 +36,7 @@ def test_generate_response_without_tools(mock_together_client):
 
 
 def test_generate_response_with_tools(mock_together_client):
-    config = BaseLlmConfig(model="mistralai/Mixtral-8x7B-Instruct-v0.1", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = {"model":"mistralai/Mixtral-8x7B-Instruct-v0.1", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = TogetherLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},

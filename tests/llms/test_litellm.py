@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import Mock, patch
 
 from mem0.llms import litellm
-from mem0.configs.llms.base import BaseLlmConfig
 
 @pytest.fixture
 def mock_litellm():
@@ -10,7 +9,7 @@ def mock_litellm():
         yield mock_litellm
 
 def test_generate_response_with_unsupported_model(mock_litellm):
-    config = BaseLlmConfig(model="unsupported-model", temperature=0.7, max_tokens=100, top_p=1)
+    config = {"model":"unsupported-model", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = litellm.LiteLLM(config)
     messages = [{"role": "user", "content": "Hello"}]
     
@@ -21,7 +20,7 @@ def test_generate_response_with_unsupported_model(mock_litellm):
 
 
 def test_generate_response_without_tools(mock_litellm):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1)
+    config = {"model":"gpt-4o", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = litellm.LiteLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -46,7 +45,7 @@ def test_generate_response_without_tools(mock_litellm):
 
 
 def test_generate_response_with_tools(mock_litellm):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1)
+    config = {"model":"gpt-4o", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = litellm.LiteLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
