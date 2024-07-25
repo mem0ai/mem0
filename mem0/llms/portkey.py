@@ -79,7 +79,7 @@ class PortkeyConfig(BaseLlmConfig):
 
 
 class PortkeyLLM(LLMBase):
-    def __init__(self, configDict: dict):
+    def __init__(self, configDict: Optional[Dict]):
         self.config = PortkeyConfig(**configDict)
         self.client = Portkey(**configDict)
 

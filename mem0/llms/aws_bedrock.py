@@ -11,8 +11,8 @@ from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
 class AWSBedrockLLM(LLMBase):    
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
-        super().__init__(config)
+    def __init__(self, configDict: Optional[Dict] = None):
+        super().__init__(configDict)
 
         if not self.config.model:
             self.config.model="anthropic.claude-3-5-sonnet-20240620-v1:0"
