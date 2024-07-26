@@ -42,7 +42,7 @@ import os
 os.environ["OPENAI_API_KEY"] = "sk-xxx"
 ```
 
-Now, you can simply import the Memory class from mem0 and initialize the memory.
+Now, you can simply initialize the memory.
 
 ```python
 from mem0 import Memory
@@ -51,34 +51,46 @@ m = Memory()
 ```
 
 You can perform the following task on the memory.
-1. Add
-2. Update
-3. Search
-4. Get
-5. History
+1. Add: adds memory
+2. Update: update memory of a given memory_id
+3. Search: fetch memories based on a query
+4. Get: return memories for a certain user/agent/session 
+5. History: describes how a memory has changed over time
 
 ```python
-# Store a memory from any unstructured text
+# 1. Add: Store a memory from any unstructured text
 result = m.add("I am working on improving my tennis skills. Suggest some online courses.", user_id="alice", metadata={"category": "hobbies"})
-print(result)
-# Created memory: Improving her tennis skills. Looking for online suggestions.
 
-# Retrieve memories
+# Created memory --> 'Improving her tennis skills.' and 'Looking for online suggestions.'
+```
+
+```python
+# 2. Update: update the memory
+result = m.update(memory_id=<memory_id_1>, data="Likes to play tennis on weekends")
+
+# Updated memory --> 'Likes to play tennis on weekends.' and 'Looking for online suggestions.'
+```
+
+```python
+# 3. Search: search related memories
+related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+
+# Retrieved memory --> 'Likes to play tennis on weekends'
+```
+
+```python
+# Get all memories
 all_memories = m.get_all()
 memory_id = all_memories[0]["id"] # get a memory_id
-print(all_memories)
 
-# Search memories
-related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
-print(related_memories)
+# All memory items --> 'Likes to play tennis on weekends.' and 'Looking for online suggestions.'
+```
 
-# Update a memory
-result = m.update(memory_id=memory_id, data="Likes to play tennis on weekends")
-print(result)
-
+```python
 # Get memory history
-history = m.history(memory_id=memory_id)
-print(history)
+history = m.history(memory_id=<memory_id_1>)
+
+# Logs corresponding to memory_id_1 --> {'prev_value': 'Working on improving tennis skills and interested in online courses for tennis.', 'new_value': 'Likes to play tennis on weekends' }
 ```
 
 > [!TIP]
