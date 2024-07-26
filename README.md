@@ -55,7 +55,7 @@ You can perform the following task on the memory.
 2. Update: update memory of a given memory_id
 3. Search: fetch memories based on a query
 4. Get: return memories for a certain user/agent/session 
-5. History: describes how a memory has changed over time
+5. History: describes how a memory has changed over time for a specific memory ID
 
 ```python
 # 1. Add: Store a memory from any unstructured text
@@ -79,7 +79,7 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 ```
 
 ```python
-# Get all memories
+# 4. Get all memories
 all_memories = m.get_all()
 memory_id = all_memories[0]["id"] # get a memory_id
 
@@ -87,7 +87,7 @@ memory_id = all_memories[0]["id"] # get a memory_id
 ```
 
 ```python
-# Get memory history
+# 5. Get memory history for a particular memory_id
 history = m.history(memory_id=<memory_id_1>)
 
 # Logs corresponding to memory_id_1 --> {'prev_value': 'Working on improving tennis skills and interested in online courses for tennis.', 'new_value': 'Likes to play tennis on weekends' }
