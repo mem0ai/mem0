@@ -12,6 +12,8 @@ Mem0 includes built-in support for various popular large language models. Memory
   <Card title="Groq" href="#groq"></Card>
   <Card title="Together" href="#together"></Card>
   <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
+  <Card title="AWS Bedrock" href="#aws_bedrock"></Card>
+  <Card title="Portkey" href="#portkey"></Card>
   <Card title="Litellm" href="#litellm"></Card>
   <Card title="Google AI" href="#google-ai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
@@ -167,6 +169,59 @@ config = {
 
 m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Portkey
+
+[Portkey](https://docs.portkey.ai/docs/welcome/integration-guides) Allows you to switch between models from [30+ providers (OpenAI, Vertex, Bedrock, Zhipu, Together, Anthropic, ...)](https://docs.portkey.ai/docs/provider-endpoints/supported-providers) with a single line.
+Teams also use Portkey to improve the cost, performance, and accuracy of their Gen AI apps.
+It takes <2 mins to integrate and with that, it already starts monitoring all of your LLM requests and also makes your app resilient, secure, performant, and more accurate at the same time.
+
+### Open source
+```python
+import os
+from mem0 import Memory
+
+os.environ["PORTKEY_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "portkey",
+        "config": {
+            "provider": "openai",
+            "model": "gpt-3.5-turbo",
+            "Authorization": "{YOUR_OPENAI_API_KEY}"
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Enterprise
+```python
+import os
+from mem0 import Memory
+
+os.environ["PORTKEY_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "portkey",
+        "config": {
+            "config":"{PORTKEY_CONFIG_ID}",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+
 ```
 
 ## Litellm

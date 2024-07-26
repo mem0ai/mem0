@@ -46,6 +46,7 @@ class PortkeyConfig(BaseLlmConfig):
         azure_api_version: Optional[str] = None,
         http_client: Optional[httpx.Client] = None,
         request_timeout: Optional[int] = None,
+        Authorization: Optional[str] = None,
     ):
 
         super().__init__(model, temperature, max_tokens, top_p)
@@ -76,6 +77,7 @@ class PortkeyConfig(BaseLlmConfig):
         self.azure_api_version = azure_api_version
         self.http_client = http_client
         self.request_timeout = request_timeout
+        self.Authorization = Authorization
 
 
 class PortkeyLLM(LLMBase):
