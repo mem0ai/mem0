@@ -80,6 +80,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          "user_id": "alex"
      }'
 ```
+
+```json Output
+{'message': 'ok'}
+```
 </CodeGroup>
 
 #### Short-term memory for a user session
@@ -123,6 +127,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          "session_id": "trip-planning-2024"
      }'
 ```
+
+```json Output
+{'message': 'ok'}
+```
 </CodeGroup>
 
 #### Long-term memory for agents
@@ -158,6 +166,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          ],
          "agent_id": "travel-assistant"
      }'
+```
+
+```json Output
+{'message': 'ok'}
 ```
 </CodeGroup>
 
@@ -239,6 +251,29 @@ client.getAll({ agent_id: "travel-assistant" })
 curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant" \
      -H "Authorization: Token your-api-key"
 ```
+
+```json Output
+[
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"是素食主义者，对坚果过敏。",
+      "agent_id":"travel-assistant",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":"None",
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+   },
+   {
+      "id":"0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+      "memory":"Will maintain personalized travel preferences for each user. Provide customized recommendations based on dietary restrictions, interests, and past interactions.",
+      "agent_id":"travel-assistant",
+      "hash":"35a305373d639b0bffc6c2a3e2eb4244",
+      "metadata":"None",
+      "created_at":"2024-07-26T00:31:03.543759-07:00",
+      "updated_at":"2024-07-26T00:31:03.543778-07:00"
+   }
+]
+```
 </CodeGroup>
 
 #### Get all memories of user
@@ -258,6 +293,29 @@ client.getAll({ user_id: "alex" })
 ```bash cURL
 curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
      -H "Authorization: Token your-api-key"
+```
+
+```json Output
+[
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"是素食主义者，对坚果过敏。",
+      "agent_id":"travel-assistant",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":"None",
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+   },
+   {
+      "id":"0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+      "memory":"Will maintain personalized travel preferences for each user. Provide customized recommendations based on dietary restrictions, interests, and past interactions.",
+      "agent_id":"travel-assistant",
+      "hash":"35a305373d639b0bffc6c2a3e2eb4244",
+      "metadata":"None",
+      "created_at":"2024-07-26T00:31:03.543759-07:00",
+      "updated_at":"2024-07-26T00:31:03.543778-07:00"
+   }
+]
 ```
 </CodeGroup>
 
@@ -279,6 +337,38 @@ client.getAll({ user_id: "alex123", session_id: "trip-planning-2024" })
 curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&session_id=trip-planning-2024" \
      -H "Authorization: Token your-api-key"
 ```
+
+```json Output
+[
+   {
+      "id":"06d8df63-7bd2-4fad-9acb-60871bcecee0",
+      "memory":"Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
+      "user_id":"alex123",
+      "hash":"d2088c936e259f2f5d2d75543d31401c",
+      "metadata":"None",
+      "created_at":"2024-07-26T00:25:16.566471-07:00",
+      "updated_at":"2024-07-26T00:25:16.566492-07:00"
+   },
+   {
+      "id":"b4229775-d860-4ccb-983f-0f628ca112f5",
+      "memory":"Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
+      "user_id":"alex123",
+      "hash":"d2088c936e259f2f5d2d75543d31401c",
+      "metadata":"None",
+      "created_at":"2024-07-26T00:33:20.350542-07:00",
+      "updated_at":"2024-07-26T00:33:20.350560-07:00"
+   },
+   {
+      "id":"df1aca24-76cf-4b92-9f58-d03857efcb64",
+      "memory":"Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
+      "user_id":"alex123",
+      "hash":"d2088c936e259f2f5d2d75543d31401c",
+      "metadata":"None",
+      "created_at":"2024-07-26T00:51:09.642275-07:00",
+      "updated_at":"2024-07-26T00:51:09.642295-07:00"
+   }
+]
+```
 </CodeGroup>
 
 #### Get specific memory
@@ -298,6 +388,18 @@ client.get("582bbe6d-506b-48c6-a4c6-5df3b1e63428")
 ```bash cURL
 curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e63428" \
      -H "Authorization: Token your-api-key"
+```
+
+```json Output
+{
+   "id":"06d8df63-7bd2-4fad-9acb-60871bcecee0",
+   "memory":"Planning a trip to Japan next month. Interested in vegetarian restaurants in Tokyo.",
+   "user_id":"alex123",
+   "hash":"d2088c936e259f2f5d2d75543d31401c",
+   "metadata":"None",
+   "created_at":"2024-07-26T00:25:16.566471-07:00",
+   "updated_at":"2024-07-26T00:25:16.566492-07:00"
+}
 ```
 </CodeGroup>
 
@@ -319,7 +421,6 @@ client.add(messages, user_id="alex")
 # Get history of how memory changed over time
 memory_id = "<memory-id-here>"
 history = client.history(memory_id)
-print(history)
 ```
 
 ```javascript JavaScript
@@ -366,6 +467,32 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 curl -X GET "https://api.mem0.ai/v1/memories/<memory-id-here>/history/" \
      -H "Authorization: Token your-api-key"
 ```
+
+```json Output
+[
+   {
+      "id":"d6306e85-eaa6-400c-8c2f-ab994a8c4d09",
+      "memory_id":"b163df0e-ebc8-4098-95df-3f70a733e198",
+      "input":[
+         {
+            "role":"user",
+            "content":"I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
+         },
+         {
+            "role":"user",
+            "content":"I turned vegetarian now."
+         }
+      ],
+      "old_memory":"None",
+      "new_memory":"Turned vegetarian.",
+      "user_id":"alex123456",
+      "event":"ADD",
+      "metadata":"None",
+      "created_at":"2024-07-26T01:02:41.737310-07:00",
+      "updated_at":"2024-07-26T01:02:41.726073-07:00"
+   }
+]
+```
 </CodeGroup>
 
 ### 4.5 Delete Memory
@@ -388,6 +515,10 @@ client.delete("memory-id-here")
 curl -X DELETE "https://api.mem0.ai/v1/memories/memory-id-here" \
      -H "Authorization: Token your-api-key"
 ```
+
+```json Output
+{'message': 'Memory deleted successfully'}
+```
 </CodeGroup>
 
 Delete all memories of a user:
@@ -407,6 +538,10 @@ client.deleteAll({ user_id: "alex" })
 ```bash cURL
 curl -X DELETE "https://api.mem0.ai/v1/memories/?user_id=alex" \
      -H "Authorization: Token your-api-key"
+```
+
+```json Output
+{'message': 'Memories deleted successfully!'}
 ```
 </CodeGroup>
 
@@ -432,6 +567,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          "messages": [{"role": "user", "content": "Delete all of my food preferences"}],
          "user_id": "alex"
      }'
+```
+
+```json Output
+{'message': 'ok'}
 ```
 </CodeGroup>
 
