@@ -319,6 +319,9 @@ class Memory(MemoryBase):
         memories = self.vector_store.search(
             name=self.collection_name, query=embeddings, limit=limit, filters=filters
         )
+
+        excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+
         return [
             {
                 **MemoryItem(
@@ -329,7 +332,9 @@ class Memory(MemoryBase):
                     updated_at=mem.payload.get("updated_at"),
                     score=mem.score,
                 ).model_dump(),
-                **filters
+                **{key: mem.payload[key] for key in ["user_id", "agent_id", "run_id"] if key in mem.payload},
+                **({"metadata": {k: v for k, v in mem.payload.items() if k not in excluded_keys}} 
+                if any(k for k in mem.payload if k not in excluded_keys) else {})
             }
             for mem in memories
         ]
@@ -347,6 +352,7 @@ class Memory(MemoryBase):
         """
         capture_event("mem0.get_all", self, {"memory_id": memory_id})
         self._update_memory_tool(memory_id, data)
+        return {'message': 'Memory updated successfully!'}
 
     def delete(self, memory_id):
         """
