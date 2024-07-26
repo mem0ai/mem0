@@ -19,12 +19,15 @@
 
 # Mem0: The Memory Layer for Personalized AI
 
-Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
+Mem0 provides an intelligent, adaptive memory layer for Large Language Models (LLMs), enhancing personalized AI experiences by retaining and utilizing contextual information across diverse applications. This enhanced memory capability is crucial for applications ranging from customer support and healthcare diagnostics to autonomous systems and personalized content recommendations, allowing AI to remember user preferences, adapt to individual needs, and continuously improve over time.
 
-> Note: The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
+> [!NOTE]
+> The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
 ## 🚀 Quickstart
 
 ### Installation
+
+The Mem0 package can be installed directly from pip command in the terminal. 
 
 ```bash
 pip install mem0ai
@@ -32,39 +35,66 @@ pip install mem0ai
 
 ### Basic Usage (Open Source)
 
-If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
+Mem0 supports various LLMs, details of which can be found in our docs, checkout [Supported LLMs](https://docs.mem0.ai/llms). By default, Mem0 is equipped with ```gpt-4o```, and to use it, you need to set the keys in the environment variable.
 
 ```python
 import os
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+```
+
+Now, you can simply initialize the memory.
+
+```python
 from mem0 import Memory
 
-os.environ["OPENAI_API_KEY"] = "xxx"
-
-# Initialize Mem0
 m = Memory()
+```
 
-# Store a memory from any unstructured text
+You can perform the following task on the memory.
+1. Add: adds memory
+2. Update: update memory of a given memory_id
+3. Search: fetch memories based on a query
+4. Get: return memories for a certain user/agent/session 
+5. History: describes how a memory has changed over time for a specific memory ID
+
+```python
+# 1. Add: Store a memory from any unstructured text
 result = m.add("I am working on improving my tennis skills. Suggest some online courses.", user_id="alice", metadata={"category": "hobbies"})
-print(result)
-# Created memory: Improving her tennis skills. Looking for online suggestions.
 
-# Retrieve memories
+# Created memory --> 'Improving her tennis skills.' and 'Looking for online suggestions.'
+```
+
+```python
+# 2. Update: update the memory
+result = m.update(memory_id=<memory_id_1>, data="Likes to play tennis on weekends")
+
+# Updated memory --> 'Likes to play tennis on weekends.' and 'Looking for online suggestions.'
+```
+
+```python
+# 3. Search: search related memories
+related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+
+# Retrieved memory --> 'Likes to play tennis on weekends'
+```
+
+```python
+# 4. Get all memories
 all_memories = m.get_all()
 memory_id = all_memories[0]["id"] # get a memory_id
-print(all_memories)
 
-# Search memories
-related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
-print(related_memories)
-
-# Update a memory
-result = m.update(memory_id=memory_id, data="Likes to play tennis on weekends")
-print(result)
-
-# Get memory history
-history = m.history(memory_id=memory_id)
-print(history)
+# All memory items --> 'Likes to play tennis on weekends.' and 'Looking for online suggestions.'
 ```
+
+```python
+# 5. Get memory history for a particular memory_id
+history = m.history(memory_id=<memory_id_1>)
+
+# Logs corresponding to memory_id_1 --> {'prev_value': 'Working on improving tennis skills and interested in online courses for tennis.', 'new_value': 'Likes to play tennis on weekends' }
+```
+
+> [!TIP]
+> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
 
 ## 🔑 Core Features
 
