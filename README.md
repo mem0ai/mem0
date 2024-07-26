@@ -15,7 +15,7 @@
   <a href="https://www.ycombinator.com/companies/mem0"><img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24"></a>
   <a href="https://www.npmjs.com/package/mem0ai"><img src="https://img.shields.io/npm/v/mem0ai?style=flat-square&label=npm+mem0ai" alt="mem0ai npm package"></a>
   <a href="https://pypi.python.org/pypi/mem0ai"><img src="https://img.shields.io/pypi/v/mem0ai.svg?style=flat-square&label=pypi+mem0ai" alt="mem0ai Python package on PyPi"></a>
-  <a href="https://pypi.python.org/pypi/mem0ai"><img src="https://img.shields.io/badge/substack-mem0-brightgreen.svg?logo=substack&label=mem0+substack" alt="Mem0 newsletter"></a>
+  <a href="https://mem0.ai/email"><img src="https://img.shields.io/badge/substack-mem0-brightgreen.svg?logo=substack&label=mem0+substack" alt="Mem0 newsletter"></a>
 </p>
 
 # Mem0: The Memory Layer for Personalized AI
