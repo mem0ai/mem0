@@ -1,5 +1,6 @@
 import json
 import logging
+import hashlib
 import os
 import uuid
 import pytz
@@ -412,7 +413,7 @@ class Memory(MemoryBase):
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
         metadata["data"] = data
-        metadata["hash"] = str(uuid.uuid4())
+        metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         metadata["created_at"] = datetime.now(pytz.timezone('US/Pacific')).isoformat()
 
         self.vector_store.insert(
