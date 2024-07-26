@@ -177,7 +177,6 @@ m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category"
 Teams also use Portkey to improve the cost, performance, and accuracy of their Gen AI apps.
 It takes <2 mins to integrate and with that, it already starts monitoring all of your LLM requests and also makes your app resilient, secure, performant, and more accurate at the same time.
 
-### Open source
 ```python
 import os
 from mem0 import Memory
@@ -199,29 +198,6 @@ config = {
 
 m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
-```
-
-### Enterprise
-```python
-import os
-from mem0 import Memory
-
-os.environ["PORTKEY_API_KEY"] = "your-api-key"
-
-config = {
-    "llm": {
-        "provider": "portkey",
-        "config": {
-            "config":"{PORTKEY_CONFIG_ID}",
-        }
-    }
-}
-
-m = Memory.from_config(config)
-m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
-```
-
-
 ```
 
 ## Litellm
