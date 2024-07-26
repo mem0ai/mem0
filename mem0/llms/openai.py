@@ -96,5 +96,4 @@ class OpenAILLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**params)
-        print(response)
         return self._parse_response(response, tools)
