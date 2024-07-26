@@ -15,6 +15,7 @@
   <a href="https://www.ycombinator.com/companies/mem0"><img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24"></a>
   <a href="https://www.npmjs.com/package/mem0ai"><img src="https://img.shields.io/npm/v/mem0ai?style=flat-square&label=npm+mem0ai" alt="mem0ai npm package"></a>
   <a href="https://pypi.python.org/pypi/mem0ai"><img src="https://img.shields.io/pypi/v/mem0ai.svg?style=flat-square&label=pypi+mem0ai" alt="mem0ai Python package on PyPi"></a>
+  <a href="https://pypi.python.org/pypi/mem0ai"><img src="https://img.shields.io/badge/substack-mem0-brightgreen.svg?logo=substack&label=mem0+substack" alt="Mem0 newsletter"></a>
 </p>
 
 # Mem0: The Memory Layer for Personalized AI
@@ -27,7 +28,7 @@ Mem0 provides an intelligent, adaptive memory layer for Large Language Models (L
 
 ### Installation
 
-The Mem0 package can be installed directly from pip command in the terminal. 
+The Mem0 package can be installed directly from pip command in the terminal.
 
 ```bash
 pip install mem0ai
@@ -54,7 +55,7 @@ You can perform the following task on the memory.
 1. Add: adds memory
 2. Update: update memory of a given memory_id
 3. Search: fetch memories based on a query
-4. Get: return memories for a certain user/agent/session 
+4. Get: return memories for a certain user/agent/session
 5. History: describes how a memory has changed over time for a specific memory ID
 
 ```python
@@ -140,7 +141,8 @@ m = Memory.from_config(config)
 Join our Slack or Discord community for support and discussions.
 If you have any questions, feel free to reach out to us using one of the following methods:
 
-- [Join our Discord](https://embedchain.ai/discord)
-- [Join our Slack](https://embedchain.ai/slack)
-- [Follow us on Twitter](https://twitter.com/mem0ai)
+- [Join our Discord](https://mem0.ai/discord)
+- [Join our Slack](https://mem0.ai/slack)
+- [Join our newsletter](https://mem0.ai/email)
+- [Follow us on Twitter](https://x.com/mem0ai)
 - [Email us](mailto:founders@mem0.ai)
