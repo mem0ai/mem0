@@ -123,7 +123,7 @@ class PortkeyLLM(LLMBase):
         tool_choice: str = "auto",
     ):
         """
-        Generate a response based on the given messages using Litellm.
+        Generate a response based on the given messages using Portkey.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
