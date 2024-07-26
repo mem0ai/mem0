@@ -19,12 +19,15 @@
 
 # Mem0: The Memory Layer for Personalized AI
 
-Mem0 provides a smart, self-improving memory layer for Large Language Models, enabling personalized AI experiences across applications.
+Mem0 provides an intelligent, adaptive memory layer for Large Language Models (LLMs), enhancing personalized AI experiences by retaining and utilizing contextual information across diverse applications. This enhanced memory capability is crucial for applications ranging from customer support and healthcare diagnostics to autonomous systems and personalized content recommendations, allowing AI to remember user preferences, adapt to individual needs, and continuously improve over time.
 
-> Note: The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
+> [!NOTE]
+> The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
 ## 🚀 Quickstart
 
 ### Installation
+
+The Mem0 package can be installed directly from pip command in the terminal. 
 
 ```bash
 pip install mem0ai
@@ -32,17 +35,29 @@ pip install mem0ai
 
 ### Basic Usage (Open Source)
 
-If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
+Mem0 supports various LLMs, details of which can be found in our docs, checkout [Supported LLMs](https://docs.mem0.ai/llms). By default, Mem0 is equipped with ```gpt-4o```, and to use it, you need to set the keys in the environment variable.
 
 ```python
 import os
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+```
+
+Now, you can simply import the Memory class from mem0 and initialize the memory.
+
+```python
 from mem0 import Memory
 
-os.environ["OPENAI_API_KEY"] = "xxx"
-
-# Initialize Mem0
 m = Memory()
+```
 
+You can perform the following task on the memory.
+1. Add
+2. Update
+3. Search
+4. Get
+5. History
+
+```python
 # Store a memory from any unstructured text
 result = m.add("I am working on improving my tennis skills. Suggest some online courses.", user_id="alice", metadata={"category": "hobbies"})
 print(result)
@@ -65,6 +80,9 @@ print(result)
 history = m.history(memory_id=memory_id)
 print(history)
 ```
+
+> [!TIP]
+> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
 
 ## 🔑 Core Features
 
