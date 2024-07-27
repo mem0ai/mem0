@@ -6,13 +6,6 @@ import uuid
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, ValidationError
-
-from mem0.llms.utils.tools import (
-    ADD_MEMORY_TOOL,
-    DELETE_MEMORY_TOOL,
-    UPDATE_MEMORY_TOOL,
-)
-from mem0.configs.prompts import MEMORY_DEDUCTION_PROMPT
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
@@ -23,6 +16,8 @@ from mem0.llms.configs import LlmConfig
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.vector_stores.qdrant import Qdrant
 from mem0.utils.factory import LlmFactory, EmbedderFactory
+
+from .local_data import LocalData 
 
 # Setup user config
 setup_config()
@@ -61,12 +56,14 @@ class MemoryConfig(BaseModel):
     embedding_model_dims: int = Field(
         default=1536, description="Dimensions of the embedding model"
     )
+    lang: str = Field(default="en", description="Language of the text") 
 
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
-        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider)
+        self.localdata= LocalData(self.config.lang)
+        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         # Initialize the appropriate vector store based on the configuration
         vector_store_config = self.config.vector_store.config
         if self.config.vector_store.provider == "qdrant":
@@ -86,7 +83,6 @@ class Memory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.collection_name
 
-        
         vsize=self.config.embedding_model_dims
         self.vector_store.create_col(
             name=self.collection_name, vector_size=vsize
@@ -139,12 +135,12 @@ class Memory(MemoryBase):
             filters["run_id"] = metadata["run_id"] = run_id
 
         if not prompt:
-            prompt = MEMORY_DEDUCTION_PROMPT.format(user_input=data, metadata=metadata)
+            prompt =  self.localdata.MEMORY_DEDUCTION_PROMPT.format(user_input=data, metadata=metadata)
         extracted_memories = self.llm.generate_response(
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert at deducing facts, preferences and memories from unstructured text.",
+                    "content":  self.localdata.SYSTEM_PROMPT,
                 },
                 {"role": "user", "content": prompt},
             ]
@@ -173,7 +169,7 @@ class Memory(MemoryBase):
             serialized_existing_memories, extracted_memories
         )
         # Add tools for noop, add, update, delete memory.
-        tools = [ADD_MEMORY_TOOL, UPDATE_MEMORY_TOOL, DELETE_MEMORY_TOOL]
+        tools = [self.localdata.ADD_MEMORY_TOOL, self.localdata.UPDATE_MEMORY_TOOL, self.localdata.DELETE_MEMORY_TOOL]
         response = self.llm.generate_response(messages=messages, tools=tools)
         tool_calls = response["tool_calls"]
 

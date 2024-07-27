@@ -29,3 +29,5 @@ Constraint for deducing facts, preferences, and memories:
 
 Deduced facts, preferences, and memories:
 """
+
+SYSTEM_PROMPT = "You are an expert at deducing facts, preferences and memories from unstructured text."

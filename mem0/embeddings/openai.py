@@ -4,9 +4,9 @@ from mem0.embeddings.base import EmbeddingBase
 
 
 class OpenAIEmbedding(EmbeddingBase):
-    def __init__(self, model="text-embedding-3-small"):
+    def __init__(self):
         self.client = OpenAI()
-        self.model = model
+        self.model = "text-embedding-3-small"
         self.dims = 1536
 
     def embed(self, text):

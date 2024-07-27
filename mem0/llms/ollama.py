@@ -1,13 +1,12 @@
 import ollama
 from .base import LLMBase
-from .base import BaseLlmConfig
+from mem0.configs.llms.base import BaseLlmConfig
 from typing import Dict, List, Optional
-import json
 
 class OllamaLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         self.model = "llama3"
-        if  config.model is not None:
+        if config is not None and  config.model is not None:
           self.model = config.model
         self._ensure_model_exists()
 
@@ -63,4 +62,5 @@ class OllamaLLM(LLMBase):
             str: The generated response.
         """
         response = ollama.chat(model=self.model, messages=messages,tools=tools)
+        print("llm resp:", response)
         return self._parse_response(response, tools)

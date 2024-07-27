@@ -1,10 +1,13 @@
 import ollama
 from .base import EmbeddingBase
-
+from typing import  Optional
+from mem0.configs.embeder.base import BaseEmbederConfig
 
 class OllamaEmbedding(EmbeddingBase):
-    def __init__(self, model="nomic-embed-text"):
-        self.model = model
+    def __init__(self,config: Optional[BaseEmbederConfig] = None):
+        self.model = "nomic-embed-text"
+        if config is not None and config.model is not None:
+            self.model = config.model
         self._ensure_model_exists()
         self.dims = 512
 
