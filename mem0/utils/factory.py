@@ -17,6 +17,7 @@ class LlmFactory:
         "together": "mem0.llms.together.TogetherLLM",
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
+        "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM"
     }
 
     @classmethod
@@ -33,7 +34,8 @@ class EmbedderFactory:
     provider_to_class = {
         "openai": "mem0.embeddings.openai.OpenAIEmbedding",
         "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
-        "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding"
+        "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
+        "litellm": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding"
     }
 
     @classmethod
