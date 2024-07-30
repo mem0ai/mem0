@@ -88,9 +88,6 @@ class Memory(MemoryBase):
         self.vector_store.create_col(
             name=self.collection_name, vector_size=self.embedding_model.dims
         )
-        self.vector_store.create_col(
-            name=self.collection_name, vector_size=self.embedding_model.dims
-        )
         capture_event("mem0.init", self)
 
     @classmethod
