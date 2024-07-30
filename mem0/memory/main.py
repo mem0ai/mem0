@@ -392,6 +392,14 @@ class Memory(MemoryBase):
         new_metadata = metadata or {}
         new_metadata["data"] = data
         new_metadata["updated_at"] = int(time.time())
+        
+        if "user_id" in existing_memory.payload:
+            new_metadata["user_id"] = existing_memory.payload["user_id"]
+        if "agent_id" in existing_memory.payload:
+            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
+        if "run_id" in existing_memory.payload:
+            new_metadata["run_id"] = existing_memory.payload["run_id"]
+        
         embeddings = self.embedding_model.embed(data)
         self.vector_store.update(
             name=self.collection_name,
