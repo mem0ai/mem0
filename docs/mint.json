@@ -26,27 +26,30 @@
       "url": "platform"
     }
   ],
-  "topbarLinks": [
-    {
-      "name": "Support",
-      "url": "mailto:founders@mem0.ai"
-    }
-  ],
+  "topbarCtaButton": {
+    "name": "Your Memory Dashboard",
+    "url": "https://app.mem0.ai"
+  },
   "anchors": [
     {
-      "name": "Mem0 Slack",
-      "icon": "slack",
-      "url": "https://mem0.ai/slack"
+      "name": "Your Memory Dashboard",
+      "icon": "discord",
+      "url": "https://app.mem0.ai"
     },
     {
-      "name": "Mem0 Discord",
+      "name": "Discord",
       "icon": "discord",
       "url": "https://mem0.ai/discord"
     },
     {
-      "name": "Talk to founders",
-      "icon": "calendar",
-      "url": "https://cal.com/taranjeetio/meet"
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/mem0ai/mem0"
+    },
+    {
+      "name": "Support",
+      "icon": "envelope",
+      "url": "mailto:taranjeet@mem0.ai"
     }
   ],
   "navigation": [
@@ -87,8 +90,9 @@
     }
   ],
   "footerSocials": {
+    "discord": "https://mem0.ai/discord",
     "x": "https://x.com/mem0ai",
-    "github": "https://github.com/mem0ai/mem0",
+    "github": "https://github.com/mem0ai",
     "linkedin": "https://www.linkedin.com/company/mem0/"
   }
 }
