@@ -22,8 +22,6 @@
 
 Mem0 provides an intelligent, adaptive memory layer for Large Language Models (LLMs), enhancing personalized AI experiences by retaining and utilizing contextual information across diverse applications. This enhanced memory capability is crucial for applications ranging from customer support and healthcare diagnostics to autonomous systems and personalized content recommendations, allowing AI to remember user preferences, adapt to individual needs, and continuously improve over time.
 
-> [!NOTE]
-> The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
 ## 🚀 Quickstart
 
 ### Installation
@@ -137,6 +135,38 @@ m = Memory.from_config(config)
 - Customizable memory creation/update rules
 - Hosted platform support
 
+## 💰 Pricing
+
+Choose the Mem0 plan that best fits your needs:
+
+### Open Source (Self-hosted)
+Perfect for developers and small teams who want full control over their infrastructure.
+
+### Pro (Hosted)
+Ideal for growing businesses that need a reliable, managed solution with generous free usage. Try the platform [here](https://app.mem0.ai)
+
+### Enterprise (Hosted)
+Designed for large organizations with advanced security, compliance, and scalability needs.
+
+| Feature | Open Source | Pro | Enterprise |
+|---------|-------------|-----|------------|
+| Hosting | Self-hosted | Hosted | Hosted |
+| API Calls | Unlimited | 100K free/month | Custom limits |
+| Support | Community | Email | Dedicated support |
+| Updates | Manual | Automatic | Automatic |
+| SSO | ❌ | ❌ | ✅ |
+| Audit Logs | ❌ | ❌ | ✅ |
+| Custom Integrations | ❌ | ❌ | ✅ |
+| SLA | ❌ | ❌ | ✅ |
+| Advanced Analytics | ❌ | Basic | Advanced |
+| Multi-region Deployment | ❌ | ❌ | ✅ |
+
+[Contact us](mailto:taranjeet@mem0.ai) for Enterprise pricing and custom solutions.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mem0ai/mem0&type=Date)](https://star-history.com/#mem0ai/mem0&Date)
+
 ## 🙋‍♂️ Support
 Join our Slack or Discord community for support and discussions.
 If you have any questions, feel free to reach out to us using one of the following methods:
@@ -146,3 +176,10 @@ If you have any questions, feel free to reach out to us using one of the followi
 - [Join our newsletter](https://mem0.ai/email)
 - [Follow us on Twitter](https://x.com/mem0ai)
 - [Email us](mailto:founders@mem0.ai)
+
+## 📝 License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+
+> [!NOTE]
+> The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
