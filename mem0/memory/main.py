@@ -393,7 +393,7 @@ class Memory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["updated_at"] = int(time.time())
         
-        if "user_id" in existing_memory.payload:
+        if "user_id" in existing_memory.payload: 
             new_metadata["user_id"] = existing_memory.payload["user_id"]
         if "agent_id" in existing_memory.payload:
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
