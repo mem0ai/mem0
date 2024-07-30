@@ -14,7 +14,7 @@ class OllamaLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model="llama3.1:8b"
+            self.config.model="llama3.1:70b"
         self.client = Client(host=config.base_url)
         self._ensure_model_exists()
 
@@ -47,7 +47,7 @@ class OllamaLLM(LLMBase):
                 for tool_call in response['message']['tool_calls']:
                     processed_response["tool_calls"].append({
                         "name": tool_call["function"]["name"],
-                        "arguments": json.loads(tool_call["function"]["arguments"])
+                        "arguments": tool_call["function"]["arguments"]
                     })
             
             return processed_response
