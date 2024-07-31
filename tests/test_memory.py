@@ -59,3 +59,4 @@ def test_list_memories(memory_store):
     memories = memory_store.list()
     assert data1 in memories
     assert data2 in memories
+    
