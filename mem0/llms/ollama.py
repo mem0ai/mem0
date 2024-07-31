@@ -4,7 +4,7 @@ from llm.base import LLMBase
 
 class OllamaLLM(LLMBase):
     def __init__(self, model="llama3"):
-        self.model = model
+        self.model = model.model
         self._ensure_model_exists()
 
     def _ensure_model_exists(self):
