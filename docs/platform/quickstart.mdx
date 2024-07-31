@@ -495,7 +495,48 @@ curl -X GET "https://api.mem0.ai/v1/memories/<memory-id-here>/history/" \
 ```
 </CodeGroup>
 
-### 4.5 Delete Memory
+### 4.5 Update Memory
+
+Update a memory with new data.
+
+<CodeGroup>
+
+```python Python
+message = "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
+client.update(memory_id, message)
+```
+
+```javascript JavaScript
+const message = "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes..";
+client.update("memory-id-here", message)
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X PUT "https://api.mem0.ai/v1/memories/memory-id-here" \
+        -H "Authorization: Token your-api-key" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "message": "I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes.."
+        }'
+```
+
+```json Output
+{
+   "id":"c190ab1a-a2f1-4f6f-914a-495e9a16b76e",
+   "memory":"I recently tried chicken and I loved it. I'm thinking of trying more non-vegetarian dishes..",
+   "agent_id":"travel-assistant",
+   "hash":"af1161983e03667063d1abb60e6d5c06",
+   "metadata":"None",
+   "created_at":"2024-07-30T22:46:40.455758-07:00",
+   "updated_at":"2024-07-30T22:48:35.257828-07:00"
+}
+```
+
+</CodeGroup>
+
+### 4.6 Delete Memory
 
 Delete specific memory:
 
