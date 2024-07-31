@@ -37,7 +37,6 @@ class Milvus(VectorStoreBase):
             index_params=index_params
         )
 
-    # TODO
     def insert(self, name, vectors, payloads=None, ids=None):
         data = dict()
 
@@ -61,7 +60,6 @@ class Milvus(VectorStoreBase):
 
         return " and ".join(operands)
 
-    # TODO
     def search(self, name, query, limit=5, filters=None):
         if filters:
             filter_expression = self._generate_milvus_filter(filters)
@@ -83,7 +81,6 @@ class Milvus(VectorStoreBase):
             ids=vector_id,
         )
 
-    # TODO
     def update(self, name, vector_id, vector=None, payload=None):
         data = dict()
 

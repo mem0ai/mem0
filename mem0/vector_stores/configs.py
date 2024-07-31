@@ -28,7 +28,7 @@ class QdrantConfig(BaseModel):
 
 class MilvusConfig(BaseModel):
     uri: Optional[str] = Field(
-        "./milvus_local.db" ,
+        default="./milvus_local.db",
         description="URI for Milvus server, default set to local db; for performant Milvus on server uri e.g.http://localhost:19530 ; for zilliz cloud on cloud endpoint"
     )
     token: Optional[str] = Field(None, description="Token pair with uri depends on specific Milvus server")
@@ -37,10 +37,11 @@ class MilvusConfig(BaseModel):
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
         description="Provider of the vector store (e.g., 'qdrant', 'chromadb', 'elasticsearch', 'milvus')",
-        default="milvus",
+        default="qdrant",
     )
     config: Union[QdrantConfig, MilvusConfig] = Field(
-        description="Configuration for the specific vector store"
+        description="Configuration for the specific vector store",
+        default=QdrantConfig(path="/tmp/qdrant")
     )
 
     @field_validator("config")
