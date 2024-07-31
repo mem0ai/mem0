@@ -55,6 +55,7 @@ In order to use LLMs from Groq, go to their [platform](https://console.groq.com/
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["GROQ_API_KEY"] = "your-api-key"
 
 config = {
@@ -82,6 +83,7 @@ Once you have obtained the key, you can use it like this:
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["TOGETHER_API_KEY"] = "your-api-key"
 
 config = {
@@ -110,6 +112,7 @@ m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category"
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ['AWS_REGION'] = 'us-east-1'
 os.environ["AWS_ACCESS_KEY"] = "xx"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "xx"
@@ -164,6 +167,7 @@ Once you have obtained the key, you can use it like this:
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["GEMINI_API_KEY"] = "your-api-key"
 
 config = {
@@ -189,6 +193,7 @@ To use anthropic's models, please set the `ANTHROPIC_API_KEY` which you find on 
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["ANTHROPIC_API_KEY"] = "your-api-key"
 
 config = {
@@ -214,6 +219,7 @@ To use mistral's models, please Obtain the Mistral AI api key from their [consol
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["MISTRAL_API_KEY"] = "your-api-key"
 
 config = {
