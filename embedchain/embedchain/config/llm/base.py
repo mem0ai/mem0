@@ -3,6 +3,7 @@ import logging
 import re
 from string import Template
 from typing import Any, Mapping, Optional, Dict, Union
+from pathlib import Path
 
 import httpx
 
@@ -234,8 +235,8 @@ class BaseLlmConfig(BaseConfig):
         self.api_version = api_version
 
         if token_usage:
-            f = open("embedchain/config/model_prices_and_context_window.json")
-            self.model_pricing_map = json.load(f)
+            f = Path(__file__).resolve().parent.parent / "model_prices_and_context_window.json"
+            self.model_pricing_map = json.load(f.open())
 
         if isinstance(prompt, str):
             prompt = Template(prompt)
