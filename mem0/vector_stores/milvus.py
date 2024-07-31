@@ -122,7 +122,6 @@ class Milvus(VectorStoreBase):
                 filter=filter_expression,
                 limit=limit
             )
-
             return [result]
         else:
             return None

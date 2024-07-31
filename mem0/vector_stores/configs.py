@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -26,7 +26,6 @@ class QdrantConfig(BaseModel):
         return values
 
 
-# TODO: 确定default name
 class MilvusConfig(BaseModel):
     uri: Optional[str] = Field(
         "./milvus_local.db" ,
@@ -37,21 +36,16 @@ class MilvusConfig(BaseModel):
 
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the vector store (e.g., 'qdrant', 'chromadb', 'elasticsearch')",
-        default="qdrant",
+        description="Provider of the vector store (e.g., 'qdrant', 'chromadb', 'elasticsearch', 'milvus')",
+        default="milvus",
     )
-    config: QdrantConfig = Field(
-        description="Configuration for the specific vector store",
-        default=QdrantConfig(path="/tmp/qdrant"),
-    )
-    config: MilvusConfig = Field(
-        description="Configuration for the specific vector store",
-        default=MilvusConfig(path="/tmp/milvus"),
+    config: Union[QdrantConfig, MilvusConfig] = Field(
+        description="Configuration for the specific vector store"
     )
 
     @field_validator("config")
     def validate_config(cls, v, values):
-        provider = values.data.get("provider")
+        provider = values.get("provider")
         if provider == "qdrant":
             return QdrantConfig(**v.model_dump())
         elif provider == "milvus":
