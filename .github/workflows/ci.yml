@@ -7,15 +7,11 @@ on:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
-      - 'embedchain/tests/**'
-      - 'embedchain/examples/**'
   pull_request:
     paths:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
-      - 'embedchain/tests/**'
-      - 'embedchain/examples/**'
 
 jobs:
   check_changes:
@@ -34,8 +30,6 @@ jobs:
             - 'tests/**'
           embedchain:
             - 'embedchain/**'
-            - 'embedchain/tests/**'
-            - 'embedchain/examples/**'
 
   build_mem0:
     needs: check_changes
