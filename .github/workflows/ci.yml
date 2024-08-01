@@ -39,7 +39,7 @@ jobs:
 
   build_mem0:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.mem0_changed == 'true' || (needs.check_changes.outputs.mem0_changed == 'false' && needs.check_changes.outputs.embedchain_changed == 'false') }}
+    if: ${{ needs.check_changes.outputs.mem0_changed == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -71,7 +71,7 @@ jobs:
 
   build_embedchain:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.embedchain_changed == 'true' || (needs.check_changes.outputs.mem0_changed == 'false' && needs.check_changes.outputs.embedchain_changed == 'false') }}
+    if: ${{ needs.check_changes.outputs.embedchain_changed == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
