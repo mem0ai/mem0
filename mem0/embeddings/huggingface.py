@@ -1,4 +1,4 @@
-from embedding.base import EmbeddingBase
+from mem0.embeddings.base import EmbeddingBase
 from sentence_transformers import SentenceTransformer
 
 
