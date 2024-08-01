@@ -94,7 +94,7 @@ history = m.history(memory_id=<memory_id_1>)
 # Logs corresponding to memory_id_1 --> {'prev_value': 'Working on improving tennis skills and interested in online courses for tennis.', 'new_value': 'Likes to play tennis on weekends' }
 ```
 
-### APIs
+### Mem0 Platform
 
 ```python
 from mem0 import MemoryClient
