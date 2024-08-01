@@ -54,6 +54,7 @@ class VectorStoreFactory:
     @classmethod
     def create(cls, provider_name, config):
         class_type = cls.provider_to_class.get(provider_name)
+        
         if class_type:
             vector_store_instance = load_class(class_type)
             return vector_store_instance(**config)
