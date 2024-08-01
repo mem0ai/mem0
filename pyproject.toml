@@ -20,6 +20,7 @@ qdrant-client = "^1.9.1"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
 posthog = "^3.5.0"
+sqlalchemy = "^2.0.31"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
@@ -28,7 +29,6 @@ pytest = "^8.2.2"
 ruff = "^0.4.8"
 isort = "^5.13.2"
 pytest = "^8.2.2"
-ipykernel = "^6.29.5"
 
 
 [tool.poetry.group.optional.dependencies]
