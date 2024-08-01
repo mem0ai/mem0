@@ -1,9 +1,7 @@
 import os
 import shutil
 import logging
-from typing import Optional
 
-from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -19,15 +17,11 @@ from qdrant_client.models import (
 from mem0.vector_stores.base import VectorStoreBase
 
 
-class QdrantConfig(BaseModel):
-    host: Optional[str] = Field(None, description="Host address for Qdrant server")
-    port: Optional[int] = Field(None, description="Port for Qdrant server")
-    path: Optional[str] = Field(None, description="Path for local Qdrant database")
-
-
 class Qdrant(VectorStoreBase):
     def __init__(
         self,
+        collection_name="mem0",
+        embedding_model_dims=1536,
         client=None,
         host="localhost",
         port=6333,
@@ -62,6 +56,8 @@ class Qdrant(VectorStoreBase):
                 params["host"] = host
                 params["port"] = port
             self.client = QdrantClient(**params)
+        
+        self.create_col(collection_name, embedding_model_dims)
 
     def create_col(self, name, vector_size, distance=Distance.COSINE):
         """

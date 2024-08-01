@@ -61,9 +61,10 @@
       ]
     },
     {
-      "group": "LLMs",
+      "group": "Components",
       "pages": [
-        "llms"
+        "components/llms.mdx",
+        "components/vectordb.mdx"
       ]
     },
     {

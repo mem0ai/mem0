@@ -45,3 +45,17 @@ class EmbedderFactory:
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
         
+class VectorStoreFactory:
+    provider_to_class = {
+        "qdrant": "mem0.vector_stores.qdrant.Qdrant",
+        "chromadb": "mem0.vector_stores.chroma.ChromaDB",
+    }
+
+    @classmethod
+    def create(cls, provider_name, config):
+        class_type = cls.provider_to_class.get(provider_name)
+        if class_type:
+            vector_store_instance = load_class(class_type)
+            return vector_store_instance(**config)
+        else:
+            raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
