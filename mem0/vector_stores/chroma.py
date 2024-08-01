@@ -219,4 +219,3 @@ class ChromaDB(VectorStoreBase):
         array = [[0 for _ in range(1536)] for _ in range(1536)]
         results = self.collection.query(query_embeddings=array, where=filters, n_results=limit)
         return [self._parse_output(results)]
-    
