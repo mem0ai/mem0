@@ -3,8 +3,11 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-import chromadb
-from chromadb.config import Settings
+try:
+    import chromadb
+    from chromadb.config import Settings
+except ImportError:
+    raise ImportError("Chromadb requires extra dependencies. Install with `pip install chromadb`") from None
 
 from mem0.vector_stores.base import VectorStoreBase
 
