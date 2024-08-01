@@ -169,6 +169,20 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
+    def update(self, memory_id: str, data: str) -> Dict[str, Any]:
+        """
+        Update a memory by ID.
+        Args:
+            memory_id (str): Memory ID.
+            data (str): Data to update in the memory.
+        Returns:
+            Dict[str, Any]: The response from the server.
+        """
+        capture_client_event("client.update", self)
+        response = self.client.put(f"/memories/{memory_id}/", json={"text": data})
+        return response.json()
+
+    @api_error_handler
     def delete(self, memory_id: str) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
