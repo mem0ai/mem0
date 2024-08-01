@@ -466,6 +466,7 @@ def validate_config(config_data):
                     "nvidia",
                     "ollama",
                     "cohere",
+                    "aws_bedrock",
                 ),
                 Optional("config"): {
                     Optional("model"): Optional(str),
@@ -492,6 +493,7 @@ def validate_config(config_data):
                     "clarifai",
                     "nvidia",
                     "ollama",
+                    "aws_bedrock",
                 ),
                 Optional("config"): {
                     Optional("model"): str,

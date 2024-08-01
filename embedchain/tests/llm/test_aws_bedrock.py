@@ -9,7 +9,6 @@ from embedchain.llm.aws_bedrock import AWSBedrockLlm
 def config(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test_access_key_id")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test_secret_access_key")
-    monkeypatch.setenv("OPENAI_API_KEY", "test_api_key")
     config = BaseLlmConfig(
         model="amazon.titan-text-express-v1",
         model_kwargs={
@@ -21,7 +20,6 @@ def config(monkeypatch):
     yield config
     monkeypatch.delenv("AWS_ACCESS_KEY_ID")
     monkeypatch.delenv("AWS_SECRET_ACCESS_KEY")
-    monkeypatch.delenv("OPENAI_API_KEY")
 
 
 def test_get_llm_model_answer(config, mocker):
@@ -46,7 +44,7 @@ def test_get_llm_model_answer_empty_prompt(config, mocker):
 
 def test_get_llm_model_answer_with_streaming(config, mocker):
     config.stream = True
-    mocked_bedrock_chat = mocker.patch("embedchain.llm.aws_bedrock.Bedrock")
+    mocked_bedrock_chat = mocker.patch("embedchain.llm.aws_bedrock.BedrockLLM")
 
     llm = AWSBedrockLlm(config)
     llm.get_llm_model_answer("Test query")
