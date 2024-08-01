@@ -20,7 +20,7 @@ from embedchain.cache import (
 )
 from embedchain.client import Client
 from embedchain.config import AppConfig, CacheConfig, ChunkerConfig, Mem0Config
-from embedchain.core.db.database import get_session, init_db, setup_engine
+from embedchain.core.db.database import get_session
 from embedchain.core.db.models import DataSource
 from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
@@ -88,10 +88,6 @@ class App(EmbedChain):
 
         if name and config:
             raise Exception("Cannot provide both name and config. Please provide only one of them.")
-
-        # Initialize the metadata db for the app
-        setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
-        init_db()
 
         self.auto_deploy = auto_deploy
         # Store the dict config as an attribute to be able to send it
@@ -389,10 +385,6 @@ class App(EmbedChain):
         vector_db = VectorDBFactory.create(vector_db_provider, vector_db_config_data.get("config", {}))
 
         if llm_config_data:
-            # Initialize the metadata db for the app here since llmfactory needs it for initialization of
-            # the llm memory
-            setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI"))
-            init_db()
             llm_provider = llm_config_data.get("provider", "openai")
             llm = LlmFactory.create(llm_provider, llm_config_data.get("config", {}))
         else:
