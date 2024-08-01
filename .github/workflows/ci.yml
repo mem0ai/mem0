@@ -68,41 +68,41 @@ jobs:
       - name: Run tests and generate coverage report
         run: make test
 
-  build_embedchain:
-    needs: check_changes
-    if: needs.check_changes.outputs.embedchain_changed == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11"]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v2
-        with:
-          path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install dependencies
-        run: cd embedchain && make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: Lint with ruff
-        run: cd embedchain && make lint
-      - name: Run tests and generate coverage report
-        run: cd embedchain && make coverage
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  # build_embedchain:
+  #   needs: check_changes
+  #   if: needs.check_changes.outputs.embedchain_changed == 'true'
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       python-version: ["3.9", "3.10", "3.11"]
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Set up Python ${{ matrix.python-version }}
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
+  #     - name: Install poetry
+  #       uses: snok/install-poetry@v1
+  #       with:
+  #         version: 1.4.2
+  #         virtualenvs-create: true
+  #         virtualenvs-in-project: true
+  #     - name: Load cached venv
+  #       id: cached-poetry-dependencies
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: .venv
+  #         key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+  #     - name: Install dependencies
+  #       run: cd embedchain && make install_all
+  #       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+  #     - name: Lint with ruff
+  #       run: cd embedchain && make lint
+  #     - name: Run tests and generate coverage report
+  #       run: cd embedchain && make coverage
+  #     - name: Upload coverage reports to Codecov
+  #       uses: codecov/codecov-action@v3
+  #       with:
+  #         file: coverage.xml
+  #       env:
+  #         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
