@@ -39,4 +39,4 @@ clean:
 	poetry run rm -rf dist
 
 test:
-	poetry run pytest
+	poetry run pytest tests
