@@ -479,6 +479,8 @@ def validate_config(config_data):
                     Optional("base_url"): str,
                     Optional("endpoint"): str,
                     Optional("model_kwargs"): dict,
+                    Optional("http_client_proxies"): Or(str, dict),
+                    Optional("http_async_client_proxies"): Or(str, dict),
                 },
             },
             Optional("embedding_model"): {
