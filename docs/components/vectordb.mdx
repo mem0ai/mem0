@@ -1,0 +1,64 @@
+---
+title: 🗄 Vector Databases
+---
+
+## Overview
+
+Mem0 includes built-in support for various popular databases. Memory can utilize the database provided by the user, ensuring efficient use for specific needs.
+
+<CardGroup>
+    <Card title="Qdrant" href="#qdrant"></Card>
+    <Card title="Chroma" href="#chroma"></Card>
+</CardGroup>
+
+
+## Qdrant
+
+[Qdrant](https://qdrant.tech/) is an open-source vector search engine. It is designed to work with large-scale datasets and provides a high-performance search engine for vector data.
+
+To use Qdrant you can do like this:
+
+```python
+import os
+from mem0 import Memory
+
+
+config = {
+    "vectordb": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "test",
+            "host": "localhost",
+            "port": 6333,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Chroma
+
+[Chroma](https://www.trychroma.com/) is an AI-native open-source vector database that simplifies building LLM apps by providing tools for storing, embedding, and searching embeddings with a focus on simplicity and speed.
+
+To use ChromaDB you can do like this:
+
+```python
+import os
+from mem0 import Memory
+
+
+config = {
+    "vectordb": {
+        "provider": "chromadb",
+        "config": {
+            "collection_name": "test",
+            "path": "db",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```

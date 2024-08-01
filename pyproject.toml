@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "mem0ai"
-version = "0.0.9"
+version = "0.0.10"
 description = "Long-term memory for AI Agents"
-authors = ["Mem0 Team<founders@mem0.ai>"]
+authors = ["Mem0 <founders@mem0.ai>"]
 exclude = [
     "db",
     "configs",
@@ -20,6 +20,8 @@ qdrant-client = "^1.9.1"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
 posthog = "^3.5.0"
+pytz = "^2024.1"
+sqlalchemy = "^2.0.31"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
@@ -28,7 +30,6 @@ pytest = "^8.2.2"
 ruff = "^0.4.8"
 isort = "^5.13.2"
 pytest = "^8.2.2"
-ipykernel = "^6.29.5"
 
 
 [tool.poetry.group.optional.dependencies]

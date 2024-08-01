@@ -30,6 +30,8 @@ class AzureOpenAILlm(BaseLlm):
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             streaming=config.stream,
+            http_client=config.http_client,
+            http_async_client=config.http_async_client,
         )
 
         if config.top_p and config.top_p != 1:
