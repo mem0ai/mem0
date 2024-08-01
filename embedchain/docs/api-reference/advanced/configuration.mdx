@@ -55,6 +55,7 @@ embedder:
   config:
     model: 'text-embedding-ada-002'
     api_key: sk-xxx
+    http_client_proxies: http://testproxy.mem0.net:8000
 
 chunker:
   chunk_size: 2000
@@ -106,7 +107,8 @@ cache:
     "provider": "openai",
     "config": {
       "model": "text-embedding-ada-002",
-      "api_key": "sk-xxx"
+      "api_key": "sk-xxx",
+      "http_client_proxies": "http://testproxy.mem0.net:8000",
     }
   },
   "chunker": {
@@ -168,7 +170,8 @@ config = {
         'provider': 'openai',
         'config': {
             'model': 'text-embedding-ada-002',
-            'api_key': 'sk-xxx'
+            'api_key': 'sk-xxx',
+            "http_client_proxies": "http://testproxy.mem0.net:8000",
         }
     },
     'chunker': {
@@ -236,6 +239,8 @@ Alright, let's dive into what each key means in the yaml config above:
         - `title` (String): The title for the embedding model for Google Embedder.
         - `task_type` (String): The task type for the embedding model for Google Embedder.
         - `model_kwargs` (Dict): Used to pass extra arguments to embedders.
+        - `http_client_proxies` (Dict | String): The proxy server settings used to create `self.http_client` using `httpx.Client(proxies=http_client_proxies)`
+        - `http_async_client_proxies` (Dict | String): The proxy server settings for async calls used to create `self.http_async_client` using `httpx.AsyncClient(proxies=http_async_client_proxies)`
 5. `chunker` Section:
     - `chunk_size` (Integer): The size of each chunk of text that is sent to the language model.
     - `chunk_overlap` (Integer): The amount of overlap between each chunk of text.

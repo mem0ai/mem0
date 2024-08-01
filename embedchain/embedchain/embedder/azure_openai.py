@@ -1,6 +1,6 @@
 from typing import Optional
 
-from langchain_community.embeddings import AzureOpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
@@ -14,7 +14,11 @@ class AzureOpenAIEmbedder(BaseEmbedder):
         if self.config.model is None:
             self.config.model = "text-embedding-ada-002"
 
-        embeddings = AzureOpenAIEmbeddings(deployment=self.config.deployment_name)
+        embeddings = AzureOpenAIEmbeddings(
+            deployment=self.config.deployment_name,
+            http_client=self.config.http_client,
+            http_async_client=self.config.http_async_client,
+        )
         embedding_fn = BaseEmbedder._langchain_default_concept(embeddings)
 
         self.set_embedding_fn(embedding_fn=embedding_fn)
