@@ -7,15 +7,11 @@ on:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
-      - 'embedchain/tests/**'
-      - 'embedchain/examples/**'
   pull_request:
     paths:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
-      - 'embedchain/tests/**'
-      - 'embedchain/examples/**'
 
 jobs:
   check_changes:
@@ -34,17 +30,14 @@ jobs:
             - 'tests/**'
           embedchain:
             - 'embedchain/**'
-            - 'embedchain/tests/**'
-            - 'embedchain/examples/**'
 
   build_mem0:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.mem0_changed == 'true' || (needs.check_changes.outputs.mem0_changed == 'false' && needs.check_changes.outputs.embedchain_changed == 'false') }}
+    if: needs.check_changes.outputs.mem0_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11"]
-
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -71,12 +64,11 @@ jobs:
 
   build_embedchain:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.embedchain_changed == 'true' || (needs.check_changes.outputs.mem0_changed == 'false' && needs.check_changes.outputs.embedchain_changed == 'false') }}
+    if: needs.check_changes.outputs.embedchain_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
-
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
