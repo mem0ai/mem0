@@ -68,13 +68,7 @@ print(result)
 
 Output:
 ```python
-[
-  {
-    'id': 'm1',
-    'event': 'add',
-    'data': 'Likes to play cricket on weekends'
-  }
-]
+{'message': 'ok'}
 ```
 
 ### Retrieve Memories
@@ -89,15 +83,15 @@ Output:
 
 ```python
 [
-  {
-    'id': 'm1',
-    'text': 'Likes to play cricket on weekends',
-    'metadata': {
-      'data': 'Likes to play cricket on weekends',
-      'category': 'hobbies'
-    }
-  },
-  # ... other memories ...
+   {
+      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
+      "memory":"Likes to play cricket on weekends",
+      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
+      "metadata":"None",
+      "created_at":"2024-07-26T08:44:41.039788-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+   }
 ]
 ```
 
@@ -110,12 +104,13 @@ print(specific_memory)
 Output:
 ```python
 {
-  'id': 'm1',
-  'text': 'Likes to play cricket on weekends',
-  'metadata': {
-    'data': 'Likes to play cricket on weekends',
-    'category': 'hobbies'
-  }
+      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
+      "memory":"Likes to play cricket on weekends",
+      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
+      "metadata":"None",
+      "created_at":"2024-07-26T08:44:41.039788-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
 }
 ```
 
@@ -130,16 +125,18 @@ Output:
 
 ```python
 [
-  {
-    'id': 'm1',
-    'text': 'Likes to play cricket on weekends',
-    'metadata': {
-      'data': 'Likes to play cricket on weekends',
-      'category': 'hobbies'
-    },
-    'score': 0.85  # Similarity score
-  },
-  # ... other related memories ...
+   {
+      "id":"ea925981-272f-40dd-b576-be64e4871429",
+      "memory":"Likes to play cricket and plays cricket on weekends.",
+      "hash":"c8809002-25c1-4c97-a3a2-227ce9c20c53",
+      "metadata":{
+         "category":"hobbies"
+      },
+      "score":0.32116443111457704,
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+   }
 ]
 ```
 
@@ -153,11 +150,7 @@ print(result)
 Output:
 
 ```python
-{
-  'id': 'm1',
-  'event': 'update',
-  'data': 'Likes to play tennis on weekends'
-}
+{'message': 'Memory updated successfully!'}
 ```
 
 ### Memory History
@@ -169,24 +162,24 @@ print(history)
 Output:
 ```python
 [
-  {
-    'id': 'h1',
-    'memory_id': 'm1',
-    'prev_value': None,
-    'new_value': 'Likes to play cricket on weekends',
-    'event': 'add',
-    'timestamp': '2024-07-14 10:00:54.466687',
-    'is_deleted': 0
-  },
-  {
-    'id': 'h2',
-    'memory_id': 'm1',
-    'prev_value': 'Likes to play cricket on weekends',
-    'new_value': 'Likes to play tennis on weekends',
-    'event': 'update',
-    'timestamp': '2024-07-14 10:15:17.230943',
-    'is_deleted': 0
-  }
+   {
+      "id":"4e0e63d6-a9c6-43c0-b11c-a1bad3fc7abb",
+      "memory_id":"ea925981-272f-40dd-b576-be64e4871429",
+      "old_memory":"None",
+      "new_memory":"Likes to play cricket and plays cricket on weekends.",
+      "event":"ADD",
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"None"
+   },
+   {
+      "id":"548b75f0-f442-44b9-9ca1-772a105abb12",
+      "memory_id":"ea925981-272f-40dd-b576-be64e4871429",
+      "old_memory":"Likes to play cricket and plays cricket on weekends.",
+      "new_memory":"Likes to play tennis on weekends",
+      "event":"UPDATE",
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"2024-07-26T10:32:46.332336-07:00"
+   }
 ]
 ```
 
