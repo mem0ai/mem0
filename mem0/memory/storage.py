@@ -6,10 +6,10 @@ from datetime import datetime
 class SQLiteManager:
     def __init__(self, db_path=":memory:"):
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
-        self.migrate_history_table()
+        self._migrate_history_table()
         self._create_history_table()
     
-    def migrate_history_table(self):
+    def _migrate_history_table(self):
         with self.connection:
             cursor = self.connection.cursor()
 
