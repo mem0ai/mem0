@@ -37,14 +37,32 @@ jobs:
             - 'embedchain/tests/**'
             - 'embedchain/examples/**'
 
-  build_mem0:
+  determine_jobs:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.mem0_changed == 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      mem0_matrix: ${{ steps.set-matrix.outputs.mem0_matrix }}
+      embedchain_matrix: ${{ steps.set-matrix.outputs.embedchain_matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          if [[ "${{ needs.check_changes.outputs.mem0_changed }}" == 'true' ]]; then
+            echo "mem0_matrix=[\"3.10\", \"3.11\"]" >> $GITHUB_OUTPUT
+          else
+            echo "mem0_matrix=[]" >> $GITHUB_OUTPUT
+          fi
+          if [[ "${{ needs.check_changes.outputs.embedchain_changed }}" == 'true' ]]; then
+            echo "embedchain_matrix=[\"3.9\", \"3.10\", \"3.11\"]" >> $GITHUB_OUTPUT
+          else
+            echo "embedchain_matrix=[]" >> $GITHUB_OUTPUT
+          fi
+
+  build_mem0:
+    needs: determine_jobs
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
-
+        python-version: ${{fromJson(needs.determine_jobs.outputs.mem0_matrix)}}
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -70,13 +88,11 @@ jobs:
         run: make test
 
   build_embedchain:
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.embedchain_changed == 'true' }}
+    needs: determine_jobs
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
-
+        python-version: ${{fromJson(needs.determine_jobs.outputs.embedchain_matrix)}}
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
