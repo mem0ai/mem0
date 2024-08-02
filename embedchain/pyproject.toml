@@ -139,6 +139,7 @@ alembic = "^1.13.1"
 langchain-cohere = "^0.1.4"
 langchain-community = "^0.2.6"
 fastembed = { version = "^0.3.4", optional = true, python = ">=3.9,<3.13" }
+langchain-aws = {version = "^0.1.10", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -179,6 +180,7 @@ mysql = ["mysql-connector-python"]
 google = ["google-generativeai"]
 mistralai = ["langchain-mistralai"]
 fastembed = ["fastembed"]
+aws = ["langchain-aws"]
 
 [tool.poetry.group.docs.dependencies]
 

@@ -13,3 +13,5 @@ class VectorDimensions(Enum):
     COHERE = 384
     OLLAMA = 384
     FASTEMBED = 384
+    AMAZON_TITAN_V1 = 1536
+    AMAZON_TITAN_V2 = 1024
