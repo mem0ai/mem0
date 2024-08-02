@@ -14,7 +14,7 @@
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg",
-    "href": "https://github.com/embedchain/embedchain"
+    "href": "https://github.com/mem0ai/mem0"
   },
   "tabs": [
     {
@@ -26,27 +26,30 @@
       "url": "platform"
     }
   ],
-  "topbarLinks": [
-    {
-      "name": "Support",
-      "url": "mailto:founders@mem0.ai"
-    }
-  ],
+  "topbarCtaButton": {
+    "name": "Your Memory Dashboard",
+    "url": "https://app.mem0.ai"
+  },
   "anchors": [
     {
-      "name": "Slack",
-      "icon": "slack",
-      "url": "https://mem0.ai/slack/"
+      "name": "Your Memory Dashboard",
+      "icon": "discord",
+      "url": "https://app.mem0.ai"
     },
     {
       "name": "Discord",
       "icon": "discord",
-      "url": "https://mem0.ai/discord/"
+      "url": "https://mem0.ai/discord"
     },
     {
-      "name": "Talk to founders",
-      "icon": "calendar",
-      "url": "https://cal.com/taranjeetio/meet"
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/mem0ai/mem0"
+    },
+    {
+      "name": "Support",
+      "icon": "envelope",
+      "url": "mailto:taranjeet@mem0.ai"
     }
   ],
   "navigation": [
@@ -58,9 +61,10 @@
       ]
     },
     {
-      "group": "LLMs",
+      "group": "Components",
       "pages": [
-        "llms"
+        "components/llms.mdx",
+        "components/vectordb.mdx"
       ]
     },
     {
@@ -87,8 +91,9 @@
     }
   ],
   "footerSocials": {
+    "discord": "https://mem0.ai/discord",
     "x": "https://x.com/mem0ai",
-    "github": "https://github.com/mem0ai/mem0",
+    "github": "https://github.com/mem0ai",
     "linkedin": "https://www.linkedin.com/company/mem0/"
   }
 }
