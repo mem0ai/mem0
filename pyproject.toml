@@ -33,7 +33,6 @@ pytest = "^8.2.2"
 
 
 [tool.poetry.group.optional.dependencies]
-ollama = "^0.2.1"
 
 [build-system]
 requires = ["poetry-core"]
