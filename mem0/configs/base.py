@@ -9,14 +9,15 @@ from mem0.embeddings.configs import EmbedderConfig
 
 class MemoryItem(BaseModel):
     id: str = Field(..., description="The unique identifier for the text data")
-    text: str = Field(..., description="The text content")
+    memory: str = Field(..., description="The memory deduced from the text data") # TODO After prompt changes from platform, update this
+    hash: Optional[str] = Field(None, description="The hash of the memory")
     # The metadata value can be anything and not just string. Fix it
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata for the text data"
-    )
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata for the text data")
     score: Optional[float] = Field(
         None, description="The score associated with the text data"
     )
+    created_at: Optional[str] = Field(None, description="The timestamp when the memory was created")
+    updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
 class MemoryConfig(BaseModel):
@@ -35,8 +36,4 @@ class MemoryConfig(BaseModel):
     history_db_path: str = Field(
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
-    )
-    collection_name: str = Field(default="mem0", description="Name of the collection")
-    embedding_model_dims: int = Field(
-        default=1536, description="Dimensions of the embedding model"
     )

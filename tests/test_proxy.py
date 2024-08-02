@@ -60,7 +60,7 @@ def test_completions_create(mock_memory_client, mock_litellm):
     messages = [
         {"role": "user", "content": "Hello, how are you?"}
     ]
-    mock_memory_client.search.return_value = [{"text": "Some relevant memory"}]
+    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     
     response = completions.create(
@@ -89,7 +89,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"}
     ]
-    mock_memory_client.search.return_value = [{"text": "Some relevant memory"}]
+    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     
     response = completions.create(

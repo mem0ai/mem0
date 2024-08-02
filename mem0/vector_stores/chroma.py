@@ -21,20 +21,20 @@ class OutputData(BaseModel):
 class ChromaDB(VectorStoreBase):
     def __init__(
         self,
-        collection_name="mem0",
-        client=None,
-        host=None,
-        port=None,
-        path=None
+        collection_name,
+        client,
+        host,
+        port,
+        path
     ):
         """
         Initialize the Qdrant vector store.
 
         Args:
-            client (QdrantClient, optional): Existing Qdrant client instance. Defaults to None.
-            host (str, optional): Host address for Qdrant server. Defaults to None.
-            port (int, optional): Port for Qdrant server. Defaults to None.
-            path (str, optional): Path for local Qdrant database. Defaults to None.
+            client (QdrantClient, optional): Existing Qdrant client instance.
+            host (str, optional): Host address for Qdrant server.
+            port (int, optional): Port for Qdrant server.
+            path (str, optional): Path for local Qdrant database.
         """
         if client:
             self.client = client
@@ -116,8 +116,8 @@ class ChromaDB(VectorStoreBase):
         Args:
             name (str): Name of the collection.
             vectors (list): List of vectors to insert.
-            payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
-            ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
+            payloads (list, optional): List of payloads corresponding to vectors.
+            ids (list, optional): List of IDs corresponding to vectors.
         """
 
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
@@ -130,7 +130,7 @@ class ChromaDB(VectorStoreBase):
             name (str): Name of the collection.
             query (list): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
+            filters (dict, optional): Filters to apply to the search.
 
         Returns:
             list: Search results.
@@ -157,8 +157,8 @@ class ChromaDB(VectorStoreBase):
         Args:
             name (str): Name of the collection.
             vector_id (int): ID of the vector to update.
-            vector (list, optional): Updated vector. Defaults to None.
-            payload (dict, optional): Updated payload. Defaults to None.
+            vector (list, optional): Updated vector.
+            payload (dict, optional): Updated payload.
         """
 
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
@@ -213,7 +213,7 @@ class ChromaDB(VectorStoreBase):
 
         Args:
             name (str): Name of the collection.
-            filters (dict, optional): Filters to apply to the list. Defaults to None.
+            filters (dict, optional): Filters to apply to the list.
             limit (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:

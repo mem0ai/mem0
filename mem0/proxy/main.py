@@ -151,7 +151,5 @@ class Completions:
         )
 
     def _format_query_with_memories(self, messages, relevant_memories):
-        # TODO: Make sure that output format for both platform and open source is same so that we don't have to check for platform
-        key = "memory" if self.mem0_client.__class__.__name__ == "MemoryClient" else "text"
-        memories_text = "\n".join(memory[key] for memory in relevant_memories)
+        memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
         return f"- Relevant Memories/Facts: {memories_text}\n\n- User Question: {messages[-1]['content']}"
