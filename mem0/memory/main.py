@@ -20,7 +20,6 @@ from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import get_update_memory_messages
 from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
-from mem0.utils.factory import LlmFactory, EmbedderFactory
 from mem0.configs.base import MemoryItem, MemoryConfig
 
 # Setup user config

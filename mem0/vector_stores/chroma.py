@@ -95,7 +95,7 @@ class ChromaDB(VectorStoreBase):
 
         Args:
             name (str): Name of the collection.
-            embedding_fn (function): Embedding function to use.
+            embedding_fn (function): Embedding function to use. Defaults to None.
         """
         # Skip creating collection if already exists
         collections = self.list_cols()
@@ -116,8 +116,8 @@ class ChromaDB(VectorStoreBase):
         Args:
             name (str): Name of the collection.
             vectors (list): List of vectors to insert.
-            payloads (list, optional): List of payloads corresponding to vectors.
-            ids (list, optional): List of IDs corresponding to vectors.
+            payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
+            ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
 
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
@@ -130,7 +130,7 @@ class ChromaDB(VectorStoreBase):
             name (str): Name of the collection.
             query (list): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
-            filters (dict, optional): Filters to apply to the search.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
             list: Search results.
@@ -157,8 +157,8 @@ class ChromaDB(VectorStoreBase):
         Args:
             name (str): Name of the collection.
             vector_id (int): ID of the vector to update.
-            vector (list, optional): Updated vector.
-            payload (dict, optional): Updated payload.
+            vector (list, optional): Updated vector. Defaults to None.
+            payload (dict, optional): Updated payload. Defaults to None.
         """
 
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
