@@ -118,7 +118,7 @@ related_memories = client.search(query, user_id="alex")
 history = client.history(memory_id="m1")
 print(history)
 ```
-=======
+
 > [!TIP]
 > If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
 
