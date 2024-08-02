@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 from mem0.llms.ollama import OllamaLLM
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.utils.tools import ADD_MEMORY_TOOL
 
 @pytest.fixture
 def mock_ollama_client():
@@ -45,34 +46,19 @@ def test_generate_response_with_tools(mock_ollama_client):
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Add a new memory: Today is a sunny day."}
     ]
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "add_memory",
-                "description": "Add a memory",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "data": {"type": "string", "description": "Data to add to memory"}
-                    },
-                    "required": ["data"],
-                },
-            },
-        }
-    ]
+    tools = [ADD_MEMORY_TOOL]
     
     mock_response = Mock()
-    mock_message = Mock()
-    mock_message.content = "I've added the memory for you."
+    mock_message = {"content": "I've added the memory for you."}
     
-    mock_tool_call = Mock()
-    mock_tool_call.function = {
-        "name": "add_memory",
-        "arguments": '{"data": "Today is a sunny day."}'
+    mock_tool_call = {
+        "function": {
+            "name": "add_memory",
+            "arguments": '{"data": "Today is a sunny day."}'
+        }
     }
     
-    mock_message.tool_calls = [mock_tool_call]
+    mock_message["tool_calls"] = [mock_tool_call]
     mock_response.message = mock_message
     mock_ollama_client.chat.return_value = mock_response
 
