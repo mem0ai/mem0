@@ -17,33 +17,52 @@ class SQLiteManager:
             table_exists = cursor.fetchone() is not None
 
             if table_exists:
-                # Rename the old table
-                cursor.execute("ALTER TABLE history RENAME TO old_history")
+                # Get the current schema of the history table
+                cursor.execute("PRAGMA table_info(history)")
+                current_schema = {row[1]: row[2] for row in cursor.fetchall()}
 
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS history (
-                        id TEXT PRIMARY KEY,
-                        memory_id TEXT,
-                        old_memory TEXT,
-                        new_memory TEXT,
-                        new_value TEXT,
-                        event TEXT,
-                        created_at DATETIME,
-                        updated_at DATETIME,
-                        is_deleted INTEGER
-                    )
-                """)
+                # Define the expected schema
+                expected_schema = {
+                    'id': 'TEXT',
+                    'memory_id': 'TEXT',
+                    'old_memory': 'TEXT',
+                    'new_memory': 'TEXT',
+                    'new_value': 'TEXT',
+                    'event': 'TEXT',
+                    'created_at': 'DATETIME',
+                    'updated_at': 'DATETIME',
+                    'is_deleted': 'INTEGER'
+                }
 
-                # Copy data from the old table to the new table
-                cursor.execute("""
-                    INSERT INTO history (id, memory_id, old_memory, new_memory, new_value, event, created_at, updated_at, is_deleted)
-                    SELECT id, memory_id, prev_value, new_value, new_value, event, timestamp, timestamp, is_deleted
-                    FROM old_history
-                """)
+                # Check if the schemas are the same
+                if current_schema != expected_schema:
+                    # Rename the old table
+                    cursor.execute("ALTER TABLE history RENAME TO old_history")
 
-                cursor.execute("DROP TABLE old_history")
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS history (
+                            id TEXT PRIMARY KEY,
+                            memory_id TEXT,
+                            old_memory TEXT,
+                            new_memory TEXT,
+                            new_value TEXT,
+                            event TEXT,
+                            created_at DATETIME,
+                            updated_at DATETIME,
+                            is_deleted INTEGER
+                        )
+                    """)
 
-                self.connection.commit()
+                    # Copy data from the old table to the new table
+                    cursor.execute("""
+                        INSERT INTO history (id, memory_id, old_memory, new_memory, new_value, event, created_at, updated_at, is_deleted)
+                        SELECT id, memory_id, prev_value, new_value, new_value, event, timestamp, timestamp, is_deleted
+                        FROM old_history
+                    """)
+
+                    cursor.execute("DROP TABLE old_history")
+
+                    self.connection.commit()
 
 
     def _create_history_table(self):
