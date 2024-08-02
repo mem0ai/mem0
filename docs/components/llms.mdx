@@ -8,6 +8,7 @@ Mem0 includes built-in support for various popular large language models. Memory
 
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
+  <Card title="Ollama" href="#ollama"></Card>
   <Card title="Groq" href="#groq"></Card>
   <Card title="Together" href="#together"></Card>
   <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
@@ -37,6 +38,31 @@ config = {
             "model": "gpt-4o",
             "temperature": 0.2,
             "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Ollama
+
+You can use LLMs from Ollama to run Mem0 locally. These [models](https://ollama.com/search?c=tools) support tool support.
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # for embedder
+
+config = {
+    "llm": {
+        "provider": "ollama",
+        "config": {
+            "model": "mixtral:8x7b",
+            "temperature": 0.1,
+            "max_tokens": 2000,
         }
     }
 }
