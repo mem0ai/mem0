@@ -1,9 +1,7 @@
 import os
 import shutil
 import logging
-from typing import Optional
 
-from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -19,32 +17,28 @@ from qdrant_client.models import (
 from mem0.vector_stores.base import VectorStoreBase
 
 
-class QdrantConfig(BaseModel):
-    host: Optional[str] = Field(None, description="Host address for Qdrant server")
-    port: Optional[int] = Field(None, description="Port for Qdrant server")
-    path: Optional[str] = Field(None, description="Path for local Qdrant database")
-
-
 class Qdrant(VectorStoreBase):
     def __init__(
         self,
-        client=None,
-        host="localhost",
-        port=6333,
-        path=None,
-        url=None,
-        api_key=None,
+        collection_name,
+        embedding_model_dims,
+        client,
+        host,
+        port,
+        path,
+        url,
+        api_key,
     ):
         """
         Initialize the Qdrant vector store.
 
         Args:
-            client (QdrantClient, optional): Existing Qdrant client instance. Defaults to None.
-            host (str, optional): Host address for Qdrant server. Defaults to "localhost".
-            port (int, optional): Port for Qdrant server. Defaults to 6333.
-            path (str, optional): Path for local Qdrant database. Defaults to None.
-            url (str, optional): Full URL for Qdrant server. Defaults to None.
-            api_key (str, optional): API key for Qdrant server. Defaults to None.
+            client (QdrantClient, optional): Existing Qdrant client instance.
+            host (str, optional): Host address for Qdrant server.
+            port (int, optional): Port for Qdrant server.
+            path (str, optional): Path for local Qdrant database.
+            url (str, optional): Full URL for Qdrant server.
+            api_key (str, optional): API key for Qdrant server.
         """
         if client:
             self.client = client
@@ -62,6 +56,8 @@ class Qdrant(VectorStoreBase):
                 params["host"] = host
                 params["port"] = port
             self.client = QdrantClient(**params)
+        
+        self.create_col(collection_name, embedding_model_dims)
 
     def create_col(self, name, vector_size, distance=Distance.COSINE):
         """

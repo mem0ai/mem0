@@ -12,3 +12,5 @@ class VectorDimensions(Enum):
     NVIDIA_AI = 1024
     COHERE = 384
     OLLAMA = 384
+    AMAZON_TITAN_V1 = 1536
+    AMAZON_TITAN_V2 = 1024

@@ -10,6 +10,7 @@ Embedchain supports several embedding models from the following providers:
   <Card title="OpenAI" href="#openai"></Card>
   <Card title="GoogleAI" href="#google-ai"></Card>
   <Card title="Azure OpenAI" href="#azure-openai"></Card>
+  <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
   <Card title="GPT4All" href="#gpt4all"></Card>
   <Card title="Hugging Face" href="#hugging-face"></Card>
   <Card title="Vertex AI" href="#vertex-ai"></Card>
@@ -95,6 +96,37 @@ embedder:
 <br/>
 <Note>
 For more details regarding the Google AI embedding model, please refer to the [Google AI documentation](https://ai.google.dev/tutorials/python_quickstart#use_embeddings).
+</Note>
+
+## AWS Bedrock
+
+To use AWS Bedrock embedding function, you have to set the AWS environment variable.
+
+<CodeGroup>
+```python main.py
+import os
+from embedchain import App
+
+os.environ["AWS_ACCESS_KEY_ID"] = "xxx"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "xxx"
+os.environ["AWS_REGION"] = "us-west-2"
+
+app = App.from_config(config_path="config.yaml")
+```
+
+```yaml config.yaml
+embedder:
+  provider: aws_bedrock
+  config:
+    model: 'amazon.titan-embed-text-v2:0'
+    vector_dimension: 1024
+    task_type: "retrieval_document"
+    title: "Embeddings for Embedchain"
+```
+</CodeGroup>
+<br/>
+<Note>
+For more details regarding the AWS Bedrock embedding model, please refer to the [AWS Bedrock documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/titan-embedding-models.html).
 </Note>
 
 ## Azure OpenAI

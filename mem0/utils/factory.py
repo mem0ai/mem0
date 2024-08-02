@@ -17,6 +17,7 @@ class LlmFactory:
         "together": "mem0.llms.together.TogetherLLM",
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
+        "ollama": "mem0.llms.ollama.OllamaLLM",
     }
 
     @classmethod
@@ -45,3 +46,19 @@ class EmbedderFactory:
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
         
+class VectorStoreFactory:
+    provider_to_class = {
+        "qdrant": "mem0.vector_stores.qdrant.Qdrant",
+        "chromadb": "mem0.vector_stores.chroma.ChromaDB",
+    }
+
+    @classmethod
+    def create(cls, provider_name, config):
+        class_type = cls.provider_to_class.get(provider_name)
+        if class_type:
+            if not isinstance(config, dict):
+                config = config.model_dump()
+            vector_store_instance = load_class(class_type)
+            return vector_store_instance(**config)
+        else:
+            raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
