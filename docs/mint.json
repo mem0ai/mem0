@@ -68,6 +68,12 @@
       ]
     },
     {
+      "group": "Features",
+      "pages":[
+        "features/openai_compatibility"
+      ]
+    },
+    {
       "group": "Integrations",
       "pages": [
         "integrations/multion"
