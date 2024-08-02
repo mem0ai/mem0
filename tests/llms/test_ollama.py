@@ -7,6 +7,7 @@ from mem0.configs.llms.base import BaseLlmConfig
 def mock_ollama_client():
     with patch('mem0.llms.ollama.Client') as mock_ollama:
         mock_client = Mock()
+        mock_client.list.return_value = {"models": [{"name": "llama3.1:70b"}]}
         mock_ollama.return_value = mock_client
         yield mock_client
 
