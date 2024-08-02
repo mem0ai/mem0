@@ -61,9 +61,16 @@
       ]
     },
     {
-      "group": "LLMs",
+      "group": "Components",
       "pages": [
-        "llms"
+        "components/llms.mdx",
+        "components/vectordb.mdx"
+      ]
+    },
+    {
+      "group": "Features",
+      "pages":[
+        "features/openai_compatibility"
       ]
     },
     {

@@ -2390,6 +2390,22 @@ SQLAlchemy = ">=1.4,<3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
 
 [[package]]
+name = "langchain-aws"
+version = "0.1.13"
+description = "An integration package connecting AWS and LangChain"
+optional = true
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "langchain_aws-0.1.13-py3-none-any.whl", hash = "sha256:c4db60c8a83b8ff3e66170e0bd646739176fcd1a20a9d0a10828a1e21339af1d"},
+    {file = "langchain_aws-0.1.13.tar.gz", hash = "sha256:fda790732a72de4ccec3760dba24db5f9fa5cb8724dfd9676a7d5cf87a9f1a98"},
+]
+
+[package.dependencies]
+boto3 = ">=1.34.131,<1.35.0"
+langchain-core = ">=0.2.17,<0.3"
+numpy = ">=1,<2"
+
+[[package]]
 name = "langchain-cohere"
 version = "0.1.9"
 description = "An integration package connecting Cohere and LangChain"
@@ -6565,6 +6581,7 @@ doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linke
 test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-itertools", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
 [extras]
+aws = ["langchain-aws"]
 elasticsearch = ["elasticsearch"]
 gmail = ["google-api-core", "google-api-python-client", "google-auth", "google-auth-httplib2", "google-auth-oauthlib", "requests"]
 google = ["google-generativeai"]
@@ -6585,4 +6602,4 @@ weaviate = ["weaviate-client"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "8197f676b36fed2bf02f33cd15e83c3e6640ae5ba216210af5777ab2dc139480"
+content-hash = "9a57a07f9a60c51a2f8765f31d5d768f7d6ff67b63c0d419648a2b8d668527ad"
