@@ -16,7 +16,7 @@ Mem0 includes built-in support for various popular large language models. Memory
   <Card title="Google AI" href="#google-ai"></Card>
   <Card title="Anthropic" href="#anthropic"></Card>
   <Card title="Mistral AI" href="#mistral-ai"></Card>
-  <Card title="OpenAI Azure" href="#openai-azure"></Card>
+  <Card title="Azure OpenAI" href="#azure-openai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -263,26 +263,23 @@ m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
 
-## OpenAI Azure
+## Azure OpenAI
 
-To use Azure AI models, you have to set the `AZURE_API_KEY`, `AZURE_API_BASE`, and `AZURE_API_VERSION` environment variables. You can obtain the Azure API key from the [Azure](https://azure.microsoft.com/).
+To use Azure OpenAI models, you have to set the `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `OPENAI_API_VERSION` environment variables. You can obtain the Azure API key from the [Azure](https://azure.microsoft.com/).
 
 ```python
 import os
 from mem0 import Memory
 
-
-os.environ["AZURE_API_KEY"] = "your-api-key"
-
-# Needed to use custom models
-os.environ["AZURE_API_BASE"] = "your-api-base-url"
-os.environ["AZURE_API_VERSION"] = "version-to-use"
+os.environ["AZURE_OPENAI_API_KEY"] = "your-api-key"
+os.environ["AZURE_OPENAI_ENDPOINT"] = "your-api-base-url"
+os.environ["OPENAI_API_VERSION"] = "version-to-use"
 
 config = {
     "llm": {
-        "provider": "litellm",
+        "provider": "azure_openai",
         "config": {
-            "model": "azure_ai/command-r-plus",
+            "model": "your-deployment-name",
             "temperature": 0.1,
             "max_tokens": 2000,
         }
