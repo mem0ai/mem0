@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Dict, List, Optional
 
@@ -12,7 +13,11 @@ class OpenAILLM(LLMBase):
 
         if not self.config.model:
             self.config.model="gpt-4o"
-        self.client = OpenAI()
+
+        if os.environ.get("OPENROUTER_API_KEY"):
+            self.client = OpenAI(api_key=os.environ.get("OPENROUTER_API_KEY"), base_url=self.config.openrouter_base_url)
+        else:
+            self.client = OpenAI()
     
     def _parse_response(self, response, tools):
         """
@@ -68,6 +73,23 @@ class OpenAILLM(LLMBase):
             "max_tokens": self.config.max_tokens, 
             "top_p": self.config.top_p
         }
+
+        if os.getenv("OPENROUTER_API_KEY"):
+            openrouter_params = {}
+            if self.config.models:
+                openrouter_params["models"] = self.config.models
+                openrouter_params["route"] = self.config.route
+                params.pop("model")
+            
+            if self.config.site_url and self.config.app_name:
+                    extra_headers={
+                        "HTTP-Referer": self.config.site_url,
+                        "X-Title": self.config.app_name
+                    }
+                    openrouter_params["extra_headers"] = extra_headers
+        
+            params.update(**openrouter_params)
+
         if response_format:
             params["response_format"] = response_format
         if tools:
