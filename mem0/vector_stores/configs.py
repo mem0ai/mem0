@@ -73,8 +73,12 @@ class VectorStoreConfig(BaseModel):
         
         if isinstance(v, dict):
             if provider == "qdrant":
+                if "path" not in v:
+                    v["path"] = "/tmp/qdrant"
                 return QdrantConfig(**v)
             elif provider == "chromadb":
+                if "path" not in v:
+                    v["path"] = "/tmp/chromadb"
                 return ChromaDbConfig(**v)
         
         return v

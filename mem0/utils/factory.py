@@ -33,8 +33,7 @@ class LlmFactory:
 class EmbedderFactory:
     provider_to_class = {
         "openai": "mem0.embeddings.openai.OpenAIEmbedding",
-        "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
-        "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding"
+        "ollama": "mem0.embeddings.ollama.OllamaEmbedding"
     }
 
     @classmethod
