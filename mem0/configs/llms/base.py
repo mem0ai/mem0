@@ -12,6 +12,8 @@ class BaseLlmConfig(ABC):
         temperature: float = 0,
         max_tokens: int = 3000,
         top_p: float = 1,
+
+        # Ollama specific
         base_url: Optional[str] = None
     ):
         """
@@ -35,4 +37,6 @@ class BaseLlmConfig(ABC):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
+
+        # Ollama specific
         self.base_url = base_url
