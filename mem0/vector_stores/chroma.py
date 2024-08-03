@@ -21,20 +21,20 @@ class OutputData(BaseModel):
 class ChromaDB(VectorStoreBase):
     def __init__(
         self,
-        collection_name="mem0",
-        client=None,
-        host=None,
-        port=None,
-        path=None
+        collection_name,
+        client,
+        host,
+        port,
+        path
     ):
         """
         Initialize the Qdrant vector store.
 
         Args:
-            client (QdrantClient, optional): Existing Qdrant client instance. Defaults to None.
-            host (str, optional): Host address for Qdrant server. Defaults to None.
-            port (int, optional): Port for Qdrant server. Defaults to None.
-            path (str, optional): Path for local Qdrant database. Defaults to None.
+            client (QdrantClient, optional): Existing Qdrant client instance.
+            host (str, optional): Host address for Qdrant server.
+            port (int, optional): Port for Qdrant server.
+            path (str, optional): Path for local Qdrant database.
         """
         if client:
             self.client = client
@@ -95,7 +95,7 @@ class ChromaDB(VectorStoreBase):
 
         Args:
             name (str): Name of the collection.
-            embedding_fn (function): Embedding function to use.
+            embedding_fn (function): Embedding function to use. Defaults to None.
         """
         # Skip creating collection if already exists
         collections = self.list_cols()
@@ -213,7 +213,7 @@ class ChromaDB(VectorStoreBase):
 
         Args:
             name (str): Name of the collection.
-            filters (dict, optional): Filters to apply to the list. Defaults to None.
+            filters (dict, optional): Filters to apply to the list.
             limit (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:

@@ -15,49 +15,15 @@ from mem0.llms.utils.tools import (
 )
 from mem0.configs.prompts import MEMORY_DEDUCTION_PROMPT
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import get_update_memory_messages
-from mem0.vector_stores.configs import VectorStoreConfig
-from mem0.llms.configs import LlmConfig
-from mem0.embeddings.configs import EmbedderConfig
 from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
+from mem0.configs.base import MemoryItem, MemoryConfig
 
 # Setup user config
 setup_config()
-
-
-class MemoryItem(BaseModel):
-    id: str = Field(..., description="The unique identifier for the text data")
-    memory: str = Field(..., description="The memory deduced from the text data") # TODO After prompt changes from platform, update this
-    hash: Optional[str] = Field(None, description="The hash of the memory")
-    # The metadata value can be anything and not just string. Fix it
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata for the text data")
-    score: Optional[float] = Field(
-        None, description="The score associated with the text data"
-    )
-    created_at: Optional[str] = Field(None, description="The timestamp when the memory was created")
-    updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
-
-
-class MemoryConfig(BaseModel):
-    vector_store: VectorStoreConfig = Field(
-        description="Configuration for the vector store",
-        default_factory=VectorStoreConfig,
-    )
-    llm: LlmConfig = Field(
-        description="Configuration for the language model",
-        default_factory=LlmConfig,
-    )
-    embedder: EmbedderConfig = Field(
-        description="Configuration for the embedding model",
-        default_factory=EmbedderConfig,
-    )
-    history_db_path: str = Field(
-        description="Path to the history database",
-        default=os.path.join(mem0_dir, "history.db"),
-    )
 
 
 class Memory(MemoryBase):
@@ -411,6 +377,14 @@ class Memory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(pytz.timezone('US/Pacific')).isoformat()
+        
+        if "user_id" in existing_memory.payload: 
+            new_metadata["user_id"] = existing_memory.payload["user_id"]
+        if "agent_id" in existing_memory.payload:
+            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
+        if "run_id" in existing_memory.payload:
+            new_metadata["run_id"] = existing_memory.payload["run_id"]
+               
         embeddings = self.embedding_model.embed(data)
         self.vector_store.update(
             name=self.collection_name,

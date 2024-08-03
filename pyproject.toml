@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mem0ai"
-version = "0.0.10"
+version = "0.0.12"
 description = "Long-term memory for AI Agents"
 authors = ["Mem0 <founders@mem0.ai>"]
 exclude = [
@@ -22,6 +22,7 @@ openai = "^1.33.0"
 posthog = "^3.5.0"
 pytz = "^2024.1"
 sqlalchemy = "^2.0.31"
+litellm = "^1.42.7"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
@@ -33,7 +34,6 @@ pytest = "^8.2.2"
 
 
 [tool.poetry.group.optional.dependencies]
-ollama = "^0.2.1"
 
 [build-system]
 requires = ["poetry-core"]

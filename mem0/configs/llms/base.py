@@ -11,7 +11,10 @@ class BaseLlmConfig(ABC):
         model: Optional[str] = None,
         temperature: float = 0,
         max_tokens: int = 3000,
-        top_p: float = 1
+        top_p: float = 1,
+
+        # Ollama specific
+        base_url: Optional[str] = None
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -26,9 +29,14 @@ class BaseLlmConfig(ABC):
         :param top_p: Controls the diversity of words. Higher values (closer to 1) make word selection more diverse,
         defaults to 1
         :type top_p: float, optional
+        :param base_url: The base URL of the LLM, defaults to None
+        :type base_url: Optional[str], optional
         """
         
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
+
+        # Ollama specific
+        self.base_url = base_url

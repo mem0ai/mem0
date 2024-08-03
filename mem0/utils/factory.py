@@ -18,6 +18,7 @@ class LlmFactory:
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
         "qwen": "mem0.llms.qwen.QwenLLM",
+        "ollama": "mem0.llms.ollama.OllamaLLM",
     }
 
     @classmethod
@@ -37,6 +38,7 @@ class EmbedderFactory:
         "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
         "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
         "qwen": "mem0.embeddings.qwen.QwenEmbedding",
+        "ollama": "mem0.embeddings.ollama.OllamaEmbedding"
     }
 
     @classmethod
@@ -59,6 +61,8 @@ class VectorStoreFactory:
     def create(cls, provider_name, config):
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
+            if not isinstance(config, dict):
+                config = config.model_dump()
             vector_store_instance = load_class(class_type)
             return vector_store_instance(**config)
         else:
