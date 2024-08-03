@@ -42,6 +42,17 @@ config = {
     }
 }
 
+# Use Openrouter by passing it's api key
+# os.environ["OPENROUTER_API_KEY"] = "your-api-key"
+# config = {
+#    "llm": {
+#        "provider": "openai",
+#        "config": {
+#            "model": "meta-llama/llama-3.1-70b-instruct",
+#        }
+#    }
+# }
+
 m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
