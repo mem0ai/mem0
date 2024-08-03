@@ -63,8 +63,8 @@
     {
       "group": "Components",
       "pages": [
-        "components/llms.mdx",
-        "components/vectordb.mdx"
+        "components/llms",
+        "components/vectordb"
       ]
     },
     {
