@@ -49,7 +49,7 @@ class EmbedderFactory:
 class VectorStoreFactory:
     provider_to_class = {
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
-        "chromadb": "mem0.vector_stores.chroma.ChromaDB",
+        "chroma": "mem0.vector_stores.chroma.ChromaDB",
     }
 
     @classmethod
