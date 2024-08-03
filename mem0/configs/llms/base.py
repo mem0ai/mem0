@@ -17,9 +17,12 @@ class BaseLlmConfig(ABC):
         # Openrouter specific
         models: Optional[list[str]] = None,
         route: Optional[str] = "fallback",
-        base_url: Optional[str] = "https://openrouter.ai/api/v1",
+        openrouter_base_url: Optional[str] = "https://openrouter.ai/api/v1",
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
+
+        # Ollama specific
+        ollama_base_url: Optional[str] = None
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -40,12 +43,14 @@ class BaseLlmConfig(ABC):
         :type models: Optional[list[str]], optional
         :param route: Controls the Openrouter route used, defaults to "fallback"
         :type route: Optional[str], optional
-        :param base_url: Controls the Openrouter base URL used, defaults to "https://openrouter.ai/api/v1"
-        :type base_url: Optional[str], optional
+        :param openrouter_base_url: Controls the Openrouter base URL used, defaults to "https://openrouter.ai/api/v1"
+        :type openrouter_base_url: Optional[str], optional
         :param site_url: Controls the Openrouter site URL used, defaults to None
         :type site_url: Optional[str], optional
         :param app_name: Controls the Openrouter app name used, defaults to None
         :type app_name: Optional[str], optional
+        :param ollama_base_url: The base URL of the LLM, defaults to None
+        :type ollama_base_url: Optional[str], optional
         """
         
         self.model = model
@@ -57,6 +62,9 @@ class BaseLlmConfig(ABC):
         # Openrouter specific
         self.models = models
         self.route = route
-        self.base_url = base_url
+        self.openrouter_base_url = openrouter_base_url
         self.site_url = site_url
         self.app_name = app_name
+
+        # Ollama specific
+        self.ollama_base_url = ollama_base_url

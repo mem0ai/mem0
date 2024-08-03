@@ -1,5 +1,6 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch
 
+import httpx
 import pytest
 from langchain.schema import HumanMessage, SystemMessage
 
@@ -43,6 +44,8 @@ def test_get_answer(azure_openai_llm):
             temperature=azure_openai_llm.config.temperature,
             max_tokens=azure_openai_llm.config.max_tokens,
             streaming=azure_openai_llm.config.stream,
+            http_client=None,
+            http_async_client=None,
         )
 
 
@@ -84,4 +87,78 @@ def test_with_api_version():
             temperature=0.7,
             max_tokens=50,
             streaming=False,
+            http_client=None,
+            http_async_client=None,
         )
+
+
+def test_get_llm_model_answer_with_http_client_proxies():
+    mock_http_client = Mock(spec=httpx.Client)
+    mock_http_client_instance = Mock(spec=httpx.Client)
+    mock_http_client.return_value = mock_http_client_instance
+
+    with patch("langchain_openai.AzureChatOpenAI") as mock_chat, patch(
+        "httpx.Client", new=mock_http_client
+    ) as mock_http_client:
+        mock_chat.return_value.invoke.return_value.content = "Mocked response"
+
+        config = BaseLlmConfig(
+            deployment_name="azure_deployment",
+            temperature=0.7,
+            max_tokens=50,
+            stream=False,
+            system_prompt="System prompt",
+            model="gpt-3.5-turbo",
+            http_client_proxies="http://testproxy.mem0.net:8000",
+        )
+
+        llm = AzureOpenAILlm(config)
+        llm.get_llm_model_answer("Test query")
+
+        mock_chat.assert_called_once_with(
+            deployment_name="azure_deployment",
+            openai_api_version="2024-02-01",
+            model_name="gpt-3.5-turbo",
+            temperature=0.7,
+            max_tokens=50,
+            streaming=False,
+            http_client=mock_http_client_instance,
+            http_async_client=None,
+        )
+        mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+
+
+def test_get_llm_model_answer_with_http_async_client_proxies():
+    mock_http_async_client = Mock(spec=httpx.AsyncClient)
+    mock_http_async_client_instance = Mock(spec=httpx.AsyncClient)
+    mock_http_async_client.return_value = mock_http_async_client_instance
+
+    with patch("langchain_openai.AzureChatOpenAI") as mock_chat, patch(
+        "httpx.AsyncClient", new=mock_http_async_client
+    ) as mock_http_async_client:
+        mock_chat.return_value.invoke.return_value.content = "Mocked response"
+
+        config = BaseLlmConfig(
+            deployment_name="azure_deployment",
+            temperature=0.7,
+            max_tokens=50,
+            stream=False,
+            system_prompt="System prompt",
+            model="gpt-3.5-turbo",
+            http_async_client_proxies={"http://": "http://testproxy.mem0.net:8000"},
+        )
+
+        llm = AzureOpenAILlm(config)
+        llm.get_llm_model_answer("Test query")
+
+        mock_chat.assert_called_once_with(
+            deployment_name="azure_deployment",
+            openai_api_version="2024-02-01",
+            model_name="gpt-3.5-turbo",
+            temperature=0.7,
+            max_tokens=50,
+            streaming=False,
+            http_client=None,
+            http_async_client=mock_http_async_client_instance,
+        )
+        mock_http_async_client.assert_called_once_with(proxies={"http://": "http://testproxy.mem0.net:8000"})

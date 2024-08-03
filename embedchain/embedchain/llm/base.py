@@ -1,9 +1,11 @@
 import logging
+import os
 from collections.abc import Generator
 from typing import Any, Optional
 
 from langchain.schema import BaseMessage as LCBaseMessage
 
+from embedchain.constants import SQLITE_PATH
 from embedchain.config import BaseLlmConfig
 from embedchain.config.llm.base import (
     DEFAULT_PROMPT,
@@ -11,6 +13,7 @@ from embedchain.config.llm.base import (
     DEFAULT_PROMPT_WITH_MEM0_MEMORY_TEMPLATE,
     DOCS_SITE_PROMPT_TEMPLATE,
 )
+from embedchain.core.db.database import init_db, setup_engine
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.memory.base import ChatHistory
 from embedchain.memory.message import ChatMessage
@@ -29,6 +32,11 @@ class BaseLlm(JSONSerializable):
             self.config = BaseLlmConfig()
         else:
             self.config = config
+
+        # Initialize the metadata db for the app here since llmfactory needs it for initialization of
+        # the llm memory
+        setup_engine(database_uri=os.environ.get("EMBEDCHAIN_DB_URI", f"sqlite:///{SQLITE_PATH}"))
+        init_db()
 
         self.memory = ChatHistory()
         self.is_docs_site_instance = False
