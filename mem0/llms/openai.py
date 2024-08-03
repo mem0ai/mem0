@@ -15,7 +15,7 @@ class OpenAILLM(LLMBase):
             self.config.model="gpt-4o"
 
         if os.environ.get("OPENROUTER_API_KEY"):
-            self.client = OpenAI(api_key=os.environ.get("OPENROUTER_API_KEY"), base_url=self.config.base_url)
+            self.client = OpenAI(api_key=os.environ.get("OPENROUTER_API_KEY"), base_url=self.config.openrouter_base_url)
         else:
             self.client = OpenAI()
     
