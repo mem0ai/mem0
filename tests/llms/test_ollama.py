@@ -80,3 +80,4 @@ def test_generate_response_with_tools(mock_ollama_client):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {'data': 'Today is a sunny day.'}
+    
