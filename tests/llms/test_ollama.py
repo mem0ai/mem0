@@ -12,7 +12,6 @@ def mock_ollama_client():
         mock_ollama.return_value = mock_client
         yield mock_client
 
-@pytest.mark.skip(reason="Mock issue, need to be fixed")
 def test_generate_response_without_tools(mock_ollama_client):
     config = BaseLlmConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OllamaLLM(config)
@@ -21,8 +20,9 @@ def test_generate_response_without_tools(mock_ollama_client):
         {"role": "user", "content": "Hello, how are you?"}
     ]
     
-    mock_response = Mock()
-    mock_response.message = {"content": "I'm doing well, thank you for asking!"}
+    mock_response = {
+        'message': {"content": "I'm doing well, thank you for asking!"}
+    }
     mock_ollama_client.chat.return_value = mock_response
 
     response = llm.generate_response(messages)
@@ -38,7 +38,6 @@ def test_generate_response_without_tools(mock_ollama_client):
     )
     assert response == "I'm doing well, thank you for asking!"
 
-@pytest.mark.skip(reason="Mock issue, need to be fixed")
 def test_generate_response_with_tools(mock_ollama_client):
     config = BaseLlmConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OllamaLLM(config)
@@ -48,18 +47,20 @@ def test_generate_response_with_tools(mock_ollama_client):
     ]
     tools = [ADD_MEMORY_TOOL]
     
-    mock_response = Mock()
-    mock_message = {"content": "I've added the memory for you."}
-    
-    mock_tool_call = {
-        "function": {
-            "name": "add_memory",
-            "arguments": '{"data": "Today is a sunny day."}'
+    mock_response = {
+        'message': {
+            "content": "I've added the memory for you.",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "add_memory",
+                        "arguments": {"data": "Today is a sunny day."}
+                    }
+                }
+            ]
         }
     }
     
-    mock_message["tool_calls"] = [mock_tool_call]
-    mock_response.message = mock_message
     mock_ollama_client.chat.return_value = mock_response
 
     response = llm.generate_response(messages, tools=tools)
@@ -79,3 +80,4 @@ def test_generate_response_with_tools(mock_ollama_client):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {'data': 'Today is a sunny day.'}
+    
