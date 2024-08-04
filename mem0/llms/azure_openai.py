@@ -1,24 +1,20 @@
-import os
 import json
 from typing import Dict, List, Optional
 
-from openai import OpenAI
+from openai import AzureOpenAI
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
-class OpenAILLM(LLMBase):
+class AzureOpenAILLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
+        # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
             self.config.model="gpt-4o"
+        self.client = AzureOpenAI()
 
-        if os.environ.get("OPENROUTER_API_KEY"):
-            self.client = OpenAI(api_key=os.environ.get("OPENROUTER_API_KEY"), base_url=self.config.openrouter_base_url)
-        else:
-            self.client = OpenAI()
-    
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -35,17 +31,18 @@ class OpenAILLM(LLMBase):
                 "content": response.choices[0].message.content,
                 "tool_calls": []
             }
-            
+
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
                     processed_response["tool_calls"].append({
                         "name": tool_call.function.name,
                         "arguments": json.loads(tool_call.function.arguments)
                     })
-            
+
             return processed_response
         else:
             return response.choices[0].message.content
+
 
     def generate_response(
         self,
@@ -55,7 +52,7 @@ class OpenAILLM(LLMBase):
         tool_choice: str = "auto",
     ):
         """
-        Generate a response based on the given messages using OpenAI.
+        Generate a response based on the given messages using Azure OpenAI.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
@@ -73,23 +70,6 @@ class OpenAILLM(LLMBase):
             "max_tokens": self.config.max_tokens, 
             "top_p": self.config.top_p
         }
-
-        if os.getenv("OPENROUTER_API_KEY"):
-            openrouter_params = {}
-            if self.config.models:
-                openrouter_params["models"] = self.config.models
-                openrouter_params["route"] = self.config.route
-                params.pop("model")
-            
-            if self.config.site_url and self.config.app_name:
-                    extra_headers={
-                        "HTTP-Referer": self.config.site_url,
-                        "X-Title": self.config.app_name
-                    }
-                    openrouter_params["extra_headers"] = extra_headers
-        
-            params.update(**openrouter_params)
-
         if response_format:
             params["response_format"] = response_format
         if tools:

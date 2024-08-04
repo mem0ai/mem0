@@ -17,6 +17,7 @@ class LlmFactory:
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
         "ollama": "mem0.llms.ollama.OllamaLLM",
+        "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
     }
 
     @classmethod
@@ -50,7 +51,7 @@ class EmbedderFactory:
 class VectorStoreFactory:
     provider_to_class = {
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
-        "chromadb": "mem0.vector_stores.chroma.ChromaDB",
+        "chroma": "mem0.vector_stores.chroma.ChromaDB",
     }
 
     @classmethod
