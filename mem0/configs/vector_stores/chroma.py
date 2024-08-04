@@ -13,7 +13,7 @@ class ChromaDbConfig(BaseModel):
     client: Optional[Client] = Field(None, description="Existing ChromaDB client instance")
     path: Optional[str] = Field(None, description="Path to the database directory")
     host: Optional[str] = Field(None, description="Database connection remote host")
-    port: Optional[str] = Field(None, description="Database connection remote port")
+    port: Optional[int] = Field(None, description="Database connection remote port")
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
