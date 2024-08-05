@@ -1,6 +1,7 @@
 import importlib
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.embeddings.base import BaseEmbedderConfig
 
 
 def load_class(class_type):
@@ -19,6 +20,7 @@ class LlmFactory:
         "litellm": "mem0.llms.litellm.LiteLLM",
         "ollama": "mem0.llms.ollama.OllamaLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
+        "lmstudio": "mem0.llms.lm_studio.LMStudioLLM"
     }
 
     @classmethod
@@ -38,11 +40,12 @@ class EmbedderFactory:
     }
 
     @classmethod
-    def create(cls, provider_name):
+    def create(cls, provider_name, config):
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
-            embedder_instance = load_class(class_type)()
-            return embedder_instance
+            embedder_instance = load_class(class_type)
+            base_config = BaseEmbedderConfig(**config)
+            return embedder_instance(base_config)
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
         

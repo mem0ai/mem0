@@ -9,7 +9,7 @@ class EmbedderConfig(BaseModel):
         default="openai",
     )
     config: Optional[dict] = Field(
-        description="Configuration for the specific embedding model", default=None
+        description="Configuration for the specific embedding model", default={}
     )
 
     @field_validator("config")

@@ -1,4 +1,3 @@
-import os
 import json
 from typing import Dict, List, Optional
 
@@ -6,19 +5,21 @@ from openai import OpenAI
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.prompts import FUNCTION_CALLING_PROMPT
 
-class OpenAILLM(LLMBase):
+
+class LMStudioLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model="gpt-4o"
-
-        if os.environ.get("OPENROUTER_API_KEY"): # Use OpenRouter
-            self.client = OpenAI(api_key=os.environ.get("OPENROUTER_API_KEY"), base_url=self.config.openrouter_base_url)
+            self.config.model = "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+        
+        if self.config.lmstudio_base_url:
+            self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)
         else:
-            api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-            self.client = OpenAI(api_key=api_key)
+            raise ValueError("LM Studio base URL and API key is required.")
+        
     
     def _parse_response(self, response, tools):
         """
@@ -33,16 +34,19 @@ class OpenAILLM(LLMBase):
         """
         if tools:
             processed_response = {
-                "content": response.choices[0].message.content,
                 "tool_calls": []
             }
+    
+            tool_calls = json.loads(response.choices[0].message.content)
             
-            if response.choices[0].message.tool_calls:
-                for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append({
-                        "name": tool_call.function.name,
-                        "arguments": json.loads(tool_call.function.arguments)
-                    })
+            for tool_call in tool_calls["function_calls"]:
+                if tool_call["name"] == "update_memory" or tool_call["name"] == "delete_memory":
+                    if tool_call["parameters"]["memory_id"] == "":
+                        continue
+                processed_response["tool_calls"].append({
+                    "name": tool_call["name"],
+                    "arguments": tool_call["parameters"]
+                })
             
             return processed_response
         else:
@@ -51,12 +55,12 @@ class OpenAILLM(LLMBase):
     def generate_response(
         self,
         messages: List[Dict[str, str]],
-        response_format=None,
+        response_format: dict = {"type": "json_object"},
         tools: Optional[List[Dict]] = None,
-        tool_choice: str = "auto",
+        tool_choice: str = "auto"
     ):
         """
-        Generate a response based on the given messages using OpenAI.
+        Generate a response based on the given messages using LM Studio.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
@@ -74,28 +78,14 @@ class OpenAILLM(LLMBase):
             "max_tokens": self.config.max_tokens, 
             "top_p": self.config.top_p
         }
-
-        if os.getenv("OPENROUTER_API_KEY"):
-            openrouter_params = {}
-            if self.config.models:
-                openrouter_params["models"] = self.config.models
-                openrouter_params["route"] = self.config.route
-                params.pop("model")
             
-            if self.config.site_url and self.config.app_name:
-                    extra_headers={
-                        "HTTP-Referer": self.config.site_url,
-                        "X-Title": self.config.app_name
-                    }
-                    openrouter_params["extra_headers"] = extra_headers
-        
-            params.update(**openrouter_params)
-
-        if response_format:
-            params["response_format"] = response_format
         if tools:
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            params["response_format"] = response_format
+            system_prompt =  {
+                "role": "system",
+                "content": FUNCTION_CALLING_PROMPT
+            }
+            params["messages"].insert(0, system_prompt)
 
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)

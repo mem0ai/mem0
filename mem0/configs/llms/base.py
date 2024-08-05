@@ -10,6 +10,7 @@ class BaseLlmConfig(ABC):
         self,
         model: Optional[str] = None,
         temperature: float = 0,
+        api_key: Optional[str] = None,
         max_tokens: int = 3000,
         top_p: float = 0,
         top_k: int = 1,
@@ -22,7 +23,10 @@ class BaseLlmConfig(ABC):
         app_name: Optional[str] = None,
 
         # Ollama specific
-        ollama_base_url: Optional[str] = None
+        ollama_base_url: Optional[str] = None,
+
+        # LM Studio specific
+        lmstudio_base_url: Optional[str] = None
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -32,6 +36,8 @@ class BaseLlmConfig(ABC):
         :param temperature:  Controls the randomness of the model's output.
         Higher values (closer to 1) make output more random, lower values make it more deterministic, defaults to 0
         :type temperature: float, optional
+        :param api_key: API key to use, defaults to None
+        :type api_key: Optional[str], optional
         :param max_tokens: Controls how many tokens are generated, defaults to 3000
         :type max_tokens: int, optional
         :param top_p: Controls the diversity of words. Higher values (closer to 1) make word selection more diverse,
@@ -51,10 +57,13 @@ class BaseLlmConfig(ABC):
         :type app_name: Optional[str], optional
         :param ollama_base_url: The base URL of the LLM, defaults to None
         :type ollama_base_url: Optional[str], optional
+        :param lmstudio_base_url: The base URL of the LLM Studio, defaults to None
+        :type lmstudio_base_url: Optional[str], optional
         """
         
         self.model = model
         self.temperature = temperature
+        self.api_key = api_key
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.top_k = top_k
@@ -68,3 +77,6 @@ class BaseLlmConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # LM Studio specific
+        self.lmstudio_base_url = lmstudio_base_url
