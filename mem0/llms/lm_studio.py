@@ -12,14 +12,10 @@ class LMStudioLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
-        if not self.config.model:
-            self.config.model = "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+        self.config.model = self.config.model or "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-IQ2_M.gguf"
+        self.config.api_key = self.config.api_key or "lm-studio"
         
-        if self.config.lmstudio_base_url:
-            self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)
-        else:
-            raise ValueError("LM Studio base URL and API key is required.")
-        
+        self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)  
     
     def _parse_response(self, response, tools):
         """

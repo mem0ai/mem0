@@ -9,6 +9,7 @@ Mem0 includes built-in support for various popular large language models. Memory
 <CardGroup cols={4}>
   <Card title="OpenAI" href="#openai"></Card>
   <Card title="Ollama" href="#ollama"></Card>
+  <Card title="LM Studio" href="#lm-studio"></Card>
   <Card title="Groq" href="#groq"></Card>
   <Card title="Together" href="#together"></Card>
   <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
@@ -81,6 +82,31 @@ config = {
 m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
+
+## LM Studio
+
+You can utilize LLMs from LM Studio with an OpenAI-compatible local server, accessing models available from HuggingFace directly within LM Studio.
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # for embedder
+
+config = {
+    "llm": {
+        "provider": "lmstudio",
+        "config": {
+            "model": "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-IQ2_M.gguf",
+            "lmstudio_base_url": "http://localhost:1234/v1",
+            "api_key": "lm-studio",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+
 
 ## Groq
 

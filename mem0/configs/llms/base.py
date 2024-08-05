@@ -26,7 +26,7 @@ class BaseLlmConfig(ABC):
         ollama_base_url: Optional[str] = None,
 
         # LM Studio specific
-        lmstudio_base_url: Optional[str] = None
+        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1"
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -57,7 +57,7 @@ class BaseLlmConfig(ABC):
         :type app_name: Optional[str], optional
         :param ollama_base_url: The base URL of the LLM, defaults to None
         :type ollama_base_url: Optional[str], optional
-        :param lmstudio_base_url: The base URL of the LLM Studio, defaults to None
+        :param lmstudio_base_url: The base URL of the LLM Studio, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
         """
         

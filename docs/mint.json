@@ -64,7 +64,8 @@
       "group": "Components",
       "pages": [
         "components/llms",
-        "components/vectordb"
+        "components/vectordb",
+        "components/embedders"
       ]
     },
     {

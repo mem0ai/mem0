@@ -16,7 +16,7 @@ class BaseEmbedderConfig(ABC):
         ollama_base_url: Optional[str] = None,
 
         # LM Studio specific
-        lmstudio_base_url: Optional[str] = None
+        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1"
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -29,7 +29,7 @@ class BaseEmbedderConfig(ABC):
         :type api_key: Optional[str], optional
         :param ollama_base_url: Base URL for the Ollama API, defaults to None
         :type ollama_base_url: Optional[str], optional
-        :param lmstudio_base_url: Base URL for the LM Studio, defaults to None
+        :param lmstudio_base_url: Base URL for the LM Studio, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
         """
         
