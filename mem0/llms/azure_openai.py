@@ -1,19 +1,20 @@
 import json
 from typing import Dict, List, Optional
 
-import litellm
+from openai import AzureOpenAI
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
-
-class LiteLLM(LLMBase):
+class AzureOpenAILLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
+        # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
             self.config.model="gpt-4o"
-    
+        self.client = AzureOpenAI()
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -30,17 +31,18 @@ class LiteLLM(LLMBase):
                 "content": response.choices[0].message.content,
                 "tool_calls": []
             }
-            
+
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
                     processed_response["tool_calls"].append({
                         "name": tool_call.function.name,
                         "arguments": json.loads(tool_call.function.arguments)
                     })
-            
+
             return processed_response
         else:
             return response.choices[0].message.content
+
 
     def generate_response(
         self,
@@ -50,7 +52,7 @@ class LiteLLM(LLMBase):
         tool_choice: str = "auto",
     ):
         """
-        Generate a response based on the given messages using Litellm.
+        Generate a response based on the given messages using Azure OpenAI.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
@@ -61,9 +63,6 @@ class LiteLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        if not litellm.supports_function_calling(self.config.model):
-            raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
-
         params = {
             "model": self.config.model, 
             "messages": messages, 
@@ -77,5 +76,5 @@ class LiteLLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        response = litellm.completion(**params)
+        response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)

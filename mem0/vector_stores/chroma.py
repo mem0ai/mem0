@@ -28,13 +28,13 @@ class ChromaDB(VectorStoreBase):
         path
     ):
         """
-        Initialize the Qdrant vector store.
+        Initialize the Chromadb vector store.
 
         Args:
-            client (QdrantClient, optional): Existing Qdrant client instance.
-            host (str, optional): Host address for Qdrant server.
-            port (int, optional): Port for Qdrant server.
-            path (str, optional): Path for local Qdrant database.
+            client (chromadb.Client, optional): Existing chromadb client instance.
+            host (str, optional): Host address for chromadb server.
+            port (int, optional): Port for chromadb server.
+            path (str, optional): Path for local chromadb database.
         """
         if client:
             self.client = client

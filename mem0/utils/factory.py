@@ -18,6 +18,7 @@ class LlmFactory:
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
         "ollama": "mem0.llms.ollama.OllamaLLM",
+        "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
     }
 
     @classmethod
@@ -33,8 +34,7 @@ class LlmFactory:
 class EmbedderFactory:
     provider_to_class = {
         "openai": "mem0.embeddings.openai.OpenAIEmbedding",
-        "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
-        "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding"
+        "ollama": "mem0.embeddings.ollama.OllamaEmbedding"
     }
 
     @classmethod
@@ -49,7 +49,7 @@ class EmbedderFactory:
 class VectorStoreFactory:
     provider_to_class = {
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
-        "chromadb": "mem0.vector_stores.chroma.ChromaDB",
+        "chroma": "mem0.vector_stores.chroma.ChromaDB",
     }
 
     @classmethod
