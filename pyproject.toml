@@ -22,7 +22,6 @@ openai = "^1.33.0"
 posthog = "^3.5.0"
 pytz = "^2024.1"
 sqlalchemy = "^2.0.31"
-<<<<<<< HEAD
 python-dotenv = "^1.0.1"
 litellm = "^1.42.7"
 
