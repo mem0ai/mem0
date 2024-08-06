@@ -12,6 +12,8 @@ Mem0 offers support for various embedding models, allowing users to choose the o
     <Card title="LM Studio" href="#lm-studio"></Card>
 </CodeGroup>
 
+> When using `Qdrant` as a vector database, ensure you update the `embedding_model_dims` to match the dimensions of the embedding model you are using.
+
 ## OpenAI
 
 To use OpenAI embedding models, set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
@@ -21,6 +23,8 @@ Example of how to select the desired embedding model:
 ```python
 import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
 
 config = {
     "embedder": {
@@ -41,9 +45,11 @@ You can use embedding models from Ollama to run Mem0 locally.
 
 Here's how to select it:
 
-``python
+```python
 import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
 
 config = {
     "embedder": {
@@ -62,9 +68,11 @@ m.add("I'm visiting Paris", user_id="john")
 
 You can also utilize embedding models from LM Studio and where models can be directly downloaded from HuggingFace.
 
-``python
+```python
 import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
 
 config = {
     "embedder": {
