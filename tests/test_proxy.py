@@ -92,7 +92,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     
-    response = completions.create(
+    completions.create(
         model="gpt-3.5-turbo",
         messages=messages,
         user_id="test_user"
