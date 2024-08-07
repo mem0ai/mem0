@@ -1,6 +1,5 @@
 import sqlite3
 import uuid
-from datetime import datetime
 
 
 class SQLiteManager:

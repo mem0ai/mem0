@@ -17,7 +17,6 @@ class LlmFactory:
         "together": "mem0.llms.together.TogetherLLM",
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
-        "ollama": "mem0.llms.ollama.OllamaLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
     }
 
