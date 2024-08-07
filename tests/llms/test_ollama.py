@@ -13,7 +13,7 @@ def mock_ollama_client():
         yield mock_client
 
 def test_generate_response_without_tools(mock_ollama_client):
-    config = BaseLlmConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = {"model":"llama3.1:70b", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = OllamaLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -39,7 +39,7 @@ def test_generate_response_without_tools(mock_ollama_client):
     assert response == "I'm doing well, thank you for asking!"
 
 def test_generate_response_with_tools(mock_ollama_client):
-    config = BaseLlmConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = {"model":"llama3.1:70b", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = OllamaLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},

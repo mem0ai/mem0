@@ -16,7 +16,7 @@ def mock_openai_client():
         yield mock_client
 
 def test_generate_response_without_tools(mock_openai_client):
-    config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    config = {"model":MODEL, "temperature":TEMPERATURE, "max_tokens":MAX_TOKENS, "top_p":TOP_P}
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -40,7 +40,7 @@ def test_generate_response_without_tools(mock_openai_client):
 
 
 def test_generate_response_with_tools(mock_openai_client):
-    config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    config = {"model":MODEL, "temperature":TEMPERATURE, "max_tokens":MAX_TOKENS, "top_p":TOP_P}
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},

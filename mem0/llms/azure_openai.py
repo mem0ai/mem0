@@ -7,8 +7,8 @@ from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
 class AzureOpenAILLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
-        super().__init__(config)
+    def __init__(self, configDict: Optional[Dict] = None):
+        super().__init__(configDict)
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
