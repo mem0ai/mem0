@@ -4,16 +4,8 @@
   </a>
   <h3 align="center">Mem0</h3>
   <p align="center">
-    The Memory Layer for Personalized AI.
-    <br />
-    <a href="https://mem0.ai"><strong>Learn more »</strong></a>
-    <br />
-    <br />
-    <a href="https://mem0.ai/discord">Discord</a>
-    ·
-    <a href="https://mem0.ai">Website</a>
-    ·
-    <a href="https://github.com/mem0ai/mem0/issues">Issues</a>
+    The Memory Layer for Personalized AI.<br/>
+    <a href="https://mem0.ai"><strong>Learn more »</strong></a></br>
   </p>
 </p>
 
@@ -123,7 +115,7 @@ history = m.history(memory_id=<memory_id_1>)
 ```
 
 > [!TIP]
-> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Cloud Docs](https://app.mem0.ai/) to get started in minutes.
+> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Cloud](https://app.mem0.ai/) to get started in minutes.
 
 ## Core Features
 
