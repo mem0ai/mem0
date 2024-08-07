@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/mem0ai/mem0">
-  <img src="docs/images/banner.png" width="800px" alt="Mem0 Logo">
+  <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 Logo">
   </a>
   <h3 align="center">Mem0</h3>
   <p align="center">
