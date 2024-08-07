@@ -1,6 +1,6 @@
 from typing import Optional,ClassVar
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 class ChromaDbConfig(BaseModel):
     try:
