@@ -123,7 +123,7 @@ history = m.history(memory_id=<memory_id_1>)
 ```
 
 > [!TIP]
-> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
+> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Cloud Docs](https://app.mem0.ai/) to get started in minutes.
 
 ## Core Features
 
@@ -186,6 +186,6 @@ We value and appreciate the contributions of our community. Special thanks to ou
   <img src="https://contrib.rocks/image?repo=mem0ai/mem0" />
 </a>
 
-## 📝 License
+## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
