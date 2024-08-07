@@ -30,20 +30,27 @@
 
 Use cases enabled by Mem0 include:
 
-- **Personalized Learning Assistants**: Enhance learning experiences with tailored content recommendations and progress tracking.
-- **Customer Support AI Agents**: Provide context-aware assistance by remembering past interactions and user preferences.
-- **Healthcare Assistants**: Keep track of patient history, treatment plans, and medication schedules for personalized care.
-- **Virtual Companions**: Build deeper relationships with users by remembering personal details and past conversations.
-- **Productivity Tools**: Streamline workflows by remembering user habits, frequently used documents, and task history.
-- **Gaming AI**: Create immersive gaming experiences by adapting game environments based on player choices and progress.
+- **AI Assistants and agents**: Seamless conversations with a touch of déjà vu – just like this one
+
+- **Personalized Learning**: Tailored content recommendations and progress tracking
+
+- **Customer Support**: Context-aware assistance with user preference memory
+
+- **Healthcare**: Patient history and treatment plan management
+
+- **Virtual Companions**: Deeper user relationships through conversation memory
+
+- **Productivity**: Streamlined workflows based on user habits and task history
+
+- **Gaming**: Adaptive environments reflecting player choices and progress
 
 ## Get Started
 
-The simplest way to set up Mem0 is to create a managed deployment with Mem0 Cloud. This hosted solution offers a hassle-free experience with automatic updates, advanced analytics, and dedicated support. [Sign up](https://app.mem0.ai/) for Mem0 Cloud to get started.
+The simplest way to set up Mem0 is to create a managed deployment with Mem0 Platform. The platform is a hosted solution and offers a hassle-free experience with automatic updates, advanced analytics, and dedicated support. [Sign up](https://app.mem0.ai/) for Mem0 Platform to get started.
 
-If you prefer to install and manage Mem0 yourself, you can use the open-source Mem0 package. Read the [manual installation instructions](#install) below to get started with Mem0 on your machine.
+If you prefer to install and manage Mem0 yourself, you can use the open-source Mem0 package. Read the [Installation instructions](#install) below to get started with Mem0 on your machine.
 
-## Manual Installation Instructions <a name="install"></a>
+## Installation Instructions <a name="install"></a>
 
 The Mem0 package can be installed directly from pip command in the terminal.
 
@@ -115,7 +122,7 @@ history = m.history(memory_id=<memory_id_1>)
 ```
 
 > [!TIP]
-> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Cloud](https://app.mem0.ai/) to get started in minutes.
+> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform](https://app.mem0.ai/) to get started in minutes.
 
 ## Core Features
 
@@ -171,6 +178,10 @@ If you have any questions, feel free to reach out to us using one of the followi
 - [Email us](mailto:founders@mem0.ai)
 
 ## Contributors
+
+Join our [Discord community](https://mem0.ai/discord) to learn about memory management for AI agents and LLMs, and connect with Mem0 users and contributors.
+
+Share your ideas, questions, or feedback in our [GitHub Issues](https://github.com/mem0ai/mem0/issues).
 
 We value and appreciate the contributions of our community. Special thanks to our contributors for helping us improve Mem0.
 
