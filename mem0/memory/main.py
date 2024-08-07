@@ -1,12 +1,11 @@
 import logging
 import hashlib
-import os
 import uuid
 import pytz
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from mem0.llms.utils.tools import (
     ADD_MEMORY_TOOL,
