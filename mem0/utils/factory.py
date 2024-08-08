@@ -11,7 +11,7 @@ def load_class(class_type):
 
 class LlmFactory:
     provider_to_class = {
-        "ollama": "mem0.llms.ollama.py.OllamaLLM",
+        "ollama": "mem0.llms.ollama.OllamaLLM",
         "openai": "mem0.llms.openai.OpenAILLM",
         "groq": "mem0.llms.groq.GroqLLM",
         "together": "mem0.llms.together.TogetherLLM",
