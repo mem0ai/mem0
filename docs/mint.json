@@ -16,24 +16,14 @@
     "light": "/logo/light.svg",
     "href": "https://github.com/mem0ai/mem0"
   },
-  "tabs": [
-    {
-      "name": "💡 Examples",
-      "url": "examples"
-    },
-    {
-      "name": "🖥️  Platform",
-      "url": "platform"
-    }
-  ],
   "topbarCtaButton": {
-    "name": "Your Memory Dashboard",
+    "name": "Platform",
     "url": "https://app.mem0.ai"
   },
   "anchors": [
     {
-      "name": "Your Memory Dashboard",
-      "icon": "discord",
+      "name": "Platform",
+      "icon": "chart-simple",
       "url": "https://app.mem0.ai"
     },
     {
@@ -56,26 +46,39 @@
     {
       "group": "Get Started",
       "pages": [
-        "overview",
-        "quickstart"
+        "get-started/overview"
       ]
     },
     {
-      "group": "Components",
+      "group": "Platform",
       "pages": [
-        "components/llms",
-        "components/vectordb"
+        "platform/overview",
+        "platform/quickstart"
       ]
     },
     {
-      "group": "Features",
-      "pages":[
-        "features/openai_compatibility"
+      "group": "Open Source",
+      "pages": [
+        "open-source/overview",
+        "open-source/quickstart",
+        {
+          "group": "LLMs",
+          "pages": ["components/llms"]
+        },
+        {
+          "group": "Vector Database",
+          "pages": ["components/vectordb"]
+        },
+        {
+          "group": "Features",
+          "pages": ["features/openai_compatibility"]
+        }
       ]
     },
     {
       "group": "Integrations",
       "pages": [
+        "integrations/overview",
         "integrations/multion"
       ]
     },
@@ -86,13 +89,6 @@
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
         "examples/personal-travel-assistant"
-      ]
-    },
-    {
-      "group": "🖥️  Platform",
-      "pages": [
-        "platform/overview",
-        "platform/quickstart"
       ]
     }
   ],
