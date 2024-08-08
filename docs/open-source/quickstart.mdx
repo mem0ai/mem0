@@ -195,6 +195,36 @@ m.delete_all(user_id="alice") # Delete all memories
 m.reset() # Reset all memories
 ```
 
+## Run Mem0 Locally
+
+Mem0 can be used entirely locally with Ollama, where both the embedding model and the language model (LLM) utilize Ollama. 
+
+Here's the example on how it can be used:
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "vector_store":{
+        "provider": "qdrant",
+        "config": {
+            "embedding_model_dims": 768 # change according to embedding model
+        }
+    },
+    "llm": {
+        "provider": "ollama"
+    },
+    "embedder": {
+        "provider": "ollama"
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+
 ## Chat Completion
 
 Mem0 can be easily integrate into chat applications to enhance conversational agents with structured memory. Mem0's APIs are designed to be compatible with OpenAI's, with the goal of making it easy to leverage Mem0 in applications you may have already built.
