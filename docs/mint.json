@@ -17,12 +17,12 @@
     "href": "https://github.com/mem0ai/mem0"
   },
   "topbarCtaButton": {
-    "name": "Platform",
+    "name": "Your Dashboard",
     "url": "https://app.mem0.ai"
   },
   "anchors": [
     {
-      "name": "Platform",
+      "name": "Your Dashboard",
       "icon": "chart-simple",
       "url": "https://app.mem0.ai"
     },
@@ -46,7 +46,7 @@
     {
       "group": "Get Started",
       "pages": [
-        "get-started/overview"
+        "overview"
       ]
     },
     {
@@ -59,7 +59,6 @@
     {
       "group": "Open Source",
       "pages": [
-        "open-source/overview",
         "open-source/quickstart",
         {
           "group": "LLMs",
@@ -76,13 +75,6 @@
       ]
     },
     {
-      "group": "Integrations",
-      "pages": [
-        "integrations/overview",
-        "integrations/multion"
-      ]
-    },
-    {
       "group": "💡 Examples",
       "pages": [
         "examples/overview",
@@ -90,7 +82,14 @@
         "examples/customer-support-agent",
         "examples/personal-travel-assistant"
       ]
+    },
+    {
+      "group": "Integrations",
+      "pages": [
+        "integrations/multion"
+      ]
     }
+
   ],
   "footerSocials": {
     "discord": "https://mem0.ai/discord",
