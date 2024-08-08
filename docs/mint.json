@@ -85,6 +85,12 @@
       ]
     },
     {
+      "group": "Knowledge Base",
+      "pages": [
+        "knowledge-base/introduction"
+      ]
+    },
+    {
       "group": "Integrations",
       "pages": [
         "integrations/multion"
