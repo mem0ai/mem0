@@ -12,7 +12,7 @@ install:
 
 install_all:
 	poetry install
-	poetry run pip install groq together boto3 litellm ollama portkey_ai
+	poetry run pip install groq together boto3 litellm ollama portkey-ai
 
 # Format code with ruff
 format:
