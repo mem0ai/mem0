@@ -62,3 +62,14 @@ config = {
 m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
+
+## Common issues
+
+### Using model with different dimensions
+
+If you are using customized model, which is having different dimensions other than 1536
+for example 768, you may encounter below error:
+
+`ValueError: shapes (0,1536) and (768,) not aligned: 1536 (dim 1) != 768 (dim 0)`
+
+you could add `"embedding_model_dims": 768,` to the config of the vector_store to overcome this issue.
