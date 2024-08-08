@@ -3,7 +3,7 @@
   <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
   <p align="center">
-    <a href="https://mem0.ai/discord">Learn more</a>
+    <a href="https://mem0.ai">Learn more</a>
     ·
     <a href="https://mem0.ai/discord">Join Discord</a>
   </p>
@@ -23,11 +23,9 @@
 
 # Introduction
 
-* [Mem0](https://mem0.ai) enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions.
+[Mem0](https://mem0.ai)(pronounced "mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
 
-* Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
-
-Use cases enabled by Mem0 include:
+Mem0 empowers organizations and individuals to enhance:
 
 - **AI Assistants and agents**: Seamless conversations with a touch of déjà vu
 - **Personalized Learning**: Tailored content recommendations and progress tracking
@@ -55,21 +53,25 @@ Alternatively, you can use Mem0 with one click on the hosted platform [here](htt
 
 ### Basic Usage
 
-Mem0 supports a variety of LLMs, with details available in our [Supported LLMs documentation](https://docs.mem0.ai/llms). By default, Mem0 comes equipped with `gpt-4o`. To use it, simply set the keys in the environment variables.
+Mem0 requires an LLM to function, with `gpt-4o` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/llms).
 
-
-```python
-import os
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
-```
-
-Now, you can initialize the memory:
+First step is to instantiate the memory:
 
 ```python
 from mem0 import Memory
 
 m = Memory()
 ```
+
+<details>
+<summary>How to set OPENAI_API_KEY</summary>
+
+```python
+import os
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+```
+</details>
+
 
 You can perform the following task on the memory:
 
@@ -131,33 +133,6 @@ history = m.history(memory_id=<memory_id_1>)
 
 For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://docs.mem0.ai). Here, you can find more information on both the open-source version and the hosted [Mem0 Platform](https://app.mem0.ai).
 
-## Advanced Usage
-
-For production environments, you can use Qdrant as a vector store:
-
-```python
-from mem0 import Memory
-
-config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": "localhost",
-            "port": 6333,
-        }
-    },
-}
-
-m = Memory.from_config(config)
-```
-
-## Roadmap
-
-- Integration with various LLM providers
-- Support for LLM frameworks
-- Integration with AI Agents frameworks
-- Customizable memory creation/update rules
-
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mem0ai/mem0&type=Date)](https://star-history.com/#mem0ai/mem0&Date)
@@ -167,10 +142,8 @@ m = Memory.from_config(config)
 Join our community for support and discussions. If you have any questions, feel free to reach out to us using one of the following methods:
 
 - [Join our Discord](https://mem0.ai/discord)
-- [Join our Slack](https://mem0.ai/slack)
-- [Join our newsletter](https://mem0.ai/email)
 - [Follow us on Twitter](https://x.com/mem0ai)
-- [Email us](mailto:founders@mem0.ai)
+- [Email founders](mailto:founders@mem0.ai)
 
 ## Contributors
 
