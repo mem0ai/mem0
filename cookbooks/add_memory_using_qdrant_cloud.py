@@ -7,7 +7,7 @@ from mem0 import Memory
 load_dotenv()
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 USER_ID = "test"
-quadrant_host="668a5b8f-6635-45c1-b30f-41c6c2164929.us-east4-0.gcp.cloud.qdrant.io"
+quadrant_host="xx.gcp.cloud.qdrant.io"
 
 # creating the config attributes
 collection_name="memory" # this is the collection I created in QDRANT cloud
