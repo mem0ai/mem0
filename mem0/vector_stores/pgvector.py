@@ -49,8 +49,10 @@ class PGVector(VectorStoreBase):
         )
         self.cur = self.conn.cursor()
 
-        self.create_col(collection_name, embedding_model_dims)
-    
+        collections = self.list_cols()
+        if collection_name not in collections:
+            self.create_col(collection_name, embedding_model_dims)
+        
     def create_col(self, name, embedding_model_dims):
         """
         Create a new collection (table in PostgreSQL).
@@ -78,12 +80,6 @@ class PGVector(VectorStoreBase):
             payloads (List[Dict], optional): List of payloads corresponding to vectors.
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
-        if payloads is None:
-            payloads = [{}] * len(vectors)
-        if ids is None:
-            ids = [None] * len(vectors)
-        
-        # Convert payloads to JSON strings
         json_payloads = [json.dumps(payload) for payload in payloads]
 
         data = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, json_payloads)]
@@ -110,7 +106,7 @@ class PGVector(VectorStoreBase):
             for k, v in filters.items():
                 filter_conditions.append(f"payload->>%s = %s")
                 filter_params.extend([k, str(v)])
-                
+
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
         self.cur.execute(f"""

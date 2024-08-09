@@ -9,13 +9,16 @@ class PGVectorConfig(BaseModel):
     embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
     user: Optional[str] = Field(None, description="Database user")
     password: Optional[str] = Field(None, description="Database password")
-    host: Optional[str] = Field("127.0.0.1", description="Database host. Default is localhost")
-    port: Optional[int] = Field(5432, description="Database port. Default is 1536")
+    host: Optional[str] = Field(None, description="Database host. Default is localhost")
+    port: Optional[int] = Field(None, description="Database port. Default is 1536")
 
     @model_validator(mode="before")
-    def check_user_and_password(cls, values):
+    def check_auth_and_connection(cls, values):
         user, password = values.get("user"), values.get("password")
+        host, port = values.get("host"), values.get("port")
         if not user and not password:
             raise ValueError("Both 'user' and 'password' must be provided.")
+        if not host and not port:
+            raise ValueError("Both 'host' and 'port' must be provided.")
         return values
     
