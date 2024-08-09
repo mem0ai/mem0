@@ -237,6 +237,14 @@ class MemoryClient:
         capture_client_event("client.history", self)
         return response.json()
 
+    @api_error_handler
+    def users(self):
+        """Get all users, agents, and sessions for which memories exist."""
+        response = self.client.get("/entities/")
+        response.raise_for_status()
+        capture_client_event("client.users", self)
+        return response.json()
+
     def reset(self):
         """Reset the client. (Not implemented)
 
