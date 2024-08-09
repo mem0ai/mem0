@@ -13,7 +13,8 @@ class VectorStoreConfig(BaseModel):
 
     _provider_configs: Dict[str, str] = {
         "qdrant": "QdrantConfig",
-        "chroma": "ChromaDbConfig"
+        "chroma": "ChromaDbConfig",
+        "pgvector": "PGVectorConfig"
     }
 
     @model_validator(mode="after")

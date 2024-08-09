@@ -9,6 +9,7 @@ Mem0 includes built-in support for various popular databases. Memory can utilize
 <CardGroup>
     <Card title="Qdrant" href="#qdrant"></Card>
     <Card title="Chroma" href="#chroma"></Card>
+    <Card title="pgvector" href="#pgvector"></Card>
 </CardGroup>
 
 
@@ -55,6 +56,31 @@ config = {
         "config": {
             "collection_name": "test",
             "path": "db",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## pgvector
+
+[pgvector](https://github.com/pgvector/pgvector) is open-source vector similarity search for Postgres. 
+
+Here's how to use it:
+
+```python
+import os
+from mem0 import Memory
+
+
+config = {
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "user": "test",
+            "password": "123",
         }
     }
 }
