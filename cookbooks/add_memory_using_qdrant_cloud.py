@@ -6,13 +6,14 @@ from mem0 import Memory
 # Loading my API_KEY for OPENAI
 load_dotenv()
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-USER_ID = "rajib"
+USER_ID = "test"
 os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
+quadrant_host="668a5b8f-6635-45c1-b30f-41c6c2164929.us-east4-0.gcp.cloud.qdrant.io"
 
 # creating the config attributes
 collection_name="memory" # this is the collection I created in QDRABT cloud
 api_key=os.environ.get("QDRANT_API_KEY") # Getting the QDRANT api KEY
-host="668a5b8f-6635-45c1-b30f-41c6c2164929.us-east4-0.gcp.cloud.qdrant.io" #QDRANT HOST
+host=quadrant_host
 port=6333 #Default port for QDRANT cloud
 
 # Creating the config dict
