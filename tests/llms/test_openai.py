@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
 from mem0.llms.openai import OpenAILLM
-from mem0.configs.llms.base import BaseLlmConfig
 
 @pytest.fixture
 def mock_openai_client():
@@ -12,7 +11,7 @@ def mock_openai_client():
 
 
 def test_generate_response_without_tools(mock_openai_client):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = {"model":"gpt-4o", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = OpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -36,7 +35,7 @@ def test_generate_response_without_tools(mock_openai_client):
 
 
 def test_generate_response_with_tools(mock_openai_client):
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = {"model":"gpt-4o", "temperature":0.7, "max_tokens":100, "top_p":1.0}
     llm = OpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},

@@ -4,12 +4,11 @@ from typing import Dict, List, Optional
 import litellm
 
 from mem0.llms.base import LLMBase
-from mem0.configs.llms.base import BaseLlmConfig
 
 
 class LiteLLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
-        super().__init__(config)
+    def __init__(self, configDict: Optional[Dict] = None):
+        super().__init__(configDict)
 
         if not self.config.model:
             self.config.model="gpt-4o"

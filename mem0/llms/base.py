@@ -1,20 +1,20 @@
-from typing import Optional
+from typing import Optional, Dict
 from abc import ABC, abstractmethod
 
 from mem0.configs.llms.base import BaseLlmConfig
 
 
 class LLMBase(ABC):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, configDict: Optional[Dict] = None):
         """Initialize a base LLM class
 
         :param config: LLM configuration option class, defaults to None
         :type config: Optional[BaseLlmConfig], optional
         """
-        if config is None:
+        if configDict is None:
             self.config = BaseLlmConfig()
         else:
-            self.config = config
+            self.config = BaseLlmConfig(**configDict)
 
     @abstractmethod
     def generate_response(self, messages):

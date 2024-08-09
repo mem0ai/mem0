@@ -1,18 +1,18 @@
 import pytest
 from unittest.mock import Mock, patch
-from mem0.llms.groq import GroqLLM
+from mem0.llms.portkey import PortkeyLLM
 
 @pytest.fixture
-def mock_groq_client():
-    with patch('mem0.llms.groq.Groq') as mock_groq:
+def mock_portkey_client():
+    with patch('mem0.llms.portkey.Portkey') as mock_portkey:
         mock_client = Mock()
-        mock_groq.return_value = mock_client
+        mock_portkey.return_value = mock_client
         yield mock_client
 
 
-def test_generate_response_without_tools(mock_groq_client):
-    config = {"model":"llama3-70b-8192", "temperature":0.7, "max_tokens":100, "top_p":1.0}
-    llm = GroqLLM(config)
+def test_generate_response_without_tools(mock_portkey_client):
+    config = {"model":"gpt-4o", "temperature":0.7, "max_tokens":100, "top_p":1.0}
+    llm = PortkeyLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"}
@@ -20,12 +20,12 @@ def test_generate_response_without_tools(mock_groq_client):
     
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="I'm doing well, thank you for asking!"))]
-    mock_groq_client.chat.completions.create.return_value = mock_response
+    mock_portkey_client.chat.completions.create.return_value = mock_response
 
     response = llm.generate_response(messages)
 
-    mock_groq_client.chat.completions.create.assert_called_once_with(
-        model="llama3-70b-8192",
+    mock_portkey_client.chat.completions.create.assert_called_once_with(
+        model="gpt-4o",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -34,9 +34,9 @@ def test_generate_response_without_tools(mock_groq_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
-def test_generate_response_with_tools(mock_groq_client):
-    config = {"model":"llama3-70b-8192", "temperature":0.7, "max_tokens":100, "top_p":1.0}
-    llm = GroqLLM(config)
+def test_generate_response_with_tools(mock_portkey_client):
+    config = {"model":"gpt-4o", "temperature":0.7, "max_tokens":100, "top_p":1.0}
+    llm = PortkeyLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Add a new memory: Today is a sunny day."}
@@ -68,12 +68,12 @@ def test_generate_response_with_tools(mock_groq_client):
     
     mock_message.tool_calls = [mock_tool_call]
     mock_response.choices = [Mock(message=mock_message)]
-    mock_groq_client.chat.completions.create.return_value = mock_response
+    mock_portkey_client.chat.completions.create.return_value = mock_response
 
     response = llm.generate_response(messages, tools=tools)
 
-    mock_groq_client.chat.completions.create.assert_called_once_with(
-        model="llama3-70b-8192",
+    mock_portkey_client.chat.completions.create.assert_called_once_with(
+        model="gpt-4o",
         messages=messages,
         temperature=0.7,
         max_tokens=100,

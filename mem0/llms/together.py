@@ -7,11 +7,10 @@ except ImportError:
     raise ImportError("Together requires extra dependencies. Install with `pip install together`") from None
 
 from mem0.llms.base import LLMBase
-from mem0.configs.llms.base import BaseLlmConfig
 
 class TogetherLLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
-        super().__init__(config)
+    def __init__(self, configDict: Optional[Dict] = None):
+        super().__init__(configDict)
 
         if not self.config.model:
             self.config.model="mistralai/Mixtral-8x7B-Instruct-v0.1"
