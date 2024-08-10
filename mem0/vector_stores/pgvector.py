@@ -40,6 +40,8 @@ class PGVector(VectorStoreBase):
             host (str, optional): Database host
             port (int, optional): Database port
         """
+        self.collection_name = collection_name
+
         self.conn = psycopg2.connect(
             dbname=dbname,
             user=user,
@@ -70,12 +72,11 @@ class PGVector(VectorStoreBase):
         """)
         self.conn.commit()
 
-    def insert(self, name, vectors, payloads = None, ids = None):
+    def insert(self, vectors, payloads = None, ids = None):
         """
         Insert vectors into a collection.
 
         Args:
-            name (str): Name of the collection.
             vectors (List[List[float]]): List of vectors to insert.
             payloads (List[Dict], optional): List of payloads corresponding to vectors.
             ids (List[str], optional): List of IDs corresponding to vectors.
@@ -83,15 +84,14 @@ class PGVector(VectorStoreBase):
         json_payloads = [json.dumps(payload) for payload in payloads]
 
         data = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, json_payloads)]
-        execute_values(self.cur, f"INSERT INTO {name} (id, vector, payload) VALUES %s", data)
+        execute_values(self.cur, f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES %s", data)
         self.conn.commit()
 
-    def search(self, name, query, limit = 5, filters = None):
+    def search(self, query, limit = 5, filters = None):
         """
         Search for similar vectors.
 
         Args:
-            name (str): Name of the collection.
             query (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
@@ -111,7 +111,7 @@ class PGVector(VectorStoreBase):
 
         self.cur.execute(f"""
             SELECT id, vector <-> %s::vector AS distance, payload
-            FROM {name}
+            FROM {self.collection_name}
             {filter_clause}
             ORDER BY distance
             LIMIT %s
@@ -120,45 +120,42 @@ class PGVector(VectorStoreBase):
         results = self.cur.fetchall()
         return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
 
-    def delete(self, name, vector_id):
+    def delete(self, vector_id):
         """
         Delete a vector by ID.
 
         Args:
-            name (str): Name of the collection.
             vector_id (str): ID of the vector to delete.
         """
-        self.cur.execute(f"DELETE FROM {name} WHERE id = %s", (vector_id,))
+        self.cur.execute(f"DELETE FROM {self.collection_name} WHERE id = %s", (vector_id,))
         self.conn.commit()
 
-    def update(self, name, vector_id, vector = None, payload = None):
+    def update(self, vector_id, vector = None, payload = None):
         """
         Update a vector and its payload.
 
         Args:
-            name (str): Name of the collection.
             vector_id (str): ID of the vector to update.
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
         if vector:
-            self.cur.execute(f"UPDATE {name} SET vector = %s WHERE id = %s", (vector, vector_id))
+            self.cur.execute(f"UPDATE {self.collection_name} SET vector = %s WHERE id = %s", (vector, vector_id))
         if payload:
-            self.cur.execute(f"UPDATE {name} SET payload = %s WHERE id = %s", (psycopg2.extras.Json(payload), vector_id))
+            self.cur.execute(f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s", (psycopg2.extras.Json(payload), vector_id))
         self.conn.commit()
 
-    def get(self, name: str, vector_id: str) -> OutputData:
+    def get(self, vector_id) -> OutputData:
         """
         Retrieve a vector by ID.
 
         Args:
-            name (str): Name of the collection.
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
             OutputData: Retrieved vector.
         """
-        self.cur.execute(f"SELECT id, vector, payload FROM {name} WHERE id = %s", (vector_id,))
+        self.cur.execute(f"SELECT id, vector, payload FROM {self.collection_name} WHERE id = %s", (vector_id,))
         result = self.cur.fetchone()
         if not result:
             return None
@@ -174,22 +171,14 @@ class PGVector(VectorStoreBase):
         self.cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         return [row[0] for row in self.cur.fetchall()]
 
-    def delete_col(self, name: str):
-        """
-        Delete a collection.
-
-        Args:
-            name (str): Name of the collection to delete.
-        """
-        self.cur.execute(f"DROP TABLE IF EXISTS {name}")
+    def delete_col(self):
+        """ Delete a collection. """
+        self.cur.execute(f"DROP TABLE IF EXISTS {self.collection_name}")
         self.conn.commit()
 
-    def col_info(self, name: str) -> Dict[str, Any]:
+    def col_info(self):
         """
         Get information about a collection.
-
-        Args:
-            name (str): Name of the collection.
 
         Returns:
             Dict[str, Any]: Collection information.
@@ -197,11 +186,11 @@ class PGVector(VectorStoreBase):
         self.cur.execute(f"""
             SELECT 
                 table_name, 
-                (SELECT COUNT(*) FROM {name}) as row_count,
-                (SELECT pg_size_pretty(pg_total_relation_size('{name}'))) as total_size
+                (SELECT COUNT(*) FROM {self.collection_name}) as row_count,
+                (SELECT pg_size_pretty(pg_total_relation_size('{self.collection_name}'))) as total_size
             FROM information_schema.tables 
             WHERE table_schema = 'public' AND table_name = %s
-        """, (name,))
+        """, (self.collection_name,))
         result = self.cur.fetchone()
         return {
             "name": result[0],
@@ -209,12 +198,11 @@ class PGVector(VectorStoreBase):
             "size": result[2]
         }
 
-    def list(self, name: str, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters = None, limit = 100):
         """
         List all vectors in a collection.
 
         Args:
-            name (str): Name of the collection.
             filters (Dict, optional): Filters to apply to the list.
             limit (int, optional): Number of vectors to return. Defaults to 100.
 
@@ -233,7 +221,7 @@ class PGVector(VectorStoreBase):
 
         query = f"""
             SELECT id, vector, payload
-            FROM {name}
+            FROM {self.collection_name}
             {filter_clause}
             LIMIT %s
         """

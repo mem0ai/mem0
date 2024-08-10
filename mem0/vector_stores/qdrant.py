@@ -59,6 +59,7 @@ class Qdrant(VectorStoreBase):
             
             self.client = QdrantClient(**params)
         
+        self.collection_name = collection_name
         self.create_col(collection_name, embedding_model_dims)
 
     def create_col(self, name, vector_size, distance=Distance.COSINE):
@@ -82,12 +83,11 @@ class Qdrant(VectorStoreBase):
             vectors_config=VectorParams(size=vector_size, distance=distance),
         )
 
-    def insert(self, name, vectors, payloads=None, ids=None):
+    def insert(self, vectors, payloads=None, ids=None):
         """
         Insert vectors into a collection.
 
         Args:
-            name (str): Name of the collection.
             vectors (list): List of vectors to insert.
             payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
@@ -100,7 +100,7 @@ class Qdrant(VectorStoreBase):
             )
             for idx, vector in enumerate(vectors)
         ]
-        self.client.upsert(collection_name=name, points=points)
+        self.client.upsert(collection_name=self.collection_name, points=points)
 
     def _create_filter(self, filters):
         """
@@ -126,12 +126,11 @@ class Qdrant(VectorStoreBase):
                 )
         return Filter(must=conditions) if conditions else None
 
-    def search(self, name, query, limit=5, filters=None):
+    def search(self, query, limit=5, filters=None):
         """
         Search for similar vectors.
 
         Args:
-            name (str): Name of the collection.
             query (list): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
@@ -141,54 +140,51 @@ class Qdrant(VectorStoreBase):
         """
         query_filter = self._create_filter(filters) if filters else None
         hits = self.client.search(
-            collection_name=name,
+            collection_name=self.collection_name,
             query_vector=query,
             query_filter=query_filter,
             limit=limit,
         )
         return hits
 
-    def delete(self, name, vector_id):
+    def delete(self, vector_id):
         """
         Delete a vector by ID.
 
         Args:
-            name (str): Name of the collection.
             vector_id (int): ID of the vector to delete.
         """
         self.client.delete(
-            collection_name=name,
+            collection_name=self.collection_name,
             points_selector=PointIdsList(
                 points=[vector_id],
             ),
         )
 
-    def update(self, name, vector_id, vector=None, payload=None):
+    def update(self, vector_id, vector=None, payload=None):
         """
         Update a vector and its payload.
 
         Args:
-            name (str): Name of the collection.
             vector_id (int): ID of the vector to update.
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
         point = PointStruct(id=vector_id, vector=vector, payload=payload)
-        self.client.upsert(collection_name=name, points=[point])
+        self.client.upsert(collection_name=self.collection_name, points=[point])
 
-    def get(self, name, vector_id):
+    def get(self, vector_id):
         """
         Retrieve a vector by ID.
 
         Args:
-            name (str): Name of the collection.
             vector_id (int): ID of the vector to retrieve.
 
         Returns:
             dict: Retrieved vector.
         """
         result = self.client.retrieve(
-            collection_name=name, ids=[vector_id], with_payload=True
+            collection_name=self.collection_name, ids=[vector_id], with_payload=True
         )
         return result[0] if result else None
 
@@ -201,33 +197,24 @@ class Qdrant(VectorStoreBase):
         """
         return self.client.get_collections()
 
-    def delete_col(self, name):
-        """
-        Delete a collection.
+    def delete_col(self):
+        """ Delete a collection. """
+        self.client.delete_collection(collection_name=self.collection_name)
 
-        Args:
-            name (str): Name of the collection to delete.
-        """
-        self.client.delete_collection(collection_name=name)
-
-    def col_info(self, name):
+    def col_info(self):
         """
         Get information about a collection.
-
-        Args:
-            name (str): Name of the collection.
 
         Returns:
             dict: Collection information.
         """
-        return self.client.get_collection(collection_name=name)
+        return self.client.get_collection(collection_name=self.collection_name)
 
-    def list(self, name, filters=None, limit=100):
+    def list(self, filters=None, limit=100):
         """
         List all vectors in a collection.
 
         Args:
-            name (str): Name of the collection.
             limit (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
@@ -235,7 +222,7 @@ class Qdrant(VectorStoreBase):
         """
         query_filter = self._create_filter(filters) if filters else None
         result = self.client.scroll(
-            collection_name=name,
+            collection_name=self.collection_name,
             scroll_filter=query_filter,
             limit=limit,
             with_payload=True,
