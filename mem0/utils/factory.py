@@ -12,13 +12,12 @@ def load_class(class_type):
 
 class LlmFactory:
     provider_to_class = {
-        "ollama": "mem0.llms.ollama.py.OllamaLLM",
+        "ollama": "mem0.llms.ollama.OllamaLLM",
         "openai": "mem0.llms.openai.OpenAILLM",
         "groq": "mem0.llms.groq.GroqLLM",
         "together": "mem0.llms.together.TogetherLLM",
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
-        "ollama": "mem0.llms.ollama.OllamaLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
         "lmstudio": "mem0.llms.lm_studio.LMStudioLLM"
     }

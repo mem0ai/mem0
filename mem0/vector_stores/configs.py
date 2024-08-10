@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Type
+from typing import Optional, Dict
 from pydantic import BaseModel, Field, model_validator
 
 class VectorStoreConfig(BaseModel):

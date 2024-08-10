@@ -1,47 +1,71 @@
 <p align="center">
-  <img src="docs/images/banner.png" width="800px" alt="Mem0 Logo">
+  <a href="https://github.com/mem0ai/mem0">
+  <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
+  </a>
+  <p align="center">
+    <a href="https://mem0.ai">Learn more</a>
+    ·
+    <a href="https://mem0.ai/discord">Join Discord</a>
+  </p>
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai/slack">
-    <img src="https://img.shields.io/badge/slack-mem0-brightgreen.svg?logo=slack" alt="Mem0 Slack">
-  </a>
   <a href="https://mem0.ai/discord">
     <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Mem0 Discord">
   </a>
-  <a href="https://x.com/mem0ai">
-    <img src="https://img.shields.io/twitter/follow/mem0ai" alt="Mem0 Twitter">
+  <a href="https://pepy.tech/project/mem0ai">
+    <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads" >
   </a>
-  <a href="https://www.ycombinator.com/companies/mem0"><img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24"></a>
-  <a href="https://www.npmjs.com/package/mem0ai"><img src="https://img.shields.io/npm/v/mem0ai?style=flat-square&label=npm+mem0ai" alt="mem0ai npm package"></a>
-  <a href="https://pypi.python.org/pypi/mem0ai"><img src="https://img.shields.io/pypi/v/mem0ai.svg?style=flat-square&label=pypi+mem0ai" alt="mem0ai Python package on PyPi"></a>
-  <a href="https://mem0.ai/email"><img src="https://img.shields.io/badge/substack-mem0-brightgreen.svg?logo=substack&label=mem0+substack" alt="Mem0 newsletter"></a>
+  <a href="https://www.ycombinator.com/companies/mem0">
+    <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
+  </a>
 </p>
 
-# Mem0: The Memory Layer for Personalized AI
+# Introduction
 
-Mem0 provides an intelligent, adaptive memory layer for Large Language Models (LLMs), enhancing personalized AI experiences by retaining and utilizing contextual information across diverse applications. This enhanced memory capability is crucial for applications ranging from customer support and healthcare diagnostics to autonomous systems and personalized content recommendations, allowing AI to remember user preferences, adapt to individual needs, and continuously improve over time.
+[Mem0](https://mem0.ai)(pronounced "mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
 
-## 🚀 Quickstart
+### Core Features
 
-### Installation
+- **Multi-Level Memory**: User, Session, and AI Agent memory retention
+- **Adaptive Personalization**: Continuous improvement based on interactions
+- **Developer-Friendly API**: Simple integration into various applications
+- **Cross-Platform Consistency**: Uniform behavior across devices
+- **Managed Service**: Hassle-free hosted solution
 
-The Mem0 package can be installed directly from pip command in the terminal.
+### Use Cases
+
+Mem0 empowers organizations and individuals to enhance:
+
+- **AI Assistants and agents**: Seamless conversations with a touch of déjà vu
+- **Personalized Learning**: Tailored content recommendations and progress tracking
+- **Customer Support**: Context-aware assistance with user preference memory
+- **Healthcare**: Patient history and treatment plan management
+- **Virtual Companions**: Deeper user relationships through conversation memory
+- **Productivity**: Streamlined workflows based on user habits and task history
+- **Gaming**: Adaptive environments reflecting player choices and progress
+
+## Get Started
+
+The easiest way to set up Mem0 is through the managed [Mem0 Platform](https://app.mem0.ai). This hosted solution offers automatic updates, advanced analytics, and dedicated support. [Sign up](https://app.mem0.ai) to get started.
+
+If you prefer to self-host, use the open-source Mem0 package. Follow the [installation instructions](#install) to get started.
+
+## Installation Instructions <a name="install"></a>
+
+Install the Mem0 package via pip:
 
 ```bash
 pip install mem0ai
 ```
 
-### Basic Usage (Open Source)
+Alternatively, you can use Mem0 with one click on the hosted platform [here](https://app.mem0.ai/).
 
-Mem0 supports various LLMs, details of which can be found in our docs, checkout [Supported LLMs](https://docs.mem0.ai/llms). By default, Mem0 is equipped with ```gpt-4o```, and to use it, you need to set the keys in the environment variable.
+### Basic Usage
 
-```python
-import os
-os.environ["OPENAI_API_KEY"] = "sk-xxx"
-```
+Mem0 requires an LLM to function, with `gpt-4o` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/llms).
 
-Now, you can simply initialize the memory.
+First step is to instantiate the memory:
 
 ```python
 from mem0 import Memory
@@ -49,12 +73,23 @@ from mem0 import Memory
 m = Memory()
 ```
 
-You can perform the following task on the memory.
-1. Add: adds memory
-2. Update: update memory of a given memory_id
-3. Search: fetch memories based on a query
-4. Get: return memories for a certain user/agent/session
-5. History: describes how a memory has changed over time for a specific memory ID
+<details>
+<summary>How to set OPENAI_API_KEY</summary>
+
+```python
+import os
+os.environ["OPENAI_API_KEY"] = "sk-xxx"
+```
+</details>
+
+
+You can perform the following task on the memory:
+
+1. Add: Store a memory from any unstructured text
+2. Update: Update memory of a given memory_id
+3. Search: Fetch memories based on a query
+4. Get: Return memories for a certain user/agent/session
+5. History: Describe how a memory has changed over time for a specific memory ID
 
 ```python
 # 1. Add: Store a memory from any unstructured text
@@ -92,121 +127,35 @@ history = m.history(memory_id=<memory_id_1>)
 # Logs corresponding to memory_id_1 --> {'prev_value': 'Working on improving tennis skills and interested in online courses for tennis.', 'new_value': 'Likes to play tennis on weekends' }
 ```
 
-### Mem0 Platform
-
-```python
-from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key") # get api_key from https://app.mem0.ai/
-
-# Store messages 
-messages = [
-    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
-    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
-]
-result = client.add(messages, user_id="alex")
-print(result)
-
-# Retrieve memories
-all_memories = client.get_all(user_id="alex")
-print(all_memories)
-
-# Search memories
-query = "What do you know about me?"
-related_memories = client.search(query, user_id="alex")
-
-# Get memory history
-history = client.history(memory_id="m1")
-print(history)
-```
-
 > [!TIP]
-> If you are looking for a hosted version and don't want to setup the infrastucture yourself, checkout [Mem0 Platform Docs](https://docs.mem0.ai/platform/quickstart) to get started in minutes.
+> If you prefer a hosted version without the need to set up infrastructure yourself, check out the [Mem0 Platform](https://app.mem0.ai/) to get started in minutes.
 
-## 🔑 Core Features
+## Documentation
 
-- **Multi-Level Memory**: User, Session, and AI Agent memory retention
-- **Adaptive Personalization**: Continuous improvement based on interactions
-- **Developer-Friendly API**: Simple integration into various applications
-- **Cross-Platform Consistency**: Uniform behavior across devices
-- **Managed Service**: Hassle-free hosted solution
-
-## 📖 Documentation
-
-For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://docs.mem0.ai).
-
-## 🔧 Advanced Usage
-
-For production environments, you can use Qdrant as a vector store:
-
-```python
-from mem0 import Memory
-
-config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": "localhost",
-            "port": 6333,
-        }
-    },
-}
-
-m = Memory.from_config(config)
-```
-
-## 🗺️ Roadmap
-
-- Integration with various LLM providers
-- Support for LLM frameworks
-- Integration with AI Agents frameworks
-- Customizable memory creation/update rules
-- Hosted platform support
-
-## 💰 Pricing
-
-Choose the Mem0 plan that best fits your needs:
-
-### Open Source (Self-hosted)
-Perfect for developers and small teams who want full control over their infrastructure.
-
-### Pro (Hosted)
-Ideal for growing businesses that need a reliable, managed solution with generous free usage. Try the platform [here](https://app.mem0.ai)
-
-### Enterprise (Hosted)
-Designed for large organizations with advanced security, compliance, and scalability needs.
-
-| Feature | Open Source | Pro | Enterprise |
-|---------|-------------|-----|------------|
-| Hosting | Self-hosted | Hosted | Hosted |
-| API Calls | Unlimited | 100K free/month | Custom limits |
-| Support | Community | Email | Dedicated support |
-| Updates | Manual | Automatic | Automatic |
-| SSO | ❌ | ❌ | ✅ |
-| Audit Logs | ❌ | ❌ | ✅ |
-| Custom Integrations | ❌ | ❌ | ✅ |
-| SLA | ❌ | ❌ | ✅ |
-| Advanced Analytics | ❌ | Basic | Advanced |
-| Multi-region Deployment | ❌ | ❌ | ✅ |
-
-[Contact us](mailto:taranjeet@mem0.ai) for Enterprise pricing and custom solutions.
+For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://docs.mem0.ai). Here, you can find more information on both the open-source version and the hosted [Mem0 Platform](https://app.mem0.ai).
 
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mem0ai/mem0&type=Date)](https://star-history.com/#mem0ai/mem0&Date)
 
-## 🙋‍♂️ Support
-Join our Slack or Discord community for support and discussions.
-If you have any questions, feel free to reach out to us using one of the following methods:
+## Support
+
+Join our community for support and discussions. If you have any questions, feel free to reach out to us using one of the following methods:
 
 - [Join our Discord](https://mem0.ai/discord)
-- [Join our Slack](https://mem0.ai/slack)
-- [Join our newsletter](https://mem0.ai/email)
 - [Follow us on Twitter](https://x.com/mem0ai)
-- [Email us](mailto:founders@mem0.ai)
+- [Email founders](mailto:founders@mem0.ai)
 
-## 📝 License
+## Contributors
+
+Join our [Discord community](https://mem0.ai/discord) to learn about memory management for AI agents and LLMs, and connect with Mem0 users and contributors. Share your ideas, questions, or feedback in our [GitHub Issues](https://github.com/mem0ai/mem0/issues).
+
+We value and appreciate the contributions of our community. Special thanks to our contributors for helping us improve Mem0.
+
+<a href="https://github.com/mem0ai/mem0/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=mem0ai/mem0" />
+</a>
+
+## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
-
-> [!NOTE]
-> The Mem0 repository now also includes the Embedchain project. We continue to maintain and support Embedchain ❤️. You can find the Embedchain codebase in the [embedchain](https://github.com/mem0ai/mem0/tree/main/embedchain) directory.
