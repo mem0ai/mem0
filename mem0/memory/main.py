@@ -40,6 +40,14 @@ class Memory(MemoryBase):
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
+        self.collection_name = (
+            self.config.vector_store.config.collection_name
+            if "collection_name" in self.config.vector_store.config
+            else "mem0"
+        )
+        self.limit = self.config.limit
+        self.similarity_threshold = self.config.similarity_threshold
+
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 

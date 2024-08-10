@@ -40,6 +40,14 @@ class MemoryConfig(BaseModel):
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
     )
+    limit: int = Field(
+        description="The maximum number of memories to return",
+        default=5,
+    )
+    similarity_threshold: float = Field(
+        description="The similarity threshold for the memories",
+        default=0.0,
+    )
     graph_store: GraphStoreConfig = Field(
         description="Configuration for the graph",
         default_factory=GraphStoreConfig,
