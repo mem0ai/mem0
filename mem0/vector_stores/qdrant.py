@@ -28,6 +28,7 @@ class Qdrant(VectorStoreBase):
         path,
         url,
         api_key,
+        on_disk
     ):
         """
         Initialize the Qdrant vector store.
@@ -39,6 +40,7 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database.
             url (str, optional): Full URL for Qdrant server.
             api_key (str, optional): API key for Qdrant server.
+            on_disk (bool, optional): Enables persistant storage.
         """
         if client:
             self.client = client
@@ -51,17 +53,17 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
-                
             if not params:
                 params["path"] = path
-                if os.path.exists(path) and os.path.isdir(path):
-                    shutil.rmtree(path)
+                if not on_disk:
+                    if os.path.exists(path) and os.path.isdir(path):
+                        shutil.rmtree(path)
             
             self.client = QdrantClient(**params)
         
-        self.create_col(collection_name, embedding_model_dims)
+        self.create_col(collection_name, embedding_model_dims, on_disk)
 
-    def create_col(self, name, vector_size, distance=Distance.COSINE):
+    def create_col(self, name, vector_size, on_disk, distance=Distance.COSINE):
         """
         Create a new collection.
 
@@ -79,7 +81,7 @@ class Qdrant(VectorStoreBase):
 
         self.client.create_collection(
             collection_name=name,
-            vectors_config=VectorParams(size=vector_size, distance=distance),
+            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
         )
 
     def insert(self, name, vectors, payloads=None, ids=None):
