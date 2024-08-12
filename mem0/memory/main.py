@@ -94,7 +94,6 @@ class Memory(MemoryBase):
             ]
         )
         existing_memories = self.vector_store.search(
-            name=self.collection_name,
             query=embeddings,
             limit=5,
             filters=filters,
@@ -169,7 +168,7 @@ class Memory(MemoryBase):
             dict: Retrieved memory.
         """
         capture_event("mem0.get", self, {"memory_id": memory_id})
-        memory = self.vector_store.get(name=self.collection_name, vector_id=memory_id)
+        memory = self.vector_store.get(vector_id=memory_id)
         if not memory:
             return None
         
@@ -210,9 +209,7 @@ class Memory(MemoryBase):
             filters["run_id"] = run_id
 
         capture_event("mem0.get_all", self, {"filters": len(filters), "limit": limit})
-        memories = self.vector_store.list(
-            name=self.collection_name, filters=filters, limit=limit
-        )
+        memories = self.vector_store.list(filters=filters, limit=limit)
 
         excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
         return [
@@ -258,9 +255,7 @@ class Memory(MemoryBase):
 
         capture_event("mem0.search", self, {"filters": len(filters), "limit": limit})
         embeddings = self.embedding_model.embed(query)
-        memories = self.vector_store.search(
-            name=self.collection_name, query=embeddings, limit=limit, filters=filters
-        )
+        memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
 
         excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
 
@@ -330,7 +325,7 @@ class Memory(MemoryBase):
             )
 
         capture_event("mem0.delete_all", self, {"filters": len(filters)})
-        memories = self.vector_store.list(name=self.collection_name, filters=filters)[0]
+        memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory_tool(memory.id)
         return {'message': 'Memories deleted successfully!'}
@@ -358,7 +353,6 @@ class Memory(MemoryBase):
         metadata["created_at"] = datetime.now(pytz.timezone('US/Pacific')).isoformat()
 
         self.vector_store.insert(
-            name=self.collection_name,
             vectors=[embeddings],
             ids=[memory_id],
             payloads=[metadata],
@@ -367,9 +361,7 @@ class Memory(MemoryBase):
         return memory_id
 
     def _update_memory_tool(self, memory_id, data, metadata=None):
-        existing_memory = self.vector_store.get(
-            name=self.collection_name, vector_id=memory_id
-        )
+        existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = metadata or {}
@@ -387,7 +379,6 @@ class Memory(MemoryBase):
                
         embeddings = self.embedding_model.embed(data)
         self.vector_store.update(
-            name=self.collection_name,
             vector_id=memory_id,
             vector=embeddings,
             payload=new_metadata,
@@ -397,18 +388,16 @@ class Memory(MemoryBase):
 
     def _delete_memory_tool(self, memory_id):
         logging.info(f"Deleting memory with {memory_id=}")
-        existing_memory = self.vector_store.get(
-            name=self.collection_name, vector_id=memory_id
-        )
+        existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
-        self.vector_store.delete(name=self.collection_name, vector_id=memory_id)
+        self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(memory_id, prev_value, None, "DELETE", is_deleted=1)
 
     def reset(self):
         """
         Reset the memory store.
         """
-        self.vector_store.delete_col(name=self.collection_name)
+        self.vector_store.delete_col()
         self.db.reset()
         capture_event("mem0.reset", self)
 

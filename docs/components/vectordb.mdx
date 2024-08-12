@@ -9,6 +9,7 @@ Mem0 includes built-in support for various popular databases. Memory can utilize
 <CardGroup>
     <Card title="Qdrant" href="#qdrant"></Card>
     <Card title="Chroma" href="#chroma"></Card>
+    <Card title="pgvector" href="#pgvector"></Card>
 </CardGroup>
 
 
@@ -22,6 +23,7 @@ To use Qdrant you can do like this:
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
     "vector_store": {
@@ -48,6 +50,7 @@ To use ChromaDB you can do like this:
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
     "vector_store": {
@@ -55,6 +58,34 @@ config = {
         "config": {
             "collection_name": "test",
             "path": "db",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## pgvector
+
+[pgvector](https://github.com/pgvector/pgvector) is open-source vector similarity search for Postgres. After connecting with postgres run `CREATE EXTENSION IF NOT EXISTS vector;` to create the vector extension.
+
+Here's how to use it:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "user": "test",
+            "password": "123",
+            "host": "127.0.0.1",
+            "port": "5432",
         }
     }
 }
