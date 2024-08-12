@@ -44,10 +44,6 @@ class Qdrant(VectorStoreBase):
             self.client = client
         else:
             params = {}
-            if path:
-                params["path"] = path
-                if os.path.exists(path) and os.path.isdir(path):
-                    shutil.rmtree(path)
             if api_key:
                 params["api_key"] = api_key
             if url:
@@ -55,6 +51,12 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
+                
+            if not params:
+                params["path"] = path
+                if os.path.exists(path) and os.path.isdir(path):
+                    shutil.rmtree(path)
+            
             self.client = QdrantClient(**params)
         
         self.create_col(collection_name, embedding_model_dims)

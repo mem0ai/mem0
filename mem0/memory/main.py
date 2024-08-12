@@ -109,7 +109,7 @@ class Memory(MemoryBase):
             for mem in existing_memories
         ]
         serialized_existing_memories = [
-            item.model_dump(include={"id", "text", "score"})
+            item.model_dump(include={"id", "memory", "score"})
             for item in existing_memories
         ]
         logging.info(f"Total existing memories: {len(existing_memories)}")
