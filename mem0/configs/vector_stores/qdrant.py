@@ -14,6 +14,7 @@ class QdrantConfig(BaseModel):
     path: Optional[str] = Field("/tmp/qdrant", description="Path for local Qdrant database")
     url: Optional[str] = Field(None, description="Full URL for Qdrant server")
     api_key: Optional[str] = Field(None, description="API key for Qdrant server")
+    on_disk: Optional[bool]= Field(False, description="Enables persistant storage")
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
