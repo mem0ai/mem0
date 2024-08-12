@@ -10,9 +10,10 @@ class BaseEmbedderConfig(ABC):
         self,
         model: Optional[str] = None,
         embedding_dims: Optional[int] = None,
-
         # Ollama specific
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        # Huggingface specific
+        model_kwargs: Optional[dict] = None
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -23,6 +24,9 @@ class BaseEmbedderConfig(ABC):
         :type embedding_dims: Optional[int], optional
         :param base_url: Base URL for the Ollama API, defaults to None
         :type base_url: Optional[str], optional
+        :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
+        :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
+
         """
         
         self.model = model
@@ -30,3 +34,6 @@ class BaseEmbedderConfig(ABC):
 
         # Ollama specific
         self.base_url = base_url
+
+        # Huggingface specific
+        self.model_kwargs = model_kwargs or {}
