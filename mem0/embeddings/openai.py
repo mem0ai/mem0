@@ -10,11 +10,12 @@ class OpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "text-embedding-3-small"
-        self.config.embedding_dims = self.config.embedding_dims or 1536
+        if not self.config.model:
+            self.config.model="text-embedding-3-small"
+        if not self.config.embedding_dims:
+            self.config.embedding_dims=1536
 
-        api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI()
 
     def embed(self, text):
         """
