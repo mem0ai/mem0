@@ -21,8 +21,9 @@ class BaseLlmConfig(ABC):
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
 
-        # Ollama specific
-        ollama_base_url: Optional[str] = None
+
+        # LM Studio specific
+        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1"
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -49,8 +50,8 @@ class BaseLlmConfig(ABC):
         :type site_url: Optional[str], optional
         :param app_name: Controls the Openrouter app name used, defaults to None
         :type app_name: Optional[str], optional
-        :param ollama_base_url: The base URL of the LLM, defaults to None
-        :type ollama_base_url: Optional[str], optional
+        :param lmstudio_base_url: The base URL of the LLM Studio, defaults to "http://localhost:1234/v1"
+        :type lmstudio_base_url: Optional[str], optional
         """
         
         self.model = model
@@ -66,5 +67,5 @@ class BaseLlmConfig(ABC):
         self.site_url = site_url
         self.app_name = app_name
 
-        # Ollama specific
-        self.ollama_base_url = ollama_base_url
+        # LM Studio specific
+        self.lmstudio_base_url = lmstudio_base_url

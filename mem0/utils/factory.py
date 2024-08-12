@@ -18,6 +18,7 @@ class LlmFactory:
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
+        "lmstudio": "mem0.llms.lm_studio.LMStudioLLM"
     }
 
     @classmethod
