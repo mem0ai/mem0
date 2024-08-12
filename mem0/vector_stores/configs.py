@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the vector store (e.g., 'qdrant', 'chromadb')",
+        description="Provider of the vector store (e.g., 'qdrant', 'chroma')",
         default="qdrant",
     )
     config: Optional[Dict] = Field(

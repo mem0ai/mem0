@@ -1,0 +1,64 @@
+---
+title: 🧩 Embedding models
+---
+
+## Overview
+
+Mem0 offers support for various embedding models, allowing users to choose the one that best suits their needs.
+
+<CardGroup cols={3}>
+    <Card title="OpenAI" href="#openai"></Card>
+    <Card title="Ollama" href="#ollama"></Card>
+</CodeGroup>
+
+> When using `Qdrant` as a vector database, ensure you update the `embedding_model_dims` to match the dimensions of the embedding model you are using.
+
+## OpenAI
+
+To use OpenAI embedding models, set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+Example of how to select the desired embedding model:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+## Ollama
+
+You can use embedding models from Ollama to run Mem0 locally.
+
+Here's how to select it:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "ollama",
+        "config": {
+            "model": "mxbai-embed-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```

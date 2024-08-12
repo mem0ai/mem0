@@ -18,7 +18,7 @@ class OllamaEmbedding(EmbeddingBase):
         if not self.config.embedding_dims:
             self.config.embedding_dims=512
             
-        self.client = Client(host=self.config.base_url)
+        self.client = Client(host=self.config.ollama_base_url)
         self._ensure_model_exists()
 
     def _ensure_model_exists(self):

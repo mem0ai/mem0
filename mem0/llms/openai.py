@@ -14,10 +14,11 @@ class OpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model="gpt-4o"
 
-        if os.environ.get("OPENROUTER_API_KEY"):
+        if os.environ.get("OPENROUTER_API_KEY"): # Use OpenRouter
             self.client = OpenAI(api_key=os.environ.get("OPENROUTER_API_KEY"), base_url=self.config.openrouter_base_url)
         else:
-            self.client = OpenAI()
+            api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
+            self.client = OpenAI(api_key=api_key)
     
     def _parse_response(self, response, tools):
         """
