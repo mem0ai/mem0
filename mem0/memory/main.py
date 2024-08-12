@@ -28,7 +28,7 @@ setup_config()
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
-        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider)
+        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         self.vector_store = VectorStoreFactory.create(self.config.vector_store.provider, self.config.vector_store.config)
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
@@ -366,6 +366,7 @@ class Memory(MemoryBase):
 
         new_metadata = metadata or {}
         new_metadata["data"] = data
+        new_metadata["hash"] = existing_memory.payload.get("hash")
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(pytz.timezone('US/Pacific')).isoformat()
         

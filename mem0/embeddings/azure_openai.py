@@ -1,20 +1,19 @@
-import os
 from typing import Optional
 
-from openai import OpenAI
+from openai import AzureOpenAI
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
-class OpenAIEmbedding(EmbeddingBase):
+class AzureOpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
-    
-        self.config.model = self.config.model or "text-embedding-3-small"
-        self.config.embedding_dims = self.config.embedding_dims or 1536
-
-        api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-        self.client = OpenAI(api_key=api_key)
+        
+        if self.config.model is None:
+            self.config.model = "text-embedding-3-small"
+        if self.config.embedding_dims is None:
+            self.config.embedding_dims = 1536
+        self.client = AzureOpenAI()
 
     def embed(self, text):
         """
