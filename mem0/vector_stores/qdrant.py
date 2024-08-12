@@ -60,9 +60,9 @@ class Qdrant(VectorStoreBase):
             self.client = QdrantClient(**params)
         
         self.collection_name = collection_name
-        self.create_col(collection_name, embedding_model_dims)
+        self.create_col(embedding_model_dims)
 
-    def create_col(self, name, vector_size, distance=Distance.COSINE):
+    def create_col(self, vector_size, distance=Distance.COSINE):
         """
         Create a new collection.
 
@@ -74,12 +74,12 @@ class Qdrant(VectorStoreBase):
         # Skip creating collection if already exists
         response = self.list_cols()
         for collection in response.collections:
-            if collection.name == name:
-                logging.debug(f"Collection {name} already exists. Skipping creation.")
+            if collection.name == self.collection_name:
+                logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 return
 
         self.client.create_collection(
-            collection_name=name,
+            collection_name=self.collection_name,
             vectors_config=VectorParams(size=vector_size, distance=distance),
         )
 

@@ -53,9 +53,9 @@ class PGVector(VectorStoreBase):
 
         collections = self.list_cols()
         if collection_name not in collections:
-            self.create_col(collection_name, embedding_model_dims)
+            self.create_col(embedding_model_dims)
         
-    def create_col(self, name, embedding_model_dims):
+    def create_col(self, embedding_model_dims):
         """
         Create a new collection (table in PostgreSQL).
 
@@ -64,7 +64,7 @@ class PGVector(VectorStoreBase):
             embedding_model_dims (int, optional): Dimension of the embedding vector.
         """
         self.cur.execute(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
+            CREATE TABLE IF NOT EXISTS {self.collection_name} (
                 id UUID PRIMARY KEY,
                 vector vector({embedding_model_dims}),
                 payload JSONB
