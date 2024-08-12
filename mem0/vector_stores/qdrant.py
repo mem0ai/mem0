@@ -62,7 +62,7 @@ class Qdrant(VectorStoreBase):
             self.client = QdrantClient(**params)
         
         self.collection_name = collection_name
-        self.create_col(embedding_model_dims)
+        self.create_col(embedding_model_dims, on_disk)
 
     def create_col(self, vector_size, on_disk, distance=Distance.COSINE):
         """
