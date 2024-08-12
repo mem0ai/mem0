@@ -10,13 +10,10 @@ class BaseEmbedderConfig(ABC):
         self,
         model: Optional[str] = None,
         embedding_dims: Optional[int] = None,
-        api_key: Optional[str] = None,
-
         # Ollama specific
-        ollama_base_url: Optional[str] = None,
-
-        # LM Studio specific
-        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1"
+        base_url: Optional[str] = None,
+        # Huggingface specific
+        model_kwargs: Optional[dict] = None
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -25,20 +22,18 @@ class BaseEmbedderConfig(ABC):
         :type model: Optional[str], optional
         :param embedding_dims: The number of dimensions in the embedding, defaults to None
         :type embedding_dims: Optional[int], optional
-        :param api_key: API key to use, defaults to None
-        :type api_key: Optional[str], optional
-        :param ollama_base_url: Base URL for the Ollama API, defaults to None
-        :type ollama_base_url: Optional[str], optional
-        :param lmstudio_base_url: Base URL for the LM Studio, defaults to "http://localhost:1234/v1"
-        :type lmstudio_base_url: Optional[str], optional
+        :param base_url: Base URL for the Ollama API, defaults to None
+        :type base_url: Optional[str], optional
+        :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
+        :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
+
         """
         
         self.model = model
         self.embedding_dims = embedding_dims
-        self.api_key = api_key
 
         # Ollama specific
-        self.ollama_base_url = ollama_base_url
+        self.base_url = base_url
 
-        # LM Studio specific
-        self.lmstudio_base_url = lmstudio_base_url
+        # Huggingface specific
+        self.model_kwargs = model_kwargs or {}

@@ -3,7 +3,6 @@ import importlib
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 
-
 def load_class(class_type):
     module_path, class_name = class_type.rsplit(".", 1)
     module = importlib.import_module(module_path)
@@ -36,7 +35,8 @@ class EmbedderFactory:
     provider_to_class = {
         "openai": "mem0.embeddings.openai.OpenAIEmbedding",
         "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
-        "lmstudio": "mem0.embeddings.lm_studio.LMStudioEmbedding"
+        "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
+        "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",
     }
 
     @classmethod
