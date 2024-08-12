@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -20,5 +20,15 @@ class PGVectorConfig(BaseModel):
             raise ValueError("Both 'user' and 'password' must be provided.")
         if not host and not port:
             raise ValueError("Both 'host' and 'port' must be provided.")
+        return values
+    
+    @model_validator(mode="before")
+    @classmethod
+    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        allowed_fields = set(cls.model_fields.keys())
+        input_fields = set(values.keys())
+        extra_fields = input_fields - allowed_fields
+        if extra_fields:
+            raise ValueError(f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}")
         return values
     
