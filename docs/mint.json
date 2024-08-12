@@ -70,6 +70,10 @@
           "pages": ["components/vectordb"]
         },
         {
+          "group": "Embedding Models",
+          "pages": ["components/embedders"]
+        },
+        {
           "group": "Features",
           "pages": ["features/openai_compatibility"]
         }
