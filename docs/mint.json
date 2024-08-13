@@ -66,8 +66,19 @@
           "pages": ["components/llms"]
         },
         {
-          "group": "Vector Database",
-          "pages": ["components/vectordb"]
+          "group": "Vector Databases",
+          "pages": [
+            "components/vectordbs/overview",
+            "components/vectordbs/config",
+            {
+              "group": "Supported Vector Databases",
+              "pages": [
+                "components/vectordbs/dbs/chroma",
+                "components/vectordbs/dbs/pgvector",
+                "components/vectordbs/dbs/qdrant"
+              ]
+            }
+          ]
         },
         {
           "group": "Embedding Models",
