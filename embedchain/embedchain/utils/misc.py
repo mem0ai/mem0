@@ -418,6 +418,7 @@ def validate_config(config_data):
                     "vllm",
                     "groq",
                     "nvidia",
+                    "octoai",
                 ),
                 Optional("config"): {
                     Optional("model"): str,
