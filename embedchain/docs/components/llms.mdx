@@ -25,6 +25,7 @@ Embedchain comes with built-in support for various popular large language models
   <Card title="AWS Bedrock" href="#aws-bedrock"></Card>
   <Card title="Groq" href="#groq"></Card>
   <Card title="NVIDIA AI" href="#nvidia-ai"></Card>
+  <Card title="Octo AI" href="#octo-ai"></Card>
 </CardGroup>
 
 ## OpenAI
@@ -839,6 +840,59 @@ answer = app.query("What is the net worth of Elon Musk today?")
 # Additionally, his net worth may include other assets such as real estate and art, which are not reflected in his stock portfolio.
 ```
 </CodeGroup>
+
+
+## Octo AI
+
+[Octo AI](https://octo.ai/) supports a lot of models from meta, microsoft, mistral, etc... These models are available in the [Octo AI TextGen](https://octoai.cloud/text) and are ready to use in production.
+
+
+### Usage
+
+In order to use LLMs from Octo AI, sign up on [Octo AI](https://octo.ai/).
+
+Generate token from account settings. Set the token `OCTOAI_API_TOKEN` environment variable.
+
+Below is an example of how to use LLM model and embedding model from NVIDIA AI:
+
+<CodeGroup>
+
+```python main.py
+import os
+from embedchain import App
+
+os.environ["OCTOAI_API_TOKEN"] = "enter_token"
+
+config = {
+    "llm": {
+        "provider": "octoai",
+        "config": {
+            "model": "llama-2-13b-chat-fp16",
+            "max_tokens": 200,
+            "temperature": 0.1,
+            "top_p": 0.9,
+        }
+    },
+    "embedder": {
+        "provider": "huggingface",
+        "config": {
+            "model": 'nomic-ai/nomic-embed-text-v1',
+            "model_kwargs": {
+                "trust_remote_code": True,
+            }
+        }
+    }
+}
+
+app = App.from_config(config=config)
+
+app.add("https://www.forbes.com/profile/elon-musk")
+answer = app.query("What is the net worth of Elon Musk today?")
+# Answer: Elon Musk's net worth is $222.6 billion as of August 12, 2024. This reflects a change since the previous trading day. He remains the richest person in the world today.
+```
+</CodeGroup>
+
+
 
 ## Token Usage
 

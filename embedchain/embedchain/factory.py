@@ -27,6 +27,7 @@ class LlmFactory:
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
         "vllm": "embedchain.llm.vllm.VLLM",
+        "octoai": "embedchain.llm.octoai.OctoAILlm",
     }
     provider_to_config_class = {
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
