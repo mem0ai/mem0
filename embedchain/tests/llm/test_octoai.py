@@ -7,6 +7,8 @@ from embedchain.llm.octoai import OctoAILlm
 @pytest.fixture
 def octoai_env():
     os.environ["OCTOAI_API_TOKEN"] = "test_api_token"
+    yield
+    del os.environ["OCTOAI_API_TOKEN"]
 
 @pytest.fixture
 def octoai_llm_config():
@@ -31,6 +33,4 @@ def test_get_answer(octoai_llm_config, octoai_env, mocker):
 def test_octo_env_variable(octoai_llm_config):
 
     with pytest.raises(AssertionError):
-        octoai_llm = OctoAILlm(octoai_llm_config)
-
-
+        _ = OctoAILlm(octoai_llm_config)
