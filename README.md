@@ -33,6 +33,16 @@
 - **Cross-Platform Consistency**: Uniform behavior across devices
 - **Managed Service**: Hassle-free hosted solution
 
+### How Mem0 works?
+
+Mem0 leverages a hybrid database approach to manage and retrieve long-term memories for AI agents and assistants. Each memory is associated with a unique identifier, such as a user ID or agent ID, allowing Mem0 to organize and access memories specific to an individual or context.
+
+When a message is added to the Mem0 using add()  method, the system extracts relevant facts and preferences and stores it across data stores: a vector database, a key-value database, and a graph database. This hybrid approach ensures that different types of information are stored in the most efficient manner, making subsequent searches quick and effective.
+
+When an AI agent or LLM needs to recall memories, it uses the search() method. Mem0 then performs search across these data stores, retrieving relevant information from each source. This information is then passed through a scoring layer, which evaluates their importance based on relevance, importance, and recency. This ensures that only the most personalized and useful context is surfaced.
+
+The retrieved memories can then be appended to the LLM's prompt as needed, enhancing the personalization and relevance of its responses.
+
 ### Use Cases
 
 Mem0 empowers organizations and individuals to enhance:
