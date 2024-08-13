@@ -1,0 +1,40 @@
+[Qdrant](https://qdrant.tech/) is an open-source vector search engine. It is designed to work with large-scale datasets and provides a high-performance search engine for vector data.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "test",
+            "host": "localhost",
+            "port": 6333,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+Let's see the available parameters for the `qdrant` config:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection to store the vectors | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `client` | Custom client for qdrant | `None` |
+| `host` | The host where the qdrant server is running | `None` |
+| `port` | The port where the qdrant server is running | `None` |
+| `path` | Path for the qdrant database | `/tmp/qdrant` |
+| `url` | Full URL for the qdrant server | `None` |
+| `api_key` | API key for the qdrant server | `None` |
+| `on_disk` | For enabling persistent storage | `False` |
