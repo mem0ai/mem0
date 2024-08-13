@@ -206,18 +206,32 @@ import os
 from mem0 import Memory
 
 config = {
-    "vector_store":{
+    "vector_store": {
         "provider": "qdrant",
         "config": {
-            "embedding_model_dims": 768 # change according to embedding model
-        }
+            "collection_name": "test",
+            "host": "localhost",
+            "port": 6333,
+            "embedding_model_dims": 768,  # (For Nomic == 768), could be some other embedding size,  change this according to  your local models dimensions 
+        },
     },
     "llm": {
-        "provider": "ollama"
+        "provider": "ollama",
+        "config": {
+            "model": "llama3.1:latest",
+            "temperature": 0,
+            "max_tokens": 8000,
+            "ollama_base_url": "http://localhost:11434",  # Ensure this is correct
+        },
     },
     "embedder": {
-        "provider": "ollama"
-    }
+        "provider": "ollama",
+        "config": {
+            "model": "nomic-embed-text:latest",
+            # "model": "snowflake-arctic-embed:latest",
+            "ollama_base_url": "http://localhost:11434",
+        },
+    },
 }
 
 m = Memory.from_config(config)
