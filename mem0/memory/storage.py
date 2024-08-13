@@ -55,7 +55,7 @@ class SQLiteManager:
                     # Copy data from the old table to the new table
                     cursor.execute("""
                         INSERT INTO history (id, memory_id, old_memory, new_memory, new_value, event, created_at, updated_at, is_deleted)
-                        SELECT id, memory_id, prev_value, new_value, new_value, event, timestamp, timestamp, is_deleted
+                        SELECT id, memory_id, new_value, new_value, event, timestamp, timestamp, is_deleted
                         FROM old_history
                     """)
 
