@@ -17,7 +17,7 @@ Mem0 includes built-in support for various popular databases. Memory can utilize
 
 [Qdrant](https://qdrant.tech/) is an open-source vector search engine. It is designed to work with large-scale datasets and provides a high-performance search engine for vector data.
 
-To use Qdrant you can do like this:
+Example usage:
 
 ```python
 import os
@@ -44,7 +44,7 @@ m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category"
 
 [Chroma](https://www.trychroma.com/) is an AI-native open-source vector database that simplifies building LLM apps by providing tools for storing, embedding, and searching embeddings with a focus on simplicity and speed.
 
-To use ChromaDB you can do like this:
+Example usage:
 
 ```python
 import os
@@ -70,7 +70,7 @@ m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category"
 
 [pgvector](https://github.com/pgvector/pgvector) is open-source vector similarity search for Postgres. After connecting with postgres run `CREATE EXTENSION IF NOT EXISTS vector;` to create the vector extension.
 
-Here's how to use it:
+Example usage:
 
 ```python
 import os
@@ -94,13 +94,25 @@ m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
 
-## Common issues
+## Common Issues
 
-### Using model with different dimensions
+### Using embedding models with different dimensions
 
-If you are using customized model, which is having different dimensions other than 1536
-for example 768, you may encounter below error:
+When using a custom embedding model with dimensions that differ from the default 1536 (e.g., 768) dims, you may encounter a dimension mismatch error:
 
 `ValueError: shapes (0,1536) and (768,) not aligned: 1536 (dim 1) != 768 (dim 0)`
 
-you could add `"embedding_model_dims": 768,` to the config of the vector_store to overcome this issue.
+To resolve this issue, add the `embedding_model_dims` parameter to your `vector_store` configuration like this:
+```python
+config = {
+    "vector_store": {
+        "provider": "example",
+        "embedding_model_dims": 768,
+        "config": {
+            ...
+        }
+    }
+}
+```
+
+This allows you to specify the correct embedding dimensions for your custom model, allowing the vector store to properly handle the embeddings.
