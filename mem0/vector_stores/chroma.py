@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List, Dict
 
 from pydantic import BaseModel
 
@@ -15,26 +15,27 @@ from mem0.vector_stores.base import VectorStoreBase
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
     score: Optional[float]  # distance 
-    payload: Optional[dict]  # metadata
+    payload: Optional[Dict]  # metadata
 
 
 class ChromaDB(VectorStoreBase):
     def __init__(
         self,
-        collection_name,
-        client,
-        host,
-        port,
-        path
+        collection_name: str,
+        client: Optional[chromadb.Client] = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        path: Optional[str] = None
     ):
         """
         Initialize the Chromadb vector store.
 
         Args:
-            client (chromadb.Client, optional): Existing chromadb client instance.
-            host (str, optional): Host address for chromadb server.
-            port (int, optional): Port for chromadb server.
-            path (str, optional): Path for local chromadb database.
+            collection_name (str): Name of the collection.
+            client (chromadb.Client, optional): Existing chromadb client instance. Defaults to None.
+            host (str, optional): Host address for chromadb server. Defaults to None.
+            port (int, optional): Port for chromadb server. Defaults to None.
+            path (str, optional): Path for local chromadb database. Defaults to None.
         """
         if client:
             self.client = client
@@ -57,15 +58,15 @@ class ChromaDB(VectorStoreBase):
         self.collection_name = collection_name
         self.collection = self.create_col(collection_name)
 
-    def _parse_output(self, data):
+    def _parse_output(self, data: Dict) -> List[OutputData]:
         """
         Parse the output data.
 
         Args:
-            data (dict): Output data.
+            data (Dict): Output data.
 
         Returns:
-            list: Parsed output data.
+            List[OutputData]: Parsed output data.
         """
         keys = ['ids', 'distances', 'metadatas']
         values = []
@@ -82,21 +83,24 @@ class ChromaDB(VectorStoreBase):
         result = []
         for i in range(max_length):
             entry = OutputData(
-            id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
-            score=distances[i] if isinstance(distances, list) and distances and i < len(distances) else None,
-            payload=metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None,
-        )
+                id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
+                score=distances[i] if isinstance(distances, list) and distances and i < len(distances) else None,
+                payload=metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None,
+            )
             result.append(entry)
 
         return result
 
-    def create_col(self, name, embedding_fn=None):
+    def create_col(self, name: str, embedding_fn: Optional[callable] = None):
         """
         Create a new collection.
 
         Args:
             name (str): Name of the collection.
-            embedding_fn (function): Embedding function to use. Defaults to None.
+            embedding_fn (Optional[callable]): Embedding function to use. Defaults to None.
+
+        Returns:
+            chromadb.Collection: The created or retrieved collection.
         """
         # Skip creating collection if already exists
         collections = self.list_cols()
@@ -110,102 +114,101 @@ class ChromaDB(VectorStoreBase):
         )
         return collection
 
-    def insert(self, vectors, payloads=None, ids=None):
+    def insert(self, vectors: List[list], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
         """
         Insert vectors into a collection.
 
         Args:
-            vectors (list): List of vectors to insert.
-            payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
-            ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
+            vectors (List[list]): List of vectors to insert.
+            payloads (Optional[List[Dict]], optional): List of payloads corresponding to vectors. Defaults to None.
+            ids (Optional[List[str]], optional): List of IDs corresponding to vectors. Defaults to None.
         """
-
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
-    def search(self, query, limit=5, filters=None):
+    def search(self, query: List[list], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors.
 
         Args:
-            query (list): Query vector.
+            query (List[list]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
+            filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
 
         Returns:
-            list: Search results.
+            List[OutputData]: Search results.
         """
         results = self.collection.query(query_embeddings=query, where=filters, n_results=limit)
         final_results = self._parse_output(results)
         return final_results
 
-    def delete(self, vector_id):
+    def delete(self, vector_id: str):
         """
         Delete a vector by ID.
 
         Args:
-            vector_id (int): ID of the vector to delete.
+            vector_id (str): ID of the vector to delete.
         """
-
         self.collection.delete(ids=vector_id)
 
-    def update(self, vector_id, vector=None, payload=None):
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None):
         """
         Update a vector and its payload.
 
         Args:
-            vector_id (int): ID of the vector to update.
-            vector (list, optional): Updated vector. Defaults to None.
-            payload (dict, optional): Updated payload. Defaults to None.
+            vector_id (str): ID of the vector to update.
+            vector (Optional[List[float]], optional): Updated vector. Defaults to None.
+            payload (Optional[Dict], optional): Updated payload. Defaults to None.
         """
-
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
 
-    def get(self, vector_id):
+    def get(self, vector_id: str) -> OutputData:
         """
         Retrieve a vector by ID.
 
         Args:
-            vector_id (int): ID of the vector to retrieve.
+            vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            dict: Retrieved vector.
+            OutputData: Retrieved vector.
         """
         result = self.collection.get(ids=[vector_id])
         return self._parse_output(result)[0]
 
-    def list_cols(self):
+    def list_cols(self) -> List[chromadb.Collection]:
         """
         List all collections.
 
         Returns:
-            list: List of collection names.
+            List[chromadb.Collection]: List of collections.
         """
         return self.client.list_collections()
 
     def delete_col(self):
-        """ Delete a collection. """
+        """ 
+        Delete a collection. 
+        """
         self.client.delete_collection(name=self.collection_name)
 
-    def col_info(self):
+    def col_info(self) -> Dict:
         """
         Get information about a collection.
 
         Returns:
-            dict: Collection information.
+            Dict: Collection information.
         """
         return self.client.get_collection(name=self.collection_name)
 
-    def list(self, filters=None, limit=100):
+    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
-            filters (dict, optional): Filters to apply to the list.
+            filters (Optional[Dict], optional): Filters to apply to the list. Defaults to None.
             limit (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
-            list: List of vectors.
+            List[OutputData]: List of vectors.
         """
         array = [[0 for _ in range(1536)] for _ in range(1536)]
         results = self.collection.query(query_embeddings=array, where=filters, n_results=limit)
-        return [self._parse_output(results)]
+        return self._parse_output(results)
