@@ -639,6 +639,28 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/?user_id=alex" \
 ```
 </CodeGroup>
 
+Delete all users:
+
+<CodeGroup>
+
+```python Python
+client.delete_users()
+```
+
+```javascript JavaScript
+client.delete_users()
+    .then(users => console.log(users))
+    .catch(error => console.error(error));
+```
+
+```json Output
+{'message': 'All users, agents, and sessions deleted.'}
+```
+
+</CodeGroup>
+
+
+
 Fun fact: You can also delete the memory using the `add()` method by passing a natural language command:
 
 <CodeGroup>
