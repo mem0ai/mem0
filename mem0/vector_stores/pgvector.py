@@ -26,7 +26,8 @@ class PGVector(VectorStoreBase):
         user,
         password,
         host,
-        port
+        port,
+        diskann
     ):
         """
         Initialize the PGVector database.
@@ -41,6 +42,7 @@ class PGVector(VectorStoreBase):
             port (int, optional): Database port
         """
         self.collection_name = collection_name
+        self.use_diskann = diskann
 
         self.conn = psycopg2.connect(
             dbname=dbname,
@@ -58,6 +60,7 @@ class PGVector(VectorStoreBase):
     def create_col(self, embedding_model_dims):
         """
         Create a new collection (table in PostgreSQL).
+        Will also initialize DiskANN index if the extension is installed.
 
         Args:
             name (str): Name of the collection.
@@ -70,6 +73,15 @@ class PGVector(VectorStoreBase):
                 payload JSONB
             );
         """)
+
+        if self.use_diskann and embedding_model_dims < 2000:
+            # Check if vectorscale extension is installed
+            self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
+            if self.cur.fetchone():
+                # Create DiskANN index if extension is installed for faster search
+                self.cur.execute("CREATE INDEX IF NOT EXISTS {self.collection_name}_vector_idx ON "
+                                 "{self.collection_name} USING diskann (vector);")
+
         self.conn.commit()
 
     def insert(self, vectors, payloads = None, ids = None):
@@ -110,7 +122,7 @@ class PGVector(VectorStoreBase):
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
         self.cur.execute(f"""
-            SELECT id, vector <-> %s::vector AS distance, payload
+            SELECT id, vector <=> %s::vector AS distance, payload
             FROM {self.collection_name}
             {filter_clause}
             ORDER BY distance
