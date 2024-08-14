@@ -3,6 +3,7 @@ import importlib
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 
+
 def load_class(class_type):
     module_path, class_name = class_type.rsplit(".", 1)
     module = importlib.import_module(module_path)
@@ -29,7 +30,8 @@ class LlmFactory:
             return llm_instance(base_config)
         else:
             raise ValueError(f"Unsupported Llm provider: {provider_name}")
-        
+
+
 class EmbedderFactory:
     provider_to_class = {
         "openai": "mem0.embeddings.openai.OpenAIEmbedding",
@@ -47,12 +49,13 @@ class EmbedderFactory:
             return embedder_instance(base_config)
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
-        
+
+
 class VectorStoreFactory:
     provider_to_class = {
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
-        "pgvector": "mem0.vector_stores.pgvector.PGVector"
+        "pgvector": "mem0.vector_stores.pgvector.PGVector",
     }
 
     @classmethod

@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Optional
 
+
 class BaseEmbedderConfig(ABC):
     """
     Config for Embeddings.
@@ -11,12 +12,10 @@ class BaseEmbedderConfig(ABC):
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         embedding_dims: Optional[int] = None,
-
         # Ollama specific
         ollama_base_url: Optional[str] = None,
-
         # Huggingface specific
-        model_kwargs: Optional[dict] = None
+        model_kwargs: Optional[dict] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -33,7 +32,7 @@ class BaseEmbedderConfig(ABC):
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
 
         """
-        
+
         self.model = model
         self.api_key = api_key
         self.embedding_dims = embedding_dims
