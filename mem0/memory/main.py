@@ -32,7 +32,7 @@ class Memory(MemoryBase):
         self.vector_store = VectorStoreFactory.create(self.config.vector_store.provider, self.config.vector_store.config)
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
-        self.collection_name = self.config.vector_store.config.collection_name if "collection_name" in self.config.vector_store.config else "mem0"
+        self.collection_name = self.config.vector_store.config.collection_name
         
         capture_event("mem0.init", self)
 
