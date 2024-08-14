@@ -209,6 +209,5 @@ class ChromaDB(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors.
         """
-        array = [[0 for _ in range(1536)] for _ in range(1536)]
-        results = self.collection.query(query_embeddings=array, where=filters, n_results=limit)
-        return self._parse_output(results)
+        results = self.collection.get(where=filters, limit=limit)
+        return [self._parse_output(results)]
