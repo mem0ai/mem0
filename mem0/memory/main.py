@@ -33,7 +33,9 @@ class Memory(MemoryBase):
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name if "collection_name" in self.config.vector_store.config else "mem0"
-        
+        self.limit = self.config.limit
+        self.similarity_threshold = self.config.similarity_threshold
+
         capture_event("mem0.init", self)
 
     @classmethod
@@ -95,7 +97,7 @@ class Memory(MemoryBase):
         )
         existing_memories = self.vector_store.search(
             query=embeddings,
-            limit=5,
+            limit=self.limit,
             filters=filters,
         )
         existing_memories = [
@@ -105,7 +107,7 @@ class Memory(MemoryBase):
                 metadata=mem.payload,
                 memory=mem.payload["data"],
             )
-            for mem in existing_memories
+            for mem in existing_memories if mem.score > self.similarity_threshold
         ]
         serialized_existing_memories = [
             item.model_dump(include={"id", "memory", "score"})
