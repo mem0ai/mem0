@@ -34,7 +34,6 @@ class Memory(MemoryBase):
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
-        # self.collection_name = self.config.vector_store.config.collection_name if "collection_name" in self.config.vector_store.config else "mem0"
         
         capture_event("mem0.init", self)
 
