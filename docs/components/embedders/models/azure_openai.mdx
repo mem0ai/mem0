@@ -1,0 +1,34 @@
+To use Azure OpenAI embedding models, set the `AZURE_OPENAI_API_KEY` environment variable. You can obtain the Azure OpenAI API key from the Azure.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+os.environ["AZURE_OPENAI_API_KEY"] = "your_api_key"
+
+
+config = {
+    "embedder": {
+        "provider": "azure_openai",
+        "config": {
+            "model": "text-embedding-3-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring Azure OpenAI embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `text-embedding-3-small` |
+| `embedding_dims` | Dimensions of the embedding model | `1536` |
+| `api_key` | The Azure OpenAI API key | `None` |

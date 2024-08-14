@@ -1,0 +1,32 @@
+You can use embedding models from Ollama to run Mem0 locally.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "ollama",
+        "config": {
+            "model": "mxbai-embed-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring Ollama embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the OpenAI model to use | `nomic-embed-text` |
+| `embedding_dims` | Dimensions of the embedding model | `512` |
+| `ollama_base_url` | Base URL for ollama connection | `None` |

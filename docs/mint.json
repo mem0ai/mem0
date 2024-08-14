@@ -82,7 +82,19 @@
         },
         {
           "group": "Embedding Models",
-          "pages": ["components/embedders"]
+          "pages": [
+            "components/embedders/overview",
+            "components/embedders/config",
+            {
+              "group": "Supported Embedding Models",
+              "pages": [
+                "components/embedders/models/openai",
+                "components/embedders/models/azure_openai",
+                "components/embedders/models/ollama",
+                "components/embedders/models/huggingface"
+              ]
+            }
+          ]
         },
         {
           "group": "Features",
