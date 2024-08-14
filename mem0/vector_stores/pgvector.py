@@ -40,6 +40,7 @@ class PGVector(VectorStoreBase):
             password (str): Database password
             host (str, optional): Database host
             port (int, optional): Database port
+            diskann (bool, optional): Use DiskANN for faster search
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
@@ -79,8 +80,11 @@ class PGVector(VectorStoreBase):
             self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
             if self.cur.fetchone():
                 # Create DiskANN index if extension is installed for faster search
-                self.cur.execute("CREATE INDEX IF NOT EXISTS {self.collection_name}_vector_idx ON "
-                                 "{self.collection_name} USING diskann (vector);")
+                self.cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS {self.collection_name}_vector_idx
+                    ON {self.collection_name}
+                    USING diskann (vector);
+                """)
 
         self.conn.commit()
 
