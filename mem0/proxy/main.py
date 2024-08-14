@@ -1,7 +1,13 @@
 import httpx
 from typing import Optional, List, Union
 import threading
-import litellm
+
+try:
+    import litellm
+except ImportError:
+    raise ImportError(
+        "litellm requires extra dependencies. Install with `pip install litellm`"
+    ) from None
 
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
