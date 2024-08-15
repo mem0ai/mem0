@@ -35,7 +35,7 @@ response = app.query(question)
 NOTE: The `add` function of the app will accept any executable query to load data. DO NOT pass the `CREATE`, `INSERT` queries in `add` function.
 
 3. We automatically create a chunker to chunk your SQL data, however if you wish to provide your own chunker class. Here is how you can do that:
-``Python
+```Python
 
 from embedchain.chunkers.mysql import MySQLChunker
 from embedchain.config.add_config import ChunkerConfig
