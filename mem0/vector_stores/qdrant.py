@@ -28,7 +28,7 @@ class Qdrant(VectorStoreBase):
         path: str = None,
         url: str = None,
         api_key: str = None,
-        on_disk: bool = False
+        on_disk: bool = False,
     ):
         """
         Initialize the Qdrant vector store.
@@ -60,13 +60,15 @@ class Qdrant(VectorStoreBase):
                 if not on_disk:
                     if os.path.exists(path) and os.path.isdir(path):
                         shutil.rmtree(path)
-            
+
             self.client = QdrantClient(**params)
-        
+
         self.collection_name = collection_name
         self.create_col(embedding_model_dims, on_disk)
 
-    def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
+    def create_col(
+        self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE
+    ):
         """
         Create a new collection.
 
@@ -79,12 +81,16 @@ class Qdrant(VectorStoreBase):
         response = self.list_cols()
         for collection in response.collections:
             if collection.name == self.collection_name:
-                logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
+                logging.debug(
+                    f"Collection {self.collection_name} already exists. Skipping creation."
+                )
                 return
 
         self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+            vectors_config=VectorParams(
+                size=vector_size, distance=distance, on_disk=on_disk
+            ),
         )
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
@@ -202,7 +208,7 @@ class Qdrant(VectorStoreBase):
         return self.client.get_collections()
 
     def delete_col(self):
-        """ Delete a collection. """
+        """Delete a collection."""
         self.client.delete_collection(collection_name=self.collection_name)
 
     def col_info(self) -> dict:
