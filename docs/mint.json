@@ -63,7 +63,25 @@
         "open-source/quickstart",
         {
           "group": "LLMs",
-          "pages": ["components/llms"]
+          "pages": [
+            "components/llms/overview",
+            "components/llms/config",
+            {
+              "group": "Supported LLMs",
+              "pages": [
+                "components/llms/models/openai",
+                "components/llms/models/anthropic",
+                "components/llms/models/azure_openai",
+                "components/llms/models/ollama",
+                "components/llms/models/together",
+                "components/llms/models/groq",
+                "components/llms/models/litellm",
+                "components/llms/models/mistral_AI",
+                "components/llms/models/google_AI",
+                "components/llms/models/aws_bedrock"
+              ]
+            }
+          ]
         },
         {
           "group": "Vector Databases",

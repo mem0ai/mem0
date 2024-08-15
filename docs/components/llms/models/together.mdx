@@ -1,0 +1,29 @@
+To use TogetherAI LLM models, you have to set the `TOGETHER_API_KEY` environment variable. You can obtain the TogetherAI API key from their [Account settings page](https://api.together.xyz/settings/api-keys).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["TOGETHER_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "togetherai",
+        "config": {
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+All available parameters for the `togetherai` config are present in [Master List of All Params in Config](../config).

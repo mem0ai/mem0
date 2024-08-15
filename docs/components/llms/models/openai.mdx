@@ -1,0 +1,39 @@
+To use OpenAI LLM models, you have to set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+# Use Openrouter by passing it's api key
+# os.environ["OPENROUTER_API_KEY"] = "your-api-key"
+# config = {
+#    "llm": {
+#        "provider": "openai",
+#        "config": {
+#            "model": "meta-llama/llama-3.1-70b-instruct",
+#        }
+#    }
+# }
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+All available parameters for the `openai` config are present in [Master List of All Params in Config](../config).
