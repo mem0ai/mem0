@@ -1,0 +1,57 @@
+## What is Config?
+
+Config in mem0 is a dictionary that specifies the settings for your embedding models. It allows you to customize the behavior and connection details of your chosen embedder.
+
+## How to Define Config
+
+The config is defined as a Python dictionary with two main keys:
+- `embedder`: Specifies the embedder provider and its configuration
+  - `provider`: The name of the embedder (e.g., "openai", "ollama")
+  - `config`: A nested dictionary containing provider-specific settings
+
+## How to Use Config
+
+Here's a general example of how to use the config with mem0:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "embedder": {
+        "provider": "your_chosen_provider",
+        "config": {
+            # Provider-specific settings go here
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Your text here", user_id="user", metadata={"category": "example"})
+```
+
+## Why is Config Needed?
+
+Config is essential for:
+1. Specifying which embedding model to use.
+2. Providing necessary connection details (e.g., model, api_key, embedding_dims).
+3. Ensuring proper initialization and connection to your chosen embedder.
+
+## Master List of All Params in Config
+
+Here's a comprehensive list of all parameters that can be used across different embedders:
+
+| Parameter | Description |
+|-----------|-------------|
+| `model` | Embedding model to use |
+| `api_key` | API key of the provider |
+| `embedding_dims` | Dimensions of the embedding model |
+| `ollama_base_url` | Base URL for the Ollama embedding model |
+| `model_kwargs` | Key-Value arguments for the Huggingface embedding model |
+
+
+## Supported Embedding Models
+
+For detailed information on configuring specific embedders, please visit the [Embedding Models](./models) section. There you'll find information for each supported embedder with provider-specific usage examples and configuration details.

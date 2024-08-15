@@ -1,9 +1,9 @@
-from typing import Optional, Dict, Type
+from typing import Optional, Dict
 from pydantic import BaseModel, Field, model_validator
 
 class VectorStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the vector store (e.g., 'qdrant', 'chromadb')",
+        description="Provider of the vector store (e.g., 'qdrant', 'chroma')",
         default="qdrant",
     )
     config: Optional[Dict] = Field(
@@ -13,7 +13,8 @@ class VectorStoreConfig(BaseModel):
 
     _provider_configs: Dict[str, str] = {
         "qdrant": "QdrantConfig",
-        "chroma": "ChromaDbConfig"
+        "chroma": "ChromaDbConfig",
+        "pgvector": "PGVectorConfig"
     }
 
     @model_validator(mode="after")

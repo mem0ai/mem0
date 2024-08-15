@@ -1,12 +1,16 @@
-from typing import Optional
-from openai import AzureOpenAI
+
 import os
-from mem0.embeddings.base import EmbeddingBase
+from typing import Optional
+
+from openai import AzureOpenAI
+
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.base import EmbeddingBase
 
 class AzureOpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
+
 
         if not self.config.model:
             self.config.model="text-embedding-ada-002"
@@ -28,6 +32,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             self.api_version = os.getenv("AZURE_OPENAI_ENDPOINT")
         self.client = AzureOpenAI(api_version=self.api_version, api_key=self.api_key, azure_endpoint=self.azure_endpoint)
 
+
     def embed(self, text):
         """
         Get the embedding for the given text using OpenAI.
@@ -40,8 +45,10 @@ class AzureOpenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
 
+
         return (
             self.client.embeddings.create(input=[text], model=self.config.model)
             .data[0]
             .embedding
         )
+

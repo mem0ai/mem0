@@ -16,24 +16,14 @@
     "light": "/logo/light.svg",
     "href": "https://github.com/mem0ai/mem0"
   },
-  "tabs": [
-    {
-      "name": "💡 Examples",
-      "url": "examples"
-    },
-    {
-      "name": "🖥️  Platform",
-      "url": "platform"
-    }
-  ],
   "topbarCtaButton": {
-    "name": "Your Memory Dashboard",
+    "name": "Your Dashboard",
     "url": "https://app.mem0.ai"
   },
   "anchors": [
     {
-      "name": "Your Memory Dashboard",
-      "icon": "discord",
+      "name": "Your Dashboard",
+      "icon": "chart-simple",
       "url": "https://app.mem0.ai"
     },
     {
@@ -57,26 +47,59 @@
       "group": "Get Started",
       "pages": [
         "overview",
-        "quickstart"
+        "features"
       ]
     },
     {
-      "group": "Components",
+      "group": "Platform",
       "pages": [
-        "components/llms",
-        "components/vectordb"
+        "platform/overview",
+        "platform/quickstart"
       ]
     },
     {
-      "group": "Features",
-      "pages":[
-        "features/openai_compatibility"
-      ]
-    },
-    {
-      "group": "Integrations",
+      "group": "Open Source",
       "pages": [
-        "integrations/multion"
+        "open-source/quickstart",
+        {
+          "group": "LLMs",
+          "pages": ["components/llms"]
+        },
+        {
+          "group": "Vector Databases",
+          "pages": [
+            "components/vectordbs/overview",
+            "components/vectordbs/config",
+            {
+              "group": "Supported Vector Databases",
+              "pages": [
+                "components/vectordbs/dbs/chroma",
+                "components/vectordbs/dbs/pgvector",
+                "components/vectordbs/dbs/qdrant"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Embedding Models",
+          "pages": [
+            "components/embedders/overview",
+            "components/embedders/config",
+            {
+              "group": "Supported Embedding Models",
+              "pages": [
+                "components/embedders/models/openai",
+                "components/embedders/models/azure_openai",
+                "components/embedders/models/ollama",
+                "components/embedders/models/huggingface"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Features",
+          "pages": ["features/openai_compatibility"]
+        }
       ]
     },
     {
@@ -89,12 +112,18 @@
       ]
     },
     {
-      "group": "🖥️  Platform",
+      "group": "Knowledge Base",
       "pages": [
-        "platform/overview",
-        "platform/quickstart"
+        "knowledge-base/introduction"
+      ]
+    },
+    {
+      "group": "Integrations",
+      "pages": [
+        "integrations/multion"
       ]
     }
+
   ],
   "footerSocials": {
     "discord": "https://mem0.ai/discord",
