@@ -1,0 +1,28 @@
+[Litellm](https://litellm.vercel.app/docs/) is compatible with over 100 large language models (LLMs), all using a standardized input/output format. You can explore the [available models]((https://litellm.vercel.app/docs/providers)) to use with Litellm. Ensure you set the `API_KEY` for the model you choose to use.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "litellm",
+        "config": {
+            "model": "gpt-3.5-turbo",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+All available parameters for the `litellm` config are present in [Master List of All Params in Config](../config).

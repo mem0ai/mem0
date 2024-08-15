@@ -1,0 +1,66 @@
+## What is Config?
+
+Config in mem0 is a dictionary that specifies the settings for your llms. It allows you to customize the behavior and connection details of your chosen llm.
+
+## How to Define Config
+
+The config is defined as a Python dictionary with two main keys:
+- `llm`: Specifies the llm provider and its configuration
+  - `provider`: The name of the llm (e.g., "openai", "groq")
+  - `config`: A nested dictionary containing provider-specific settings
+
+## How to Use Config
+
+Here's a general example of how to use the config with mem0:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx" # for embedder
+
+config = {
+    "llm": {
+        "provider": "your_chosen_provider",
+        "config": {
+            # Provider-specific settings go here
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Your text here", user_id="user", metadata={"category": "example"})
+```
+
+## Why is Config Needed?
+
+Config is essential for:
+1. Specifying which llm to use.
+2. Providing necessary connection details (e.g., model, api_key, temperature).
+3. Ensuring proper initialization and connection to your chosen llm.
+
+## Master List of All Params in Config
+
+Here's a comprehensive list of all parameters that can be used across different llms:
+
+Here's the table based on the provided parameters:
+
+| Parameter            | Description                                   | Provider          |
+|----------------------|-----------------------------------------------|-------------------|
+| `model`              | Embedding model to use                        | All               |
+| `temperature`        | Temperature of the model                      | All               |
+| `api_key`            | API key to use                                | All               |
+| `max_tokens`         | Tokens to generate                            | All               |
+| `top_p`              | Probability threshold for nucleus sampling    | All               |
+| `top_k`              | Number of highest probability tokens to keep  | All               |
+| `models`             | List of models                                | Openrouter        |
+| `route`              | Routing strategy                              | Openrouter        |
+| `openrouter_base_url`| Base URL for Openrouter API                   | Openrouter        |
+| `site_url`           | Site URL                                      | Openrouter        |
+| `app_name`           | Application name                              | Openrouter        |
+| `ollama_base_url`    | Base URL for Ollama API                       | Ollama            |
+
+
+## Supported LLMs
+
+For detailed information on configuring specific llms, please visit the [LLMs](./models) section. There you'll find information for each supported llm with provider-specific usage examples and configuration details.
