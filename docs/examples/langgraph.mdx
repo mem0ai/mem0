@@ -1,0 +1,123 @@
+---
+title: LangGraph with Mem0
+---
+
+This guide demonstrates how to create a personalized Customer Support AI Agent using LangGraph and Mem0. The agent retains information across interactions, enabling a personalized and efficient support experience.
+
+## Overview
+The Customer Support AI Agent leverages LangGraph for conversational flow and Mem0 for memory retention, creating a more context-aware and personalized support experience.
+
+## Setup
+Install the necessary packages using pip:
+
+```bash
+pip install langgraph langchain-openai mem0ai
+```
+
+## Full Code Example
+Below is the complete code to create and interact with a Customer Support AI Agent using LangGraph and Mem0:
+
+```python
+from typing import Annotated, TypedDict, List
+from langgraph.graph import StateGraph, START
+from langgraph.graph.message import add_messages
+from langchain_openai import ChatOpenAI
+from mem0 import Memory
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
+llm = ChatOpenAI(model="gpt-4o")
+mem0 = Memory()
+
+# Define the State
+class State(TypedDict):
+    messages: Annotated[List[HumanMessage | AIMessage], add_messages]
+    mem0_user_id: str
+
+graph = StateGraph(State)
+
+
+def chatbot(state: State):
+    messages = state["messages"]
+    user_id = state["mem0_user_id"]
+    
+    # Retrieve relevant memories
+    memories = mem0.search(messages[-1].content, user_id=user_id)
+    
+    context = "Relevant information from previous conversations:\n"
+    for memory in memories:
+        context += f"- {memory['memory']}\n"
+    
+    system_message = SystemMessage(content=f"""You are a helpful customer support assistant. Use the provided context to personalize your responses and remember user preferences and past interactions.
+{context}""")
+    
+    full_messages = [system_message] + messages
+    response = llm.invoke(full_messages)
+    
+    # Store the interaction in Mem0
+    mem0.add(f"User: {messages[-1].content}\nAssistant: {response.content}", user_id=user_id)
+    return {"messages": [response]}
+
+# Add nodes to the graph
+graph.add_node("chatbot", chatbot)
+
+# Add edge from START to chatbot
+graph.add_edge(START, "chatbot")
+
+# Add edge from chatbot back to itself
+graph.add_edge("chatbot", "chatbot")
+
+compiled_graph = graph.compile()
+
+def run_conversation(user_input: str, mem0_user_id: str):
+    config = {"configurable": {"thread_id": mem0_user_id}}
+    state = {"messages": [HumanMessage(content=user_input)], "mem0_user_id": mem0_user_id}
+    
+    for event in compiled_graph.stream(state, config):
+        for value in event.values():
+            if value.get("messages"):
+                print("Customer Support:", value["messages"][-1].content)
+                return  # Exit after printing the response
+
+
+if __name__ == "__main__":
+    print("Welcome to Customer Support! How can I assist you today?")
+    mem0_user_id = "test123"
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ['quit', 'exit', 'bye']:
+            print("Customer Support: Thank you for contacting us. Have a great day!")
+            break
+        run_conversation(user_input, mem0_user_id)
+```
+
+## Key Components
+
+1. **State Definition**: The `State` class defines the structure of the conversation state, including messages and user ID.
+
+2. **Chatbot Node**: The `chatbot` function handles the core logic, including:
+   - Retrieving relevant memories
+   - Preparing context and system message
+   - Generating responses
+   - Storing interactions in Mem0
+
+3. **Graph Setup**: The code sets up a `StateGraph` with the chatbot node and necessary edges.
+
+4. **Conversation Runner**: The `run_conversation` function manages the flow of the conversation, processing user input and displaying responses.
+
+## Usage
+
+To use the Customer Support AI Agent:
+
+1. Run the script.
+2. Enter your queries when prompted.
+3. Type 'quit', 'exit', or 'bye' to end the conversation.
+
+## Key Points
+
+- **Memory Integration**: Mem0 is used to store and retrieve relevant information from past interactions.
+- **Personalization**: The agent uses past interactions to provide more contextual and personalized responses.
+- **Flexible Architecture**: The LangGraph structure allows for easy expansion and modification of the conversation flow.
+
+## Conclusion
+
+This Customer Support AI Agent demonstrates the power of combining LangGraph for conversation management and Mem0 for memory retention. As the conversation progresses, the agent's responses become increasingly personalized, providing an improved support experience.

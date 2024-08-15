@@ -126,6 +126,7 @@
         "examples/overview",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
+        "examples/langgraph",
         "examples/personal-travel-assistant"
       ]
     },
