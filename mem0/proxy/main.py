@@ -9,6 +9,7 @@ except ImportError:
         "litellm requires extra dependencies. Install with `pip install litellm`"
     ) from None
 
+from mem0.memory.telemetry import capture_client_event
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
 
@@ -131,7 +132,7 @@ class Completions:
             api_key=api_key,
             model_list=model_list,
         )
-
+        capture_client_event("mem0.chat.create", self)
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
