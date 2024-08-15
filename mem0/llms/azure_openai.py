@@ -6,13 +6,14 @@ from openai import AzureOpenAI
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
+
 class AzureOpenAILLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model="gpt-4o"
+            self.config.model = "gpt-4o"
         self.client = AzureOpenAI()
 
     def _parse_response(self, response, tools):
@@ -29,20 +30,21 @@ class AzureOpenAILLM(LLMBase):
         if tools:
             processed_response = {
                 "content": response.choices[0].message.content,
-                "tool_calls": []
+                "tool_calls": [],
             }
 
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append({
-                        "name": tool_call.function.name,
-                        "arguments": json.loads(tool_call.function.arguments)
-                    })
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(tool_call.function.arguments),
+                        }
+                    )
 
             return processed_response
         else:
             return response.choices[0].message.content
-
 
     def generate_response(
         self,
@@ -64,11 +66,11 @@ class AzureOpenAILLM(LLMBase):
             str: The generated response.
         """
         params = {
-            "model": self.config.model, 
-            "messages": messages, 
-            "temperature": self.config.temperature, 
-            "max_tokens": self.config.max_tokens, 
-            "top_p": self.config.top_p
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
+            "top_p": self.config.top_p,
         }
         if response_format:
             params["response_format"] = response_format

@@ -4,19 +4,22 @@ from typing import Dict, List, Optional
 try:
     from together import Together
 except ImportError:
-    raise ImportError("Together requires extra dependencies. Install with `pip install together`") from None
+    raise ImportError(
+        "Together requires extra dependencies. Install with `pip install together`"
+    ) from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+
 
 class TogetherLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model="mistralai/Mixtral-8x7B-Instruct-v0.1"
+            self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
         self.client = Together()
-    
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -31,16 +34,18 @@ class TogetherLLM(LLMBase):
         if tools:
             processed_response = {
                 "content": response.choices[0].message.content,
-                "tool_calls": []
+                "tool_calls": [],
             }
-            
+
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append({
-                        "name": tool_call.function.name,
-                        "arguments": json.loads(tool_call.function.arguments)
-                    })
-            
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(tool_call.function.arguments),
+                        }
+                    )
+
             return processed_response
         else:
             return response.choices[0].message.content
@@ -65,11 +70,11 @@ class TogetherLLM(LLMBase):
             str: The generated response.
         """
         params = {
-            "model": self.config.model, 
-            "messages": messages, 
-            "temperature": self.config.temperature, 
-            "max_tokens": self.config.max_tokens, 
-            "top_p": self.config.top_p
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
+            "top_p": self.config.top_p,
         }
         if response_format:
             params["response_format"] = response_format

@@ -2,15 +2,20 @@ from typing import Optional, ClassVar, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
 
+
 class ChromaDbConfig(BaseModel):
     try:
         from chromadb.api.client import Client
     except ImportError:
-        raise ImportError("Chromadb requires extra dependencies. Install with `pip install chromadb`") from None
+        raise ImportError(
+            "Chromadb requires extra dependencies. Install with `pip install chromadb`"
+        ) from None
     Client: ClassVar[type] = Client
 
     collection_name: str = Field("mem0", description="Default name for the collection")
-    client: Optional[Client] = Field(None, description="Existing ChromaDB client instance")
+    client: Optional[Client] = Field(
+        None, description="Existing ChromaDB client instance"
+    )
     path: Optional[str] = Field(None, description="Path to the database directory")
     host: Optional[str] = Field(None, description="Database connection remote host")
     port: Optional[int] = Field(None, description="Database connection remote port")
@@ -29,9 +34,11 @@ class ChromaDbConfig(BaseModel):
         input_fields = set(values.keys())
         extra_fields = input_fields - allowed_fields
         if extra_fields:
-            raise ValueError(f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}")
+            raise ValueError(
+                f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}"
+            )
         return values
-    
+
     model_config = {
         "arbitrary_types_allowed": True,
     }

@@ -255,7 +255,7 @@ class MemoryClient:
 
         capture_client_event("client.delete_users", self)
         return {"message": "All users, agents, and sessions deleted."}
-      
+
     def reset(self):
         """Reset the client. (Not implemented)
 

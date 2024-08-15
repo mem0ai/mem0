@@ -3,28 +3,31 @@ from typing import Dict, List, Optional
 try:
     from ollama import Client
 except ImportError:
-    raise ImportError("Ollama requires extra dependencies. Install with `pip install ollama`") from None
+    raise ImportError(
+        "Ollama requires extra dependencies. Install with `pip install ollama`"
+    ) from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+
 
 class OllamaLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model="llama3.1:70b"
+            self.config.model = "llama3.1:70b"
         self.client = Client(host=self.config.ollama_base_url)
         self._ensure_model_exists()
 
     def _ensure_model_exists(self):
         """
         Ensure the specified model exists locally. If not, pull it from Ollama.
-        """        
+        """
         local_models = self.client.list()["models"]
         if not any(model.get("name") == self.config.model for model in local_models):
             self.client.pull(self.config.model)
-    
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -38,20 +41,22 @@ class OllamaLLM(LLMBase):
         """
         if tools:
             processed_response = {
-                "content": response['message']['content'],
-                "tool_calls": []
+                "content": response["message"]["content"],
+                "tool_calls": [],
             }
-            
-            if response['message'].get('tool_calls'):
-                for tool_call in response['message']['tool_calls']:
-                    processed_response["tool_calls"].append({
-                        "name": tool_call["function"]["name"],
-                        "arguments": tool_call["function"]["arguments"]
-                    })
-            
+
+            if response["message"].get("tool_calls"):
+                for tool_call in response["message"]["tool_calls"]:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call["function"]["name"],
+                            "arguments": tool_call["function"]["arguments"],
+                        }
+                    )
+
             return processed_response
         else:
-            return response['message']['content']
+            return response["message"]["content"]
 
     def generate_response(
         self,
@@ -73,13 +78,13 @@ class OllamaLLM(LLMBase):
             str: The generated response.
         """
         params = {
-            "model": self.config.model, 
-            "messages": messages, 
+            "model": self.config.model,
+            "messages": messages,
             "options": {
-                "temperature": self.config.temperature, 
-                "num_predict": self.config.max_tokens, 
-                "top_p": self.config.top_p
-            }  
+                "temperature": self.config.temperature,
+                "num_predict": self.config.max_tokens,
+                "top_p": self.config.top_p,
+            },
         }
         if response_format:
             params["format"] = response_format
