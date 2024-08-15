@@ -124,6 +124,7 @@
       "group": "💡 Examples",
       "pages": [
         "examples/overview",
+        "examples/mem0-with-ollama",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
         "examples/langgraph",
