@@ -4,7 +4,9 @@ from typing import Dict, List, Optional
 try:
     from groq import Groq
 except ImportError:
-    raise ImportError("Groq requires extra dependencies. Install with `pip install groq`") from None
+    raise ImportError(
+        "Groq requires extra dependencies. Install with `pip install groq`"
+    ) from None
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
@@ -15,7 +17,7 @@ class GroqLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model="llama3-70b-8192"
+            self.config.model = "llama3-70b-8192"
         self.client = Groq()
 
     def _parse_response(self, response, tools):
@@ -32,16 +34,18 @@ class GroqLLM(LLMBase):
         if tools:
             processed_response = {
                 "content": response.choices[0].message.content,
-                "tool_calls": []
+                "tool_calls": [],
             }
-            
+
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append({
-                        "name": tool_call.function.name,
-                        "arguments": json.loads(tool_call.function.arguments)
-                    })
-            
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(tool_call.function.arguments),
+                        }
+                    )
+
             return processed_response
         else:
             return response.choices[0].message.content
@@ -66,11 +70,11 @@ class GroqLLM(LLMBase):
             str: The generated response.
         """
         params = {
-            "model": self.config.model, 
-            "messages": messages, 
-            "temperature": self.config.temperature, 
-            "max_tokens": self.config.max_tokens, 
-            "top_p": self.config.top_p
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
+            "top_p": self.config.top_p,
         }
         if response_format:
             params["response_format"] = response_format

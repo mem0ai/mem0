@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Optional
 
+
 class BaseLlmConfig(ABC):
     """
     Config for LLMs.
@@ -14,16 +15,14 @@ class BaseLlmConfig(ABC):
         max_tokens: int = 3000,
         top_p: float = 0,
         top_k: int = 1,
-
         # Openrouter specific
         models: Optional[list[str]] = None,
         route: Optional[str] = "fallback",
         openrouter_base_url: Optional[str] = "https://openrouter.ai/api/v1",
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
-
         # Ollama specific
-        ollama_base_url: Optional[str] = None
+        ollama_base_url: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -55,7 +54,7 @@ class BaseLlmConfig(ABC):
         :param ollama_base_url: The base URL of the LLM, defaults to None
         :type ollama_base_url: Optional[str], optional
         """
-        
+
         self.model = model
         self.temperature = temperature
         self.api_key = api_key

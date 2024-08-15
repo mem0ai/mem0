@@ -6,18 +6,20 @@ from mem0.embeddings.base import EmbeddingBase
 try:
     from ollama import Client
 except ImportError:
-    raise ImportError("Ollama requires extra dependencies. Install with `pip install ollama`") from None
+    raise ImportError(
+        "Ollama requires extra dependencies. Install with `pip install ollama`"
+    ) from None
 
 
 class OllamaEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
-    
+
         if not self.config.model:
-            self.config.model="nomic-embed-text"
+            self.config.model = "nomic-embed-text"
         if not self.config.embedding_dims:
-            self.config.embedding_dims=512
-            
+            self.config.embedding_dims = 512
+
         self.client = Client(host=self.config.ollama_base_url)
         self._ensure_model_exists()
 
