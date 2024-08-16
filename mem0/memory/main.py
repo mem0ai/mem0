@@ -159,7 +159,8 @@ class Memory(MemoryBase):
                     {"memory_id": function_result, "function_name": function_name},
                 )
         capture_event("mem0.add", self)
-        return {"message": "ok"}
+
+        return {"message": "ok", "id":function_result}
 
     def get(self, memory_id):
         """
