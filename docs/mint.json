@@ -150,5 +150,11 @@
     "x": "https://x.com/mem0ai",
     "github": "https://github.com/mem0ai",
     "linkedin": "https://www.linkedin.com/company/mem0/"
+  },
+  "analytics": {
+    "posthog": {
+      "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
+      "apiHost": "https://us.i.posthog.com"
+    }
   }
 }
