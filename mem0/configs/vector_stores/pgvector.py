@@ -14,6 +14,9 @@ class PGVectorConfig(BaseModel):
     password: Optional[str] = Field(None, description="Database password")
     host: Optional[str] = Field(None, description="Database host. Default is localhost")
     port: Optional[int] = Field(None, description="Database port. Default is 1536")
+    path: Optional[str] = Field(
+        "/tmp/pgvector", description="Path for local Qdrant database"
+    )
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
