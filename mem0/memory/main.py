@@ -7,6 +7,8 @@ from typing import Any, Dict
 
 from pydantic import ValidationError
 
+
+
 from mem0.llms.utils.tools import (
     ADD_MEMORY_TOOL,
     DELETE_MEMORY_TOOL,
@@ -33,7 +35,13 @@ class Memory(MemoryBase):
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
-        
+
+        self.enable_graph = False
+        if self.config.graph_store.provider:
+            from mem0.memory.main_graph import MemoryGraph
+            self.graph = MemoryGraph(self.config)
+            self.enable_graph = True
+            
         capture_event("mem0.init", self)
 
     @classmethod
@@ -155,6 +163,10 @@ class Memory(MemoryBase):
                     {"memory_id": function_result, "function_name": function_name},
                 )
         capture_event("mem0.add", self)
+
+        if self.enable_graph:
+            graph_entities = self.graph.add(data, response)
+
         return {"message": "ok"}
 
     def get(self, memory_id):
@@ -212,7 +224,7 @@ class Memory(MemoryBase):
         memories = self.vector_store.list(filters=filters, limit=limit)
 
         excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
-        return [
+        all_memories = [
             {
                 **MemoryItem(
                     id=mem.id,
@@ -227,6 +239,13 @@ class Memory(MemoryBase):
             }
             for mem in memories[0]
         ]
+
+        if self.enable_graph:
+            graph_entities = self.graph.get_all()
+            return {"memories": all_memories, "graph_memories": graph_entities}
+
+        return all_memories
+    
 
     def search(
         self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
@@ -259,7 +278,7 @@ class Memory(MemoryBase):
 
         excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
 
-        return [
+        original_memories = [
             {
                 **MemoryItem(
                     id=mem.id,
@@ -275,6 +294,12 @@ class Memory(MemoryBase):
             }
             for mem in memories
         ]
+
+        if self.enable_graph:
+            graph_entities = self.graph.search(query)
+            return {"memories": original_memories, "graph_memories": graph_entities}
+
+        return {"memories": original_memories}
 
     def update(self, memory_id, data):
         """
