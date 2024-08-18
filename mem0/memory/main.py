@@ -162,7 +162,7 @@ class Memory(MemoryBase):
         try:
             return {"message": "ok", "id":function_result}
         except:
-            return {"message": result.get('message')}
+            return {"message": "failed"}
     def get(self, memory_id):
         """
         Retrieve a memory by ID.
