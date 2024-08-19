@@ -21,9 +21,8 @@ class GroqLLM(LLMBase):
             self.config.model = "llama3-70b-8192"
         self.client = Groq()
 
-        if os.environ.get("GROQ_API_KEY"):
-            api_key = os.getenv("GROQ_API_KEY") or self.config.api_key
-            self.client = Groq(api_key=api_key)
+        api_key = os.getenv("GROQ_API_KEY") or self.config.api_key
+        self.client = Groq(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """
