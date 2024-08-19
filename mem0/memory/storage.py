@@ -7,12 +7,14 @@ class SQLiteManager:
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self._migrate_history_table()
         self._create_history_table()
-    
+
     def _migrate_history_table(self):
         with self.connection:
             cursor = self.connection.cursor()
 
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='history'"
+            )
             table_exists = cursor.fetchone() is not None
 
             if table_exists:
@@ -22,15 +24,15 @@ class SQLiteManager:
 
                 # Define the expected schema
                 expected_schema = {
-                    'id': 'TEXT',
-                    'memory_id': 'TEXT',
-                    'old_memory': 'TEXT',
-                    'new_memory': 'TEXT',
-                    'new_value': 'TEXT',
-                    'event': 'TEXT',
-                    'created_at': 'DATETIME',
-                    'updated_at': 'DATETIME',
-                    'is_deleted': 'INTEGER'
+                    "id": "TEXT",
+                    "memory_id": "TEXT",
+                    "old_memory": "TEXT",
+                    "new_memory": "TEXT",
+                    "new_value": "TEXT",
+                    "event": "TEXT",
+                    "created_at": "DATETIME",
+                    "updated_at": "DATETIME",
+                    "is_deleted": "INTEGER",
                 }
 
                 # Check if the schemas are the same
@@ -38,7 +40,8 @@ class SQLiteManager:
                     # Rename the old table
                     cursor.execute("ALTER TABLE history RENAME TO old_history")
 
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         CREATE TABLE IF NOT EXISTS history (
                             id TEXT PRIMARY KEY,
                             memory_id TEXT,
@@ -50,19 +53,21 @@ class SQLiteManager:
                             updated_at DATETIME,
                             is_deleted INTEGER
                         )
-                    """)
+                    """
+                    )
 
                     # Copy data from the old table to the new table
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO history (id, memory_id, old_memory, new_memory, new_value, event, created_at, updated_at, is_deleted)
                         SELECT id, memory_id, prev_value, new_value, new_value, event, timestamp, timestamp, is_deleted
                         FROM old_history
-                    """)
+                    """
+                    )
 
                     cursor.execute("DROP TABLE old_history")
 
                     self.connection.commit()
-
 
     def _create_history_table(self):
         with self.connection:
@@ -82,7 +87,16 @@ class SQLiteManager:
             """
             )
 
-    def add_history(self, memory_id, old_memory, new_memory, event, created_at = None, updated_at = None, is_deleted=0):
+    def add_history(
+        self,
+        memory_id,
+        old_memory,
+        new_memory,
+        event,
+        created_at=None,
+        updated_at=None,
+        is_deleted=0,
+    ):
         with self.connection:
             self.connection.execute(
                 """

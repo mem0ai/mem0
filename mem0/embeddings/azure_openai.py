@@ -7,10 +7,10 @@ from openai import AzureOpenAI
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
+
 class AzureOpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
-
 
         if not self.config.model:
             self.config.model="text-embedding-ada-002"
