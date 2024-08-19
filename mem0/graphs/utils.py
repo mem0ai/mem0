@@ -9,22 +9,15 @@ Input:
 
 Guidelines:
 1. Identification: Use the source and target as primary identifiers when matching existing memories with new information.
-
 2. Conflict Resolution:
    - If new information contradicts an existing memory:
      a) For matching source and target but differing content, update the relationship of the existing memory.
      b) If the new memory provides more recent or accurate information, update the existing memory accordingly.
-
 3. Comprehensive Review: Thoroughly examine each existing graph memory against the new information, updating relationships as necessary. Multiple updates may be required.
-
 4. Consistency: Maintain a uniform and clear style across all memories. Each entry should be concise yet comprehensive.
-
 5. Semantic Coherence: Ensure that updates maintain or improve the overall semantic structure of the graph.
-
 6. Temporal Awareness: If timestamps are available, consider the recency of information when making updates.
-
 7. Relationship Refinement: Look for opportunities to refine relationship descriptions for greater precision or clarity.
-
 8. Redundancy Elimination: Identify and merge any redundant or highly similar relationships that may result from the update.
 
 Task Details:
@@ -37,67 +30,33 @@ Output:
 Provide a list of update instructions, each specifying the source, target, and the new relationship to be set. Only include memories that require updates.
 """
 
+EXTRACT_ENTITIES_PROMPT = """
+Here's a rewritten version of the prompt for your language model:
 
+Knowledge Graph Extraction Guidelines
 
-UPDATE_MEMORY_TOOL_GRAPH = {
-    "type": "function",
-    "function": {
-        "name": "update_graph_memory",
-        "description": "Update the relationship key of an existing graph memory based on new information",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Source of the relationship to update"
-                },
-                "destination": {
-                    "type": "string",
-                    "description": "Destination of the relationship to update"
-                },
-                "relationship": {
-                    "type": "string",
-                    "description": "Updated relationship"
-                }
-            },
-            "required": ["source", "destination", "relationship"]
-        }
-    }
-}
+You are an advanced algorithm designed to extract structured information from text to construct knowledge graphs. Your goal is to capture comprehensive information while maintaining accuracy. Follow these key principles:
 
-ADD_MEMORY_TOOL_GRAPH = {
-    "type": "function",
-    "function": {
-        "name": "add_graph_memory",
-        "description": "Add a new graph memory to the graph",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Source of the new relationship to add"
-                },
-                "destination": {
-                    "type": "string",
-                    "description": "Destination of the new relationship to add"
-                },
-                "relationship": {
-                    "type": "string",
-                    "description": "New relationship"
-                },
-                "source_type": {
-                    "type": "string",
-                    "description": "Source type of the new relationship to add"
-                },
-                "destination_type": {
-                    "type": "string",
-                    "description": "Destination type of the new relationship to add"
-                }
-            },
-            "required": ["source", "destination", "relationship", "source_type", "destination_type"]
-        }
-    }
-}
+1. Extract only explicitly stated information from the text.
+2. Identify nodes (entities/concepts), their types, and relationships.
+3. Use "USER_ID" as the source node for any self-references (I, me, my, etc.) in user messages.
+
+Nodes and Types:
+- Aim for simplicity and clarity in node representation.
+- Use basic, general types for node labels (e.g. "person" instead of "mathematician").
+
+Relationships:
+- Use consistent, general, and timeless relationship types.
+- Example: Prefer "PROFESSOR" over "BECAME_PROFESSOR".
+
+Entity Consistency:
+- Use the most complete identifier for entities mentioned multiple times.
+- Example: Always use "John Doe" instead of variations like "Joe" or pronouns.
+
+Strive for a coherent, easily understandable knowledge graph by maintaining consistency in entity references and relationship types.
+
+Adhere strictly to these guidelines to ensure high-quality knowledge graph extraction."""
+
 
 
 def get_update_memory_prompt(existing_memories, memory, template):

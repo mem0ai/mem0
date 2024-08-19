@@ -12,7 +12,8 @@ from openai import OpenAI
 import numpy as np
 from mem0.embeddings.openai import OpenAIEmbedding
 from mem0.llms.openai import OpenAILLM
-from mem0.graphs.utils import get_update_memory_messages, UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH
+from mem0.graphs.utils import get_update_memory_messages, EXTRACT_ENTITIES_PROMPT
+from mem0.graphs.tools import UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL
 
 client = OpenAI()
 
@@ -50,58 +51,62 @@ class MemoryGraph:
         self.llm_graph_transformer = LLMGraphTransformer(llm=ChatOpenAI(temperature=0, model_name="gpt-4o-mini"))
 
         # delete all nodes and relationships
-        cypher = """
-        MATCH (n)
-        DETACH DELETE n
-        """
-        
-        self.graph.query(cypher)
+        self.delete_all()
 
         self.llm = OpenAILLM()
         self.embedding_model = OpenAIEmbedding()
+        self.user_id = None
+        self.threshold = 0.7
 
-    def _add(self, message):
+    def add(self, data):
+        """
+        Adds data to the graph.
 
-        search_output = self._search(message)
-        print("search_output -----------------")
-        for item in search_output:
-            print(item['source'], item['relation'], item['destination'])
-        print("search_output -----------------")
+        Args:
+            data (str): The data to add to the graph.
+            stored_memories (list): A list of stored memories.
+
+        Returns:
+            dict: A dictionary containing the entities added to the graph.
+        """
         
-        completion = client.beta.chat.completions.parse(
+        # retrieve the search results
+        search_output = self._search(data)
+        
+        extracted_entities = client.beta.chat.completions.parse(
             model="gpt-4o-2024-08-06",
             messages=[
-                {"role": "system", "content": "You are a smart assistant who understands the entities, their types, and relations in a given text. Extract the entities, their types, and relations from the text. The realtionships should be atomic. If user message contains self reference such as 'I', 'me', 'my' etc. then use prateek as the source node."},
-                {"role": "user", "content": message},
+                {"role": "system", "content": EXTRACT_ENTITIES_PROMPT.replace("USER_ID", self.user_id)},
+                {"role": "user", "content": data},
             ],
             response_format=ADDQuery,
-        )
+            temperature=0,
+        ).choices[0].message.parsed.entities
 
-        output = completion.choices[0].message
-        output = output.parsed.entities
-        print("output -----------------", output)
+        update_memory_prompt = get_update_memory_messages(search_output, extracted_entities)
+        tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
 
-        new_entities = []
-        print("output -----------------")
-        for item in output:
-            new_entities.append(item)
-        print("output -----------------")
-
-
-        messages = get_update_memory_messages(search_output, output)
-        tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH]
-
-        response = self.llm.generate_response(messages=messages, tools=tools)
-
-        print("response -----------------", response)
+        memory_updates = client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=update_memory_prompt,
+            tools=tools,
+            temperature=0,
+        ).choices[0].message.tool_calls
 
         to_be_added = []
-        for item in response['tool_calls']:
-            if item['name'] == "add_graph_memory":
-                to_be_added.append(item['arguments'])
-            elif item['name'] == "update_graph_memory":
-                self._update_relationship(item['arguments']['source'], item['arguments']['destination'], item['arguments']['relationship'])
+        for item in memory_updates:
+            function_name = item.function.name
+            arguments = json.loads(item.function.arguments)
+            if function_name == "add_graph_memory":
+                to_be_added.append(arguments)
+            elif function_name == "update_graph_memory":
+                self._update_relationship(arguments['source'], arguments['destination'], arguments['relationship'])
+            elif function_name == "update_name":
+                self._update_name(arguments['name'])
+            elif function_name == "noop":
+                continue
 
+        new_relationships_response = []
         for item in to_be_added:
             source = item['source'].lower().replace(" ", "_")
             source_type = item['source_type'].lower().replace(" ", "_")
@@ -135,29 +140,23 @@ class MemoryGraph:
 
             result = self.graph.query(cypher, params=params)
 
-            print("New added nodes and relationship:")
-            for record in result:
-                print(f"Source: {record['n']['name']}, Destination: {record['m']['name']}")
 
 
     def _search(self, query):
-        completion = client.beta.chat.completions.parse(
+        search_results = client.beta.chat.completions.parse(
             model="gpt-4o-2024-08-06",
             messages=[
-                {"role": "system", "content": "You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use prateek as the source node. Extract the entities."},
+                {"role": "system", "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {self.user_id} as the source node. Extract the entities."},
                 {"role": "user", "content": query},
             ],
             response_format=SEARCHQuery,
-        )
-
-        output = completion.choices[0].message
-        node_list = output.parsed.nodes
-        relation_list = output.parsed.relations
+        ).choices[0].message
+        
+        node_list = search_results.parsed.nodes
+        relation_list = search_results.parsed.relations
 
         node_list = [node.lower().replace(" ", "_") for node in node_list]
         relation_list = [relation.lower().replace(" ", "_") for relation in relation_list]
-
-        threshold = 0.7
 
         result_relations = []
 
@@ -173,7 +172,7 @@ class MemoryGraph:
                 sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
             WHERE similarity >= $threshold
             MATCH (n)-[r]->(m)
-            RETURN n.name AS source, id(n) AS source_id, type(r) AS relation, id(r) AS relation_id, m.name AS destination, id(m) AS destination_id, similarity
+            RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relation, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
             UNION
             MATCH (n)
             WHERE n.embedding IS NOT NULL
@@ -183,94 +182,17 @@ class MemoryGraph:
                 sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
             WHERE similarity >= $threshold
             MATCH (m)-[r]->(n)
-            RETURN m.name AS source, id(m) AS source_id, type(r) AS relation, id(r) AS relation_id, n.name AS destination, id(n) AS destination_id, similarity
+            RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relation, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id, similarity
             ORDER BY similarity DESC
             """
-            params = {"n_embedding": n_embedding, "threshold": threshold}
+            params = {"n_embedding": n_embedding, "threshold": self.threshold}
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
 
 
-    def add(self, data, stored_memories):
-        """
-        Adds data to the graph.
-
-        Args:
-            data (str): The data to add to the graph.
-            stored_memories (list): A list of stored memories.
-
-        Returns:
-            dict: A dictionary containing the entities added to the graph.
-        """
-
-        # data = "My name is prateek\n" + data
-        # # Convert data to graph documents
-        # query_doc = [Document(page_content=data)]
-        # graph_documents = self.llm_graph_transformer.convert_to_graph_documents(query_doc)
-
-        # print(graph_documents)
-
-
-
-        # # Extract relationships from graph documents
-        # new_relationships = []
-        # for graph_doc in graph_documents:
-        #     for relation in graph_doc.relationships:
-        #         relationship_embedding = self.embedding_model.embed(relation.type)
-                
-        #         new_relationships.append(
-        #             GraphData(
-        #                 source=relation.source.id,
-        #                 target=relation.target.id,
-        #                 relationship=relation.type,
-        #             )
-        #         )
-        #         # Add the embedding to the relationship properties
-        #         relation.properties['embedding'] = relationship_embedding
-        #         relation.properties['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-        # Add graph documents to the graph
-        # self.graph.add_graph_documents(
-        #     graph_documents,
-        #     baseEntityLabel=True,
-        #     include_source=False
-        # )
-
-        self._add(data)
-        new_relationships_response = []
-
-        # new_relationships_response = [item.model_dump(include={"source", "target", "relationship"}) for item in new_relationships]
-
-        # existing_relationships = []
-        # for relationship in new_relationships:
-        #     existing_relationships.extend(self._get_relationships(relationship.source, relationship.relationship))
-
-
-        # if existing_relationships:
-        #     serialized_existing_relationships = [
-        #         item.model_dump(include={"source", "target", "relationship", "content"})
-        #         for item in existing_relationships
-        #     ]
-        #     serialized_new_relationships = [
-        #         item.model_dump(include={"source", "target", "relationship", "content"})
-        #         for item in new_relationships
-        #     ]
-
-        #     messages = get_update_memory_messages(serialized_existing_relationships, serialized_new_relationships)
-        #     tools = [UPDATE_MEMORY_TOOL_GRAPH]
-
-        #     response = self.llm.generate_response(messages=messages, tools=tools)
-        #     tool_calls = response['tool_calls']
-
-        #     if tool_calls:
-        #         for tool_call in tool_calls:
-        #             function_args = tool_call['arguments']
-        #             self._update_relationship(**function_args)             
-
-        
-        return {"entities": new_relationships_response}
+    
     
 
     def search(self, query):
@@ -286,69 +208,25 @@ class MemoryGraph:
                 - "entities": List of related graph data based on the query.
         """
 
-        all_entities = self.get_all()
-        results = json.loads(get_search_results(all_entities, query))
+        search_output = self._search(query)
+        search_results = []
+        for item in search_output:
+            search_results.append({
+                "source": item['source'],
+                "relation": item['relation'],
+                "destination": item['destination']
+            })
 
-        return results['search_results']
-    
-    
-    
-    
-    def _get_relationships(self, source_id, relationship_type, top_k=10, is_search=False):
+
+        return search_results
+
+
+    def delete_all(self):
+        cypher = """
+        MATCH (n)
+        DETACH DELETE n
         """
-        Retrieves and ranks relationships based on similarity to a given relationship type.
-
-        This method embeds the given relationship type, fetches all relationships with embeddings
-        from the graph database, calculates similarities, and returns the top-k most similar relationships.
-
-        Args:
-            source_id (str): The ID of the source node.
-            relationship_type (str): The type of relationship to compare against.
-            top_k (int, optional): The number of top similar relationships to return. Defaults to 10.
-            is_search (bool, optional): If True, returns a string representation of relationships.
-                                        If False, returns GraphData objects. Defaults to False.
-
-        Returns: 
-            list: A list of GraphData objects or string representations of relationships.
-        """
-        relationship_embedding = self.embedding_model.embed(relationship_type)
-        
-        # Cypher query to fetch all relationships with embeddings
-        query = """
-        MATCH (source)-[r]->(target)
-        WHERE r.embedding IS NOT NULL
-        RETURN source, type(r) AS rel_type, target, r.embedding AS embedding, r.timestamp AS timestamp
-        """
-        results = self.graph.query(query)
-
-        similarities = [
-            (result['source'], result['rel_type'], result['target'], 
-            self.cosine_similarity(relationship_embedding, result['embedding']), result['timestamp'])
-            for result in results
-        ]
-
-        
-        # Sort by similarity (descending) and get top_k results
-        top_similar = sorted(similarities, key=lambda x: x[3], reverse=True)[:top_k]
-
-        graph_data = []
-        for result in top_similar:
-            old_source_id = result[0]['id']
-            old_target_id = result[2]['id']
-            relationship = result[1]
-
-            if is_search:
-                record_str = f"{old_source_id} -> {relationship} -> {old_target_id}"
-                graph_data.append(record_str)
-            else:
-                if source_id == old_source_id: 
-                    graph_data.append(GraphData(
-                        source=old_source_id,
-                        target=old_target_id,
-                        relationship=relationship,
-                    ))
-        
-        return graph_data
+        self.graph.query(cypher)
     
 
     def get_all(self,):
@@ -365,14 +243,18 @@ class MemoryGraph:
 
         # return all nodes and relationships
         query = """
-        MATCH (n) -[r]-> (m)
-        RETURN n.id, r, m.id
+        MATCH (n)-[r]->(m)
+        RETURN n.name AS source, type(r) AS relationship, m.name AS target
         """
         results = self.graph.query(query)
 
         final_results = []
         for result in results:
-            final_results.append((result['n.id'], result['r'][1], result['m.id']))
+            final_results.append({
+                "source": result['source'],
+                "relationship": result['relationship'],
+                "target": result['target']
+            })
 
 
         return final_results
@@ -380,24 +262,33 @@ class MemoryGraph:
     
     def _update_relationship(self, source, target, relationship):
         """
-        Update the relationship between two nodes in the graph.
+        Update or create a relationship between two nodes in the graph.
 
         Args:
             source (str): The name of the source node.
             target (str): The name of the target node.
-            relationship (str): The new type of the relationship.
+            relationship (str): The type of the relationship.
 
         Raises:
-            Exception: If the nodes or relationship are not found in the graph.
+            Exception: If the operation fails.
         """
-        # First, delete the existing relationship
+        relationship = relationship.lower().replace(" ", "_")
+
+        # Check if nodes exist and create them if they don't
+        check_and_create_query = """
+        MERGE (n1 {name: $source})
+        MERGE (n2 {name: $target})
+        """
+        self.graph.query(check_and_create_query, params={"source": source, "target": target})
+
+        # Delete any existing relationship between the nodes
         delete_query = """
         MATCH (n1 {name: $source})-[r]->(n2 {name: $target})
         DELETE r
         """
         self.graph.query(delete_query, params={"source": source, "target": target})
 
-        # Then, create the new relationship
+        # Create the new relationship
         create_query = f"""
         MATCH (n1 {{name: $source}}), (n2 {{name: $target}})
         CREATE (n1)-[r:{relationship}]->(n2)
@@ -406,10 +297,6 @@ class MemoryGraph:
         result = self.graph.query(create_query, params={"source": source, "target": target})
 
         if not result:
-            raise Exception(f"Failed to update relationship between {source} and {target}")
+            raise Exception(f"Failed to update or create relationship between {source} and {target}")
 
-    @staticmethod
-    def cosine_similarity(a, b):
-        """ Calculate the cosine similarity between two vectors."""
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 

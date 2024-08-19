@@ -4,7 +4,7 @@ import uuid
 import pytz
 from datetime import datetime
 from typing import Any, Dict
-
+import warnings
 from pydantic import ValidationError
 
 
@@ -165,7 +165,11 @@ class Memory(MemoryBase):
         capture_event("mem0.add", self)
 
         if self.enable_graph:
-            graph_entities = self.graph.add(data, response)
+            if user_id:
+                self.graph.user_id = user_id
+            else:
+                self.graph.user_id = "USER"
+            added_entities = self.graph.add(data)
 
         return {"message": "ok"}
 
@@ -242,8 +246,15 @@ class Memory(MemoryBase):
 
         if self.enable_graph:
             graph_entities = self.graph.get_all()
-            return {"memories": all_memories, "graph_memories": graph_entities}
+            return {"memories": all_memories, "entities": graph_entities}
 
+        warnings.warn(
+            "Call to deprecated function get_all. "
+            "Returning a list of memories is deprecated. "
+            "Use the new dict format {'memories': []} instead.",
+            category=DeprecationWarning,
+            stacklevel=2
+        )
         return all_memories
     
 
@@ -297,9 +308,16 @@ class Memory(MemoryBase):
 
         if self.enable_graph:
             graph_entities = self.graph.search(query)
-            return {"memories": original_memories, "graph_memories": graph_entities}
+            return {"memories": original_memories, "entities": graph_entities}
 
-        return {"memories": original_memories}
+        warnings.warn(
+            "Call to deprecated function search. "
+            "Returning a list of memories is deprecated. "
+            "Use the new dict format {'memories': []} instead.",
+            category=DeprecationWarning,
+            stacklevel=2
+        )
+        return original_memories
 
     def update(self, memory_id, data):
         """
@@ -353,6 +371,10 @@ class Memory(MemoryBase):
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory_tool(memory.id)
+
+        if self.enable_graph:
+            self.graph.delete_all()
+
         return {'message': 'Memories deleted successfully!'}
 
     def history(self, memory_id):
