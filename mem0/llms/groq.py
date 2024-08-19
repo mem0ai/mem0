@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Dict, List, Optional
 
@@ -19,6 +20,9 @@ class GroqLLM(LLMBase):
         if not self.config.model:
             self.config.model = "llama3-70b-8192"
         self.client = Groq()
+
+        api_key = os.getenv("GROQ_API_KEY") or self.config.api_key
+        self.client = Groq(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """
