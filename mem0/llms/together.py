@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Dict, List, Optional
 
@@ -20,6 +21,9 @@ class TogetherLLM(LLMBase):
             self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
         self.client = Together()
 
+        api_key = os.getenv("TOGETHER_API_KEY") or self.config.api_key
+        self.client = Together(api_key=api_key)
+    
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.

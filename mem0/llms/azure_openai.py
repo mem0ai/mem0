@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Dict, List, Optional
 
@@ -15,6 +16,9 @@ class AzureOpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-4o"
         self.client = AzureOpenAI()
+        
+        api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
+        self.client = AzureOpenAI(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """
