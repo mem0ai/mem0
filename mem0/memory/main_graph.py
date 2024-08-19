@@ -1,15 +1,8 @@
-from langchain.docstore.document import Document
-from py2neo import Graph
-from langchain_openai import ChatOpenAI
 from langchain_community.graphs import Neo4jGraph
-from langchain_experimental.graph_transformers import LLMGraphTransformer
 from pydantic import BaseModel, Field
-from datetime import datetime
 import json
-from mem0.graphs.utils import get_search_results
 from openai import OpenAI
 
-import numpy as np
 from mem0.embeddings.openai import OpenAIEmbedding
 from mem0.llms.openai import OpenAILLM
 from mem0.graphs.utils import get_update_memory_messages, EXTRACT_ENTITIES_PROMPT
@@ -46,10 +39,7 @@ def get_embedding(text):
 class MemoryGraph:
     def __init__(self, config):
         self.config = config
-        self.pyneo_graph = Graph(self.config.graph_store.config.url, auth=(self.config.graph_store.config.username, self.config.graph_store.config.password))
         self.graph = Neo4jGraph(self.config.graph_store.config.url, self.config.graph_store.config.username, self.config.graph_store.config.password)
-        self.llm_graph_transformer = LLMGraphTransformer(llm=ChatOpenAI(temperature=0, model_name="gpt-4o-mini"))
-
         # delete all nodes and relationships
         self.delete_all()
 
