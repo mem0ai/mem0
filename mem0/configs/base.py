@@ -42,3 +42,8 @@ class MemoryConfig(BaseModel):
         description="Configuration for the graph",
         default_factory=GraphStoreConfig,
     )
+    version: str = Field(
+        description="The version of the API",
+        default="v1",
+    )
+    

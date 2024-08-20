@@ -45,6 +45,7 @@ class MemoryGraph:
         self.embedding_model = OpenAIEmbedding()
         self.user_id = None
         self.threshold = 0.7
+        self.model_name = "gpt-4o-2024-08-06"
 
     def add(self, data):
         """
@@ -62,7 +63,7 @@ class MemoryGraph:
         search_output = self._search(data)
         
         extracted_entities = client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model=self.model_name,
             messages=[
                 {"role": "system", "content": EXTRACT_ENTITIES_PROMPT.replace("USER_ID", self.user_id)},
                 {"role": "user", "content": data},
@@ -75,7 +76,7 @@ class MemoryGraph:
         tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
 
         memory_updates = client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model=self.model_name,
             messages=update_memory_prompt,
             tools=tools,
             temperature=0,
