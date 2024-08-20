@@ -214,7 +214,7 @@ class MemoryGraph:
         self.graph.query(cypher)
     
 
-    def get_all(self,):
+    def get_all(self):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
