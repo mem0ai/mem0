@@ -55,6 +55,28 @@ config = {
 m = Memory.from_config(config)
 ```
   </Tab>
+
+<Tab title="Advanced (Graph Memory)">
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://---",
+            "username": "neo4j",
+            "password": "---"
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+</Tab>
 </Tabs>
 
 
@@ -93,6 +115,9 @@ all_memories = m.get_all()
 ]
 ```
 </CodeGroup>
+
+
+<br />
 
 <CodeGroup>
 ```python Code
@@ -184,9 +209,10 @@ history = m.history(memory_id="m1")
 ### Delete Memory
 
 ```python
-m.delete(memory_id="m1") # Delete a memory
-
-m.delete_all(user_id="alice") # Delete all memories
+# Delete a memory by id
+m.delete(memory_id="m1")
+# Delete all memories for a user
+m.delete_all(user_id="alice")
 ```
 
 ### Reset Memory
@@ -222,7 +248,7 @@ messages = [
     "content": "I love indian food but I cannot eat pizza since allergic to cheese."
   },
 ]
-user_id = "deshraj"
+user_id = "alice"
 chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
 # Memory saved after this will look like: "Loves Indian food. Allergic to cheese and cannot eat pizza."
 

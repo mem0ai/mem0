@@ -117,7 +117,9 @@
         {
           "group": "Features",
           "pages": ["features/openai_compatibility"]
-        }
+        },
+        "open-source/graph-memory"
+        
       ]
     },
     {
