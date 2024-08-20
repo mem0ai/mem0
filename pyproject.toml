@@ -15,13 +15,14 @@ packages = [
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.8.1,<4.0"
 qdrant-client = "^1.9.1"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
 posthog = "^3.5.0"
 pytz = "^2024.1"
 sqlalchemy = "^2.0.31"
+langchain-community = "^0.2.12"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
