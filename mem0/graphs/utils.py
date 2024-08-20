@@ -31,9 +31,6 @@ Provide a list of update instructions, each specifying the source, target, and t
 """
 
 EXTRACT_ENTITIES_PROMPT = """
-Here's a rewritten version of the prompt for your language model:
-
-Knowledge Graph Extraction Guidelines
 
 You are an advanced algorithm designed to extract structured information from text to construct knowledge graphs. Your goal is to capture comprehensive information while maintaining accuracy. Follow these key principles:
 

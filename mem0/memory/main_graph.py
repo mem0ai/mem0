@@ -40,8 +40,6 @@ class MemoryGraph:
     def __init__(self, config):
         self.config = config
         self.graph = Neo4jGraph(self.config.graph_store.config.url, self.config.graph_store.config.username, self.config.graph_store.config.password)
-        # delete all nodes and relationships
-        self.delete_all()
 
         self.llm = OpenAILLM()
         self.embedding_model = OpenAIEmbedding()
