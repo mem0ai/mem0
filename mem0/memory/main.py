@@ -86,6 +86,11 @@ class Memory(MemoryBase):
         if run_id:
             filters["run_id"] = metadata["run_id"] = run_id
 
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError(
+                "One of the filters: user_id, agent_id or run_id is required!"
+            )
+
         if not prompt:
             prompt = MEMORY_DEDUCTION_PROMPT.format(user_input=data, metadata=metadata)
         extracted_memories = self.llm.generate_response(
@@ -291,6 +296,11 @@ class Memory(MemoryBase):
             filters["agent_id"] = agent_id
         if run_id:
             filters["run_id"] = run_id
+
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError(
+                "One of the filters: user_id, agent_id or run_id is required!"
+            )
 
         capture_event("mem0.search", self, {"filters": len(filters), "limit": limit})
         embeddings = self.embedding_model.embed(query)
