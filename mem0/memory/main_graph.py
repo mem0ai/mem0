@@ -179,9 +179,6 @@ class MemoryGraph:
             result_relations.extend(ans)
 
         return result_relations
-
-
-    
     
 
     def search(self, query):
@@ -205,7 +202,6 @@ class MemoryGraph:
                 "relation": item['relation'],
                 "destination": item['destination']
             })
-
 
         return search_results
 
@@ -244,7 +240,6 @@ class MemoryGraph:
                 "relationship": result['relationship'],
                 "target": result['target']
             })
-
 
         return final_results
     
@@ -287,5 +282,3 @@ class MemoryGraph:
 
         if not result:
             raise Exception(f"Failed to update or create relationship between {source} and {target}")
-
-
