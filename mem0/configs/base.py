@@ -6,6 +6,7 @@ from mem0.memory.setup import mem0_dir
 from mem0.vector_stores.configs import VectorStoreConfig
 from mem0.llms.configs import LlmConfig
 from mem0.embeddings.configs import EmbedderConfig
+from mem0.graphs.configs import GraphStoreConfig
 
 
 class MemoryItem(BaseModel):
@@ -46,3 +47,12 @@ class MemoryConfig(BaseModel):
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
     )
+    graph_store: GraphStoreConfig = Field(
+        description="Configuration for the graph",
+        default_factory=GraphStoreConfig,
+    )
+    version: str = Field(
+        description="The version of the API",
+        default="v1.0",
+    )
+    
