@@ -9,8 +9,7 @@ class EmbedderConfig(BaseModel):
         default="openai",
     )
     config: Optional[dict] = Field(
-        description="Configuration for the specific embedding model", 
-        default={}
+        description="Configuration for the specific embedding model", default={}
     )
 
     @field_validator("config")
@@ -20,4 +19,3 @@ class EmbedderConfig(BaseModel):
             return v
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")
-        
