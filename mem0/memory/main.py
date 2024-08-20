@@ -86,7 +86,7 @@ class Memory(MemoryBase):
         if run_id:
             filters["run_id"] = metadata["run_id"] = run_id
 
-        if "user_id" not in filters and "agent_id" not in filters and "run_id" not in filters:
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "One of the filters: user_id, agent_id or run_id is required!"
             )
@@ -297,7 +297,7 @@ class Memory(MemoryBase):
         if run_id:
             filters["run_id"] = run_id
 
-        if "user_id" not in filters and "agent_id" not in filters and "run_id" not in filters:
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "One of the filters: user_id, agent_id or run_id is required!"
             )
