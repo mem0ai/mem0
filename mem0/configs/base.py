@@ -53,6 +53,6 @@ class MemoryConfig(BaseModel):
     )
     version: str = Field(
         description="The version of the API",
-        default="v1",
+        default="v1.0",
     )
     

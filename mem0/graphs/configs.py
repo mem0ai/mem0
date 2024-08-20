@@ -24,7 +24,7 @@ class Neo4jConfig(BaseModel):
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
         description="Provider of the data store (e.g., 'neo4j')", 
-        default=None
+        default="neo4j"
     )
     config: Neo4jConfig = Field(
         description="Configuration for the specific data store",
