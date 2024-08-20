@@ -39,7 +39,8 @@ class Memory(MemoryBase):
         self.version = self.config.version
 
         self.enable_graph = False
-        if self.config.graph_store.provider:
+
+        if self.version == "v1.1" and self.config.graph_store.config:
             from mem0.memory.main_graph import MemoryGraph
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
