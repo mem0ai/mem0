@@ -1,0 +1,248 @@
+---
+title: Graph Memory
+description: 'Enhance your memory system with graph-based knowledge representation and retrieval'
+---
+
+Mem0 now supports **Graph Memory**. 
+With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. 
+This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
+
+
+> **Note:** The Graph Memory implementation is not standalone. You will be adding/retrieving memories to the vector store and the graph store simultaneously.
+
+
+
+## Initialize Graph Memory
+
+To initialize Graph Memory you'll need to set up your configuration with graph store providers.
+Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
+Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*). 
+Here's how you can do it:
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://xxx",
+            "username": "neo4j",
+            "password": "xxx"
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+## Graph Operations
+The Mem0's graph supports the following operations:
+
+### Add Memories
+
+<CodeGroup>
+```python Code
+m.add("I like pizza", user_id="alice")
+```
+
+```json Output
+{'message': 'ok'}
+```
+</CodeGroup>
+
+
+### Get all memories
+
+<CodeGroup>
+```python Code
+m.get_all(user_id="alice")
+```
+
+```json Output
+{
+    'memories': [
+        {
+            'id': 'de69f426-0350-4101-9d0e-5055e34976a5',
+            'memory': 'Likes pizza',
+            'hash': '92128989705eef03ce31c462e198b47d',
+            'metadata': None,
+            'created_at': '2024-08-20T14:09:27.588719-07:00',
+            'updated_at': None,
+            'user_id': 'alice'
+        }
+    ],
+    'entities': [
+        {
+            'source': 'alice',
+            'relationship': 'likes',
+            'target': 'pizza'
+        }
+    ]
+}
+```
+</CodeGroup>
+
+### Search Memories
+
+<CodeGroup>
+```python Code
+m.search("tell me my name.", user_id="alice")
+```
+
+```json Output
+{
+    'memories': [
+        {
+            'id': 'de69f426-0350-4101-9d0e-5055e34976a5',
+            'memory': 'Likes pizza',
+            'hash': '92128989705eef03ce31c462e198b47d',
+            'metadata': None,
+            'created_at': '2024-08-20T14:09:27.588719-07:00',
+            'updated_at': None,
+            'user_id': 'alice'
+        }
+    ],
+    'entities': [
+        {
+            'source': 'alice',
+            'relationship': 'likes',
+            'target': 'pizza'
+        }
+    ]
+}
+```
+</CodeGroup>
+
+
+### Delete all Memories
+```python
+m.delete_all(user_id="alice")
+```
+
+
+# Example Usage
+Here's an example of how to use Mem0's graph operations:
+
+1. First, we'll add some memories for a user named Alice.
+2. Then, we'll visualize how the graph evolves as we add more memories.
+3. You'll see how entities and relationships are automatically extracted and connected in the graph.
+
+### Add Memories
+
+Below are the steps to add memories and visualize the graph:
+
+<Steps>
+  <Step title="Add memory 'I like going to hikes'">
+
+```python
+m.add("I like going to hikes", user_id="alice123")
+```
+![Graph Memory Visualization](../images/graph_memory/graph_example1.png)
+
+</Step>
+<Step title="Add memory 'I love to play badminton'">
+
+
+```python
+m.add("I love to play badminton", user_id="alice123")
+```
+![Graph Memory Visualization](../images/graph_memory/graph_example2.png)
+
+</Step>
+
+<Step title="Add memory 'I hate playing badminton'">
+
+```python
+m.add("I hate playing badminton", user_id="alice123")
+```
+![Graph Memory Visualization](../images/graph_memory/graph_example3.png)
+
+</Step>
+
+<Step title="Add memory 'My friend name is john and john has a dog named tommy'">
+
+```python
+m.add("My friend name is john and john has a dog named tommy", user_id="alice123")
+```
+![Graph Memory Visualization](../images/graph_memory/graph_example4.png)
+
+</Step>
+
+<Step title="Add memory 'My name is Alice'">
+
+```python
+m.add("My name is Alice", user_id="alice123")
+```
+![Graph Memory Visualization](../images/graph_memory/graph_example5.png)
+
+</Step>
+
+<Step title="Add memory 'John loves to hike and Harry loves to hike as well'">
+
+```python
+m.add("John loves to hike and Harry loves to hike as well", user_id="alice123")
+```
+![Graph Memory Visualization](../images/graph_memory/graph_example6.png)
+
+</Step>
+
+<Step title="Add memory 'My friend peter is the spiderman'">
+
+```python
+m.add("My friend peter is the spiderman", user_id="alice123")
+```
+
+![Graph Memory Visualization](../images/graph_memory/graph_example7.png)
+
+</Step>
+
+</Steps>
+
+
+### Search Memories
+
+<CodeGroup>
+```python Code
+m.search("What is my name?", user_id="alice123")
+```
+
+```json Output
+{
+    'memories': [...],
+    'entities': [
+        {'source': 'alice123', 'relation': 'dislikes_playing','destination': 'badminton'},
+        {'source': 'alice123', 'relation': 'friend', 'destination': 'peter'},
+        {'source': 'alice123', 'relation': 'friend', 'destination': 'john'},
+        {'source': 'alice123', 'relation': 'has_name', 'destination': 'alice'},
+        {'source': 'alice123', 'relation': 'likes', 'destination': 'hiking'}
+    ]
+}
+```
+</CodeGroup>
+
+Below graph visualization shows what nodes and relationships are fetched from the graph for the provided query.
+
+![Graph Memory Visualization](../images/graph_memory/graph_example8.png)
+
+<CodeGroup>
+```python Code
+m.search("Who is spiderman?", user_id="alice123")
+```
+
+```json Output
+{
+    'memories': [...],
+    'entities': [
+        {'source': 'peter', 'relation': 'identity','destination': 'spiderman'}
+    ]
+}
+```
+</CodeGroup>
+
+![Graph Memory Visualization](../images/graph_memory/graph_example9.png)
+
+If you want to use a managed version of Mem0, please check out [Mem0](https://app.mem0.ai). If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
