@@ -54,7 +54,11 @@
       "group": "Platform",
       "pages": [
         "platform/overview",
-        "platform/quickstart"
+        "platform/quickstart",
+        {
+          "group": "Features",
+          "pages": ["features/selective-memory"]
+        }
       ]
     },
     {
