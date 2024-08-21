@@ -4,12 +4,19 @@ title: Overview
 
 Mem0 offers support for various embedding models, allowing users to choose the one that best suits their needs.
 
+## Supported Embedders
+
+See the list of supported embedders below.
+
+<CardGroup cols={4}>
+  <Card title="OpenAI" href="/components/embedders/models/openai"></Card>
+  <Card title="Azure OpenAI" href="/components/embedders/models/azure_openai"></Card>
+  <Card title="Ollama" href="/components/embedders/models/ollama"></Card>
+  <Card title="Hugging Face" href="/components/embedders/models/huggingface"></Card>
+</CardGroup>
+
 ## Usage
 
 To utilize a embedder, you must provide a configuration to customize its usage. If no configuration is supplied, a default configuration will be applied, and `OpenAI` will be used as the embedder.
 
 For a comprehensive list of available parameters for embedder configuration, please refer to [Config](./config).
-
-To view all supported embedders, visit the [Supported embedders](./models).
-
-

@@ -3,9 +3,9 @@
   "name": "Mem0.ai",
   "favicon": "/logo/favicon.png",
   "colors": {
-    "primary": "#3B2FC9",
-    "light": "#6673FF",
-    "dark": "#3B2FC9",
+    "primary": "#6c60f0",
+    "light": "#E6FFA2",
+    "dark": "#a3df02",
     "background": {
       "dark": "#0f1117",
       "light": "#fff"
@@ -122,30 +122,23 @@
       ]
     },
     {
+      "group": "Integrations",
+      "pages": [
+        "integrations/multion",
+        "integrations/autogen",
+        "integrations/langgraph"
+      ]
+    },
+    {
       "group": "💡 Examples",
       "pages": [
         "examples/overview",
         "examples/mem0-with-ollama",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
-        "examples/langgraph",
-        "examples/autogen",
         "examples/personal-travel-assistant"
       ]
-    },
-    {
-      "group": "Knowledge Base",
-      "pages": [
-        "knowledge-base/introduction"
-      ]
-    },
-    {
-      "group": "Integrations",
-      "pages": [
-        "integrations/multion"
-      ]
     }
-
   ],
   "footerSocials": {
     "discord": "https://mem0.ai/discord",
