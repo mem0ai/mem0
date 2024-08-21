@@ -61,6 +61,7 @@
       "group": "Open Source",
       "pages": [
         "open-source/quickstart",
+        "open-source/graph-memory",
         {
           "group": "LLMs",
           "pages": [
@@ -117,9 +118,7 @@
         {
           "group": "Features",
           "pages": ["features/openai_compatibility"]
-        },
-        "open-source/graph-memory"
-        
+        }
       ]
     },
     {

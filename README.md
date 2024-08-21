@@ -21,9 +21,18 @@
   </a>
 </p>
 
+
 # Introduction
 
-[Mem0](https://mem0.ai) (pronounced "mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
+[Mem0](https://mem0.ai) (pronounced as "mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
+
+<!-- Start of Selection -->
+<p style="display: flex;">
+  <img src="https://media.tenor.com/K3j9pwWlME0AAAAi/fire-flame.gif" alt="Graph Memory Integration" style="width: 25px; margin-right: 10px;" />
+  <span style="font-size: 1.2em;">New Feature: Introducing Graph Memory. Check out our <a href="https://docs.mem0.ai/open-source/graph-memory" target="_blank">documentation</a>.</span>
+</p>
+<!-- End of Selection -->
+
 
 ### Core Features
 
@@ -139,6 +148,32 @@ history = m.history(memory_id=<memory_id_1>)
 
 > [!TIP]
 > If you prefer a hosted version without the need to set up infrastructure yourself, check out the [Mem0 Platform](https://app.mem0.ai/) to get started in minutes.
+
+
+### Graph Memory
+To initialize Graph Memory you'll need to set up your configuration with graph store providers.
+Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
+Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*). 
+Here's how you can do it:
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://xxx",
+            "username": "neo4j",
+            "password": "xxx"
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+
+```
 
 ## Documentation
 
