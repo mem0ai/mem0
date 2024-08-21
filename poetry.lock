@@ -1064,6 +1064,25 @@ files = [
 ]
 
 [[package]]
+name = "neo4j"
+version = "5.23.1"
+description = "Neo4j Bolt driver for Python"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "neo4j-5.23.1-py3-none-any.whl", hash = "sha256:97996fbf39421e0677fdcb8afe50b6810cbe8027e055a9dcf81da6070a82a009"},
+    {file = "neo4j-5.23.1.tar.gz", hash = "sha256:e2d3399d1124319489b25d5eda99833ae086e1fffef9946d36241652d26b26a0"},
+]
+
+[package.dependencies]
+pytz = "*"
+
+[package.extras]
+numpy = ["numpy (>=1.7.0,<2.0.0)"]
+pandas = ["numpy (>=1.7.0,<2.0.0)", "pandas (>=1.1.0,<3.0.0)"]
+pyarrow = ["pyarrow (>=1.0.0)"]
+
+[[package]]
 name = "numpy"
 version = "1.24.4"
 description = "Fundamental package for array computing in Python"
@@ -1970,4 +1989,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "747072ed166214d7c5e00e3f4ae74400d597b6ab03127b86950c1ded676e0303"
+content-hash = "2c1dcb9bf3ea14123d9da3f3bbda6641dcdeccc71f9df9c693c65a56074977a6"
