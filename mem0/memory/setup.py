@@ -3,7 +3,7 @@ import os
 import uuid
 
 # Set up the directory path
-home_dir = os.environ.get("HOME_DIR") or os.path.expanduser("~")
+home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
 os.makedirs(mem0_dir, exist_ok=True)
 
