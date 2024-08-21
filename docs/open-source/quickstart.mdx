@@ -1,0 +1,329 @@
+---
+title: Quickstart
+description: 'Get started with Mem0 quickly!'
+---
+
+> Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
+
+## Installation
+
+To install Mem0, you can use pip. Run the following command in your terminal:
+
+```bash
+pip install mem0ai
+```
+
+## Basic Usage
+
+### Initialize Mem0
+
+<Tabs>
+  <Tab title="Basic">
+```python
+from mem0 import Memory
+m = Memory()
+```
+  </Tab>
+  <Tab title="Advanced">
+If you want to run Mem0 in production, initialize using the following method:
+
+Run Qdrant first:
+
+```bash
+docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+Then, instantiate memory with qdrant server:
+
+```python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+m = Memory.from_config(config)
+```
+  </Tab>
+
+<Tab title="Advanced (Graph Memory)">
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://---",
+            "username": "neo4j",
+            "password": "---"
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+</Tab>
+</Tabs>
+
+
+### Store a Memory
+
+<CodeGroup>
+```python Code
+# For a user
+result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+```json Output
+{'message': 'ok'}
+```
+</CodeGroup>
+
+### Retrieve Memories
+
+<CodeGroup>
+```python Code
+# Get all memories
+all_memories = m.get_all()
+```
+
+```json Output
+[
+   {
+      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
+      "memory":"Likes to play cricket on weekends",
+      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
+      "metadata":"None",
+      "created_at":"2024-07-26T08:44:41.039788-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+   }
+]
+```
+</CodeGroup>
+
+
+<br />
+
+<CodeGroup>
+```python Code
+# Get a single memory by ID
+specific_memory = m.get("m1")
+```
+
+```json Output
+{
+      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
+      "memory":"Likes to play cricket on weekends",
+      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
+      "metadata":"None",
+      "created_at":"2024-07-26T08:44:41.039788-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+}
+```
+</CodeGroup>
+
+### Search Memories
+
+<CodeGroup>
+```python Code
+related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+```
+
+```json Output
+[
+   {
+      "id":"ea925981-272f-40dd-b576-be64e4871429",
+      "memory":"Likes to play cricket and plays cricket on weekends.",
+      "hash":"c8809002-25c1-4c97-a3a2-227ce9c20c53",
+      "metadata":{
+         "category":"hobbies"
+      },
+      "score":0.32116443111457704,
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+   }
+]
+```
+</CodeGroup>
+
+### Update a Memory
+
+<CodeGroup>
+```python Code
+result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
+```
+
+```json Output
+{'message': 'Memory updated successfully!'}
+```
+</CodeGroup>
+
+### Memory History
+
+<CodeGroup>
+```python Code
+history = m.history(memory_id="m1")
+```
+
+```json Output
+[
+   {
+      "id":"4e0e63d6-a9c6-43c0-b11c-a1bad3fc7abb",
+      "memory_id":"ea925981-272f-40dd-b576-be64e4871429",
+      "old_memory":"None",
+      "new_memory":"Likes to play cricket and plays cricket on weekends.",
+      "event":"ADD",
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"None"
+   },
+   {
+      "id":"548b75f0-f442-44b9-9ca1-772a105abb12",
+      "memory_id":"ea925981-272f-40dd-b576-be64e4871429",
+      "old_memory":"Likes to play cricket and plays cricket on weekends.",
+      "new_memory":"Likes to play tennis on weekends",
+      "event":"UPDATE",
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"2024-07-26T10:32:46.332336-07:00"
+   }
+]
+```
+</CodeGroup>
+
+### Delete Memory
+
+```python
+# Delete a memory by id
+m.delete(memory_id="m1")
+# Delete all memories for a user
+m.delete_all(user_id="alice")
+```
+
+### Reset Memory
+
+```python
+m.reset() # Reset all memories
+```
+
+## Run Mem0 Locally
+
+Please refer the example [Mem0 with Ollama](../examples/mem0-with-ollama) to run Mem0 locally.
+
+
+## Chat Completion
+
+Mem0 can be easily integrate into chat applications to enhance conversational agents with structured memory. Mem0's APIs are designed to be compatible with OpenAI's, with the goal of making it easy to leverage Mem0 in applications you may have already built.
+
+If you have a `Mem0 API key`, you can use it to initialize the client. Alternatively, you can initialize Mem0 without an API key if you're using it locally.
+
+Mem0 supports several language models (LLMs) through integration with various [providers](https://litellm.vercel.app/docs/providers).
+
+## Use Mem0 Platform
+
+```python
+from mem0.proxy.main import Mem0
+
+client = Mem0(api_key="m0-xxx")
+
+# First interaction: Storing user preferences
+messages = [
+  {
+    "role": "user",
+    "content": "I love indian food but I cannot eat pizza since allergic to cheese."
+  },
+]
+user_id = "alice"
+chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
+# Memory saved after this will look like: "Loves Indian food. Allergic to cheese and cannot eat pizza."
+
+# Second interaction: Leveraging stored memory
+messages = [
+  {
+    "role": "user",
+    "content": "Suggest restaurants in San Francisco to eat.",
+  }
+]
+
+chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
+print(chat_completion.choices[0].message.content)
+# Answer: You might enjoy Indian restaurants in San Francisco, such as Amber India, Dosa, or Curry Up Now, which offer delicious options without cheese.
+```
+
+In this example, you can see how the second response is tailored based on the information provided in the first interaction. Mem0 remembers the user's preference for Indian food and their cheese allergy, using this information to provide more relevant and personalized restaurant suggestions in San Francisco.
+
+### Use Mem0 OSS
+
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+        }
+    },
+}
+
+client = Mem0(config=config)
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "What's the capital of France?",
+        }
+    ],
+    model="gpt-4o",
+)
+```
+
+## APIs
+
+Get started with using Mem0 APIs in your applications. For more details, refer to the [Platform](/platform/quickstart.mdx).
+
+Here is an example of how to use Mem0 APIs:
+
+```python
+from mem0 import MemoryClient
+client = MemoryClient(api_key="your-api-key") # get api_key from https://app.mem0.ai/
+
+# Store messages
+messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+]
+result = client.add(messages, user_id="alex")
+print(result)
+
+# Retrieve memories
+all_memories = client.get_all(user_id="alex")
+print(all_memories)
+
+# Search memories
+query = "What do you know about me?"
+related_memories = client.search(query, user_id="alex")
+
+# Get memory history
+history = client.history(memory_id="m1")
+print(history)
+```
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

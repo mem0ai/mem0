@@ -1,13 +1,21 @@
+import os
+from typing import Optional
+
 from openai import OpenAI
 
+from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
 
 class OpenAIEmbedding(EmbeddingBase):
-    def __init__(self, model="text-embedding-3-small"):
-        self.client = OpenAI()
-        self.model = model
-        self.dims = 1536
+    def __init__(self, config: Optional[BaseEmbedderConfig] = None):
+        super().__init__(config)
+
+        self.config.model = self.config.model or "text-embedding-3-small"
+        self.config.embedding_dims = self.config.embedding_dims or 1536
+
+        api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
+        self.client = OpenAI(api_key=api_key)
 
     def embed(self, text):
         """
@@ -21,7 +29,7 @@ class OpenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         return (
-            self.client.embeddings.create(input=[text], model=self.model)
+            self.client.embeddings.create(input=[text], model=self.config.model)
             .data[0]
             .embedding
         )

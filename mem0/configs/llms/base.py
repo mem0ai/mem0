@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Optional
 
+
 class BaseLlmConfig(ABC):
     """
     Config for LLMs.
@@ -10,8 +11,18 @@ class BaseLlmConfig(ABC):
         self,
         model: Optional[str] = None,
         temperature: float = 0,
+        api_key: Optional[str] = None,
         max_tokens: int = 3000,
-        top_p: float = 1
+        top_p: float = 0,
+        top_k: int = 1,
+        # Openrouter specific
+        models: Optional[list[str]] = None,
+        route: Optional[str] = "fallback",
+        openrouter_base_url: Optional[str] = "https://openrouter.ai/api/v1",
+        site_url: Optional[str] = None,
+        app_name: Optional[str] = None,
+        # Ollama specific
+        ollama_base_url: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -21,14 +32,42 @@ class BaseLlmConfig(ABC):
         :param temperature:  Controls the randomness of the model's output.
         Higher values (closer to 1) make output more random, lower values make it more deterministic, defaults to 0
         :type temperature: float, optional
+        :param api_key: OpenAI API key to be use, defaults to None
+        :type api_key: Optional[str], optional
         :param max_tokens: Controls how many tokens are generated, defaults to 3000
         :type max_tokens: int, optional
         :param top_p: Controls the diversity of words. Higher values (closer to 1) make word selection more diverse,
         defaults to 1
         :type top_p: float, optional
+        :param top_k: Controls the diversity of words. Higher values make word selection more diverse, defaults to 0
+        :type top_k: int, optional
+        :param models: Openrouter models to use, defaults to None
+        :type models: Optional[list[str]], optional
+        :param route: Openrouter route to be used, defaults to "fallback"
+        :type route: Optional[str], optional
+        :param openrouter_base_url: Openrouter base URL to be use, defaults to "https://openrouter.ai/api/v1"
+        :type openrouter_base_url: Optional[str], optional
+        :param site_url: Openrouter site URL to use, defaults to None
+        :type site_url: Optional[str], optional
+        :param app_name: Openrouter app name to use, defaults to None
+        :type app_name: Optional[str], optional
+        :param ollama_base_url: The base URL of the LLM, defaults to None
+        :type ollama_base_url: Optional[str], optional
         """
-        
+
         self.model = model
         self.temperature = temperature
+        self.api_key = api_key
         self.max_tokens = max_tokens
         self.top_p = top_p
+        self.top_k = top_k
+
+        # Openrouter specific
+        self.models = models
+        self.route = route
+        self.openrouter_base_url = openrouter_base_url
+        self.site_url = site_url
+        self.app_name = app_name
+
+        # Ollama specific
+        self.ollama_base_url = ollama_base_url

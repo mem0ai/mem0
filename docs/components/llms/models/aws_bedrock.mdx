@@ -1,0 +1,38 @@
+---
+title: AWS Bedrock
+---
+
+### Setup
+- Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- You will also need to authenticate the `boto3` client by using a method in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials)
+- You will have to export `AWS_REGION`, `AWS_ACCESS_KEY`, and `AWS_SECRET_ACCESS_KEY` to set environment variables.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ['AWS_REGION'] = 'us-east-1'
+os.environ["AWS_ACCESS_KEY"] = "xx"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "xx"
+
+config = {
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "arn:aws:bedrock:us-east-1:123456789012:model/your-model-name",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+All available parameters for the `aws_bedrock` config are present in [Master List of All Params in Config](../config).

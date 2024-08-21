@@ -237,6 +237,25 @@ class MemoryClient:
         capture_client_event("client.history", self)
         return response.json()
 
+    @api_error_handler
+    def users(self):
+        """Get all users, agents, and sessions for which memories exist."""
+        response = self.client.get("/entities/")
+        response.raise_for_status()
+        capture_client_event("client.users", self)
+        return response.json()
+
+    @api_error_handler
+    def delete_users(self) -> Dict[str, Any]:
+        """Delete all users, agents, or sessions."""
+        entities = self.users()
+        for entity in entities["results"]:
+            response = self.client.delete(f"/entities/{entity['type']}/{entity['id']}/")
+            response.raise_for_status()
+
+        capture_client_event("client.delete_users", self)
+        return {"message": "All users, agents, and sessions deleted."}
+
     def reset(self):
         """Reset the client. (Not implemented)
 

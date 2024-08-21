@@ -1,0 +1,33 @@
+---
+title: Google AI
+---
+
+To use Google AI model, you have to set the `GOOGLE_API_KEY` environment variable. You can obtain the Google API key from the [Google Maker Suite](https://makersuite.google.com/app/apikey)
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["GEMINI_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "litellm",
+        "config": {
+            "model": "gemini/gemini-pro",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+All available parameters for the `litellm` config are present in [Master List of All Params in Config](../config).

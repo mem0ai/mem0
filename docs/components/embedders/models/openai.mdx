@@ -1,0 +1,36 @@
+---
+title: OpenAI
+---
+
+To use OpenAI embedding models, set the `OPENAI_API_KEY` environment variable. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring OpenAI embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `text-embedding-3-small` |
+| `embedding_dims` | Dimensions of the embedding model | `1536` |
+| `api_key` | The OpenAI API key | `None` |

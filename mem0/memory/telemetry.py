@@ -48,12 +48,12 @@ telemetry = AnonymousTelemetry(
 def capture_event(event_name, memory_instance, additional_data=None):
     event_data = {
         "collection": memory_instance.collection_name,
-        "vector_size": memory_instance.embedding_model.dims,
+        "vector_size": memory_instance.embedding_model.config.embedding_dims,
         "history_store": "sqlite",
         "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
         "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
         "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
-        "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}",
+        "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}.{memory_instance.version}",
     }
     if additional_data:
         event_data.update(additional_data)

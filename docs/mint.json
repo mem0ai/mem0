@@ -3,9 +3,9 @@
   "name": "Mem0.ai",
   "favicon": "/logo/favicon.png",
   "colors": {
-    "primary": "#3B2FC9",
-    "light": "#6673FF",
-    "dark": "#3B2FC9",
+    "primary": "#6c60f0",
+    "light": "#E6FFA2",
+    "dark": "#a3df02",
     "background": {
       "dark": "#0f1117",
       "light": "#fff"
@@ -16,24 +16,14 @@
     "light": "/logo/light.svg",
     "href": "https://github.com/mem0ai/mem0"
   },
-  "tabs": [
-    {
-      "name": "💡 Examples",
-      "url": "examples"
-    },
-    {
-      "name": "🖥️  Platform",
-      "url": "platform"
-    }
-  ],
   "topbarCtaButton": {
-    "name": "Your Memory Dashboard",
+    "name": "Your Dashboard",
     "url": "https://app.mem0.ai"
   },
   "anchors": [
     {
-      "name": "Your Memory Dashboard",
-      "icon": "discord",
+      "name": "Your Dashboard",
+      "icon": "chart-simple",
       "url": "https://app.mem0.ai"
     },
     {
@@ -57,36 +47,96 @@
       "group": "Get Started",
       "pages": [
         "overview",
-        "quickstart"
+        "features"
       ]
     },
     {
-      "group": "Components",
+      "group": "Platform",
       "pages": [
-        "components/llms.mdx",
-        "components/vectordb.mdx"
+        "platform/overview",
+        "platform/quickstart"
+      ]
+    },
+    {
+      "group": "Open Source",
+      "pages": [
+        "open-source/quickstart",
+        "open-source/graph-memory",
+        {
+          "group": "LLMs",
+          "pages": [
+            "components/llms/overview",
+            "components/llms/config",
+            {
+              "group": "Supported LLMs",
+              "pages": [
+                "components/llms/models/openai",
+                "components/llms/models/anthropic",
+                "components/llms/models/azure_openai",
+                "components/llms/models/ollama",
+                "components/llms/models/together",
+                "components/llms/models/groq",
+                "components/llms/models/litellm",
+                "components/llms/models/mistral_AI",
+                "components/llms/models/google_AI",
+                "components/llms/models/aws_bedrock"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Vector Databases",
+          "pages": [
+            "components/vectordbs/overview",
+            "components/vectordbs/config",
+            {
+              "group": "Supported Vector Databases",
+              "pages": [
+                "components/vectordbs/dbs/chroma",
+                "components/vectordbs/dbs/pgvector",
+                "components/vectordbs/dbs/qdrant"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Embedding Models",
+          "pages": [
+            "components/embedders/overview",
+            "components/embedders/config",
+            {
+              "group": "Supported Embedding Models",
+              "pages": [
+                "components/embedders/models/openai",
+                "components/embedders/models/azure_openai",
+                "components/embedders/models/ollama",
+                "components/embedders/models/huggingface"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Features",
+          "pages": ["features/openai_compatibility"]
+        }
       ]
     },
     {
       "group": "Integrations",
       "pages": [
-        "integrations/multion"
+        "integrations/multion",
+        "integrations/autogen",
+        "integrations/langgraph"
       ]
     },
     {
       "group": "💡 Examples",
       "pages": [
         "examples/overview",
+        "examples/mem0-with-ollama",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
         "examples/personal-travel-assistant"
-      ]
-    },
-    {
-      "group": "🖥️  Platform",
-      "pages": [
-        "platform/overview",
-        "platform/quickstart"
       ]
     }
   ],
@@ -95,5 +145,11 @@
     "x": "https://x.com/mem0ai",
     "github": "https://github.com/mem0ai",
     "linkedin": "https://www.linkedin.com/company/mem0/"
+  },
+  "analytics": {
+    "posthog": {
+      "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
+      "apiHost": "https://us.i.posthog.com"
+    }
   }
 }

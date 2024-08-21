@@ -1,0 +1,36 @@
+---
+title: Hugging Face
+---
+
+You can use embedding models from Huggingface to run Mem0 locally.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "huggingface",
+        "config": {
+            "model": "multi-qa-MiniLM-L6-cos-v1"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring Huggingface embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the model to use | `multi-qa-MiniLM-L6-cos-v1` |
+| `embedding_dims` | Dimensions of the embedding model | `selected_model_dimensions` |
+| `model_kwargs` | Additional arguments for the model | `None` |

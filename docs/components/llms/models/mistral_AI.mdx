@@ -1,0 +1,33 @@
+---
+title: Mistral AI
+---
+
+To use mistral's models, please Obtain the Mistral AI api key from their [console](https://console.mistral.ai/). Set the `MISTRAL_API_KEY` environment variable to use the model as given below in the example.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["MISTRAL_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "litellm",
+        "config": {
+            "model": "open-mixtral-8x7b",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+All available parameters for the `litellm` config are present in [Master List of All Params in Config](../config).
