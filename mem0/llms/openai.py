@@ -22,7 +22,8 @@ class OpenAILLM(LLMBase):
             )
         else:
             api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-            self.client = OpenAI(api_key=api_key)
+            api_base = os.getenv("OPENAI_API_BASE") or self.config.api_base
+            self.client = OpenAI(api_key=api_key, api_base=api_base)
 
     def _parse_response(self, response, tools):
         """
