@@ -14,7 +14,7 @@ class Neo4jConfig(BaseModel):
             values.get("username"),
             values.get("password"),
         )
-        if not url and not username and not password:
+        if not url or not username or not password:
             raise ValueError(
                 "Please provide 'url', 'username' and 'password'."
             )
