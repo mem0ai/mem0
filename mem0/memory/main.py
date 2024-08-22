@@ -79,7 +79,10 @@ class Memory(MemoryBase):
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
-            str: ID of the created memory.
+            response: dict of affected events with event being:
+              'add': added event
+              'update': updated event
+              'delete': deleted event
         """
         if metadata is None:
             metadata = {}
