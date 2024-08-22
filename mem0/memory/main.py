@@ -179,7 +179,7 @@ class Memory(MemoryBase):
                 self.graph.user_id = "USER"
             added_entities = self.graph.add(data)
 
-        return {"message": "ok"}
+        return response
 
     def get(self, memory_id):
         """
@@ -512,6 +512,7 @@ class Memory(MemoryBase):
             created_at=new_metadata["created_at"],
             updated_at=new_metadata["updated_at"],
         )
+        return memory_id
 
     def _delete_memory_tool(self, memory_id):
         logging.info(f"Deleting memory with {memory_id=}")
@@ -519,6 +520,7 @@ class Memory(MemoryBase):
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(memory_id, prev_value, None, "DELETE", is_deleted=1)
+        return memory_id
 
     def reset(self):
         """
