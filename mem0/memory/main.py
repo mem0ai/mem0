@@ -79,7 +79,7 @@ class Memory(MemoryBase):
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
-            response: dict of affected events with event being:
+            response: a list of dict of affected events with each dict has the following 'event' key:
               'add': added event
               'update': updated event
               'delete': deleted event
