@@ -5,6 +5,7 @@ import pytz
 from datetime import datetime
 from typing import Any, Dict
 import warnings
+from collections import defaultdict
 from pydantic import ValidationError
 from mem0.llms.utils.tools import (
     ADD_MEMORY_TOOL,
@@ -79,10 +80,16 @@ class Memory(MemoryBase):
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
-            response: a list of dict of affected events with each dict has the following 'event' key:
-              'add': added event
-              'update': updated event
-              'delete': deleted event
+            result: dict of affected events with each dict has the following key:
+              'memories': affected memories
+              'graph': affected graph memories
+
+              'memories' and 'graph' is a dict, each with following subkeys:
+                'add': added memory
+                'update': updated memory
+                'delete': deleted memory
+
+
         """
         if metadata is None:
             metadata = {}
@@ -140,6 +147,7 @@ class Memory(MemoryBase):
         tool_calls = response["tool_calls"]
 
         response = []
+        result_memory = defaultdict(list)
         if tool_calls:
             # Create a new memory
             available_functions = {
@@ -168,6 +176,7 @@ class Memory(MemoryBase):
                         "data": function_args.get("data"),
                     }
                 )
+                result_memory[function_name.replace("_memory", "")].append({"id":function_result,"data":function_args.get("data")})
                 capture_event(
                     "mem0.add.function_call",
                     self,
@@ -180,9 +189,9 @@ class Memory(MemoryBase):
                 self.graph.user_id = user_id
             else:
                 self.graph.user_id = "USER"
-            added_entities = self.graph.add(data)
+            result_graph = self.graph.add(data)
 
-        return response
+        return {"memories": result_memory, "graph": result_graph}
 
     def get(self, memory_id):
         """

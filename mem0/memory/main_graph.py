@@ -1,6 +1,7 @@
 from langchain_community.graphs import Neo4jGraph
 from pydantic import BaseModel, Field
 import json
+from collections import defaultdict
 from openai import OpenAI
 
 from mem0.embeddings.openai import OpenAIEmbedding
@@ -60,6 +61,7 @@ class MemoryGraph:
         """
         
         # retrieve the search results
+        result = defaultdict(list)
         search_output = self._search(data)
         
         extracted_entities = client.beta.chat.completions.parse(
@@ -90,8 +92,10 @@ class MemoryGraph:
                 to_be_added.append(arguments)
             elif function_name == "update_graph_memory":
                 self._update_relationship(arguments['source'], arguments['destination'], arguments['relationship'])
+                result["update"].append(arguments)
             elif function_name == "update_name":
                 self._update_name(arguments['name'])
+                result["update"].append(arguments)
             elif function_name == "noop":
                 continue
 
@@ -102,6 +106,9 @@ class MemoryGraph:
             relation = item['relationship'].lower().replace(" ", "_")
             destination = item['destination'].lower().replace(" ", "_")
             destination_type = item['destination_type'].lower().replace(" ", "_")
+            result["add"].append({"source" : source, "source_type" : source_type, "destination" : destination,
+                                               "destination_type" : destination_type,"relation":relation})
+
 
             # Create embeddings
             source_embedding = get_embedding(source)
@@ -127,7 +134,8 @@ class MemoryGraph:
                 "dest_embedding": dest_embedding
             }
 
-            result = self.graph.query(cypher, params=params)
+            response = self.graph.query(cypher, params=params)
+        return result
 
 
 
