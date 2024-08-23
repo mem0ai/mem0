@@ -27,6 +27,11 @@
       "url": "https://app.mem0.ai"
     },
     {
+      "name": "API Reference",
+      "url": "api-reference",
+      "icon": "square-terminal"
+    },
+    {
       "name": "Discord",
       "icon": "discord",
       "url": "https://mem0.ai/discord"
@@ -122,6 +127,32 @@
         {
           "group": "Features",
           "pages": ["features/openai_compatibility"]
+        }
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/overview",
+        {
+          "group": "Memory APIs",
+          "pages": [
+            "api-reference/memory/get-memories",
+            "api-reference/memory/add-memories",
+            "api-reference/memory/delete-memories",
+            "api-reference/memory/get-memory",
+            "api-reference/memory/update-memory",
+            "api-reference/memory/delete-memory",
+            "api-reference/memory/search-memories",
+            "api-reference/memory/history-memory"
+          ]
+        },
+        {
+          "group": "Entities APIs",
+          "pages": [
+            "api-reference/entities/get-users",
+            "api-reference/entities/delete-user"
+          ]
         }
       ]
     },
