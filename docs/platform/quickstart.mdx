@@ -230,6 +230,178 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
 ```
 </CodeGroup>
 
+#### Search using custom filters
+
+You can also search for memories using custom filters along with user_id, agent_id, app_id, etc. 
+
+Here you need to define `version` as `v2` in the search method.
+
+Example 1: Search using user_id and agent_id filters
+
+<CodeGroup>
+
+```python Python
+query = "What do you know about me?"
+filters = {
+   "AND":[
+      {
+         "user_id":"alex"
+      },
+      {
+         "agent_id":{
+            "in":[
+               "travel-assistant",
+               "customer-support"
+            ]
+         }
+      }
+   ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+   "AND":[
+      {
+         "user_id":"alex"
+      },
+      {
+         "agent_id":{
+            "in":[
+               "travel-assistant",
+               "customer-support"
+            ]
+         }
+      }
+   ]
+};
+client.search(query, { version: "v2", filters })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization : Token your - api - key" \
+     -H "Content-Type : application / json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alex"
+                 },
+                 {
+                     "agent_id": {
+                         "in": ["travel-assistant", "customer-support"]
+                     }
+                 }
+             ]
+         }
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+</CodeGroup>
+
+Example 2: Search using date filters
+<CodeGroup>
+```python Python
+query = "What do you know about me?"
+filters = {
+    "AND": [
+        {"order_date": {"gte": "2024-07-20", "lte": "2024-07-10"}},
+        {"status": "completed"}
+    ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+  "AND": [
+    {"order_date": {"gte": "2024-07-20", "lte": "2024-07-10"}},
+    {"status": "completed"}
+  ]
+};
+
+client.search(query, { version: "v2", filters })
+  .then(results => console.log(results))
+  .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+             "AND": [
+                 {
+                     "order_date": {
+                         "gte": "2024-07-20",
+                         "lte": "2024-07-10"
+                     }
+                 },
+                 {
+                     "status": "completed"
+                 }
+             ]
+         }
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+</CodeGroup>
+
 
 ### 4.3 Get All Users
 
