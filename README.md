@@ -3,9 +3,9 @@
   <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
   <p align="center">
-    <a href="https://mem0.ai">Learn more</a>
+    <a href="https://mem0.dev/wg">Learn more</a>
     ·
-    <a href="https://mem0.ai/discord">Join Discord</a>
+    <a href="https://mem0.dev/DiG">Join Discord</a>
   </p>
 </p>
 
@@ -24,7 +24,7 @@
 
 # Introduction
 
-[Mem0](https://mem0.ai) (pronounced as "mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
+[Mem0](https://mem0.dev/wg) (pronounced as "mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. Mem0 remembers user preferences, adapts to individual needs, and continuously improves over time, making it ideal for customer support chatbots, AI assistants, and autonomous systems.
 
 <!-- Start of Selection -->
 <p style="display: flex;">
@@ -66,7 +66,7 @@ Mem0 empowers organizations and individuals to enhance:
 
 ## Get Started
 
-The easiest way to set up Mem0 is through the managed [Mem0 Platform](https://app.mem0.ai). This hosted solution offers automatic updates, advanced analytics, and dedicated support. [Sign up](https://app.mem0.ai) to get started.
+The easiest way to set up Mem0 is through the managed [Mem0 Platform](https://mem0.dev/pg). This hosted solution offers automatic updates, advanced analytics, and dedicated support. [Sign up](https://mem0.dev/pg) to get started.
 
 If you prefer to self-host, use the open-source Mem0 package. Follow the [installation instructions](#install) to get started.
 
@@ -78,7 +78,7 @@ Install the Mem0 package via pip:
 pip install mem0ai
 ```
 
-Alternatively, you can use Mem0 with one click on the hosted platform [here](https://app.mem0.ai/).
+Alternatively, you can use Mem0 with one click on the hosted platform [here](https://mem0.dev/pg).
 
 ### Basic Usage
 
@@ -147,7 +147,7 @@ history = m.history(memory_id=<memory_id_1>)
 ```
 
 > [!TIP]
-> If you prefer a hosted version without the need to set up infrastructure yourself, check out the [Mem0 Platform](https://app.mem0.ai/) to get started in minutes.
+> If you prefer a hosted version without the need to set up infrastructure yourself, check out the [Mem0 Platform](https://mem0.dev/pg) to get started in minutes.
 
 
 ### Graph Memory
@@ -177,7 +177,7 @@ m = Memory.from_config(config_dict=config)
 
 ## Documentation
 
-For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://docs.mem0.ai). Here, you can find more information on both the open-source version and the hosted [Mem0 Platform](https://app.mem0.ai).
+For detailed usage instructions and API reference, visit our documentation at [docs.mem0.ai](https://mem0.dev/dg). Here, you can find more information on both the open-source version and the hosted [Mem0 Platform](https://mem0.dev/pg).
 
 ## Star History
 
@@ -187,13 +187,13 @@ For detailed usage instructions and API reference, visit our documentation at [d
 
 Join our community for support and discussions. If you have any questions, feel free to reach out to us using one of the following methods:
 
-- [Join our Discord](https://mem0.ai/discord)
-- [Follow us on Twitter](https://x.com/mem0ai)
+- [Join our Discord](https://mem0.dev/DiG)
+- [Follow us on Twitter](https://mem0.dev/tg)
 - [Email founders](mailto:founders@mem0.ai)
 
 ## Contributors
 
-Join our [Discord community](https://mem0.ai/discord) to learn about memory management for AI agents and LLMs, and connect with Mem0 users and contributors. Share your ideas, questions, or feedback in our [GitHub Issues](https://github.com/mem0ai/mem0/issues).
+Join our [Discord community](https://mem0.dev/DiG) to learn about memory management for AI agents and LLMs, and connect with Mem0 users and contributors. Share your ideas, questions, or feedback in our [GitHub Issues](https://github.com/mem0ai/mem0/issues).
 
 We value and appreciate the contributions of our community. Special thanks to our contributors for helping us improve Mem0.
 
