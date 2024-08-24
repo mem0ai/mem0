@@ -41,6 +41,7 @@ class EmbedderFactory:
         "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
         "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
         "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",
+        "google_genai": "mem0.embeddings.google_genai.GoogleGenAIEmbedding",
     }
 
     @classmethod
