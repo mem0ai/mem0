@@ -1,0 +1,71 @@
+---
+title: Custom Categories
+description: 'Enhance your product experience by adding custom categories tailored to your needs'
+---
+
+## How to set custom categories?
+
+Users can now create custom categories tailored to their specific needs, in addition to the default categories such as travel, sports, music, and more.
+To setup the custom categories, user has to specify the category name and a description of what that category signifies.
+Here’s how you can do it:
+
+```python
+from mem0 import MemoryClient
+
+m = MemoryClient(api_key="xxx")
+
+custom_categories = [
+    {"cooking": "For users interested in cooking, including recipes, cooking tips, and culinary experiences."},
+    {"fitness": "Includes content related to fitness, such as workouts, exercises, and fitness tips."}
+]
+
+messages = [
+    {"role" : "user", "content" : "Hi, my name is Alice. I love to play badminton."},
+    {"role" : "assistant", "content" : "Hello Alice! It's nice to meet you. Badminton is such an amazing sport. How can I assist you today?"},
+    {"role" : "user", "content" : "I am a fitness freak, I go to gym daily."},
+    {"role" : "assistant", "content" : "That's great! Regular exercise is very beneficial for health."},
+    {"role" : "user", "content" : "Because of my gym plan, I mostly cook at home."},
+    {"role" : "assistant", "content" : "Cooking at home is a good way to ensure you have a balanced diet."}
+]
+```
+
+<CodeGroup>
+```python Code
+client.add(messages, user_id="alice", custom_categories=custom_categories)
+```
+
+```markdown Memories with categories
+User's name is Alice (personal_details)
+Loves playing badminton (sports)
+User is a fitness freak. (fitness)
+Likes to go to gym daily. (fitness)
+Mostly cook at home because of gym plan. (fitness, cooking)
+```
+</CodeGroup>
+
+> Note: The more detailed the description of categories is, the better output the user will receive.
+
+## Default Categories
+Here is the list of **default categories**. Ensure you review these before creating custom categories to prevent duplication.
+
+```
+- personal_details
+- family
+- professional_details
+- sports
+- travel 
+- food
+- music
+- health
+- technology
+- hobbies
+- fashion
+- entertainment
+- milestones
+- user_preferences
+- misc
+```
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

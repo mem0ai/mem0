@@ -55,13 +55,13 @@ class MemoryClient:
         Args:
             api_key: The API key for authenticating with the Mem0 API. If not provided,
                      it will attempt to use the MEM0_API_KEY environment variable.
-            host: The base URL for the Mem0 API. Defaults to "https://api.mem0.ai/v1".
+            host: The base URL for the Mem0 API. Defaults to "https://api.mem0.ai".
 
         Raises:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai/v1"
+        self.host = host or "https://api.mem0.ai"
 
         if not self.api_key:
             raise ValueError("API Key not provided. Please provide an API Key.")
@@ -77,7 +77,7 @@ class MemoryClient:
     def _validate_api_key(self):
         """Validate the API key by making a test request."""
         try:
-            response = self.client.get("/memories/", params={"user_id": "test"})
+            response = self.client.get("/v1/memories/", params={"user_id": "test"})
             response.raise_for_status()
         except httpx.HTTPStatusError:
             raise ValueError(
@@ -92,7 +92,7 @@ class MemoryClient:
 
         Args:
             messages: Either a string message or a list of message dictionaries.
-            **kwargs: Additional parameters such as user_id, agent_id, session_id, metadata, filters.
+            **kwargs: Additional parameters such as user_id, agent_id, app_id, metadata, filters.
 
         Returns:
             A dictionary containing the API response.
@@ -101,7 +101,7 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         payload = self._prepare_payload(messages, kwargs)
-        response = self.client.post("/memories/", json=payload)
+        response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
         capture_client_event("client.add", self)
         return response.json()
@@ -119,7 +119,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.get(f"/memories/{memory_id}/")
+        response = self.client.get(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
         capture_client_event("client.get", self)
         return response.json()
@@ -129,7 +129,7 @@ class MemoryClient:
         """Retrieve all memories, with optional filtering.
 
         Args:
-            **kwargs: Optional parameters for filtering (user_id, agent_id, session_id, limit).
+            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, limit).
 
         Returns:
             A dictionary containing the list of memories.
@@ -138,7 +138,7 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         params = self._prepare_params(kwargs)
-        response = self.client.get("/memories/", params=params)
+        response = self.client.get("/v1/memories/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.get_all",
@@ -148,12 +148,13 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def search(self, query: str, **kwargs) -> Dict[str, Any]:
+    def search(self, query: str, version: str = "v1", **kwargs) -> Dict[str, Any]:
         """Search memories based on a query.
 
         Args:
             query: The search query string.
-            **kwargs: Additional parameters such as user_id, agent_id, session_id, limit, filters.
+            version: The API version to use for the search endpoint.
+            **kwargs: Additional parameters such as user_id, agent_id, app_id, limit, filters.
 
         Returns:
             A dictionary containing the search results.
@@ -163,7 +164,7 @@ class MemoryClient:
         """
         payload = {"query": query}
         payload.update({k: v for k, v in kwargs.items() if v is not None})
-        response = self.client.post("/memories/search/", json=payload)
+        response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
         capture_client_event("client.search", self, {"limit": kwargs.get("limit", 100)})
         return response.json()
@@ -179,7 +180,7 @@ class MemoryClient:
             Dict[str, Any]: The response from the server.
         """
         capture_client_event("client.update", self)
-        response = self.client.put(f"/memories/{memory_id}/", json={"text": data})
+        response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data})
         return response.json()
 
     @api_error_handler
@@ -195,7 +196,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.delete(f"/memories/{memory_id}/")
+        response = self.client.delete(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
         capture_client_event("client.delete", self)
         return response.json()
@@ -205,7 +206,7 @@ class MemoryClient:
         """Delete all memories, with optional filtering.
 
         Args:
-            **kwargs: Optional parameters for filtering (user_id, agent_id, session_id).
+            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id).
 
         Returns:
             A dictionary containing the API response.
@@ -214,7 +215,7 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         params = self._prepare_params(kwargs)
-        response = self.client.delete("/memories/", params=params)
+        response = self.client.delete("/v1/memories/", params=params)
         response.raise_for_status()
         capture_client_event("client.delete_all", self, {"params": len(params)})
         return response.json()
@@ -232,7 +233,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.get(f"/memories/{memory_id}/history/")
+        response = self.client.get(f"/v1/memories/{memory_id}/history/")
         response.raise_for_status()
         capture_client_event("client.history", self)
         return response.json()
@@ -240,7 +241,7 @@ class MemoryClient:
     @api_error_handler
     def users(self):
         """Get all users, agents, and sessions for which memories exist."""
-        response = self.client.get("/entities/")
+        response = self.client.get("/v1/entities/")
         response.raise_for_status()
         capture_client_event("client.users", self)
         return response.json()
@@ -250,7 +251,7 @@ class MemoryClient:
         """Delete all users, agents, or sessions."""
         entities = self.users()
         for entity in entities["results"]:
-            response = self.client.delete(f"/entities/{entity['type']}/{entity['id']}/")
+            response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/")
             response.raise_for_status()
 
         capture_client_event("client.delete_users", self)
