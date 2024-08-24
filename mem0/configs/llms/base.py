@@ -1,5 +1,7 @@
 from abc import ABC
-from typing import Optional
+from typing import Optional, Union, Dict
+
+import httpx
 
 
 class BaseLlmConfig(ABC):
@@ -25,6 +27,7 @@ class BaseLlmConfig(ABC):
         app_name: Optional[str] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
+        http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -57,6 +60,8 @@ class BaseLlmConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param http_client_proxies: The proxy server(s) settings used to create self.http_client, defaults to None
+        :type http_client_proxies: Optional[Dict | str], optional
         """
 
         self.model = model
@@ -65,6 +70,7 @@ class BaseLlmConfig(ABC):
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.top_k = top_k
+        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
 
         # Openrouter specific
         self.models = models

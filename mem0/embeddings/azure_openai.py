@@ -17,7 +17,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             self.config.embedding_dims = 1536
 
         api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
-        self.client = AzureOpenAI(api_key=api_key)
+        self.client = AzureOpenAI(api_key=api_key, http_client=self.config.http_client)
 
     def embed(self, text):
         """
