@@ -62,7 +62,7 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory"]
+          "pages": ["features/selective-memory", "features/custom-categories"]
         }
       ]
     },
