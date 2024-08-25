@@ -15,7 +15,8 @@ class OpenAIEmbedding(EmbeddingBase):
         self.config.embedding_dims = self.config.embedding_dims or 1536
 
         api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-        self.client = OpenAI(api_key=api_key)
+        base_url = os.getenv("OPENAI_API_BASE") or self.config.openai_base_url
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def embed(self, text):
         """
