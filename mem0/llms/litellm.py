@@ -79,6 +79,7 @@ class LiteLLM(LLMBase):
             "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
+            "api_key": self.config.api_key,
         }
         if response_format:
             params["response_format"] = response_format
