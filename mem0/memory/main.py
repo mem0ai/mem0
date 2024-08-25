@@ -281,7 +281,7 @@ class Memory(MemoryBase):
         
         if self.version == "v1.1":
             if self.enable_graph:
-                graph_entities = self.graph.get_all()
+                graph_entities = self.graph.get_all(filters=filters)
                 return {"memories": all_memories, "entities": graph_entities}
             else:
                 return {"memories" : all_memories}

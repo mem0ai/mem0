@@ -214,7 +214,7 @@ class MemoryGraph:
         self.graph.query(cypher)
     
 
-    def get_all(self):
+    def get_all(self,filters):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
@@ -228,10 +228,10 @@ class MemoryGraph:
 
         # return all nodes and relationships
         query = """
-        MATCH (n)-[r]->(m)
+        MATCH (n)-[r]->(m) WHERE toLower(n.name) = toLower($name)
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         """
-        results = self.graph.query(query)
+        results = self.graph.query(query,params={"name": filters["user_id"]})
 
         final_results = []
         for result in results:
