@@ -19,6 +19,8 @@ class BaseLlmConfig(ABC):
         models: Optional[list[str]] = None,
         route: Optional[str] = "fallback",
         openrouter_base_url: Optional[str] = "https://openrouter.ai/api/v1",
+        # Openai specific
+        openai_base_url: Optional[str] = "https://api.openai.com/v1",
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
         # Ollama specific
@@ -53,6 +55,8 @@ class BaseLlmConfig(ABC):
         :type app_name: Optional[str], optional
         :param ollama_base_url: The base URL of the LLM, defaults to None
         :type ollama_base_url: Optional[str], optional
+        :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
+        :type openai_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -66,6 +70,7 @@ class BaseLlmConfig(ABC):
         self.models = models
         self.route = route
         self.openrouter_base_url = openrouter_base_url
+        self.openai_base_url = openai_base_url
         self.site_url = site_url
         self.app_name = app_name
 

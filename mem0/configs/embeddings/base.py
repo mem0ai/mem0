@@ -14,6 +14,8 @@ class BaseEmbedderConfig(ABC):
         embedding_dims: Optional[int] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
+        # Openai specific
+        openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
     ):
@@ -30,11 +32,13 @@ class BaseEmbedderConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
-
+        :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
+        :type openai_base_url: Optional[str], optional
         """
 
         self.model = model
         self.api_key = api_key
+        self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
 
         # Ollama specific
