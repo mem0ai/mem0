@@ -134,7 +134,7 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 ```python
 # 4. Get all memories
 all_memories = m.get_all()
-memory_id = all_memories[0]["id"] # get a memory_id
+memory_id = all_memories["memories"][0] ["id"] # get a memory_id
 
 # All memory items --> 'Likes to play tennis on weekends.' and 'Looking for online suggestions.'
 ```
