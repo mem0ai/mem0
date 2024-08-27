@@ -1,1482 +1,1610 @@
 {
-  "openapi":"3.0.1",
-  "info":{
-     "title":"Mem0 API Docs",
-     "description":"mem0.ai API Docs",
-     "contact":{
-        "email":"deshraj@mem0.ai"
-     },
-     "license":{
-        "name":"Apache 2.0"
-     },
-     "version":"v1"
-  },
-  "servers":[
-     {
-        "url":"https://api.mem0.ai/"
-     }
-  ],
-  "security":[
-     {
-        "Basic":[]
-     }
-  ],
-  "paths":{
-     "/v1/agents/":{
-        "post":{
-           "tags":[
-              "agents"
-           ],
-           "description":"Create a new Agent.",
-           "operationId":"agents_create",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/CreateAgent"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "201":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "$ref":"#/components/schemas/CreateAgent"
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        }
-     },
-     "/v1/apps/":{
-        "post":{
-           "tags":[
-              "apps"
-           ],
-           "description":"Create a new App.",
-           "operationId":"apps_create",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/CreateApp"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "201":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "$ref":"#/components/schemas/CreateApp"
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        }
-     },
-     "/v1/entities/":{
-        "get":{
-           "tags":[
-              "entities"
-           ],
-           "operationId":"entities_list",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"array",
-                          "items":{
-                             "type":"object",
-                             "properties":{
-                                "id":{
-                                   "type":"string",
-                                   "description":"Unique identifier for the entity"
-                                },
-                                "name":{
-                                   "type":"string",
-                                   "description":"Name of the entity"
-                                },
-                                "created_at":{
-                                   "type":"string",
-                                   "format":"date-time",
-                                   "description":"Timestamp of when the entity was created"
-                                },
-                                "updated_at":{
-                                   "type":"string",
-                                   "format":"date-time",
-                                   "description":"Timestamp of when the entity was last updated"
-                                },
-                                "total_memories":{
-                                   "type":"integer",
-                                   "description":"Total number of memories associated with the entity"
-                                },
-                                "owner":{
-                                   "type":"string",
-                                   "description":"Owner of the entity"
-                                },
-                                "organization":{
-                                   "type":"string",
-                                   "description":"Organization the entity belongs to"
-                                },
-                                "metadata":{
-                                   "type":"object",
-                                   "description":"Additional metadata associated with the entity"
-                                },
-                                "type":{
-                                   "type":"string",
-                                   "description":"Type of the entity (e.g., 'user', 'agent')"
-                                }
-                             },
-                             "required":[
-                                "id",
-                                "name",
-                                "created_at",
-                                "updated_at",
-                                "total_memories",
-                                "owner",
-                                "organization",
-                                "type"
-                             ]
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        }
-     },
-     "/v1/entities/filters/":{
-        "get":{
-           "tags":[
-              "entities"
-           ],
-           "operationId":"entities_filters_list",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                 }
-              }
-           }
-        }
-     },
-     "/v1/entities/{entity_type}/{entity_id}/":{
-        "get":{
-           "tags":[
-              "entities"
-           ],
-           "operationId":"entities_read",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                 }
-              }
-           }
-        },
-        "delete":{
-           "tags":[
-              "entities"
-           ],
-           "operationId":"entities_delete",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/EntityInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "204":{
-                 "description":"Entity deleted successfully!",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "message":{
-                                "type":"string",
-                                "example":"Entity deleted successfully!"
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        }
-     },
-     "/v1/events/":{
-        "get":{
-           "tags":[
-              "events"
-           ],
-           "summary":"Retrieve all events for the currently logged-in user.",
-           "description":"This endpoint returns a paginated list of events associated with the authenticated user.\nYou can filter the events by event type, start date, and end date.\n\nQuery Parameters:\n- event_type: Filter by event type (ADD or SEARCH)\n- start_date: Filter events after this date (format: YYYY-MM-DD)\n- end_date: Filter events before this date (format: YYYY-MM-DD)\n- page: Page number for pagination\n- page_size: Number of items per page (default: 50, max: 100)",
-           "operationId":"events_list",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                 }
-              }
-           }
-        }
-     },
-     "/v1/memories/":{
-        "get":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Get all memories",
-           "operationId":"memories_list",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"array",
-                          "items":{
-                             "type":"object",
-                             "properties":{
-                                "id":{
-                                   "type":"string"
-                                },
-                                "name":{
-                                   "type":"string"
-                                },
-                                "created_at":{
-                                   "type":"string",
-                                   "format":"date-time"
-                                },
-                                "updated_at":{
-                                   "type":"string",
-                                   "format":"date-time"
-                                },
-                                "total_memories":{
-                                   "type":"integer"
-                                },
-                                "owner":{
-                                   "type":"string"
-                                },
-                                "organization":{
-                                   "type":"string"
-                                },
-                                "metadata":{
-                                   "type":"object"
-                                },
-                                "type":{
-                                   "type":"string",
-                                   "enum":[
-                                      "user",
-                                      "agent"
-                                   ]
-                                }
-                             },
-                             "required":[
-                                "id",
-                                "name",
-                                "created_at",
-                                "updated_at",
-                                "total_memories",
-                                "owner",
-                                "organization",
-                                "type"
-                             ]
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        },
-        "post":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Add memories",
-           "operationId":"memories_create",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/MemoryInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "200":{
-                 "description":"Successful memory creation",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "message":{
-                                "type":"string",
-                                "example":"ok"
-                             }
-                          }
-                       }
-                    }
-                 }
-              },
-              "400":{
-                 "description":"Bad Request. Invalid input data. Please refer to the memory creation documentation at https://docs.mem0.ai/platform/quickstart#4-1-create-memories for correct formatting and required fields.",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "required":[
-                             "error",
-                             "details"
-                          ],
-                          "example":{
-                             "error":"400 Bad Request",
-                             "details":{
-                                "message":"Invalid input data. Please refer to the memory creation documentation at https://docs.mem0.ai/platform/quickstart#4-1-create-memories for correct formatting and required fields."
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        },
-        "delete":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Delete memories",
-           "operationId":"memories_delete",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/DeleteMemoriesInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "204":{
-                 "description":"Successful deletion of memories",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "message":{
-                                "type":"string",
-                                "example":"Memories deleted successfully!"
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        }
-     },
-     "/v1/memories/events/":{
-        "get":{
-           "tags":[
-              "memories"
-           ],
-           "operationId":"memories_events_list",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                 }
-              }
-           }
-        }
-     },
-     "/v1/memories/search/":{
-        "post":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Perform a semantic search on memories.",
-           "operationId":"memories_search_create",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/MemorySearchInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"array",
-                          "items":{
-                             "type":"object",
-                             "properties":{
-                                "id":{
-                                   "type":"string",
-                                   "format":"uuid",
-                                   "description":"Unique identifier for the memory"
-                                },
-                                "memory":{
-                                   "type":"string",
-                                   "description":"The content of the memory"
-                                },
-                                "input":{
-                                   "type":"array",
-                                   "items":{
-                                      "type":"object",
-                                      "properties":{
-                                         "role":{
-                                            "type":"string",
-                                            "enum":[
-                                               "user",
-                                               "assistant"
-                                            ],
-                                            "description":"The role of the speaker in the conversation"
-                                         },
-                                         "content":{
-                                            "type":"string",
-                                            "description":"The content of the message"
-                                         }
-                                      },
-                                      "required":[
-                                         "role",
-                                         "content"
-                                      ]
-                                   },
-                                   "description":"The conversation input that was used to generate this memory"
-                                },
-                                "user_id":{
-                                   "type":"string",
-                                   "description":"The identifier of the user associated with this memory"
-                                },
-                                "hash":{
-                                   "type":"string",
-                                   "description":"A hash of the memory content"
-                                },
-                                "metadata":{
-                                   "type":"object",
-                                   "nullable":true,
-                                   "description":"Additional metadata associated with the memory"
-                                },
-                                "created_at":{
-                                   "type":"string",
-                                   "format":"date-time",
-                                   "description":"The timestamp when the memory was created"
-                                },
-                                "updated_at":{
-                                   "type":"string",
-                                   "format":"date-time",
-                                   "description":"The timestamp when the memory was last updated"
-                                }
-                             },
-                             "required":[
-                                "id",
-                                "memory",
-                                "input",
-                                "user_id",
-                                "hash",
-                                "created_at",
-                                "updated_at"
-                             ]
-                          }
-                       }
-                    }
-                 }
-              },
-              "400":{
-                 "description":"Bad Request",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "message":{
-                                "type":"string",
-                                "example":"At least one of the filters: agent_id, user_id, app_id, run_id is required!"
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        }
-     },
-     "/v2/memories/search/": {
-        "post": {
-           "tags": [
-              "memories"
-           ],
-           "description": "Search memories based on a query and filters.",
-           "operationId": "memories_search_v2",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/MemorySearchInputV2"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-            "200":{
-               "description":"",
-               "content":{
-                  "application/json":{
-                     "schema":{
-                        "type":"array",
-                        "items":{
-                           "type":"object",
-                           "properties":{
-                              "id":{
-                                 "type":"string",
-                                 "format":"uuid",
-                                 "description":"Unique identifier for the memory"
-                              },
-                              "memory":{
-                                 "type":"string",
-                                 "description":"The content of the memory"
-                              },
-                              "input":{
-                                 "type":"array",
-                                 "items":{
-                                    "type":"object",
-                                    "properties":{
-                                       "role":{
-                                          "type":"string",
-                                          "enum":[
-                                             "user",
-                                             "assistant"
-                                          ],
-                                          "description":"The role of the speaker in the conversation"
-                                       },
-                                       "content":{
-                                          "type":"string",
-                                          "description":"The content of the message"
-                                       }
-                                    },
-                                    "required":[
-                                       "role",
-                                       "content"
-                                    ]
-                                 },
-                                 "description":"The conversation input that was used to generate this memory"
-                              },
-                              "user_id":{
-                                 "type":"string",
-                                 "description":"The identifier of the user associated with this memory"
-                              },
-                              "hash":{
-                                 "type":"string",
-                                 "description":"A hash of the memory content"
-                              },
-                              "metadata":{
-                                 "type":"object",
-                                 "nullable":true,
-                                 "description":"Additional metadata associated with the memory"
-                              },
-                              "created_at":{
-                                 "type":"string",
-                                 "format":"date-time",
-                                 "description":"The timestamp when the memory was created"
-                              },
-                              "updated_at":{
-                                 "type":"string",
-                                 "format":"date-time",
-                                 "description":"The timestamp when the memory was last updated"
-                              }
-                           },
-                           "required":[
-                              "id",
-                              "memory",
-                              "input",
-                              "user_id",
-                              "hash",
-                              "created_at",
-                              "updated_at"
-                           ]
-                        }
-                     }
-                  }
-               }
-            }
-         },
-           "x-codegen-request-body-name":"data"
-        }
-     },
-     "/v1/memories/{entity_type}/{entity_id}/":{
-        "get":{
-           "tags":[
-              "memories"
-           ],
-           "operationId":"memories_read",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                 }
-              }
-           }
-        },
-        "parameters":[
-           {
-              "name":"entity_type",
-              "in":"path",
-              "required":true,
-              "schema":{
-                 "type":"string"
-              }
-           },
-           {
-              "name":"entity_id",
-              "in":"path",
-              "required":true,
-              "schema":{
-                 "type":"string"
-              }
-           }
-        ]
-     },
-     "/v1/memories/{memory_id}/":{
-        "get":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Get a memory.",
-           "operationId":"memories_read",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/GetMemoryInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "200":{
-                 "description":"Successfully retrieved the memory",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "id":{
-                                "type":"string",
-                                "format":"uuid",
-                                "description":"Unique identifier for the memory"
-                             },
-                             "memory":{
-                                "type":"string",
-                                "description":"The content of the memory"
-                             },
-                             "user_id":{
-                                "type":"string",
-                                "description":"Identifier of the user associated with this memory"
-                             },
-                             "agent_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The agent ID associated with the memory, if any"
-                             },
-                             "app_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The app ID associated with the memory, if any"
-                             },
-                             "run_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The run ID associated with the memory, if any"
-                             },
-                             "hash":{
-                                "type":"string",
-                                "description":"Hash of the memory content"
-                             },
-                             "metadata":{
-                                "type":"object",
-                                "description":"Additional metadata associated with the memory"
-                             },
-                             "created_at":{
-                                "type":"string",
-                                "format":"date-time",
-                                "description":"Timestamp of when the memory was created"
-                             },
-                             "updated_at":{
-                                "type":"string",
-                                "format":"date-time",
-                                "description":"Timestamp of when the memory was last updated"
-                             }
-                          }
-                       }
-                    }
-                 }
-              },
-              "404":{
-                 "description":"Memory not found",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "error":{
-                                "type":"string",
-                                "example":"Memory not found!"
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        },
-        "put":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Get or Update or delete a memory.",
-           "operationId":"memories_update",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/UpdateMemoryInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "200":{
-                 "description":"Successfully updated memory",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "id":{
-                                "type":"string",
-                                "format":"uuid",
-                                "description":"The unique identifier of the updated memory"
-                             },
-                             "text":{
-                                "type":"string",
-                                "description":"The updated text content of the memory"
-                             },
-                             "user_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The user ID associated with the memory, if any"
-                             },
-                             "agent_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The agent ID associated with the memory, if any"
-                             },
-                             "app_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The app ID associated with the memory, if any"
-                             },
-                             "run_id":{
-                                "type":"string",
-                                "nullable":true,
-                                "description":"The run ID associated with the memory, if any"
-                             },
-                             "hash":{
-                                "type":"string",
-                                "description":"Hash of the memory content"
-                             },
-                             "metadata":{
-                                "type":"object",
-                                "description":"Additional metadata associated with the memory"
-                             },
-                             "created_at":{
-                                "type":"string",
-                                "format":"date-time",
-                                "description":"Timestamp of when the memory was created"
-                             },
-                             "updated_at":{
-                                "type":"string",
-                                "format":"date-time",
-                                "description":"Timestamp of when the memory was last updated"
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        },
-        "delete":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Get or Update or delete a memory.",
-           "operationId":"memories_delete",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/GetMemoryInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "204":{
-                 "description":"Successful deletion of memory",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"object",
-                          "properties":{
-                             "message":{
-                                "type":"string",
-                                "example":"Memory deleted successfully!"
-                             }
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        }
-     },
-     "/v1/memories/{memory_id}/history/":{
-        "get":{
-           "tags":[
-              "memories"
-           ],
-           "description":"Retrieve the history of a memory.",
-           "operationId":"memories_history_list",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/GetMemoryInput"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "200":{
-                 "description":"Successfully retrieved the memory history",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "type":"array",
-                          "items":{
-                             "type":"object",
-                             "properties":{
-                                "id":{
-                                   "type":"string",
-                                   "format":"uuid",
-                                   "description":"Unique identifier for the history entry"
-                                },
-                                "memory_id":{
-                                   "type":"string",
-                                   "format":"uuid",
-                                   "description":"Unique identifier of the associated memory"
-                                },
-                                "input":{
-                                   "type":"array",
-                                   "items":{
-                                      "type":"object",
-                                      "properties":{
-                                         "role":{
-                                            "type":"string",
-                                            "enum":[
-                                               "user",
-                                               "assistant"
-                                            ],
-                                            "description":"The role of the speaker in the conversation"
-                                         },
-                                         "content":{
-                                            "type":"string",
-                                            "description":"The content of the message"
-                                         }
-                                      },
-                                      "required":[
-                                         "role",
-                                         "content"
-                                      ]
-                                   },
-                                   "description":"The conversation input that led to this memory change"
-                                },
-                                "old_memory":{
-                                   "type":"string",
-                                   "nullable":true,
-                                   "description":"The previous state of the memory, if applicable"
-                                },
-                                "new_memory":{
-                                   "type":"string",
-                                   "description":"The new or updated state of the memory"
-                                },
-                                "user_id":{
-                                   "type":"string",
-                                   "description":"The identifier of the user associated with this memory"
-                                },
-                                "event":{
-                                   "type":"string",
-                                   "enum":[
-                                      "ADD",
-                                      "UPDATE",
-                                      "DELETE"
-                                   ],
-                                   "description":"The type of event that occurred"
-                                },
-                                "metadata":{
-                                   "type":"object",
-                                   "nullable":true,
-                                   "description":"Additional metadata associated with the memory change"
-                                },
-                                "created_at":{
-                                   "type":"string",
-                                   "format":"date-time",
-                                   "description":"The timestamp when this history entry was created"
-                                },
-                                "updated_at":{
-                                   "type":"string",
-                                   "format":"date-time",
-                                   "description":"The timestamp when this history entry was last updated"
-                                }
-                             },
-                             "required":[
-                                "id",
-                                "memory_id",
-                                "input",
-                                "new_memory",
-                                "user_id",
-                                "event",
-                                "created_at",
-                                "updated_at"
-                             ]
-                          }
-                       }
-                    }
-                 }
-              }
-           }
-        }
-     },
-     "/v1/runs/":{
-        "post":{
-           "tags":[
-              "runs"
-           ],
-           "description":"Create a new Agent Run.",
-           "operationId":"runs_create",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/CreateRun"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "201":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "$ref":"#/components/schemas/CreateRun"
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        }
-     },
-     "/v1/stats/":{
-        "get":{
-           "tags":[
-              "stats"
-           ],
-           "summary":"Retrieve memory-related statistics for the authenticated user.",
-           "description":"This endpoint returns the following statistics:\n- Total number of memories created\n- Total number of search events\n- Total number of add events",
-           "operationId":"stats_list",
-           "responses":{
-              "200":{
-                 "description":"",
-                 "content":{
-                 }
-              }
-           }
-        }
-     },
-     "/v1/users/":{
-        "post":{
-           "tags":[
-              "users"
-           ],
-           "description":"Create a new User.",
-           "operationId":"users_create",
-           "requestBody":{
-              "content":{
-                 "application/json":{
-                    "schema":{
-                       "$ref":"#/components/schemas/CreateUser"
-                    }
-                 }
-              },
-              "required":true
-           },
-           "responses":{
-              "201":{
-                 "description":"",
-                 "content":{
-                    "application/json":{
-                       "schema":{
-                          "$ref":"#/components/schemas/CreateUser"
-                       }
-                    }
-                 }
-              }
-           },
-           "x-codegen-request-body-name":"data"
-        }
-     }
-  },
-  "components":{
-     "schemas":{
-        "CreateAgent":{
-           "required":[
-              "agent_id"
-           ],
-           "type":"object",
-           "properties":{
-              "agent_id":{
-                 "title":"Agent id",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "name":{
-                 "title":"Name",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "metadata":{
-                 "title":"Metadata",
-                 "type":"object",
-                 "properties":{
-                    
-                 }
-              }
-           }
-        },
-        "CreateApp":{
-           "required":[
-              "app_id"
-           ],
-           "type":"object",
-           "properties":{
-              "app_id":{
-                 "title":"App id",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "name":{
-                 "title":"Name",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "metadata":{
-                 "title":"Metadata",
-                 "type":"object",
-                 "properties":{
-                    
-                 }
-              }
-           }
-        },
-        "MemoryInput":{
-           "type":"object",
-           "properties":{
-              "messages":{
-                 "description":"An array of message objects representing the content of the memory. Each message object typically contains 'role' and 'content' fields, where 'role' indicates the sender (e.g., 'user', 'assistant', 'system') and 'content' contains the actual message text. This structure allows for the representation of conversations or multi-part memories.",
-                 "type":"array",
-                 "items":{
-                    "type":"object",
-                    "additionalProperties":{
-                       "type":"string",
-                       "nullable":true
-                    }
-                 }
-              },
-              "agent_id":{
-                 "description":"The unique identifier of the agent associated with this memory.",
-                 "title":"Agent id",
-                 "type":"string",
-                 "nullable":true
-              },
-              "user_id":{
-                 "description":"The unique identifier of the user associated with this memory.",
-                 "title":"User id",
-                 "type":"string",
-                 "nullable":true
-              },
-              "app_id":{
-                 "description":"The unique identifier of the application associated with this memory.",
-                 "title":"App id",
-                 "type":"string",
-                 "nullable":true
-              },
-              "run_id":{
-                 "description":"The unique identifier of the run associated with this memory.",
-                 "title":"Run id",
-                 "type":"string",
-                 "nullable":true
-              },
-              "metadata":{
-                 "description":"Additional metadata associated with the memory, which can be used to store any additional information or context about the memory.",
-                 "title":"Metadata",
-                 "type":"object",
-                 "properties":{
-                    
-                 },
-                 "nullable":true
-              },
-              "includes":{
-                 "description": "String to include the specific preferences in the memory.",
-                 "title":"Includes",
-                 "minLength":1,
-                 "type":"string",
-                 "nullable":true
-              },
-              "excludes":{
-                 "description": "String to exclude the specific preferences in the memory.",
-                 "title":"Excludes",
-                 "minLength":1,
-                 "type":"string",
-                 "nullable":true
-              },
-              "infer":{
-                 "description":"Wether to infer the memories or directly store the messages.",
-                 "title":"Infer",
-                 "type":"boolean",
-                 "default":true
-              },
-              "custom_categories":{
-                 "description":"A list of categories with category name and it's description.",
-                 "title":"Custom categories",
-                 "type":"object",
-                 "properties":{
-                    
-                 },
-                 "nullable":true
-              }
-           }
-        },
-        "MemorySearchInput":{
-           "required":[
-              "query"
-           ],
-           "type":"object",
-           "properties":{
-              "query":{
-                 "title":"Query",
-                 "minLength":1,
-                 "type":"string",
-                 "description":"The query to search for in the memory."
-              },
-              "agent_id":{
-                 "title":"Agent id",
-                 "type":"string",
-                 "nullable":true,
-                 "description":"The agent ID associated with the memory."
-              },
-              "user_id":{
-                 "title":"User id",
-                 "type":"string",
-                 "nullable":true,
-                 "description":"The user ID associated with the memory."
-              },
-              "app_id":{
-                 "title":"App id",
-                 "type":"string",
-                 "nullable":true,
-                 "description":"The app ID associated with the memory."
-              },
-              "run_id":{
-                 "title":"Run id",
-                 "type":"string",
-                 "nullable":true,
-                 "description":"The run ID associated with the memory."
-              },
-              "metadata":{
-                 "title":"Metadata",
-                 "type":"object",
-                 "properties":{
-                    
-                 },
-                 "nullable":true,
-                 "description":"Additional metadata associated with the memory."
-              },
-              "top_k": {
-                 "title": "Top K",
-                 "type": "integer",
-                 "default": 10,
-                 "description": "The number of top results to return."
-              },
-              "fields": {
-                 "title": "Fields",
-                 "type": "array",
-                 "items": {
-                    "type": "string"
-                 },
-                 "description": "A list of field names to include in the response. If not provided, all fields will be returned."
-              },
-              "rerank":{
-                 "title":"Rerank",
-                 "type":"boolean",
-                 "default":false,
-                 "description":"Whether to rerank the memories."
-              }
-           }
-        },
-        "MemorySearchInputV2": {
-           "type": "object",
-           "required": [
-              "query",
-              "filters"
-           ],
-           "properties": {
-              "query": {
-                 "title": "Query",
-                 "type": "string",
-                 "description": "The query to search for in the memory."
-              },
-              "filters": {
-                 "title": "Filters",
-                 "type": "object",
-                 "description": "A dictionary of filters to apply to the search. Users can pass AND, OR, IN, gte, lte, gt, lt, ne, icontains operators for advanced filtering.",
-                 "additionalProperties": {
-                    "type": "object"
-                 }
-              },
-              "top_k": {
-                 "title": "Top K",
-                 "type": "integer",
-                 "default": 10,
-                 "description": "The number of top results to return."
-              },
-              "fields": {
-                 "title": "Fields",
-                 "type": "array",
-                 "items": {
-                    "type": "string"
-                 },
-                 "description": "A list of field names to include in the response. If not provided, all fields will be returned."
-              },
-              "rerank": {
-                 "title": "Rerank",
-                 "type": "boolean",
-                 "default": false,
-                 "description": "Whether to rerank the memories."
-              }
-           }
-        },
-        "CreateRun":{
-           "required":[
-              "run_id"
-           ],
-           "type":"object",
-           "properties":{
-              "run_id":{
-                 "title":"Run id",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "name":{
-                 "title":"Name",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "metadata":{
-                 "title":"Metadata",
-                 "type":"object",
-                 "properties":{
-                    
-                 }
-              }
-           }
-        },
-        "CreateUser":{
-           "required":[
-              "user_id"
-           ],
-           "type":"object",
-           "properties":{
-              "user_id":{
-                 "title":"User id",
-                 "minLength":1,
-                 "type":"string"
-              },
-              "metadata":{
-                 "title":"Metadata",
-                 "type":"object",
-                 "properties":{
-                    
-                 }
-              }
-           }
-        },
-        "DeleteMemoriesInput":{
-           "type":"object",
-           "description":"Input for deleting memories associated with a specific user, agent, app, or run.",
-           "properties":{
-              "user_id":{
-                 "type":"string",
-                 "description":"The unique identifier of the user whose memories should be deleted.",
-                 "nullable":true
-              },
-              "agent_id":{
-                 "type":"string",
-                 "description":"The unique identifier of the agent whose memories should be deleted.",
-                 "nullable":true
-              },
-              "app_id":{
-                 "type":"string",
-                 "description":"The unique identifier of the application whose memories should be deleted.",
-                 "nullable":true
-              },
-              "run_id":{
-                 "type":"string",
-                 "description":"The unique identifier of the run whose memories should be deleted.",
-                 "nullable":true
-              }
-           },
-           "anyOf":[
-              {
-                 "required":[
-                    "user_id"
-                 ]
-              },
-              {
-                 "required":[
-                    "agent_id"
-                 ]
-              },
-              {
-                 "required":[
-                    "app_id"
-                 ]
-              },
-              {
-                 "required":[
-                    "run_id"
-                 ]
-              }
-           ],
-           "minProperties":1,
-           "maxProperties":4
-        },
-        "GetMemoryInput":{
-           "type":"object",
-           "required":[
-              "memory_id"
-           ],
-           "properties":{
-              "memory_id":{
-                 "type":"string",
-                 "format":"uuid",
-                 "description":"The unique identifier of the memory"
-              }
-           }
-        },
-        "UpdateMemoryInput":{
-           "type":"object",
-           "description":"Input for updating an existing memory.",
-           "required":[
-              "memory_id",
-              "text"
-           ],
-           "properties":{
-              "memory_id":{
-                 "type":"string",
-                 "format":"uuid",
-                 "description":"The unique identifier of the memory to update"
-              },
-              "text":{
-                 "type":"string",
-                 "description":"The new text content to update the memory with"
-              }
-           }
-        },
-        "EntityInput":{
-           "type":"object",
-           "description":"Input for specifying an entity.",
-           "required":[
-              "entity_type",
-              "entity_id"
-           ],
-           "properties":{
-              "entity_type":{
-                 "type":"string",
-                 "enum":[
-                    "user",
-                    "agent",
-                    "run",
-                    "app"
-                 ],
-                 "description":"The type of the entity"
-              },
-              "entity_id":{
-                 "type":"string",
-                 "format":"uuid",
-                 "description":"The unique identifier of the entity (memory_id)"
-              }
-           }
-        }
-     },
-     "securitySchemes":{
-        "Basic":{
-           "type":"http",
-           "scheme":"basic"
-        }
-     }
-  },
-  "x-original-swagger-version":"2.0"
+	"openapi": "3.0.1",
+	"info": {
+		"title": "Mem0 API Docs",
+		"description": "mem0.ai API Docs",
+		"contact": {
+			"email": "deshraj@mem0.ai"
+		},
+		"license": {
+			"name": "Apache 2.0"
+		},
+		"version": "v1"
+	},
+	"servers": [
+		{
+			"url": "https://api.mem0.ai/"
+		}
+	],
+	"security": [
+		{
+			"ApiKeyAuth": [
+
+			]
+		}
+	],
+	"paths": {
+		"/v1/agents/": {
+			"post": {
+				"tags": [
+					"agents"
+				],
+				"description": "Create a new Agent.",
+				"operationId": "agents_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateAgent"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateAgent"
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			}
+		},
+		"/v1/apps/": {
+			"post": {
+				"tags": [
+					"apps"
+				],
+				"description": "Create a new App.",
+				"operationId": "apps_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateApp"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateApp"
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			}
+		},
+		"/v1/entities/": {
+			"get": {
+				"tags": [
+					"entities"
+				],
+				"operationId": "entities_list",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"description": "Unique identifier for the entity"
+											},
+											"name": {
+												"type": "string",
+												"description": "Name of the entity"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp of when the entity was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp of when the entity was last updated"
+											},
+											"total_memories": {
+												"type": "integer",
+												"description": "Total number of memories associated with the entity"
+											},
+											"owner": {
+												"type": "string",
+												"description": "Owner of the entity"
+											},
+											"organization": {
+												"type": "string",
+												"description": "Organization the entity belongs to"
+											},
+											"metadata": {
+												"type": "object",
+												"description": "Additional metadata associated with the entity"
+											},
+											"type": {
+												"type": "string",
+												"description": "Type of the entity (e.g., 'user', 'agent')"
+											}
+										},
+										"required": [
+											"id",
+											"name",
+											"created_at",
+											"updated_at",
+											"total_memories",
+											"owner",
+											"organization",
+											"type"
+										]
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/entities/filters/": {
+			"get": {
+				"tags": [
+					"entities"
+				],
+				"operationId": "entities_filters_list",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+
+						}
+					}
+				}
+			}
+		},
+		"/v1/entities/{entity_type}/{entity_id}/": {
+			"get": {
+				"tags": [
+					"entities"
+				],
+				"operationId": "entities_read",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": [
+					"entities"
+				],
+				"operationId": "entities_delete",
+				"parameters": [
+					{
+						"name": "entity_type",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"enum": [
+								"user",
+								"agent",
+								"app",
+								"run"
+							]
+						},
+						"description": "The type of the entity (user, agent, app, or run)"
+					},
+					{
+						"name": "entity_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						},
+						"description": "The unique identifier of the entity"
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Entity deleted successfully!",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Entity deleted successfully!"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/events/": {
+			"get": {
+				"tags": [
+					"events"
+				],
+				"summary": "Retrieve all events for the currently logged-in user.",
+				"description": "This endpoint returns a paginated list of events associated with the authenticated user.\nYou can filter the events by event type, start date, and end date.\n\nQuery Parameters:\n- event_type: Filter by event type (ADD or SEARCH)\n- start_date: Filter events after this date (format: YYYY-MM-DD)\n- end_date: Filter events before this date (format: YYYY-MM-DD)\n- page: Page number for pagination\n- page_size: Number of items per page (default: 50, max: 100)",
+				"operationId": "events_list",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+
+						}
+					}
+				}
+			}
+		},
+		"/v1/memories/": {
+			"get": {
+				"tags": [
+					"memories"
+				],
+				"description": "Get all memories",
+				"operationId": "memories_list",
+				"parameters": [
+					{
+						"name": "user_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by user ID"
+					},
+					{
+						"name": "agent_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by agent ID"
+					},
+					{
+						"name": "app_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by app ID"
+					},
+					{
+						"name": "run_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by run ID"
+					},
+					{
+						"name": "metadata",
+						"in": "query",
+						"schema": {
+							"type": "object"
+						},
+						"description": "Filter memories by metadata (JSON string)",
+						"style": "deepObject",
+						"explode": true
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string"
+											},
+											"name": {
+												"type": "string"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time"
+											},
+											"total_memories": {
+												"type": "integer"
+											},
+											"owner": {
+												"type": "string"
+											},
+											"organization": {
+												"type": "string"
+											},
+											"metadata": {
+												"type": "object"
+											},
+											"type": {
+												"type": "string",
+												"enum": [
+													"user",
+													"agent"
+												]
+											}
+										},
+										"required": [
+											"id",
+											"name",
+											"created_at",
+											"updated_at",
+											"total_memories",
+											"owner",
+											"organization",
+											"type"
+										]
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad Request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "One of the filters: app_id, user_id, agent_id, run_id is required!"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"description": "Add memories",
+				"operationId": "memories_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/MemoryInput"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "Successful memory creation",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "ok"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad Request. Invalid input data. Please refer to the memory creation documentation at https://docs.mem0.ai/platform/quickstart#4-1-create-memories for correct formatting and required fields.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"required": [
+										"error",
+										"details"
+									],
+									"example": {
+										"error": "400 Bad Request",
+										"details": {
+											"message": "Invalid input data. Please refer to the memory creation documentation at https://docs.mem0.ai/platform/quickstart#4-1-create-memories for correct formatting and required fields."
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			},
+			"delete": {
+				"tags": [
+					"memories"
+				],
+				"description": "Delete memories",
+				"operationId": "memories_delete",
+				"parameters": [
+					{
+						"name": "user_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by user ID"
+					},
+					{
+						"name": "agent_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by agent ID"
+					},
+					{
+						"name": "app_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by app ID"
+					},
+					{
+						"name": "run_id",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by run ID"
+					},
+					{
+						"name": "metadata",
+						"in": "query",
+						"schema": {
+							"type": "object"
+						},
+						"description": "Filter memories by metadata (JSON string)",
+						"style": "deepObject",
+						"explode": true
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Successful deletion of memories",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Memories deleted successfully!"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/memories/events/": {
+			"get": {
+				"tags": [
+					"memories"
+				],
+				"operationId": "memories_events_list",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+
+						}
+					}
+				}
+			}
+		},
+		"/v1/memories/search/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"description": "Perform a semantic search on memories.",
+				"operationId": "memories_search_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/MemorySearchInput"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"format": "uuid",
+												"description": "Unique identifier for the memory"
+											},
+											"memory": {
+												"type": "string",
+												"description": "The content of the memory"
+											},
+											"input": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"role": {
+															"type": "string",
+															"enum": [
+																"user",
+																"assistant"
+															],
+															"description": "The role of the speaker in the conversation"
+														},
+														"content": {
+															"type": "string",
+															"description": "The content of the message"
+														}
+													},
+													"required": [
+														"role",
+														"content"
+													]
+												},
+												"description": "The conversation input that was used to generate this memory"
+											},
+											"user_id": {
+												"type": "string",
+												"description": "The identifier of the user associated with this memory"
+											},
+											"hash": {
+												"type": "string",
+												"description": "A hash of the memory content"
+											},
+											"metadata": {
+												"type": "object",
+												"nullable": true,
+												"description": "Additional metadata associated with the memory"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The timestamp when the memory was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The timestamp when the memory was last updated"
+											}
+										},
+										"required": [
+											"id",
+											"memory",
+											"input",
+											"user_id",
+											"hash",
+											"created_at",
+											"updated_at"
+										]
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad Request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "At least one of the filters: agent_id, user_id, app_id, run_id is required!"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			}
+		},
+		"/v2/memories/search/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"description": "Search memories based on a query and filters.",
+				"operationId": "memories_search_v2",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/MemorySearchInputV2"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"format": "uuid",
+												"description": "Unique identifier for the memory"
+											},
+											"memory": {
+												"type": "string",
+												"description": "The content of the memory"
+											},
+											"input": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"role": {
+															"type": "string",
+															"enum": [
+																"user",
+																"assistant"
+															],
+															"description": "The role of the speaker in the conversation"
+														},
+														"content": {
+															"type": "string",
+															"description": "The content of the message"
+														}
+													},
+													"required": [
+														"role",
+														"content"
+													]
+												},
+												"description": "The conversation input that was used to generate this memory"
+											},
+											"user_id": {
+												"type": "string",
+												"description": "The identifier of the user associated with this memory"
+											},
+											"hash": {
+												"type": "string",
+												"description": "A hash of the memory content"
+											},
+											"metadata": {
+												"type": "object",
+												"nullable": true,
+												"description": "Additional metadata associated with the memory"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The timestamp when the memory was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The timestamp when the memory was last updated"
+											}
+										},
+										"required": [
+											"id",
+											"memory",
+											"input",
+											"user_id",
+											"hash",
+											"created_at",
+											"updated_at"
+										]
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			}
+		},
+		"/v1/memories/{entity_type}/{entity_id}/": {
+			"get": {
+				"tags": [
+					"memories"
+				],
+				"operationId": "memories_read",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+
+						}
+					}
+				}
+			},
+			"parameters": [
+				{
+					"name": "entity_type",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "entity_id",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
+		},
+		"/v1/memories/{memory_id}/": {
+			"get": {
+				"tags": [
+					"memories"
+				],
+				"description": "Get a memory.",
+				"operationId": "memories_read",
+				"parameters": [
+					{
+						"name": "memory_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "The unique identifier of the memory to retrieve"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successfully retrieved the memory",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "Unique identifier for the memory"
+										},
+										"memory": {
+											"type": "string",
+											"description": "The content of the memory"
+										},
+										"user_id": {
+											"type": "string",
+											"description": "Identifier of the user associated with this memory"
+										},
+										"agent_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The agent ID associated with the memory, if any"
+										},
+										"app_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The app ID associated with the memory, if any"
+										},
+										"run_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The run ID associated with the memory, if any"
+										},
+										"hash": {
+											"type": "string",
+											"description": "Hash of the memory content"
+										},
+										"metadata": {
+											"type": "object",
+											"description": "Additional metadata associated with the memory"
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the memory was created"
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the memory was last updated"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Memory not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Memory not found!"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"put": {
+				"tags": [
+					"memories"
+				],
+				"description": "Get or Update or delete a memory.",
+				"operationId": "memories_update",
+				"parameters": [
+					{
+						"name": "memory_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "The unique identifier of the memory to retrieve"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successfully updated memory",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "The unique identifier of the updated memory"
+										},
+										"text": {
+											"type": "string",
+											"description": "The updated text content of the memory"
+										},
+										"user_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The user ID associated with the memory, if any"
+										},
+										"agent_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The agent ID associated with the memory, if any"
+										},
+										"app_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The app ID associated with the memory, if any"
+										},
+										"run_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The run ID associated with the memory, if any"
+										},
+										"hash": {
+											"type": "string",
+											"description": "Hash of the memory content"
+										},
+										"metadata": {
+											"type": "object",
+											"description": "Additional metadata associated with the memory"
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the memory was created"
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the memory was last updated"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			},
+			"delete": {
+				"tags": [
+					"memories"
+				],
+				"description": "Get or Update or delete a memory.",
+				"operationId": "memories_delete",
+				"parameters": [
+					{
+						"name": "memory_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "The unique identifier of the memory to retrieve"
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Successful deletion of memory",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Memory deleted successfully!"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/memories/{memory_id}/history/": {
+			"get": {
+				"tags": [
+					"memories"
+				],
+				"description": "Retrieve the history of a memory.",
+				"operationId": "memories_history_list",
+				"parameters": [
+					{
+						"name": "memory_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "The unique identifier of the memory to retrieve"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successfully retrieved the memory history",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"format": "uuid",
+												"description": "Unique identifier for the history entry"
+											},
+											"memory_id": {
+												"type": "string",
+												"format": "uuid",
+												"description": "Unique identifier of the associated memory"
+											},
+											"input": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"role": {
+															"type": "string",
+															"enum": [
+																"user",
+																"assistant"
+															],
+															"description": "The role of the speaker in the conversation"
+														},
+														"content": {
+															"type": "string",
+															"description": "The content of the message"
+														}
+													},
+													"required": [
+														"role",
+														"content"
+													]
+												},
+												"description": "The conversation input that led to this memory change"
+											},
+											"old_memory": {
+												"type": "string",
+												"nullable": true,
+												"description": "The previous state of the memory, if applicable"
+											},
+											"new_memory": {
+												"type": "string",
+												"description": "The new or updated state of the memory"
+											},
+											"user_id": {
+												"type": "string",
+												"description": "The identifier of the user associated with this memory"
+											},
+											"event": {
+												"type": "string",
+												"enum": [
+													"ADD",
+													"UPDATE",
+													"DELETE"
+												],
+												"description": "The type of event that occurred"
+											},
+											"metadata": {
+												"type": "object",
+												"nullable": true,
+												"description": "Additional metadata associated with the memory change"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The timestamp when this history entry was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The timestamp when this history entry was last updated"
+											}
+										},
+										"required": [
+											"id",
+											"memory_id",
+											"input",
+											"new_memory",
+											"user_id",
+											"event",
+											"created_at",
+											"updated_at"
+										]
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/runs/": {
+			"post": {
+				"tags": [
+					"runs"
+				],
+				"description": "Create a new Agent Run.",
+				"operationId": "runs_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateRun"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateRun"
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			}
+		},
+		"/v1/stats/": {
+			"get": {
+				"tags": [
+					"stats"
+				],
+				"summary": "Retrieve memory-related statistics for the authenticated user.",
+				"description": "This endpoint returns the following statistics:\n- Total number of memories created\n- Total number of search events\n- Total number of add events",
+				"operationId": "stats_list",
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+
+						}
+					}
+				}
+			}
+		},
+		"/v1/users/": {
+			"post": {
+				"tags": [
+					"users"
+				],
+				"description": "Create a new User.",
+				"operationId": "users_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateUser"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateUser"
+								}
+							}
+						}
+					}
+				},
+				"x-codegen-request-body-name": "data"
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"CreateAgent": {
+				"required": [
+					"agent_id"
+				],
+				"type": "object",
+				"properties": {
+					"agent_id": {
+						"title": "Agent id",
+						"minLength": 1,
+						"type": "string"
+					},
+					"name": {
+						"title": "Name",
+						"minLength": 1,
+						"type": "string"
+					},
+					"metadata": {
+						"title": "Metadata",
+						"type": "object",
+						"properties": {
+
+						}
+					}
+				}
+			},
+			"CreateApp": {
+				"required": [
+					"app_id"
+				],
+				"type": "object",
+				"properties": {
+					"app_id": {
+						"title": "App id",
+						"minLength": 1,
+						"type": "string"
+					},
+					"name": {
+						"title": "Name",
+						"minLength": 1,
+						"type": "string"
+					},
+					"metadata": {
+						"title": "Metadata",
+						"type": "object",
+						"properties": {
+
+						}
+					}
+				}
+			},
+			"MemoryInput": {
+				"type": "object",
+				"properties": {
+					"messages": {
+						"description": "An array of message objects representing the content of the memory. Each message object typically contains 'role' and 'content' fields, where 'role' indicates the sender (e.g., 'user', 'assistant', 'system') and 'content' contains the actual message text. This structure allows for the representation of conversations or multi-part memories.",
+						"type": "array",
+						"items": {
+							"type": "object",
+							"additionalProperties": {
+								"type": "string",
+								"nullable": true
+							}
+						}
+					},
+					"agent_id": {
+						"description": "The unique identifier of the agent associated with this memory.",
+						"title": "Agent id",
+						"type": "string",
+						"nullable": true
+					},
+					"user_id": {
+						"description": "The unique identifier of the user associated with this memory.",
+						"title": "User id",
+						"type": "string",
+						"nullable": true
+					},
+					"app_id": {
+						"description": "The unique identifier of the application associated with this memory.",
+						"title": "App id",
+						"type": "string",
+						"nullable": true
+					},
+					"run_id": {
+						"description": "The unique identifier of the run associated with this memory.",
+						"title": "Run id",
+						"type": "string",
+						"nullable": true
+					},
+					"metadata": {
+						"description": "Additional metadata associated with the memory, which can be used to store any additional information or context about the memory.",
+						"title": "Metadata",
+						"type": "object",
+						"properties": {
+
+						},
+						"nullable": true
+					},
+					"includes": {
+						"description": "String to include the specific preferences in the memory.",
+						"title": "Includes",
+						"minLength": 1,
+						"type": "string",
+						"nullable": true
+					},
+					"excludes": {
+						"description": "String to exclude the specific preferences in the memory.",
+						"title": "Excludes",
+						"minLength": 1,
+						"type": "string",
+						"nullable": true
+					},
+					"infer": {
+						"description": "Wether to infer the memories or directly store the messages.",
+						"title": "Infer",
+						"type": "boolean",
+						"default": true
+					},
+					"custom_categories": {
+						"description": "A list of categories with category name and it's description.",
+						"title": "Custom categories",
+						"type": "object",
+						"properties": {
+
+						},
+						"nullable": true
+					}
+				}
+			},
+			"MemorySearchInput": {
+				"required": [
+					"query"
+				],
+				"type": "object",
+				"properties": {
+					"query": {
+						"title": "Query",
+						"minLength": 1,
+						"type": "string",
+						"description": "The query to search for in the memory."
+					},
+					"agent_id": {
+						"title": "Agent id",
+						"type": "string",
+						"nullable": true,
+						"description": "The agent ID associated with the memory."
+					},
+					"user_id": {
+						"title": "User id",
+						"type": "string",
+						"nullable": true,
+						"description": "The user ID associated with the memory."
+					},
+					"app_id": {
+						"title": "App id",
+						"type": "string",
+						"nullable": true,
+						"description": "The app ID associated with the memory."
+					},
+					"run_id": {
+						"title": "Run id",
+						"type": "string",
+						"nullable": true,
+						"description": "The run ID associated with the memory."
+					},
+					"metadata": {
+						"title": "Metadata",
+						"type": "object",
+						"properties": {
+
+						},
+						"nullable": true,
+						"description": "Additional metadata associated with the memory."
+					},
+					"top_k": {
+						"title": "Top K",
+						"type": "integer",
+						"default": 10,
+						"description": "The number of top results to return."
+					},
+					"fields": {
+						"title": "Fields",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "A list of field names to include in the response. If not provided, all fields will be returned."
+					},
+					"rerank": {
+						"title": "Rerank",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to rerank the memories."
+					}
+				}
+			},
+			"MemorySearchInputV2": {
+				"type": "object",
+				"required": [
+					"query",
+					"filters"
+				],
+				"properties": {
+					"query": {
+						"title": "Query",
+						"type": "string",
+						"description": "The query to search for in the memory."
+					},
+					"filters": {
+						"title": "Filters",
+						"type": "object",
+						"description": "A dictionary of filters to apply to the search. Users can pass AND, OR, IN, gte, lte, gt, lt, ne, icontains operators for advanced filtering.",
+						"additionalProperties": {
+							"type": "object"
+						}
+					},
+					"top_k": {
+						"title": "Top K",
+						"type": "integer",
+						"default": 10,
+						"description": "The number of top results to return."
+					},
+					"fields": {
+						"title": "Fields",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "A list of field names to include in the response. If not provided, all fields will be returned."
+					},
+					"rerank": {
+						"title": "Rerank",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to rerank the memories."
+					}
+				}
+			},
+			"CreateRun": {
+				"required": [
+					"run_id"
+				],
+				"type": "object",
+				"properties": {
+					"run_id": {
+						"title": "Run id",
+						"minLength": 1,
+						"type": "string"
+					},
+					"name": {
+						"title": "Name",
+						"minLength": 1,
+						"type": "string"
+					},
+					"metadata": {
+						"title": "Metadata",
+						"type": "object",
+						"properties": {
+
+						}
+					}
+				}
+			},
+			"CreateUser": {
+				"required": [
+					"user_id"
+				],
+				"type": "object",
+				"properties": {
+					"user_id": {
+						"title": "User id",
+						"minLength": 1,
+						"type": "string"
+					},
+					"metadata": {
+						"title": "Metadata",
+						"type": "object",
+						"properties": {
+
+						}
+					}
+				}
+			},
+			"DeleteMemoriesInput": {
+				"type": "object",
+				"description": "Input for deleting memories associated with a specific user, agent, app, or run.",
+				"properties": {
+					"user_id": {
+						"type": "string",
+						"description": "The unique identifier of the user whose memories should be deleted.",
+						"nullable": true
+					},
+					"agent_id": {
+						"type": "string",
+						"description": "The unique identifier of the agent whose memories should be deleted.",
+						"nullable": true
+					},
+					"app_id": {
+						"type": "string",
+						"description": "The unique identifier of the application whose memories should be deleted.",
+						"nullable": true
+					},
+					"run_id": {
+						"type": "string",
+						"description": "The unique identifier of the run whose memories should be deleted.",
+						"nullable": true
+					}
+				},
+				"anyOf": [
+					{
+						"required": [
+							"user_id"
+						]
+					},
+					{
+						"required": [
+							"agent_id"
+						]
+					},
+					{
+						"required": [
+							"app_id"
+						]
+					},
+					{
+						"required": [
+							"run_id"
+						]
+					}
+				],
+				"minProperties": 1,
+				"maxProperties": 4
+			},
+			"GetMemoryInput": {
+				"type": "object",
+				"required": [
+					"memory_id"
+				],
+				"properties": {
+					"memory_id": {
+						"type": "string",
+						"format": "uuid",
+						"description": "The unique identifier of the memory"
+					}
+				}
+			},
+			"UpdateMemoryInput": {
+				"type": "object",
+				"description": "Input for updating an existing memory.",
+				"required": [
+					"memory_id",
+					"text"
+				],
+				"properties": {
+					"memory_id": {
+						"type": "string",
+						"format": "uuid",
+						"description": "The unique identifier of the memory to update"
+					},
+					"text": {
+						"type": "string",
+						"description": "The new text content to update the memory with"
+					}
+				}
+			},
+			"EntityInput": {
+				"type": "object",
+				"description": "Input for specifying an entity.",
+				"required": [
+					"entity_type",
+					"entity_id"
+				],
+				"properties": {
+					"entity_type": {
+						"type": "string",
+						"enum": [
+							"user",
+							"agent",
+							"run",
+							"app"
+						],
+						"description": "The type of the entity"
+					},
+					"entity_id": {
+						"type": "string",
+						"format": "uuid",
+						"description": "The unique identifier of the entity (memory_id)"
+					}
+				}
+			}
+		},
+		"securitySchemes": {
+			"ApiKeyAuth": {
+				"type": "apiKey",
+				"in": "header",
+				"name": "Authorization",
+				"description": "API key authentication. Prefix your Mem0 API key with 'Token '. Example: 'Token your_api_key'"
+			}
+		}
+	},
+	"x-original-swagger-version": "2.0"
 }
