@@ -20,6 +20,7 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        # AzureOpenAI specific
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
@@ -45,6 +46,8 @@ class BaseEmbedderConfig(ABC):
         self.api_key = api_key
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
+
+        # AzureOpenAI specific
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
 
         # Ollama specific

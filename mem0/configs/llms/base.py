@@ -27,6 +27,8 @@ class BaseLlmConfig(ABC):
         app_name: Optional[str] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
+
+        # AzureOpenAI specific
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
@@ -70,6 +72,8 @@ class BaseLlmConfig(ABC):
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.top_k = top_k
+
+        # AzureOpenAI specific
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
 
         # Openrouter specific
