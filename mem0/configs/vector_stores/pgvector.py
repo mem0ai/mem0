@@ -14,6 +14,7 @@ class PGVectorConfig(BaseModel):
     password: Optional[str] = Field(None, description="Database password")
     host: Optional[str] = Field(None, description="Database host. Default is localhost")
     port: Optional[int] = Field(None, description="Database port. Default is 1536")
+    diskann: Optional[bool] = Field(True, description="Use diskann for approximate nearest neighbors search")
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
