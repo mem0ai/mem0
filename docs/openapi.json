@@ -1076,12 +1076,14 @@
                  "nullable":true
               },
               "includes":{
+                 "description": "String to include the specific preferences in the memory.",
                  "title":"Includes",
                  "minLength":1,
                  "type":"string",
                  "nullable":true
               },
               "excludes":{
+                 "description": "String to exclude the specific preferences in the memory.",
                  "title":"Excludes",
                  "minLength":1,
                  "type":"string",
@@ -1094,7 +1096,7 @@
                  "default":true
               },
               "custom_categories":{
-                 "description":"A comma-separated list of categories to include in the memory.",
+                 "description":"A list of categories with category name and it's description.",
                  "title":"Custom categories",
                  "type":"object",
                  "properties":{
