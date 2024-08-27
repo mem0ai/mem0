@@ -13,7 +13,7 @@
   },
   "servers":[
      {
-        "url":"https://api.mem0.ai/v1"
+        "url":"https://api.mem0.ai/"
      }
   ],
   "security":[
@@ -22,7 +22,7 @@
      }
   ],
   "paths":{
-     "/agents/":{
+     "/v1/agents/":{
         "post":{
            "tags":[
               "agents"
@@ -54,7 +54,7 @@
            "x-codegen-request-body-name":"data"
         }
      },
-     "/apps/":{
+     "/v1/apps/":{
         "post":{
            "tags":[
               "apps"
@@ -86,7 +86,7 @@
            "x-codegen-request-body-name":"data"
         }
      },
-     "/entities/":{
+     "/v1/entities/":{
         "get":{
            "tags":[
               "entities"
@@ -159,7 +159,7 @@
            }
         }
      },
-     "/entities/filters/":{
+     "/v1/entities/filters/":{
         "get":{
            "tags":[
               "entities"
@@ -174,7 +174,7 @@
            }
         }
      },
-     "/entities/{entity_type}/{entity_id}/":{
+     "/v1/entities/{entity_type}/{entity_id}/":{
         "get":{
            "tags":[
               "entities"
@@ -223,7 +223,7 @@
            }
         }
      },
-     "/events/":{
+     "/v1/events/":{
         "get":{
            "tags":[
               "events"
@@ -240,7 +240,7 @@
            }
         }
      },
-     "/memories/":{
+     "/v1/memories/":{
         "get":{
            "tags":[
               "memories"
@@ -400,7 +400,7 @@
            }
         }
      },
-     "/memories/events/":{
+     "/v1/memories/events/":{
         "get":{
            "tags":[
               "memories"
@@ -415,7 +415,7 @@
            }
         }
      },
-     "/memories/search/":{
+     "/v1/memories/search/":{
         "post":{
            "tags":[
               "memories"
@@ -534,7 +534,110 @@
            "x-codegen-request-body-name":"data"
         }
      },
-     "/memories/{entity_type}/{entity_id}/":{
+     "/v2/memories/search/": {
+        "post": {
+           "tags": [
+              "memories"
+           ],
+           "description": "Search memories based on a query and filters.",
+           "operationId": "memories_search_v2",
+           "requestBody":{
+              "content":{
+                 "application/json":{
+                    "schema":{
+                       "$ref":"#/components/schemas/MemorySearchInputV2"
+                    }
+                 }
+              },
+              "required":true
+           },
+           "responses":{
+            "200":{
+               "description":"",
+               "content":{
+                  "application/json":{
+                     "schema":{
+                        "type":"array",
+                        "items":{
+                           "type":"object",
+                           "properties":{
+                              "id":{
+                                 "type":"string",
+                                 "format":"uuid",
+                                 "description":"Unique identifier for the memory"
+                              },
+                              "memory":{
+                                 "type":"string",
+                                 "description":"The content of the memory"
+                              },
+                              "input":{
+                                 "type":"array",
+                                 "items":{
+                                    "type":"object",
+                                    "properties":{
+                                       "role":{
+                                          "type":"string",
+                                          "enum":[
+                                             "user",
+                                             "assistant"
+                                          ],
+                                          "description":"The role of the speaker in the conversation"
+                                       },
+                                       "content":{
+                                          "type":"string",
+                                          "description":"The content of the message"
+                                       }
+                                    },
+                                    "required":[
+                                       "role",
+                                       "content"
+                                    ]
+                                 },
+                                 "description":"The conversation input that was used to generate this memory"
+                              },
+                              "user_id":{
+                                 "type":"string",
+                                 "description":"The identifier of the user associated with this memory"
+                              },
+                              "hash":{
+                                 "type":"string",
+                                 "description":"A hash of the memory content"
+                              },
+                              "metadata":{
+                                 "type":"object",
+                                 "nullable":true,
+                                 "description":"Additional metadata associated with the memory"
+                              },
+                              "created_at":{
+                                 "type":"string",
+                                 "format":"date-time",
+                                 "description":"The timestamp when the memory was created"
+                              },
+                              "updated_at":{
+                                 "type":"string",
+                                 "format":"date-time",
+                                 "description":"The timestamp when the memory was last updated"
+                              }
+                           },
+                           "required":[
+                              "id",
+                              "memory",
+                              "input",
+                              "user_id",
+                              "hash",
+                              "created_at",
+                              "updated_at"
+                           ]
+                        }
+                     }
+                  }
+               }
+            }
+         },
+           "x-codegen-request-body-name":"data"
+        }
+     },
+     "/v1/memories/{entity_type}/{entity_id}/":{
         "get":{
            "tags":[
               "memories"
@@ -567,7 +670,7 @@
            }
         ]
      },
-     "/memories/{memory_id}/":{
+     "/v1/memories/{memory_id}/":{
         "get":{
            "tags":[
               "memories"
@@ -776,7 +879,7 @@
            }
         }
      },
-     "/memories/{memory_id}/history/":{
+     "/v1/memories/{memory_id}/history/":{
         "get":{
            "tags":[
               "memories"
@@ -894,7 +997,7 @@
            }
         }
      },
-     "/runs/":{
+     "/v1/runs/":{
         "post":{
            "tags":[
               "runs"
@@ -926,7 +1029,7 @@
            "x-codegen-request-body-name":"data"
         }
      },
-     "/stats/":{
+     "/v1/stats/":{
         "get":{
            "tags":[
               "stats"
@@ -943,7 +1046,7 @@
            }
         }
      },
-     "/users/":{
+     "/v1/users/":{
         "post":{
            "tags":[
               "users"
@@ -1151,11 +1254,67 @@
                  "nullable":true,
                  "description":"Additional metadata associated with the memory."
               },
+              "top_k": {
+                 "title": "Top K",
+                 "type": "integer",
+                 "default": 10,
+                 "description": "The number of top results to return."
+              },
+              "fields": {
+                 "title": "Fields",
+                 "type": "array",
+                 "items": {
+                    "type": "string"
+                 },
+                 "description": "A list of field names to include in the response. If not provided, all fields will be returned."
+              },
               "rerank":{
                  "title":"Rerank",
                  "type":"boolean",
                  "default":false,
                  "description":"Whether to rerank the memories."
+              }
+           }
+        },
+        "MemorySearchInputV2": {
+           "type": "object",
+           "required": [
+              "query",
+              "filters"
+           ],
+           "properties": {
+              "query": {
+                 "title": "Query",
+                 "type": "string",
+                 "description": "The query to search for in the memory."
+              },
+              "filters": {
+                 "title": "Filters",
+                 "type": "object",
+                 "description": "A dictionary of filters to apply to the search. Users can pass AND, OR, IN, gte, lte, gt, lt, ne, icontains operators for advanced filtering.",
+                 "additionalProperties": {
+                    "type": "object"
+                 }
+              },
+              "top_k": {
+                 "title": "Top K",
+                 "type": "integer",
+                 "default": 10,
+                 "description": "The number of top results to return."
+              },
+              "fields": {
+                 "title": "Fields",
+                 "type": "array",
+                 "items": {
+                    "type": "string"
+                 },
+                 "description": "A list of field names to include in the response. If not provided, all fields will be returned."
+              },
+              "rerank": {
+                 "title": "Rerank",
+                 "type": "boolean",
+                 "default": false,
+                 "description": "Whether to rerank the memories."
               }
            }
         },
