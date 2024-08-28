@@ -139,6 +139,22 @@ class SQLiteManager:
             for row in rows
         ]
 
+    def search_history(self, new_memory):
+        cursor = self.connection.cursor()
+        cursor.execute(
+            """
+            SELECT id, new_memory
+            FROM history
+            WHERE new_memory = ?
+            """,
+            (new_memory,),
+        )
+        print(new_memory, "new_memory")
+        result = cursor.fetchall()
+        print(result, "result")
+        cursor.close()
+        return result
+
     def reset(self):
         with self.connection:
             self.connection.execute("DROP TABLE IF EXISTS history")

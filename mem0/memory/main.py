@@ -42,9 +42,10 @@ class Memory(MemoryBase):
 
         if self.version == "v1.1" and self.config.graph_store.config:
             from mem0.memory.main_graph import MemoryGraph
+
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
-            
+
         capture_event("mem0.init", self)
 
     @classmethod
@@ -109,6 +110,18 @@ class Memory(MemoryBase):
                 {"role": "user", "content": prompt},
             ]
         )
+
+        # self.db.search
+
+        if not self.db.search_history(extracted_memories):
+            print("if")
+        else:
+            print("else")
+            logging.info(f"This memory already exists.")
+            return {"message": "ok"}
+
+        # compare here if flase continue, if true then return
+
         existing_memories = self.vector_store.search(
             query=embeddings,
             limit=5,
@@ -249,7 +262,15 @@ class Memory(MemoryBase):
         capture_event("mem0.get_all", self, {"filters": len(filters), "limit": limit})
         memories = self.vector_store.list(filters=filters, limit=limit)
 
-        excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+        excluded_keys = {
+            "user_id",
+            "agent_id",
+            "run_id",
+            "hash",
+            "data",
+            "created_at",
+            "updated_at",
+        }
         all_memories = [
             {
                 **MemoryItem(
@@ -278,23 +299,22 @@ class Memory(MemoryBase):
             }
             for mem in memories[0]
         ]
-        
+
         if self.version == "v1.1":
             if self.enable_graph:
                 graph_entities = self.graph.get_all()
                 return {"memories": all_memories, "entities": graph_entities}
             else:
-                return {"memories" : all_memories}
+                return {"memories": all_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return all_memories
-    
 
     def search(
         self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
@@ -326,7 +346,11 @@ class Memory(MemoryBase):
                 "One of the filters: user_id, agent_id or run_id is required!"
             )
 
-        capture_event("mem0.search", self, {"filters": len(filters), "limit": limit, "version": self.version})
+        capture_event(
+            "mem0.search",
+            self,
+            {"filters": len(filters), "limit": limit, "version": self.version},
+        )
         embeddings = self.embedding_model.embed(query)
         memories = self.vector_store.search(
             query=embeddings, limit=limit, filters=filters
@@ -377,14 +401,14 @@ class Memory(MemoryBase):
                 graph_entities = self.graph.search(query)
                 return {"memories": original_memories, "entities": graph_entities}
             else:
-                return {"memories" : original_memories}
+                return {"memories": original_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return original_memories
 
@@ -444,7 +468,7 @@ class Memory(MemoryBase):
         if self.version == "v1.1" and self.enable_graph:
             self.graph.delete_all()
 
-        return {'message': 'Memories deleted successfully!'}
+        return {"message": "Memories deleted successfully!"}
 
     def history(self, memory_id):
         """
