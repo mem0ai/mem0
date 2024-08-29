@@ -79,7 +79,7 @@ class Memory(MemoryBase):
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
-            str: ID of the created memory.
+            dict: Memory addition operation message.
         """
         if metadata is None:
             metadata = {}
