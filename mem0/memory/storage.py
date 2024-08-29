@@ -140,19 +140,17 @@ class SQLiteManager:
         ]
 
     def search_history(self, new_memory):
-        cursor = self.connection.cursor()
-        cursor.execute(
-            """
-            SELECT id, new_memory
-            FROM history
-            WHERE new_memory = ?
-            """,
-            (new_memory,),
+        memory_list = [s.strip() for s in new_memory.split("- ") if s]
+
+        placeholders = ", ".join(["?"] * len(memory_list))
+        query = (
+            f"SELECT id, new_memory FROM history WHERE new_memory IN ({placeholders})"
         )
-        print(new_memory, "new_memory")
+
+        cursor = self.connection.execute(query, memory_list)
         result = cursor.fetchall()
-        print(result, "result")
         cursor.close()
+
         return result
 
     def reset(self):

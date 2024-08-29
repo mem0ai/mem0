@@ -111,13 +111,8 @@ class Memory(MemoryBase):
             ]
         )
 
-        # self.db.search
-
-        if not self.db.search_history(extracted_memories):
-            print("if")
-        else:
-            print("else")
-            logging.info(f"This memory already exists.")
+        if self.db.search_history(extracted_memories):
+            logging.info("This memory already exists.")
             return {"message": "ok"}
 
         # compare here if flase continue, if true then return
