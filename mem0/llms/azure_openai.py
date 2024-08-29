@@ -15,10 +15,18 @@ class AzureOpenAILLM(LLMBase):
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
             self.config.model = "gpt-4o"
-        self.client = AzureOpenAI()
-        
-        api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
-        self.client = AzureOpenAI(api_key=api_key)
+            
+        api_key = os.getenv("LLM_AZURE_OPENAI_API_KEY") or self.config.azure_kwargs.api_key
+        azure_deployment = os.getenv("LLM_AZURE_DEPLOYMENT") or self.config.azure_kwargs.azure_deployment
+        azure_endpoint = os.getenv("LLM_AZURE_ENDPOINT") or self.config.azure_kwargs.azure_endpoint
+        api_version = os.getenv("LLM_AZURE_API_VERSION") or self.config.azure_kwargs.api_version
+
+        self.client = AzureOpenAI(
+            azure_deployment=azure_deployment, 
+            azure_endpoint=azure_endpoint,
+            api_version=api_version,
+            api_key=api_key,
+            )
 
     def _parse_response(self, response, tools):
         """

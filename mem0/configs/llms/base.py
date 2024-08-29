@@ -1,5 +1,6 @@
 from abc import ABC
 from typing import Optional
+from mem0.configs.base import AzureConfig
 
 
 class BaseLlmConfig(ABC):
@@ -25,6 +26,8 @@ class BaseLlmConfig(ABC):
         app_name: Optional[str] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
+        # AzureOpenAI specific
+        azure_kwargs: Optional[AzureConfig] = None
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -57,6 +60,8 @@ class BaseLlmConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param azure_kwargs: key-value arguments for the AzureOpenAI LLM model, defaults a dict inside init
+        :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         """
 
         self.model = model
@@ -76,3 +81,6 @@ class BaseLlmConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # AzureOpenAI specific
+        azure_kwargs = AzureConfig(**azure_kwargs) or {}

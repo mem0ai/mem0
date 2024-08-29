@@ -1,5 +1,6 @@
 from abc import ABC
 from typing import Optional
+from mem0.configs.base import AzureConfig
 
 
 class BaseEmbedderConfig(ABC):
@@ -18,6 +19,8 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        # AzureOpenAI specific
+        azure_kwargs: Optional[AzureConfig] = None
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -34,6 +37,8 @@ class BaseEmbedderConfig(ABC):
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
+        :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         """
 
         self.model = model
@@ -46,3 +51,6 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
+        
+        # AzureOpenAI specific
+        azure_kwargs = AzureConfig(**azure_kwargs) or {}
