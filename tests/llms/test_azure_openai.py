@@ -1,5 +1,8 @@
+
+import httpx
 import pytest
 from unittest.mock import Mock, patch
+
 from mem0.llms.azure_openai import AzureOpenAILLM
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -91,4 +94,21 @@ def test_generate_response_with_tools(mock_openai_client):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {'data': 'Today is a sunny day.'}
-    
+
+def test_generate_with_http_proxies():
+    mock_http_client = Mock(spec=httpx.Client)
+    mock_http_client_instance = Mock(spec=httpx.Client)
+    mock_http_client.return_value = mock_http_client_instance
+
+    with (patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
+          patch("httpx.Client", new=mock_http_client) as mock_http_client):
+        config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P,
+                               api_key="test", http_client_proxies="http://testproxy.mem0.net:8000")
+
+        _ = AzureOpenAILLM(config)
+
+        mock_azure_openai.assert_called_once_with(
+            api_key="test",
+            http_client=mock_http_client_instance
+        )
+        mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
