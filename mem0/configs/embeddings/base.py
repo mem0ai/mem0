@@ -22,7 +22,7 @@ class BaseEmbedderConfig(ABC):
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
         # AzureOpenAI specific
-        azure_kwargs: Optional[AzureConfig] = None,
+        azure_kwargs: Optional[AzureConfig] = {},
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """

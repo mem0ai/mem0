@@ -29,7 +29,7 @@ class BaseLlmConfig(ABC):
         # Ollama specific
         ollama_base_url: Optional[str] = None,
         # AzureOpenAI specific
-        azure_kwargs: Optional[AzureConfig] = None,
+        azure_kwargs: Optional[AzureConfig] = {},
         # AzureOpenAI specific
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
