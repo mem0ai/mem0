@@ -1,5 +1,7 @@
 from abc import ABC
-from typing import Optional
+from typing import Optional, Union, Dict
+
+import httpx
 
 
 class BaseEmbedderConfig(ABC):
@@ -18,6 +20,8 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        # AzureOpenAI specific
+        http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -34,12 +38,17 @@ class BaseEmbedderConfig(ABC):
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
+        :type http_client_proxies: Optional[Dict | str], optional
         """
 
         self.model = model
         self.api_key = api_key
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
+
+        # AzureOpenAI specific
+        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
