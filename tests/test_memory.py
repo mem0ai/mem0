@@ -42,13 +42,13 @@ def test_delete_memory(memory_store):
 
 @pytest.mark.skip(reason="Not implemented")
 def test_history(memory_store):
-    data = "I like indian food."
+    data = "I like Indian food."
     memory_id = memory_store.create(data=data)
     history = memory_store.history(memory_id)
     assert history == [data]
     assert memory_store.get(memory_id) == data
 
-    new_data = "I like italian food."
+    new_data = "I like Italian food."
     memory_store.update(memory_id, new_data)
     history = memory_store.history(memory_id)
     assert history == [data, new_data]
