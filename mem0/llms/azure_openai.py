@@ -26,8 +26,9 @@ class AzureOpenAILLM(LLMBase):
             azure_endpoint=azure_endpoint,
             api_version=api_version,
             api_key=api_key,
+            http_client=self.config.http_client
             )
-
+        
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.

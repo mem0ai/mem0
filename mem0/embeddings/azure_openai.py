@@ -21,6 +21,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             azure_endpoint=azure_endpoint,
             api_version=api_version,
             api_key=api_key,
+            http_client=self.config.http_client
             )
 
     def embed(self, text):
