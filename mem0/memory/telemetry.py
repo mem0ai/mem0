@@ -1,10 +1,12 @@
 import platform
 import sys
+import os
 
 from posthog import Posthog
 
 from mem0.memory.setup import get_user_id, setup_config
 
+TELEMETRY = os.environ.get("TELEMETRY", True) 
 
 class AnonymousTelemetry:
     def __init__(self, project_api_key, host):
@@ -58,7 +60,8 @@ def capture_event(event_name, memory_instance, additional_data=None):
     if additional_data:
         event_data.update(additional_data)
 
-    telemetry.capture_event(event_name, event_data)
+    if TELEMETRY:
+        telemetry.capture_event(event_name, event_data)
 
 
 def capture_client_event(event_name, instance, additional_data=None):
@@ -68,4 +71,5 @@ def capture_client_event(event_name, instance, additional_data=None):
     if additional_data:
         event_data.update(additional_data)
 
-    telemetry.capture_event(event_name, event_data)
+    if TELEMETRY:
+        telemetry.capture_event(event_name, event_data)
