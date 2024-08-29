@@ -135,7 +135,7 @@ class Memory(MemoryBase):
 
         try:
             for resp in new_memories_with_actions["memory"]:
-                print(resp)
+                logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
                         memory_id = self._create_memory(data=resp["text"], metadata=metadata)
