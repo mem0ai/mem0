@@ -4,32 +4,25 @@ from typing import Optional, ClassVar, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
 
-def ensure_chromadb_installed():
-    """
-    Ensure that the 'chromadb' library is installed. If not, prompt the user to install it.
-    Returns:
-        Client: The chromadb client class if installed successfully.
-    """
-    try:
-        from chromadb.api.client import Client
-        return Client
-    except ImportError:
-        user_input = input("The 'chromadb' library is required. Install it now? [y/N]: ")
-        if user_input.lower() == 'y':
-            try:
-                print("Installing 'chromadb'...")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb"])
-                from chromadb.api.client import Client
-                print("Successfully installed 'chromadb'.")
-                return Client
-            except subprocess.CalledProcessError:
-                print("Failed to install 'chromadb'. Please install it manually.")
-                sys.exit(1)
-        else:
-            raise ImportError("The required 'chromadb' library is not installed.")
 
 class ChromaDbConfig(BaseModel):
-    Client: ClassVar[type] = ensure_chromadb_installed()
+    try:
+        from chromadb.api.client import Client
+    except ImportError:
+        user_input: Any = input(
+            "The 'chromadb' library is required but not installed. Would you like to install it now? [y/N]: "
+        )
+        if user_input.lower() == 'y':
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb"])
+                from chromadb.api.client import Client
+            except subprocess.CalledProcessError:
+                print("Failed to install 'chromadb'. Please install it manually using 'pip install chromadb'.")
+                sys.exit(1)
+        else:
+            print("The 'chromadb' library is required to proceed. Exiting the script.")
+            sys.exit(1)
+    Client: ClassVar[type] = Client
 
     collection_name: str = Field("mem0", description="Default name for the collection")
     client: Optional[Client] = Field(
