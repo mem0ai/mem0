@@ -25,7 +25,7 @@ class MemoryGraph:
         self.user_id = None
         self.threshold = 0.7
 
-    def add(self, data):
+    def add(self, data, filters):
         """
         Adds data to the graph.
 
@@ -38,7 +38,7 @@ class MemoryGraph:
         """
         
         # retrieve the search results
-        search_output = self._search(data)
+        search_output = self._search(data, filters)
 
         if self.config.graph_store.custom_prompt:
             messages=[
@@ -92,11 +92,11 @@ class MemoryGraph:
             # Updated Cypher query to include node types and embeddings
             cypher = f"""
             MERGE (n:{source_type} {{name: $source_name}})
-            ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding
-            ON MATCH SET n.embedding = $source_embedding
+            ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding, n.user_id = $user_id
+            ON MATCH SET n.embedding = $source_embedding, n.user_id = $user_id
             MERGE (m:{destination_type} {{name: $dest_name}})
-            ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding
-            ON MATCH SET m.embedding = $dest_embedding
+            ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding, m.user_id = $user_id
+            ON MATCH SET m.embedding = $dest_embedding, m.user_id = $user_id
             MERGE (n)-[rel:{relation}]->(m)
             ON CREATE SET rel.created = timestamp()
             RETURN n, rel, m
@@ -106,16 +106,17 @@ class MemoryGraph:
                 "source_name": source,
                 "dest_name": destination,
                 "source_embedding": source_embedding,
-                "dest_embedding": dest_embedding
+                "dest_embedding": dest_embedding,
+                "user_id": self.user_id
             }
 
             _ = self.graph.query(cypher, params=params)
 
 
-    def _search(self, query):
+    def _search(self, query, filters):
         search_results = self.llm.generate_response(
             messages=[
-                {"role": "system", "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {self.user_id} as the source node. Extract the entities."},
+                {"role": "system", "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source node. Extract the entities."},
                 {"role": "user", "content": query},
             ],
             tools = [SEARCH_TOOL]
@@ -125,6 +126,7 @@ class MemoryGraph:
         relation_list = []
 
         for item in search_results['tool_calls']:
+            print(item)
             if item['name'] == "search":
                 node_list.extend(item['arguments']['nodes'])
                 relation_list.extend(item['arguments']['relations'])
@@ -142,7 +144,7 @@ class MemoryGraph:
 
             cypher_query = """
             MATCH (n)
-            WHERE n.embedding IS NOT NULL
+            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
             WITH n, 
                 round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
                 (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
@@ -152,7 +154,7 @@ class MemoryGraph:
             RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relation, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
             UNION
             MATCH (n)
-            WHERE n.embedding IS NOT NULL
+            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
             WITH n, 
                 round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
                 (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
@@ -162,14 +164,14 @@ class MemoryGraph:
             RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relation, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id, similarity
             ORDER BY similarity DESC
             """
-            params = {"n_embedding": n_embedding, "threshold": self.threshold}
+            params = {"n_embedding": n_embedding, "threshold": self.threshold, "user_id": filters["user_id"]}
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
     
 
-    def search(self, query):
+    def search(self, query, filters):
         """
         Search for memories and related graph data.
 
@@ -182,7 +184,7 @@ class MemoryGraph:
                 - "entities": List of related graph data based on the query.
         """
 
-        search_output = self._search(query)
+        search_output = self._search(query, filters)
 
         if not search_output:
             return []
@@ -204,15 +206,16 @@ class MemoryGraph:
         return search_results
 
 
-    def delete_all(self):
+    def delete_all(self, filters):
         cypher = """
-        MATCH (n)
+        MATCH (n {user_id: $user_id})
         DETACH DELETE n
         """
-        self.graph.query(cypher)
+        params = {"user_id": filters["user_id"]}
+        self.graph.query(cypher, params=params)
     
 
-    def get_all(self):
+    def get_all(self, filters):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
@@ -226,10 +229,10 @@ class MemoryGraph:
 
         # return all nodes and relationships
         query = """
-        MATCH (n)-[r]->(m)
+        MATCH (n {user_id: $user_id})-[r]->(m {user_id: $user_id})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         """
-        results = self.graph.query(query)
+        results = self.graph.query(query, params={"user_id": filters["user_id"]})
 
         final_results = []
         for result in results:
