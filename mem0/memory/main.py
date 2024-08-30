@@ -111,11 +111,11 @@ class Memory(MemoryBase):
             ]
         )
 
+        # Check if the extracted memories where already saved, return if they are found.
         if self.db.search_history(extracted_memories):
             logging.info("This memory already exists.")
             return {"message": "ok"}
 
-        # compare here if flase continue, if true then return
 
         existing_memories = self.vector_store.search(
             query=embeddings,
