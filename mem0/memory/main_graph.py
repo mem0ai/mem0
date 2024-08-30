@@ -74,7 +74,7 @@ class MemoryGraph:
             if item['name'] == "add_graph_memory":
                 to_be_added.append(item['arguments'])
             elif item['name'] == "update_graph_memory":
-                self._update_relationship(item['arguments']['source'], item['arguments']['destination'], item['arguments']['relationship'])
+                self._update_relationship(item['arguments']['source'], item['arguments']['destination'], item['arguments']['relationship'], filters)
             elif item['name'] == "noop":
                 continue
 
@@ -91,12 +91,12 @@ class MemoryGraph:
 
             # Updated Cypher query to include node types and embeddings
             cypher = f"""
-            MERGE (n:{source_type} {{name: $source_name}})
-            ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding, n.user_id = $user_id
-            ON MATCH SET n.embedding = $source_embedding, n.user_id = $user_id
-            MERGE (m:{destination_type} {{name: $dest_name}})
-            ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding, m.user_id = $user_id
-            ON MATCH SET m.embedding = $dest_embedding, m.user_id = $user_id
+            MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
+            ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding
+            ON MATCH SET n.embedding = $source_embedding
+            MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
+            ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding
+            ON MATCH SET m.embedding = $dest_embedding
             MERGE (n)-[rel:{relation}]->(m)
             ON CREATE SET rel.created = timestamp()
             RETURN n, rel, m
@@ -126,7 +126,6 @@ class MemoryGraph:
         relation_list = []
 
         for item in search_results['tool_calls']:
-            print(item)
             if item['name'] == "search":
                 node_list.extend(item['arguments']['nodes'])
                 relation_list.extend(item['arguments']['relations'])
@@ -245,7 +244,7 @@ class MemoryGraph:
         return final_results
     
     
-    def _update_relationship(self, source, target, relationship):
+    def _update_relationship(self, source, target, relationship, filters):
         """
         Update or create a relationship between two nodes in the graph.
 
@@ -261,25 +260,25 @@ class MemoryGraph:
 
         # Check if nodes exist and create them if they don't
         check_and_create_query = """
-        MERGE (n1 {name: $source})
-        MERGE (n2 {name: $target})
+        MERGE (n1 {name: $source, user_id: $user_id})
+        MERGE (n2 {name: $target, user_id: $user_id})
         """
-        self.graph.query(check_and_create_query, params={"source": source, "target": target})
+        self.graph.query(check_and_create_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
 
         # Delete any existing relationship between the nodes
         delete_query = """
-        MATCH (n1 {name: $source})-[r]->(n2 {name: $target})
+        MATCH (n1 {name: $source, user_id: $user_id})-[r]->(n2 {name: $target, user_id: $user_id})
         DELETE r
         """
-        self.graph.query(delete_query, params={"source": source, "target": target})
+        self.graph.query(delete_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
 
         # Create the new relationship
         create_query = f"""
-        MATCH (n1 {{name: $source}}), (n2 {{name: $target}})
+        MATCH (n1 {{name: $source, user_id: $user_id}}), (n2 {{name: $target, user_id: $user_id}})
         CREATE (n1)-[r:{relationship}]->(n2)
         RETURN n1, r, n2
         """
-        result = self.graph.query(create_query, params={"source": source, "target": target})
+        result = self.graph.query(create_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
 
         if not result:
             raise Exception(f"Failed to update or create relationship between {source} and {target}")
