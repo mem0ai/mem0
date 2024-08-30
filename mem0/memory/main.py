@@ -380,7 +380,7 @@ class Memory(MemoryBase):
             dict: Updated memory.
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
-        self._update_memory_tool(memory_id, data)
+        self._update_memory(memory_id, data)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -391,7 +391,7 @@ class Memory(MemoryBase):
             memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id})
-        self._delete_memory_tool(memory_id)
+        self._delete_memory(memory_id)
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -419,7 +419,7 @@ class Memory(MemoryBase):
         capture_event("mem0.delete_all", self, {"filters": len(filters)})
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
-            self._delete_memory_tool(memory.id)
+            self._delete_memory(memory.id)
 
         if self.version == "v1.1" and self.enable_graph:
             self.graph.delete_all()
