@@ -78,3 +78,66 @@ NOOP_TOOL = {
         }
     }
 }
+
+
+ADD_MESSAGE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "add_query",
+        "description": "Add new entities and relationships to the graph based on the provided query.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "source_node": {"type": "string"},
+                            "source_type": {"type": "string"},
+                            "relation": {"type": "string"},
+                            "destination_node": {"type": "string"},
+                            "destination_type": {"type": "string"}
+                        },
+                        "required": ["source_node", "source_type", "relation", "destination_node", "destination_type"],
+                        "additionalProperties": False
+                    }
+                }
+            },
+            "required": ["entities"],
+            "additionalProperties": False
+        }
+    }
+}
+
+
+SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search",
+        "description": "Search for nodes and relations in the graph.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of nodes to search for."
+                },
+                "relations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of relations to search for."
+                }
+            },
+            "required": ["nodes", "relations"],
+            "additionalProperties": False
+        }
+    }
+}

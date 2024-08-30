@@ -22,6 +22,7 @@ class LlmConfig(BaseModel):
             "aws_bedrock",
             "litellm",
             "azure_openai",
+            "openai_structured",
         ):
             return v
         else:
