@@ -1,23 +1,23 @@
-import os
-import json
+import os, json
 from typing import Dict, List, Optional
 
-from openai import AzureOpenAI
+from openai import OpenAI
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
 
 
-class AzureOpenAILLM(LLMBase):
+class OpenAIStructuredLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
-        # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model = "gpt-4o"
-        
-        api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
-        self.client = AzureOpenAI(api_key=api_key, http_client=self.config.http_client)
+            self.config.model = "gpt-4o-2024-08-06"
+
+        api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
+        base_url = os.getenv("OPENAI_API_BASE") or self.config.openai_base_url
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+
 
     def _parse_response(self, response, tools):
         """
@@ -25,11 +25,12 @@ class AzureOpenAILLM(LLMBase):
 
         Args:
             response: The raw response from API.
-            tools: The list of tools provided in the request.
+            response_format: The format in which the response should be processed.
 
         Returns:
             str or dict: The processed response.
-        """
+        """        
+        
         if tools:
             processed_response = {
                 "content": response.choices[0].message.content,
@@ -46,8 +47,10 @@ class AzureOpenAILLM(LLMBase):
                     )
 
             return processed_response
+
         else:
             return response.choices[0].message.content
+        
 
     def generate_response(
         self,
@@ -57,7 +60,7 @@ class AzureOpenAILLM(LLMBase):
         tool_choice: str = "auto",
     ):
         """
-        Generate a response based on the given messages using Azure OpenAI.
+        Generate a response based on the given messages using OpenAI.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
@@ -72,14 +75,14 @@ class AzureOpenAILLM(LLMBase):
             "model": self.config.model,
             "messages": messages,
             "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
         }
+
         if response_format:
             params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        response = self.client.chat.completions.create(**params)
+        response = self.client.beta.chat.completions.parse(**params)
+
         return self._parse_response(response, tools)
