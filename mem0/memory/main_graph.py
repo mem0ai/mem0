@@ -107,7 +107,7 @@ class MemoryGraph:
                 "dest_name": destination,
                 "source_embedding": source_embedding,
                 "dest_embedding": dest_embedding,
-                "user_id": self.user_id
+                "user_id": filters["user_id"]
             }
 
             _ = self.graph.query(cypher, params=params)
