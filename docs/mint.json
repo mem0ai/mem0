@@ -70,7 +70,10 @@
       "group": "Open Source",
       "pages": [
         "open-source/quickstart",
-        "open-source/graph-memory",
+        {
+          "group": "Graph Memory",
+          "pages": ["open-source/graph_memory/overview", "open-source/graph_memory/features"]
+        },
         {
           "group": "LLMs",
           "pages": [

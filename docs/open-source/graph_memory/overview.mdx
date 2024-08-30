@@ -1,5 +1,5 @@
 ---
-title: Graph Memory
+title: Overview
 description: 'Enhance your memory system with graph-based knowledge representation and retrieval'
 ---
 
@@ -28,9 +28,18 @@ allowfullscreen
 To initialize Graph Memory you'll need to set up your configuration with graph store providers.
 Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
 Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*). 
+
+User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
+
+1. **Main Configuration**: If `llm` is set in the main config, it will be used for all graph operations.
+2. **Graph Store Configuration**: If `llm` is set in the graph_store config, it will override the main config `llm` and be used specifically for graph operations.
+3. **Default Configuration**: If no custom LLM is set, the default LLM (`gpt-4o-2024-08-06`) will be used for all graph operations.
+
 Here's how you can do it:
 
-```python
+
+<CodeGroup>
+```python Basic
 from mem0 import Memory
 
 config = {
@@ -47,6 +56,40 @@ config = {
 
 m = Memory.from_config(config_dict=config)
 ```
+
+```python Advanced (Custom LLM)
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://xxx",
+            "username": "neo4j",
+            "password": "xxx"
+        },
+        "llm" : {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4o-mini",
+                "temperature": 0.0,
+            }
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+```
+</CodeGroup>
 
 ## Graph Operations
 The Mem0's graph supports the following operations:
