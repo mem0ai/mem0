@@ -1,4 +1,5 @@
 from abc import ABC
+from mem0.configs.base import AzureConfig
 from typing import Optional, Union, Dict
 
 import httpx
@@ -27,7 +28,8 @@ class BaseLlmConfig(ABC):
         app_name: Optional[str] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
-
+        # AzureOpenAI specific
+        azure_kwargs: Optional[AzureConfig] = {},
         # AzureOpenAI specific
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
@@ -62,6 +64,8 @@ class BaseLlmConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param azure_kwargs: key-value arguments for the AzureOpenAI LLM model, defaults a dict inside init
+        :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server(s) settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
         """
@@ -86,3 +90,6 @@ class BaseLlmConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # AzureOpenAI specific
+        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}

@@ -1,4 +1,5 @@
 from abc import ABC
+from mem0.configs.base import AzureConfig
 from typing import Optional, Union, Dict
 
 import httpx
@@ -21,6 +22,7 @@ class BaseEmbedderConfig(ABC):
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
         # AzureOpenAI specific
+        azure_kwargs: Optional[AzureConfig] = {},
         http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
@@ -38,6 +40,8 @@ class BaseEmbedderConfig(ABC):
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
+        :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
         """
@@ -55,3 +59,6 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
+        
+        # AzureOpenAI specific
+        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}

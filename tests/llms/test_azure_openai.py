@@ -103,12 +103,16 @@ def test_generate_with_http_proxies():
     with (patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
           patch("httpx.Client", new=mock_http_client) as mock_http_client):
         config = BaseLlmConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P,
-                               api_key="test", http_client_proxies="http://testproxy.mem0.net:8000")
+                               api_key="test", http_client_proxies="http://testproxy.mem0.net:8000",
+                               azure_kwargs= {"api_key" : "test"})
 
         _ = AzureOpenAILLM(config)
 
         mock_azure_openai.assert_called_once_with(
             api_key="test",
-            http_client=mock_http_client_instance
+            http_client=mock_http_client_instance,
+            azure_deployment=None,
+            azure_endpoint=None,
+            api_version=None
         )
         mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
