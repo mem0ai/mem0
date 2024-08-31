@@ -2,7 +2,7 @@
 title: Azure OpenAI
 ---
 
-To use Azure OpenAI models, you have to set the `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `OPENAI_API_VERSION` environment variables. You can obtain the Azure API key from the [Azure](https://azure.microsoft.com/).
+To use Azure OpenAI models, you have to set the `LLM_AZURE_OPENAI_API_KEY`, `LLM_AZURE_ENDPOINT`, `LLM_AZURE_DEPLOYMENT` and `LLM_AZURE_API_VERSION` environment variables. You can obtain the Azure API key from the [Azure](https://azure.microsoft.com/).
 
 ## Usage
 
@@ -10,9 +10,10 @@ To use Azure OpenAI models, you have to set the `AZURE_OPENAI_API_KEY`, `AZURE_O
 import os
 from mem0 import Memory
 
-os.environ["AZURE_OPENAI_API_KEY"] = "your-api-key"
-os.environ["AZURE_OPENAI_ENDPOINT"] = "your-api-base-url"
-os.environ["OPENAI_API_VERSION"] = "version-to-use"
+os.environ["LLM_AZURE_OPENAI_API_KEY"] = "your-api-key"
+os.environ["LLM_AZURE_DEPLOYMENT"] = "your-deployment-name"
+os.environ["LLM_AZURE_ENDPOINT"] = "your-api-base-url"
+os.environ["LLM_AZURE_API_VERSION"] = "version-to-use"
 
 config = {
     "llm": {
@@ -21,6 +22,12 @@ config = {
             "model": "your-deployment-name",
             "temperature": 0.1,
             "max_tokens": 2000,
+             "azure_kwargs" : {
+                  "azure_deployment" : "",
+                  "api_version" : "",
+                  "azure_endpoint" : "",
+                  "api_key" : ""
+              }
         }
     }
 }
