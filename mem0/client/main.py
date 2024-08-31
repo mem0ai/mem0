@@ -247,23 +247,36 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_users(self) -> Dict[str, Any]:
+    def delete_users(self) -> Dict[str, str]:
         """Delete all users, agents, or sessions."""
         entities = self.users()
         for entity in entities["results"]:
-            response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/")
+            response = self.client.delete(
+                f"/v1/entities/{entity['type']}/{entity['id']}/"
+            )
             response.raise_for_status()
 
         capture_client_event("client.delete_users", self)
         return {"message": "All users, agents, and sessions deleted."}
 
-    def reset(self):
-        """Reset the client. (Not implemented)
+    @api_error_handler
+    def reset(self) -> Dict[str, str]:
+        """Reset the client by deleting all users and memories.
+
+        This method deletes all users, agents, sessions, and memories associated with the client.
+
+        Returns:
+            Dict[str, str]: Message client reset successful.
 
         Raises:
-            NotImplementedError: This method is not implemented yet.
+            APIError: If the API request fails.
         """
-        raise NotImplementedError("Reset is not implemented yet")
+        # Delete all users, agents, and sessions
+        # This will also delete the memories
+        self.delete_users()
+
+        capture_client_event("client.reset", self)
+        return {"message": "Client reset successful. All users and memories deleted."}
 
     def chat(self):
         """Start a chat with the Mem0 AI. (Not implemented)
