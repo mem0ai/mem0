@@ -12,7 +12,8 @@ from embedchain.llm.base import BaseLlm
 @register_deserializable
 class OctoAILlm(BaseLlm):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
-        assert "OCTOAI_API_TOKEN" in os.environ, "Please set OCTOAI_API_TOKEN as environment variable."
+        assert "OCTOAI_API_TOKEN" in os.environ or config.api_key, \
+            "Please set OCTOAI_API_TOKEN as environment variable."
         super().__init__(config=config)
 
     def get_llm_model_answer(self, prompt):
