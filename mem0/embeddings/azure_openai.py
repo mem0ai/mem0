@@ -11,13 +11,18 @@ class AzureOpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        if self.config.model is None:
-            self.config.model = "text-embedding-3-small"
-        if self.config.embedding_dims is None:
-            self.config.embedding_dims = 1536
-
-        api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
-        self.client = AzureOpenAI(api_key=api_key, http_client=self.config.http_client)
+        api_key = os.getenv("EMBEDDING_AZURE_OPENAI_API_KEY") or self.config.azure_kwargs.api_key
+        azure_deployment = os.getenv("EMBEDDING_AZURE_DEPLOYMENT") or self.config.azure_kwargs.azure_deployment
+        azure_endpoint = os.getenv("EMBEDDING_AZURE_ENDPOINT") or self.config.azure_kwargs.azure_endpoint
+        api_version = os.getenv("EMBEDDING_AZURE_API_VERSION") or self.config.azure_kwargs.api_version
+        
+        self.client = AzureOpenAI(
+            azure_deployment=azure_deployment, 
+            azure_endpoint=azure_endpoint,
+            api_version=api_version,
+            api_key=api_key,
+            http_client=self.config.http_client
+            )
 
     def embed(self, text):
         """
