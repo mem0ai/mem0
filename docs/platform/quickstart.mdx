@@ -831,6 +831,25 @@ client.delete_users()
 
 </CodeGroup>
 
+### 4.8 Reset Client
+
+<CodeGroup>
+
+```python Python
+client.reset()
+```
+
+```javascript JavaScript
+client.reset()
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```json Output
+{'message': 'Client reset successful. All users and memories deleted.'}
+```
+
+</CodeGroup>
 
 
 Fun fact: You can also delete the memory using the `add()` method by passing a natural language command:
