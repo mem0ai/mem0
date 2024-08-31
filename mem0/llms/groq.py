@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import os
 import json
 from typing import Dict, List, Optional
@@ -5,9 +7,16 @@ from typing import Dict, List, Optional
 try:
     from groq import Groq
 except ImportError:
-    raise ImportError(
-        "Groq requires extra dependencies. Install with `pip install groq`"
-    ) from None
+    user_input = input("The 'groq' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "groq"])
+            from groq import Groq
+        except subprocess.CalledProcessError:
+            print("Failed to install 'groq'. Please install it manually using 'pip install groq'.")
+            sys.exit(1)
+    else:
+        raise ImportError("The required 'groq' library is not installed.")
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig

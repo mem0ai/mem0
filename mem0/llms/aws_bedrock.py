@@ -13,7 +13,7 @@ except ImportError:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "boto3"])
             import boto3
         except subprocess.CalledProcessError:
-            print("Failed to install 'boto3'. Please install it manually.")
+            print("Failed to install 'boto3'. Please install it manually using 'pip install boto3'")
             sys.exit(1)
     else:
         raise ImportError("The required 'boto3' library is not installed.")

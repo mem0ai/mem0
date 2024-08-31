@@ -1,11 +1,21 @@
+import subprocess
+import sys
 from typing import Dict, List, Optional
 
 try:
     from ollama import Client
 except ImportError:
-    raise ImportError(
-        "Ollama requires extra dependencies. Install with `pip install ollama`"
-    ) from None
+    user_input = input("The 'ollama' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "ollama"])
+            from ollama import Client
+        except subprocess.CalledProcessError:
+            print("Failed to install 'ollama'. Please install it manually using 'pip install ollama'.")
+            sys.exit(1)
+    else:
+        print("The required 'ollama' library is not installed.")
+        sys.exit(1)
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig

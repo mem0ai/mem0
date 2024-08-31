@@ -9,9 +9,7 @@ class ChromaDbConfig(BaseModel):
     try:
         from chromadb.api.client import Client
     except ImportError:
-        user_input: Any = input(
-            "The 'chromadb' library is required but not installed. Would you like to install it now? [y/N]: "
-        )
+        user_input: Any = input("The 'chromadb' library is required. Install it now? [y/N]: ")
         if user_input.lower() == 'y':
             try:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb"])
@@ -20,7 +18,7 @@ class ChromaDbConfig(BaseModel):
                 print("Failed to install 'chromadb'. Please install it manually using 'pip install chromadb'.")
                 sys.exit(1)
         else:
-            print("The 'chromadb' library is required to proceed. Exiting the script.")
+            print("The required 'chromadb' library is not installed.")
             sys.exit(1)
     Client: ClassVar[type] = Client
 
