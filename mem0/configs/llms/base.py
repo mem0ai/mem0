@@ -92,4 +92,4 @@ class BaseLlmConfig(ABC):
         self.ollama_base_url = ollama_base_url
 
         # AzureOpenAI specific
-        azure_kwargs = AzureConfig(**azure_kwargs) or {}
+        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}

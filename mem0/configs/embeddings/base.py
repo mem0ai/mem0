@@ -61,4 +61,4 @@ class BaseEmbedderConfig(ABC):
         self.model_kwargs = model_kwargs or {}
         
         # AzureOpenAI specific
-        azure_kwargs = AzureConfig(**azure_kwargs) or {}
+        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
