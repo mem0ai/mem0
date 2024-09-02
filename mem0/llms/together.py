@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import os
 import json
 from typing import Dict, List, Optional
@@ -5,9 +7,17 @@ from typing import Dict, List, Optional
 try:
     from together import Together
 except ImportError:
-    raise ImportError(
-        "Together requires extra dependencies. Install with `pip install together`"
-    ) from None
+    user_input = input("The 'together' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "together"])
+            from together import Together
+        except subprocess.CalledProcessError:
+            print("Failed to install 'together'. Please install it manually using 'pip install together'.")
+            sys.exit(1)
+    else:
+        print("The required 'together' library is not installed.")
+        sys.exit(1)
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
