@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from typing import Optional, ClassVar, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
@@ -7,9 +9,17 @@ class ChromaDbConfig(BaseModel):
     try:
         from chromadb.api.client import Client
     except ImportError:
-        raise ImportError(
-            "Chromadb requires extra dependencies. Install with `pip install chromadb`"
-        ) from None
+        user_input: Any = input("The 'chromadb' library is required. Install it now? [y/N]: ")
+        if user_input.lower() == 'y':
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb"])
+                from chromadb.api.client import Client
+            except subprocess.CalledProcessError:
+                print("Failed to install 'chromadb'. Please install it manually using 'pip install chromadb'.")
+                sys.exit(1)
+        else:
+            print("The required 'chromadb' library is not installed.")
+            sys.exit(1)
     Client: ClassVar[type] = Client
 
     collection_name: str = Field("mem0", description="Default name for the collection")
