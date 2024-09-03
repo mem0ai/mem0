@@ -177,7 +177,7 @@ class Memory(MemoryBase):
                 self.graph.user_id = user_id
             else:
                 self.graph.user_id = "USER"
-            added_entities = self.graph.add(data)
+            added_entities = self.graph.add(data, filters)
 
         return {"message": "ok"}
 
@@ -281,7 +281,7 @@ class Memory(MemoryBase):
         
         if self.version == "v1.1":
             if self.enable_graph:
-                graph_entities = self.graph.get_all()
+                graph_entities = self.graph.get_all(filters)
                 return {"memories": all_memories, "entities": graph_entities}
             else:
                 return {"memories" : all_memories}
@@ -374,7 +374,7 @@ class Memory(MemoryBase):
 
         if self.version == "v1.1":
             if self.enable_graph:
-                graph_entities = self.graph.search(query)
+                graph_entities = self.graph.search(query, filters)
                 return {"memories": original_memories, "entities": graph_entities}
             else:
                 return {"memories" : original_memories}
@@ -442,7 +442,7 @@ class Memory(MemoryBase):
             self._delete_memory_tool(memory.id)
 
         if self.version == "v1.1" and self.enable_graph:
-            self.graph.delete_all()
+            self.graph.delete_all(filters)
 
         return {'message': 'Memories deleted successfully!'}
 
