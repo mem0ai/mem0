@@ -23,6 +23,8 @@ from mem0.configs.base import MemoryItem, MemoryConfig
 # Setup user config
 setup_config()
 
+logger = logging.getLogger(__name__)
+
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
@@ -44,7 +46,7 @@ class Memory(MemoryBase):
             from mem0.memory.main_graph import MemoryGraph
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
-            
+
         capture_event("mem0.init", self)
 
     @classmethod
@@ -52,7 +54,7 @@ class Memory(MemoryBase):
         try:
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
-            logging.error(f"Configuration validation error: {e}")
+            logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
 
@@ -127,7 +129,7 @@ class Memory(MemoryBase):
             item.model_dump(include={"id", "memory", "score"})
             for item in existing_memories
         ]
-        logging.info(f"Total existing memories: {len(existing_memories)}")
+        logger.info(f"Total existing memories: {len(existing_memories)}")
         messages = get_update_memory_messages(
             serialized_existing_memories, extracted_memories
         )
@@ -148,7 +150,7 @@ class Memory(MemoryBase):
                 function_name = tool_call["name"]
                 function_to_call = available_functions[function_name]
                 function_args = tool_call["arguments"]
-                logging.info(
+                logger.info(
                     f"[openai_func] func: {function_name}, args: {function_args}"
                 )
 
@@ -441,6 +443,8 @@ class Memory(MemoryBase):
         for memory in memories:
             self._delete_memory_tool(memory.id)
 
+        logger.info(f"Deleted {len(memories)} memories")
+
         if self.version == "v1.1" and self.enable_graph:
             self.graph.delete_all()
 
@@ -460,7 +464,7 @@ class Memory(MemoryBase):
         return self.db.get_history(memory_id)
 
     def _create_memory_tool(self, data, metadata=None):
-        logging.info(f"Creating memory with {data=}")
+        logger.info(f"Creating memory with {data=}")
         embeddings = self.embedding_model.embed(data)
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
@@ -479,6 +483,7 @@ class Memory(MemoryBase):
         return memory_id
 
     def _update_memory_tool(self, memory_id, data, metadata=None):
+        logger.info(f"Updating memory with {data=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data")
 
@@ -503,7 +508,7 @@ class Memory(MemoryBase):
             vector=embeddings,
             payload=new_metadata,
         )
-        logging.info(f"Updating memory with ID {memory_id=} with {data=}")
+        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
         self.db.add_history(
             memory_id,
             prev_value,
@@ -514,7 +519,7 @@ class Memory(MemoryBase):
         )
 
     def _delete_memory_tool(self, memory_id):
-        logging.info(f"Deleting memory with {memory_id=}")
+        logger.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
@@ -524,6 +529,7 @@ class Memory(MemoryBase):
         """
         Reset the memory store.
         """
+        logger.warning("Resetting all memories")
         self.vector_store.delete_col()
         self.db.reset()
         capture_event("mem0.reset", self)
