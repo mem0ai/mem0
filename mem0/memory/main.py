@@ -1,8 +1,9 @@
 import logging
 import hashlib
 import uuid
-import pytz
-from datetime import datetime
+
+import pendulum
+from uuid import UUID
 from typing import Any, Dict
 import warnings
 from pydantic import ValidationError
@@ -14,11 +15,12 @@ from mem0.llms.utils.tools import (
 from mem0.configs.prompts import MEMORY_DEDUCTION_PROMPT
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
-from mem0.memory.storage import SQLiteManager
+from mem0.memory.storage import PeeweeManager, History
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import get_update_memory_messages
 from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
 from mem0.configs.base import MemoryItem, MemoryConfig
+from pendulum import Timezone
 
 # Setup user config
 setup_config()
@@ -34,17 +36,22 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = PeeweeManager(db_connection_string=self.config.history_db_path,
+                                db_backend=self.config.history_db_backend,
+                                db_params=self.config.history_db_params,
+                                init=self.config.history_db_initialize)
         self.collection_name = self.config.vector_store.config.collection_name
         self.version = self.config.version
 
         self.enable_graph = False
 
+        self.default_timezone = Timezone(config.db_timezone)
+
         if self.version == "v1.1" and self.config.graph_store.config:
             from mem0.memory.main_graph import MemoryGraph
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
-            
+
         capture_event("mem0.init", self)
 
     @classmethod
@@ -57,14 +64,14 @@ class Memory(MemoryBase):
         return cls(config)
 
     def add(
-        self,
-        data,
-        user_id=None,
-        agent_id=None,
-        run_id=None,
-        metadata=None,
-        filters=None,
-        prompt=None,
+            self,
+            data,
+            user_id=None,
+            agent_id=None,
+            run_id=None,
+            metadata=None,
+            filters=None,
+            prompt=None,
     ):
         """
         Create a new memory.
@@ -278,13 +285,13 @@ class Memory(MemoryBase):
             }
             for mem in memories[0]
         ]
-        
+
         if self.version == "v1.1":
             if self.enable_graph:
                 graph_entities = self.graph.get_all()
                 return {"memories": all_memories, "entities": graph_entities}
             else:
-                return {"memories" : all_memories}
+                return {"memories": all_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
@@ -294,10 +301,9 @@ class Memory(MemoryBase):
                 stacklevel=2
             )
             return all_memories
-    
 
     def search(
-        self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
+            self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
     ):
         """
         Search for memories.
@@ -377,7 +383,7 @@ class Memory(MemoryBase):
                 graph_entities = self.graph.search(query)
                 return {"memories": original_memories, "entities": graph_entities}
             else:
-                return {"memories" : original_memories}
+                return {"memories": original_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
@@ -433,7 +439,8 @@ class Memory(MemoryBase):
 
         if not filters:
             raise ValueError(
-                "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
+                "At least one filter is required to delete all memories. "
+                "If you want to delete all memories, use the `reset()` method."
             )
 
         capture_event("mem0.delete_all", self, {"filters": len(filters)})
@@ -446,7 +453,7 @@ class Memory(MemoryBase):
 
         return {'message': 'Memories deleted successfully!'}
 
-    def history(self, memory_id):
+    def history(self, memory_id: str):
         """
         Get the history of changes for a memory by ID.
 
@@ -457,38 +464,39 @@ class Memory(MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id})
-        return self.db.get_history(memory_id)
+        return self.db.get_history(UUID(memory_id))
 
     def _create_memory_tool(self, data, metadata=None):
         logging.info(f"Creating memory with {data=}")
         embeddings = self.embedding_model.embed(data)
-        memory_id = str(uuid.uuid4())
+        memory_id = uuid.uuid4()
+        memory_id_str = str(memory_id)
+        now = pendulum.now(self.default_timezone)
+
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = now.isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
-            ids=[memory_id],
+            ids=[memory_id_str],
             payloads=[metadata],
         )
-        self.db.add_history(
-            memory_id, None, data, "ADD", created_at=metadata["created_at"]
-        )
-        return memory_id
+        self.db.add_history(History(
+            memory_id=memory_id, new_memory=data, event="ADD", created_at=now))
+        return memory_id_str
 
     def _update_memory_tool(self, memory_id, data, metadata=None):
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data")
 
+        now = pendulum.now(self.default_timezone)
         new_metadata = metadata or {}
         new_metadata["data"] = data
         new_metadata["hash"] = existing_memory.payload.get("hash")
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(
-            pytz.timezone("US/Pacific")
-        ).isoformat()
+        new_metadata["updated_at"] = now.isoformat()
 
         if "user_id" in existing_memory.payload:
             new_metadata["user_id"] = existing_memory.payload["user_id"]
@@ -505,12 +513,14 @@ class Memory(MemoryBase):
         )
         logging.info(f"Updating memory with ID {memory_id=} with {data=}")
         self.db.add_history(
-            memory_id,
-            prev_value,
-            data,
-            "UPDATE",
-            created_at=new_metadata["created_at"],
-            updated_at=new_metadata["updated_at"],
+            History(
+                memory_id=memory_id,
+                prev_value=prev_value,
+                new_memory=data,
+                event="UPDATE",
+                created_at=pendulum.parse(new_metadata["created_at"]),
+                updated_at=now
+            )
         )
 
     def _delete_memory_tool(self, memory_id):
@@ -518,7 +528,11 @@ class Memory(MemoryBase):
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
-        self.db.add_history(memory_id, prev_value, None, "DELETE", is_deleted=1)
+        self.db.add_history(History(
+            memory_id=memory_id,
+            prev_value=prev_value,
+            event="DELETE",
+            is_deleted=True))
 
     def reset(self):
         """

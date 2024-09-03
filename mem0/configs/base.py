@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import os
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
 
-from mem0.memory.setup import mem0_dir
-from mem0.vector_stores.configs import VectorStoreConfig
-from mem0.llms.configs import LlmConfig
+from pydantic import BaseModel, Field
+from typing_extensions import Annotated
+
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.graphs.configs import GraphStoreConfig
+from mem0.llms.configs import LlmConfig
+from mem0.memory.setup import mem0_dir
+from mem0.memory.storage import SupportedStorageBackends
+from mem0.vector_stores.configs import VectorStoreConfig
 
 
 class MemoryItem(BaseModel):
@@ -44,8 +49,21 @@ class MemoryConfig(BaseModel):
         default_factory=EmbedderConfig,
     )
     history_db_path: str = Field(
-        description="Path to the history database",
+        description="Path(Url) to the history database",
         default=os.path.join(mem0_dir, "history.db"),
+    )
+    history_db_backend: Annotated[SupportedStorageBackends, Field(
+        description="Backend for the history database",
+        default="sqlite",
+    )]
+    history_db_initialize: bool = Field(
+        description="Skip history storage initialization "
+                    "and migrations (if is already initialized its save to turn it off and increase speed)",
+        default=True,
+    )
+    history_db_params: Optional[Dict[str, Any]] = Field(
+        description="Additional parameters for the history database as defined by peewee",
+        default={},
     )
     graph_store: GraphStoreConfig = Field(
         description="Configuration for the graph",
@@ -55,7 +73,9 @@ class MemoryConfig(BaseModel):
         description="The version of the API",
         default="v1.0",
     )
-    
+
+    db_timezone: Annotated[str, Field(default="US/Pacific", description="The timezone for times stored in database")]
+
 
 class AzureConfig(BaseModel):
     """
@@ -69,6 +89,6 @@ class AzureConfig(BaseModel):
     """
 
     api_key: str = Field(description="The API key used for authenticating with the Azure service.", default=None)
-    azure_deployment : str = Field(description="The name of the Azure deployment.", default=None)
-    azure_endpoint : str = Field(description="The endpoint URL for the Azure service.", default=None)
-    api_version : str = Field(description="The version of the Azure API being used.", default=None)
+    azure_deployment: str = Field(description="The name of the Azure deployment.", default=None)
+    azure_endpoint: str = Field(description="The endpoint URL for the Azure service.", default=None)
+    api_version: str = Field(description="The version of the Azure API being used.", default=None)

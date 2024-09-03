@@ -20,10 +20,11 @@ qdrant-client = "^1.9.1"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
 posthog = "^3.5.0"
-pytz = "^2024.1"
-sqlalchemy = "^2.0.31"
 langchain-community = "^0.2.12"
 neo4j = "^5.23.1"
+peewee = "^3.17.6"
+typing-extensions = "^4.12.2"
+pendulum = "^3.0.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
@@ -32,6 +33,10 @@ pytest = "^8.2.2"
 ruff = "^0.4.8"
 isort = "^5.13.2"
 pytest = "^8.2.2"
+litellm = "^1.44.5"
+together = "^1.2.7"
+ollama = "^0.3.1"
+groq = "^0.9.0"
 
 
 [tool.poetry.group.optional.dependencies]
