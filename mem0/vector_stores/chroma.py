@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import logging
 from typing import Optional, List, Dict
 
@@ -7,9 +9,18 @@ try:
     import chromadb
     from chromadb.config import Settings
 except ImportError:
-    raise ImportError(
-        "Chromadb requires extra dependencies. Install with `pip install chromadb`"
-    ) from None
+    user_input = input("The 'chromadb' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb"])
+            import chromadb
+            from chromadb.config import Settings
+        except subprocess.CalledProcessError:
+            print("Failed to install 'chromadb'. Please install it manually using 'pip install chromadb'.")
+            sys.exit(1)
+    else:
+        print("The required 'chromadb' library is not installed.")
+        sys.exit(1)
 
 from mem0.vector_stores.base import VectorStoreBase
 
