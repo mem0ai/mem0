@@ -15,7 +15,7 @@ packages = [
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8.1,<4.0"
+python = ">=3.9,<4.0"
 qdrant-client = "^1.9.1"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
@@ -24,6 +24,7 @@ pytz = "^2024.1"
 sqlalchemy = "^2.0.31"
 langchain-community = "^0.2.12"
 neo4j = "^5.23.1"
+rank-bm25 = "^0.2.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
