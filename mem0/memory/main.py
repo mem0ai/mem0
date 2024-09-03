@@ -2,23 +2,21 @@ import logging
 import hashlib
 import uuid
 import pytz
+import json
 from datetime import datetime
 from typing import Any, Dict
 import warnings
 from pydantic import ValidationError
-from mem0.llms.utils.tools import (
-    ADD_MEMORY_TOOL,
-    DELETE_MEMORY_TOOL,
-    UPDATE_MEMORY_TOOL,
-)
-from mem0.configs.prompts import MEMORY_DEDUCTION_PROMPT
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_update_memory_messages
+from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
+from mem0.configs.prompts import get_update_memory_messages
 from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
 from mem0.configs.base import MemoryItem, MemoryConfig
+import threading
+import concurrent
 
 # Setup user config
 setup_config()
@@ -44,7 +42,7 @@ class Memory(MemoryBase):
             from mem0.memory.main_graph import MemoryGraph
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
-            
+
         capture_event("mem0.init", self)
 
     @classmethod
@@ -58,7 +56,7 @@ class Memory(MemoryBase):
 
     def add(
         self,
-        data,
+        messages,
         user_id=None,
         agent_id=None,
         run_id=None,
@@ -70,7 +68,7 @@ class Memory(MemoryBase):
         Create a new memory.
 
         Args:
-            data (str): Data to store in the memory.
+            messages (str or List[Dict[str, str]]): Messages to store in the memory.
             user_id (str, optional): ID of the user creating the memory. Defaults to None.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
@@ -83,7 +81,6 @@ class Memory(MemoryBase):
         """
         if metadata is None:
             metadata = {}
-        embeddings = self.embedding_model.embed(data)
 
         filters = filters or {}
         if user_id:
@@ -98,88 +95,85 @@ class Memory(MemoryBase):
                 "One of the filters: user_id, agent_id or run_id is required!"
             )
 
-        if not prompt:
-            prompt = MEMORY_DEDUCTION_PROMPT.format(user_input=data, metadata=metadata)
-        extracted_memories = self.llm.generate_response(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an expert at deducing facts, preferences and memories from unstructured text.",
-                },
-                {"role": "user", "content": prompt},
-            ]
-        )
-        existing_memories = self.vector_store.search(
-            query=embeddings,
-            limit=5,
-            filters=filters,
-        )
-        existing_memories = [
-            MemoryItem(
-                id=mem.id,
-                score=mem.score,
-                metadata=mem.payload,
-                memory=mem.payload["data"],
-            )
-            for mem in existing_memories
-        ]
-        serialized_existing_memories = [
-            item.model_dump(include={"id", "memory", "score"})
-            for item in existing_memories
-        ]
-        logging.info(f"Total existing memories: {len(existing_memories)}")
-        messages = get_update_memory_messages(
-            serialized_existing_memories, extracted_memories
-        )
-        # Add tools for noop, add, update, delete memory.
-        tools = [ADD_MEMORY_TOOL, UPDATE_MEMORY_TOOL, DELETE_MEMORY_TOOL]
-        response = self.llm.generate_response(messages=messages, tools=tools)
-        tool_calls = response["tool_calls"]
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
 
-        response = []
-        if tool_calls:
-            # Create a new memory
-            available_functions = {
-                "add_memory": self._create_memory_tool,
-                "update_memory": self._update_memory_tool,
-                "delete_memory": self._delete_memory_tool,
-            }
-            for tool_call in tool_calls:
-                function_name = tool_call["name"]
-                function_to_call = available_functions[function_name]
-                function_args = tool_call["arguments"]
-                logging.info(
-                    f"[openai_func] func: {function_name}, args: {function_args}"
-                )
+        thread1 = threading.Thread(target=self._add_to_vector_store, args=(messages, metadata, filters))
+        thread2 = threading.Thread(target=self._add_to_graph, args=(messages, filters))
 
-                # Pass metadata to the function if it requires it
-                if function_name in ["add_memory", "update_memory"]:
-                    function_args["metadata"] = metadata
+        thread1.start()
+        thread2.start()
 
-                function_result = function_to_call(**function_args)
-                # Fetch the memory_id from the response
-                response.append(
-                    {
-                        "id": function_result,
-                        "event": function_name.replace("_memory", ""),
-                        "data": function_args.get("data"),
-                    }
-                )
-                capture_event(
-                    "mem0.add.function_call",
-                    self,
-                    {"memory_id": function_result, "function_name": function_name},
-                )
-        capture_event("mem0.add", self)
-
-        if self.version == "v1.1" and self.enable_graph:
-            if user_id:
-                self.graph.user_id = user_id
-            else:
-                self.graph.user_id = "USER"
-            added_entities = self.graph.add(data, filters)
+        thread1.join()
+        thread2.join()
 
         return {"message": "ok"}
+    
+    def _add_to_vector_store(self, messages, metadata, filters):
+        parsed_messages = parse_messages(messages)
+
+        system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+
+        response = self.llm.generate_response(
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            response_format={"type": "json_object"},
+        )
+
+        try:
+            new_retrieved_facts = json.loads(response)[
+                "facts"
+            ]
+        except Exception as e:
+            logging.error(f"Error in new_retrieved_facts: {e}")
+            new_retrieved_facts = []
+
+        retrieved_old_memory = []
+        for new_mem in new_retrieved_facts:
+            messages_embeddings = self.embedding_model.embed(new_mem)
+            existing_memories = self.vector_store.search(
+                query=messages_embeddings,
+                limit=5,
+                filters=filters,
+            )
+            for mem in existing_memories:
+                retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
+
+        logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
+
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+        new_memories_with_actions = self.llm.generate_response(
+            messages=[{"role": "user", "content": function_calling_prompt}],
+            response_format={"type": "json_object"},
+        )
+        new_memories_with_actions = json.loads(new_memories_with_actions)
+
+        try:
+            for resp in new_memories_with_actions["memory"]:
+                logging.info(resp)
+                try:
+                    if resp["event"] == "ADD":
+                        memory_id = self._create_memory(data=resp["text"], metadata=metadata)
+                    elif resp["event"] == "UPDATE":
+                        self._update_memory(memory_id=resp["id"], data=resp["text"], metadata=metadata)
+                    elif resp["event"] == "DELETE":
+                        self._delete_memory(memory_id=resp["id"])
+                    elif resp["event"] == "NONE":
+                        logging.info("NOOP for Memory.")
+                except Exception as e:
+                    logging.error(f"Error in new_memories_with_actions: {e}")
+        except Exception as e:
+            logging.error(f"Error in new_memories_with_actions: {e}")
+
+        capture_event("mem0.add", self)
+
+    def _add_to_graph(self, messages, filters):
+        if self.version == "v1.1" and self.enable_graph:
+            if filters["user_id"]:
+                self.graph.user_id = filters["user_id"]
+            else:
+                self.graph.user_id = "USER"
+            data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
+            added_entities = self.graph.add(data, filters)
 
     def get(self, memory_id):
         """
@@ -247,6 +241,30 @@ class Memory(MemoryBase):
             filters["run_id"] = run_id
 
         capture_event("mem0.get_all", self, {"filters": len(filters), "limit": limit})
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
+            future_graph_entities = executor.submit(self.graph.get_all, filters) if self.version == "v1.1" and self.enable_graph else None
+
+            all_memories = future_memories.result()
+            graph_entities = future_graph_entities.result() if future_graph_entities else None
+
+        if self.version == "v1.1":
+            if self.enable_graph:
+                return {"memories": all_memories, "entities": graph_entities}
+            else:
+                return {"memories": all_memories}
+        else:
+            warnings.warn(
+                "The current get_all API output format is deprecated. "
+                "To use the latest format, set `api_version='v1.1'`. "
+                "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            return all_memories
+        
+    def _get_all_from_vector_store(self, filters, limit):
         memories = self.vector_store.list(filters=filters, limit=limit)
 
         excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
@@ -278,24 +296,8 @@ class Memory(MemoryBase):
             }
             for mem in memories[0]
         ]
-        
-        if self.version == "v1.1":
-            if self.enable_graph:
-                graph_entities = self.graph.get_all(filters)
-                return {"memories": all_memories, "entities": graph_entities}
-            else:
-                return {"memories" : all_memories}
-        else:
-            warnings.warn(
-                "The current get_all API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'`. "
-                "The current format will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            return all_memories
+        return all_memories
     
-
     def search(
         self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
     ):
@@ -327,6 +329,30 @@ class Memory(MemoryBase):
             )
 
         capture_event("mem0.search", self, {"filters": len(filters), "limit": limit, "version": self.version})
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_memories = executor.submit(self._search_vector_store, query, filters, limit)
+            future_graph_entities = executor.submit(self.graph.search, query, filters) if self.version == "v1.1" and self.enable_graph else None
+
+            original_memories = future_memories.result()
+            graph_entities = future_graph_entities.result() if future_graph_entities else None
+
+        if self.version == "v1.1":
+            if self.enable_graph:
+                return {"memories": original_memories, "entities": graph_entities}
+            else:
+                return {"memories" : original_memories}
+        else:
+            warnings.warn(
+                "The current get_all API output format is deprecated. "
+                "To use the latest format, set `api_version='v1.1'`. "
+                "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            return original_memories
+        
+    def _search_vector_store(self, query, filters, limit):
         embeddings = self.embedding_model.embed(query)
         memories = self.vector_store.search(
             query=embeddings, limit=limit, filters=filters
@@ -372,21 +398,7 @@ class Memory(MemoryBase):
             for mem in memories
         ]
 
-        if self.version == "v1.1":
-            if self.enable_graph:
-                graph_entities = self.graph.search(query, filters)
-                return {"memories": original_memories, "entities": graph_entities}
-            else:
-                return {"memories" : original_memories}
-        else:
-            warnings.warn(
-                "The current get_all API output format is deprecated. "
-                "To use the latest format, set `api_version='v1.1'`. "
-                "The current format will be removed in mem0ai 1.1.0 and later versions.",
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            return original_memories
+        return original_memories
 
     def update(self, memory_id, data):
         """
@@ -400,7 +412,7 @@ class Memory(MemoryBase):
             dict: Updated memory.
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
-        self._update_memory_tool(memory_id, data)
+        self._update_memory(memory_id, data)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -411,7 +423,7 @@ class Memory(MemoryBase):
             memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id})
-        self._delete_memory_tool(memory_id)
+        self._delete_memory(memory_id)
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -439,7 +451,7 @@ class Memory(MemoryBase):
         capture_event("mem0.delete_all", self, {"filters": len(filters)})
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
-            self._delete_memory_tool(memory.id)
+            self._delete_memory(memory.id)
 
         if self.version == "v1.1" and self.enable_graph:
             self.graph.delete_all(filters)
@@ -459,7 +471,7 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id})
         return self.db.get_history(memory_id)
 
-    def _create_memory_tool(self, data, metadata=None):
+    def _create_memory(self, data, metadata=None):
         logging.info(f"Creating memory with {data=}")
         embeddings = self.embedding_model.embed(data)
         memory_id = str(uuid.uuid4())
@@ -478,7 +490,7 @@ class Memory(MemoryBase):
         )
         return memory_id
 
-    def _update_memory_tool(self, memory_id, data, metadata=None):
+    def _update_memory(self, memory_id, data, metadata=None):
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data")
 
@@ -513,7 +525,7 @@ class Memory(MemoryBase):
             updated_at=new_metadata["updated_at"],
         )
 
-    def _delete_memory_tool(self, memory_id):
+    def _delete_memory(self, memory_id):
         logging.info(f"Deleting memory with {memory_id=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
