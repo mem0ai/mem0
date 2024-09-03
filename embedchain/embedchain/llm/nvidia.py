@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import os
 from collections.abc import Iterable
 from typing import Any, Optional, Union
@@ -9,9 +11,21 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 try:
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
 except ImportError:
-    raise ImportError(
-        "NVIDIA AI endpoints requires extra dependencies. Install with `pip install langchain-nvidia-ai-endpoints`"
-    ) from None
+    user_input = input("The 'langchain-nvidia-ai-endpoints' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "langchain-nvidia-ai-endpoints"])
+            from langchain_nvidia_ai_endpoints import ChatNVIDIA
+        except subprocess.CalledProcessError:
+            print(
+                "Failed to install 'langchain-nvidia-ai-endpoints'. "
+                "Please install it manually using 'pip install langchain-nvidia-ai-endpoints'."
+            )
+            sys.exit(1)
+    else:
+        raise ImportError(
+            "NVIDIA AI endpoints requires extra dependencies. Install with `pip install langchain-nvidia-ai-endpoints`"
+        ) from None
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable

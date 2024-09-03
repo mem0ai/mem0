@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import logging
 import os
 from collections.abc import Generator
@@ -187,9 +189,21 @@ class BaseLlm(JSONSerializable):
         try:
             from langchain.tools import DuckDuckGoSearchRun
         except ImportError:
-            raise ImportError(
-                "Searching requires extra dependencies. Install with `pip install duckduckgo-search==6.1.5`"
-            ) from None
+            user_input: Any= input("The 'duckduckgo-search' library is required. Install it now? [y/N]: ")
+            if user_input.lower() == 'y':
+                try:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "duckduckgo-search==6.1.5"])
+                    from langchain.tools import DuckDuckGoSearchRun
+                except subprocess.CalledProcessError:
+                    print(
+                        "Failed to install 'duckduckgo-search'. " 
+                        "Please install it manually using 'pip install duckduckgo-search==6.1.5'."
+                        )
+                    sys.exit(1)
+            else:
+                raise ImportError(
+                    "Searching requires extra dependencies. Install with `pip install duckduckgo-search==6.1.5`"
+                ) from None
         search = DuckDuckGoSearchRun()
         logger.info(f"Access search to get answers for {input_query}")
         return search.run(input_query)

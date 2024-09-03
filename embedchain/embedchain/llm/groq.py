@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import os
 from typing import Any, Optional
 
@@ -7,7 +9,16 @@ from langchain.schema import HumanMessage, SystemMessage
 try:
     from langchain_groq import ChatGroq
 except ImportError:
-    raise ImportError("Groq requires extra dependencies. Install with `pip install langchain-groq`") from None
+    user_input = input("The 'langchain-groq' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "langchain-groq"])
+            from langchain_groq import ChatGroq
+        except subprocess.CalledProcessError:
+            print("Failed to install 'langchain-groq'. Please install it manually using 'pip install langchain-groq'.")
+            sys.exit(1)
+    else:
+        raise ImportError("Groq requires extra dependencies. Install with `pip install langchain-groq`") from None
 
 
 from embedchain.config import BaseLlmConfig

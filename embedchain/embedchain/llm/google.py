@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import logging
 import os
 from collections.abc import Generator
@@ -6,7 +8,20 @@ from typing import Any, Optional, Union
 try:
     import google.generativeai as genai
 except ImportError:
-    raise ImportError("GoogleLlm requires extra dependencies. Install with `pip install google-generativeai`") from None
+    user_input = input("The 'google-generativeai' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
+            import google.generativeai as genai
+        except subprocess.CalledProcessError:
+            print("Failed to install 'google-generativeai'. "
+                  "Please install it manually using 'pip install google-generativeai'."
+                )
+            sys.exit(1)
+    else:
+        raise ImportError(
+            "GoogleLlm requires extra dependencies. Install with `pip install google-generativeai`"
+        ) from None
 
 from embedchain.config import BaseLlmConfig
 from embedchain.helpers.json_serializable import register_deserializable
