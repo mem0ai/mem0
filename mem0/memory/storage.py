@@ -1,15 +1,69 @@
-import sqlite3
 import uuid
+from typing import Any
+
+from peewee import SqliteDatabase, MySQLDatabase, Model, TextField, DateTimeField, UUIDField, BooleanField, \
+    DatabaseProxy
+from playhouse.cockroachdb import CockroachDatabase
+from typing_extensions import Literal
+from uuid import UUID
+
+SupportedStorageBackends = Literal["sqlite", "mysql", "cockroachdb"]
+
+_database_proxy = DatabaseProxy()  # Create a proxy so it can be set up dynamically
 
 
-class SQLiteManager:
-    def __init__(self, db_path=":memory:"):
-        self.connection = sqlite3.connect(db_path, check_same_thread=False)
-        self._migrate_history_table()
-        self._create_history_table()
+# Simple way to set up the database for all models
+class BaseModel(Model):
+    class Meta:
+        database = _database_proxy
 
-    def _migrate_history_table(self):
-        with self.connection:
+
+# Define Tables
+class History(BaseModel):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
+    memory_id = UUIDField()
+    old_memory = TextField(null=True)
+    new_memory = TextField()
+    new_value = TextField()
+    event = TextField()
+    created_at = DateTimeField(default=None, null=True)
+    updated_at = DateTimeField(default=None, null=True)
+    is_deleted = BooleanField(default=False)
+
+
+# array holding all tables to be initialized
+_tables_to_initialize = [History]
+
+
+class PeeweeManager:
+    def __init__(self, db_connection_string: str,
+                 db_backend: SupportedStorageBackends, db_params: dict,
+                 init: bool):
+
+        self.connection = PeeweeManager._connection_builder(db_connection_string, db_backend, db_params)
+        _database_proxy.initialize(self.connection)
+
+        self.connection.connect()
+        if init:  #skiping the initialization of the database (and migrations) if the flag is set
+            if db_backend == "sqlite":  # sqlite specific migrations
+                self._migrate_history_table_sqlite()
+            self._create_tables()
+
+    @classmethod
+    def _connection_builder(cls, db_connection_string,
+                            db_backend: SupportedStorageBackends, db_params: dict[str, Any]):
+        """Creates a connection to the database"""
+        if db_backend == "sqlite":
+            return SqliteDatabase(db_connection_string, check_same_thread=False, **db_params)
+        elif db_backend == "mysql":
+            return MySQLDatabase(db_connection_string, **db_params)
+        elif db_backend == "cockroachdb":
+            return CockroachDatabase(db_connection_string, **db_params)
+        else:
+            raise ValueError(f"Unsupported backend {db_backend}")
+
+    def _migrate_history_table_sqlite(self):
+        with self.connection.atomic():
             cursor = self.connection.cursor()
 
             cursor.execute(
@@ -40,21 +94,7 @@ class SQLiteManager:
                     # Rename the old table
                     cursor.execute("ALTER TABLE history RENAME TO old_history")
 
-                    cursor.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS history (
-                            id TEXT PRIMARY KEY,
-                            memory_id TEXT,
-                            old_memory TEXT,
-                            new_memory TEXT,
-                            new_value TEXT,
-                            event TEXT,
-                            created_at DATETIME,
-                            updated_at DATETIME,
-                            is_deleted INTEGER
-                        )
-                    """
-                    )
+                    self.connection.create_tables([History], safe=True)
 
                     # Copy data from the old table to the new table
                     cursor.execute(
@@ -69,76 +109,25 @@ class SQLiteManager:
 
                     self.connection.commit()
 
-    def _create_history_table(self):
-        with self.connection:
-            self.connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS history (
-                    id TEXT PRIMARY KEY,
-                    memory_id TEXT,
-                    old_memory TEXT,
-                    new_memory TEXT,
-                    new_value TEXT,
-                    event TEXT,
-                    created_at DATETIME,
-                    updated_at DATETIME,
-                    is_deleted INTEGER
-                )
-            """
-            )
+    def _create_tables(self):
+        """creates the tables if they do not exist in the database in transaction"""
+        with self.connection.atomic():
+            self.connection.create_tables(_tables_to_initialize, safe=True)
 
     def add_history(
-        self,
-        memory_id,
-        old_memory,
-        new_memory,
-        event,
-        created_at=None,
-        updated_at=None,
-        is_deleted=0,
+            self,
+            history: History
     ):
-        with self.connection:
-            self.connection.execute(
-                """
-                INSERT INTO history (id, memory_id, old_memory, new_memory, event, created_at, updated_at, is_deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    str(uuid.uuid4()),
-                    memory_id,
-                    old_memory,
-                    new_memory,
-                    event,
-                    created_at,
-                    updated_at,
-                    is_deleted,
-                ),
-            )
+        """adds a history to the database atomically"""
+        with self.connection.atomic():
+            history.save()
 
-    def get_history(self, memory_id):
-        cursor = self.connection.execute(
-            """
-            SELECT id, memory_id, old_memory, new_memory, event, created_at, updated_at
-            FROM history
-            WHERE memory_id = ?
-            ORDER BY updated_at ASC
-        """,
-            (memory_id,),
-        )
-        rows = cursor.fetchall()
-        return [
-            {
-                "id": row[0],
-                "memory_id": row[1],
-                "old_memory": row[2],
-                "new_memory": row[3],
-                "event": row[4],
-                "created_at": row[5],
-                "updated_at": row[6],
-            }
-            for row in rows
-        ]
+    def get_history(self, memory_id: UUID) -> list[History]:
+        """gets all history for a memory consistently"""
+        with self.connection.atomic():
+            return [history for history in History.select().where(History.memory_id == memory_id)]
 
     def reset(self):
-        with self.connection:
-            self.connection.execute("DROP TABLE IF EXISTS history")
+        """drops history table atomically"""
+        with self.connection.atomic():
+            self.connection.drop_tables([History])
