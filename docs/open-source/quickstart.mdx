@@ -86,6 +86,12 @@ m = Memory.from_config(config_dict=config)
 ```python Code
 # For a user
 result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+
+# messages = [
+#    {"role": "user", "content": "Hi, I'm Alex. I like to play cricket on weekends."},
+#    {"role": "assistant", "content": "Hello Alex! It's great to know that you enjoy playing cricket on weekends. I'll remember that for future reference."}
+# ]
+# client.add(messages, user_id="alice")
 ```
 
 ```json Output
