@@ -113,8 +113,8 @@ class Memory(MemoryBase):
 
         if self.version == "v1.1":
             return {
-                "memories" : vector_store_result,
-                "entities" : graph_result,
+                "results" : vector_store_result,
+                "relations" : graph_result,
             }
         else:
             warnings.warn(
@@ -181,7 +181,7 @@ class Memory(MemoryBase):
                         returned_memories.append({
                             "memory" : resp["text"],
                             "event" : resp["event"],
-                            "old_memory" : resp["old_memory"],
+                            "previous_memory" : resp["old_memory"],
                         })
                     elif resp["event"] == "DELETE":
                         self._delete_memory(memory_id=resp["id"])
@@ -292,9 +292,9 @@ class Memory(MemoryBase):
 
         if self.version == "v1.1":
             if self.enable_graph:
-                return {"memories": all_memories, "entities": graph_entities}
+                return {"results": all_memories, "relations": graph_entities}
             else:
-                return {"memories": all_memories}
+                return {"results": all_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
@@ -382,9 +382,9 @@ class Memory(MemoryBase):
 
         if self.version == "v1.1":
             if self.enable_graph:
-                return {"memories": original_memories, "entities": graph_entities}
+                return {"results": original_memories, "relations": graph_entities}
             else:
-                return {"memories" : original_memories}
+                return {"results" : original_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
