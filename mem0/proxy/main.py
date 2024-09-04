@@ -1,3 +1,6 @@
+import logging
+import subprocess
+import sys
 import httpx
 from typing import Optional, List, Union
 import threading
@@ -5,13 +8,23 @@ import threading
 try:
     import litellm
 except ImportError:
-    raise ImportError(
-        "litellm requires extra dependencies. Install with `pip install litellm`"
-    ) from None
+    user_input = input("The 'litellm' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
+            import litellm
+        except subprocess.CalledProcessError:
+            print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
+            sys.exit(1)
+    else:
+        raise ImportError("The required 'litellm' library is not installed.")
+        sys.exit(1)
 
 from mem0.memory.telemetry import capture_client_event
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 class Mem0:
@@ -97,6 +110,7 @@ class Completions:
             relevant_memories = self._fetch_relevant_memories(
                 messages, user_id, agent_id, run_id, filters, limit
             )
+            logger.debug(f"Retrieved {len(relevant_memories)} relevant memories")
             prepared_messages[-1]["content"] = self._format_query_with_memories(
                 messages, relevant_memories
             )
@@ -145,6 +159,7 @@ class Completions:
         self, messages, user_id, agent_id, run_id, metadata, filters
     ):
         def add_task():
+            logger.debug("Adding to memory asynchronously")
             self.mem0_client.add(
                 messages=messages,
                 user_id=user_id,
