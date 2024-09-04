@@ -6,7 +6,7 @@ openapi: post /v2/memories/search/
 Mem0 offers two versions of the search API: v1 and v2. Here's how they differ:
 
 <Tabs>
-  <Tab title="V1 Search">
+  <Tab title="v1 Search">
     <CodeGroup>
     ```python Code
     related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
@@ -31,7 +31,7 @@ Mem0 offers two versions of the search API: v1 and v2. Here's how they differ:
     </CodeGroup>
   </Tab>
 
-  <Tab title="V2 Search">
+  <Tab title="v2 Search">
     <CodeGroup>
     ```python Code
     related_memories = m.v2_search(
@@ -79,6 +79,6 @@ Mem0 offers two versions of the search API: v1 and v2. Here's how they differ:
 
 Key difference between v1 and v2 search:
 
-• **Filters**: V2 allows you to apply filters to narrow down search results based on specific criteria. This includes support for complex logical operations (AND, OR) and comparison operators (IN, gte, lte, gt, lt, ne, icontains) for advanced filtering capabilities.
+• **Filters**: v2 allows you to apply filters to narrow down search results based on specific criteria. This includes support for complex logical operations (AND, OR) and comparison operators (IN, gte, lte, gt, lt, ne, icontains) for advanced filtering capabilities.
 
 The v2 search API is more powerful and flexible, allowing for more precise memory retrieval.
