@@ -297,7 +297,7 @@ class Memory(MemoryBase):
             for mem in memories[0]
         ]
         return all_memories
-    
+
     def search(
         self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
     ):
