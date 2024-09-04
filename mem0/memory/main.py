@@ -108,13 +108,13 @@ class Memory(MemoryBase):
 
             concurrent.futures.wait([future1, future2])
 
-            result1 = future1.result()
-            result2 = future2.result()
+            vector_store_result = future1.result()
+            graph_result = future2.result()
 
         if self.version == "v1.1":
             return {
-                "memories" : result1,
-                "entities" : result2,
+                "memories" : vector_store_result,
+                "entities" : graph_result,
             }
         else:
             warnings.warn(
