@@ -111,12 +111,22 @@ class Memory(MemoryBase):
             result1 = future1.result()
             result2 = future2.result()
 
-        return {
-            "memories" : result1,
-            "entities" : result2,
-        }
-    
-    
+        if self.version == "v1.1":
+            return {
+                "memories" : result1,
+                "entities" : result2,
+            }
+        else:
+            warnings.warn(
+                "The current add API output format is deprecated. "
+                "To use the latest format, set `api_version='v1.1'`. "
+                "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            return {"message": "ok"}
+        
+
     def _add_to_vector_store(self, messages, metadata, filters):
         parsed_messages = parse_messages(messages)
 
@@ -189,6 +199,7 @@ class Memory(MemoryBase):
         capture_event("mem0.add", self)
 
         return returned_memories
+      
     
 
     def _add_to_graph(self, messages, filters):
