@@ -37,6 +37,7 @@ You are an advanced algorithm designed to extract structured information from te
 1. Extract only explicitly stated information from the text.
 2. Identify nodes (entities/concepts), their types, and relationships.
 3. Use "USER_ID" as the source node for any self-references (I, me, my, etc.) in user messages.
+CUSTOM_PROMPT
 
 Nodes and Types:
 - Aim for simplicity and clarity in node representation.

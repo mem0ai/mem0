@@ -1,5 +1,8 @@
 from abc import ABC
-from typing import Optional
+from mem0.configs.base import AzureConfig
+from typing import Optional, Union, Dict
+
+import httpx
 
 
 class BaseLlmConfig(ABC):
@@ -25,6 +28,10 @@ class BaseLlmConfig(ABC):
         app_name: Optional[str] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
+        # AzureOpenAI specific
+        azure_kwargs: Optional[AzureConfig] = {},
+        # AzureOpenAI specific
+        http_client_proxies: Optional[Union[Dict, str]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -57,6 +64,10 @@ class BaseLlmConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param azure_kwargs: key-value arguments for the AzureOpenAI LLM model, defaults a dict inside init
+        :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
+        :param http_client_proxies: The proxy server(s) settings used to create self.http_client, defaults to None
+        :type http_client_proxies: Optional[Dict | str], optional
         """
 
         self.model = model
@@ -65,6 +76,9 @@ class BaseLlmConfig(ABC):
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.top_k = top_k
+
+        # AzureOpenAI specific
+        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
 
         # Openrouter specific
         self.models = models
@@ -76,3 +90,6 @@ class BaseLlmConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # AzureOpenAI specific
+        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}

@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import os
 import json
 from typing import Dict, List, Optional, Any
@@ -5,9 +7,16 @@ from typing import Dict, List, Optional, Any
 try:
     import boto3
 except ImportError:
-    raise ImportError(
-        "AWS Bedrock requires extra dependencies. Install with `pip install boto3`"
-    ) from None
+    user_input = input("The 'boto3' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "boto3"])
+            import boto3
+        except subprocess.CalledProcessError:
+            print("Failed to install 'boto3'. Please install it manually using 'pip install boto3'")
+            sys.exit(1)
+    else:
+        raise ImportError("The required 'boto3' library is not installed.")
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig

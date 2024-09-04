@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import json
 from typing import Optional, List
 from pydantic import BaseModel
@@ -6,9 +8,18 @@ try:
     import psycopg2
     from psycopg2.extras import execute_values
 except ImportError:
-    raise ImportError(
-        "PGVector requires extra dependencies. Install with `pip install psycopg2`"
-    ) from None
+    user_input = input("The 'psycopg2' library is required. Install it now? [y/N]: ")
+    if user_input.lower() == 'y':
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2"])
+            import psycopg2
+            from psycopg2.extras import execute_values
+        except subprocess.CalledProcessError:
+            print("Failed to install 'psycopg2'. Please install it manually using 'pip install psycopg2'.")
+            sys.exit(1)
+    else:
+        print("The required 'psycopg2' library is not installed.")
+        sys.exit(1)
 
 
 from mem0.vector_stores.base import VectorStoreBase
