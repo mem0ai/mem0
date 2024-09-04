@@ -21,6 +21,8 @@ import concurrent
 # Setup user config
 setup_config()
 
+logger = logging.getLogger(__name__)
+
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
@@ -50,7 +52,7 @@ class Memory(MemoryBase):
         try:
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
-            logging.error(f"Configuration validation error: {e}")
+            logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
 
@@ -453,6 +455,8 @@ class Memory(MemoryBase):
         for memory in memories:
             self._delete_memory(memory.id)
 
+        logger.info(f"Deleted {len(memories)} memories")
+
         if self.version == "v1.1" and self.enable_graph:
             self.graph.delete_all(filters)
 
@@ -491,6 +495,7 @@ class Memory(MemoryBase):
         return memory_id
 
     def _update_memory(self, memory_id, data, metadata=None):
+        logger.info(f"Updating memory with {data=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data")
 
@@ -515,7 +520,7 @@ class Memory(MemoryBase):
             vector=embeddings,
             payload=new_metadata,
         )
-        logging.info(f"Updating memory with ID {memory_id=} with {data=}")
+        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
         self.db.add_history(
             memory_id,
             prev_value,
@@ -536,6 +541,7 @@ class Memory(MemoryBase):
         """
         Reset the memory store.
         """
+        logger.warning("Resetting all memories")
         self.vector_store.delete_col()
         self.db.reset()
         capture_event("mem0.reset", self)
