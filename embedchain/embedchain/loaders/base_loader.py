@@ -1,5 +1,7 @@
+from typing import Any, Optional
+
 from embedchain.helpers.json_serializable import JSONSerializable
-from typing import Optional, Any
+
 
 class BaseLoader(JSONSerializable):
     def __init__(self):
