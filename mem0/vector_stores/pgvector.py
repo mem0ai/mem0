@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import json
+import logging
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -24,6 +25,7 @@ except ImportError:
 
 from mem0.vector_stores.base import VectorStoreBase
 
+logger = logging.getLogger(__name__)
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -102,6 +104,7 @@ class PGVector(VectorStoreBase):
             payloads (List[Dict], optional): List of payloads corresponding to vectors.
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
+        logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
 
         data = [
