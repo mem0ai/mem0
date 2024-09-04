@@ -118,7 +118,6 @@ def test_get_clean_content_excludes_unnecessary_info(web_page_loader):
     assert len(content) > 0
 
 
-
 def test_fetch_reference_links_success(web_page_loader):
     # Mock a successful response
     response = Mock(spec=requests.Response)

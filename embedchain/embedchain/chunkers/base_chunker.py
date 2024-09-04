@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
 from embedchain.config.add_config import ChunkerConfig
 from embedchain.helpers.json_serializable import JSONSerializable
@@ -15,11 +15,14 @@ class BaseChunker(JSONSerializable):
         self.text_splitter = text_splitter
         self.data_type = None
 
-    def create_chunks(self,
-                      loader,
-                      src, app_id=None,
-                      config: Optional[ChunkerConfig] = None,
-                      **kwargs: Optional[dict[str, Any]], ):
+    def create_chunks(
+        self,
+        loader,
+        src,
+        app_id=None,
+        config: Optional[ChunkerConfig] = None,
+        **kwargs: Optional[dict[str, Any]],
+    ):
         """
         Loads data and chunks it.
 

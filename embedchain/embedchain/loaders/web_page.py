@@ -1,8 +1,9 @@
 import hashlib
 import logging
+from typing import Any, Optional
 
 import requests
-from typing import Optional, Any
+
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -26,8 +27,8 @@ class WebPageLoader(BaseLoader):
         """Load data from a web page using a shared requests' session."""
         all_references = False
         for key, value in kwargs.items():
-            if key == 'all_references':
-                all_references = kwargs['all_references']
+            if key == "all_references":
+                all_references = kwargs["all_references"]
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",  # noqa:E501
         }
