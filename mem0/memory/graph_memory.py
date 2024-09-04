@@ -151,13 +151,8 @@ class MemoryGraph:
 
             cypher_query = """
             MATCH (n)
-<<<<<<< HEAD:mem0/memory/main_graph.py
-            WHERE n.embedding IS NOT NULL
-            WITH n,
-=======
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
             WITH n, 
->>>>>>> main:mem0/memory/graph_memory.py
                 round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
                 (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
                 sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
@@ -166,13 +161,8 @@ class MemoryGraph:
             RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relation, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
             UNION
             MATCH (n)
-<<<<<<< HEAD:mem0/memory/main_graph.py
-            WHERE n.embedding IS NOT NULL
-            WITH n,
-=======
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
             WITH n, 
->>>>>>> main:mem0/memory/graph_memory.py
                 round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
                 (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
                 sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
@@ -230,15 +220,10 @@ class MemoryGraph:
         MATCH (n {user_id: $user_id})
         DETACH DELETE n
         """
-<<<<<<< HEAD:mem0/memory/main_graph.py
-        self.graph.query(cypher)
-
-=======
         params = {"user_id": filters["user_id"]}
         self.graph.query(cypher, params=params)
-    
->>>>>>> main:mem0/memory/graph_memory.py
 
+    
     def get_all(self, filters):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
@@ -269,15 +254,9 @@ class MemoryGraph:
         logger.info(f"Retrieved {len(final_results)} relationships")
 
         return final_results
-<<<<<<< HEAD:mem0/memory/main_graph.py
-
-
-    def _update_relationship(self, source, target, relationship):
-=======
     
     
     def _update_relationship(self, source, target, relationship, filters):
->>>>>>> main:mem0/memory/graph_memory.py
         """
         Update or create a relationship between two nodes in the graph.
 
