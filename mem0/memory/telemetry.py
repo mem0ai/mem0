@@ -14,6 +14,7 @@ if isinstance(MEM0_TELEMETRY, str):
 if not isinstance(MEM0_TELEMETRY, bool):
     raise ValueError("MEM0_TELEMETRY must be a boolean value.")
 
+
 class AnonymousTelemetry:
     def __init__(self, project_api_key, host):
         self.posthog = Posthog(project_api_key=project_api_key, host=host)
