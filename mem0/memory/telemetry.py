@@ -79,5 +79,4 @@ def capture_client_event(event_name, instance, additional_data=None):
     }
     if additional_data:
         event_data.update(additional_data)
-        
     telemetry.capture_event(event_name, event_data)
