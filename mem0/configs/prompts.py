@@ -7,6 +7,7 @@ Guidelines:
 - Extract relevant information from the memories based on the question.
 - If no relevant information is found, make sure you don't say no information is found. Instead, accept the question and provide a general response.
 - Ensure that the answers are clear, concise, and directly address the question.
+- Make sure to provide the answers with the same language as the question.
 
 Here are the details of the task:
 """
@@ -55,6 +56,7 @@ Remember the following:
 - Make sure to return the response in the format mentioned in the examples. The response should be in json with a key as "facts" and corresponding value will be a list of strings.
 
 Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences from the conversation and return them in the json format as shown above.
+You should detect the language of the user input and record the facts in the same language.
 If you do not find anything relevant facts, user memories, and preferences in the below conversation, you can return an empty list corresponding to the "facts" key.
 """
 
