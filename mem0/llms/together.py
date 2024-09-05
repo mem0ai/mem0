@@ -29,7 +29,6 @@ class TogetherLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-        self.client = Together()
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
         self.client = Together(api_key=api_key)
@@ -92,7 +91,7 @@ class TogetherLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
-        if tools:
+        if tools: # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
