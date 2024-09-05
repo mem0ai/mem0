@@ -1,9 +1,12 @@
+from enum import Enum
 from typing import Dict, Any
 from pydantic import BaseModel, model_validator, Field
-from enum import Enum
 
 
 class MetricType(str, Enum):
+    """
+    Metric Constant for milvus/ zilliz server.
+    """
     def __str__(self) -> str:
         return str(self.value)
     
