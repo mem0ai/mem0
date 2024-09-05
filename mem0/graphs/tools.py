@@ -113,7 +113,6 @@ SEARCH_TOOL = {
     "function": {
         "name": "search",
         "description": "Search for nodes and relations in the graph.",
-        "strict": True,
         "parameters": {
             "type": "object",
             "properties": {
