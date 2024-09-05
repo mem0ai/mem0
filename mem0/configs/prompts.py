@@ -7,7 +7,6 @@ Guidelines:
 - Extract relevant information from the memories based on the question.
 - If no relevant information is found, make sure you don't say no information is found. Instead, accept the question and provide a general response.
 - Ensure that the answers are clear, concise, and directly address the question.
-- Make sure to provide the answers with the same language as the question.
 
 Here are the details of the task:
 """
