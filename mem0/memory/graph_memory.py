@@ -54,7 +54,7 @@ class MemoryGraph:
         ]
 
         _tools = [ADD_MESSAGE_TOOL]
-        if self.llm_provider == "azure_openai_structured" or "openai_structured":
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
             _tools = [ADD_MESSAGE_STRUCT_TOOL]
 
         extracted_entities = self.llm.generate_response(
@@ -72,7 +72,7 @@ class MemoryGraph:
         update_memory_prompt = get_update_memory_messages(search_output, extracted_entities)
 
         _tools=[UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
-        if self.llm_provider == "azure_openai_structured" or "openai_structured":
+        if self.llm_provider == ["azure_openai_structured","openai_structured"]:
             _tools = [UPDATE_MEMORY_STRUCT_TOOL_GRAPH, ADD_MEMORY_STRUCT_TOOL_GRAPH, NOOP_STRUCT_TOOL]
 
         memory_updates = self.llm.generate_response(
@@ -129,7 +129,7 @@ class MemoryGraph:
 
     def _search(self, query, filters):
         _tools = [SEARCH_TOOL]
-        if self.llm_provider == "azure_openai_structured" or "openai_structured":
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
             _tools = [SEARCH_STRUCT_TOOL]
         search_results = self.llm.generate_response(
             messages=[
