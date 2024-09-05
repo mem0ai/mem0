@@ -7,17 +7,7 @@ from typing import Dict, List, Optional
 try:
     import anthropic
 except ImportError:
-    user_input = input("The 'anthropic' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "anthropic"])
-            import anthropic
-        except subprocess.CalledProcessError:
-            print("Failed to install 'anthropic'. Please install it manually using 'pip install anthropic'.")
-            sys.exit(1)
-    else:
-        print("The required 'anthropic' library is not installed.")
-        sys.exit(1)
+   raise ImportError("The 'anthropic' library is required. Please install it using 'pip install anthropic'.")
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
