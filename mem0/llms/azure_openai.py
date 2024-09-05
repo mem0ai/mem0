@@ -16,10 +16,10 @@ class AzureOpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-4o"
             
-        api_key = os.getenv("LLM_AZURE_OPENAI_API_KEY") or self.config.azure_kwargs.api_key
-        azure_deployment = os.getenv("LLM_AZURE_DEPLOYMENT") or self.config.azure_kwargs.azure_deployment
-        azure_endpoint = os.getenv("LLM_AZURE_ENDPOINT") or self.config.azure_kwargs.azure_endpoint
-        api_version = os.getenv("LLM_AZURE_API_VERSION") or self.config.azure_kwargs.api_version
+        api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
+        azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
+        azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("LLM_AZURE_ENDPOINT")
+        api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
 
         self.client = AzureOpenAI(
             azure_deployment=azure_deployment, 
