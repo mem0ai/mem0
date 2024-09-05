@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 try:
     import anthropic
 except ImportError:
-    user_input = input("The 'together' library is required. Install it now? [y/N]: ")
+    user_input = input("The 'anthropic' library is required. Install it now? [y/N]: ")
     if user_input.lower() == 'y':
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "anthropic"])
