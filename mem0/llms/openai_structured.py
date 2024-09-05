@@ -25,7 +25,7 @@ class OpenAIStructuredLLM(LLMBase):
 
         Args:
             response: The raw response from API.
-            response_format: The format in which the response should be processed.
+            tools (list, optional): List of tools that the model can call.
 
         Returns:
             str or dict: The processed response.
