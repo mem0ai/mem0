@@ -1,4 +1,3 @@
-import json
 import logging
 from langchain_community.graphs import Neo4jGraph
 from rank_bm25 import BM25Okapi
