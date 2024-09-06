@@ -1,5 +1,5 @@
 import os
-import unittest
+import pytest
 from unittest.mock import patch
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
@@ -12,20 +12,18 @@ def use_telemetry():
         return True
     return False
 
+@pytest.fixture(autouse=True)
+def reset_env():
+    with patch.dict(os.environ, {}, clear=True):
+        yield
 
-class TestTelemetry(unittest.TestCase):
-    @patch.dict(os.environ, {'MEM0_TELEMETRY': "true"})
-    def test_telemetry_enabled(self):
-        self.assertTrue(use_telemetry())
+def test_telemetry_enabled():
+    with patch.dict(os.environ, {'MEM0_TELEMETRY': "true"}):
+        assert use_telemetry() is True
 
-    @patch.dict(os.environ, {'MEM0_TELEMETRY': "false"})
-    def test_telemetry_disabled(self):
-        self.assertFalse(use_telemetry())
+def test_telemetry_disabled():
+    with patch.dict(os.environ, {'MEM0_TELEMETRY': "false"}):
+        assert use_telemetry() is False
 
-    @patch.dict(os.environ, {}, clear=True)
-    def test_telemetry_default_disabled(self):
-        self.assertTrue(use_telemetry())
-
-if __name__ == '__main__':
-    unittest.main()
-
+def test_telemetry_default_enabled():
+    assert use_telemetry() is True
