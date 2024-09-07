@@ -334,8 +334,8 @@ Example 2: Search using date filters
 query = "What do you know about me?"
 filters = {
     "AND": [
-        {"order_date": {"gte": "2024-07-20", "lte": "2024-07-10"}},
-        {"status": "completed"}
+        {"created_at": {"gte": "2024-07-20", "lte": "2024-07-10"}},
+        {"user_id": "alex"}
     ]
 }
 client.search(query, version="v2", filters=filters)
@@ -345,8 +345,8 @@ client.search(query, version="v2", filters=filters)
 const query = "What do you know about me?";
 const filters = {
   "AND": [
-    {"order_date": {"gte": "2024-07-20", "lte": "2024-07-10"}},
-    {"status": "completed"}
+    {"created_at": {"gte": "2024-07-20", "lte": "2024-07-10"}},
+    {"user_id": "alex"}
   ]
 };
 
@@ -364,13 +364,13 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
          "filters": {
              "AND": [
                  {
-                     "order_date": {
+                     "created_at": {
                          "gte": "2024-07-20",
                          "lte": "2024-07-10"
                      }
                  },
                  {
-                     "status": "completed"
+                     "user_id": "alex"
                  }
              ]
          }
