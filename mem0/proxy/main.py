@@ -1,9 +1,10 @@
 import logging
 import subprocess
 import sys
-import httpx
-from typing import Optional, List, Union
 import threading
+from typing import List, Optional, Union
+
+import httpx
 
 try:
     import litellm
@@ -20,9 +21,9 @@ except ImportError:
         raise ImportError("The required 'litellm' library is not installed.")
         sys.exit(1)
 
-from mem0.memory.telemetry import capture_client_event
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
+from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
 
