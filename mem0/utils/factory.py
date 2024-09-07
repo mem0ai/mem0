@@ -20,7 +20,8 @@ class LlmFactory:
         "litellm": "mem0.llms.litellm.LiteLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
         "openai_structured": "mem0.llms.openai_structured.OpenAIStructuredLLM",
-        "anthropic": "mem0.llms.anthropic.AnthropicLLM"
+        "anthropic": "mem0.llms.anthropic.AnthropicLLM",
+        "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM"
     }
 
     @classmethod
