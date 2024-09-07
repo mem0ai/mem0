@@ -7,16 +7,7 @@ from typing import Dict, List, Optional, Any
 try:
     import boto3
 except ImportError:
-    user_input = input("The 'boto3' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "boto3"])
-            import boto3
-        except subprocess.CalledProcessError:
-            print("Failed to install 'boto3'. Please install it manually using 'pip install boto3'")
-            sys.exit(1)
-    else:
-        raise ImportError("The required 'boto3' library is not installed.")
+    raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig

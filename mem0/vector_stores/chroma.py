@@ -9,18 +9,7 @@ try:
     import chromadb
     from chromadb.config import Settings
 except ImportError:
-    user_input = input("The 'chromadb' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb"])
-            import chromadb
-            from chromadb.config import Settings
-        except subprocess.CalledProcessError:
-            print("Failed to install 'chromadb'. Please install it manually using 'pip install chromadb'.")
-            sys.exit(1)
-    else:
-        print("The required 'chromadb' library is not installed.")
-        sys.exit(1)
+    raise ImportError("The 'chromadb' library is required. Please install it using 'pip install chromadb'.")
 
 from mem0.vector_stores.base import VectorStoreBase
 

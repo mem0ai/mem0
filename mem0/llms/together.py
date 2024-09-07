@@ -7,17 +7,7 @@ from typing import Dict, List, Optional
 try:
     from together import Together
 except ImportError:
-    user_input = input("The 'together' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "together"])
-            from together import Together
-        except subprocess.CalledProcessError:
-            print("Failed to install 'together'. Please install it manually using 'pip install together'.")
-            sys.exit(1)
-    else:
-        print("The required 'together' library is not installed.")
-        sys.exit(1)
+    raise ImportError("The 'together' library is required. Please install it using 'pip install together'.")
 
 from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
@@ -29,9 +19,8 @@ class TogetherLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-        self.client = Together()
 
-        api_key = os.getenv("TOGETHER_API_KEY") or self.config.api_key
+        api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
         self.client = Together(api_key=api_key)
     
     def _parse_response(self, response, tools):
@@ -92,7 +81,7 @@ class TogetherLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
-        if tools:
+        if tools: # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
