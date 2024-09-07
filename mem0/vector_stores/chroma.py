@@ -1,7 +1,5 @@
-import subprocess
-import sys
 import logging
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 

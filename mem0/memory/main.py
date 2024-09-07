@@ -1,12 +1,18 @@
-import logging
+import concurrent
 import hashlib
-import uuid
-import pytz
 import json
+import logging
+import threading
+import uuid
+import warnings
 from datetime import datetime
 from typing import Any, Dict
-import warnings
+
+import pytz
 from pydantic import ValidationError
+
+from mem0.configs.base import MemoryConfig, MemoryItem
+from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
@@ -208,7 +214,7 @@ class Memory(MemoryBase):
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            added_entities = self.graph.add(data, filters)
+            self.graph.add(data, filters)
 
         return added_entities
 

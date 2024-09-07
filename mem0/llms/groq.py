@@ -1,7 +1,5 @@
-import subprocess
-import sys
-import os
 import json
+import os
 from typing import Dict, List, Optional
 
 try:
@@ -9,8 +7,8 @@ try:
 except ImportError:
     raise ImportError("The 'groq' library is required. Please install it using 'pip install groq'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class GroqLLM(LLMBase):
