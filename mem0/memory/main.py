@@ -15,7 +15,6 @@ from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
 from mem0.configs.base import MemoryItem, MemoryConfig
-import threading
 import concurrent
 
 # Setup user config
