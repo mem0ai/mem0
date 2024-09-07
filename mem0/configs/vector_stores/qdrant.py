@@ -1,5 +1,6 @@
+from typing import Any, ClassVar, Dict, Optional
+
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional, ClassVar, Dict, Any
 
 
 class QdrantConfig(BaseModel):

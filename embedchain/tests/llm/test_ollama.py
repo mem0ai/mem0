@@ -1,8 +1,8 @@
 import pytest
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 from embedchain.config import BaseLlmConfig
 from embedchain.llm.ollama import OllamaLlm
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 
 @pytest.fixture

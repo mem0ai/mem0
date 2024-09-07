@@ -1,10 +1,11 @@
-import os, json
+import json
+import os
 from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class OpenAIStructuredLLM(LLMBase):
