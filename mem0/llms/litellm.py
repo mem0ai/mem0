@@ -1,5 +1,3 @@
-import subprocess
-import sys
 import json
 from typing import Dict, List, Optional
 
@@ -8,8 +6,8 @@ try:
 except ImportError:
     raise ImportError("The 'litellm' library is required. Please install it using 'pip install litellm'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class LiteLLM(LLMBase):

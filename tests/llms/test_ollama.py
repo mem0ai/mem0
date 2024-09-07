@@ -1,8 +1,11 @@
-import pytest
 from unittest.mock import Mock, patch
-from mem0.llms.ollama import OllamaLLM
+
+import pytest
+
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.ollama import OllamaLLM
 from mem0.llms.utils.tools import ADD_MEMORY_TOOL
+
 
 @pytest.fixture
 def mock_ollama_client():

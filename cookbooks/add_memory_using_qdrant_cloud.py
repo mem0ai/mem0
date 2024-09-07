@@ -1,6 +1,8 @@
 # This example shows how to use vector config to use QDRANT CLOUD
 import os
+
 from dotenv import load_dotenv
+
 from mem0 import Memory
 
 # Loading OpenAI API Key

@@ -1,3 +1,4 @@
+import logging
 import platform
 import sys
 
@@ -5,6 +6,8 @@ from posthog import Posthog
 
 from mem0.memory.setup import get_user_id, setup_config
 
+logging.getLogger('posthog').setLevel(logging.CRITICAL + 1)
+logging.getLogger('urllib3').setLevel(logging.CRITICAL + 1)
 
 class AnonymousTelemetry:
     def __init__(self, project_api_key, host):

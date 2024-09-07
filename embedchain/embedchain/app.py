@@ -9,7 +9,6 @@ import requests
 import yaml
 from tqdm import tqdm
 
-from mem0 import Memory
 from embedchain.cache import (
     Config,
     ExactMatchEvaluation,
@@ -26,7 +25,11 @@ from embedchain.embedchain import EmbedChain
 from embedchain.embedder.base import BaseEmbedder
 from embedchain.embedder.openai import OpenAIEmbedder
 from embedchain.evaluation.base import BaseMetric
-from embedchain.evaluation.metrics import AnswerRelevance, ContextRelevance, Groundedness
+from embedchain.evaluation.metrics import (
+    AnswerRelevance,
+    ContextRelevance,
+    Groundedness,
+)
 from embedchain.factory import EmbedderFactory, LlmFactory, VectorDBFactory
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.llm.base import BaseLlm
@@ -36,6 +39,7 @@ from embedchain.utils.evaluation import EvalData, EvalMetric
 from embedchain.utils.misc import validate_config
 from embedchain.vectordb.base import BaseVectorDB
 from embedchain.vectordb.chroma import ChromaDB
+from mem0 import Memory
 
 logger = logging.getLogger(__name__)
 

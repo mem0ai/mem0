@@ -1,10 +1,11 @@
-import pytest
 from unittest.mock import Mock, patch
 
-from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
+import pytest
+
 from mem0 import Memory, MemoryClient
-from mem0.proxy.main import Mem0
-from mem0.proxy.main import Chat, Completions
+from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
+from mem0.proxy.main import Chat, Completions, Mem0
+
 
 @pytest.fixture
 def mock_memory_client():

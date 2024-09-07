@@ -1,4 +1,5 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from pydantic import BaseModel, Field, model_validator
 
 

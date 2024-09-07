@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: ruff
         name: Ruff
-        entry: ruff
+        entry: ruff check
         language: system
         types: [python]
         args: [--fix] 

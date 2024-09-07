@@ -1,18 +1,18 @@
 import os
 from typing import Optional, Union
 
+from chromadb import EmbeddingFunction, Embeddings
+
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.base import BaseEmbedder
-
-from chromadb import EmbeddingFunction, Embeddings
 
 
 class ClarifaiEmbeddingFunction(EmbeddingFunction):
     def __init__(self, config: BaseEmbedderConfig) -> None:
         super().__init__()
         try:
-            from clarifai.client.model import Model
             from clarifai.client.input import Inputs
+            from clarifai.client.model import Model
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "The required dependencies for ClarifaiEmbeddingFunction are not installed."

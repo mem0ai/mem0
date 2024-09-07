@@ -1,6 +1,9 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator, model_validator
+
 from mem0.llms.configs import LlmConfig
+
 
 class Neo4jConfig(BaseModel):
     url: Optional[str] = Field(None, description="Host address for the graph database")

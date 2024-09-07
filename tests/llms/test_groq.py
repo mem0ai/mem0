@@ -1,7 +1,10 @@
-import pytest
 from unittest.mock import Mock, patch
-from mem0.llms.groq import GroqLLM
+
+import pytest
+
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.groq import GroqLLM
+
 
 @pytest.fixture
 def mock_groq_client():

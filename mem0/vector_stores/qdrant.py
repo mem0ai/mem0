@@ -1,6 +1,6 @@
+import logging
 import os
 import shutil
-import logging
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (

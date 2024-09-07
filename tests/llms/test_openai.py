@@ -1,7 +1,10 @@
-import pytest
 from unittest.mock import Mock, patch
-from mem0.llms.openai import OpenAILLM
+
+import pytest
+
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.openai import OpenAILLM
+
 
 @pytest.fixture
 def mock_openai_client():

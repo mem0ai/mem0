@@ -1,5 +1,6 @@
 
 from unittest.mock import patch
+
 from embedchain.config import BaseEmbedderConfig
 from embedchain.embedder.huggingface import HuggingFaceEmbedder
 

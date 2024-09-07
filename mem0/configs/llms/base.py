@@ -1,8 +1,9 @@
 from abc import ABC
-from mem0.configs.base import AzureConfig
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import httpx
+
+from mem0.configs.base import AzureConfig
 
 
 class BaseLlmConfig(ABC):
