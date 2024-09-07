@@ -14,8 +14,8 @@ class OpenAIStructuredLLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-4o-2024-08-06"
 
-        api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-        base_url = os.getenv("OPENAI_API_BASE") or self.config.openai_base_url
+        api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
+        base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE")
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
 
@@ -25,7 +25,7 @@ class OpenAIStructuredLLM(LLMBase):
 
         Args:
             response: The raw response from API.
-            response_format: The format in which the response should be processed.
+            tools (list, optional): List of tools that the model can call.
 
         Returns:
             str or dict: The processed response.
