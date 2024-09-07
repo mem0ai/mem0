@@ -1,0 +1,306 @@
+---
+title: Quickstart
+---
+Mem0 offers two powerful ways to leverage our technology: [our managed platform](#mem0-platform-managed-solution) and [our open source solution](#mem0-open-source).
+
+<CardGroup cols={2}>
+  <Card title="Mem0 Platform" icon="chart-simple" href="#mem0-platform-managed-solution">
+    Better, faster, fully managed, and hassle free solution.
+  </Card>
+  <Card title="Mem0 Open Source" icon="code-branch" href="#mem0-open-source">
+    Self hosted, fully customizable, and open source.
+  </Card>
+</CardGroup>
+
+
+## Mem0 Platform (Managed Solution)
+
+Our fully managed platform provides a hassle-free way to integrate Mem0's capabilities into your AI agents and assistants. Sign up for Mem0 platform [here](https://mem0.dev/pd).
+
+Follow the steps below to get started with Mem0 Platform:
+
+1. [Install Mem0](#1-install-mem0)
+2. [Add Memories](#2-add-memories)
+3. [Retrieve Memories](#3-retrieve-memories)
+
+### 1. Install Mem0
+
+<AccordionGroup>
+<Accordion title="Install package">
+<CodeGroup>
+```bash pip
+pip install mem0ai
+```
+
+```bash npm
+npm install mem0ai
+```
+</CodeGroup>
+</Accordion>
+<Accordion title="Get API Key">
+
+1. Sign in to [Mem0 Platform](https://mem0.dev/pd-api)
+2. Copy your API Key from the dashboard
+
+![Get API Key from Mem0 Platform](/images/platform/api-key.png)
+
+</Accordion>
+</AccordionGroup>
+
+### 2. Add Memories
+
+<AccordionGroup>
+<Accordion title="Instantiate client">
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+client = MemoryClient(api_key="your-api-key")
+```
+
+```javascript JavaScript
+const MemoryClient = require('mem0ai');
+const client = new MemoryClient('your-api-key');
+```
+</CodeGroup>
+</Accordion>
+<Accordion title="Add memories">
+<CodeGroup>
+
+```python Python
+messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+]
+client.add(messages, user_id="alex")
+```
+
+```javascript JavaScript
+const messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+    {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+];
+client.add(messages, { user_id: "alex" })
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
+             {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
+         ],
+         "user_id": "alex"
+     }'
+```
+
+```json Output
+{'message': 'ok'}
+```
+</CodeGroup>
+</Accordion>
+</AccordionGroup>
+
+### 3. Retrieve Memories
+
+<AccordionGroup>
+<Accordion title="Search for relevant memories">
+<CodeGroup>
+
+```python Python
+query = "What can I cook for dinner tonight?"
+client.search(query, user_id="alex")
+```
+
+```javascript JavaScript
+const query = "What can I cook for dinner tonight?";
+client.search(query, { user_id: "alex" })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What can I cook for dinner tonight?",
+         "user_id": "alex"
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+</CodeGroup>
+
+</Accordion>
+<Accordion title="Get all memories of a user">
+
+<CodeGroup>
+
+```python Python
+user_memories = client.get_all(user_id="alex")
+```
+
+```javascript JavaScript
+client.getAll({ user_id: "alex" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
+     -H "Authorization: Token your-api-key"
+```
+
+```json Output
+[
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"是素食主义者，对坚果过敏。",
+      "agent_id":"travel-assistant",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":"None",
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+   },
+   {
+      "id":"0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+      "memory":"Will maintain personalized travel preferences for each user. Provide customized recommendations based on dietary restrictions, interests, and past interactions.",
+      "agent_id":"travel-assistant",
+      "hash":"35a305373d639b0bffc6c2a3e2eb4244",
+      "metadata":"None",
+      "created_at":"2024-07-26T00:31:03.543759-07:00",
+      "updated_at":"2024-07-26T00:31:03.543778-07:00"
+   }
+]
+```
+</CodeGroup>
+</Accordion>
+</AccordionGroup>
+
+<Card title="Mem0 Platform" icon="chart-simple" href="/platform/overview">
+  Learn more about Mem0 platform
+</Card>
+
+## Mem0 Open Source
+
+Our open-source version is available for those who prefer full control and customization. You can self-host Mem0 on your infrastructure and integrate it with your AI agents and assistants. Checkout our [GitHub repository](https://mem0.dev/gd)
+
+Follow the steps below to get started with Mem0 Open Source:
+
+1. [Install Mem0 Open Source](#1-install-mem0-open-source)
+2. [Add Memories](#2-add-memories-open-source)
+3. [Retrieve Memories](#3-retrieve-memories-open-source)
+
+### 1. Install Mem0 Open Source
+
+<AccordionGroup>
+<Accordion title="Install package">
+```bash
+pip install mem0ai
+```
+</Accordion>
+</AccordionGroup>
+
+### 2. Add Memories <a name="2-add-memories-open-source"></a>
+
+<AccordionGroup>
+<Accordion title="Instantiate client">
+```python Python
+from mem0 import Memory
+m = Memory()
+```
+</Accordion>
+<Accordion title="Add memories">
+<CodeGroup>
+```python Code
+# For a user
+result = m.add("I like to take long walks on weekends.", user_id="alice", metadata={"category": "hobbies"})
+```
+
+```json Output
+{'message': 'ok'}
+```
+</CodeGroup>
+</Accordion>
+</AccordionGroup>
+
+### 3. Retrieve Memories <a name="3-retrieve-memories-open-source"></a>
+
+<AccordionGroup>
+<Accordion title="Search for relevant memories">
+<CodeGroup>
+```python Code
+related_memories = m.search(query="Help me plan my weekend.", user_id="alice")
+```
+
+```json Output
+[
+   {
+      "id":"ea925981-272f-40dd-b576-be64e4871429",
+      "memory":"Likes to take long walks on weekends.",
+      "hash":"c8809002-25c1-4c97-a3a2-227ce9c20c53",
+      "metadata":{
+         "category":"hobbies"
+      },
+      "score":0.32116443111457704,
+      "created_at":"2024-07-26T10:29:36.630547-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+   }
+]
+```
+</CodeGroup>
+</Accordion>
+<Accordion title="Get all memories of a user">
+<CodeGroup>
+```python Code
+# Get all memories
+all_memories = m.get_all(user_id="alice")
+```
+
+```json Output
+[
+   {
+      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
+      "memory":"Likes to take long walks on weekends",
+      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
+      "metadata":"None",
+      "created_at":"2024-07-26T08:44:41.039788-07:00",
+      "updated_at":"None",
+      "user_id":"alice"
+   }
+]
+```
+</CodeGroup>
+</Accordion>
+</AccordionGroup>
+
+<Card title="Mem0 Open source" icon="code-branch" href="/open-source/overview">
+  Learn more about Mem0 open source
+</Card>

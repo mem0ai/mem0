@@ -52,6 +52,8 @@
       "group": "Get Started",
       "pages": [
         "overview",
+        "quickstart",
+        "playground",
         "features"
       ]
     },
@@ -59,7 +61,7 @@
       "group": "Platform",
       "pages": [
         "platform/overview",
-        "platform/quickstart",
+        "platform/guide",
         {
           "group": "Features",
           "pages": ["features/selective-memory", "features/custom-categories"]
