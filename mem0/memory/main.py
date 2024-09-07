@@ -199,7 +199,6 @@ class Memory(MemoryBase):
 
         return returned_memories
       
-    
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
