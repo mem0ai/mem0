@@ -23,6 +23,7 @@ class LlmConfig(BaseModel):
             "litellm",
             "azure_openai",
             "openai_structured",
+            "azure_openai_structured"
         ):
             return v
         else:
