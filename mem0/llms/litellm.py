@@ -4,12 +4,10 @@ from typing import Dict, List, Optional
 try:
     import litellm
 except ImportError:
-    raise ImportError(
-        "litellm requires extra dependencies. Install with `pip install litellm`"
-    ) from None
+    raise ImportError("The 'litellm' library is required. Please install it using 'pip install litellm'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class LiteLLM(LLMBase):
@@ -82,7 +80,7 @@ class LiteLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
-        if tools:
+        if tools: # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

@@ -6,7 +6,12 @@ from typing import Any, Optional, Union
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
-from embedchain.cache import adapt, get_gptcache_session, gptcache_data_convert, gptcache_update_cache_callback
+from embedchain.cache import (
+    adapt,
+    get_gptcache_session,
+    gptcache_data_convert,
+    gptcache_update_cache_callback,
+)
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig, BaseLlmConfig, ChunkerConfig
 from embedchain.config.base_app_config import BaseAppConfig
@@ -16,7 +21,12 @@ from embedchain.embedder.base import BaseEmbedder
 from embedchain.helpers.json_serializable import JSONSerializable
 from embedchain.llm.base import BaseLlm
 from embedchain.loaders.base_loader import BaseLoader
-from embedchain.models.data_type import DataType, DirectDataType, IndirectDataType, SpecialDataType
+from embedchain.models.data_type import (
+    DataType,
+    DirectDataType,
+    IndirectDataType,
+    SpecialDataType,
+)
 from embedchain.utils.misc import detect_datatype, is_valid_json_string
 from embedchain.vectordb.base import BaseVectorDB
 
@@ -535,7 +545,8 @@ class EmbedChain(JSONSerializable):
                 )
 
         # Send anonymous telemetry
-        self.telemetry.capture(event_name="query", properties=self._telemetry_props)
+        if self.config.collect_metrics:
+            self.telemetry.capture(event_name="query", properties=self._telemetry_props)
 
         if citations:
             if self.llm.config.token_usage:
@@ -647,7 +658,8 @@ class EmbedChain(JSONSerializable):
         self.llm.add_history(self.config.id, input_query, answer, session_id=session_id)
 
         # Send anonymous telemetry
-        self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
+        if self.config.collect_metrics:
+            self.telemetry.capture(event_name="chat", properties=self._telemetry_props)
 
         if citations:
             if self.llm.config.token_usage:
@@ -679,7 +691,8 @@ class EmbedChain(JSONSerializable):
             list[dict]: A list of dictionaries, each containing the 'context' and 'metadata' of a document.
         """
         # Send anonymous telemetry
-        self.telemetry.capture(event_name="search", properties=self._telemetry_props)
+        if self.config.collect_metrics:
+            self.telemetry.capture(event_name="search", properties=self._telemetry_props)
 
         if raw_filter and where:
             raise ValueError("You can't use both `raw_filter` and `where` together.")
@@ -729,7 +742,8 @@ class EmbedChain(JSONSerializable):
         self.db.reset()
         self.delete_all_chat_history(app_id=self.config.id)
         # Send anonymous telemetry
-        self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
+        if self.config.collect_metrics:
+            self.telemetry.capture(event_name="reset", properties=self._telemetry_props)
 
     def get_history(
         self,

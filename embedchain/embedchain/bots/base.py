@@ -3,8 +3,10 @@ from typing import Any
 from embedchain import App
 from embedchain.config import AddConfig, AppConfig, BaseLlmConfig
 from embedchain.embedder.openai import OpenAIEmbedder
-from embedchain.helpers.json_serializable import (JSONSerializable,
-                                                  register_deserializable)
+from embedchain.helpers.json_serializable import (
+    JSONSerializable,
+    register_deserializable,
+)
 from embedchain.llm.openai import OpenAILlm
 from embedchain.vectordb.chroma import ChromaDB
 

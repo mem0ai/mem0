@@ -12,25 +12,19 @@ class AzureOpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        if not self.config.model:
-            self.config.model="text-embedding-ada-002"
-        if not self.config.embedding_dims:
-            self.config.embedding_dims=1536
 
-        self.api_key=None
-        self.azure_endpoint=None
-        self.api_version = None
-
-        if os.getenv("EMBED_AZURE_OPENAI_API_KEY") and os.getenv("EMBED_AZURE_OPENAI_ENDPOINT") and os.getenv("EMBED_OPENAI_API_VERSION"):
-            
-            self.api_key = os.getenv("EMBED_AZURE_OPENAI_API_KEY")
-            self.azure_endpoint = os.getenv("EMBED_AZURE_OPENAI_ENDPOINT")
-            self.api_version = os.getenv("EMBED_OPENAI_API_VERSION")
-        else:
-            self.api_key = os.getenv("AZURE_OPENAI_API_KEY")
-            self.azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-            self.api_version = os.getenv("AZURE_OPENAI_ENDPOINT")
-        self.client = AzureOpenAI(api_version=self.api_version, api_key=self.api_key, azure_endpoint=self.azure_endpoint)
+        api_key = self.config.azure_kwargs.api_key or os.getenv("EMBEDDING_AZURE_OPENAI_API_KEY")
+        azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("EMBEDDING_AZURE_DEPLOYMENT")
+        azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("EMBEDDING_AZURE_ENDPOINT")
+        api_version = self.config.azure_kwargs.api_version or os.getenv("EMBEDDING_AZURE_API_VERSION")
+        
+        self.client = AzureOpenAI(
+            azure_deployment=azure_deployment, 
+            azure_endpoint=azure_endpoint,
+            api_version=api_version,
+            api_key=api_key,
+            http_client=self.config.http_client
+            )
 
 
     def embed(self, text):

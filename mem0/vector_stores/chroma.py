@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -7,11 +7,11 @@ try:
     import chromadb
     from chromadb.config import Settings
 except ImportError:
-    raise ImportError(
-        "Chromadb requires extra dependencies. Install with `pip install chromadb`"
-    ) from None
+    raise ImportError("The 'chromadb' library is required. Please install it using 'pip install chromadb'.")
 
 from mem0.vector_stores.base import VectorStoreBase
+
+logger = logging.getLogger(__name__)
 
 
 class OutputData(BaseModel):
@@ -140,6 +140,7 @@ class ChromaDB(VectorStoreBase):
             payloads (Optional[List[Dict]], optional): List of payloads corresponding to vectors. Defaults to None.
             ids (Optional[List[str]], optional): List of IDs corresponding to vectors. Defaults to None.
         """
+        logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
     def search(

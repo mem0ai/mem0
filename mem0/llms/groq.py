@@ -1,15 +1,14 @@
 import json
+import os
 from typing import Dict, List, Optional
 
 try:
     from groq import Groq
 except ImportError:
-    raise ImportError(
-        "Groq requires extra dependencies. Install with `pip install groq`"
-    ) from None
+    raise ImportError("The 'groq' library is required. Please install it using 'pip install groq'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class GroqLLM(LLMBase):
@@ -18,7 +17,9 @@ class GroqLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "llama3-70b-8192"
-        self.client = Groq()
+
+        api_key = self.config.api_key or os.getenv("GROQ_API_KEY")
+        self.client = Groq(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """

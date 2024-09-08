@@ -1,11 +1,13 @@
 import os
 from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
+from mem0.embeddings.configs import EmbedderConfig
+from mem0.graphs.configs import GraphStoreConfig
+from mem0.llms.configs import LlmConfig
 from mem0.memory.setup import mem0_dir
 from mem0.vector_stores.configs import VectorStoreConfig
-from mem0.llms.configs import LlmConfig
-from mem0.embeddings.configs import EmbedderConfig
 
 
 class MemoryItem(BaseModel):
@@ -46,3 +48,28 @@ class MemoryConfig(BaseModel):
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
     )
+    graph_store: GraphStoreConfig = Field(
+        description="Configuration for the graph",
+        default_factory=GraphStoreConfig,
+    )
+    version: str = Field(
+        description="The version of the API",
+        default="v1.0",
+    )
+    
+
+class AzureConfig(BaseModel):
+    """
+    Configuration settings for Azure.
+
+    Args:
+        api_key (str): The API key used for authenticating with the Azure service.
+        azure_deployment (str): The name of the Azure deployment.
+        azure_endpoint (str): The endpoint URL for the Azure service.
+        api_version (str): The version of the Azure API being used.
+    """
+
+    api_key: str = Field(description="The API key used for authenticating with the Azure service.", default=None)
+    azure_deployment : str = Field(description="The name of the Azure deployment.", default=None)
+    azure_endpoint : str = Field(description="The endpoint URL for the Azure service.", default=None)
+    api_version : str = Field(description="The version of the Azure API being used.", default=None)

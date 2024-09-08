@@ -3,9 +3,9 @@
   "name": "Mem0.ai",
   "favicon": "/logo/favicon.png",
   "colors": {
-    "primary": "#3B2FC9",
-    "light": "#6673FF",
-    "dark": "#3B2FC9",
+    "primary": "#6c60f0",
+    "light": "#E6FFA2",
+    "dark": "#a3df02",
     "background": {
       "dark": "#0f1117",
       "light": "#fff"
@@ -25,6 +25,11 @@
       "name": "Your Dashboard",
       "icon": "chart-simple",
       "url": "https://app.mem0.ai"
+    },
+    {
+      "name": "API Reference",
+      "url": "api-reference",
+      "icon": "square-terminal"
     },
     {
       "name": "Discord",
@@ -54,13 +59,21 @@
       "group": "Platform",
       "pages": [
         "platform/overview",
-        "platform/quickstart"
+        "platform/quickstart",
+        {
+          "group": "Features",
+          "pages": ["features/selective-memory", "features/custom-categories"]
+        }
       ]
     },
     {
       "group": "Open Source",
       "pages": [
         "open-source/quickstart",
+        {
+          "group": "Graph Memory",
+          "pages": ["open-source/graph_memory/overview", "open-source/graph_memory/features"]
+        },
         {
           "group": "LLMs",
           "pages": [
@@ -121,29 +134,50 @@
       ]
     },
     {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/overview",
+        {
+          "group": "Memory APIs",
+          "pages": [
+            "api-reference/memory/get-memories",
+            "api-reference/memory/add-memories",
+            "api-reference/memory/delete-memories",
+            "api-reference/memory/get-memory",
+            "api-reference/memory/update-memory",
+            "api-reference/memory/delete-memory",
+            "api-reference/memory/v1-search-memories",
+            "api-reference/memory/v2-search-memories",
+            "api-reference/memory/history-memory"
+          ]
+        },
+        {
+          "group": "Entities APIs",
+          "pages": [
+            "api-reference/entities/get-users",
+            "api-reference/entities/delete-user"
+          ]
+        }
+      ]
+    },
+    {
+      "group": "Integrations",
+      "pages": [
+        "integrations/multion",
+        "integrations/autogen",
+        "integrations/langgraph"
+      ]
+    },
+    {
       "group": "💡 Examples",
       "pages": [
         "examples/overview",
         "examples/mem0-with-ollama",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
-        "examples/langgraph",
         "examples/personal-travel-assistant"
       ]
-    },
-    {
-      "group": "Knowledge Base",
-      "pages": [
-        "knowledge-base/introduction"
-      ]
-    },
-    {
-      "group": "Integrations",
-      "pages": [
-        "integrations/multion"
-      ]
     }
-
   ],
   "footerSocials": {
     "discord": "https://mem0.ai/discord",

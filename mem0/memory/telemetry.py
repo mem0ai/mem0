@@ -1,3 +1,4 @@
+import logging
 import platform
 import sys
 
@@ -5,6 +6,8 @@ from posthog import Posthog
 
 from mem0.memory.setup import get_user_id, setup_config
 
+logging.getLogger('posthog').setLevel(logging.CRITICAL + 1)
+logging.getLogger('urllib3').setLevel(logging.CRITICAL + 1)
 
 class AnonymousTelemetry:
     def __init__(self, project_api_key, host):
@@ -53,7 +56,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
         "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
         "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
         "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
-        "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}",
+        "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}.{memory_instance.version}",
     }
     if additional_data:
         event_data.update(additional_data)

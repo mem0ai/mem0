@@ -1,7 +1,7 @@
 import importlib
 
-from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.configs.llms.base import BaseLlmConfig
 
 
 def load_class(class_type):
@@ -19,6 +19,9 @@ class LlmFactory:
         "aws_bedrock": "mem0.llms.aws_bedrock.AWSBedrockLLM",
         "litellm": "mem0.llms.litellm.LiteLLM",
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
+        "openai_structured": "mem0.llms.openai_structured.OpenAIStructuredLLM",
+        "anthropic": "mem0.llms.anthropic.AnthropicLLM",
+        "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM"
     }
 
     @classmethod
