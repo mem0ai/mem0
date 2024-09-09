@@ -161,7 +161,8 @@ class Memory(MemoryBase):
 
         function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
         new_memories_with_actions = self.llm.generate_response(
-            messages=[{"role": "user", "content": function_calling_prompt}],
+            messages=[{"role": "system", "content": "You are a helpful assistant designed to output JSON."}, 
+                      {"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
         )
         new_memories_with_actions = json.loads(new_memories_with_actions)
