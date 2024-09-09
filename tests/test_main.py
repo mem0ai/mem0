@@ -1,10 +1,12 @@
 import pytest
+import os
 from unittest.mock import Mock, patch
 from mem0.memory.main import Memory
 from mem0.configs.base import MemoryConfig
 
 @pytest.fixture(autouse=True)
 def mock_openai():
+    os.environ['OPENAI_API_KEY'] = "123"
     with patch('openai.OpenAI') as mock:
         mock.return_value = Mock()
         yield mock
