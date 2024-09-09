@@ -1,7 +1,17 @@
+import logging
 from pydantic import BaseModel
 from typing import Optional, Dict
+from mem0.vector_stores.base import VectorStoreBase
 from mem0.configs.vector_stores.milvus import MetricType
+
+try:
+    import pymilvus
+except ImportError:
+    raise ImportError("The 'pymilvus' library is required. Please install it using 'pip install pymilvus'.")
+
 from pymilvus import MilvusClient, CollectionSchema, FieldSchema, DataType
+
+logger = logging.getLogger(__name__)
 
 
 class OutputData(BaseModel):
@@ -11,13 +21,13 @@ class OutputData(BaseModel):
 
 
 
-class MilvusDB():
+class MilvusDB(VectorStoreBase):
     def __init__(self, url: str, token: str, collection_name: str, embedding_model_dims: int, metric_type: MetricType) -> None:
         """Initialize the MilvusDB database.
 
         Args:
             url (str): Full URL for Milvus/Zilliz server.
-            token (str): Token/api_key for Milvus/Zilliz server.
+            token (str): Token/api_key for Zilliz server / for local setup defaults to None.
             collection_name (str): Name of the collection (defaults to mem0).
             embedding_model_dims (int): Dimensions of the embedding model (defaults to 1536).
             metric_type (MetricType): Metric type for similarity search (defaults to L2).
@@ -39,7 +49,7 @@ class MilvusDB():
     def create_col(
         self, collection_name : str, vector_size : str, metric_type : MetricType = MetricType.COSINE
     ) -> None:
-        """Create a new collection with index_type IVF_FLAT.
+        """Create a new collection with index_type AUTOINDEX.
 
         Args:
             collection_name (str): Name of the collection (defaults to mem0).
@@ -48,7 +58,7 @@ class MilvusDB():
         """
 
         if self.client.has_collection(collection_name):
-            print(f"Collection {collection_name} already exists. Skipping creation.")
+            logger.info(f"Collection {collection_name} already exists. Skipping creation.")
         else:
             fields = [
                 FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
@@ -61,7 +71,7 @@ class MilvusDB():
             index = self.client.prepare_index_params(
                 field_name="vectors",
                 metric_type=metric_type,
-                index_type="IVF_FLAT",
+                index_type="AUTOINDEX",
                 index_name="vector_index",
                 params={ "nlist": 128 }
             )

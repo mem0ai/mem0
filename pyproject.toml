@@ -25,7 +25,6 @@ sqlalchemy = "^2.0.31"
 langchain-community = "^0.2.12"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
-pymilvus = "^2.4.6"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
@@ -35,8 +34,6 @@ ruff = "^0.4.8"
 isort = "^5.13.2"
 pytest = "^8.2.2"
 
-
-[tool.poetry.group.optional.dependencies]
 
 [build-system]
 requires = ["poetry-core"]
