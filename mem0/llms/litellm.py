@@ -15,7 +15,7 @@ class LiteLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4o-mini"
 
     def _parse_response(self, response, tools):
         """

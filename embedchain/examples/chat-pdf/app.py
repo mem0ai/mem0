@@ -17,7 +17,7 @@ def embedchain_bot(db_path, api_key):
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "model": "gpt-3.5-turbo-1106",
+                    "model": "gpt-4o-mini",
                     "temperature": 0.5,
                     "max_tokens": 1000,
                     "top_p": 1,
