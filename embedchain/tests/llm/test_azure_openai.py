@@ -108,7 +108,7 @@ def test_get_llm_model_answer_with_http_client_proxies():
             max_tokens=50,
             stream=False,
             system_prompt="System prompt",
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             http_client_proxies="http://testproxy.mem0.net:8000",
         )
 
@@ -118,7 +118,7 @@ def test_get_llm_model_answer_with_http_client_proxies():
         mock_chat.assert_called_once_with(
             deployment_name="azure_deployment",
             openai_api_version="2024-02-01",
-            model_name="gpt-3.5-turbo",
+            model_name="gpt-4o-mini",
             temperature=0.7,
             max_tokens=50,
             streaming=False,
@@ -144,7 +144,7 @@ def test_get_llm_model_answer_with_http_async_client_proxies():
             max_tokens=50,
             stream=False,
             system_prompt="System prompt",
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             http_async_client_proxies={"http://": "http://testproxy.mem0.net:8000"},
         )
 
@@ -154,7 +154,7 @@ def test_get_llm_model_answer_with_http_async_client_proxies():
         mock_chat.assert_called_once_with(
             deployment_name="azure_deployment",
             openai_api_version="2024-02-01",
-            model_name="gpt-3.5-turbo",
+            model_name="gpt-4o-mini",
             temperature=0.7,
             max_tokens=50,
             streaming=False,
