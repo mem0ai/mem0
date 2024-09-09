@@ -1,4 +1,3 @@
-from mem0.llms.openai import OpenAILLM
 
 UPDATE_GRAPH_PROMPT = """
 You are an AI expert specializing in graph memory management and optimization. Your task is to analyze existing graph memories alongside new information, and update the relationships in the memory list to ensure the most accurate, current, and coherent representation of knowledge.
@@ -67,42 +66,3 @@ def get_update_memory_messages(existing_memories, memory):
             "content": get_update_memory_prompt(existing_memories, memory, UPDATE_GRAPH_PROMPT),
         },
     ]
-
-def get_search_results(entities, query):
-
-    search_graph_prompt = f"""
-You are an expert at searching through graph entity memories. 
-When provided with existing graph entities and a query, your task is to search through the provided graph entities to find the most relevant information from the graph entities related to the query.
-The output should be from the graph entities only.
-
-Here are the details of the task:
-- Existing Graph Entities (source -> relationship -> target):
-{entities}
-
-- Query: {query}
-
-The output should be from the graph entities only.
-The output should be in the following JSON format:
-{{
-    "search_results": [
-        {{
-            "source_node": "source_node",
-            "relationship": "relationship",
-            "target_node": "target_node"
-        }}
-    ]
-}}
-"""
-
-    messages = [
-        {
-            "role": "user",
-            "content": search_graph_prompt,
-        }
-    ]
-
-    llm = OpenAILLM()
-
-    results = llm.generate_response(messages=messages, response_format={"type": "json_object"})
-
-    return results
