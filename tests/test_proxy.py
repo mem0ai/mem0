@@ -66,7 +66,7 @@ def test_completions_create(mock_memory_client, mock_litellm):
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     
     response = completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=messages,
         user_id="test_user",
         temperature=0.7
@@ -77,7 +77,7 @@ def test_completions_create(mock_memory_client, mock_litellm):
     
     mock_litellm.completion.assert_called_once()
     call_args = mock_litellm.completion.call_args[1]
-    assert call_args['model'] == "gpt-3.5-turbo"
+    assert call_args['model'] == "gpt-4o-mini"
     assert len(call_args['messages']) == 2 
     assert call_args['temperature'] == 0.7
     
@@ -95,7 +95,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     
     completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=messages,
         user_id="test_user"
     )
