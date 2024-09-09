@@ -103,7 +103,7 @@ beautifulsoup4 = "^4.12.2"
 pypdf = "^4.0.1"
 gptcache = "^0.1.43"
 pysbd = "^0.3.4"
-mem0ai = "^0.0.20"
+mem0ai = "^0.1.3"
 tiktoken = { version = "^0.7.0", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.3.0", optional = true }
