@@ -1,3 +1,4 @@
+import logging
 import platform
 import sys
 import os
@@ -14,6 +15,8 @@ if isinstance(MEM0_TELEMETRY, str):
 if not isinstance(MEM0_TELEMETRY, bool):
     raise ValueError("MEM0_TELEMETRY must be a boolean value.")
 
+logging.getLogger('posthog').setLevel(logging.CRITICAL + 1)
+logging.getLogger('urllib3').setLevel(logging.CRITICAL + 1)
 
 class AnonymousTelemetry:
     def __init__(self, project_api_key, host):

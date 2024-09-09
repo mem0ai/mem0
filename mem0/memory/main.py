@@ -1,22 +1,24 @@
-import logging
+import concurrent
 import hashlib
-import uuid
-import pytz
 import json
+import logging
+import threading
+import uuid
+import warnings
 from datetime import datetime
 from typing import Any, Dict
-import warnings
+
+import pytz
 from pydantic import ValidationError
+
+from mem0.configs.base import MemoryConfig, MemoryItem
+from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
-from mem0.configs.prompts import get_update_memory_messages
-from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
-from mem0.configs.base import MemoryItem, MemoryConfig
-import threading
-import concurrent
+from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
 setup_config()
@@ -154,7 +156,7 @@ class Memory(MemoryBase):
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
-                        memory_id = self._create_memory(data=resp["text"], metadata=metadata)
+                        self._create_memory(data=resp["text"], metadata=metadata)
                     elif resp["event"] == "UPDATE":
                         self._update_memory(memory_id=resp["id"], data=resp["text"], metadata=metadata)
                     elif resp["event"] == "DELETE":
@@ -175,7 +177,7 @@ class Memory(MemoryBase):
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            added_entities = self.graph.add(data, filters)
+            self.graph.add(data, filters)
 
     def get(self, memory_id):
         """
