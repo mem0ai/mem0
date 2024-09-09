@@ -1,4 +1,3 @@
-from mem0.llms.openai import OpenAILLM
 
 UPDATE_GRAPH_PROMPT = """
 You are an AI expert specializing in graph memory management and optimization. Your task is to analyze existing graph memories alongside new information, and update the relationships in the memory list to ensure the most accurate, current, and coherent representation of knowledge.

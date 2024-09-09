@@ -154,11 +154,6 @@ class MemoryGraph:
                 except Exception as e:
                     logger.error(f"Error in search tool: {e}")
 
-                # try:
-                #     relation_list.extend(item['arguments']['relations'])
-                # except Exception as e:
-                #     logger.error(f"Error in search tool: {e}")
-
         node_list = list(set(node_list))
         relation_list = list(set(relation_list))
 

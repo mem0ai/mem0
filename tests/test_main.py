@@ -1,8 +1,7 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from mem0.memory.main import Memory
 from mem0.configs.base import MemoryConfig
-import concurrent.futures
 
 @pytest.fixture(autouse=True)
 def mock_openai():
@@ -15,7 +14,6 @@ def memory_instance():
     with patch('mem0.utils.factory.EmbedderFactory') as mock_embedder, \
          patch('mem0.utils.factory.VectorStoreFactory') as mock_vector_store, \
          patch('mem0.utils.factory.LlmFactory') as mock_llm, \
-         patch('mem0.memory.storage.SQLiteManager') as mock_db, \
          patch('mem0.memory.telemetry.capture_event'), \
          patch('mem0.memory.graph_memory.MemoryGraph'):
         mock_embedder.create.return_value = Mock()
@@ -217,6 +215,3 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
         memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"})
     else:
         memory_instance.graph.get_all.assert_not_called()
-
-if __name__ == "__main__":
-    pytest.main()
