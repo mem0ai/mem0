@@ -1,24 +1,13 @@
-import subprocess
-import sys
 import json
 from typing import Dict, List, Optional
 
 try:
     import litellm
 except ImportError:
-    user_input = input("The 'litellm' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
-            import litellm
-        except subprocess.CalledProcessError:
-            print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
-            sys.exit(1)
-    else:
-        raise ImportError("The required 'litellm' library is not installed.")
+    raise ImportError("The 'litellm' library is required. Please install it using 'pip install litellm'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class LiteLLM(LLMBase):
@@ -26,7 +15,7 @@ class LiteLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4o-mini"
 
     def _parse_response(self, response, tools):
         """
@@ -91,7 +80,7 @@ class LiteLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
-        if tools:
+        if tools: # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

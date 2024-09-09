@@ -1,3 +1,5 @@
+# TODO: Remove these tools if no issues are found for new memory addition logic
+
 ADD_MEMORY_TOOL = {
     "type": "function",
     "function": {

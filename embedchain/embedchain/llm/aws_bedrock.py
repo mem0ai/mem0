@@ -45,8 +45,9 @@ class AWSBedrockLlm(BaseLlm):
         }
 
         if config.stream:
-            from langchain.callbacks.streaming_stdout import \
-                StreamingStdOutCallbackHandler
+            from langchain.callbacks.streaming_stdout import (
+                StreamingStdOutCallbackHandler,
+            )
 
             kwargs["streaming"] = True
             kwargs["callbacks"] = [StreamingStdOutCallbackHandler()]
