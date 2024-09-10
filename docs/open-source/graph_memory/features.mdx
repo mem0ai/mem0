@@ -19,11 +19,13 @@ from mem0 import Memory
 
 config = {
     "graph_store": {
-        "provider": "neo4j",
+        "provider": "falkordb",
         "config": {
-            "url": "neo4j+s://xxx",
-            "username": "neo4j",
-            "password": "xxx"
+            "Database": "falkordb",
+            "host": "---"
+            "username": "---",
+            "password": "---",
+            "port": "---"
         },
         "custom_prompt": "Please only extract entities containing sports related relationships and nothing else.",
     },

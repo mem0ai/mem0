@@ -71,3 +71,20 @@ class VectorStoreFactory:
             return vector_store_instance(**config)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
+
+class GraphFactory:
+    provider_to_class = {
+        "falkordb": "langchain_community.graphs.FalkorDBGraph",
+        "neo4j": "langchain_community.graphs.Neo4jGraph",
+    }
+
+    @classmethod
+    def create(cls, provider_name, config):
+        class_type = cls.provider_to_class.get(provider_name)
+        if class_type:
+            if not isinstance(config, dict):
+                config = config.model_dump()
+            graph_instance = load_class(class_type)
+            return graph_instance(**config) 
+        else:
+            raise ValueError(f"Unsupported graph provider: {provider_name}")

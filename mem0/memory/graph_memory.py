@@ -1,6 +1,5 @@
 import logging
 
-from langchain_community.graphs import Neo4jGraph
 from rank_bm25 import BM25Okapi
 
 from mem0.graphs.tools import (
@@ -16,14 +15,16 @@ from mem0.graphs.tools import (
     SEARCH_STRUCT_TOOL
 )
 from mem0.graphs.utils import EXTRACT_ENTITIES_PROMPT, get_update_memory_messages
-from mem0.utils.factory import EmbedderFactory, LlmFactory
+from mem0.utils.factory import EmbedderFactory, LlmFactory, GraphFactory
 
 logger = logging.getLogger(__name__)
 
 class MemoryGraph:
     def __init__(self, config):
         self.config = config
-        self.graph = Neo4jGraph(self.config.graph_store.config.url, self.config.graph_store.config.username, self.config.graph_store.config.password)
+        self.graph = GraphFactory.create(
+            self.config.graph_store.provider, self.config.graph_store.config
+            )
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider, self.config.embedder.config
         )
@@ -138,7 +139,7 @@ class MemoryGraph:
                 "user_id": filters["user_id"]
             }
 
-            _ = self.graph.query(cypher, params=params)
+            _ = self.graph_query(cypher, params=params)
 
         logger.info(f"Added {len(to_be_added)} new memories to the graph")
 
@@ -202,7 +203,7 @@ class MemoryGraph:
             ORDER BY similarity DESC
             """
             params = {"n_embedding": n_embedding, "threshold": self.threshold, "user_id": filters["user_id"]}
-            ans = self.graph.query(cypher_query, params=params)
+            ans = self.graph_query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
@@ -252,7 +253,7 @@ class MemoryGraph:
         DETACH DELETE n
         """
         params = {"user_id": filters["user_id"]}
-        self.graph.query(cypher, params=params)
+        self.graph_query(cypher, params=params)
 
     
     def get_all(self, filters):
@@ -272,7 +273,7 @@ class MemoryGraph:
         MATCH (n {user_id: $user_id})-[r]->(m {user_id: $user_id})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         """
-        results = self.graph.query(query, params={"user_id": filters["user_id"]})
+        results = self.graph_query(query, params={"user_id": filters["user_id"]})
 
         final_results = []
         for result in results:
@@ -309,14 +310,14 @@ class MemoryGraph:
         MERGE (n1 {name: $source, user_id: $user_id})
         MERGE (n2 {name: $target, user_id: $user_id})
         """
-        self.graph.query(check_and_create_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
+        self.graph_query(check_and_create_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
 
         # Delete any existing relationship between the nodes
         delete_query = """
         MATCH (n1 {name: $source, user_id: $user_id})-[r]->(n2 {name: $target, user_id: $user_id})
         DELETE r
         """
-        self.graph.query(delete_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
+        self.graph_query(delete_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
 
         # Create the new relationship
         create_query = f"""
@@ -324,7 +325,24 @@ class MemoryGraph:
         CREATE (n1)-[r:{relationship}]->(n2)
         RETURN n1, r, n2
         """
-        result = self.graph.query(create_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
+        result = self.graph_query(create_query, params={"source": source, "target": target, "user_id": filters["user_id"]})
 
         if not result:
             raise Exception(f"Failed to update or create relationship between {source} and {target}")
+    
+    def graph_query(self, query, params):
+        """
+        Execute a Cypher query on the graph database.
+        For FalkorDB, the graph is switched based on the user_id.
+
+        Args:
+            query (str): The Cypher query to execute.
+            params (dict): A dictionary containing params to be applied during the query.
+
+        Returns:
+            list: A list of dictionaries containing the results of the query.
+        """
+        if self.config.graph_store.provider == "falkordb":
+            self.graph.switch_graph(params["user_id"])
+        
+        return self.graph.query(query, params=params)
