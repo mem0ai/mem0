@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
+
+        self.custom_prompt = self.config.custom_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider, self.config.embedder.config
         )
@@ -131,7 +133,11 @@ class Memory(MemoryBase):
     def _add_to_vector_store(self, messages, metadata, filters):
         parsed_messages = parse_messages(messages)
 
-        system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+        if self.custom_prompt:
+            system_prompt=self.custom_prompt
+            user_prompt=f"Input: {parsed_messages}"
+        else:
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
         response = self.llm.generate_response(
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],

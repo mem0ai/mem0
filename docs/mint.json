@@ -131,7 +131,7 @@
         },
         {
           "group": "Features",
-          "pages": ["features/openai_compatibility"]
+          "pages": ["features/openai_compatibility", "features/custom-prompts"]
         }
       ]
     },
