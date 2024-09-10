@@ -59,6 +59,7 @@ class VectorStoreFactory:
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
+        "milvus": "mem0.vector_stores.milvus.MilvusDB"
     }
 
     @classmethod

@@ -16,6 +16,7 @@ class VectorStoreConfig(BaseModel):
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
+        "milvus" : "MilvusDBConfig"
     }
 
     @model_validator(mode="after")
