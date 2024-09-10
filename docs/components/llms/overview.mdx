@@ -24,3 +24,27 @@ To view all supported llms, visit the [Supported LLMs](./models).
     <Card title="Google AI" href="/components/llms/models/google_ai"></Card>
     <Card title="AWS bedrock" href="/components/llms/models/aws_bedrock"></Card>
 </CardGroup>
+
+## Structured vs Unstructured Outputs
+
+Mem0 supports two types of OpenAI LLM formats, each with its own strengths and use cases:
+
+### Structured Outputs
+
+Structured outputs are LLMs that align with OpenAI's structured outputs model:
+
+- **Optimized for:** Returning structured responses (e.g., JSON objects)
+- **Benefits:** Precise, easily parseable data
+- **Ideal for:** Data extraction, form filling, API responses
+- **Learn more:** [OpenAI Structured Outputs Guide](https://platform.openai.com/docs/guides/structured-outputs/introduction)
+
+### Unstructured Outputs
+
+Unstructured outputs correspond to OpenAI's standard, free-form text model:
+
+- **Flexibility:** Returns open-ended, natural language responses
+- **Customization:** Use the `response_format` parameter to guide output
+- **Trade-off:** Less efficient than structured outputs for specific data needs
+- **Best for:** Creative writing, explanations, general conversation
+
+Choose the format that best suits your application's requirements for optimal performance and usability.
