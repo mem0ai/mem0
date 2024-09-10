@@ -85,7 +85,8 @@ class OllamaLLM(LLMBase):
             },
         }
         if response_format:
-            params["format"] = response_format
+            params["format"] = "json"
+
         if tools:
             params["tools"] = tools
 
