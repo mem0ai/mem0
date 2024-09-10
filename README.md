@@ -2,6 +2,9 @@
   <a href="https://github.com/mem0ai/mem0">
   <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
+<p align="center"><a href=https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps target='_blank'><img alt=Launch YC: Mem0 - Open Source Memory Layer for AI Apps src=https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps/upvote_embed.svg/></a></p>
+
+
   <p align="center">
     <a href="https://mem0.ai">Learn more</a>
     ·
