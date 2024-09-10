@@ -35,8 +35,6 @@ isort = "^5.13.2"
 pytest = "^8.2.2"
 
 
-[tool.poetry.group.optional.dependencies]
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
