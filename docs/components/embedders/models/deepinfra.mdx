@@ -1,0 +1,40 @@
+---
+title: DeepInfra
+---
+
+To use DeepInfra embedding models, set the `DEEPINFRA_TOKEN` environment variable. You can obtain the OpenAI API key from the [DeepInfra Platform](https://deepinfra.com/dash/api_keys).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["DEEPINFRA_TOKEN"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "deepinfra",
+        "config": {
+            "model": "BAAI/bge-large-en-v1.5",
+            "embedding_dims": 1024,
+            "encoding_format": "float",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring DeepInfra embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `text-embedding-3-small` |
+| `embedding_dims` | Dimensions of the embedding model | `1536` |
+| `api_key` | The OpenAI API key | `None` |
+| `encoding_format` | The encoding format of the embedding | DeepInfra
+

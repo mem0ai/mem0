@@ -1,9 +1,8 @@
 from abc import ABC
-from typing import Dict, Optional, Union
+from mem0.configs.base import AzureConfig
+from typing import Optional, Union, Dict, Literal
 
 import httpx
-
-from mem0.configs.base import AzureConfig
 
 
 class BaseEmbedderConfig(ABC):
@@ -16,6 +15,8 @@ class BaseEmbedderConfig(ABC):
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         embedding_dims: Optional[int] = None,
+        # OpenAI specific (used only in deepinfra at the moment)
+        encoding_format: Optional[Literal["float", "base64"]] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
         # Openai specific
@@ -35,6 +36,8 @@ class BaseEmbedderConfig(ABC):
         :type api_key: Optional[str], optional
         :param embedding_dims: The number of dimensions in the embedding, defaults to None
         :type embedding_dims: Optional[int], optional
+        :param encoding_format: The encoding format of the embedding, defaults to None
+        :type encoding_format: Optional[str] is base64 default for openai, optional
         :param ollama_base_url: Base URL for the Ollama API, defaults to None
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
@@ -51,6 +54,9 @@ class BaseEmbedderConfig(ABC):
         self.api_key = api_key
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
+
+        # OpenAI specific (used only in deepinfra at the moment)
+        self.encoding_format = encoding_format if encoding_format else "base64"
 
         # AzureOpenAI specific
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None

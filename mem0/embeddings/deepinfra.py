@@ -11,8 +11,10 @@ class DeepInfraEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "BAAI/bge-large-en-v1.5"
-        self.config.embedding_dims = self.config.embedding_dims or 1024
+        if not self.config.model:
+            self.config.model = "BAAI/bge-large-en-v1.5"
+            self.config.embedding_dims = 1024
+            self.config.encoding_format = "float"
 
         api_key = self.config.api_key or os.getenv("DEEPINFRA_TOKEN")
         base_url = "https://api.deepinfra.com/v1/openai"
@@ -29,7 +31,6 @@ class DeepInfraEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        print([text], self.config.model)
         return (
             self.client.embeddings.create(input=[text], model=self.config.model, encoding_format=self.config.encoding_format)
             .data[0]
