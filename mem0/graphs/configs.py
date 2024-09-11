@@ -41,7 +41,7 @@ class FalkorDBConfig(BaseModel):
         )
         if not database or not host or not username or not password or not port:
             raise ValueError(
-                "Please provide 'host', 'username', 'password' and 'port'."
+                "Please provide 'database', 'host', 'username', 'password' and 'port'."
             )
         return values
 
