@@ -11,6 +11,7 @@ class VertexAI(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "text-embedding-004"
+        self.config.embedding_dims = self.config.embedding_dims or 256
 
         credentials_path = self.config.vertex_credentials_json
 
@@ -33,6 +34,6 @@ class VertexAI(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        embeddings = self.model.get_embeddings(texts=[text])
+        embeddings = self.model.get_embeddings(texts=[text], output_dimensionality= self.config.embedding_dims)
         
         return embeddings[0].values
