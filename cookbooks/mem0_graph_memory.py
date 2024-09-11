@@ -1,8 +1,6 @@
 import os
-import sys
-from dotenv import load_dotenv
-sys.path.append(os.getcwd())
 from mem0 import Memory
+from dotenv import load_dotenv
 load_dotenv()
 
 config = {
