@@ -708,8 +708,6 @@ embedder:
 import os
 from embedchain import App
 
-os.environ["AWS_ACCESS_KEY_ID"] = "xxx"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "xxx"
 os.environ["AWS_REGION"] = "us-west-2"
 
 app = App.from_config(config_path="config.yaml")
