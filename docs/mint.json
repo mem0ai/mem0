@@ -177,6 +177,24 @@
               ]
             }
           ]
+        },
+        {
+          "group": "Projects APIs",
+          "pages": [
+            "api-reference/project/get-projects",
+            "api-reference/project/get-project",
+            "api-reference/project/create-project",
+            "api-reference/project/delete-project",
+            {
+              "group": "Members APIs",
+              "pages":[
+                "api-reference/project/get-project-members",
+                "api-reference/project/add-project-member",
+                "api-reference/project/update-project-member",
+                "api-reference/project/delete-project-member"
+              ]
+            }
+          ]
         }
       ]
     },
