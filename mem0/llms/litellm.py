@@ -1,5 +1,3 @@
-import subprocess
-import sys
 import json
 from typing import Dict, List, Optional
 
@@ -8,8 +6,8 @@ try:
 except ImportError:
     raise ImportError("The 'litellm' library is required. Please install it using 'pip install litellm'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class LiteLLM(LLMBase):
@@ -17,7 +15,7 @@ class LiteLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4o-mini"
 
     def _parse_response(self, response, tools):
         """

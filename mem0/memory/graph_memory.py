@@ -1,10 +1,22 @@
-import json
 import logging
+
 from langchain_community.graphs import Neo4jGraph
 from rank_bm25 import BM25Okapi
-from mem0.utils.factory import LlmFactory, EmbedderFactory
-from mem0.graphs.utils import get_update_memory_messages, EXTRACT_ENTITIES_PROMPT
-from mem0.graphs.tools import UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL, ADD_MESSAGE_TOOL, SEARCH_TOOL
+
+from mem0.graphs.tools import (
+    ADD_MEMORY_TOOL_GRAPH,
+    ADD_MESSAGE_TOOL,
+    NOOP_TOOL,
+    SEARCH_TOOL,
+    UPDATE_MEMORY_TOOL_GRAPH,
+    UPDATE_MEMORY_STRUCT_TOOL_GRAPH, 
+    ADD_MEMORY_STRUCT_TOOL_GRAPH, 
+    NOOP_STRUCT_TOOL, 
+    ADD_MESSAGE_STRUCT_TOOL, 
+    SEARCH_STRUCT_TOOL
+)
+from mem0.graphs.utils import EXTRACT_ENTITIES_PROMPT, get_update_memory_messages
+from mem0.utils.factory import EmbedderFactory, LlmFactory
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +28,13 @@ class MemoryGraph:
             self.config.embedder.provider, self.config.embedder.config
         )
 
+        self.llm_provider = "openai_structured"
         if self.config.llm.provider:
-            llm_provider = self.config.llm.provider
+            self.llm_provider = self.config.llm.provider
         if self.config.graph_store.llm:
-            llm_provider = self.config.graph_store.llm.provider
-        else:
-            llm_provider = "openai_structured"
+            self.llm_provider = self.config.graph_store.llm.provider
 
-        self.llm = LlmFactory.create(llm_provider, self.config.llm.config)
+        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -33,10 +44,7 @@ class MemoryGraph:
 
         Args:
             data (str): The data to add to the graph.
-            stored_memories (list): A list of stored memories.
-
-        Returns:
-            dict: A dictionary containing the entities added to the graph.
+            filters (dict): A dictionary containing filters to be applied during the addition.
         """
 
         # retrieve the search results
@@ -53,9 +61,13 @@ class MemoryGraph:
                 {"role": "user", "content": data},
         ]
 
+        _tools = [ADD_MESSAGE_TOOL]
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
+            _tools = [ADD_MESSAGE_STRUCT_TOOL]
+
         extracted_entities = self.llm.generate_response(
             messages=messages,
-            tools = [ADD_MESSAGE_TOOL],
+            tools = _tools,
         )
 
         if extracted_entities['tool_calls']:
@@ -67,9 +79,13 @@ class MemoryGraph:
 
         update_memory_prompt = get_update_memory_messages(search_output, extracted_entities)
 
+        _tools=[UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
+        if self.llm_provider in ["azure_openai_structured","openai_structured"]:
+            _tools = [UPDATE_MEMORY_STRUCT_TOOL_GRAPH, ADD_MEMORY_STRUCT_TOOL_GRAPH, NOOP_STRUCT_TOOL]
+
         memory_updates = self.llm.generate_response(
             messages=update_memory_prompt,
-            tools=[UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL],
+            tools=_tools,
         )
 
         to_be_added = []
@@ -82,12 +98,20 @@ class MemoryGraph:
             elif item['name'] == "noop":
                 continue
 
+        returned_entities = []
+
         for item in to_be_added:
             source = item['source'].lower().replace(" ", "_")
             source_type = item['source_type'].lower().replace(" ", "_")
             relation = item['relationship'].lower().replace(" ", "_")
             destination = item['destination'].lower().replace(" ", "_")
             destination_type = item['destination_type'].lower().replace(" ", "_")
+
+            returned_entities.append({
+                "source" : source,
+                "relationship" : relation,
+                "target" : destination
+            })
 
             # Create embeddings
             source_embedding = self.embedding_model.embed(source)
@@ -118,14 +142,18 @@ class MemoryGraph:
 
         logger.info(f"Added {len(to_be_added)} new memories to the graph")
 
+        return returned_entities
 
     def _search(self, query, filters):
+        _tools = [SEARCH_TOOL]
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
+            _tools = [SEARCH_STRUCT_TOOL]
         search_results = self.llm.generate_response(
             messages=[
                 {"role": "system", "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source node. Extract the entities."},
                 {"role": "user", "content": query},
             ],
-            tools = [SEARCH_TOOL]
+            tools = _tools
         )
 
         node_list = []
@@ -133,8 +161,10 @@ class MemoryGraph:
 
         for item in search_results['tool_calls']:
             if item['name'] == "search":
-                node_list.extend(item['arguments']['nodes'])
-                relation_list.extend(item['arguments']['relations'])
+                try:
+                    node_list.extend(item['arguments']['nodes'])
+                except Exception as e:
+                    logger.error(f"Error in search tool: {e}")
 
         node_list = list(set(node_list))
         relation_list = list(set(relation_list))
@@ -184,6 +214,7 @@ class MemoryGraph:
 
         Args:
             query (str): Query to search for.
+            filters (dict): A dictionary containing filters to be applied during the search.
 
         Returns:
             dict: A dictionary containing:
@@ -206,8 +237,8 @@ class MemoryGraph:
         for item in reranked_results:
             search_results.append({
                 "source": item[0],
-                "relation": item[1],
-                "destination": item[2]
+                "relationship": item[1],
+                "target": item[2]
             })
 
         logger.info(f"Returned {len(search_results)} search results")
@@ -229,7 +260,7 @@ class MemoryGraph:
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
         Args:
-            all_memories (list): A list of dictionaries, each containing:
+            filters (dict): A dictionary containing filters to be applied during the retrieval.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'contexts': The base data store response for each memory.
@@ -264,6 +295,7 @@ class MemoryGraph:
             source (str): The name of the source node.
             target (str): The name of the target node.
             relationship (str): The type of the relationship.
+            filters (dict): A dictionary containing filters to be applied during the update.
 
         Raises:
             Exception: If the operation fails.

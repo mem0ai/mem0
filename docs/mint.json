@@ -52,6 +52,8 @@
       "group": "Get Started",
       "pages": [
         "overview",
+        "quickstart",
+        "playground",
         "features"
       ]
     },
@@ -129,7 +131,7 @@
         },
         {
           "group": "Features",
-          "pages": ["features/openai_compatibility"]
+          "pages": ["features/openai_compatibility", "features/custom-prompts"]
         }
       ]
     },

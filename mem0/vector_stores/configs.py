@@ -1,4 +1,5 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -15,6 +16,7 @@ class VectorStoreConfig(BaseModel):
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
+        "milvus" : "MilvusDBConfig"
     }
 
     @model_validator(mode="after")
