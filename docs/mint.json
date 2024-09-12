@@ -159,6 +159,24 @@
             "api-reference/entities/get-users",
             "api-reference/entities/delete-user"
           ]
+        },
+        {
+          "group": "Organizations APIs",
+          "pages": [
+            "api-reference/organization/get-orgs",
+            "api-reference/organization/get-org",
+            "api-reference/organization/create-org",
+            "api-reference/organization/delete-org",
+            {
+              "group": "Members APIs",
+              "pages": [
+                "api-reference/organization/get-org-members",
+                "api-reference/organization/add-org-member",
+                "api-reference/organization/update-org-member",
+                "api-reference/organization/delete-org-member"
+              ]
+            }
+          ]
         }
       ]
     },
