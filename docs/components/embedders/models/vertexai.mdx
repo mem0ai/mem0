@@ -1,0 +1,35 @@
+### Vertex AI
+
+To use Google Cloud's Vertex AI for text embedding models, set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to point to the path of your service account's credentials JSON file. These credentials can be created in the [Google Cloud Console](https://console.cloud.google.com/).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+# Set the path to your Google Cloud credentials JSON file
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/your/credentials.json"
+
+config = {
+    "embedder": {
+        "provider": "vertexai",
+        "config": {
+            "model": "text-embedding-004"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring the Vertex AI embedder:
+
+| Parameter                 | Description                                      | Default Value        |
+| ------------------------- | ------------------------------------------------ | -------------------- |
+| `model`                   | The name of the Vertex AI embedding model to use | `text-embedding-004` |
+| `vertex_credentials_json` | Path to the Google Cloud credentials JSON file   | `None`               |
+| `embedding_dims`          | Dimensions of the embedding model                | `256`                |
