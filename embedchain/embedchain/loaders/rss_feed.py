@@ -28,7 +28,9 @@ class RSSFeedLoader(BaseLoader):
     @staticmethod
     def get_rss_content(url: str):
         try:
-            from langchain_community.document_loaders import RSSFeedLoader as LangchainRSSFeedLoader
+            from langchain_community.document_loaders import (
+                RSSFeedLoader as LangchainRSSFeedLoader,
+            )
         except ImportError:
             raise ImportError(
                 """RSSFeedLoader file requires extra dependencies.

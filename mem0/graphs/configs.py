@@ -2,6 +2,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from mem0.llms.configs import LlmConfig
+
+
 class Neo4jConfig(BaseModel):
     url: Optional[str] = Field(None, description="Host address for the graph database")
     username: Optional[str] = Field(None, description="Username for the graph database")
@@ -30,6 +33,14 @@ class GraphStoreConfig(BaseModel):
         description="Configuration for the specific data store",
         default=None
     )
+    llm: Optional[LlmConfig] = Field(
+        description="LLM configuration for querying the graph store",
+        default=None
+    )
+    custom_prompt: Optional[str] = Field(
+        description="Custom prompt to fetch entities from the given text",
+        default=None
+    )
 
     @field_validator("config")
     def validate_config(cls, v, values):
@@ -38,3 +49,4 @@ class GraphStoreConfig(BaseModel):
             return Neo4jConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
+        

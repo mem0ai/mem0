@@ -12,7 +12,7 @@ install:
 
 install_all:
 	poetry install
-	poetry run pip install groq together boto3 litellm ollama
+	poetry run pip install groq together boto3 litellm ollama sentence_transformers
 
 # Format code with ruff
 format:

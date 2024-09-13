@@ -2,6 +2,9 @@
   <a href="https://github.com/mem0ai/mem0">
   <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
+<p align="center"><a href=https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps target='_blank'><img alt=Launch YC: Mem0 - Open Source Memory Layer for AI Apps src=https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps/upvote_embed.svg/></a></p>
+
+
   <p align="center">
     <a href="https://mem0.ai">Learn more</a>
     ·
@@ -16,6 +19,12 @@
   <a href="https://pepy.tech/project/mem0ai">
     <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads" >
   </a>
+  <a href="https://pypi.org/project/mem0ai" target="_blank">
+        <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
+    </a>
+    <a href="https://pypi.org/project/mem0ai" target="_blank">
+        <img src="https://img.shields.io/pypi/pyversions/mem0ai.svg?color=%2334D058" alt="Supported Python versions">
+    </a>
   <a href="https://www.ycombinator.com/companies/mem0">
     <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
   </a>
@@ -28,7 +37,6 @@
 
 <!-- Start of Selection -->
 <p style="display: flex;">
-  <img src="https://media.tenor.com/K3j9pwWlME0AAAAi/fire-flame.gif" alt="Graph Memory Integration" style="width: 25px; margin-right: 10px;" />
   <span style="font-size: 1.2em;">New Feature: Introducing Graph Memory. Check out our <a href="https://docs.mem0.ai/open-source/graph-memory" target="_blank">documentation</a>.</span>
 </p>
 <!-- End of Selection -->
@@ -134,7 +142,7 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 ```python
 # 4. Get all memories
 all_memories = m.get_all()
-memory_id = all_memories[0]["id"] # get a memory_id
+memory_id = all_memories["memories"][0] ["id"] # get a memory_id
 
 # All memory items --> 'Likes to play tennis on weekends.' and 'Looking for online suggestions.'
 ```

@@ -1,11 +1,11 @@
-import os
 import json
+import os
 from typing import Dict, List, Optional
 
 from openai import AzureOpenAI
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class AzureOpenAILLM(LLMBase):
@@ -15,11 +15,20 @@ class AzureOpenAILLM(LLMBase):
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
             self.config.model = "gpt-4o"
-        self.client = AzureOpenAI()
-        
-        api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
-        self.client = AzureOpenAI(api_key=api_key)
+            
+        api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
+        azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
+        azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("LLM_AZURE_ENDPOINT")
+        api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
 
+        self.client = AzureOpenAI(
+            azure_deployment=azure_deployment, 
+            azure_endpoint=azure_endpoint,
+            api_version=api_version,
+            api_key=api_key,
+            http_client=self.config.http_client
+            )
+        
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -78,7 +87,7 @@ class AzureOpenAILLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
-        if tools:
+        if tools: # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

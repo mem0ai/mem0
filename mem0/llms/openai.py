@@ -1,11 +1,11 @@
-import os
 import json
+import os
 from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class OpenAILLM(LLMBase):
@@ -13,7 +13,7 @@ class OpenAILLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4o-mini"
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
@@ -21,8 +21,9 @@ class OpenAILLM(LLMBase):
                 base_url=self.config.openrouter_base_url,
             )
         else:
-            api_key = os.getenv("OPENAI_API_KEY") or self.config.api_key
-            self.client = OpenAI(api_key=api_key)
+            api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
+            base_url = os.getenv("OPENAI_API_BASE") or self.config.openai_base_url
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def _parse_response(self, response, tools):
         """
@@ -99,7 +100,7 @@ class OpenAILLM(LLMBase):
 
         if response_format:
             params["response_format"] = response_format
-        if tools:
+        if tools: # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

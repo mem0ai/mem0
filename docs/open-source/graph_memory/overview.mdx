@@ -1,5 +1,5 @@
 ---
-title: Graph Memory
+title: Overview
 description: 'Enhance your memory system with graph-based knowledge representation and retrieval'
 ---
 
@@ -7,15 +7,39 @@ Mem0 now supports **Graph Memory**.
 With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. 
 This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
 
+Try Graph Memory on Google Colab. 
+<a target="_blank" href="https://colab.research.google.com/drive/1PfIGVHnliIlG2v8cx0g45TF0US-jRPZ1?usp=sharing">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
+
+<iframe
+width="100%"
+height="400"
+src="https://www.youtube.com/embed/u_ZAqNNVtXA"
+title="YouTube video player"
+frameborder="0"
+allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+allowfullscreen
+></iframe>
 
 ## Initialize Graph Memory
 
 To initialize Graph Memory you'll need to set up your configuration with graph store providers.
 Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
 Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*). 
+
+User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
+
+1. **Main Configuration**: If `llm` is set in the main config, it will be used for all graph operations.
+2. **Graph Store Configuration**: If `llm` is set in the graph_store config, it will override the main config `llm` and be used specifically for graph operations.
+3. **Default Configuration**: If no custom LLM is set, the default LLM (`gpt-4o-2024-08-06`) will be used for all graph operations.
+
 Here's how you can do it:
 
-```python
+
+<CodeGroup>
+```python Basic
 from mem0 import Memory
 
 config = {
@@ -32,6 +56,40 @@ config = {
 
 m = Memory.from_config(config_dict=config)
 ```
+
+```python Advanced (Custom LLM)
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://xxx",
+            "username": "neo4j",
+            "password": "xxx"
+        },
+        "llm" : {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4o-mini",
+                "temperature": 0.0,
+            }
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+```
+</CodeGroup>
 
 ## Graph Operations
 The Mem0's graph supports the following operations:
@@ -135,7 +193,7 @@ Below are the steps to add memories and visualize the graph:
 ```python
 m.add("I like going to hikes", user_id="alice123")
 ```
-![Graph Memory Visualization](../images/graph_memory/graph_example1.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example1.png)
 
 </Step>
 <Step title="Add memory 'I love to play badminton'">
@@ -144,7 +202,7 @@ m.add("I like going to hikes", user_id="alice123")
 ```python
 m.add("I love to play badminton", user_id="alice123")
 ```
-![Graph Memory Visualization](../images/graph_memory/graph_example2.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example2.png)
 
 </Step>
 
@@ -153,7 +211,7 @@ m.add("I love to play badminton", user_id="alice123")
 ```python
 m.add("I hate playing badminton", user_id="alice123")
 ```
-![Graph Memory Visualization](../images/graph_memory/graph_example3.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example3.png)
 
 </Step>
 
@@ -162,7 +220,7 @@ m.add("I hate playing badminton", user_id="alice123")
 ```python
 m.add("My friend name is john and john has a dog named tommy", user_id="alice123")
 ```
-![Graph Memory Visualization](../images/graph_memory/graph_example4.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example4.png)
 
 </Step>
 
@@ -171,7 +229,7 @@ m.add("My friend name is john and john has a dog named tommy", user_id="alice123
 ```python
 m.add("My name is Alice", user_id="alice123")
 ```
-![Graph Memory Visualization](../images/graph_memory/graph_example5.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example5.png)
 
 </Step>
 
@@ -180,7 +238,7 @@ m.add("My name is Alice", user_id="alice123")
 ```python
 m.add("John loves to hike and Harry loves to hike as well", user_id="alice123")
 ```
-![Graph Memory Visualization](../images/graph_memory/graph_example6.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example6.png)
 
 </Step>
 
@@ -190,7 +248,7 @@ m.add("John loves to hike and Harry loves to hike as well", user_id="alice123")
 m.add("My friend peter is the spiderman", user_id="alice123")
 ```
 
-![Graph Memory Visualization](../images/graph_memory/graph_example7.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example7.png)
 
 </Step>
 
@@ -220,7 +278,7 @@ m.search("What is my name?", user_id="alice123")
 
 Below graph visualization shows what nodes and relationships are fetched from the graph for the provided query.
 
-![Graph Memory Visualization](../images/graph_memory/graph_example8.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example8.png)
 
 <CodeGroup>
 ```python Code
@@ -237,10 +295,10 @@ m.search("Who is spiderman?", user_id="alice123")
 ```
 </CodeGroup>
 
-![Graph Memory Visualization](../images/graph_memory/graph_example9.png)
+![Graph Memory Visualization](/images/graph_memory/graph_example9.png)
 
 > **Note:** The Graph Memory implementation is not standalone. You will be adding/retrieving memories to the vector store and the graph store simultaneously.
 
-If you want to use a managed version of Mem0, please check out [Mem0](https://app.mem0.ai). If you have any questions, please feel free to reach out to us using one of the following methods:
+If you want to use a managed version of Mem0, please check out [Mem0](https://mem0.dev/pd). If you have any questions, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />

@@ -1,5 +1,5 @@
 ---
-title: Quickstart
+title: Guide
 description: 'Get started with Mem0 quickly!'
 ---
 
@@ -86,6 +86,12 @@ m = Memory.from_config(config_dict=config)
 ```python Code
 # For a user
 result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+
+# messages = [
+#    {"role": "user", "content": "Hi, I'm Alex. I like to play cricket on weekends."},
+#    {"role": "assistant", "content": "Hello Alex! It's great to know that you enjoy playing cricket on weekends. I'll remember that for future reference."}
+# ]
+# client.add(messages, user_id="alice")
 ```
 
 ```json Output
@@ -323,6 +329,40 @@ related_memories = client.search(query, user_id="alex")
 history = client.history(memory_id="m1")
 print(history)
 ```
+
+
+## Contributing
+
+We welcome contributions to Mem0! Here's how you can contribute:
+
+1. Fork the repository and create your branch from `main`.
+2. Clone the forked repository to your local machine.
+3. Install the project dependencies:
+
+   ```bash
+   poetry install
+   ```
+
+4. Install pre-commit hooks:
+
+   ```bash
+   pip install pre-commit  # If pre-commit is not already installed
+   pre-commit install
+   ```
+
+5. Make your changes and ensure they adhere to the project's coding standards.
+
+6. Run the tests locally:
+
+   ```bash
+   poetry run pytest
+   ```
+
+7. If all tests pass, commit your changes and push to your fork.
+8. Open a pull request with a clear title and description.
+
+Please make sure your code follows our coding conventions and is well-documented. We appreciate your contributions to make Mem0 better!
+
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 

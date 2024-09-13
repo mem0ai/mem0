@@ -24,7 +24,7 @@ def config(env_config):
         top_p=0.8,
         stream=False,
         system_prompt="System prompt",
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         http_client_proxies=None,
         http_async_client_proxies=None,
     )
@@ -211,7 +211,7 @@ def test_get_llm_model_answer_with_http_client_proxies(env_config, mocker):
         top_p=0.8,
         stream=False,
         system_prompt="System prompt",
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         http_client_proxies="http://testproxy.mem0.net:8000",
     )
 
@@ -246,7 +246,7 @@ def test_get_llm_model_answer_with_http_async_client_proxies(env_config, mocker)
         top_p=0.8,
         stream=False,
         system_prompt="System prompt",
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         http_async_client_proxies={"http://": "http://testproxy.mem0.net:8000"},
     )
 

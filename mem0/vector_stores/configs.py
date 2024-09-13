@@ -1,4 +1,5 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -15,6 +16,7 @@ class VectorStoreConfig(BaseModel):
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
+        "milvus" : "MilvusDBConfig"
     }
 
     @model_validator(mode="after")
@@ -39,7 +41,8 @@ class VectorStoreConfig(BaseModel):
                 raise ValueError(f"Invalid config type for provider {provider}")
             return self
 
-        if "path" not in config:
+        # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
+        if "path" not in config and "path" in config_class.__annotations__:
             config["path"] = f"/tmp/{provider}"
 
         self.config = config_class(**config)

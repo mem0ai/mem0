@@ -52,6 +52,8 @@
       "group": "Get Started",
       "pages": [
         "overview",
+        "quickstart",
+        "playground",
         "features"
       ]
     },
@@ -70,7 +72,10 @@
       "group": "Open Source",
       "pages": [
         "open-source/quickstart",
-        "open-source/graph-memory",
+        {
+          "group": "Graph Memory",
+          "pages": ["open-source/graph_memory/overview", "open-source/graph_memory/features"]
+        },
         {
           "group": "LLMs",
           "pages": [
@@ -126,7 +131,7 @@
         },
         {
           "group": "Features",
-          "pages": ["features/openai_compatibility"]
+          "pages": ["features/openai_compatibility", "features/custom-prompts"]
         }
       ]
     },
@@ -143,7 +148,8 @@
             "api-reference/memory/get-memory",
             "api-reference/memory/update-memory",
             "api-reference/memory/delete-memory",
-            "api-reference/memory/search-memories",
+            "api-reference/memory/v1-search-memories",
+            "api-reference/memory/v2-search-memories",
             "api-reference/memory/history-memory"
           ]
         },

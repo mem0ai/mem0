@@ -1,18 +1,18 @@
 import json
-from typing import Optional, List
+import logging
+from typing import List, Optional
+
 from pydantic import BaseModel
 
 try:
     import psycopg2
     from psycopg2.extras import execute_values
 except ImportError:
-    raise ImportError(
-        "PGVector requires extra dependencies. Install with `pip install psycopg2`"
-    ) from None
-
+    raise ImportError("The 'psycopg2' library is required. Please install it using 'pip install psycopg2'.")
 
 from mem0.vector_stores.base import VectorStoreBase
 
+logger = logging.getLogger(__name__)
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -22,7 +22,7 @@ class OutputData(BaseModel):
 
 class PGVector(VectorStoreBase):
     def __init__(
-        self, dbname, collection_name, embedding_model_dims, user, password, host, port
+        self, dbname, collection_name, embedding_model_dims, user, password, host, port, diskann
     ):
         """
         Initialize the PGVector database.
@@ -35,8 +35,10 @@ class PGVector(VectorStoreBase):
             password (str): Database password
             host (str, optional): Database host
             port (int, optional): Database port
+            diskann (bool, optional): Use DiskANN for faster search
         """
         self.collection_name = collection_name
+        self.use_diskann = diskann
 
         self.conn = psycopg2.connect(
             dbname=dbname, user=user, password=password, host=host, port=port
@@ -50,6 +52,7 @@ class PGVector(VectorStoreBase):
     def create_col(self, embedding_model_dims):
         """
         Create a new collection (table in PostgreSQL).
+        Will also initialize DiskANN index if the extension is installed.
 
         Args:
             name (str): Name of the collection.
@@ -64,6 +67,19 @@ class PGVector(VectorStoreBase):
             );
         """
         )
+
+        if self.use_diskann and embedding_model_dims < 2000:
+            # Check if vectorscale extension is installed
+            self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
+            if self.cur.fetchone():
+                # Create DiskANN index if extension is installed for faster search
+                self.cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS {self.collection_name}_vector_idx
+                    ON {self.collection_name}
+                    USING diskann (vector);
+                """
+                )
+
         self.conn.commit()
 
     def insert(self, vectors, payloads=None, ids=None):
@@ -75,6 +91,7 @@ class PGVector(VectorStoreBase):
             payloads (List[Dict], optional): List of payloads corresponding to vectors.
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
+        logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
 
         data = [
@@ -114,13 +131,13 @@ class PGVector(VectorStoreBase):
 
         self.cur.execute(
             f"""
-            SELECT id, vector <-> %s::vector AS distance, payload
+            SELECT id, vector <=> %s::vector AS distance, payload
             FROM {self.collection_name}
             {filter_clause}
             ORDER BY distance
             LIMIT %s
         """,
-            (query, *filter_params, limit),
+        (query, *filter_params, limit),
         )
 
         results = self.cur.fetchall()

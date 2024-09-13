@@ -1,0 +1,38 @@
+---
+title: Features
+description: 'Graph Memory features'
+---
+
+Graph Memory is a powerful feature that allows users to create and utilize complex relationships between pieces of information.
+
+## Graph Memory supports the following features:
+A list of features provided by Graph Memory.
+
+### Add Customize Prompt
+
+Users can add a customized prompt that will be used to extract specific entities from the given input text. 
+This allows for more targeted and relevant information extraction based on the user's needs. 
+Here's an example of how to add a customized prompt:
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://xxx",
+            "username": "neo4j",
+            "password": "xxx"
+        },
+        "custom_prompt": "Please only extract entities containing sports related relationships and nothing else.",
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+If you want to use a managed version of Mem0, please check out [Mem0](https://mem0.dev/pd). If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

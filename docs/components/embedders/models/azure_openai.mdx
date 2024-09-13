@@ -2,7 +2,7 @@
 title: Azure OpenAI
 ---
 
-To use Azure OpenAI embedding models, set the `AZURE_OPENAI_API_KEY` environment variable. You can obtain the Azure OpenAI API key from the Azure.
+To use Azure OpenAI embedding models, set the `EMBEDDING_AZURE_OPENAI_API_KEY`, `EMBEDDING_AZURE_DEPLOYMENT`, `EMBEDDING_AZURE_ENDPOINT` and `EMBEDDING_AZURE_API_VERSION` environment variables. You can obtain the Azure OpenAI API key from the Azure.
 
 ### Usage
 
@@ -10,8 +10,10 @@ To use Azure OpenAI embedding models, set the `AZURE_OPENAI_API_KEY` environment
 import os
 from mem0 import Memory
 
-os.environ["OPENAI_API_KEY"] = "your_api_key"
-os.environ["AZURE_OPENAI_API_KEY"] = "your_api_key"
+os.environ["EMBEDDING_AZURE_OPENAI_API_KEY"] = "your-api-key"
+os.environ["EMBEDDING_AZURE_DEPLOYMENT"] = "your-deployment-name"
+os.environ["EMBEDDING_AZURE_ENDPOINT"] = "your-api-base-url"
+os.environ["EMBEDDING_AZURE_API_VERSION"] = "version-to-use"
 
 
 config = {
@@ -19,6 +21,12 @@ config = {
         "provider": "azure_openai",
         "config": {
             "model": "text-embedding-3-large"
+            "azure_kwargs" : {
+                  "api_version" : "",
+                  "azure_deployment" : "",
+                  "azure_endpoint" : "",
+                  "api_key": ""
+              }
         }
     }
 }
@@ -35,4 +43,4 @@ Here are the parameters available for configuring Azure OpenAI embedder:
 | --- | --- | --- |
 | `model` | The name of the embedding model to use | `text-embedding-3-small` |
 | `embedding_dims` | Dimensions of the embedding model | `1536` |
-| `api_key` | The Azure OpenAI API key | `None` |
+| `azure_kwargs` | The Azure OpenAI configs | `config_keys` |
