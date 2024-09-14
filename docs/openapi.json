@@ -1203,6 +1203,1010 @@
 				},
 				"x-codegen-request-body-name": "data"
 			}
+		},
+		"/api/v1/orgs/organizations/": {
+			"get": {
+				"tags": [
+					"organizations"
+				],
+				"operationId": "organizations_read",
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "integer",
+												"description": "Unique identifier for the organization"
+											},
+											"org_id": {
+												"type": "string",
+												"description": "Organization's unique string identifier"
+											},
+											"name": {
+												"type": "string",
+												"description": "Name of the organization"
+											},
+											"description": {
+												"type": "string",
+												"description": "Brief description of the organization"
+											},
+											"address": {
+												"type": "string",
+												"description": "Physical address of the organization"
+											},
+											"contact_email": {
+												"type": "string",
+												"description": "Primary contact email for the organization"
+											},
+											"phone_number": {
+												"type": "string",
+												"description": "Contact phone number for the organization"
+											},
+											"website": {
+												"type": "string",
+												"description": "Official website URL of the organization"
+											},
+											"on_paid_plan": {
+												"type": "boolean",
+												"description": "Indicates whether the organization is on a paid plan"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp of when the organization was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp of when the organization was last updated"
+											},
+											"owner": {
+												"type": "integer",
+												"description": "Identifier of the organization's owner"
+											},
+											"members": {
+												"type": "array",
+												"items": {
+													"type": "integer"
+												},
+												"description": "List of member identifiers belonging to the organization"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": [
+					"organizations"
+				],
+				"description": "Create a new organization.",
+				"operationId": "create_organization",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Name of the new organization"
+									}
+								},
+								"required": ["name"]
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Successfully created a new organization",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization created successfully."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/": {
+			"get": {
+				"tags": [
+					"organizations"
+				],
+				"description": "Get a organization.",
+				"operationId": "get_organization",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "The unique identifier of the organization",
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "integer",
+											"description": "Unique identifier for the organization"
+										},
+										"org_id": {
+											"type": "string",
+											"description": "Unique organization ID"
+										},
+										"name": {
+											"type": "string",
+											"description": "Name of the organization"
+										},
+										"description": {
+											"type": "string",
+											"description": "Description of the organization"
+										},
+										"address": {
+											"type": "string",
+											"description": "Address of the organization"
+										},
+										"contact_email": {
+											"type": "string",
+											"format": "email",
+											"description": "Contact email for the organization"
+										},
+										"phone_number": {
+											"type": "string",
+											"description": "Phone number of the organization"
+										},
+										"website": {
+											"type": "string",
+											"format": "uri",
+											"description": "Website of the organization"
+										},
+										"on_paid_plan": {
+											"type": "boolean",
+											"description": "Indicates if the organization is on a paid plan"
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the organization was created"
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the organization was last updated"
+										},
+										"owner": {
+											"type": "integer",
+											"description": "Identifier of the organization's owner"
+										},
+										"members": {
+											"type": "array",
+											"items": {
+												"type": "integer"
+											},
+											"description": "List of member identifiers belonging to the organization"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": [
+					"organizations"
+				],
+				"summary": "Delete an organization",
+				"description": "Delete an organization by its ID.",
+				"operationId": "delete_organization",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization to delete",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Organization deleted successfully!",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization deleted successfully!"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/members/": {
+			"get": {
+				"tags": [
+					"organizations"
+				],
+				"summary": "Get organization members",
+				"description": "Retrieve a list of members for a specific organization.",
+				"operationId": "get_organization_members",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"members": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"user_id": {
+														"type": "string",
+														"description": "Unique identifier of the member"
+													},
+													"role": {
+														"type": "string",
+														"description": "Role of the member in the organization"
+													}
+												}
+											},
+											"description": "List of members belonging to the organization"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"put": {
+				"tags": [
+					"organizations"
+				],
+				"summary": "Update organization member role",
+				"description": "Update the role of an existing member in a specific organization.",
+				"operationId": "update_organization_member_role",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"username",
+									"role"
+								],
+								"properties": {
+									"username": {
+										"type": "string",
+										"description": "Username of the member whose role is to be updated"
+									},
+									"role": {
+										"type": "string",
+										"description": "New role of the member in the organization"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "User role updated successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "User role updated successfully"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": [
+					"organizations"
+				],
+				"summary": "Add organization member",
+				"description": "Add a new member to a specific organization.",
+				"operationId": "add_organization_member",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"username",
+									"role"
+								],
+								"properties": {
+									"username": {
+										"type": "string",
+										"description": "Username of the member to be added"
+									},
+									"role": {
+										"type": "string",
+										"description": "Role of the member in the organization"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Member added successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "User added to the organization."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": [
+					"organizations"
+				],
+				"summary": "Remove a member from the organization",
+				"operationId": "remove_organization_member",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"username"
+								],
+								"properties": {
+									"username": {
+										"type": "string",
+										"description": "Username of the member to be removed"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Member removed successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "User removed from organization."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/": {
+			"get": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Get projects",
+				"description": "Retrieve a list of projects for a specific organization.",
+				"operationId": "get_projects",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "integer",
+												"description": "Unique numeric identifier of the project"
+											},
+											"project_id": {
+												"type": "string",
+												"description": "Unique string identifier of the project"
+											},
+											"name": {
+												"type": "string",
+												"description": "Name of the project"
+											},
+											"description": {
+												"type": "string",
+												"description": "Description of the project"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp of when the project was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp of when the project was last updated"
+											},
+											"members": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"username": {
+															"type": "string",
+															"description": "Username of the project member"
+														},
+														"role": {
+															"type": "string",
+															"description": "Role of the member in the project"
+														}
+													}
+												},
+												"description": "List of members belonging to the project"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Create project",
+				"description": "Create a new project within an organization.",
+				"operationId": "create_project",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"name"
+								],
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Name of the project to be created"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Project created successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Project created successfully."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/": {
+			"get": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Get project details",
+				"description": "Retrieve details of a specific project within an organization.",
+				"operationId": "get_project",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "integer",
+											"description": "Unique numeric identifier of the project"
+										},
+										"project_id": {
+											"type": "string",
+											"description": "Unique string identifier of the project"
+										},
+										"name": {
+											"type": "string",
+											"description": "Name of the project"
+										},
+										"description": {
+											"type": "string",
+											"description": "Description of the project"
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the project was created"
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"description": "Timestamp of when the project was last updated"
+										},
+										"members": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"username": {
+														"type": "string",
+														"description": "Username of the project member"
+													},
+													"role": {
+														"type": "string",
+														"description": "Role of the member in the project"
+													}
+												}
+											},
+											"description": "List of members belonging to the project"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Delete Project",
+				"description": "Delete a specific project and its related data.",
+				"operationId": "delete_project",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project to be deleted",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Project and related data deleted successfully.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Project and related data deleted successfully."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/": {
+			"get": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Get Project Members",
+				"description": "Retrieve a list of members for a specific project.",
+				"operationId": "get_project_members",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successfully retrieved project members",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"members": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"username": {
+														"type": "string"
+													},
+													"role": {
+														"type": "string"
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Add member to project",
+				"description": "Add a new member to a specific project within an organization.",
+				"operationId": "add_project_member",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"username",
+									"role"
+								],
+								"properties": {
+									"username": {
+										"type": "string",
+										"description": "Username of the member to be added"
+									},
+									"role": {
+										"type": "string",
+										"description": "Role of the member in the project"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "User added to the project successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "User added to the project successfully."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"put": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Update project member role",
+				"description": "Update the role of a member in a specific project within an organization.",
+				"operationId": "update_project_member",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"username",
+									"role"
+								],
+								"properties": {
+									"username": {
+										"type": "string",
+										"description": "Username of the member to be updated"
+									},
+									"role": {
+										"type": "string",
+										"description": "New role of the member in the project"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "User role updated successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "User role updated successfully."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+		"delete": {
+			"summary": "Delete Project Member",
+			"operationId": "deleteProjectMember",
+			"tags": ["Project"],
+			"parameters": [
+				{
+					"name": "org_id",
+					"in": "path",
+					"required": true,
+					"description": "Unique identifier of the organization",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "project_id",
+					"in": "path",
+					"required": true,
+					"description": "Unique identifier of the project",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "username",
+					"in": "query",
+					"required": true,
+					"description": "Username of the member to be removed",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"responses": {
+				"200": {
+					"description": "Member removed from the project successfully",
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"message": {
+										"type": "string",
+										"example": "Member removed from the project"
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 		}
 	},
 	"components": {
