@@ -1,8 +1,7 @@
-
 import os
 from typing import Optional
-
 import google.generativeai as genai
+
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
@@ -10,28 +9,19 @@ from mem0.embeddings.base import EmbeddingBase
 class GoogleGenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
-
         if self.config.model is None:
-            self.config.model = "text-embedding-3-small"
-        if self.config.embedding_dims is None:
-            self.config.embedding_dims = 1536
+            self.config.model = "models/text-embedding-004" # embedding-dim = 768
 
-        api_key = os.getenv("AZURE_OPENAI_API_KEY") or self.config.api_key
-        self.client = AzureOpenAI(api_key=api_key)
+        genai.configure(api_key=self.config.api_key or os.getenv("GOOGLE_API_KEY"))
 
     def embed(self, text):
         """
-        Get the embedding for the given text using OpenAI.
-
+        Get the embedding for the given text using Google Generative AI.
         Args:
             text (str): The text to embed.
-
         Returns:
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        return (
-            self.client.embeddings.create(input=[text], model=self.config.model)
-            .data[0]
-            .embedding
-        )
+        response = genai.embed_content(model=self.config.model, content=text)
+        return response['embedding']
