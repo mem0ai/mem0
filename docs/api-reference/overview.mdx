@@ -23,6 +23,32 @@ Our API is organized into several main categories:
 
 All API requests require authentication using HTTP Basic Auth. Ensure you include your API key in the Authorization header of each request.
 
+## Organizations and projects (optional)
+
+For users who belong to multiple organizations or are working on multiple projects, you can specify the organization and project for an API request. This is done by initializing the Mem0 client with the appropriate parameters. Usage from these API requests will be attributed to the specified organization and project.
+
+Example with the mem0 Python package:
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient(
+  organization_name='YOUR_ORG_NAME',
+  project_name='YOUR_PROJECT_NAME',
+)
+```
+
+Example with the mem0 Node.js package:
+
+```javascript
+import { MemoryClient } from "mem0ai";
+
+const client = new MemoryClient({
+    organization: "YOUR_ORG_NAME",
+    project: "YOUR_PROJECT_NAME"
+});
+```
+
 ## Getting Started
 
 To begin using the Mem0 API, you'll need to:
