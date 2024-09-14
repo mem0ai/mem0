@@ -94,6 +94,24 @@
 					"entities"
 				],
 				"operationId": "entities_list",
+				"parameters": [
+					{
+						"name": "org_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter entities by organization name"
+					},
+					{
+						"name": "project_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter entities by project name"
+					}
+				],
 				"responses": {
 					"200": {
 						"description": "",
@@ -183,6 +201,24 @@
 					"entities"
 				],
 				"operationId": "entities_read",
+				"parameters": [
+					{
+						"name": "org_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter entities by organization name"
+					},
+					{
+						"name": "project_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter entities by project name"
+					}
+				],
 				"responses": {
 					"200": {
 						"description": "",
@@ -310,6 +346,22 @@
 						"description": "Filter memories by metadata (JSON string)",
 						"style": "deepObject",
 						"explode": true
+					},
+					{
+						"name": "org_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by organization name"
+					},
+					{
+						"name": "project_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by project name"
 					}
 				],
 				"responses": {
@@ -493,6 +545,22 @@
 						"description": "Filter memories by metadata (JSON string)",
 						"style": "deepObject",
 						"explode": true
+					},
+					{
+						"name": "org_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by organization name"
+					},
+					{
+						"name": "project_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by project name"
 					}
 				],
 				"responses": {
@@ -2336,7 +2404,19 @@
 
 						},
 						"nullable": true
-					}
+					},
+				"org_name": {
+					"description": "The name of the organization associated with this memory.",
+					"title": "Organization name",
+					"type": "string",
+					"nullable": true
+				},
+				"project_name": {
+					"description": "The name of the project associated with this memory.",
+					"title": "Project name",
+					"type": "string",
+					"nullable": true
+				}
 				}
 			},
 			"MemorySearchInput": {
@@ -2403,6 +2483,18 @@
 						"type": "boolean",
 						"default": false,
 						"description": "Whether to rerank the memories."
+					},
+					"org_name": {
+						"title": "Organization Name",
+						"type": "string",
+						"nullable": true,
+						"description": "The name of the organization associated with the memory."
+					},
+					"project_name": {
+						"title": "Project Name",
+						"type": "string",
+						"nullable": true,
+						"description": "The name of the project associated with the memory."
 					}
 				}
 			},
@@ -2445,6 +2537,18 @@
 						"type": "boolean",
 						"default": false,
 						"description": "Whether to rerank the memories."
+					},
+					"org_name": {
+						"title": "Organization Name",
+						"type": "string",
+						"nullable": true,
+						"description": "The name of the organization associated with the memory."
+					},
+					"project_name": {
+						"title": "Project Name",
+						"type": "string",
+						"nullable": true,
+						"description": "The name of the project associated with the memory."
 					}
 				}
 			},
