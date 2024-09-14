@@ -275,6 +275,22 @@
 								}
 							}
 						}
+					},
+					"400": {
+						"description": "Invalid entity type",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Invalid entity type"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1392,6 +1408,28 @@
 								}
 							}
 						}
+					},
+					"400": {
+						"description": "Bad request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"errors": {
+											"type": "object",
+											"description": "Errors found in the payload",
+											"additionalProperties": {
+												"type": "array",
+												"items": {
+													"type": "string"
+												}
+											}
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1486,6 +1524,22 @@
 								}
 							}
 						}
+					},
+					"404": {
+						"description": "Organization not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization not found"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			},
@@ -1518,6 +1572,38 @@
 										"message": {
 											"type": "string",
 											"example": "Organization deleted successfully!"
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Unauthorized"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization not found"
 										}
 									}
 								}
@@ -1570,6 +1656,22 @@
 												}
 											},
 											"description": "List of members belonging to the organization"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization not found"
 										}
 									}
 								}
@@ -1636,6 +1738,44 @@
 								}
 							}
 						}
+					},
+					"400": {
+						"description": "Bad request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"errors": {
+											"type": "object",
+											"description": "Errors found in the payload",
+											"additionalProperties": {
+												"type": "array",
+												"items": {
+													"type": "string"
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization not found"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			},
@@ -1697,6 +1837,44 @@
 								}
 							}
 						}
+					},
+					"400": {
+						"description": "Bad request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"errors": {
+											"type": "object",
+											"description": "Errors found in the payload",
+											"additionalProperties": {
+												"type": "array",
+												"items": {
+													"type": "string"
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization not found"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			},
@@ -1747,6 +1925,22 @@
 										"message": {
 											"type": "string",
 											"example": "User removed from organization."
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization not found"
 										}
 									}
 								}
@@ -1889,6 +2083,38 @@
 								}
 							}
 						}
+					},
+					"403": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Unauthorized to create projects in this organization."
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Project could not be created."
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1976,6 +2202,22 @@
 								}
 							}
 						}
+					},
+					"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			},
@@ -2017,6 +2259,38 @@
 										"message": {
 											"type": "string",
 											"example": "Project and related data deleted successfully."
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Unauthorized to modify this project",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Unauthorized to modify this project."
 										}
 									}
 								}
@@ -2075,6 +2349,22 @@
 													}
 												}
 											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
 										}
 									}
 								}
@@ -2150,6 +2440,38 @@
 								}
 							}
 						}
+					},
+					"403": {
+					"description": "Unauthorized to modify project members",
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"message": {
+										"type": "string",
+										"example": "Unauthorized to modify project members."
+									}
+								}
+							}
+						}
+					}
+				},
+					"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			},
@@ -2220,6 +2542,38 @@
 								}
 							}
 						}
+					},
+					"403": {
+					"description": "Unauthorized to modify project members",
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"message": {
+										"type": "string",
+										"example": "Unauthorized to modify project members."
+									}
+								}
+							}
+						}
+					}
+				},
+					"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			},
@@ -2272,6 +2626,38 @@
 							}
 						}
 					}
+				},
+				"403": {
+					"description": "Unauthorized to modify project members",
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"message": {
+										"type": "string",
+										"example": "Unauthorized to modify project members."
+									}
+								}
+							}
+						}
+					}
+				},
+				"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
+										}
+									}
+								}
+							}
+						}
 				}
 			}
 		}
