@@ -10,7 +10,7 @@ from mem0.memory.setup import setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
-warnings.filterwarnings('always', category=DeprecationWarning, message="The 'session_id' parameter is deprecated")
+warnings.filterwarnings('always', category=DeprecationWarning, message="The 'session_id' parameter is deprecated. User 'run_id' instead.")
 
 # Setup user config
 setup_config()
