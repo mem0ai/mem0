@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import pytest
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.gemini import GoogleGenAIEmbedding
