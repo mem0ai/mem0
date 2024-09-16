@@ -109,3 +109,4 @@ def test_list_vectors(chromadb_instance):
     assert len(results[0]) == 2
     assert results[0][0].id == "id1"
     assert results[0][1].id == "id2"
+    
