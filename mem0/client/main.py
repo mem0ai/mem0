@@ -53,8 +53,8 @@ class MemoryClient:
             self,
             api_key: Optional[str] = None,
             host: Optional[str] = None,
-            organization_name: Optional[str] = None,
-            project_name: Optional[str] = None
+            organization: Optional[str] = None,
+            project: Optional[str] = None
         ):
         """Initialize the MemoryClient.
 
@@ -62,7 +62,7 @@ class MemoryClient:
             api_key: The API key for authenticating with the Mem0 API. If not provided,
                      it will attempt to use the MEM0_API_KEY environment variable.
             host: The base URL for the Mem0 API. Defaults to "https://api.mem0.ai".
-            organization_name: The name of the organization. Optional.
+            org_name: The name of the organization. Optional.
             project_name: The name of the project. Optional.
 
         Raises:
@@ -70,8 +70,8 @@ class MemoryClient:
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
         self.host = host or "https://api.mem0.ai"
-        self.organization_name = organization_name
-        self.project_name = project_name
+        self.organization = organization
+        self.project = project
 
         if not self.api_key:
             raise ValueError("API Key not provided. Please provide an API Key.")
@@ -110,7 +110,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        kwargs.update({"organization_name": self.organization_name, "project_name": self.project_name})
+        kwargs.update({"org_name": self.organization, "project_name": self.project})
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -148,7 +148,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        kwargs.update({"organization_name": self.organization_name, "project_name": self.project_name})
+        kwargs.update({"org_name": self.organization, "project_name": self.project})
         params = self._prepare_params(kwargs)
         response = self.client.get("/v1/memories/", params=params)
         response.raise_for_status()
@@ -175,7 +175,7 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         payload = {"query": query}
-        kwargs.update({"organization_name": self.organization_name, "project_name": self.project_name})
+        kwargs.update({"org_name": self.organization, "project_name": self.project})
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
@@ -227,7 +227,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        kwargs.update({"organization_name": self.organization_name, "project_name": self.project_name})
+        kwargs.update({"org_name": self.organization, "project_name": self.project})
         params = self._prepare_params(kwargs)
         response = self.client.delete("/v1/memories/", params=params)
         response.raise_for_status()
@@ -255,7 +255,7 @@ class MemoryClient:
     @api_error_handler
     def users(self):
         """Get all users, agents, and sessions for which memories exist."""
-        params = {"organization_name": self.organization_name, "project_name": self.project_name}
+        params = {"org_name": self.organization, "project_name": self.project}
         response = self.client.get("/v1/entities/", params=params)
         response.raise_for_status()
         capture_client_event("client.users", self)
@@ -264,7 +264,7 @@ class MemoryClient:
     @api_error_handler
     def delete_users(self) -> Dict[str, str]:
         """Delete all users, agents, or sessions."""
-        params = {"organization_name": self.organization_name, "project_name": self.project_name}
+        params = {"org_name": self.organization, "project_name": self.project}
         entities = self.users()
         for entity in entities["results"]:
             response = self.client.delete(
