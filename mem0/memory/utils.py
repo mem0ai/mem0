@@ -1,3 +1,5 @@
+import re
+
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
 
@@ -14,3 +16,9 @@ def parse_messages(messages):
             if msg["role"] == "assistant":
                 response += f"assistant: {msg['content']}\n"
         return response
+
+def parse_json_response(response):
+    search_result = re.search("(```json)((.*\n)+)(```)", response)
+    if search_result:
+        response = search_result.group(2).strip()
+    return response

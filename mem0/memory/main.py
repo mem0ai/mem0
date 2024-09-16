@@ -15,7 +15,7 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
+from mem0.memory.utils import get_fact_retrieval_messages, parse_json_response, parse_messages
 from mem0.utils.factory import LlmFactory, EmbedderFactory, VectorStoreFactory
 from mem0.configs.base import MemoryItem, MemoryConfig
 
@@ -144,6 +144,8 @@ class Memory(MemoryBase):
             response_format={"type": "json_object"},
         )
 
+        response = parse_json_response(response)
+
         try:
             new_retrieved_facts = json.loads(response)[
                 "facts"
@@ -170,6 +172,7 @@ class Memory(MemoryBase):
             messages=[{"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
         )
+        new_memories_with_actions = parse_json_response(new_memories_with_actions)
         new_memories_with_actions = json.loads(new_memories_with_actions)
 
         returned_memories = []
