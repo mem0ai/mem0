@@ -128,7 +128,3 @@ class TestQdrant(unittest.TestCase):
 
     def tearDown(self):
         del self.qdrant
-
-
-if __name__ == "__main__":
-    unittest.main()
