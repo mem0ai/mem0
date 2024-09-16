@@ -10,7 +10,11 @@ from mem0.memory.setup import setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
-warnings.filterwarnings('always', category=DeprecationWarning, message="The 'session_id' parameter is deprecated. User 'run_id' instead.")
+warnings.filterwarnings(
+    "always",
+    category=DeprecationWarning,
+    message="The 'session_id' parameter is deprecated. User 'run_id' instead.",
+)
 
 # Setup user config
 setup_config()
@@ -82,14 +86,10 @@ class MemoryClient:
             response = self.client.get("/v1/memories/", params={"user_id": "test"})
             response.raise_for_status()
         except httpx.HTTPStatusError:
-            raise ValueError(
-                "Invalid API Key. Please get a valid API Key from https://app.mem0.ai"
-            )
+            raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
 
     @api_error_handler
-    def add(
-        self, messages: Union[str, List[Dict[str, str]]], **kwargs
-    ) -> Dict[str, Any]:
+    def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
@@ -253,9 +253,7 @@ class MemoryClient:
         """Delete all users, agents, or sessions."""
         entities = self.users()
         for entity in entities["results"]:
-            response = self.client.delete(
-                f"/v1/entities/{entity['type']}/{entity['id']}/"
-            )
+            response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/")
             response.raise_for_status()
 
         capture_client_event("client.delete_users", self)
@@ -312,7 +310,7 @@ class MemoryClient:
                 "The 'session_id' parameter is deprecated and will be removed in version 0.1.20. "
                 "Use 'run_id' instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             kwargs["run_id"] = kwargs.pop("session_id")
 
@@ -335,7 +333,7 @@ class MemoryClient:
                 "The 'session_id' parameter is deprecated and will be removed in version 0.1.20. "
                 "Use 'run_id' instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             kwargs["run_id"] = kwargs.pop("session_id")
 

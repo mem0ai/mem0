@@ -30,7 +30,7 @@ rank-bm25 = "^0.2.2"
 pytest = "^8.2.2"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.4.8"
+ruff = "^0.6.5"
 isort = "^5.13.2"
 pytest = "^8.2.2"
 
@@ -38,3 +38,7 @@ pytest = "^8.2.2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+exclude = ["embedchain/"]

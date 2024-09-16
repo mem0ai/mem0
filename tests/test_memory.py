@@ -7,6 +7,7 @@ from mem0 import Memory
 def memory_store():
     return Memory()
 
+
 @pytest.mark.skip(reason="Not implemented")
 def test_create_memory(memory_store):
     data = "Name is John Doe."

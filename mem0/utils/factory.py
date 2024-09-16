@@ -21,7 +21,7 @@ class LlmFactory:
         "azure_openai": "mem0.llms.azure_openai.AzureOpenAILLM",
         "openai_structured": "mem0.llms.openai_structured.OpenAIStructuredLLM",
         "anthropic": "mem0.llms.anthropic.AnthropicLLM",
-        "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM"
+        "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM",
     }
 
     @classmethod
@@ -59,7 +59,7 @@ class VectorStoreFactory:
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
-        "milvus": "mem0.vector_stores.milvus.MilvusDB"
+        "milvus": "mem0.vector_stores.milvus.MilvusDB",
     }
 
     @classmethod

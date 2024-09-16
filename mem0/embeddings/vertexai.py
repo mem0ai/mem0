@@ -6,6 +6,7 @@ from vertexai.language_models import TextEmbeddingModel
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
+
 class VertexAI(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
@@ -34,6 +35,6 @@ class VertexAI(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        embeddings = self.model.get_embeddings(texts=[text], output_dimensionality= self.config.embedding_dims)
-        
+        embeddings = self.model.get_embeddings(texts=[text], output_dimensionality=self.config.embedding_dims)
+
         return embeddings[0].values
