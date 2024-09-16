@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 from functools import wraps
 from typing import Any, Dict, List, Optional, Union
 
@@ -9,6 +10,7 @@ from mem0.memory.setup import setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
+warnings.filterwarnings('always', category=DeprecationWarning, message="The 'session_id' parameter is deprecated. User 'run_id' instead.")
 
 # Setup user config
 setup_config()
@@ -303,6 +305,17 @@ class MemoryClient:
             payload["messages"] = [{"role": "user", "content": messages}]
         elif isinstance(messages, list):
             payload["messages"] = messages
+
+        # Handle session_id deprecation
+        if "session_id" in kwargs:
+            warnings.warn(
+                "The 'session_id' parameter is deprecated and will be removed in version 0.1.20. "
+                "Use 'run_id' instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            kwargs["run_id"] = kwargs.pop("session_id")
+
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
 
@@ -315,4 +328,15 @@ class MemoryClient:
         Returns:
             A dictionary containing the prepared parameters.
         """
+
+        # Handle session_id deprecation
+        if "session_id" in kwargs:
+            warnings.warn(
+                "The 'session_id' parameter is deprecated and will be removed in version 0.1.20. "
+                "Use 'run_id' instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            kwargs["run_id"] = kwargs.pop("session_id")
+
         return {k: v for k, v in kwargs.items() if v is not None}
