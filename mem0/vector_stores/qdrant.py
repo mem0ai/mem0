@@ -3,9 +3,16 @@ import os
 import shutil
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import (Distance, FieldCondition, Filter, MatchValue,
-                                  PointIdsList, PointStruct, Range,
-                                  VectorParams)
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointIdsList,
+    PointStruct,
+    Range,
+    VectorParams,
+)
 
 from mem0.vector_stores.base import VectorStoreBase
 
