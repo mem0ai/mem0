@@ -12,13 +12,11 @@ config = {
         }
     },
     "graph_store": {
-        "provider": "falkordb",
+        "provider": "neo4j",
         "config": {
-            "database": "falkordb",
-            "host": os.environ['HOST'],
+            "url": os.environ['URL'],
             "username": os.environ['USERNAME'],
             "password": os.environ['PASSWORD'],
-            "port": os.environ['PORT']
         }
     },
     "version": "v1.1"
@@ -28,5 +26,6 @@ m = Memory.from_config(config_dict=config)
 
 user_id = "alice123"
 m.add("I like painting", user_id=user_id)
-m.add("I hate playing badminton", user_id=user_id)
+print(m.add("I hate playing badminton", user_id=user_id))
+print(m.get_all(user_id=user_id))
 m.add("My friend name is john and john has a dog named tommy", user_id='gal')

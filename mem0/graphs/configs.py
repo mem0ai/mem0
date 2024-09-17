@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -51,7 +51,7 @@ class GraphStoreConfig(BaseModel):
         description="Provider of the data store (e.g., 'falkordb', 'neo4j')", 
         default="falkordb"
     )
-    config: FalkorDBConfig = Field(
+    config: Union[FalkorDBConfig, Neo4jConfig] = Field(
         description="Configuration for the specific data store",
         default=None
     )

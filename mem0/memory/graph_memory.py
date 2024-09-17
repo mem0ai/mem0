@@ -14,8 +14,14 @@ from mem0.graphs.tools import (
     ADD_MESSAGE_STRUCT_TOOL, 
     SEARCH_STRUCT_TOOL
 )
-from mem0.graphs.utils import EXTRACT_ENTITIES_PROMPT, get_update_memory_messages
+from mem0.graphs.utils import (
+    EXTRACT_ENTITIES_PROMPT,
+    FALKORDB_QUERY,
+    NEO4J_QUERY,
+    get_update_memory_messages,
+)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, GraphFactory
+
 
 logger = logging.getLogger(__name__)
 
@@ -180,28 +186,13 @@ class MemoryGraph:
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
-            cypher_query = """
-            MATCH (n)
-            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
-            WITH n, 
-                round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
-                (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
-                sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
-            WHERE similarity >= $threshold
-            MATCH (n)-[r]->(m)
-            RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relation, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
-            UNION
-            MATCH (n)
-            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
-            WITH n, 
-                round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
-                (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
-                sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
-            WHERE similarity >= $threshold
-            MATCH (m)-[r]->(n)
-            RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relation, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id, similarity
-            ORDER BY similarity DESC
-            """
+            if self.config.graph_store.provider == "falkordb":
+                cypher_query = FALKORDB_QUERY
+            elif self.config.graph_store.provider == "neo4j":
+                cypher_query = NEO4J_QUERY
+            else:
+                raise ValueError("Unsupported graph database provider for querying")
+            
             params = {"n_embedding": n_embedding, "threshold": self.threshold, "user_id": filters["user_id"]}
             ans = self.graph_query(cypher_query, params=params)
             result_relations.extend(ans)
@@ -343,6 +334,6 @@ class MemoryGraph:
             list: A list of dictionaries containing the results of the query.
         """
         if self.config.graph_store.provider == "falkordb":
-            self.graph.switch_graph(params["user_id"])
+            self.graph._graph = self.graph._driver.select_graph(params["user_id"])
         
         return self.graph.query(query, params=params)
