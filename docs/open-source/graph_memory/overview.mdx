@@ -3,11 +3,11 @@ title: Overview
 description: 'Enhance your memory system with graph-based knowledge representation and retrieval'
 ---
 
-Mem0 now supports **Graph Memory**. 
+Mem0 now supports **Graph Memory**.
 With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. 
 This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
 
-Try Graph Memory on Google Colab. 
+Try Graph Memory on Google Colab.
 <a target="_blank" href="https://colab.research.google.com/drive/1PfIGVHnliIlG2v8cx0g45TF0US-jRPZ1?usp=sharing">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
@@ -27,7 +27,10 @@ allowfullscreen
 
 To initialize Graph Memory you'll need to set up your configuration with graph store providers.
 Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
-Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*). 
+Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*).
+
+<Note>If you are using Neo4j locally, then you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
+
 
 User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
 
