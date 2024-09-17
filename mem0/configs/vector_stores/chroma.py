@@ -9,7 +9,7 @@ class ChromaDbConfig(BaseModel):
     try:
         from chromadb.api.client import Client
     except ImportError:
-       raise ImportError("The 'chromadb' library is required. Please install it using 'pip install chromadb'.")
+        raise ImportError("The 'chromadb' library is required. Please install it using 'pip install chromadb'.")
     Client: ClassVar[type] = Client
 
     collection_name: str = Field("mem0", description="Default name for the collection")
