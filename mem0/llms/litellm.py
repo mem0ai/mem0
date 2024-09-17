@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Dict, List, Optional
 
@@ -68,6 +69,8 @@ class LiteLLM(LLMBase):
         """
         if not litellm.supports_function_calling(self.config.model):
             raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
+        
+        api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
 
         params = {
             "model": self.config.model,
@@ -75,6 +78,7 @@ class LiteLLM(LLMBase):
             "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
+            "api_key": api_key,
         }
         if response_format:
             params["response_format"] = response_format
