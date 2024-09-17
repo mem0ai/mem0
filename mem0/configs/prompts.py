@@ -59,6 +59,7 @@ You should detect the language of the user input and record the facts in the sam
 If you do not find anything relevant facts, user memories, and preferences in the below conversation, you can return an empty list corresponding to the "facts" key.
 """
 
+
 def get_update_memory_messages(retrieved_old_memory_dict, response_content):
     return f"""You are a smart memory manager which controls the memory of a system.
     You can perform four operations: (1) add into the memory, (2) update the memory, (3) delete from the memory, and (4) no change.

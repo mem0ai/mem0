@@ -9,7 +9,7 @@ try:
     from ollama import Client
 except ImportError:
     user_input = input("The 'ollama' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
+    if user_input.lower() == "y":
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "ollama"])
             from ollama import Client

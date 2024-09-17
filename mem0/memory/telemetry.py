@@ -1,7 +1,7 @@
 import logging
+import os
 import platform
 import sys
-import os
 
 from posthog import Posthog
 
@@ -15,8 +15,9 @@ if isinstance(MEM0_TELEMETRY, str):
 if not isinstance(MEM0_TELEMETRY, bool):
     raise ValueError("MEM0_TELEMETRY must be a boolean value.")
 
-logging.getLogger('posthog').setLevel(logging.CRITICAL + 1)
-logging.getLogger('urllib3').setLevel(logging.CRITICAL + 1)
+logging.getLogger("posthog").setLevel(logging.CRITICAL + 1)
+logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
+
 
 class AnonymousTelemetry:
     def __init__(self, project_api_key, host):
@@ -24,9 +25,8 @@ class AnonymousTelemetry:
         # Call setup config to ensure that the user_id is generated
         setup_config()
         self.user_id = get_user_id()
-        # Optional 
-        if not MEM0_TELEMETRY:  
-            self.posthog.disabled = True 
+        if not MEM0_TELEMETRY:
+            self.posthog.disabled = True
 
     def capture_event(self, event_name, properties=None):
         if properties is None:
@@ -40,9 +40,7 @@ class AnonymousTelemetry:
             "machine": platform.machine(),
             **properties,
         }
-        self.posthog.capture(
-            distinct_id=self.user_id, event=event_name, properties=properties
-        )
+        self.posthog.capture(distinct_id=self.user_id, event=event_name, properties=properties)
 
     def identify_user(self, user_id, properties=None):
         if properties is None:
@@ -65,6 +63,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
         "collection": memory_instance.collection_name,
         "vector_size": memory_instance.embedding_model.config.embedding_dims,
         "history_store": "sqlite",
+        "graph_store": f"{memory_instance.graph.__class__.__module__}.{memory_instance.graph.__class__.__name__}" if memory_instance.config.graph_store.config else None,
         "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
         "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
         "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
@@ -74,7 +73,6 @@ def capture_event(event_name, memory_instance, additional_data=None):
         event_data.update(additional_data)
 
     telemetry.capture_event(event_name, event_data)
-
 
 
 def capture_client_event(event_name, instance, additional_data=None):

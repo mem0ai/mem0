@@ -20,7 +20,7 @@ class TogetherLLM(LLMBase):
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
         self.client = Together(api_key=api_key)
-    
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -79,7 +79,7 @@ class TogetherLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
-        if tools: # TODO: Remove tools if no issues found with new memory addition logic
+        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 

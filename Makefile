@@ -16,15 +16,15 @@ install_all:
 
 # Format code with ruff
 format:
-	poetry run ruff check . --fix $(RUFF_OPTIONS)
+	poetry run ruff format mem0/
 
 # Sort imports with isort
 sort:
-	poetry run isort . $(ISORT_OPTIONS)
+	poetry run isort mem0/
 
 # Lint code with ruff
 lint:
-	poetry run ruff .
+	poetry run ruff check mem0/
 
 docs:
 	cd docs && mintlify dev

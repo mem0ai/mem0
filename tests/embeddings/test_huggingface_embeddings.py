@@ -37,9 +37,7 @@ def test_embed_custom_model(mock_sentence_transformer):
 
 
 def test_embed_with_model_kwargs(mock_sentence_transformer):
-    config = BaseEmbedderConfig(
-        model="all-MiniLM-L6-v2", model_kwargs={"device": "cuda"}
-    )
+    config = BaseEmbedderConfig(model="all-MiniLM-L6-v2", model_kwargs={"device": "cuda"})
     embedder = HuggingFaceEmbedding(config)
 
     mock_sentence_transformer.encode.return_value = [0.7, 0.8, 0.9]

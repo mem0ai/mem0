@@ -21,9 +21,7 @@ def test_embed_default_model(mock_openai_client):
 
     result = embedder.embed("Hello world")
 
-    mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Hello world"], model="text-embedding-3-small"
-    )
+    mock_openai_client.embeddings.create.assert_called_once_with(input=["Hello world"], model="text-embedding-3-small")
     assert result == [0.1, 0.2, 0.3]
 
 
@@ -51,9 +49,7 @@ def test_embed_removes_newlines(mock_openai_client):
 
     result = embedder.embed("Hello\nworld")
 
-    mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Hello world"], model="text-embedding-3-small"
-    )
+    mock_openai_client.embeddings.create.assert_called_once_with(input=["Hello world"], model="text-embedding-3-small")
     assert result == [0.7, 0.8, 0.9]
 
 
