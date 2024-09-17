@@ -157,7 +157,7 @@ history = m.history(memory_id=<memory_id_1>)
 
 ### Graph Memory
 To initialize Graph Memory you'll need to set up your configuration with graph store providers.
-Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
+Currently, we support FalkorDB and Neo4j as a graph store providers. You can setup [FalkorDB](https://www.falkordb.com/) or [Neo4j](https://neo4j.com/) locally or use the hosted [FalkorDB Cloud](https://app.falkordb.cloud/) or [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
 Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*). 
 Here's how you can do it:
 
@@ -166,11 +166,12 @@ from mem0 import Memory
 
 config = {
     "graph_store": {
-        "provider": "neo4j",
+        "provider": "falkordb",
         "config": {
-            "url": "neo4j+s://xxx",
-            "username": "neo4j",
-            "password": "xxx"
+            "host": "---"
+            "username": "---",
+            "password": "---",
+            "port": "---"
         }
     },
     "version": "v1.1"
