@@ -12,11 +12,12 @@ config = {
         }
     },
     "graph_store": {
-        "provider": "neo4j",
+        "provider": "falkordb",
         "config": {
-            "url": os.environ['URL'],
+            "host": os.environ['HOST'],
             "username": os.environ['USERNAME'],
             "password": os.environ['PASSWORD'],
+            "port": os.environ['PORT']
         }
     },
     "version": "v1.1"

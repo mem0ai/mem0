@@ -24,7 +24,7 @@ class Neo4jConfig(BaseModel):
         return values
     
 class FalkorDBConfig(BaseModel):
-    database: Optional[str] = Field(None, description="Database name for the graph database")
+    database: Optional[str] = Field('_default_', description="Database name for the graph database")
     host: Optional[str] = Field(None, description="Host address for the graph database")
     username: Optional[str] = Field(None, description="Username for the graph database")
     password: Optional[str] = Field(None, description="Password for the graph database")
@@ -32,16 +32,15 @@ class FalkorDBConfig(BaseModel):
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
-        database, host, username, password, port = (
-            values.get("database"),
+        host, username, password, port = (
             values.get("host"),
             values.get("username"),
             values.get("password"),
             values.get("port"),
         )
-        if not database or not host or not username or not password or not port:
+        if not host or not username or not password or not port:
             raise ValueError(
-                "Please provide 'database', 'host', 'username', 'password' and 'port'."
+                "Please provide 'host', 'username', 'password' and 'port'."
             )
         return values
 
