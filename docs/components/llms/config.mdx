@@ -9,6 +9,16 @@ The config is defined as a Python dictionary with two main keys:
   - `provider`: The name of the llm (e.g., "openai", "groq")
   - `config`: A nested dictionary containing provider-specific settings
 
+### Config Values Precedence
+
+Config values are applied in the following order of precedence (from highest to lowest):
+
+1. Values explicitly set in the `config` dictionary
+2. Environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_API_BASE`)
+3. Default values defined in the LLM implementation
+
+This means that values specified in the `config` dictionary will override corresponding environment variables, which in turn override default values.
+
 ## How to Use Config
 
 Here's a general example of how to use the config with mem0:
