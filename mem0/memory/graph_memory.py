@@ -219,7 +219,7 @@ class MemoryGraph:
         if not search_output:
             return []
 
-        search_outputs_sequence = [[item["source"], item["relation"], item["destination"]] for item in search_output]
+        search_outputs_sequence = [[item[0], item[2], item[4]] for item in search_output]
         bm25 = BM25Okapi(search_outputs_sequence)
 
         tokenized_query = query.split(" ")
@@ -269,9 +269,9 @@ class MemoryGraph:
         final_results = []
         for result in results:
             final_results.append({
-                "source": result['source'],
-                "relationship": result['relationship'],
-                "target": result['target']
+                "source": result[0],
+                "relationship": result[1],
+                "target": result[2]
             })
 
         logger.info(f"Retrieved {len(final_results)} relationships")
@@ -335,5 +335,11 @@ class MemoryGraph:
         """
         if self.config.graph_store.provider == "falkordb":
             self.graph._graph = self.graph._driver.select_graph(params["user_id"])
+            
+        query_output = self.graph.query(query, params=params)
         
-        return self.graph.query(query, params=params)
+        if self.config.graph_store.provider == "neo4j":
+            query_output = [list(d.values()) for d in query_output]
+            
+        
+        return query_output

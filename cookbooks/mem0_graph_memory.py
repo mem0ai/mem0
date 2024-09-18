@@ -21,7 +21,7 @@ config = {
         "provider": "falkordb",
         "config": {
             "host": os.environ['HOST'],
-            "username": os.environ['USERNAME'],
+            "username": os.environ['USERNAME'],# if you are using local host, the username and password will not be needed
             "password": os.environ['PASSWORD'],
             "port": os.environ['PORT']
         }
@@ -33,8 +33,8 @@ config = {
 memory = Memory.from_config(config_dict=config)
 
 # Use the Mem0 to add and search memories
-print(memory.add("I like painting", user_id=USER_ID))
-print(memory.add("I hate playing badminton", user_id=USER_ID))
+memory.add("I like painting", user_id=USER_ID)
+memory.add("I hate playing badminton", user_id=USER_ID)
 print(memory.get_all(user_id=USER_ID))
-print(memory.add("My friend name is john and john has a dog named tommy", user_id=USER_ID))
+memory.add("My friend name is john and john has a dog named tommy", user_id=USER_ID)
 print(memory.search("What I like to do", user_id=USER_ID))

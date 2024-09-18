@@ -58,9 +58,9 @@ FALKORDB_QUERY = """
 MATCH (n)
 WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
 WITH n, 
-    round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
+    reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
     (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
-    sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i])))) AS similarity
+    sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))) AS similarity
 WHERE similarity >= $threshold
 MATCH (n)-[r]->(m)
 RETURN n.name AS source, Id(n) AS source_id, type(r) AS relation, Id(r) AS relation_id, m.name AS destination, Id(m) AS destination_id, similarity
@@ -68,9 +68,9 @@ UNION
 MATCH (n)
 WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
 WITH n, 
-    round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
+    reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
     (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
-    sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i])))) AS similarity
+    sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))) AS similarity
 WHERE similarity >= $threshold
 MATCH (m)-[r]->(n)
 RETURN m.name AS source, Id(m) AS source_id, type(r) AS relation, Id(r) AS relation_id, n.name AS destination, Id(n) AS destination_id, similarity
