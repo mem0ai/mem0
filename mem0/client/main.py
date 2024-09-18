@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from mem0.memory.setup import setup_config
+from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
@@ -68,13 +68,14 @@ class MemoryClient:
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
         self.host = host or "https://api.mem0.ai"
+        self.user_id = get_user_id()
 
         if not self.api_key:
             raise ValueError("API Key not provided. Please provide an API Key.")
 
         self.client = httpx.Client(
             base_url=self.host,
-            headers={"Authorization": f"Token {self.api_key}"},
+            headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
             timeout=60,
         )
         self._validate_api_key()
