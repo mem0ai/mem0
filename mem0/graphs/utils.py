@@ -1,4 +1,3 @@
-
 UPDATE_GRAPH_PROMPT = """
 You are an AI expert specializing in graph memory management and optimization. Your task is to analyze existing graph memories alongside new information, and update the relationships in the memory list to ensure the most accurate, current, and coherent representation of knowledge.
 
@@ -101,9 +100,9 @@ RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relation, element
 ORDER BY similarity DESC
 """
 
-
 def get_update_memory_prompt(existing_memories, memory, template):
     return template.format(existing_memories=existing_memories, memory=memory)
+
 
 def get_update_memory_messages(existing_memories, memory):
     return [
