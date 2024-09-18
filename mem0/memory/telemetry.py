@@ -5,6 +5,7 @@ import sys
 
 from posthog import Posthog
 
+import mem0
 from mem0.memory.setup import get_user_id, setup_config
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
@@ -32,6 +33,8 @@ class AnonymousTelemetry:
         if properties is None:
             properties = {}
         properties = {
+            "client_source": "python",
+            "client_version": mem0.__version__,
             "python_version": sys.version,
             "os": sys.platform,
             "os_version": platform.version(),
@@ -41,11 +44,6 @@ class AnonymousTelemetry:
             **properties,
         }
         self.posthog.capture(distinct_id=self.user_id, event=event_name, properties=properties)
-
-    def identify_user(self, user_id, properties=None):
-        if properties is None:
-            properties = {}
-        self.posthog.identify(distinct_id=user_id, properties=properties)
 
     def close(self):
         self.posthog.shutdown()
