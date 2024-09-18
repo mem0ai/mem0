@@ -21,7 +21,7 @@ config = {
         "provider": "falkordb",
         "config": {
             "host": os.environ['HOST'],
-            "username": os.environ['USERNAME'],# if you are using local host, the username and password will not be needed
+            "username": os.environ['USERNAME'],
             "password": os.environ['PASSWORD'],
             "port": os.environ['PORT']
         }

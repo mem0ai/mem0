@@ -71,10 +71,6 @@ class GraphStoreConfig(BaseModel):
             config = v.model_dump()
             # In case the user try to use diffrent database name
             config["database"] = "_default_"
-            
-            if config.get("host") == "localhost" or config.get("host") == None:
-                config.pop("username", None)
-                config.pop("password", None)
                 
             return FalkorDBConfig(**config)
         else:
