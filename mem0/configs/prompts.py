@@ -229,5 +229,5 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
     - If there is a deletion, the memory key-value pair should be removed from the memory.
     - If there is an update, the ID key should remain the same and only the value needs to be updated.
 
-    Only return the json format, do not add ``` around the json in the response. Start directly with {{ so I can load the response in json.loads() function. 
+    Only return the json format, do not add ``` around the json response. Start directly with {{ so I can load the json response with json.loads() function. 
     """
