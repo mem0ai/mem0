@@ -8,9 +8,7 @@ class EmbedderConfig(BaseModel):
         description="Provider of the embedding model (e.g., 'ollama', 'openai', 'fastembed')",
         default="openai",
     )
-    config: Optional[dict] = Field(
-        description="Configuration for the specific embedding model", default={}
-    )
+    config: Optional[dict] = Field(description="Configuration for the specific embedding model", default={})
 
     @field_validator("config")
     def validate_config(cls, v, values):
