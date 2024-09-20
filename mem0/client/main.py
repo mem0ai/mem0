@@ -1,14 +1,20 @@
 import logging
 import os
+import warnings
 from functools import wraps
 from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from mem0.memory.setup import setup_config
+from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
+warnings.filterwarnings(
+    "always",
+    category=DeprecationWarning,
+    message="The 'session_id' parameter is deprecated. User 'run_id' instead.",
+)
 
 # Setup user config
 setup_config()
@@ -72,13 +78,14 @@ class MemoryClient:
         self.host = host or "https://api.mem0.ai"
         self.organization = organization
         self.project = project
+        self.user_id = get_user_id()
 
         if not self.api_key:
             raise ValueError("API Key not provided. Please provide an API Key.")
 
         self.client = httpx.Client(
             base_url=self.host,
-            headers={"Authorization": f"Token {self.api_key}"},
+            headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
             timeout=60,
         )
         self._validate_api_key()
@@ -90,14 +97,10 @@ class MemoryClient:
             response = self.client.get("/v1/memories/", params={"user_id": "test"})
             response.raise_for_status()
         except httpx.HTTPStatusError:
-            raise ValueError(
-                "Invalid API Key. Please get a valid API Key from https://app.mem0.ai"
-            )
+            raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
 
     @api_error_handler
-    def add(
-        self, messages: Union[str, List[Dict[str, str]]], **kwargs
-    ) -> Dict[str, Any]:
+    def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
@@ -319,6 +322,17 @@ class MemoryClient:
             payload["messages"] = [{"role": "user", "content": messages}]
         elif isinstance(messages, list):
             payload["messages"] = messages
+
+        # Handle session_id deprecation
+        if "session_id" in kwargs:
+            warnings.warn(
+                "The 'session_id' parameter is deprecated and will be removed in version 0.1.20. "
+                "Use 'run_id' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kwargs["run_id"] = kwargs.pop("session_id")
+
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
 
@@ -331,4 +345,15 @@ class MemoryClient:
         Returns:
             A dictionary containing the prepared parameters.
         """
+
+        # Handle session_id deprecation
+        if "session_id" in kwargs:
+            warnings.warn(
+                "The 'session_id' parameter is deprecated and will be removed in version 0.1.20. "
+                "Use 'run_id' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kwargs["run_id"] = kwargs.pop("session_id")
+
         return {k: v for k, v in kwargs.items() if v is not None}

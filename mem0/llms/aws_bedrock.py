@@ -125,9 +125,7 @@ class AWSBedrockLLM(LLMBase):
                 },
             }
             input_body["textGenerationConfig"] = {
-                k: v
-                for k, v in input_body["textGenerationConfig"].items()
-                if v is not None
+                k: v for k, v in input_body["textGenerationConfig"].items() if v is not None
             }
 
         return input_body
@@ -161,9 +159,7 @@ class AWSBedrockLLM(LLMBase):
                     }
                 }
 
-                for prop, details in (
-                    function["parameters"].get("properties", {}).items()
-                ):
+                for prop, details in function["parameters"].get("properties", {}).items():
                     new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = {
                         "type": details.get("type", "string"),
                         "description": details.get("description", ""),
@@ -216,9 +212,7 @@ class AWSBedrockLLM(LLMBase):
             # Use invoke_model method when no tools are provided
             prompt = self._format_messages(messages)
             provider = self.model.split(".")[0]
-            input_body = self._prepare_input(
-                provider, self.config.model, prompt, **self.model_kwargs
-            )
+            input_body = self._prepare_input(provider, self.config.model, prompt, **self.model_kwargs)
             body = json.dumps(input_body)
 
             response = self.client.invoke_model(

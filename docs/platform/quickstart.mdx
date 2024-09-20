@@ -130,10 +130,10 @@ messages = [
 ]
 
 # The default output_format is v1.0
-client.add(messages, user_id="alex123", session_id="trip-planning-2024", output_format="v1.0")
+client.add(messages, user_id="alex123", run_id="trip-planning-2024", output_format="v1.0")
 
 # To use the latest output_format, set the output_format parameter to "v1.1"
-client.add(messages, user_id="alex123", session_id="trip-planning-2024", output_format="v1.1")
+client.add(messages, user_id="alex123", run_id="trip-planning-2024", output_format="v1.1")
 ```
 
 ```javascript JavaScript
@@ -143,7 +143,7 @@ const messages = [
     {"role": "user", "content": "Yes, please! Especially in Tokyo."},
     {"role": "assistant", "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."}
 ];
-client.add(messages, { user_id: "alex123", session_id: "trip-planning-2024", output_format: "v1.1" })
+client.add(messages, { user_id: "alex123", run_id: "trip-planning-2024", output_format: "v1.1" })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -160,7 +160,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
              {"role": "assistant", "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."}
          ],
          "user_id": "alex123",
-         "session_id": "trip-planning-2024",
+         "run_id": "trip-planning-2024",
          "output_format": "v1.1"
      }'
 ```
@@ -186,7 +186,9 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 </CodeGroup>
 
-
+<Note>
+  Please use `run_id` instead of `session_id`. The `session_id` parameter is deprecated and will be removed in version 0.1.20.
+</Note>
 
 
 #### Long-term memory for agents
@@ -527,7 +529,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 
 ### 4.3 Get All Users
 
-Get all users, agents, and sessions which have memories associated with them.
+Get all users, agents, and runs which have memories associated with them.
 
 <CodeGroup>
 
@@ -579,7 +581,7 @@ curl -X GET "https://api.mem0.ai/v1/entities/" \
 
 ### 4.4 Get All Memories
 
-Fetch all memories for a user, agent, or session using the getAll() method.
+Fetch all memories for a user, agent, or run using the getAll() method.
 
 <Note> The `get_all` method supports two output formats: `v1.0` (default) and `v1.1`. To use the latest format, which provides more detailed information about each memory operation, set the `output_format` parameter to `v1.1`: </Note>
 
@@ -735,20 +737,20 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant&output_f
 
 ```python Python
 # The default output_format is v1.0
-short_term_memories = client.get_all(user_id="alex123", session_id="trip-planning-2024", output_format="v1.0")
+short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024", output_format="v1.0")
 
 # To use the latest output_format (v1.1), set the output_format parameter to "v1.1"
-short_term_memories = client.get_all(user_id="alex123", session_id="trip-planning-2024", output_format="v1.1")
+short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024", output_format="v1.1")
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex123", session_id: "trip-planning-2024", output_format: "v1.1" })
+client.getAll({ user_id: "alex123", run_id: "trip-planning-2024", output_format: "v1.1" })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&session_id=trip-planning-2024&output_format=v1.1" \
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planning-2024&output_format=v1.1" \
      -H "Authorization: Token your-api-key"
 ```
 
@@ -1050,7 +1052,7 @@ client.delete_users()
 ```
 
 ```json Output
-{'message': 'All users, agents, and sessions deleted.'}
+{'message': 'All users, agents, and runs deleted.'}
 ```
 
 </CodeGroup>
