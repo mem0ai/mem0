@@ -2,7 +2,6 @@ import concurrent
 import hashlib
 import json
 import logging
-import threading
 import uuid
 import warnings
 from datetime import datetime
@@ -29,9 +28,9 @@ logger = logging.getLogger(__name__)
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
-        self.embedding_model = EmbedderFactory.create(
-            self.config.embedder.provider, self.config.embedder.config
-        )
+
+        self.custom_prompt = self.config.custom_prompt
+        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -44,6 +43,7 @@ class Memory(MemoryBase):
 
         if self.version == "v1.1" and self.config.graph_store.config:
             from mem0.memory.graph_memory import MemoryGraph
+
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
 
@@ -81,7 +81,7 @@ class Memory(MemoryBase):
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
-            dict: Memory addition operation message.
+            dict: A dictionary containing the result of the memory addition operation.
         """
         if metadata is None:
             metadata = {}
@@ -95,38 +95,54 @@ class Memory(MemoryBase):
             filters["run_id"] = metadata["run_id"] = run_id
 
         if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "One of the filters: user_id, agent_id or run_id is required!"
-            )
+            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
-        thread1 = threading.Thread(target=self._add_to_vector_store, args=(messages, metadata, filters))
-        thread2 = threading.Thread(target=self._add_to_graph, args=(messages, filters))
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
+            future2 = executor.submit(self._add_to_graph, messages, filters)
 
-        thread1.start()
-        thread2.start()
+            concurrent.futures.wait([future1, future2])
 
-        thread1.join()
-        thread2.join()
+            vector_store_result = future1.result()
+            graph_result = future2.result()
 
-        return {"message": "ok"}
-    
+        if self.version == "v1.1":
+            return {
+                "results": vector_store_result,
+                "relations": graph_result,
+            }
+        else:
+            warnings.warn(
+                "The current add API output format is deprecated. "
+                "To use the latest format, set `api_version='v1.1'`. "
+                "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            return {"message": "ok"}
+
     def _add_to_vector_store(self, messages, metadata, filters):
         parsed_messages = parse_messages(messages)
 
-        system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+        if self.custom_prompt:
+            system_prompt = self.custom_prompt
+            user_prompt = f"Input: {parsed_messages}"
+        else:
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
         response = self.llm.generate_response(
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             response_format={"type": "json_object"},
         )
 
         try:
-            new_retrieved_facts = json.loads(response)[
-                "facts"
-            ]
+            new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -151,16 +167,36 @@ class Memory(MemoryBase):
         )
         new_memories_with_actions = json.loads(new_memories_with_actions)
 
+        returned_memories = []
         try:
             for resp in new_memories_with_actions["memory"]:
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
-                        self._create_memory(data=resp["text"], metadata=metadata)
+                        _ = self._create_memory(data=resp["text"], metadata=metadata)
+                        returned_memories.append(
+                            {
+                                "memory": resp["text"],
+                                "event": resp["event"],
+                            }
+                        )
                     elif resp["event"] == "UPDATE":
                         self._update_memory(memory_id=resp["id"], data=resp["text"], metadata=metadata)
+                        returned_memories.append(
+                            {
+                                "memory": resp["text"],
+                                "event": resp["event"],
+                                "previous_memory": resp["old_memory"],
+                            }
+                        )
                     elif resp["event"] == "DELETE":
                         self._delete_memory(memory_id=resp["id"])
+                        returned_memories.append(
+                            {
+                                "memory": resp["text"],
+                                "event": resp["event"],
+                            }
+                        )
                     elif resp["event"] == "NONE":
                         logging.info("NOOP for Memory.")
                 except Exception as e:
@@ -170,7 +206,10 @@ class Memory(MemoryBase):
 
         capture_event("mem0.add", self)
 
+        return returned_memories
+
     def _add_to_graph(self, messages, filters):
+        added_entities = []
         if self.version == "v1.1" and self.enable_graph:
             if filters["user_id"]:
                 self.graph.user_id = filters["user_id"]
@@ -178,6 +217,8 @@ class Memory(MemoryBase):
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
             self.graph.add(data, filters)
+
+        return added_entities
 
     def get(self, memory_id):
         """
@@ -194,11 +235,7 @@ class Memory(MemoryBase):
         if not memory:
             return None
 
-        filters = {
-            key: memory.payload[key]
-            for key in ["user_id", "agent_id", "run_id"]
-            if memory.payload.get(key)
-        }
+        filters = {key: memory.payload[key] for key in ["user_id", "agent_id", "run_id"] if memory.payload.get(key)}
 
         # Prepare base memory item
         memory_item = MemoryItem(
@@ -219,9 +256,7 @@ class Memory(MemoryBase):
             "created_at",
             "updated_at",
         }
-        additional_metadata = {
-            k: v for k, v in memory.payload.items() if k not in excluded_keys
-        }
+        additional_metadata = {k: v for k, v in memory.payload.items() if k not in excluded_keys}
         if additional_metadata:
             memory_item["metadata"] = additional_metadata
 
@@ -245,33 +280,43 @@ class Memory(MemoryBase):
             filters["run_id"] = run_id
 
         capture_event("mem0.get_all", self, {"filters": len(filters), "limit": limit})
-        
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
-            future_graph_entities = executor.submit(self.graph.get_all, filters) if self.version == "v1.1" and self.enable_graph else None
+            future_graph_entities = (
+                executor.submit(self.graph.get_all, filters) if self.version == "v1.1" and self.enable_graph else None
+            )
 
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
         if self.version == "v1.1":
             if self.enable_graph:
-                return {"memories": all_memories, "entities": graph_entities}
+                return {"results": all_memories, "relations": graph_entities}
             else:
-                return {"memories": all_memories}
+                return {"results": all_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return all_memories
-        
+
     def _get_all_from_vector_store(self, filters, limit):
         memories = self.vector_store.list(filters=filters, limit=limit)
 
-        excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+        excluded_keys = {
+            "user_id",
+            "agent_id",
+            "run_id",
+            "hash",
+            "data",
+            "created_at",
+            "updated_at",
+        }
         all_memories = [
             {
                 **MemoryItem(
@@ -281,19 +326,9 @@ class Memory(MemoryBase):
                     created_at=mem.payload.get("created_at"),
                     updated_at=mem.payload.get("updated_at"),
                 ).model_dump(exclude={"score"}),
-                **{
-                    key: mem.payload[key]
-                    for key in ["user_id", "agent_id", "run_id"]
-                    if key in mem.payload
-                },
+                **{key: mem.payload[key] for key in ["user_id", "agent_id", "run_id"] if key in mem.payload},
                 **(
-                    {
-                        "metadata": {
-                            k: v
-                            for k, v in mem.payload.items()
-                            if k not in excluded_keys
-                        }
-                    }
+                    {"metadata": {k: v for k, v in mem.payload.items() if k not in excluded_keys}}
                     if any(k for k in mem.payload if k not in excluded_keys)
                     else {}
                 ),
@@ -302,9 +337,7 @@ class Memory(MemoryBase):
         ]
         return all_memories
 
-    def search(
-        self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None
-    ):
+    def search(self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None):
         """
         Search for memories.
 
@@ -328,39 +361,43 @@ class Memory(MemoryBase):
             filters["run_id"] = run_id
 
         if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "One of the filters: user_id, agent_id or run_id is required!"
-            )
+            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
 
-        capture_event("mem0.search", self, {"filters": len(filters), "limit": limit, "version": self.version})
+        capture_event(
+            "mem0.search",
+            self,
+            {"filters": len(filters), "limit": limit, "version": self.version},
+        )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, filters, limit)
-            future_graph_entities = executor.submit(self.graph.search, query, filters) if self.version == "v1.1" and self.enable_graph else None
+            future_graph_entities = (
+                executor.submit(self.graph.search, query, filters)
+                if self.version == "v1.1" and self.enable_graph
+                else None
+            )
 
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
         if self.version == "v1.1":
             if self.enable_graph:
-                return {"memories": original_memories, "entities": graph_entities}
+                return {"results": original_memories, "relations": graph_entities}
             else:
-                return {"memories" : original_memories}
+                return {"results": original_memories}
         else:
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return original_memories
-        
+
     def _search_vector_store(self, query, filters, limit):
         embeddings = self.embedding_model.embed(query)
-        memories = self.vector_store.search(
-            query=embeddings, limit=limit, filters=filters
-        )
+        memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
 
         excluded_keys = {
             "user_id",
@@ -382,19 +419,9 @@ class Memory(MemoryBase):
                     updated_at=mem.payload.get("updated_at"),
                     score=mem.score,
                 ).model_dump(),
-                **{
-                    key: mem.payload[key]
-                    for key in ["user_id", "agent_id", "run_id"]
-                    if key in mem.payload
-                },
+                **{key: mem.payload[key] for key in ["user_id", "agent_id", "run_id"] if key in mem.payload},
                 **(
-                    {
-                        "metadata": {
-                            k: v
-                            for k, v in mem.payload.items()
-                            if k not in excluded_keys
-                        }
-                    }
+                    {"metadata": {k: v for k, v in mem.payload.items() if k not in excluded_keys}}
                     if any(k for k in mem.payload if k not in excluded_keys)
                     else {}
                 ),
@@ -462,7 +489,7 @@ class Memory(MemoryBase):
         if self.version == "v1.1" and self.enable_graph:
             self.graph.delete_all(filters)
 
-        return {'message': 'Memories deleted successfully!'}
+        return {"message": "Memories deleted successfully!"}
 
     def history(self, memory_id):
         """
@@ -491,9 +518,7 @@ class Memory(MemoryBase):
             ids=[memory_id],
             payloads=[metadata],
         )
-        self.db.add_history(
-            memory_id, None, data, "ADD", created_at=metadata["created_at"]
-        )
+        self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
         return memory_id
 
     def _update_memory(self, memory_id, data, metadata=None):
@@ -505,9 +530,7 @@ class Memory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["hash"] = existing_memory.payload.get("hash")
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(
-            pytz.timezone("US/Pacific")
-        ).isoformat()
+        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 
         if "user_id" in existing_memory.payload:
             new_metadata["user_id"] = existing_memory.payload["user_id"]

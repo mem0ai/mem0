@@ -19,7 +19,6 @@ class OpenAIStructuredLLM(LLMBase):
         base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE")
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -30,8 +29,8 @@ class OpenAIStructuredLLM(LLMBase):
 
         Returns:
             str or dict: The processed response.
-        """        
-        
+        """
+
         if tools:
             processed_response = {
                 "content": response.choices[0].message.content,
@@ -51,7 +50,6 @@ class OpenAIStructuredLLM(LLMBase):
 
         else:
             return response.choices[0].message.content
-        
 
     def generate_response(
         self,

@@ -5,14 +5,11 @@ ADD_MEMORY_TOOL = {
     "function": {
         "name": "add_memory",
         "description": "Add a memory",
-        "strict": True,
         "parameters": {
             "type": "object",
-            "properties": {
-                "data": {"type": "string", "description": "Data to add to memory"}
-            },
+            "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
             "required": ["data"],
-            "additionalProperties": False
+            "additionalProperties": False,
         },
     },
 }
@@ -22,7 +19,6 @@ UPDATE_MEMORY_TOOL = {
     "function": {
         "name": "update_memory",
         "description": "Update memory provided ID and data",
-        "strict": True,
         "parameters": {
             "type": "object",
             "properties": {
@@ -36,7 +32,7 @@ UPDATE_MEMORY_TOOL = {
                 },
             },
             "required": ["memory_id", "data"],
-            "additionalProperties": False
+            "additionalProperties": False,
         },
     },
 }
@@ -46,7 +42,6 @@ DELETE_MEMORY_TOOL = {
     "function": {
         "name": "delete_memory",
         "description": "Delete memory by memory_id",
-        "strict": True,
         "parameters": {
             "type": "object",
             "properties": {
@@ -56,7 +51,7 @@ DELETE_MEMORY_TOOL = {
                 }
             },
             "required": ["memory_id"],
-            "additionalProperties": False
+            "additionalProperties": False,
         },
     },
 }
