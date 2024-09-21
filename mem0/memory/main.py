@@ -16,7 +16,7 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
+from mem0.memory.utils import get_fact_retrieval_messages, parse_messages, get_include_fact_retrieval_messages
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -67,6 +67,7 @@ class Memory(MemoryBase):
         metadata=None,
         filters=None,
         prompt=None,
+        includes=None,
     ):
         """
         Create a new memory.
@@ -79,6 +80,7 @@ class Memory(MemoryBase):
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
+            includes (str, optional): Prompt used to for memory inclusion. Defaults to None.
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
@@ -101,7 +103,7 @@ class Memory(MemoryBase):
             messages = [{"role": "user", "content": messages}]
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters, includes)
             future2 = executor.submit(self._add_to_graph, messages, filters)
 
             concurrent.futures.wait([future1, future2])
@@ -124,12 +126,14 @@ class Memory(MemoryBase):
             )
             return {"message": "ok"}
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+    def _add_to_vector_store(self, messages, metadata, filters, includes):
         parsed_messages = parse_messages(messages)
 
         if self.custom_prompt:
             system_prompt = self.custom_prompt
             user_prompt = f"Input: {parsed_messages}"
+        elif includes:
+            system_prompt, user_prompt = get_include_fact_retrieval_messages(parsed_messages, includes)
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 

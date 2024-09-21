@@ -1,4 +1,4 @@
-from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
+from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT, get_include_fact_retrieval_system_message
 
 
 def get_fact_retrieval_messages(message):
@@ -15,3 +15,7 @@ def parse_messages(messages):
         if msg["role"] == "assistant":
             response += f"assistant: {msg['content']}\n"
     return response
+
+def get_include_fact_retrieval_messages(message, includes):
+    return get_include_fact_retrieval_system_message(includes), f"Input: {message}"
+
