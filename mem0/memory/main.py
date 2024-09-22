@@ -5,7 +5,7 @@ import logging
 import uuid
 import warnings
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Literal
 
 import pytz
 from pydantic import ValidationError
@@ -16,7 +16,7 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
+from mem0.memory.utils import get_custom_category_fact_retrieval_messages, get_fact_retrieval_messages, parse_messages
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -67,6 +67,8 @@ class Memory(MemoryBase):
         metadata=None,
         filters=None,
         prompt=None,
+        custom_category: Optional[List[Dict[str, str]]] = None,
+        custom_category_filter: Optional[Literal['extend', 'restrict', 'omit']] = None
     ):
         """
         Create a new memory.
@@ -100,8 +102,11 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
+        if custom_category_filter is not None and custom_category is None:
+                raise ValueError("custom_category_filter can only be used when custom_category is provided")
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters, custom_category, custom_category_filter)
             future2 = executor.submit(self._add_to_graph, messages, filters)
 
             concurrent.futures.wait([future1, future2])
@@ -124,12 +129,14 @@ class Memory(MemoryBase):
             )
             return {"message": "ok"}
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+    def _add_to_vector_store(self, messages, metadata, filters, custom_category, custom_category_filter):
         parsed_messages = parse_messages(messages)
 
         if self.custom_prompt:
             system_prompt = self.custom_prompt
             user_prompt = f"Input: {parsed_messages}"
+        elif custom_category:
+            system_prompt, user_prompt = get_custom_category_fact_retrieval_messages(custom_category, custom_category_filter, parsed_messages)
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
