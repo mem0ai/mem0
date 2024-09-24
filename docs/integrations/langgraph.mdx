@@ -29,7 +29,7 @@ from typing import Annotated, TypedDict, List
 from langgraph.graph import StateGraph, START
 from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
-from mem0 import Memory
+from mem0 import MemoryClient
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 # Configuration
@@ -38,7 +38,7 @@ MEM0_API_KEY = 'your-mem0-key'  # Replace with your actual Mem0 API key
 
 # Initialize LangChain and Mem0
 llm = ChatOpenAI(model="gpt-4", api_key=OPENAI_API_KEY)
-mem0 = Memory(api_key=MEM0_API_KEY)
+mem0 = MemoryClient(api_key=MEM0_API_KEY)
 ```
 
 ## Define State and Graph
