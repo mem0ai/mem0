@@ -183,7 +183,7 @@ class Memory(MemoryBase):
                             }
                         )
                     elif resp["event"] == "UPDATE":
-                        self._update_memory(memory_id=resp["id"], data=resp["text"], metadata=metadata)
+                        self._update_memory(memory_id=resp["id"], data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
                         returned_memories.append(
                             {
                                 "memory": resp["text"],
@@ -526,7 +526,7 @@ class Memory(MemoryBase):
         self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
         return memory_id
 
-    def _update_memory(self, memory_id, data, metadata=None):
+    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
         logger.info(f"Updating memory with {data=}")
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload.get("data")
@@ -544,7 +544,10 @@ class Memory(MemoryBase):
         if "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        embeddings = self.embedding_model.embed(data)
+        if data in existing_embeddings: 
+            embeddings = existing_embeddings[data]
+        else: 
+            embeddings = self.embedding_model.embed(data)
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
