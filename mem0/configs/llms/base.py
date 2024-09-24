@@ -22,9 +22,9 @@ class BaseLlmConfig(ABC):
         # Openrouter specific
         models: Optional[list[str]] = None,
         route: Optional[str] = "fallback",
-        openrouter_base_url: Optional[str] = "https://openrouter.ai/api/v1",
+        openrouter_base_url: Optional[str] = None,
         # Openai specific
-        openai_base_url: Optional[str] = "https://api.openai.com/v1",
+        openai_base_url: Optional[str] = None,
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
         # Ollama specific
