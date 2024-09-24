@@ -148,8 +148,10 @@ class Memory(MemoryBase):
             new_retrieved_facts = []
 
         retrieved_old_memory = []
+        new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
             messages_embeddings = self.embedding_model.embed(new_mem)
+            new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
                 query=messages_embeddings,
                 limit=5,
@@ -173,7 +175,7 @@ class Memory(MemoryBase):
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
-                        _ = self._create_memory(data=resp["text"], metadata=metadata)
+                        _ = self._create_memory(data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
                         returned_memories.append(
                             {
                                 "memory": resp["text"],
@@ -504,9 +506,12 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, metadata=None):
+    def _create_memory(self, data, existing_embeddings, metadata=None):
         logging.info(f"Creating memory with {data=}")
-        embeddings = self.embedding_model.embed(data)
+        if data in existing_embeddings: 
+            embeddings = existing_embeddings[data]
+        else: 
+            embeddings = self.embedding_model.embed(data)
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
         metadata["data"] = data
