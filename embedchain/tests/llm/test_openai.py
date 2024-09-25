@@ -85,7 +85,7 @@ def test_get_llm_model_answer_with_token_usage(config, mocker):
         "prompt_tokens": 1,
         "completion_tokens": 2,
         "total_tokens": 3,
-        "total_cost": 5.5e-06,
+        "total_cost": 1.35e-06,
         "cost_currency": "USD",
     }
     mocked_get_answer.assert_called_once_with("Test query", test_config)

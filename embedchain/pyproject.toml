@@ -100,7 +100,7 @@ chromadb = "^0.4.24"
 posthog = "^3.0.2"
 rich = "^13.7.0"
 beautifulsoup4 = "^4.12.2"
-pypdf = "^4.0.1"
+pypdf = "^5.0.0"
 gptcache = "^0.1.43"
 pysbd = "^0.3.4"
 mem0ai = "^0.1.15"
@@ -139,6 +139,7 @@ alembic = "^1.13.1"
 langchain-cohere = "^0.1.4"
 langchain-community = "^0.2.6"
 langchain-aws = {version = "^0.1.10", optional = true}
+langsmith = "^0.1.17"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
