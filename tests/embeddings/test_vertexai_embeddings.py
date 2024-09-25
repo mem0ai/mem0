@@ -28,12 +28,8 @@ def mock_config():
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_default_model(mock_text_embedding_model, mock_os_environ, mock_config):
     mock_config.vertex_credentials_json = "/path/to/credentials.json"
-    mock_config.return_value.model = (
-        "text-embedding-004"  # Setting the model name correctly
-    )
-    mock_config.return_value.embedding_dims = (
-        256  # Ensure the embedding dimension is set correctly
-    )
+    mock_config.return_value.model = "text-embedding-004"
+    mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
     embedder = VertexAI(config)
@@ -56,8 +52,8 @@ def test_embed_default_model(mock_text_embedding_model, mock_os_environ, mock_co
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_custom_model(mock_text_embedding_model, mock_os_environ, mock_config):
     mock_config.vertex_credentials_json = "/path/to/credentials.json"
-    mock_config.return_value.model = "custom-embedding-model"  # Set the model name
-    mock_config.return_value.embedding_dims = 512  # Set embedding dimensions
+    mock_config.return_value.model = "custom-embedding-model"
+    mock_config.return_value.embedding_dims = 512
 
     config = mock_config()
 
@@ -108,7 +104,7 @@ def test_embed_with_different_dimensions(
     mock_text_embedding_model, mock_os_environ, mock_config
 ):
     mock_config.vertex_credentials_json = "/path/to/credentials.json"
-    mock_config.return_value.embedding_dims = 1024  # Set the embedding dimensions
+    mock_config.return_value.embedding_dims = 1024
 
     config = mock_config()
     embedder = VertexAI(config)
