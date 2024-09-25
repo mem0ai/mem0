@@ -1,6 +1,6 @@
+import logging
 import os
 import shutil
-import logging
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -15,6 +15,8 @@ from qdrant_client.models import (
 )
 
 from mem0.vector_stores.base import VectorStoreBase
+
+logger = logging.getLogger(__name__)
 
 
 class Qdrant(VectorStoreBase):
@@ -66,9 +68,7 @@ class Qdrant(VectorStoreBase):
         self.collection_name = collection_name
         self.create_col(embedding_model_dims, on_disk)
 
-    def create_col(
-        self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE
-    ):
+    def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
         """
         Create a new collection.
 
@@ -81,16 +81,12 @@ class Qdrant(VectorStoreBase):
         response = self.list_cols()
         for collection in response.collections:
             if collection.name == self.collection_name:
-                logging.debug(
-                    f"Collection {self.collection_name} already exists. Skipping creation."
-                )
+                logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 return
 
         self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=VectorParams(
-                size=vector_size, distance=distance, on_disk=on_disk
-            ),
+            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
         )
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
@@ -102,6 +98,7 @@ class Qdrant(VectorStoreBase):
             payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
+        logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         points = [
             PointStruct(
                 id=idx if ids is None else ids[idx],
@@ -125,15 +122,9 @@ class Qdrant(VectorStoreBase):
         conditions = []
         for key, value in filters.items():
             if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(
-                    FieldCondition(
-                        key=key, range=Range(gte=value["gte"], lte=value["lte"])
-                    )
-                )
+                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
             else:
-                conditions.append(
-                    FieldCondition(key=key, match=MatchValue(value=value))
-                )
+                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         return Filter(must=conditions) if conditions else None
 
     def search(self, query: list, limit: int = 5, filters: dict = None) -> list:
@@ -193,9 +184,7 @@ class Qdrant(VectorStoreBase):
         Returns:
             dict: Retrieved vector.
         """
-        result = self.client.retrieve(
-            collection_name=self.collection_name, ids=[vector_id], with_payload=True
-        )
+        result = self.client.retrieve(collection_name=self.collection_name, ids=[vector_id], with_payload=True)
         return result[0] if result else None
 
     def list_cols(self) -> list:

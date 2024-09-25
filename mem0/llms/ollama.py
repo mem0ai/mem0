@@ -3,12 +3,10 @@ from typing import Dict, List, Optional
 try:
     from ollama import Client
 except ImportError:
-    raise ImportError(
-        "Ollama requires extra dependencies. Install with `pip install ollama`"
-    ) from None
+    raise ImportError("The 'ollama' library is required. Please install it using 'pip install ollama'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class OllamaLLM(LLMBase):
@@ -87,7 +85,8 @@ class OllamaLLM(LLMBase):
             },
         }
         if response_format:
-            params["format"] = response_format
+            params["format"] = "json"
+
         if tools:
             params["tools"] = tools
 

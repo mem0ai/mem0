@@ -2,3 +2,83 @@
 title: 'V2 Search Memories'
 openapi: post /v2/memories/search/
 ---
+
+Mem0 offers two versions of the search API: v1 and v2. Here's how they differ:
+
+<Tabs>
+  <Tab title="v1 Search">
+    <CodeGroup>
+    ```python Code
+    related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+    ```
+
+    ```json Output
+    [
+       {
+          "id":"ea925981-272f-40dd-b576-be64e4871429",
+          "memory":"Likes to play cricket and plays cricket on weekends.",
+          "hash":"c8809002-25c1-4c97-a3a2-227ce9c20c53",
+          "metadata":{
+             "category":"hobbies"
+          },
+          "score":0.32116443111457704,
+          "created_at":"2024-07-26T10:29:36.630547-07:00",
+          "updated_at":"None",
+          "user_id":"alice"
+       }
+    ]
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="v2 Search">
+    <CodeGroup>
+    ```python Code
+    related_memories = m.v2_search(
+        query="What are Alice's hobbies?",
+        filters={
+        "AND":[
+            {
+                "user_id":"alice"
+            },
+            {
+                "agent_id":{
+                    "in":[
+                    "travelling",
+                    "sports"
+                    ]
+                }
+            }
+        ]
+    }
+    )
+    ```
+
+    ```json Output
+    {
+      "memories": [
+        {
+          "id": "ea925981-272f-40dd-b576-be64e4871429",
+          "memory": "Likes to play cricket and plays cricket on weekends.",
+          "hash": "c8809002-25c1-4c97-a3a2-227ce9c20c53",
+          "metadata": {
+            "category": "hobbies"
+          },
+          "score": 0.32116443111457704,
+          "created_at": "2024-07-26T10:29:36.630547-07:00",
+          "updated_at": null,
+          "user_id": "alice",
+          "agent_id": "sports"
+        }
+      ],
+    }
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+Key difference between v1 and v2 search:
+
+• **Filters**: v2 allows you to apply filters to narrow down search results based on specific criteria. This includes support for complex logical operations (AND, OR) and comparison operators (IN, gte, lte, gt, lt, ne, icontains) for advanced filtering capabilities.
+
+The v2 search API is more powerful and flexible, allowing for more precise memory retrieval.

@@ -62,7 +62,7 @@ app = App.from_config(config_path="config.yaml")
 llm:
   provider: openai
   config:
-    model: 'gpt-3.5-turbo'
+    model: 'gpt-4o-mini'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -205,7 +205,7 @@ app = App.from_config(config_path="config.yaml")
 llm:
   provider: azure_openai
   config:
-    model: gpt-3.5-turbo
+    model: gpt-4o-mini
     deployment_name: your_llm_deployment_name
     temperature: 0.5
     max_tokens: 1000
@@ -887,7 +887,7 @@ response = app.chat("Which companies did Elon Musk found?")
 llm:
   provider: openai
   config:
-    model: gpt-3.5-turbo
+    model: gpt-4o-mini
     temperature: 0.5
     max_tokens: 1000
     token_usage: true

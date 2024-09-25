@@ -20,7 +20,7 @@ app:
 llm:
   provider: openai
   config:
-    model: 'gpt-3.5-turbo'
+    model: 'gpt-4o-mini'
     temperature: 0.5
     max_tokens: 1000
     top_p: 1
@@ -82,7 +82,7 @@ cache:
   "llm": {
     "provider": "openai",
     "config": {
-      "model": "gpt-3.5-turbo",
+      "model": "gpt-4o-mini",
       "temperature": 0.5,
       "max_tokens": 1000,
       "top_p": 1,
@@ -140,7 +140,7 @@ config = {
     'llm': {
         'provider': 'openai',
         'config': {
-            'model': 'gpt-3.5-turbo',
+            'model': 'gpt-4o-mini',
             'temperature': 0.5,
             'max_tokens': 1000,
             'top_p': 1,
@@ -206,7 +206,7 @@ Alright, let's dive into what each key means in the yaml config above:
 2. `llm` Section:
     - `provider` (String): The provider for the language model, which is set to 'openai'. You can find the full list of llm providers in [our docs](/components/llms).
     - `config`:
-        - `model` (String): The specific model being used, 'gpt-3.5-turbo'.
+        - `model` (String): The specific model being used, 'gpt-4o-mini'.
         - `temperature` (Float): Controls the randomness of the model's output. A higher value (closer to 1) makes the output more random.
         - `max_tokens` (Integer): Controls how many tokens are used in the response.
         - `top_p` (Float): Controls the diversity of word selection. A higher value (closer to 1) makes word selection more diverse.
