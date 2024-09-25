@@ -909,8 +909,8 @@ langchain-core = ">=0.2.38,<0.3.0"
 langchain-text-splitters = ">=0.2.0,<0.3.0"
 langsmith = ">=0.1.17,<0.2.0"
 numpy = [
-    {version = ">=1.26.0,<2.0.0", markers = "python_version >= \"3.12\""},
     {version = ">=1,<2", markers = "python_version < \"3.12\""},
+    {version = ">=1.26.0,<2.0.0", markers = "python_version >= \"3.12\""},
 ]
 pydantic = ">=1,<3"
 PyYAML = ">=5.3"
@@ -936,8 +936,8 @@ langchain = ">=0.2.16,<0.3.0"
 langchain-core = ">=0.2.39,<0.3.0"
 langsmith = ">=0.1.112,<0.2.0"
 numpy = [
-    {version = ">=1.26.0,<2.0.0", markers = "python_version >= \"3.12\""},
     {version = ">=1,<2", markers = "python_version < \"3.12\""},
+    {version = ">=1.26.0,<2.0.0", markers = "python_version >= \"3.12\""},
 ]
 PyYAML = ">=5.3"
 requests = ">=2,<3"
@@ -960,8 +960,8 @@ jsonpatch = ">=1.33,<2.0"
 langsmith = ">=0.1.112,<0.2.0"
 packaging = ">=23.2,<25"
 pydantic = [
-    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
     {version = ">=1,<3", markers = "python_full_version < \"3.12.4\""},
+    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
 ]
 PyYAML = ">=5.3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
@@ -996,8 +996,8 @@ files = [
 httpx = ">=0.23.0,<1"
 orjson = ">=3.9.14,<4.0.0"
 pydantic = [
-    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
     {version = ">=1,<3", markers = "python_full_version < \"3.12.4\""},
+    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
 ]
 requests = ">=2,<3"
 
@@ -1403,8 +1403,8 @@ files = [
 annotated-types = ">=0.6.0"
 pydantic-core = "2.23.4"
 typing-extensions = [
-    {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
     {version = ">=4.6.1", markers = "python_version < \"3.13\""},
+    {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
 ]
 
 [package.extras]
@@ -1660,8 +1660,8 @@ grpcio = ">=1.41.0"
 grpcio-tools = ">=1.41.0"
 httpx = {version = ">=0.20.0", extras = ["http2"]}
 numpy = [
-    {version = ">=1.26", markers = "python_version >= \"3.12\""},
     {version = ">=1.21", markers = "python_version >= \"3.8\" and python_version < \"3.12\""},
+    {version = ">=1.26", markers = "python_version >= \"3.12\""},
 ]
 portalocker = ">=2.7.0,<3.0.0"
 pydantic = ">=1.10.8"
