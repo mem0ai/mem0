@@ -34,7 +34,7 @@
     {
       "name": "Discord",
       "icon": "discord",
-      "url": "https://mem0.ai/discord"
+      "url": "https://mem0.dev/DiD"
     },
     {
       "name": "GitHub",
@@ -219,7 +219,7 @@
     }
   ],
   "footerSocials": {
-    "discord": "https://mem0.ai/discord",
+    "discord": "https://mem0.dev/DiD",
     "x": "https://x.com/mem0ai",
     "github": "https://github.com/mem0ai",
     "linkedin": "https://www.linkedin.com/company/mem0/"
