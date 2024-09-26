@@ -48,6 +48,12 @@ class MemoryGraph:
         Args:
             data (str): The data to add to the graph.
             filters (dict): A dictionary containing filters to be applied during the addition.
+        Returns:
+            entities (list): List of added entities:
+                entity:
+                    - "source": The identifier of the source node in the new relationship. This can be an existing node or a new node to be created.
+                    - "relationship": The type of relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.
+                    - "target": The identifier of the destination node in the new relationship. This can be an existing node or a new node to be created.
         """
 
         # retrieve the search results

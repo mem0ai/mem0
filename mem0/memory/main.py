@@ -218,7 +218,7 @@ class Memory(MemoryBase):
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            self.graph.add(data, filters)
+            added_entities = self.graph.add(data, filters)
 
         return added_entities
 
