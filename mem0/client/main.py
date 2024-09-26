@@ -139,14 +139,14 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, **kwargs) -> Dict[str, Any]:
+    def get_all(self, **kwargs) -> List[Dict[str, Any]]:
         """Retrieve all memories, with optional filtering.
 
         Args:
             **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, limit).
 
         Returns:
-            A dictionary containing the list of memories.
+            A list of dictionaries containing memories.
 
         Raises:
             APIError: If the API request fails.
@@ -163,7 +163,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def search(self, query: str, version: str = "v1", **kwargs) -> Dict[str, Any]:
+    def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
         """Search memories based on a query.
 
         Args:
@@ -172,7 +172,7 @@ class MemoryClient:
             **kwargs: Additional parameters such as user_id, agent_id, app_id, limit, filters.
 
         Returns:
-            A dictionary containing the search results.
+            A list of dictionaries containing search results.
 
         Raises:
             APIError: If the API request fails.
@@ -218,7 +218,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_all(self, **kwargs) -> Dict[str, Any]:
+    def delete_all(self, **kwargs) -> Dict[str, str]:
         """Delete all memories, with optional filtering.
 
         Args:
@@ -238,14 +238,14 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def history(self, memory_id: str) -> Dict[str, Any]:
+    def history(self, memory_id: str) -> List[Dict[str, Any]]:
         """Retrieve the history of a specific memory.
 
         Args:
             memory_id: The ID of the memory to retrieve history for.
 
         Returns:
-            A dictionary containing the memory history.
+            A list of dictionaries containing the memory history.
 
         Raises:
             APIError: If the API request fails.
@@ -256,7 +256,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def users(self):
+    def users(self) -> Dict[str, Any]:
         """Get all users, agents, and sessions for which memories exist."""
         params = {"org_name": self.organization, "project_name": self.project}
         response = self.client.get("/v1/entities/", params=params)
