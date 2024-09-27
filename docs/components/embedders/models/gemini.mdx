@@ -1,0 +1,41 @@
+---
+title: Gemini
+---
+
+To use Gemini embedding models, set the `GOOGLE_API_KEY` environment variables. You can obtain the Gemini API key from [here](https://aistudio.google.com/app/apikey).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["GOOGLE_API_KEY"] = "key"
+
+config = {
+    "embedder": {
+        "provider": "gemini",
+        "config": {
+            "model": "models/text-embedding-004"
+        }
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "test",
+            "embedding_model_dims": 768,
+        }
+    },
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring Gemini embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `models/text-embedding-004` |
