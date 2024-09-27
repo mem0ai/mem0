@@ -286,7 +286,7 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.get_all, filters) if self.version == "v1.1" and self.enable_graph else None
+                executor.submit(self.graph.get_all, filters, limit) if self.version == "v1.1" and self.enable_graph else None
             )
 
             all_memories = future_memories.result()
@@ -374,7 +374,7 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, filters)
+                executor.submit(self.graph.search, query, filters, limit)
                 if self.version == "v1.1" and self.enable_graph
                 else None
             )
