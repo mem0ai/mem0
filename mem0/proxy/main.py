@@ -178,5 +178,5 @@ class Completions:
         )
 
     def _format_query_with_memories(self, messages, relevant_memories):
-        memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
+        memories_text = "\n".join(memory["memory"] for memory in relevant_memories['results'])
         return f"- Relevant Memories/Facts: {memories_text}\n\n- User Question: {messages[-1]['content']}"
