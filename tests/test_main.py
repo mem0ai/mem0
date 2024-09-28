@@ -1,8 +1,10 @@
-import pytest
 import os
 from unittest.mock import Mock, patch
-from mem0.memory.main import Memory
+
+import pytest
+
 from mem0.configs.base import MemoryConfig
+from mem0.memory.main import Memory
 
 
 @pytest.fixture(autouse=True)
@@ -119,7 +121,7 @@ def test_search(memory_instance, version, enable_graph):
     memory_instance.embedding_model.embed.assert_called_once_with("test query")
 
     if enable_graph:
-        memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"})
+        memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
     else:
         memory_instance.graph.search.assert_not_called()
 
@@ -217,6 +219,6 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
     memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, limit=100)
 
     if enable_graph:
-        memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"})
+        memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
     else:
         memory_instance.graph.get_all.assert_not_called()
