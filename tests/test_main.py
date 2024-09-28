@@ -38,7 +38,7 @@ def test_add(memory_instance, version, enable_graph):
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
     memory_instance._add_to_graph = Mock(return_value=[])
 
-    result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
+    result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user", custom_categories={"categories": [{"key": "value"}]})
 
     assert "results" in result
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
@@ -46,7 +46,7 @@ def test_add(memory_instance, version, enable_graph):
     assert result["relations"] == []
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, None, None
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, {"categories": [{"key": "value"}]}
     )
 
     # Remove the conditional assertion for _add_to_graph
