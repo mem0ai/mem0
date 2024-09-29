@@ -65,3 +65,6 @@ class BaseEmbedderConfig(ABC):
 
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
+
+        # VertexAI specific
+        self.vertex_credentials_json = vertex_credentials_json
