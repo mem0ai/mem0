@@ -12,7 +12,7 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         if self.config.model is None:
             self.config.model = "models/text-embedding-004" # embedding-dim = 768
         
-        self.config.embedding_dims = self.config.embedding_dims || 768
+        self.config.embedding_dims = self.config.embedding_dims or 768
 
         genai.configure(api_key=self.config.api_key or os.getenv("GOOGLE_API_KEY"))
 
