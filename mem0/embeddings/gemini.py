@@ -11,6 +11,8 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         super().__init__(config)
         if self.config.model is None:
             self.config.model = "models/text-embedding-004" # embedding-dim = 768
+        
+        self.config.embedding_dims = self.config.embedding_dims || 768
 
         genai.configure(api_key=self.config.api_key or os.getenv("GOOGLE_API_KEY"))
 
@@ -23,5 +25,5 @@ class GoogleGenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        response = genai.embed_content(model=self.config.model, content=text)
+        response = genai.embed_content(model=self.config.model, content=text, output_dimensionality=self.config.embedding_dims)
         return response['embedding']
