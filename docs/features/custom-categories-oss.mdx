@@ -1,0 +1,93 @@
+---
+title: Custom Categories
+description: 'Enhance your product experience by adding custom categories with filters tailored to your needs'
+---
+
+## How to set custom categories?
+
+Users now have the ability to create custom categories tailored to their unique needs, in addition to the default categories like travel, sports, music, and others.
+Additionally, a filtering option allows users to choose whether to extend or omit specific categories to limit their scope.
+To set up custom categories, users must provide a category name and a description explaining its purpose. The filter is an optional feature that supports the keywords: **extend**, **omit**, and **restrict**.
+
+Here we initialize the Memory with config.
+
+```python
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    },
+    "version": "v1.1"
+}
+
+m = Memory.from_config(config_dict=config, user_id="alice")
+```
+### Example
+
+<CodeGroup>
+```python Code
+custom_categories = {
+    "categories" : [
+        {"financial": "Includes content related to personal finance, investing strategies, saving tips, market trends, and financial planning."},
+        {"programming": "For users interested in programming, including tutorials, coding tips, language-specific content, and software development best practices."}
+    ], 
+    "filter": "restrict" # or can be; extend, omit
+}
+
+m.add("Alice enjoys hiking, favors using Python for backend development, and prefers budgeting apps to manage her finances.", user_id="alice1", custom_categories=custom_categories)
+m.add("Alice is passionate about front-end development with React and spends her weekends exploring new restaurants.", user_id="alice1", custom_categories=custom_categories)
+m.add("Alice loves reading historical fiction, excels in writing efficient Python scripts, and is an avid traveler.", user_id="alice1", custom_categories=custom_categories)
+m.add("Alice is a fan of indie films and enjoys practicing yoga.", user_id="alice1", custom_categories=custom_categories)
+
+def extract_memories(data):
+    return [item['memory'] for item in data['results']]
+
+res = m.get_all(user_id="alice1")
+print(extract_memories(res))
+```
+
+```python Output
+Passionate about front-end development with React
+Alice excels in writing efficient Python scripts
+Prefers budgeting apps to manage her finances
+Name is Alice
+Favors using Python for backend development
+```
+</CodeGroup>
+> Note: Results focuses on the mentioned categories with *restrict* filter, ignoring other facts. 
+
+
+## Filters
+
+- `extend` Adds the custom category alongside the default categories, expanding the available options.
+
+- `omit`  Excludes the custom category from the selection, narrowing the available choices.
+
+- `restrict` Limits the selection to the custom category, excluding all default categories.
+
+## Default Categories
+Here is the list of **default categories**. Ensure you review these before creating custom categories to prevent duplication.
+
+```
+- personal_details
+- family
+- professional_details
+- sports
+- travel 
+- food
+- music
+- health
+- technology
+- hobbies
+- fashion
+- entertainment
+- milestones
+- user_preferences
+- misc
+```
