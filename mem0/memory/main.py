@@ -215,10 +215,14 @@ class Memory(MemoryBase):
         if self.version == "v1.1" and self.enable_graph:
             if filters["user_id"]:
                 self.graph.user_id = filters["user_id"]
+            elif filters["agent_id"]:
+                self.graph.agent_id = filters["agent_id"]
+            elif filters["run_id"]:
+                self.graph.run_id = filters["run_id"]
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            self.graph.add(data, filters)
+            added_entities = self.graph.add(data, filters)
 
         return added_entities
 
@@ -288,6 +292,8 @@ class Memory(MemoryBase):
             future_graph_entities = (
                 executor.submit(self.graph.get_all, filters, limit) if self.version == "v1.1" and self.enable_graph else None
             )
+
+            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
 
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
@@ -378,6 +384,8 @@ class Memory(MemoryBase):
                 if self.version == "v1.1" and self.enable_graph
                 else None
             )
+
+            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
 
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
