@@ -17,24 +17,32 @@ client = Mem0(api_key="m0-xxx")
 
 # First interaction: Storing user preferences
 messages = [
-  {
-    "role": "user",
-    "content": "I love indian food but I cannot eat pizza since allergic to cheese."
-  },
+    {
+        "role": "user",
+        "content": "I love indian food but I cannot eat pizza since allergic to cheese."
+    },
 ]
 user_id = "alice"
-chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
+chat_completion = client.chat.completions.create(
+    messages=messages,
+    model="gpt-4o-mini",
+    user_id=user_id
+)
 # Memory saved after this will look like: "Loves Indian food. Allergic to cheese and cannot eat pizza."
 
 # Second interaction: Leveraging stored memory
 messages = [
-  {
-    "role": "user",
-    "content": "Suggest restaurants in San Francisco to eat.",
-  }
+    {
+        "role": "user",
+        "content": "Suggest restaurants in San Francisco to eat.",
+    }
 ]
 
-chat_completion = client.chat.completions.create(messages=messages, model="gpt-4o-mini", user_id=user_id)
+chat_completion = client.chat.completions.create(
+    messages=messages,
+    model="gpt-4o-mini",
+    user_id=user_id
+)
 print(chat_completion.choices[0].message.content)
 # Answer: You might enjoy Indian restaurants in San Francisco, such as Amber India, Dosa, or Curry Up Now, which offer delicious options without cheese.
 ```
