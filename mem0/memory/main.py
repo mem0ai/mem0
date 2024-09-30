@@ -215,6 +215,10 @@ class Memory(MemoryBase):
         if self.version == "v1.1" and self.enable_graph:
             if filters["user_id"]:
                 self.graph.user_id = filters["user_id"]
+            elif filters["agent_id"]:
+                self.graph.agent_id = filters["agent_id"]
+            elif filters["run_id"]:
+                self.graph.run_id = filters["run_id"]
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
