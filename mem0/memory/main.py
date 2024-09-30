@@ -83,6 +83,7 @@ class Memory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
+        print("NEW ADD")
         if metadata is None:
             metadata = {}
 
@@ -289,6 +290,8 @@ class Memory(MemoryBase):
                 executor.submit(self.graph.get_all, filters, limit) if self.version == "v1.1" and self.enable_graph else None
             )
 
+            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
+
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
@@ -378,6 +381,8 @@ class Memory(MemoryBase):
                 if self.version == "v1.1" and self.enable_graph
                 else None
             )
+
+            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
 
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
