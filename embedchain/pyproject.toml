@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.122"
+version = "0.1.123"
 description = "Simplest open source retrieval (RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -93,7 +93,7 @@ color = true
 [tool.poetry.dependencies]
 python = ">=3.9,<=3.13"
 python-dotenv = "^1.0.0"
-langchain = ">0.2,<=0.3"
+langchain = "^0.3.1"
 requests = "^2.31.0"
 openai = ">=1.1.1"
 chromadb = "^0.4.24"
@@ -103,7 +103,7 @@ beautifulsoup4 = "^4.12.2"
 pypdf = "^5.0.0"
 gptcache = "^0.1.43"
 pysbd = "^0.3.4"
-mem0ai = "^0.1.15"
+mem0ai = "^0.1.18"
 tiktoken = { version = "^0.7.0", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.3.0", optional = true }
@@ -131,14 +131,14 @@ google-auth-oauthlib = { version = "^1.2.0", optional = true }
 google-auth = { version = "^2.25.2", optional = true }
 google-auth-httplib2 = { version = "^0.2.0", optional = true }
 google-api-core = { version = "^2.15.0", optional = true }
-langchain-mistralai = { version = "^0.1.9", optional = true }
-langchain-openai = "^0.1.7"
-langchain-google-vertexai = { version = "^1.0.6", optional = true }
+langchain-mistralai = { version = "^0.2.0", optional = true }
+langchain-openai = "^0.2.1"
+langchain-google-vertexai = { version = "^2.0.2", optional = true }
 sqlalchemy = "^2.0.27"
 alembic = "^1.13.1"
-langchain-cohere = "^0.1.4"
-langchain-community = "^0.2.6"
-langchain-aws = {version = "^0.1.10", optional = true}
+langchain-cohere = "^0.3.0"
+langchain-community = "^0.3.1"
+langchain-aws = {version = "^0.2.1", optional = true}
 langsmith = "^0.1.17"
 
 [tool.poetry.group.dev.dependencies]
