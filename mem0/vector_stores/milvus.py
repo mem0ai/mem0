@@ -79,9 +79,8 @@ class MilvusDB(VectorStoreBase):
                 field_name="vectors",
                 metric_type=metric_type,
                 index_type="AUTOINDEX",
-                index_name="vector_index",
-                params={"nlist": 128},
-            )
+                index_name="vector_index"  
+                )
             self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index)
 
     def insert(self, ids, vectors, payloads, **kwargs: Optional[dict[str, any]]):
