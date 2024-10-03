@@ -126,6 +126,7 @@
                 "components/embedders/models/azure_openai",
                 "components/embedders/models/ollama",
                 "components/embedders/models/huggingface",
+                "components/embedders/models/vertexai",
                 "components/embedders/models/gemini"
               ]
             }
