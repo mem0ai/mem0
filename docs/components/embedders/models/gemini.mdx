@@ -16,16 +16,9 @@ config = {
     "embedder": {
         "provider": "gemini",
         "config": {
-            "model": "models/text-embedding-004"
+            "model": "models/text-embedding-004",
         }
-    },
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "collection_name": "test",
-            "embedding_model_dims": 768,
-        }
-    },
+    }
 }
 
 m = Memory.from_config(config)
@@ -39,3 +32,5 @@ Here are the parameters available for configuring Gemini embedder:
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `model` | The name of the embedding model to use | `models/text-embedding-004` |
+| `embedding_dims` | Dimensions of the embedding model | `768` |
+| `api_key` | The Gemini API key | `None` |
