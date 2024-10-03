@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-from mem0.embeddings.vertexai import VertexAI
+from mem0.embeddings.vertexai import VertexAIEmbedding
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 
 
@@ -32,7 +32,7 @@ def test_embed_default_model(mock_text_embedding_model, mock_os_environ, mock_co
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
-    embedder = VertexAI(config)
+    embedder = VertexAIEmbedding(config)
 
     mock_embedding = Mock(values=[0.1, 0.2, 0.3])
     mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [
@@ -57,7 +57,7 @@ def test_embed_custom_model(mock_text_embedding_model, mock_os_environ, mock_con
 
     config = mock_config()
 
-    embedder = VertexAI(config)
+    embedder = VertexAIEmbedding(config)
 
     mock_embedding = Mock(values=[0.4, 0.5, 0.6])
     mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [
@@ -81,7 +81,7 @@ def test_credentials_from_environment(mock_os, mock_text_embedding_model, mock_c
     mock_os.getenv.return_value = "/path/to/env/credentials.json"
     mock_config.vertex_credentials_json = None
     config = mock_config()
-    VertexAI(config)
+    VertexAIEmbedding(config)
 
     mock_os.environ.setitem.assert_not_called()
 
@@ -96,7 +96,7 @@ def test_missing_credentials(mock_os, mock_text_embedding_model, mock_config):
     with pytest.raises(
         ValueError, match="Google application credentials JSON is not provided"
     ):
-        VertexAI(config)
+        VertexAIEmbedding(config)
 
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
@@ -107,7 +107,7 @@ def test_embed_with_different_dimensions(
     mock_config.return_value.embedding_dims = 1024
 
     config = mock_config()
-    embedder = VertexAI(config)
+    embedder = VertexAIEmbedding(config)
 
     mock_embedding = Mock(values=[0.1] * 1024)
     mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [

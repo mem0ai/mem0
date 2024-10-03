@@ -7,7 +7,7 @@ from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
 
-class VertexAI(EmbeddingBase):
+class VertexAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
