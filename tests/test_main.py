@@ -127,7 +127,6 @@ def test_search(memory_instance, version, enable_graph):
 def test_update(memory_instance):
     memory_instance._update_memory = Mock()
 
-    memory_instance.embedding_model = Mock()
     memory_instance.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
 
     result = memory_instance.update("test_id", "Updated memory")
