@@ -9,10 +9,13 @@ from mem0.embeddings.base import EmbeddingBase
 class GoogleGenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
-        if self.config.model is None:
-            self.config.model = "models/text-embedding-004" # embedding-dim = 768
+        
+        self.config.model = self.config.model or "models/text-embedding-004"
+        self.config.embedding_dims = self.config.embedding_dims or 768
 
-        genai.configure(api_key=self.config.api_key or os.getenv("GOOGLE_API_KEY"))
+        api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
+
+        genai.configure(api_key=api_key)
 
     def embed(self, text):
         """
