@@ -1,3 +1,4 @@
+import os
 from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -16,7 +17,9 @@ class UpstashVectorConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_credentials_or_client(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        url, token, client = values.get("url"), values.get("token"), values.get("client")
+        client = values.get("client")
+        url = values.get("url") or os.environ.get("UPSTASH_VECTOR_REST_URL")
+        token = values.get("token") or os.environ.get("UPSTASH_VECTOR_REST_TOKEN")
 
         if not client and not (url and token):
             raise ValueError("Either a client or URL and token must be provided.")
