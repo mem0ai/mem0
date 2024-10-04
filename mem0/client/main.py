@@ -56,12 +56,12 @@ class MemoryClient:
     """
 
     def __init__(
-            self,
-            api_key: Optional[str] = None,
-            host: Optional[str] = None,
-            organization: Optional[str] = None,
-            project: Optional[str] = None
-        ):
+        self,
+        api_key: Optional[str] = None,
+        host: Optional[str] = None,
+        organization: Optional[str] = None,
+        project: Optional[str] = None,
+    ):
         """Initialize the MemoryClient.
 
         Args:
@@ -270,9 +270,7 @@ class MemoryClient:
         params = {"org_name": self.organization, "project_name": self.project}
         entities = self.users()
         for entity in entities["results"]:
-            response = self.client.delete(
-                f"/v1/entities/{entity['type']}/{entity['id']}/", params=params
-            )
+            response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
 
         capture_client_event("client.delete_users", self)
