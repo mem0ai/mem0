@@ -109,7 +109,8 @@
                 "components/vectordbs/dbs/chroma",
                 "components/vectordbs/dbs/pgvector",
                 "components/vectordbs/dbs/qdrant",
-                "components/vectordbs/dbs/milvus"
+                "components/vectordbs/dbs/milvus",
+                "components/vectordbs/dbs/upstash-vector"
               ]
             }
           ]

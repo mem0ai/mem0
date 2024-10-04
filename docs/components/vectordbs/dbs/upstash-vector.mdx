@@ -1,0 +1,41 @@
+[Upstash Vector](https://upstash.com/docs/vector) is a serverless vector database designed for working with vector embeddings. 
+
+<Note>
+    Currently, Mem0 does not support for Upstash Vector embedding models.
+    So you can use Upstash Vector only as a vector database provider.
+</Note>
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+os.environ["UPSTASH_VECTOR_REST_URL"] = "..."
+os.environ["UPSTASH_VECTOR_REST_TOKEN"] = "..."
+
+config = {
+    "vector_store": {
+        "provider": "upstash_vector",
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Upstash Vector:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `url` | URL for the Upstash Vector index | `None` |
+| `token` | Token for the Upstash Vector index | `None` |
+| `client` | An `upstash_vector.Index` instance | `None` |
+| `namespace` | The default namespace used | `None` |
+
+<Note>
+    When `url` and `token` are not provided, the `UPSTASH_VECTOR_REST_URL` and `UPSTASH_VECTOR_REST_TOKEN` environment variables are used.
+</Note>
