@@ -229,7 +229,7 @@
   "analytics": {
     "posthog": {
       "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-      "apiHost": "https://us.i.posthog.com"
+      "apiHost": "https://mango.mem0.ai"
     }
   }
 }
