@@ -1880,6 +1880,20 @@ mypy-extensions = ">=0.3.0"
 typing-extensions = ">=3.7.4"
 
 [[package]]
+name = "upstash-vector"
+version = "0.6.0"
+description = "Serverless Vector SDK from Upstash"
+optional = false
+python-versions = "<4.0,>=3.8"
+files = [
+    {file = "upstash_vector-0.6.0-py3-none-any.whl", hash = "sha256:d0bdad7765b8a7f5c205b7a9c81ca4b9a4cee3ee4952afc7d5ea5fb76c3f3c3c"},
+    {file = "upstash_vector-0.6.0.tar.gz", hash = "sha256:a716ed4d0251362208518db8b194158a616d37d1ccbb1155f619df690599e39b"},
+]
+
+[package.dependencies]
+httpx = ">=0.23.0,<1"
+
+[[package]]
 name = "urllib3"
 version = "2.2.2"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -2002,4 +2016,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "f89339f1b8ab378b89649bebb12692d44d40f74a816806aefedd34b6105223c8"
+content-hash = "6353235a88513f008436352a48ebde12585b4c75e5732d082800bd53b307936e"
