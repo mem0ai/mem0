@@ -2,6 +2,7 @@ import hashlib
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from embedchain.loaders.web_page import WebPageLoader
 
@@ -115,3 +116,33 @@ def test_get_clean_content_excludes_unnecessary_info(web_page_loader):
         assert class_name not in content
 
     assert len(content) > 0
+
+
+def test_fetch_reference_links_success(web_page_loader):
+    # Mock a successful response
+    response = Mock(spec=requests.Response)
+    response.status_code = 200
+    response.content = b"""
+    <html>
+        <body>
+            <a href="http://example.com">Example</a>
+            <a href="https://another-example.com">Another Example</a>
+            <a href="/relative-link">Relative Link</a>
+        </body>
+    </html>
+    """
+
+    expected_links = ["http://example.com", "https://another-example.com"]
+    result = web_page_loader.fetch_reference_links(response)
+    assert result == expected_links
+
+
+def test_fetch_reference_links_failure(web_page_loader):
+    # Mock a failed response
+    response = Mock(spec=requests.Response)
+    response.status_code = 404
+    response.content = b""
+
+    expected_links = []
+    result = web_page_loader.fetch_reference_links(response)
+    assert result == expected_links
