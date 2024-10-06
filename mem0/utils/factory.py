@@ -60,6 +60,7 @@ class VectorStoreFactory:
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
+        "esvector": "mem0.vector_stores.esvector.ESVector",
     }
 
     @classmethod
@@ -72,3 +73,21 @@ class VectorStoreFactory:
             return vector_store_instance(**config)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
+
+
+class HistoryDBFactory:
+    provider_to_class = {
+        "mysql":"mem0.history.my_sql.Mysql",
+        "sqlite":"mem0.history.sqlite.Sqlite",
+    }
+
+    @classmethod
+    def create(cls, provider_name, config):
+        class_type = cls.provider_to_class.get(provider_name)
+        if class_type:
+            if not isinstance(config, dict):
+                config = config.model_dump()
+            history_db_instance = load_class(class_type)
+            return history_db_instance(**config)
+        else:
+            raise ValueError(f"Unsupport HistoryDB provider: {provider_name}")

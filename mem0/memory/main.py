@@ -17,7 +17,7 @@ from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
-from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
+from mem0.utils.factory import EmbedderFactory, HistoryDBFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
 setup_config()
@@ -35,7 +35,10 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = HistoryDBFactory.create(
+            self.config.history_db.provider,
+            self.config.history_db.config
+        )
         self.collection_name = self.config.vector_store.config.collection_name
         self.version = self.config.version
 
@@ -517,13 +520,21 @@ class Memory(MemoryBase):
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 
         self.vector_store.insert(
             vectors=[embeddings],
             ids=[memory_id],
             payloads=[metadata],
         )
-        self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
+        self.db.add_history(
+            memory_id,
+            None,
+            data,
+            "ADD",
+            created_at=metadata["created_at"],
+            updated_at=metadata["updated_at"],
+            )
         return memory_id
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
@@ -568,7 +579,15 @@ class Memory(MemoryBase):
         existing_memory = self.vector_store.get(vector_id=memory_id)
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
-        self.db.add_history(memory_id, prev_value, None, "DELETE", is_deleted=1)
+        self.db.add_history(
+            memory_id,
+            prev_value,
+            None,
+            "DELETE",
+            create_at = existing_memory.payload.get("created_at"),
+            updated_at = datetime.now(pytz.timezone("US/Pacific")).isoformat(),
+            is_deleted=1,
+        )
 
     def reset(self):
         """

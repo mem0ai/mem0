@@ -15,6 +15,7 @@ class VectorStoreConfig(BaseModel):
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
         "milvus": "MilvusDBConfig",
+        "esvector": "ESVectorConfig",
     }
 
     @model_validator(mode="after")
