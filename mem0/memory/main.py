@@ -453,7 +453,10 @@ class Memory(MemoryBase):
             dict: Updated memory.
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
-        self._update_memory(memory_id, data)
+        
+        existing_embeddings = {data: self.embedding_model.embed(data)}
+
+        self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -536,7 +539,11 @@ class Memory(MemoryBase):
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
         logger.info(f"Updating memory with {data=}")
-        existing_memory = self.vector_store.get(vector_id=memory_id)
+
+        try:
+            existing_memory = self.vector_store.get(vector_id=memory_id)
+        except Exception as e:
+            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = metadata or {}

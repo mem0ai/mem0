@@ -197,6 +197,7 @@ class MemoryClient:
         """
         capture_client_event("client.update", self)
         response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data})
+        response.raise_for_status()
         return response.json()
 
     @api_error_handler
