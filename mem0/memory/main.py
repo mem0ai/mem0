@@ -10,7 +10,7 @@ from typing import Any, Dict
 import pytz
 from pydantic import ValidationError
 
-from mem0.configs.base import MemoryConfig, MemoryItem
+from mem0.configs.base import MemoryConfig, MemoryContext, MemoryItem
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
@@ -83,22 +83,19 @@ class Memory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
-        if metadata is None:
-            metadata = {}
-
-        filters = filters or {}
-        if user_id:
-            filters["user_id"] = metadata["user_id"] = user_id
-        if agent_id:
-            filters["agent_id"] = metadata["agent_id"] = agent_id
-        if run_id:
-            filters["run_id"] = metadata["run_id"] = run_id
-
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
-
+        
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
+
+        memory_context = MemoryContext(
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            metadata=metadata,
+            filters=filters
+        )
+        metadata = memory_context.prepare_metadata(), 
+        filters = memory_context.prepare_filters()
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
@@ -360,17 +357,13 @@ class Memory(MemoryBase):
         Returns:
             list: List of search results.
         """
-        filters = filters or {}
-        if user_id:
-            filters["user_id"] = user_id
-        if agent_id:
-            filters["agent_id"] = agent_id
-        if run_id:
-            filters["run_id"] = run_id
-
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
-
+        memory_context = MemoryContext(
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            filters=filters
+        )
+        filters = memory_context.prepare_filters(filters)
         capture_event(
             "mem0.search",
             self,
