@@ -134,7 +134,7 @@ def test_update(memory_instance):
 
     result = memory_instance.update("test_id", "Updated memory")
 
-    memory_instance._update_memory.assert_called_once_with("test_id", "Updated memory", {"data": [0.1, 0.2, 0.3]})
+    memory_instance._update_memory.assert_called_once_with("test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]})
 
     assert result["message"] == "Memory updated successfully!"
 
