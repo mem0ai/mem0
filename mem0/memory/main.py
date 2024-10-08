@@ -446,7 +446,7 @@ class Memory(MemoryBase):
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
 
-        existing_embeddings = {data: self.embedding_model.embed(data)}
+        existing_embeddings = {"data": self.embedding_model.embed(data)}
         
         self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
