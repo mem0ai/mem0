@@ -1,16 +1,14 @@
-import os
 import json
-from typing import Dict, List, Optional, Any
+import os
+from typing import Any, Dict, List, Optional
 
 try:
     import boto3
 except ImportError:
-    raise ImportError(
-        "AWS Bedrock requires extra dependencies. Install with `pip install boto3`"
-    ) from None
+    raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
-from mem0.llms.base import LLMBase
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
 
 
 class AWSBedrockLLM(LLMBase):
@@ -127,9 +125,7 @@ class AWSBedrockLLM(LLMBase):
                 },
             }
             input_body["textGenerationConfig"] = {
-                k: v
-                for k, v in input_body["textGenerationConfig"].items()
-                if v is not None
+                k: v for k, v in input_body["textGenerationConfig"].items() if v is not None
             }
 
         return input_body
@@ -163,9 +159,7 @@ class AWSBedrockLLM(LLMBase):
                     }
                 }
 
-                for prop, details in (
-                    function["parameters"].get("properties", {}).items()
-                ):
+                for prop, details in function["parameters"].get("properties", {}).items():
                     new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = {
                         "type": details.get("type", "string"),
                         "description": details.get("description", ""),
@@ -178,6 +172,7 @@ class AWSBedrockLLM(LLMBase):
     def generate_response(
         self,
         messages: List[Dict[str, str]],
+        response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
     ):
@@ -218,9 +213,7 @@ class AWSBedrockLLM(LLMBase):
             # Use invoke_model method when no tools are provided
             prompt = self._format_messages(messages)
             provider = self.model.split(".")[0]
-            input_body = self._prepare_input(
-                provider, self.config.model, prompt, **self.model_kwargs
-            )
+            input_body = self._prepare_input(provider, self.config.model, prompt, **self.model_kwargs)
             body = json.dumps(input_body)
 
             response = self.client.invoke_model(

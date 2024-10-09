@@ -38,6 +38,29 @@ m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
 
+We also support the new [OpenAI structured-outputs](https://platform.openai.com/docs/guides/structured-outputs/introduction) model.
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "openai_structured",
+        "config": {
+            "model": "gpt-4o-2024-08-06",
+            "temperature": 0.0,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+
+
 ## Config
 
 All available parameters for the `openai` config are present in [Master List of All Params in Config](../config).

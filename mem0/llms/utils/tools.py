@@ -1,3 +1,5 @@
+# TODO: Remove these tools if no issues are found for new memory addition logic
+
 ADD_MEMORY_TOOL = {
     "type": "function",
     "function": {
@@ -5,10 +7,9 @@ ADD_MEMORY_TOOL = {
         "description": "Add a memory",
         "parameters": {
             "type": "object",
-            "properties": {
-                "data": {"type": "string", "description": "Data to add to memory"}
-            },
+            "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
             "required": ["data"],
+            "additionalProperties": False,
         },
     },
 }
@@ -31,6 +32,7 @@ UPDATE_MEMORY_TOOL = {
                 },
             },
             "required": ["memory_id", "data"],
+            "additionalProperties": False,
         },
     },
 }
@@ -49,6 +51,7 @@ DELETE_MEMORY_TOOL = {
                 }
             },
             "required": ["memory_id"],
+            "additionalProperties": False,
         },
     },
 }

@@ -9,6 +9,16 @@ The config is defined as a Python dictionary with two main keys:
   - `provider`: The name of the llm (e.g., "openai", "groq")
   - `config`: A nested dictionary containing provider-specific settings
 
+### Config Values Precedence
+
+Config values are applied in the following order of precedence (from highest to lowest):
+
+1. Values explicitly set in the `config` dictionary
+2. Environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_API_BASE`)
+3. Default values defined in the LLM implementation
+
+This means that values specified in the `config` dictionary will override corresponding environment variables, which in turn override default values.
+
 ## How to Use Config
 
 Here's a general example of how to use the config with mem0:
@@ -53,12 +63,15 @@ Here's the table based on the provided parameters:
 | `max_tokens`         | Tokens to generate                            | All               |
 | `top_p`              | Probability threshold for nucleus sampling    | All               |
 | `top_k`              | Number of highest probability tokens to keep  | All               |
+| `http_client_proxies`| Allow proxy server settings                   | AzureOpenAI       |
 | `models`             | List of models                                | Openrouter        |
 | `route`              | Routing strategy                              | Openrouter        |
 | `openrouter_base_url`| Base URL for Openrouter API                   | Openrouter        |
 | `site_url`           | Site URL                                      | Openrouter        |
 | `app_name`           | Application name                              | Openrouter        |
 | `ollama_base_url`    | Base URL for Ollama API                       | Ollama            |
+| `openai_base_url`    | Base URL for OpenAI API                       | OpenAI            |
+| `azure_kwargs`       | Azure LLM args for initialization             | AzureOpenAI       |
 
 
 ## Supported LLMs
