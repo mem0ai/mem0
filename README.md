@@ -209,6 +209,10 @@ We value and appreciate the contributions of our community. Special thanks to ou
   <img src="https://contrib.rocks/image?repo=mem0ai/mem0" />
 </a>
 
+## Anonymous Telemetry
+
+We collect anonymous usage metrics to enhance our package's quality and user experience. This includes data like feature usage frequency and system info, but never personal details. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the environment variable MEM0_TELEMETRY=false. We prioritize data security and don't share this data externally.
+
 ## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
