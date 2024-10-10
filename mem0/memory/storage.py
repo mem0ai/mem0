@@ -140,3 +140,4 @@ class SQLiteManager:
     def reset(self):
         with self.connection:
             self.connection.execute("DROP TABLE IF EXISTS history")
+            self._create_history_table()
