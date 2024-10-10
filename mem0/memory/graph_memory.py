@@ -347,7 +347,7 @@ class MemoryGraph:
     def graph_query(self, query, params):
         """
         Execute a Cypher query on the graph database.
-        For FalkorDB, the graph is switched based on the user_id.
+        FalkorDB supported multi-graph usage, the graphs is switched based on the user_id.
 
         Args:
             query (str): The Cypher query to execute.
@@ -357,6 +357,7 @@ class MemoryGraph:
             list: A list of dictionaries containing the results of the query.
         """
         if self.config.graph_store.provider == "falkordb":
+            # TODO: Use langchain to switch graphs after the multi-graph feature is released
             self.graph._graph = self.graph._driver.select_graph(params["user_id"])
             
         query_output = self.graph.query(query, params=params)
