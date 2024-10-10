@@ -26,4 +26,4 @@ class HuggingFaceEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        return self.model.encode(text, convert_to_numpy = True).tolist()
+        return self.model.encode(text, convert_to_numpy=True).tolist()
