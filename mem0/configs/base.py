@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -72,3 +72,15 @@ class AzureConfig(BaseModel):
     azure_deployment: str = Field(description="The name of the Azure deployment.", default=None)
     azure_endpoint: str = Field(description="The endpoint URL for the Azure service.", default=None)
     api_version: str = Field(description="The version of the Azure API being used.", default=None)
+
+
+class CustomCategories(BaseModel):
+    """
+    Custom categories for memory. 
+    
+    Args:
+        categories (list): The list of custom categories.
+        filter (str): Filter to control the category behaviour.
+    """
+    categories: List[Dict[str, str]] = Field(...,description="List of categories with key-value pairs as strings")
+    filter: Optional[Literal['restrict', 'omit', 'extend']] = Field('extend', description="Optional filter to control the category display behavior")
