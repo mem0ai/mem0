@@ -455,7 +455,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --location --request GET 'https://api.mem0.ai/v1/memories/' \\\n--header 'Authorization: <api-key>'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .asString();"
+					}
+				]
 			},
 			"post": {
 				"tags": [
@@ -511,6 +537,32 @@
 						}
 					}
 				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/\"\n\npayload = {\n    \"messages\": [{}],\n    \"agent_id\": \"<string>\",\n    \"user_id\": \"<string>\",\n    \"app_id\": \"<string>\",\n    \"run_id\": \"<string>\",\n    \"metadata\": {},\n    \"includes\": \"<string>\",\n    \"excludes\": \"<string>\",\n    \"infer\": True,\n    \"custom_categories\": {},\n    \"org_name\": \"<string>\",\n    \"project_name\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {\n  method: 'POST',\n  headers: {Authorization: '<api-key>', 'Content-Type': 'application/json'},\n  body: '{\"messages\":[{}],\"agent_id\":\"<string>\",\"user_id\":\"<string>\",\"app_id\":\"<string>\",\"run_id\":\"<string>\",\"metadata\":{},\"includes\":\"<string>\",\"excludes\":\"<string>\",\"infer\":true,\"custom_categories\":{},\"org_name\":\"<string>\",\"project_name\":\"<string>\"}'\n};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"messages\": [\n    {}\n  ],\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"includes\": \"<string>\",\n  \"excludes\": \"<string>\",\n  \"infer\": true,\n  \"custom_categories\": {},\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\"\n}'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\"\n}\")\n  .asString();"
+					}
+				],
 				"x-codegen-request-body-name": "data"
 			},
 			"delete": {
@@ -596,7 +648,34 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {method: 'DELETE', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: <api-key>'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .asString();"
+					}
+				],
+				"x-codegen-request-body-name": "data"
 			}
 		},
 		"/v1/memories/events/": {
@@ -731,6 +810,32 @@
 						}
 					}
 				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/search/\"\n\npayload = {\n    \"query\": \"<string>\",\n    \"agent_id\": \"<string>\",\n    \"user_id\": \"<string>\",\n    \"app_id\": \"<string>\",\n    \"run_id\": \"<string>\",\n    \"metadata\": {},\n    \"top_k\": 123,\n    \"fields\": [\"<string>\"],\n    \"rerank\": True,\n    \"org_name\": \"<string>\",\n    \"project_name\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/search/ \\\n  --header 'Authorization: <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\"\n}'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .asString();"
+					}
+				],
 				"x-codegen-request-body-name": "data"
 			}
 		},
@@ -965,7 +1070,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: <api-key>'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/{memory_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/memories/{memory_id}/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .asString();"
+					}
+				]
 			},
 			"put": {
 				"tags": [
@@ -1046,6 +1177,32 @@
 						}
 					}
 				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"PUT\", url, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {method: 'PUT', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request PUT \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: <api-key>'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\n\treq, _ := http.NewRequest(\"PUT\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/{memory_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"PUT\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.put(\"https://api.mem0.ai/v1/memories/{memory_id}/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .asString();"
+					}
+				],
 				"x-codegen-request-body-name": "data"
 			},
 			"delete": {
@@ -1083,7 +1240,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const options = {method: 'DELETE', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: <api-key>'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"<api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/{memory_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v1/memories/{memory_id}/\")\n  .header(\"Authorization\", \"<api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/memories/{memory_id}/history/": {
