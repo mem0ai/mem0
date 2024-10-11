@@ -1,7 +1,6 @@
 import os
 from typing import Dict, List, Optional
 
-# from openai import OpenAI
 import google.generativeai as genai
 from google.generativeai.types import content_types
 
@@ -16,14 +15,7 @@ class GeminiLLM(LLMBase):
         if not self.config.model:
             self.config.model = "gemini-1.5-flash-latest"
 
-        # if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
-        #     self.client = OpenAI(
-        #         api_key=os.environ.get("OPENROUTER_API_KEY"),
-        #         base_url=self.config.openrouter_base_url,
-        #     )
-        # else:
         api_key = self.config.api_key or os.getenv("GEMINI_API_KEY")
-        # base_url = os.getenv("OPENAI_API_BASE") or self.config.openai_base_url
         genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(model_name=self.config.model)
 
@@ -44,18 +36,39 @@ class GeminiLLM(LLMBase):
                 "tool_calls": [],
             }
 
-            if response.candidates[0].function_calls:
-                for function_call in response.candidates[0].function_calls:
-                    processed_response["tool_calls"].append(
-                        {
-                            "name": function_call.name,
-                            "arguments": function_call.args.items(),
-                        }
-                    )
+            if response.candidates[0].content.parts[0].function_call:
+              for part in response.parts:
+                  if fn := part.function_call:
+                      args = ", ".join(f"{key}={val}" for key, val in fn.args.items())
+                      processed_response["tool_calls"].append(
+                          {
+                                  "name": fn.name,
+                                  "arguments": args,
+                          }
+                      )
 
             return processed_response
         else:
             return response.candidates[0].content
+
+    def reformat_tools(self, tools):
+        """
+        Reformat tools for Gemini API SDK.
+
+        Args:
+            tools: The list of tools provided in the request.
+
+        Returns:
+            list: The list of tools in the required format.
+        """
+        new_tools = []
+
+        for tool in tools:
+          func = tool['function'].copy()
+          func['parameters'].pop('additionalProperties', None)
+          new_tools.append({"function_declarations":[func]})
+
+        return new_tools
 
     def generate_response(
         self,
@@ -76,38 +89,25 @@ class GeminiLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        
+
         params = {
             "temperature": self.config.temperature,
             "max_output_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
 
-        # if os.getenv("OPENROUTER_API_KEY"):
-        #     openrouter_params = {}
-        #     if self.config.models:
-        #         openrouter_params["models"] = self.config.models
-        #         openrouter_params["route"] = self.config.route
-        #         params.pop("model")
-
-        #     if self.config.site_url and self.config.app_name:
-        #         extra_headers = {
-        #             "HTTP-Referer": self.config.site_url,
-        #             "X-Title": self.config.app_name,
-        #         }
-        #         openrouter_params["extra_headers"] = extra_headers
-
-            # params.update(**openrouter_params)
-
         if response_format:
-            params["response_mime_type"] = "applications/json"
-            params["response_schema"] = response_format
+            params["response_mime_type"] = "application/json"
+            params["response_schema"] = list[response_format]
         if tool_choice:
             tool_config = content_types.to_tool_config(
-            {"function_calling_config": 
-                {"mode": tool_choice, "allowed_function_names": [x.__name__ for x in tools]}
+            {"function_calling_config":
+                {"mode": tool_choice, "allowed_function_names": [tool['function']['name'] for tool in tools] if tool_choice == "any" else None}
             })
 
-        response = self.client.generate_content(messages, generation_config=genai.GenerationConfig(**params), tool_config=tool_config)
-        # response = self.client.chat.completions.create(**params)
+        response = self.client.generate_content(messages, 
+                                                tools = self.reformat_tools(tools), 
+                                                generation_config=genai.GenerationConfig(**params), 
+                                                tool_config=tool_config)
+
         return self._parse_response(response, tools)
