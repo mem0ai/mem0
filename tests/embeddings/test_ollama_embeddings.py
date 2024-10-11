@@ -23,9 +23,7 @@ def test_embed_text(mock_ollama_client):
     text = "Sample text to embed."
     embedding = embedder.embed(text)
 
-    mock_ollama_client.embeddings.assert_called_once_with(
-        model="nomic-embed-text", prompt=text
-    )
+    mock_ollama_client.embeddings.assert_called_once_with(model="nomic-embed-text", prompt=text)
 
     assert embedding == [0.1, 0.2, 0.3, 0.4, 0.5]
 

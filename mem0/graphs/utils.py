@@ -1,4 +1,3 @@
-
 UPDATE_GRAPH_PROMPT = """
 You are an AI expert specializing in graph memory management and optimization. Your task is to analyze existing graph memories alongside new information, and update the relationships in the memory list to ensure the most accurate, current, and coherent representation of knowledge.
 
@@ -55,9 +54,9 @@ Strive for a coherent, easily understandable knowledge graph by maintaining cons
 Adhere strictly to these guidelines to ensure high-quality knowledge graph extraction."""
 
 
-
 def get_update_memory_prompt(existing_memories, memory, template):
     return template.format(existing_memories=existing_memories, memory=memory)
+
 
 def get_update_memory_messages(existing_memories, memory):
     return [

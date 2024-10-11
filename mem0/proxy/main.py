@@ -10,7 +10,7 @@ try:
     import litellm
 except ImportError:
     user_input = input("The 'litellm' library is required. Install it now? [y/N]: ")
-    if user_input.lower() == 'y':
+    if user_input.lower() == "y":
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
             import litellm
@@ -105,16 +105,10 @@ class Completions:
 
         prepared_messages = self._prepare_messages(messages)
         if prepared_messages[-1]["role"] == "user":
-            self._async_add_to_memory(
-                messages, user_id, agent_id, run_id, metadata, filters
-            )
-            relevant_memories = self._fetch_relevant_memories(
-                messages, user_id, agent_id, run_id, filters, limit
-            )
+            self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)
+            relevant_memories = self._fetch_relevant_memories(messages, user_id, agent_id, run_id, filters, limit)
             logger.debug(f"Retrieved {len(relevant_memories)} relevant memories")
-            prepared_messages[-1]["content"] = self._format_query_with_memories(
-                messages, relevant_memories
-            )
+            prepared_messages[-1]["content"] = self._format_query_with_memories(messages, relevant_memories)
 
         response = litellm.completion(
             model=model,
@@ -156,9 +150,7 @@ class Completions:
         messages[0]["content"] = MEMORY_ANSWER_PROMPT
         return messages
 
-    def _async_add_to_memory(
-        self, messages, user_id, agent_id, run_id, metadata, filters
-    ):
+    def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
         def add_task():
             logger.debug("Adding to memory asynchronously")
             self.mem0_client.add(
@@ -172,13 +164,9 @@ class Completions:
 
         threading.Thread(target=add_task, daemon=True).start()
 
-    def _fetch_relevant_memories(
-        self, messages, user_id, agent_id, run_id, filters, limit
-    ):
+    def _fetch_relevant_memories(self, messages, user_id, agent_id, run_id, filters, limit):
         # Currently, only pass the last 6 messages to the search API to prevent long query
-        message_input = [
-            f"{message['role']}: {message['content']}" for message in messages
-        ][-6:]
+        message_input = [f"{message['role']}: {message['content']}" for message in messages][-6:]
         # TODO: Make it better by summarizing the past conversation
         return self.mem0_client.search(
             query="\n".join(message_input),
