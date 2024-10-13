@@ -21,15 +21,20 @@ class OctoAILlm(BaseLlm):
 
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
+
+
+        octoai_api_key = os.getenv("OCTOAI_API_TOKEN") or config.api_key
+        callbacks = config.callbacks if (not config.stream) or (config.stream and config.callbacks) \
+                        else [StreamingStdOutCallbackHandler()]
+
         chat = OctoAIEndpoint(
+            octoai_api_token=octoai_api_key,
             model_name=config.model,
             max_tokens=config.max_tokens,
             temperature=config.temperature,
             top_p=config.top_p,
             streaming=config.stream,
-            callbacks=config.callbacks
-            if (not config.stream) or (config.stream and config.callbacks)
-            else [StreamingStdOutCallbackHandler()],
+            callbacks=callbacks,
         )
 
         return chat.invoke(prompt)
