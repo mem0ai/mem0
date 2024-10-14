@@ -180,7 +180,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/entities/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\nusers = client.users()\nprint(users)"
 				},
 				{
 				"lang": "JavaScript",
@@ -511,7 +511,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(user_id=\"<user_id>\")\n\nprint(user_memories)"
 				},
 				{
 				"lang": "JavaScript",
@@ -592,7 +592,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/\"\n\npayload = {\n    \"messages\": [{}],\n    \"agent_id\": \"<string>\",\n    \"user_id\": \"<string>\",\n    \"app_id\": \"<string>\",\n    \"run_id\": \"<string>\",\n    \"metadata\": {},\n    \"includes\": \"<string>\",\n    \"excludes\": \"<string>\",\n    \"infer\": True,\n    \"custom_categories\": {},\n    \"org_name\": \"<string>\",\n    \"project_name\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\")"
 				},
 				{
 				"lang": "JavaScript",
@@ -704,7 +704,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")"
 				},
 				{
 				"lang": "JavaScript",
@@ -865,7 +865,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/search/\"\n\npayload = {\n    \"query\": \"<string>\",\n    \"agent_id\": \"<string>\",\n    \"user_id\": \"<string>\",\n    \"app_id\": \"<string>\",\n    \"run_id\": \"<string>\",\n    \"metadata\": {},\n    \"top_k\": 123,\n    \"fields\": [\"<string>\"],\n    \"rerank\": True,\n    \"org_name\": \"<string>\",\n    \"project_name\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.0\")\nprint(results)"
 				},
 				{
 				"lang": "JavaScript",
@@ -994,7 +994,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v2/memories/search/\"\n\npayload = {\n    \"query\": \"<string>\",\n    \"filters\": {},\n    \"top_k\": 123,\n    \"fields\": [\"<string>\"],\n    \"rerank\": True,\n    \"org_name\": \"<string>\",\n    \"project_name\": \"<string>\"\n}\nheaders = {\n    \"Authorization\": \"<api-key>\",\n    \"Content-Type\": \"application/json\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"AND\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, version=\"v2\", filters=filters)"
 				},
 				{
 				"lang": "JavaScript",
@@ -1152,7 +1152,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\nmemory = client.get(memory_id=\"<memory_id>\")"
 				},
 				{
 				"lang": "JavaScript",
@@ -1258,7 +1258,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"PUT\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nmessage = \"Your updated memory message here\"\nclient.update(memory_id, message)"
 				},
 				{
 				"lang": "JavaScript",
@@ -1322,7 +1322,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\nmemory_id = \"<memory_id>\"\nclient.delete(memory_id=memory_id)"
 				},
 				{
 				"lang": "JavaScript",
@@ -1468,7 +1468,7 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/memories/{memory_id}/history/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\n# Add some message to create history\nmessages = [{\"role\": \"user\", \"content\": \"<user-message>\"}]\nclient.add(messages, user_id=\"<user-id>\")\n\n# Add second message to update history\nmessages.append({\"role\": \"user\", \"content\": \"<user-message>\"})\nclient.add(messages, user_id=\"<user-id>\")\n\n# Get history of how memory changed over time\nmemory_id = \"<memory-id-here>\"\nhistory = client.history(memory_id)"
 				},
 				{
 				"lang": "JavaScript",
