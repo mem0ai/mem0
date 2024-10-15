@@ -8,12 +8,12 @@
   <p align="center">
     <a href="https://mem0.ai">Learn more</a>
     ·
-    <a href="https://mem0.ai/discord">Join Discord</a>
+    <a href="https://mem0.dev/DiG">Join Discord</a>
   </p>
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai/discord">
+  <a href="https://mem0.dev/DiG">
     <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Mem0 Discord">
   </a>
   <a href="https://pepy.tech/project/mem0ai">
@@ -195,19 +195,23 @@ For detailed usage instructions and API reference, visit our documentation at [d
 
 Join our community for support and discussions. If you have any questions, feel free to reach out to us using one of the following methods:
 
-- [Join our Discord](https://mem0.ai/discord)
+- [Join our Discord](https://mem0.dev/DiG)
 - [Follow us on Twitter](https://x.com/mem0ai)
 - [Email founders](mailto:founders@mem0.ai)
 
 ## Contributors
 
-Join our [Discord community](https://mem0.ai/discord) to learn about memory management for AI agents and LLMs, and connect with Mem0 users and contributors. Share your ideas, questions, or feedback in our [GitHub Issues](https://github.com/mem0ai/mem0/issues).
+Join our [Discord community](https://mem0.dev/DiG) to learn about memory management for AI agents and LLMs, and connect with Mem0 users and contributors. Share your ideas, questions, or feedback in our [GitHub Issues](https://github.com/mem0ai/mem0/issues).
 
 We value and appreciate the contributions of our community. Special thanks to our contributors for helping us improve Mem0.
 
 <a href="https://github.com/mem0ai/mem0/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=mem0ai/mem0" />
 </a>
+
+## Anonymous Telemetry
+
+We collect anonymous usage metrics to enhance our package's quality and user experience. This includes data like feature usage frequency and system info, but never personal details. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the environment variable MEM0_TELEMETRY=false. We prioritize data security and don't share this data externally.
 
 ## License
 

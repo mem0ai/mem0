@@ -148,8 +148,10 @@ class Memory(MemoryBase):
             new_retrieved_facts = []
 
         retrieved_old_memory = []
+        new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
             messages_embeddings = self.embedding_model.embed(new_mem)
+            new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
                 query=messages_embeddings,
                 limit=5,
@@ -173,7 +175,7 @@ class Memory(MemoryBase):
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
-                        _ = self._create_memory(data=resp["text"], metadata=metadata)
+                        _ = self._create_memory(data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
                         returned_memories.append(
                             {
                                 "memory": resp["text"],
@@ -181,7 +183,7 @@ class Memory(MemoryBase):
                             }
                         )
                     elif resp["event"] == "UPDATE":
-                        self._update_memory(memory_id=resp["id"], data=resp["text"], metadata=metadata)
+                        self._update_memory(memory_id=resp["id"], data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
                         returned_memories.append(
                             {
                                 "memory": resp["text"],
@@ -213,10 +215,14 @@ class Memory(MemoryBase):
         if self.version == "v1.1" and self.enable_graph:
             if filters["user_id"]:
                 self.graph.user_id = filters["user_id"]
+            elif filters["agent_id"]:
+                self.graph.agent_id = filters["agent_id"]
+            elif filters["run_id"]:
+                self.graph.run_id = filters["run_id"]
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            self.graph.add(data, filters)
+            added_entities = self.graph.add(data, filters)
 
         return added_entities
 
@@ -284,8 +290,10 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.get_all, filters) if self.version == "v1.1" and self.enable_graph else None
+                executor.submit(self.graph.get_all, filters, limit) if self.version == "v1.1" and self.enable_graph else None
             )
+
+            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
 
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
@@ -372,10 +380,12 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, filters)
+                executor.submit(self.graph.search, query, filters, limit)
                 if self.version == "v1.1" and self.enable_graph
                 else None
             )
+
+            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
 
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
@@ -443,7 +453,10 @@ class Memory(MemoryBase):
             dict: Updated memory.
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
-        self._update_memory(memory_id, data)
+        
+        existing_embeddings = {data: self.embedding_model.embed(data)}
+
+        self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -504,9 +517,12 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, metadata=None):
+    def _create_memory(self, data, existing_embeddings, metadata=None):
         logging.info(f"Creating memory with {data=}")
-        embeddings = self.embedding_model.embed(data)
+        if data in existing_embeddings: 
+            embeddings = existing_embeddings[data]
+        else: 
+            embeddings = self.embedding_model.embed(data)
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
         metadata["data"] = data
@@ -521,9 +537,13 @@ class Memory(MemoryBase):
         self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
         return memory_id
 
-    def _update_memory(self, memory_id, data, metadata=None):
+    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
         logger.info(f"Updating memory with {data=}")
-        existing_memory = self.vector_store.get(vector_id=memory_id)
+
+        try:
+            existing_memory = self.vector_store.get(vector_id=memory_id)
+        except Exception:
+            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = metadata or {}
@@ -539,7 +559,10 @@ class Memory(MemoryBase):
         if "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        embeddings = self.embedding_model.embed(data)
+        if data in existing_embeddings: 
+            embeddings = existing_embeddings[data]
+        else: 
+            embeddings = self.embedding_model.embed(data)
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
@@ -568,6 +591,9 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
         self.vector_store.delete_col()
+        self.vector_store = VectorStoreFactory.create(
+            self.config.vector_store.provider, self.config.vector_store.config
+        )
         self.db.reset()
         capture_event("mem0.reset", self)
 
