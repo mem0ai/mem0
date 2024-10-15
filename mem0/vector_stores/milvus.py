@@ -30,6 +30,9 @@ class MilvusDB(VectorStoreBase):
         collection_name: str,
         embedding_model_dims: int,
         metric_type: MetricType,
+        db_name: str = "",
+        user: str = "",
+        password: str = "",
     ) -> None:
         """Initialize the MilvusDB database.
 
@@ -39,11 +42,14 @@ class MilvusDB(VectorStoreBase):
             collection_name (str): Name of the collection (defaults to mem0).
             embedding_model_dims (int): Dimensions of the embedding model (defaults to 1536).
             metric_type (MetricType): Metric type for similarity search (defaults to L2).
+            db_name (str): Name of the database (defaults to "").
+            user (str): User for the database (defaults to "").
+            password (str): Password for the database (defaults to "").
         """
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.metric_type = metric_type
-        self.client = MilvusClient(uri=url, token=token)
+        self.client = MilvusClient(uri=url, token=token, db_name=db_name, user=user, password=password)
         self.create_col(
             collection_name=self.collection_name,
             vector_size=self.embedding_model_dims,
