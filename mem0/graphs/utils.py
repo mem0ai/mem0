@@ -55,7 +55,7 @@ Adhere strictly to these guidelines to ensure high-quality knowledge graph extra
 
 
 def get_update_memory_prompt(existing_memories, memory, template):
-    return template.format(existing_memories=existing_memories, memory=memory)
+    return template.format(existing_memories=existing_memories or "None", memory=memory)
 
 
 def get_update_memory_messages(existing_memories, memory):
