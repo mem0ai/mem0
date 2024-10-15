@@ -542,7 +542,7 @@ class Memory(MemoryBase):
 
         try:
             existing_memory = self.vector_store.get(vector_id=memory_id)
-        except Exception as e:
+        except Exception:
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data")
 
@@ -591,6 +591,9 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
         self.vector_store.delete_col()
+        self.vector_store = VectorStoreFactory.create(
+            self.config.vector_store.provider, self.config.vector_store.config
+        )
         self.db.reset()
         capture_event("mem0.reset", self)
 
