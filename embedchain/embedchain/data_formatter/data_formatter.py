@@ -1,5 +1,5 @@
 from importlib import import_module
-from typing import Optional
+from typing import Any, Optional
 
 from embedchain.chunkers.base_chunker import BaseChunker
 from embedchain.config import AddConfig
@@ -40,7 +40,13 @@ class DataFormatter(JSONSerializable):
         module = import_module(module_path)
         return getattr(module, class_name)
 
-    def _get_loader(self, data_type: DataType, config: LoaderConfig, loader: Optional[BaseLoader]) -> BaseLoader:
+    def _get_loader(
+        self,
+        data_type: DataType,
+        config: LoaderConfig,
+        loader: Optional[BaseLoader],
+        **kwargs: Optional[dict[str, Any]],
+    ) -> BaseLoader:
         """
         Returns the appropriate data loader for the given data type.
 

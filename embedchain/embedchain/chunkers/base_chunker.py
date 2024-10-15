@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from embedchain.config.add_config import ChunkerConfig
 from embedchain.helpers.json_serializable import JSONSerializable
@@ -15,7 +15,14 @@ class BaseChunker(JSONSerializable):
         self.text_splitter = text_splitter
         self.data_type = None
 
-    def create_chunks(self, loader, src, app_id=None, config: Optional[ChunkerConfig] = None):
+    def create_chunks(
+        self,
+        loader,
+        src,
+        app_id=None,
+        config: Optional[ChunkerConfig] = None,
+        **kwargs: Optional[dict[str, Any]],
+    ):
         """
         Loads data and chunks it.
 
@@ -30,7 +37,7 @@ class BaseChunker(JSONSerializable):
         id_map = {}
         min_chunk_size = config.min_chunk_size if config is not None else 1
         logger.info(f"Skipping chunks smaller than {min_chunk_size} characters")
-        data_result = loader.load_data(src)
+        data_result = loader.load_data(src, **kwargs)
         data_records = data_result["data"]
         doc_id = data_result["doc_id"]
         # Prefix app_id in the document id if app_id is not None to
