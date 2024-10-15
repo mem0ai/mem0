@@ -1,7 +1,14 @@
 import logging
 
-from langchain_community.graphs import Neo4jGraph
-from rank_bm25 import BM25Okapi
+try:
+    from langchain_community.graphs import Neo4jGraph
+except ImportError:
+    raise ImportError("langchain_community is not installed. Please install it using pip install langchain-community")
+
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:
+    raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
 
 from mem0.graphs.tools import (
     ADD_MEMORY_STRUCT_TOOL_GRAPH,
