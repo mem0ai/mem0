@@ -87,6 +87,16 @@ class Memory(MemoryBase):
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
+            result: dict of affected events with each dict has the following key:
+              'memories': affected memories
+              'graph': affected graph memories
+
+              'memories' and 'graph' is a dict, each with following subkeys:
+                'add': added memory
+                'update': updated memory
+                'delete': deleted memory
+
+
         """
         if metadata is None:
             metadata = {}
@@ -180,11 +190,10 @@ class Memory(MemoryBase):
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
-                        _ = self._create_memory(
-                            data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata
-                        )
+                        memory_id = self._create_memory(data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
                         returned_memories.append(
                             {
+                                "id": memory_id,
                                 "memory": resp["text"],
                                 "event": resp["event"],
                             }
@@ -198,6 +207,7 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append(
                             {
+                                "id": resp["id"],
                                 "memory": resp["text"],
                                 "event": resp["event"],
                                 "previous_memory": resp["old_memory"],
@@ -207,6 +217,7 @@ class Memory(MemoryBase):
                         self._delete_memory(memory_id=resp["id"])
                         returned_memories.append(
                             {
+                                "id": resp["id"],
                                 "memory": resp["text"],
                                 "event": resp["event"],
                             }
@@ -471,7 +482,10 @@ class Memory(MemoryBase):
             dict: Updated memory.
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
-        self._update_memory(memory_id, data)
+
+        existing_embeddings = {data: self.embedding_model.embed(data)}
+
+        self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -554,7 +568,11 @@ class Memory(MemoryBase):
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
         logger.info(f"Updating memory with {data=}")
-        existing_memory = self.vector_store.get(vector_id=memory_id)
+
+        try:
+            existing_memory = self.vector_store.get(vector_id=memory_id)
+        except Exception:
+            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = metadata or {}
@@ -588,6 +606,7 @@ class Memory(MemoryBase):
             created_at=new_metadata["created_at"],
             updated_at=new_metadata["updated_at"],
         )
+        return memory_id
 
     def _delete_memory(self, memory_id):
         logging.info(f"Deleting memory with {memory_id=}")
@@ -595,6 +614,7 @@ class Memory(MemoryBase):
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(memory_id, prev_value, None, "DELETE", is_deleted=1)
+        return memory_id
 
     def reset(self):
         """
@@ -602,6 +622,9 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
         self.vector_store.delete_col()
+        self.vector_store = VectorStoreFactory.create(
+            self.config.vector_store.provider, self.config.vector_store.config
+        )
         self.db.reset()
         capture_event("mem0.reset", self)
 

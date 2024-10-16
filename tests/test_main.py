@@ -5,6 +5,7 @@ import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.main import Memory
+from mem0.utils.factory import VectorStoreFactory
 
 
 @pytest.fixture(autouse=True)
@@ -127,11 +128,15 @@ def test_search(memory_instance, version, enable_graph):
 
 
 def test_update(memory_instance):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
     memory_instance._update_memory = Mock()
 
     result = memory_instance.update("test_id", "Updated memory")
 
-    memory_instance._update_memory.assert_called_once_with("test_id", "Updated memory")
+    memory_instance._update_memory.assert_called_once_with("test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]})
+
     assert result["message"] == "Memory updated successfully!"
 
 
@@ -167,13 +172,19 @@ def test_delete_all(memory_instance, version, enable_graph):
 
 def test_reset(memory_instance):
     memory_instance.vector_store.delete_col = Mock()
+    # persisting vector store to make sure previous collection is deleted
+    initial_vector_store = memory_instance.vector_store
     memory_instance.db.reset = Mock()
 
-    memory_instance.reset()
+    with patch.object(VectorStoreFactory, "create", return_value=Mock()) as mock_create:
+        
+        memory_instance.reset()
 
-    memory_instance.vector_store.delete_col.assert_called_once()
-    memory_instance.db.reset.assert_called_once()
-
+        initial_vector_store.delete_col.assert_called_once()
+        memory_instance.db.reset.assert_called_once()
+        mock_create.assert_called_once_with(
+            memory_instance.config.vector_store.provider, memory_instance.config.vector_store.config
+        )
 
 @pytest.mark.parametrize(
     "version, enable_graph, expected_result",
