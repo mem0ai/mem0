@@ -206,6 +206,7 @@
       "pages": [
         "integrations/multion",
         "integrations/autogen",
+        "integrations/langchain",
         "integrations/langgraph"
       ]
     },
