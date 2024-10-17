@@ -139,10 +139,11 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, **kwargs) -> List[Dict[str, Any]]:
+    def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
         """Retrieve all memories, with optional filtering.
 
         Args:
+            version: The API version to use for the search endpoint.
             **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, limit).
 
         Returns:
@@ -153,7 +154,10 @@ class MemoryClient:
         """
         kwargs.update({"org_name": self.organization, "project_name": self.project})
         params = self._prepare_params(kwargs)
-        response = self.client.get("/v1/memories/", params=params)
+        if version == "v1":
+            response = self.client.get(f"/{version}/memories/", params=params)
+        elif version == "v2":
+            response = self.client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
         capture_client_event(
             "client.get_all",

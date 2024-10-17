@@ -1,0 +1,74 @@
+---
+title: 'V2 Get Memories'
+openapi: post /v2/memories/
+---
+
+
+Mem0 offers two versions of the get memories API: v1 and v2. Here's how they differ:
+
+<Tabs>
+  <Tab title="v1 Get Memories">
+    <CodeGroup>
+    ```python Code
+    memories = m.get_all(user_id="alex")
+    ```
+
+    ```json Output
+    [
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"travelling to Paris",
+      "user_id":"alex",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":null,
+      "created_at":"2023-02-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+   }
+]
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="v2 Get Memories">
+    <CodeGroup>
+    ```python Code
+    memories = m.get_all(
+        filters={
+            "AND": [
+                {
+                    "user_id": "alex"
+                },
+                {
+                    "created_at": {
+                        "gte": "2024-07-01",
+                        "lte": "2024-07-31"
+                    }
+                }
+            ]
+        },
+        version="v2"
+    )
+    ```
+
+    ```json Output
+    [
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+      "user_id":"alex",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":null,
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+   }
+]
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+Key difference between v1 and v2 get memories:
+
+• **Filters**: v2 allows you to apply filters to narrow down memory retrieval based on specific criteria. This includes support for complex logical operations (AND, OR) and comparison operators (IN, gte, lte, gt, lt, ne, icontains) for advanced filtering capabilities.
+
+The v2 get memories API is more powerful and flexible, allowing for more precise memory retrieval without the need for a search query.
