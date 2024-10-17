@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+
 import google.generativeai as genai
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
@@ -27,4 +28,4 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         response = genai.embed_content(model=self.config.model, content=text)
-        return response['embedding']
+        return response["embedding"]
