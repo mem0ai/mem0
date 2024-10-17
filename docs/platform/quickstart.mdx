@@ -861,6 +861,88 @@ curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e6342
 ```
 </CodeGroup>
 
+#### Get all memories using custom filters
+
+Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, date, and more.
+
+Here you need to define `version` as `v2` in the get_all method.
+
+Example: Get all memories using user_id and date filters
+
+<CodeGroup>
+
+```python Python
+filters = {
+   "AND":[
+      {
+         "user_id":"alex"
+      },
+      {
+         "created_at":{
+            "gte":"2024-07-01",
+            "lte":"2024-07-31"
+         }
+      }
+   ]
+}
+client.get_all(version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const filters = {
+   "AND":[
+      {
+         "user_id":"alex"
+      },
+      {
+         "created_at":{
+            "gte":"2024-07-01",
+            "lte":"2024-07-31"
+         }
+      }
+   ]
+};
+client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alex"
+                 },
+                 {
+                     "created_at": {
+                         "gte": "2024-07-01",
+                         "lte": "2024-07-31"
+                     }
+                 }
+             ]
+         }
+     }'
+```
+
+```json Output
+[
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+      "user_id":"alex",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":null,
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+   }
+]
+```
+</CodeGroup>
+
 ### 4.5 Memory History
 
 Get history of how a memory has changed over time.

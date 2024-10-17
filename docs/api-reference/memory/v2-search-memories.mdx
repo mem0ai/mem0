@@ -34,7 +34,7 @@ Mem0 offers two versions of the search API: v1 and v2. Here's how they differ:
   <Tab title="v2 Search">
     <CodeGroup>
     ```python Code
-    related_memories = m.v2_search(
+    related_memories = m.vsearch(
         query="What are Alice's hobbies?",
         filters={
         "AND":[
@@ -50,7 +50,8 @@ Mem0 offers two versions of the search API: v1 and v2. Here's how they differ:
                 }
             }
         ]
-    }
+    },
+    version="v2"
     )
     ```
 

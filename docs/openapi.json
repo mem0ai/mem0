@@ -730,6 +730,145 @@
 				"x-codegen-request-body-name": "data"
 			}
 		},
+		"/v2/memories/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"description": "Get all memories",
+				"operationId": "memories_list_v2",
+				"parameters": [
+					{
+						"name": "filters",
+						"in": "query",
+						"schema": {
+							"type": "object"
+						},
+						"description": "Filters to apply to the memories",
+						"style": "deepObject",
+						"explode": true
+					},
+					{
+						"name": "org_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by organization name"
+					},
+					{
+						"name": "project_name",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Filter memories by project name"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string"
+											},
+											"name": {
+												"type": "string"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time"
+											},
+											"total_memories": {
+												"type": "integer"
+											},
+											"owner": {
+												"type": "string"
+											},
+											"organization": {
+												"type": "string"
+											},
+											"metadata": {
+												"type": "object"
+											},
+											"type": {
+												"type": "string",
+												"enum": [
+													"user",
+													"agent"
+												]
+											}
+										},
+										"required": [
+											"id",
+											"name",
+											"created_at",
+											"updated_at",
+											"total_memories",
+											"owner",
+											"organization",
+											"type"
+										]
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad Request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "One of the filters: app_id, user_id, agent_id, run_id is required!"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\n# Retrieve memories with filters\nmemories = client.get_all(\n    filters={\n        \"AND\": [\n            {\n                \"user_id\": \"alex\"\n            },\n            {\n                \"created_at\": {\n                    \"gte\": \"2024-07-01\",\n                    \"lte\": \"2024-07-31\"\n                }\n            }\n        ]\n    },\n    version=\"v2\"\n)\n\nprint(memories)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "const axios = require('axios');\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\naxios.post('https://api.mem0.ai/v2/memories/', { filters }, {\n  headers: { 'Authorization': 'Token your-api-key' }\n})\n.then(response => console.log(response.data))\n.catch(error => console.error(error));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl -X POST 'https://api.mem0.ai/v2/memories/' \\\n-H 'Authorization: Token your-api-key' \\\n-H 'Content-Type: application/json' \\\n-d '{\n  \"filters\": {\n    \"AND\": [\n      { \"user_id\": \"alex\" },\n      { \"created_at\": { \"gte\": \"2024-07-01\", \"lte\": \"2024-07-31\" } }\n    ]\n  }\n}'"
+				},
+				{
+				"lang": "Go",
+				"source": "package main\n\nimport (\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io/ioutil\"\n\t\"net/http\"\n)\n\nfunc main() {\n\turl := \"https://api.mem0.ai/v2/memories/\"\n\tfilters := map[string]interface{}{\n\t\t\"AND\": []map[string]interface{}{\n\t\t\t{\"user_id\": \"alex\"},\n\t\t\t{\"created_at\": map[string]string{\n\t\t\t\t\"gte\": \"2024-07-01\",\n\t\t\t\t\"lte\": \"2024-07-31\",\n\t\t\t}},\n\t\t},\n\t}\n\tpayload, _ := json.Marshal(map[string]interface{}{\"filters\": filters})\n\treq, _ := http.NewRequest(\"POST\", url, bytes.NewBuffer(payload))\n\treq.Header.Add(\"Authorization\", \"Token your-api-key\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
+				},
+				{
+				"lang": "PHP",
+				"source": "<?php\n\n$curl = curl_init();\n\n$filters = [\n  'AND' => [\n    ['user_id' => 'alex'],\n    ['created_at' => ['gte' => '2024-07-01', 'lte' => '2024-07-31']]\n  ]\n];\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v2/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => json_encode(['filters' => $filters]),\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token your-api-key\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+				"lang": "Java",
+				"source": "import com.konghq.unirest.http.HttpResponse;\nimport com.konghq.unirest.http.Unirest;\nimport org.json.JSONObject;\n\nJSONObject filters = new JSONObject()\n    .put(\"AND\", new JSONArray()\n        .put(new JSONObject().put(\"user_id\", \"alex\"))\n        .put(new JSONObject().put(\"created_at\", new JSONObject()\n            .put(\"gte\", \"2024-07-01\")\n            .put(\"lte\", \"2024-07-31\")\n        ))\n    );\n\nHttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v2/memories/\")\n  .header(\"Authorization\", \"Token your-api-key\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(new JSONObject().put(\"filters\", filters).toString())\n  .asString();\n\nSystem.out.println(response.getBody());"
+				}
+				]
+			}
+		},
 		"/v1/memories/events/": {
 			"get": {
 				"tags": [
