@@ -64,7 +64,7 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory", "features/custom-categories"]
+          "pages": ["features/selective-memory", "features/custom-categories", "features/direct-import"]
         }
       ]
     },
@@ -145,7 +145,8 @@
         {
           "group": "Memory APIs",
           "pages": [
-            "api-reference/memory/get-memories",
+            "api-reference/memory/v1-get-memories",
+            "api-reference/memory/v2-get-memories",
             "api-reference/memory/add-memories",
             "api-reference/memory/delete-memories",
             "api-reference/memory/get-memory",
