@@ -15,6 +15,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("EMBEDDING_AZURE_DEPLOYMENT")
         azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("EMBEDDING_AZURE_ENDPOINT")
         api_version = self.config.azure_kwargs.api_version or os.getenv("EMBEDDING_AZURE_API_VERSION")
+        default_headers = self.config.azure_kwargs.default_headers
 
         self.client = AzureOpenAI(
             azure_deployment=azure_deployment,
@@ -22,6 +23,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             api_version=api_version,
             api_key=api_key,
             http_client=self.config.http_client,
+            default_headers=default_headers,
         )
 
     def embed(self, text):
