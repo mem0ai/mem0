@@ -87,14 +87,26 @@ class GeminiLLM(LLMBase):
         Returns:
             list: The list of tools in the required format.
         """
+
+        def remove_additional_properties(data):
+          """Recursively removes 'additionalProperties' from nested dictionaries."""
+          
+          if isinstance(data, dict):
+              filtered_dict = {
+                  key: remove_additional_properties(value)
+                  for key, value in data.items()
+                  if not (key == "additionalProperties")
+              }
+              return filtered_dict
+          else:
+              return data
+      
+        new_tools = []
         if tools:
-            new_tools = []
-
             for tool in tools:
-                func = tool["function"].copy()
-                func["parameters"].pop("additionalProperties", None)
-                new_tools.append({"function_declarations":[func]})
-
+                func = tool['function'].copy()
+                new_tools.append({"function_declarations":[remove_additional_properties(func)]})
+                
             return new_tools
         else:
             return None
