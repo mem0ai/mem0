@@ -22,8 +22,8 @@
   <a href="https://pypi.org/project/mem0ai" target="_blank">
         <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
     </a>
-    <a href="https://pypi.org/project/mem0ai" target="_blank">
-        <img src="https://img.shields.io/pypi/pyversions/mem0ai.svg?color=%2334D058" alt="Supported Python versions">
+    <a href="https://www.npmjs.com/package/mem0ai" target="_blank">
+        <img src="https://img.shields.io/npm/v/mem0ai" alt="Npm package">
     </a>
   <a href="https://www.ycombinator.com/companies/mem0">
     <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
