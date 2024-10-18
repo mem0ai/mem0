@@ -21,11 +21,14 @@ config = {
         "provider": "azure_openai",
         "config": {
             "model": "text-embedding-3-large"
-            "azure_kwargs" : {
-                  "api_version" : "",
-                  "azure_deployment" : "",
-                  "azure_endpoint" : "",
-                  "api_key": ""
+            "azure_kwargs": {
+                  "api_version": "",
+                  "azure_deployment": "",
+                  "azure_endpoint": "",
+                  "api_key": "",
+                  "default_headers": {
+                    "CustomHeader": "your-custom-header",
+                  }
               }
         }
     }
