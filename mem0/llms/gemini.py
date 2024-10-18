@@ -1,9 +1,12 @@
 import os
 from typing import Dict, List, Optional
 
-import google.generativeai as genai
-from google.generativeai import GenerativeModel
-from google.generativeai.types import content_types
+try:
+    import google.generativeai as genai
+    from google.generativeai import GenerativeModel
+    from google.generativeai.types import content_types
+except ImportError:
+    raise ImportError("The 'google-generativeai' library is required. Please install it using 'pip install google-generativeai'.")
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
