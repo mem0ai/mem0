@@ -92,10 +92,17 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
-def test_generate_with_http_proxies():
+@pytest.mark.parametrize(
+    "default_headers",
+    [None, {"Firstkey": "FirstVal", "SecondKey": "SecondVal"}],
+)
+def test_generate_with_http_proxies(default_headers):
     mock_http_client = Mock(spec=httpx.Client)
     mock_http_client_instance = Mock(spec=httpx.Client)
     mock_http_client.return_value = mock_http_client_instance
+    azure_kwargs = {"api_key": "test"}
+    if default_headers:
+        azure_kwargs["default_headers"] = default_headers
 
     with (
         patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
@@ -108,7 +115,7 @@ def test_generate_with_http_proxies():
             top_p=TOP_P,
             api_key="test",
             http_client_proxies="http://testproxy.mem0.net:8000",
-            azure_kwargs={"api_key": "test"},
+            azure_kwargs=azure_kwargs,
         )
 
         _ = AzureOpenAILLM(config)
@@ -119,5 +126,6 @@ def test_generate_with_http_proxies():
             azure_deployment=None,
             azure_endpoint=None,
             api_version=None,
+            default_headers=default_headers,
         )
         mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
