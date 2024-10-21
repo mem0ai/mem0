@@ -18,7 +18,9 @@ class OpenAILLM(LLMBase):
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=self.config.openrouter_base_url or os.getenv("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1",
+                base_url=self.config.openrouter_base_url
+                or os.getenv("OPENROUTER_API_BASE")
+                or "https://openrouter.ai/api/v1",
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
