@@ -14,7 +14,7 @@ class HuggingFaceEmbedding(EmbeddingBase):
 
         self.model = SentenceTransformer(self.config.model, **self.config.model_kwargs)
 
-        self.config.embedding_dims = self.config.embedding_dims  or self.model.get_sentence_embedding_dimension()
+        self.config.embedding_dims = self.config.embedding_dims or self.model.get_sentence_embedding_dimension()
 
     def embed(self, text):
         """
@@ -26,4 +26,4 @@ class HuggingFaceEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        return self.model.encode(text, convert_to_numpy = True).tolist()
+        return self.model.encode(text, convert_to_numpy=True).tolist()
