@@ -56,12 +56,12 @@ class MemoryClient:
     """
 
     def __init__(
-            self,
-            api_key: Optional[str] = None,
-            host: Optional[str] = None,
-            organization: Optional[str] = None,
-            project: Optional[str] = None
-        ):
+        self,
+        api_key: Optional[str] = None,
+        host: Optional[str] = None,
+        organization: Optional[str] = None,
+        project: Optional[str] = None,
+    ):
         """Initialize the MemoryClient.
 
         Args:
@@ -275,9 +275,7 @@ class MemoryClient:
         params = {"org_name": self.organization, "project_name": self.project}
         entities = self.users()
         for entity in entities["results"]:
-            response = self.client.delete(
-                f"/v1/entities/{entity['type']}/{entity['id']}/", params=params
-            )
+            response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
 
         capture_client_event("client.delete_users", self)
@@ -372,7 +370,7 @@ class AsyncMemoryClient:
         api_key: Optional[str] = None,
         host: Optional[str] = None,
         organization: Optional[str] = None,
-        project: Optional[str] = None
+        project: Optional[str] = None,
     ):
         self.sync_client = MemoryClient(api_key, host, organization, project)
         self.async_client = httpx.AsyncClient(
@@ -410,7 +408,9 @@ class AsyncMemoryClient:
         elif version == "v2":
             response = await self.async_client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
-        capture_client_event("async_client.get_all", self.sync_client, {"filters": len(params), "limit": kwargs.get("limit", 100)})
+        capture_client_event(
+            "async_client.get_all", self.sync_client, {"filters": len(params), "limit": kwargs.get("limit", 100)}
+        )
         return response.json()
 
     @api_error_handler
