@@ -111,15 +111,21 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 {
     "results": [
         {
-            "memory": "Name is Alex",
+            "data": {
+                "memory": "Name is Alex"
+            },
             "event": "ADD"
         },
         {
-            "memory": "Is a vegetarian",
+            "data": {
+                "memory": "Is a vegetarian"
+            },
             "event": "ADD"
         },
         {
-            "memory": "Is allergic to nuts",
+            "data": {
+                "memory": "Is allergic to nuts"
+            },
             "event": "ADD"
         }
     ]
@@ -190,11 +196,15 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 {
   "results": [
     {
-      "memory": "Planning a trip to Japan next month",
+      "data": {
+        "memory": "Planning a trip to Japan next month"
+      },
       "event": "ADD"
     },
     {
-      "memory": "Interested in vegetarian restaurants in Tokyo",
+      "data": {
+        "memory": "Interested in vegetarian restaurants in Tokyo"
+      },
       "event": "ADD"
     }
   ]
@@ -258,15 +268,21 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 {
     "results": [
         {
-            "memory": "Name is Alex",
+            "data": {
+                "memory": "Name is Alex"
+            },
             "event": "ADD"
         },
         {
-            "memory": "Is a vegetarian",
+            "data": {
+                "memory": "Is a vegetarian"
+            },
             "event": "ADD"
         },
         {
-            "memory": "Is allergic to nuts",
+            "data": {
+                "memory": "Is allergic to nuts"
+            },
             "event": "ADD"
         }
     ]
@@ -337,6 +353,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
         "user_id": "alex",
         "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": null,
+        "categories": ["food_preferences"],
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -362,6 +379,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
             "user_id": "alex",
             "hash": "9ee7e1455e84d1dab700ed8749aed75a",
             "metadata": null,
+            "categories": ["food_preferences"],
             "created_at": "2024-07-20T01:30:36.275141-07:00",
             "updated_at": "2024-07-20T01:30:36.275172-07:00"
         }
@@ -462,6 +480,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "user_id": "alex",
         "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": null,
+        "categories": ["food_preferences"],
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -536,6 +555,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "user_id": "alex",
         "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": null,
+        "categories": ["food_preferences"],
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -575,7 +595,6 @@ curl -X GET "https://api.mem0.ai/v1/entities/" \
         "updated_at": "2024-07-17T16:47:23.899918-07:00",
         "total_memories": 5,
         "owner": "alex",
-        "organization": "alex-org",
         "metadata": {"foo": "bar"},
         "type": "user"
     },
@@ -586,7 +605,6 @@ curl -X GET "https://api.mem0.ai/v1/entities/" \
         "updated_at": "2024-07-01T17:59:08.187266-07:00",
         "total_memories": 10,
         "owner": "alex",
-        "organization": "alex-org",
         "metadata": {"agent_id": "123"},
         "type": "agent"
     }
@@ -711,7 +729,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant&output_f
       "metadata":None,
       "created_at":"2024-07-25T23:57:00.108347-07:00",
       "updated_at":"2024-07-25T23:57:00.108367-07:00",
-      "custom_categories":None
+      "categories":None
    },
    {
       "id":"0a14d8f0-e364-4f5c-b305-10da1f0d0878",
@@ -721,7 +739,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant&output_f
       "metadata":None,
       "created_at":"2024-07-26T00:31:03.543759-07:00",
       "updated_at":"2024-07-26T00:31:03.543778-07:00",
-      "custom_categories":None
+      "categories":None
    }
 ]
 ```
@@ -785,7 +803,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
       "metadata":None,
       "created_at":"2024-07-26T00:25:16.566471-07:00",
       "updated_at":"2024-07-26T00:25:16.566492-07:00",
-      "custom_categories":None
+      "categories":None
    },
    {
       "id":"b4229775-d860-4ccb-983f-0f628ca112f5",
@@ -795,7 +813,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
       "metadata":None,
       "created_at":"2024-07-26T00:33:20.350542-07:00",
       "updated_at":"2024-07-26T00:33:20.350560-07:00",
-      "custom_categories":None
+      "categories":None
    },
    {
       "id":"df1aca24-76cf-4b92-9f58-d03857efcb64",
@@ -805,7 +823,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
       "metadata":None,
       "created_at":"2024-07-26T00:51:09.642275-07:00",
       "updated_at":"2024-07-26T00:51:09.642295-07:00",
-      "custom_categories":None
+      "categories":None
    }
 ]
 ```
@@ -820,7 +838,8 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
          "hash": "d2088c936e259f2f5d2d75543d31401c",
          "metadata":None,
          "created_at": "2024-07-26T00:25:16.566471-07:00",
-         "updated_at": "2024-07-26T00:25:16.566492-07:00"
+         "updated_at": "2024-07-26T00:25:16.566492-07:00",
+         "categories":None
       },
       {
          "id": "b4229775-d860-4ccb-983f-0f628ca112f5",
@@ -829,7 +848,8 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
          "hash": "d2088c936e259f2f5d2d75543d31401c",
          "metadata":None,
          "created_at": "2024-07-26T00:33:20.350542-07:00",
-         "updated_at": "2024-07-26T00:33:20.350560-07:00"
+         "updated_at": "2024-07-26T00:33:20.350560-07:00",
+         "categories":None
       },
       {
          "id": "df1aca24-76cf-4b92-9f58-d03857efcb64",
@@ -838,7 +858,8 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
          "hash": "d2088c936e259f2f5d2d75543d31401c",
          "metadata":None,
          "created_at": "2024-07-26T00:51:09.642275-07:00",
-         "updated_at": "2024-07-26T00:51:09.642295-07:00"
+         "updated_at": "2024-07-26T00:51:09.642295-07:00",
+         "categories":None
       }
    ]
 }
@@ -873,7 +894,8 @@ curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e6342
    "hash":"d2088c936e259f2f5d2d75543d31401c",
    "metadata":"None",
    "created_at":"2024-07-26T00:25:16.566471-07:00",
-   "updated_at":"2024-07-26T00:25:16.566492-07:00"
+   "updated_at":"2024-07-26T00:25:16.566492-07:00",
+   "categories":["travel"]
 }
 ```
 </CodeGroup>
@@ -954,7 +976,8 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
       "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
       "metadata":null,
       "created_at":"2024-07-25T23:57:00.108347-07:00",
-      "updated_at":"2024-07-25T23:57:00.108367-07:00"
+      "updated_at":"2024-07-25T23:57:00.108367-07:00",
+      "categories":["travel"]
    }
 ]
 ```
