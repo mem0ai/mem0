@@ -22,6 +22,7 @@ openai = "^1.33.0"
 posthog = "^3.5.0"
 pytz = "^2024.1"
 sqlalchemy = "^2.0.31"
+json-repair = "^0.30.0"
 
 [tool.poetry.group.graph.dependencies]
 langchain-community = "^0.3.1"
