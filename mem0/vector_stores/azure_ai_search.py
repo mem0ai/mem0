@@ -13,6 +13,7 @@ try:
     from azure.search.documents.indexes import SearchIndexClient
     from azure.search.documents.indexes.models import (
         HnswAlgorithmConfiguration,
+        ScalarQuantizationCompression,
         SearchField,
         SearchFieldDataType,
         SearchIndex,
@@ -36,7 +37,7 @@ class OutputData(BaseModel):
     payload: Optional[dict]  
   
 class AzureAISearch(VectorStoreBase):  
-    def __init__(self, service_name, collection_name, api_key, embedding_model_dims):  
+    def __init__(self, service_name, collection_name, api_key, embedding_model_dims, use_compression):  
         """Initialize the Azure Cognitive Search vector store.  
   
         Args:  
@@ -48,6 +49,7 @@ class AzureAISearch(VectorStoreBase):
         self.index_name = collection_name  
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims  
+        self.use_compression = use_compression
         self.search_client = SearchClient(endpoint=f"https://{service_name}.search.windows.net",  
                                           index_name=self.index_name,  
                                           credential=AzureKeyCredential(api_key))  
@@ -57,16 +59,35 @@ class AzureAISearch(VectorStoreBase):
   
     def create_col(self):  
         """Create a new index in Azure Cognitive Search."""  
-        vector_dimensions = self.embedding_model_dims  # Set this to the number of dimensions in your vector  
+        vector_dimensions = self.embedding_model_dims  # Set this to the number of dimensions in your vector 
+
+        
+        if self.use_compression:
+            vector_type = "Collection(Edm.Half)"
+        else:
+            vector_type = "Collection(Edm.Single)"
+
         fields = [  
             SimpleField(name="id", type=SearchFieldDataType.String, key=True),  
-            SearchField(name="vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+            SearchField(name="vector", type=vector_type,
                 searchable=True, vector_search_dimensions=vector_dimensions, vector_search_profile_name="my-vector-config"),
             SimpleField(name="payload", type=SearchFieldDataType.String, searchable=True)  
         ]  
+
+
+        if self.use_compression:
+            compression_name = "myCompression"
+            compression_configurations = [
+                ScalarQuantizationCompression(compression_name=compression_name)
+            ]
+        else:
+            compression_name = None
+            compression_configurations = []
+
         vector_search = VectorSearch(
         profiles=[VectorSearchProfile(name="my-vector-config", algorithm_configuration_name="my-algorithms-config")],
         algorithms=[HnswAlgorithmConfiguration(name="my-algorithms-config")],
+        compressions=compression_configurations
         )
         index = SearchIndex(name=self.index_name, fields=fields, vector_search=vector_search)  
         self.index_client.create_or_update_index(index)  

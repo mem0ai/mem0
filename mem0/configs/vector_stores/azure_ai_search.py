@@ -8,6 +8,7 @@ class AzureAISearchConfig(BaseModel):
     service_name: str = Field(None, description="Azure Cognitive Search service name")
     api_key: str = Field(None, description="API key for the Azure Cognitive Search service")
     embedding_model_dims: int = Field(None, description="Dimension of the embedding vector")
+    use_compression: bool = Field(False, description="Use compression or not")
 
     @model_validator(mode="before")
     @classmethod
