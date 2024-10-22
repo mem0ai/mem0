@@ -15,7 +15,6 @@ DEFAULT_OCEANBASE_HNSW_BUILD_PARAM = {"M": 16, "efConstruction": 256}
 
 @register_deserializable
 class OceanBaseConfig(BaseVectorDbConfig):
-    pass
     def __init__(
         self,
         collection_name: Optional[str] = None,
