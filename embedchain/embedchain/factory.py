@@ -98,6 +98,7 @@ class VectorDBFactory:
         "qdrant": "embedchain.vectordb.qdrant.QdrantDB",
         "weaviate": "embedchain.vectordb.weaviate.WeaviateDB",
         "zilliz": "embedchain.vectordb.zilliz.ZillizVectorDB",
+        "oceanbase": "embedchain.vectordb.oceanbase.OceanBaseVectorDB",
     }
     provider_to_config_class = {
         "chroma": "embedchain.config.vector_db.chroma.ChromaDbConfig",
@@ -108,7 +109,7 @@ class VectorDBFactory:
         "qdrant": "embedchain.config.vector_db.qdrant.QdrantDBConfig",
         "weaviate": "embedchain.config.vector_db.weaviate.WeaviateDBConfig",
         "zilliz": "embedchain.config.vector_db.zilliz.ZillizDBConfig",
-        "oceanbase": "embedchain.config.vector_db.zilliz.OceanBaseConfig"
+        "oceanbase": "embedchain.config.vector_db.oceanbase.OceanBaseConfig"
     }
 
     @classmethod
