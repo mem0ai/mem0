@@ -4,7 +4,6 @@ import json
 import logging
 import uuid
 import warnings
-from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict
 
@@ -186,7 +185,9 @@ class Memory(MemoryBase):
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
-                        memory_id = self._create_memory(data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
+                        memory_id = self._create_memory(
+                            data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata
+                        )
                         returned_memories.append(
                             {
                                 "id": memory_id,
@@ -195,7 +196,12 @@ class Memory(MemoryBase):
                             }
                         )
                     elif resp["event"] == "UPDATE":
-                        self._update_memory(memory_id=resp["id"], data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
+                        self._update_memory(
+                            memory_id=resp["id"],
+                            data=resp["text"],
+                            existing_embeddings=new_message_embeddings,
+                            metadata=metadata,
+                        )
                         returned_memories.append(
                             {
                                 "id": resp["id"],
@@ -304,10 +310,14 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.get_all, filters, limit) if self.version == "v1.1" and self.enable_graph else None
+                executor.submit(self.graph.get_all, filters, limit)
+                if self.version == "v1.1" and self.enable_graph
+                else None
             )
 
-            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
+            concurrent.futures.wait(
+                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+            )
 
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
@@ -399,7 +409,9 @@ class Memory(MemoryBase):
                 else None
             )
 
-            concurrent.futures.wait([future_memories, future_graph_entities] if future_graph_entities else [future_memories])
+            concurrent.futures.wait(
+                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+            )
 
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None

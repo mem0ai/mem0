@@ -38,6 +38,23 @@ const client = new MemoryClient('your-api-key');
 
 </CodeGroup>
 
+### 3.1 Instantiate Async Client (Python only)
+
+For asynchronous operations in Python, you can use the AsyncMemoryClient:
+
+```python Python
+from mem0 import AsyncMemoryClient
+
+client = AsyncMemoryClient(api_key="your-api-key")
+
+
+async def main():
+    response = await client.add("I'm travelling to SF", user_id="john")
+    print(response)
+
+await main()
+```
+
 ## 4. Memory Operations
 
 Mem0 provides a simple and customizable interface for performing CRUD operations on memory.
