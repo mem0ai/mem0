@@ -108,6 +108,7 @@ class VectorDBFactory:
         "qdrant": "embedchain.config.vector_db.qdrant.QdrantDBConfig",
         "weaviate": "embedchain.config.vector_db.weaviate.WeaviateDBConfig",
         "zilliz": "embedchain.config.vector_db.zilliz.ZillizDBConfig",
+        "oceanbase": "embedchain.config.vector_db.zilliz.OceanBaseConfig"
     }
 
     @classmethod
