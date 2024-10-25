@@ -81,7 +81,7 @@ class MemoryClient:
         self.user_id = get_user_id()
 
         if not self.api_key:
-            raise ValueError("API Key not provided. Please provide an API Key.")
+            raise ValueError("Mem0 API Key not provided. Please provide an API Key.")
 
         self.client = httpx.Client(
             base_url=self.host,
