@@ -117,7 +117,7 @@ class MemoryClient:
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
-        capture_client_event("client.add", self)
+        capture_client_event("client.add", self, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -162,7 +162,7 @@ class MemoryClient:
         capture_client_event(
             "client.get_all",
             self,
-            {"filters": len(params), "limit": kwargs.get("limit", 100)},
+            {"version": version, "keys": list(kwargs.keys())},
         )
         return response.json()
 
@@ -186,7 +186,7 @@ class MemoryClient:
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
-        capture_client_event("client.search", self, {"limit": kwargs.get("limit", 100)})
+        capture_client_event("client.search", self, {"version": version, "keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -239,7 +239,7 @@ class MemoryClient:
         params = self._prepare_params(kwargs)
         response = self.client.delete("/v1/memories/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete_all", self, {"params": len(params)})
+        capture_client_event("client.delete_all", self, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -390,7 +390,7 @@ class AsyncMemoryClient:
         payload = self.sync_client._prepare_payload(messages, kwargs)
         response = await self.async_client.post("/v1/memories/", json=payload)
         response.raise_for_status()
-        capture_client_event("async_client.add", self.sync_client)
+        capture_client_event("async_client.add", self.sync_client, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -409,7 +409,7 @@ class AsyncMemoryClient:
             response = await self.async_client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
         capture_client_event(
-            "async_client.get_all", self.sync_client, {"filters": len(params), "limit": kwargs.get("limit", 100)}
+            "async_client.get_all", self.sync_client, {"version": version, "keys": list(kwargs.keys())}
         )
         return response.json()
 
@@ -419,7 +419,7 @@ class AsyncMemoryClient:
         payload.update(self.sync_client._prepare_params(kwargs))
         response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
-        capture_client_event("async_client.search", self.sync_client, {"limit": kwargs.get("limit", 100)})
+        capture_client_event("async_client.search", self.sync_client, {"version": version, "keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -441,7 +441,7 @@ class AsyncMemoryClient:
         params = self.sync_client._prepare_params(kwargs)
         response = await self.async_client.delete("/v1/memories/", params=params)
         response.raise_for_status()
-        capture_client_event("async_client.delete_all", self.sync_client, {"params": len(params)})
+        capture_client_event("async_client.delete_all", self.sync_client, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler

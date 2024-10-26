@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -51,9 +51,7 @@ class TestQdrant(unittest.TestCase):
 
     def test_search(self):
         query_vector = [0.1, 0.2]
-        self.client_mock.search.return_value = [
-            {"id": str(uuid.uuid4()), "score": 0.95, "payload": {"key": "value"}}
-        ]
+        self.client_mock.search.return_value = [{"id": str(uuid.uuid4()), "score": 0.95, "payload": {"key": "value"}}]
 
         results = self.qdrant.search(query=query_vector, limit=1)
 
@@ -83,9 +81,7 @@ class TestQdrant(unittest.TestCase):
         updated_vector = [0.2, 0.3]
         updated_payload = {"key": "updated_value"}
 
-        self.qdrant.update(
-            vector_id=vector_id, vector=updated_vector, payload=updated_payload
-        )
+        self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
 
         self.client_mock.upsert.assert_called_once()
         point = self.client_mock.upsert.call_args[1]["points"][0]
@@ -95,9 +91,7 @@ class TestQdrant(unittest.TestCase):
 
     def test_get(self):
         vector_id = str(uuid.uuid4())
-        self.client_mock.retrieve.return_value = [
-            {"id": vector_id, "payload": {"key": "value"}}
-        ]
+        self.client_mock.retrieve.return_value = [{"id": vector_id, "payload": {"key": "value"}}]
 
         result = self.qdrant.get(vector_id=vector_id)
 
@@ -108,23 +102,17 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(result["payload"], {"key": "value"})
 
     def test_list_cols(self):
-        self.client_mock.get_collections.return_value = MagicMock(
-            collections=[{"name": "test_collection"}]
-        )
+        self.client_mock.get_collections.return_value = MagicMock(collections=[{"name": "test_collection"}])
         result = self.qdrant.list_cols()
         self.assertEqual(result.collections[0]["name"], "test_collection")
 
     def test_delete_col(self):
         self.qdrant.delete_col()
-        self.client_mock.delete_collection.assert_called_once_with(
-            collection_name="test_collection"
-        )
+        self.client_mock.delete_collection.assert_called_once_with(collection_name="test_collection")
 
     def test_col_info(self):
         self.qdrant.col_info()
-        self.client_mock.get_collection.assert_called_once_with(
-            collection_name="test_collection"
-        )
+        self.client_mock.get_collection.assert_called_once_with(collection_name="test_collection")
 
     def tearDown(self):
         del self.qdrant

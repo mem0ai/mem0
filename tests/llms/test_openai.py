@@ -31,8 +31,9 @@ def test_openai_llm_base_url():
 
     # case3: with config.openai_base_url
     config_base_url = "https://api.config.com/v1"
-    config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key",
-                           openai_base_url=config_base_url)
+    config = BaseLlmConfig(
+        model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key", openai_base_url=config_base_url
+    )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == config_base_url + "/"
