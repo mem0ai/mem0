@@ -561,6 +561,7 @@ class Memory(MemoryBase):
             payloads=[metadata],
         )
         self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
+        capture_event("mem0._create_memory", self, {"memory_id": memory_id})
         return memory_id
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
