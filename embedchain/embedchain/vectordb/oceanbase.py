@@ -42,10 +42,7 @@ def _neg_inner_product_similarity(distance: float) -> float:
 
 @register_deserializable
 class OceanBaseVectorDB(BaseVectorDB):
-    """`OceanBase` vector store.
-
-
-    """
+    """`OceanBase` vector store."""
     def __init__(self, config: OceanBaseConfig = None):
         if config is None:
             self.obconfig = OceanBaseConfig()
