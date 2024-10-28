@@ -95,7 +95,15 @@ result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"
 ```
 
 ```json Output
-{'message': 'ok'}
+{
+    "results": [
+        {"id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", "memory": "Likes to play cricket on weekends", "event": "ADD"}
+    ],
+    "relations": [
+        {"source": "alice", "relationship": "likes_to_play", "target": "cricket"}, 
+        {"source": "alice", "relationship": "plays_on", "target": "weekends"}
+    ]
+}
 ```
 </CodeGroup>
 
@@ -104,21 +112,27 @@ result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"
 <CodeGroup>
 ```python Code
 # Get all memories
-all_memories = m.get_all()
+all_memories = m.get_all(user_id="alice")
 ```
 
 ```json Output
-[
-   {
-      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
-      "memory":"Likes to play cricket on weekends",
-      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
-      "metadata":"None",
-      "created_at":"2024-07-26T08:44:41.039788-07:00",
-      "updated_at":"None",
-      "user_id":"alice"
-   }
-]
+{
+    "results": [
+        {
+            "id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
+            "memory": "Likes to play cricket on weekends", 
+            "hash": "285d07801ae42054732314853e9eadd7", 
+            "metadata": {"category": "hobbies"}, 
+            "created_at": "2024-10-28T12:32:07.744891-07:00", 
+            "updated_at": None, 
+            "user_id": "alice"
+        }
+    ], 
+    "relations": [
+        {"source": "alice", "relationship": "likes_to_play", "target": "cricket"}, 
+        {"source": "alice", "relationship": "plays_on", "target": "weekends"}
+    ]
+}
 ```
 </CodeGroup>
 
@@ -128,18 +142,18 @@ all_memories = m.get_all()
 <CodeGroup>
 ```python Code
 # Get a single memory by ID
-specific_memory = m.get("m1")
+specific_memory = m.get("bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
 ```
 
 ```json Output
 {
-      "id":"13efe83b-a8df-4ec0-814e-428d6e8451eb",
-      "memory":"Likes to play cricket on weekends",
-      "hash":"87bcddeb-fe45-4353-bc22-15a841c50308",
-      "metadata":"None",
-      "created_at":"2024-07-26T08:44:41.039788-07:00",
-      "updated_at":"None",
-      "user_id":"alice"
+    "id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
+    "memory": "Likes to play cricket on weekends", 
+    "hash": "285d07801ae42054732314853e9eadd7", 
+    "metadata": {"category": "hobbies"}, 
+    "created_at": "2024-10-28T12:32:07.744891-07:00", 
+    "updated_at": None, 
+    "user_id": "alice"
 }
 ```
 </CodeGroup>
@@ -152,20 +166,24 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 ```
 
 ```json Output
-[
-   {
-      "id":"ea925981-272f-40dd-b576-be64e4871429",
-      "memory":"Likes to play cricket and plays cricket on weekends.",
-      "hash":"c8809002-25c1-4c97-a3a2-227ce9c20c53",
-      "metadata":{
-         "category":"hobbies"
-      },
-      "score":0.32116443111457704,
-      "created_at":"2024-07-26T10:29:36.630547-07:00",
-      "updated_at":"None",
-      "user_id":"alice"
-   }
-]
+{
+    "results": [
+        {
+            "id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
+            "memory": "Likes to play cricket on weekends", 
+            "hash": "285d07801ae42054732314853e9eadd7", 
+            "metadata": {"category": "hobbies"}, 
+            "score": 0.30808347, 
+            "created_at": "2024-10-28T12:32:07.744891-07:00", 
+            "updated_at": None, 
+            "user_id": "alice"
+        }
+    ], 
+    "relations": [
+        {"source": "alice", "relationship": "plays_on", "target": "weekends"}, 
+        {"source": "alice", "relationship": "likes_to_play", "target": "cricket"}
+    ]
+}
 ```
 </CodeGroup>
 
@@ -173,7 +191,7 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 
 <CodeGroup>
 ```python Code
-result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
+result = m.update(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", data="Likes to play tennis on weekends")
 ```
 
 ```json Output
@@ -185,29 +203,29 @@ result = m.update(memory_id="m1", data="Likes to play tennis on weekends")
 
 <CodeGroup>
 ```python Code
-history = m.history(memory_id="m1")
+history = m.history(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
 ```
 
 ```json Output
 [
-   {
-      "id":"4e0e63d6-a9c6-43c0-b11c-a1bad3fc7abb",
-      "memory_id":"ea925981-272f-40dd-b576-be64e4871429",
-      "old_memory":"None",
-      "new_memory":"Likes to play cricket and plays cricket on weekends.",
-      "event":"ADD",
-      "created_at":"2024-07-26T10:29:36.630547-07:00",
-      "updated_at":"None"
-   },
-   {
-      "id":"548b75f0-f442-44b9-9ca1-772a105abb12",
-      "memory_id":"ea925981-272f-40dd-b576-be64e4871429",
-      "old_memory":"Likes to play cricket and plays cricket on weekends.",
-      "new_memory":"Likes to play tennis on weekends",
-      "event":"UPDATE",
-      "created_at":"2024-07-26T10:29:36.630547-07:00",
-      "updated_at":"2024-07-26T10:32:46.332336-07:00"
-   }
+    {
+        "id": "96d2821d-e551-4089-aa57-9398c421d450", 
+        "memory_id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
+        "old_memory": None, 
+        "new_memory": "Likes to play cricket on weekends", 
+        "event": "ADD", 
+        "created_at": "2024-10-28T12:32:07.744891-07:00", 
+        "updated_at": None
+    }, 
+    {
+        "id": "3db4cb58-c0f1-4dd0-b62a-8123068ebfe7", 
+        "memory_id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
+        "old_memory": "Likes to play cricket on weekends", 
+        "new_memory": "Likes to play tennis on weekends", 
+        "event": "UPDATE", 
+        "created_at": "2024-10-28T12:32:07.744891-07:00", 
+        "updated_at": "2024-10-28T13:05:46.987978-07:00"
+    }
 ]
 ```
 </CodeGroup>
@@ -216,7 +234,7 @@ history = m.history(memory_id="m1")
 
 ```python
 # Delete a memory by id
-m.delete(memory_id="m1")
+m.delete(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
 # Delete all memories for a user
 m.delete_all(user_id="alice")
 ```
