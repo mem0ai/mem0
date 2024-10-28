@@ -76,6 +76,12 @@ class OceanBaseVectorDB(BaseVectorDB):
 
         So it's can't be done in __init__ in one step.
         """
+        if not hasattr(self, "embedder") or not self.embedder:
+            raise ValueError("Cannot create a OceanBase database collection without an embedder.")
+        if self.obconfig.drop_old:
+            self.client.drop_table_if_exist(
+                table_name=self.obconfig.collection_name
+            )
         self._get_or_create_collection()
 
     def _get_or_create_db(self):
@@ -151,7 +157,7 @@ class OceanBaseVectorDB(BaseVectorDB):
         res = self.client.get(
             table_name=self.obconfig.collection_name,
             ids=ids,
-            where_clause=text(self._generate_oceanbase_filter(where)),
+            where_clause=self._generate_oceanbase_filter(where),
             output_column_name=[self.id_field, self.metadata_field],
         )
 
@@ -195,7 +201,7 @@ class OceanBaseVectorDB(BaseVectorDB):
                 )
             ]
             self.client.insert(
-                table_name=self.table_name,
+                table_name=self.obconfig.collection_name,
                 data=data,
             )
 
@@ -272,7 +278,7 @@ class OceanBaseVectorDB(BaseVectorDB):
                 self.metadata_field
             ],
             where_clause=(
-                text(self._generate_oceanbase_filter(where))
+                self._generate_oceanbase_filter(where)
             ),
             **kwargs,
         )
@@ -322,7 +328,9 @@ class OceanBaseVectorDB(BaseVectorDB):
         self.obconfig.collection_name = name
 
     def _generate_oceanbase_filter(self, where: dict[str, str]):
+        if len(where.keys()) == 0:
+            return None
         operands = []
         for key, value in where.items():
             operands.append(f"({self.metadata_field}->'$.{key}' == '{value}')")
-        return " and ".join(operands)
+        return text(" and ".join(operands))
