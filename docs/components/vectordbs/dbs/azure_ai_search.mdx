@@ -1,0 +1,38 @@
+[Azure AI Search](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search/) (formerly known as "Azure Cognitive Search") provides secure information retrieval at scale over user-owned content in traditional and generative AI search applications.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"   #this key is used for embedding purpose
+
+config = {
+    "vector_store": {
+        "provider": "azure_ai_search",
+        "config": {
+            "service_name": "ai-search-test",
+            "api_key": "*****",
+            "collection_name": "mem0", 
+            "embedding_model_dims": 1536 ,
+            "use_compression": False
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+Let's see the available parameters for the `qdrant` config:
+service_name (str): Azure Cognitive Search service name.  
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `service_name` | Azure AI Search service name | `None` |
+| `api_key` | API key of the Azure AI Search service | `None` |
+| `collection_name` | The name of the collection/index to store the vectors, it will be created automatically if not exist | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `use_compression` | Use scalar quantization vector compression | False |
