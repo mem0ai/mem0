@@ -117,6 +117,8 @@ class MemoryClient:
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
+        if "metadata" in kwargs:
+            del kwargs["metadata"]
         capture_client_event("client.add", self, {"keys": list(kwargs.keys())})
         return response.json()
 
@@ -135,7 +137,7 @@ class MemoryClient:
         """
         response = self.client.get(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("client.get", self)
+        capture_client_event("client.get", self, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -159,6 +161,8 @@ class MemoryClient:
         elif version == "v2":
             response = self.client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
+        if "metadata" in kwargs:
+            del kwargs["metadata"]
         capture_client_event(
             "client.get_all",
             self,
@@ -186,6 +190,8 @@ class MemoryClient:
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
+        if "metadata" in kwargs:
+            del kwargs["metadata"]
         capture_client_event("client.search", self, {"api_version": version, "keys": list(kwargs.keys())})
         return response.json()
 
@@ -199,7 +205,7 @@ class MemoryClient:
         Returns:
             Dict[str, Any]: The response from the server.
         """
-        capture_client_event("client.update", self)
+        capture_client_event("client.update", self, {"memory_id": memory_id})
         response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data})
         response.raise_for_status()
         return response.json()
@@ -219,7 +225,7 @@ class MemoryClient:
         """
         response = self.client.delete(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("client.delete", self)
+        capture_client_event("client.delete", self, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -257,7 +263,7 @@ class MemoryClient:
         """
         response = self.client.get(f"/v1/memories/{memory_id}/history/")
         response.raise_for_status()
-        capture_client_event("client.history", self)
+        capture_client_event("client.history", self, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -390,6 +396,8 @@ class AsyncMemoryClient:
         payload = self.sync_client._prepare_payload(messages, kwargs)
         response = await self.async_client.post("/v1/memories/", json=payload)
         response.raise_for_status()
+        if "metadata" in kwargs:
+            del kwargs["metadata"]
         capture_client_event("async_client.add", self.sync_client, {"keys": list(kwargs.keys())})
         return response.json()
 
@@ -397,7 +405,7 @@ class AsyncMemoryClient:
     async def get(self, memory_id: str) -> Dict[str, Any]:
         response = await self.async_client.get(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("async_client.get", self.sync_client)
+        capture_client_event("async_client.get", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -408,6 +416,8 @@ class AsyncMemoryClient:
         elif version == "v2":
             response = await self.async_client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
+        if "metadata" in kwargs:
+            del kwargs["metadata"]
         capture_client_event(
             "async_client.get_all", self.sync_client, {"api_version": version, "keys": list(kwargs.keys())}
         )
@@ -419,6 +429,8 @@ class AsyncMemoryClient:
         payload.update(self.sync_client._prepare_params(kwargs))
         response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
+        if "metadata" in kwargs:
+            del kwargs["metadata"]
         capture_client_event(
             "async_client.search", self.sync_client, {"api_version": version, "keys": list(kwargs.keys())}
         )
@@ -428,14 +440,14 @@ class AsyncMemoryClient:
     async def update(self, memory_id: str, data: str) -> Dict[str, Any]:
         response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data})
         response.raise_for_status()
-        capture_client_event("async_client.update", self.sync_client)
+        capture_client_event("async_client.update", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
     async def delete(self, memory_id: str) -> Dict[str, Any]:
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("async_client.delete", self.sync_client)
+        capture_client_event("async_client.delete", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -450,7 +462,7 @@ class AsyncMemoryClient:
     async def history(self, memory_id: str) -> List[Dict[str, Any]]:
         response = await self.async_client.get(f"/v1/memories/{memory_id}/history/")
         response.raise_for_status()
-        capture_client_event("async_client.history", self.sync_client)
+        capture_client_event("async_client.history", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
