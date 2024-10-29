@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
 from mem0.embeddings.vertexai import VertexAIEmbedding
-from mem0.configs.embeddings.base import BaseEmbedderConfig
 
 
 @pytest.fixture
@@ -35,15 +34,11 @@ def test_embed_default_model(mock_text_embedding_model, mock_os_environ, mock_co
     embedder = VertexAIEmbedding(config)
 
     mock_embedding = Mock(values=[0.1, 0.2, 0.3])
-    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [
-        mock_embedding
-    ]
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [mock_embedding]
 
-    result = embedder.embed("Hello world")
+    embedder.embed("Hello world")
 
-    mock_text_embedding_model.from_pretrained.assert_called_once_with(
-        "text-embedding-004"
-    )
+    mock_text_embedding_model.from_pretrained.assert_called_once_with("text-embedding-004")
     mock_text_embedding_model.from_pretrained.return_value.get_embeddings.assert_called_once_with(
         texts=["Hello world"], output_dimensionality=256
     )
@@ -60,15 +55,11 @@ def test_embed_custom_model(mock_text_embedding_model, mock_os_environ, mock_con
     embedder = VertexAIEmbedding(config)
 
     mock_embedding = Mock(values=[0.4, 0.5, 0.6])
-    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [
-        mock_embedding
-    ]
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [mock_embedding]
 
     result = embedder.embed("Test embedding")
 
-    mock_text_embedding_model.from_pretrained.assert_called_with(
-        "custom-embedding-model"
-    )
+    mock_text_embedding_model.from_pretrained.assert_called_with("custom-embedding-model")
     mock_text_embedding_model.from_pretrained.return_value.get_embeddings.assert_called_once_with(
         texts=["Test embedding"], output_dimensionality=512
     )
@@ -93,16 +84,12 @@ def test_missing_credentials(mock_os, mock_text_embedding_model, mock_config):
 
     config = mock_config()
 
-    with pytest.raises(
-        ValueError, match="Google application credentials JSON is not provided"
-    ):
+    with pytest.raises(ValueError, match="Google application credentials JSON is not provided"):
         VertexAIEmbedding(config)
 
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
-def test_embed_with_different_dimensions(
-    mock_text_embedding_model, mock_os_environ, mock_config
-):
+def test_embed_with_different_dimensions(mock_text_embedding_model, mock_os_environ, mock_config):
     mock_config.vertex_credentials_json = "/path/to/credentials.json"
     mock_config.return_value.embedding_dims = 1024
 
@@ -110,9 +97,7 @@ def test_embed_with_different_dimensions(
     embedder = VertexAIEmbedding(config)
 
     mock_embedding = Mock(values=[0.1] * 1024)
-    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [
-        mock_embedding
-    ]
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [mock_embedding]
 
     result = embedder.embed("Large embedding test")
 

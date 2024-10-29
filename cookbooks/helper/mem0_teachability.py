@@ -12,7 +12,7 @@ from autogen.agentchat.contrib.capabilities.agent_capability import AgentCapabil
 from autogen.agentchat.contrib.text_analyzer_agent import TextAnalyzerAgent
 from termcolor import colored
 from mem0 import Memory
-from mem0.configs.base import MemoryConfig
+
 
 class Mem0Teachability(AgentCapability):
     def __init__(
@@ -60,7 +60,6 @@ class Mem0Teachability(AgentCapability):
         return expanded_text
 
     def _consider_memo_storage(self, comment: Union[Dict, str]):
-        memo_added = False
         response = self._analyze(
             comment,
             "Does any part of the TEXT ask the agent to perform a task or solve a problem? Answer with just one word, yes or no.",
@@ -85,8 +84,9 @@ class Mem0Teachability(AgentCapability):
 
                 if self.verbosity >= 1:
                     print(colored("\nREMEMBER THIS TASK-ADVICE PAIR", "light_yellow"))
-                self.memory.add([{"role": "user", "content": f"Task: {general_task}\nAdvice: {advice}"}], agent_id=self.agent_id)
-                memo_added = True
+                self.memory.add(
+                    [{"role": "user", "content": f"Task: {general_task}\nAdvice: {advice}"}], agent_id=self.agent_id
+                )
 
         response = self._analyze(
             comment,
@@ -105,8 +105,9 @@ class Mem0Teachability(AgentCapability):
 
             if self.verbosity >= 1:
                 print(colored("\nREMEMBER THIS QUESTION-ANSWER PAIR", "light_yellow"))
-            self.memory.add([{"role": "user", "content": f"Question: {question}\nAnswer: {answer}"}], agent_id=self.agent_id)
-            memo_added = True
+            self.memory.add(
+                [{"role": "user", "content": f"Question: {question}\nAnswer: {answer}"}], agent_id=self.agent_id
+            )
 
     def _consider_memo_retrieval(self, comment: Union[Dict, str]):
         if self.verbosity >= 1:

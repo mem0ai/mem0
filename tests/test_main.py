@@ -135,7 +135,9 @@ def test_update(memory_instance):
 
     result = memory_instance.update("test_id", "Updated memory")
 
-    memory_instance._update_memory.assert_called_once_with("test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]})
+    memory_instance._update_memory.assert_called_once_with(
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}
+    )
 
     assert result["message"] == "Memory updated successfully!"
 
@@ -177,7 +179,6 @@ def test_reset(memory_instance):
     memory_instance.db.reset = Mock()
 
     with patch.object(VectorStoreFactory, "create", return_value=Mock()) as mock_create:
-        
         memory_instance.reset()
 
         initial_vector_store.delete_col.assert_called_once()
@@ -185,6 +186,7 @@ def test_reset(memory_instance):
         mock_create.assert_called_once_with(
             memory_instance.config.vector_store.provider, memory_instance.config.vector_store.config
         )
+
 
 @pytest.mark.parametrize(
     "version, enable_graph, expected_result",

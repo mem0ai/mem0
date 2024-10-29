@@ -33,11 +33,7 @@ def test_embed_text(mock_openai_client):
 
 @pytest.mark.parametrize(
     "default_headers, expected_header",
-    [
-        (None, None),
-        ({"Test": "test_value"}, "test_value"),
-        ({}, None)
-    ],
+    [(None, None), ({"Test": "test_value"}, "test_value"), ({}, None)],
 )
 def test_embed_text_with_default_headers(default_headers, expected_header):
     config = BaseEmbedderConfig(
@@ -47,8 +43,8 @@ def test_embed_text_with_default_headers(default_headers, expected_header):
             "api_version": "test_version",
             "azure_endpoint": "test_endpoint",
             "azuer_deployment": "test_deployment",
-            "default_headers": default_headers
-        }
+            "default_headers": default_headers,
+        },
     )
     embedder = AzureOpenAIEmbedding(config)
     assert embedder.client.api_key == "test"
