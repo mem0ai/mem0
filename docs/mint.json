@@ -107,9 +107,9 @@
             {
               "group": "Supported Vector Databases",
               "pages": [
+                "components/vectordbs/dbs/qdrant",
                 "components/vectordbs/dbs/chroma",
                 "components/vectordbs/dbs/pgvector",
-                "components/vectordbs/dbs/qdrant",
                 "components/vectordbs/dbs/milvus",
                 "components/vectordbs/dbs/azure_ai_search"
               ]
