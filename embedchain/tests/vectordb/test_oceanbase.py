@@ -1,6 +1,8 @@
 # ruff: noqa: E501
 
 import logging
+import os
+from unittest import mock
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +11,13 @@ from embedchain.config.vector_db.oceanbase import OceanBaseConfig
 from embedchain.vectordb.oceanbase import OceanBaseVectorDB
 
 logger = logging.getLogger(__name__)    
+
+class TestOceanBaseConifg:
+    @mock.patch.dict(os.environ, {"OB_PASSWORD": "ob_password"})
+    def test_init_oceanbase_config(self):
+        expect_password = "ob_password"
+        ob_config = OceanBaseConfig()
+        assert ob_config.passwd == expect_password
 
 class TestOceanBaseVector:
     @pytest.fixture

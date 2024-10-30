@@ -238,12 +238,13 @@ class OceanBaseVectorDB(BaseVectorDB):
         :type n_results: int
         :param where: to filter data
         :type where: dict[str, Any]
-        :raises InvalidDimensionException: Dimensions do not match.
         :param citations: we use citations boolean param to return context along with the answer.
         :type citations: bool, default is False.
+        :param param: search parameters for hnsw.
+        :type param: Optional[dict]
         :return: The content of the document that matched your query,
         along with url of the source and doc_id (if citations flag is true)
-        :rtype: list[str], if citations=False, otherwise list[tuple[str, str, str]]
+        :rtype: list[str], if citations=False, otherwise list[tuple[str, dict]]
         """
         search_param = (
             param
