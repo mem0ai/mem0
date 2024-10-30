@@ -32,14 +32,27 @@ def memory_instance():
         return Memory(config)
 
 
-@pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
-def test_add(memory_instance, version, enable_graph):
+@pytest.mark.parametrize(
+    "version, enable_graph, custom_prompt",
+    [
+        ("v1.0", False, None),
+        ("v1.1", True, None),
+        ("v1.0", False, "CustomPrompt"),
+        ("v1.1", True, "CustomPrompt"),
+    ]
+)
+def test_add(memory_instance, version, enable_graph, custom_prompt):
     memory_instance.config.version = version
     memory_instance.enable_graph = enable_graph
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
     memory_instance._add_to_graph = Mock(return_value=[])
 
-    result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
+    result = memory_instance.add(
+        messages=[{"role": "user", "content": "Test message"}],
+        user_id="test_user",
+        prompt=custom_prompt,
+        graph_prompt=custom_prompt
+    )
 
     assert "results" in result
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
@@ -47,12 +60,12 @@ def test_add(memory_instance, version, enable_graph):
     assert result["relations"] == []
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, custom_prompt
     )
 
     # Remove the conditional assertion for _add_to_graph
     memory_instance._add_to_graph.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, custom_prompt
     )
 
 
