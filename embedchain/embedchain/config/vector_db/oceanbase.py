@@ -13,6 +13,7 @@ DEFAULT_OCEANBASE_DBNAME = "test"
 DEFAULT_OCEANBASE_VECTOR_METRIC_TYPE = "l2"
 DEFAULT_OCEANBASE_HNSW_BUILD_PARAM = {"M": 16, "efConstruction": 256}
 
+
 @register_deserializable
 class OceanBaseConfig(BaseVectorDbConfig):
     def __init__(
@@ -54,9 +55,7 @@ class OceanBaseConfig(BaseVectorDbConfig):
         :param normalize: normalize vector before storing into OceanBase.
         :type normalize: bool
         """
-        self.collection_name = (
-            collection_name or DEFAULT_OCEANBASE_COLLECTION_NAME
-        )
+        self.collection_name = collection_name or DEFAULT_OCEANBASE_COLLECTION_NAME
         self.host = host or DEFAULT_OCEANBASE_HOST
         self.port = port or DEFAULT_OCEANBASE_PORT
         self.passwd = os.environ.get("OB_PASSWORD", "")
@@ -70,13 +69,7 @@ class OceanBaseConfig(BaseVectorDbConfig):
         self.dbname = dbname or DEFAULT_OCEANBASE_DBNAME
         self.vidx_metric_type = vidx_metric_type.lower()
         if self.vidx_metric_type not in ("l2", "inner_product"):
-            raise ValueError(
-                "`vidx_metric_type` should be set in `l2`/`inner_product`."
-            )
-        self.vidx_algo_params = (
-            vidx_algo_params
-            if vidx_algo_params is not None
-            else DEFAULT_OCEANBASE_HNSW_BUILD_PARAM
-        )
+            raise ValueError("`vidx_metric_type` should be set in `l2`/`inner_product`.")
+        self.vidx_algo_params = vidx_algo_params if vidx_algo_params is not None else DEFAULT_OCEANBASE_HNSW_BUILD_PARAM
         self.drop_old = drop_old
         self.normalize = normalize

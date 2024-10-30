@@ -10,7 +10,8 @@ import pytest
 from embedchain.config.vector_db.oceanbase import OceanBaseConfig
 from embedchain.vectordb.oceanbase import OceanBaseVectorDB
 
-logger = logging.getLogger(__name__)    
+logger = logging.getLogger(__name__)
+
 
 class TestOceanBaseConifg:
     @mock.patch.dict(os.environ, {"OB_PASSWORD": "ob_password"})
@@ -19,11 +20,12 @@ class TestOceanBaseConifg:
         ob_config = OceanBaseConfig()
         assert ob_config.passwd == expect_password
 
+
 class TestOceanBaseVector:
     @pytest.fixture
     def mock_embedder(self, mocker):
         return mocker.Mock()
-    
+
     @patch("embedchain.vectordb.oceanbase.ObVecClient", autospec=True)
     def test_query(self, mock_client, mock_embedder):
         ob_config = OceanBaseConfig(drop_old=True)
@@ -32,13 +34,7 @@ class TestOceanBaseVector:
 
         with patch.object(ob.client, "ann_search") as mock_search:
             mock_embedder.embedding_fn.return_value = ["query_vector"]
-            mock_search.return_value = [
-                (
-                    'result_doc',
-                    '{"url": "url_1", "doc_id": "doc_id_1"}',
-                    0.0
-                )
-            ]
+            mock_search.return_value = [("result_doc", '{"url": "url_1", "doc_id": "doc_id_1"}', 0.0)]
 
             query_result = ob.query(input_query="query_text", n_results=1, where={})
 
@@ -46,9 +42,4 @@ class TestOceanBaseVector:
 
             query_result = ob.query(input_query="query_text", n_results=1, where={}, citations=True)
 
-            assert query_result == [
-                (
-                    "result_doc",
-                    {"url": "url_1", "doc_id": "doc_id_1", "score": 1.0}
-                )
-            ]
+            assert query_result == [("result_doc", {"url": "url_1", "doc_id": "doc_id_1", "score": 1.0})]
