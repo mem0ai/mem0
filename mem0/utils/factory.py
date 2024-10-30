@@ -44,6 +44,7 @@ class EmbedderFactory:
         "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
+        "together": "mem0.embeddings.together.TogetherEmbedding",
     }
 
     @classmethod
