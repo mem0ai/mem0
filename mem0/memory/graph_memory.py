@@ -183,7 +183,6 @@ class MemoryGraph:
         )
 
         node_list = []
-        relation_list = []
 
         for item in search_results["tool_calls"]:
             if item["name"] == "search":
@@ -193,10 +192,7 @@ class MemoryGraph:
                     logger.error(f"Error in search tool: {e}")
 
         node_list = list(set(node_list))
-        relation_list = list(set(relation_list))
-
         node_list = [node.lower().replace(" ", "_") for node in node_list]
-        relation_list = [relation.lower().replace(" ", "_") for relation in relation_list]
 
         logger.debug(f"Node list for search query : {node_list}")
 
