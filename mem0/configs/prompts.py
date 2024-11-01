@@ -120,7 +120,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
                         "text" : "User is a software engineer"
                     }},
                     {{
-                        "id" : "0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+                        "id" : "b4229775-d860-4ccb-983f-0f628ca112f5",
                         "text" : "User likes to play cricket"
                     }}
                 ]
@@ -143,6 +143,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
                             "id" : "b4229775-d860-4ccb-983f-0f628ca112f5",
                             "text" : "Loves to play cricket with friends",
                             "event" : "UPDATE"
+                            "old_memory" : "User likes to play cricket"
                         }}
                     ]
                 }}
