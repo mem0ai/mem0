@@ -50,12 +50,7 @@
   "navigation": [
     {
       "group": "Get Started",
-      "pages": [
-        "overview",
-        "quickstart",
-        "playground",
-        "features"
-      ]
+      "pages": ["overview", "quickstart", "playground", "features"]
     },
     {
       "group": "Platform",
@@ -64,7 +59,12 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory", "features/custom-categories", "features/direct-import", "features/async-client"]
+          "pages": [
+            "features/selective-memory",
+            "features/custom-categories",
+            "features/direct-import",
+            "features/async-client"
+          ]
         }
       ]
     },
@@ -74,7 +74,10 @@
         "open-source/quickstart",
         {
           "group": "Graph Memory",
-          "pages": ["open-source/graph_memory/overview", "open-source/graph_memory/features"]
+          "pages": [
+            "open-source/graph_memory/overview",
+            "open-source/graph_memory/features"
+          ]
         },
         {
           "group": "LLMs",
@@ -193,7 +196,7 @@
             "api-reference/project/delete-project",
             {
               "group": "Members APIs",
-              "pages":[
+              "pages": [
                 "api-reference/project/get-project-members",
                 "api-reference/project/add-project-member",
                 "api-reference/project/update-project-member",
@@ -210,7 +213,8 @@
         "integrations/multion",
         "integrations/autogen",
         "integrations/langchain",
-        "integrations/langgraph"
+        "integrations/langgraph",
+        "integrations/keywordsai"
       ]
     },
     {

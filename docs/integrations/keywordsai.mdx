@@ -1,0 +1,65 @@
+---
+title: Keywords AI
+---
+
+[Keywords AI](https://www.keywordsai.co) is an LLM montoring platform where you can monitor, test, and improve your LLM outputs. You can use Keywords AI to debug and ship reliable AI features so much faster.
+
+## Overview
+
+In this guide, we'll show you how to integrate Keywords AI with Mem0 to remember user interactions over time and get complete LLM observability.
+
+## Setup and Configuration
+
+Install necessary libraries:
+
+```bash
+pip mem0ai
+```
+
+Create an API key on Keywords AI platform [here](https://platform.keywordsai.co/platform/api/api-keys).
+
+<img height="100" src="https://keywordsai-static.s3.us-east-1.amazonaws.com/docs/mem0-api-key.png" />
+
+Import required modules and set up configurations:
+
+<Note>Remember to get the Mem0 API key from [Mem0 Platform](https://app.mem0.ai).</Note>
+
+```python
+from mem0 import Memory
+from dotenv import load_dotenv
+
+loaded = load_dotenv(".env", override=True)
+print("loaded", loaded)
+import os
+
+api_key = os.getenv("MEM0_API_KEY")
+keywordsai_api_key = os.getenv("KEYWORDSAI_API_KEY")
+base_url = os.getenv("KEYWORDSAI_BASE_URL") # "https://api.keywordsai.co/api/"
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-2024-08-06",
+            "temperature": 0.0,
+            "api_key": keywordsai_api_key,
+            "openai_base_url": base_url,
+        },
+    }
+}
+
+
+m = Memory.from_config(config_dict=config)
+
+result = m.add(
+    "I like to take long walks on weekends.",
+    user_id="alice",
+    metadata={"category": "hobbies"},
+)
+
+print(result)
+```
+
+## Monitor LLM outputs in Keywords AI
+After you've set up Mem0 with Keywords AI, you can check and debug your LLM outputs in Keywords AI platform.
+<img height="100" src="https://keywordsai-static.s3.us-east-1.amazonaws.com/docs/mem0-logs.png" />
