@@ -132,7 +132,7 @@ class Memory(MemoryBase):
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            return {"message": "ok"}
+            return vector_store_result
 
     def _add_to_vector_store(self, messages, metadata, filters):
         parsed_messages = parse_messages(messages)
