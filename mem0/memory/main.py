@@ -172,7 +172,14 @@ class Memory(MemoryBase):
 
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
+        # mapping UUIDs with integers for handling UUID hallucinations
+        temp_uuid_mapping = {}
+        for idx, item in enumerate(retrieved_old_memory):
+            temp_uuid_mapping[str(idx)] = item["id"]
+            retrieved_old_memory[idx]["id"] = str(idx)
+
         function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+
         new_memories_with_actions = self.llm.generate_response(
             messages=[{"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
@@ -197,24 +204,24 @@ class Memory(MemoryBase):
                         )
                     elif resp["event"] == "UPDATE":
                         self._update_memory(
-                            memory_id=resp["id"],
+                            memory_id=temp_uuid_mapping[resp["id"]],
                             data=resp["text"],
                             existing_embeddings=new_message_embeddings,
                             metadata=metadata,
                         )
                         returned_memories.append(
                             {
-                                "id": resp["id"],
+                                "id": temp_uuid_mapping[resp["id"]],
                                 "memory": resp["text"],
                                 "event": resp["event"],
                                 "previous_memory": resp["old_memory"],
                             }
                         )
                     elif resp["event"] == "DELETE":
-                        self._delete_memory(memory_id=resp["id"])
+                        self._delete_memory(memory_id=temp_uuid_mapping[resp["id"]])
                         returned_memories.append(
                             {
-                                "id": resp["id"],
+                                "id": temp_uuid_mapping[resp["id"]],
                                 "memory": resp["text"],
                                 "event": resp["event"],
                             }
