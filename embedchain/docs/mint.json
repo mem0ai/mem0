@@ -94,7 +94,6 @@
             {
               "group": "Data types",
               "pages": [
-                "components/data-sources/audio",
                 "components/data-sources/pdf-file",
                 "components/data-sources/csv",
                 "components/data-sources/json",
@@ -123,6 +122,7 @@
                 "components/data-sources/directory",
                 "components/data-sources/dropbox",
                 "components/data-sources/image",
+                "components/data-sources/audio",
                 "components/data-sources/custom"
               ]
             },
