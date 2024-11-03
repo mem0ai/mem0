@@ -94,6 +94,7 @@
             {
               "group": "Data types",
               "pages": [
+                "components/data-sources/audio",
                 "components/data-sources/pdf-file",
                 "components/data-sources/csv",
                 "components/data-sources/json",
