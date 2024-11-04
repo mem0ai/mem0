@@ -88,14 +88,15 @@ class MemoryGraph:
             tools=_tools,
         )
 
-        if extracted_entities["tool_calls"]:
-            extracted_entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
-        else:
-            extracted_entities = []
+        new_graph_data = []
 
-        logger.debug(f"Extracted entities: {extracted_entities}")
+        if extracted_entities["tool_calls"] is not None:
+            for tool_call in extracted_entities["tool_calls"]:
+                new_graph_data.append(tool_call["arguments"]["entities"])
 
-        update_memory_prompt = get_update_memory_messages(search_output, extracted_entities)
+        logger.debug(f"Extracted entities: {new_graph_data}")
+
+        update_memory_prompt = get_update_memory_messages(search_output, new_graph_data)
 
         _tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
