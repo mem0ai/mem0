@@ -207,11 +207,11 @@
     {
       "group": "Integrations",
       "pages": [
+        "integrations/vercel-ai-sdk",
         "integrations/multion",
         "integrations/autogen",
         "integrations/langchain",
-        "integrations/langgraph",
-        "integrations/vercel-ai-sdk"
+        "integrations/langgraph"
       ]
     },
     {
