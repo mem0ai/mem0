@@ -1,0 +1,33 @@
+---
+title: Gemini
+---
+
+To use Gemini model, you have to set the `GEMINI_API_KEY` environment variable. You can obtain the Gemini API key from the [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+os.environ["GEMINI_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "gemini",
+        "config": {
+            "model": "gemini-1.5-flash-latest",
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+All available parameters for the `Gemini` config are present in [Master List of All Params in Config](../config).

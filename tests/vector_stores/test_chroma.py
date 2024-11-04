@@ -1,6 +1,6 @@
 from unittest.mock import Mock, patch
 import pytest
-from mem0.vector_stores.chroma import ChromaDB, OutputData
+from mem0.vector_stores.chroma import ChromaDB
 
 
 @pytest.fixture
@@ -12,13 +12,9 @@ def mock_chromadb_client():
 @pytest.fixture
 def chromadb_instance(mock_chromadb_client):
     mock_collection = Mock()
-    mock_chromadb_client.return_value.get_or_create_collection.return_value = (
-        mock_collection
-    )
+    mock_chromadb_client.return_value.get_or_create_collection.return_value = mock_collection
 
-    return ChromaDB(
-        collection_name="test_collection", client=mock_chromadb_client.return_value
-    )
+    return ChromaDB(collection_name="test_collection", client=mock_chromadb_client.return_value)
 
 
 def test_insert_vectors(chromadb_instance, mock_chromadb_client):
@@ -28,9 +24,7 @@ def test_insert_vectors(chromadb_instance, mock_chromadb_client):
 
     chromadb_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-    chromadb_instance.collection.add.assert_called_once_with(
-        ids=ids, embeddings=vectors, metadatas=payloads
-    )
+    chromadb_instance.collection.add.assert_called_once_with(ids=ids, embeddings=vectors, metadatas=payloads)
 
 
 def test_search_vectors(chromadb_instance, mock_chromadb_client):
@@ -44,9 +38,7 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
     query = [[0.1, 0.2, 0.3]]
     results = chromadb_instance.search(query=query, limit=2)
 
-    chromadb_instance.collection.query.assert_called_once_with(
-        query_embeddings=query, where=None, n_results=2
-    )
+    chromadb_instance.collection.query.assert_called_once_with(query_embeddings=query, where=None, n_results=2)
 
     print(results, type(results))
     assert len(results) == 2
@@ -68,9 +60,7 @@ def test_update_vector(chromadb_instance):
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
 
-    chromadb_instance.update(
-        vector_id=vector_id, vector=new_vector, payload=new_payload
-    )
+    chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
 
     chromadb_instance.collection.update.assert_called_once_with(
         ids=vector_id, embeddings=new_vector, metadatas=new_payload

@@ -1,6 +1,9 @@
 import logging
 
-from rank_bm25 import BM25Okapi
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:
+    raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
 
 from mem0.graphs.tools import (
     ADD_MEMORY_STRUCT_TOOL_GRAPH,
@@ -166,7 +169,7 @@ class MemoryGraph:
 
         return returned_entities
 
-    def _search(self, query, filters):
+    def _search(self, query, filters, limit=100):
         _tools = [SEARCH_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
             _tools = [SEARCH_STRUCT_TOOL]
@@ -182,7 +185,6 @@ class MemoryGraph:
         )
 
         node_list = []
-        relation_list = []
 
         for item in search_results["tool_calls"]:
             if item["name"] == "search":
@@ -192,10 +194,7 @@ class MemoryGraph:
                     logger.error(f"Error in search tool: {e}")
 
         node_list = list(set(node_list))
-        relation_list = list(set(relation_list))
-
         node_list = [node.lower().replace(" ", "_") for node in node_list]
-        relation_list = [relation.lower().replace(" ", "_") for relation in relation_list]
 
         logger.debug(f"Node list for search query : {node_list}")
 
@@ -215,19 +214,21 @@ class MemoryGraph:
                 "n_embedding": n_embedding,
                 "threshold": self.threshold,
                 "user_id": filters["user_id"],
+                "limit": limit,
             }
             ans = self.graph_query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
 
-    def search(self, query, filters):
+    def search(self, query, filters, limit=100):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
+            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             dict: A dictionary containing:
@@ -235,7 +236,7 @@ class MemoryGraph:
                 - "entities": List of related graph data based on the query.
         """
 
-        search_output = self._search(query, filters)
+        search_output = self._search(query, filters, limit)
 
         if not search_output:
             return []
@@ -262,12 +263,13 @@ class MemoryGraph:
         params = {"user_id": filters["user_id"]}
         self.graph_query(cypher, params=params)
 
-    def get_all(self, filters):
+    def get_all(self, filters, limit=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
         Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
+            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'contexts': The base data store response for each memory.
@@ -278,6 +280,7 @@ class MemoryGraph:
         query = """
         MATCH (n {user_id: $user_id})-[r]->(m {user_id: $user_id})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
+        LIMIT $limit
         """
         results = self.graph_query(query, params={"user_id": filters["user_id"]})
 
