@@ -79,7 +79,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
             - Old Memory:
                 [
                     {{
-                        "id" : "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+                        "id" : "0",
                         "text" : "User is a software engineer"
                     }}
                 ]
@@ -88,12 +88,12 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
                 {{
                     "memory" : [
                         {{
-                            "id" : "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+                            "id" : "0",
                             "text" : "User is a software engineer",
                             "event" : "NONE"
                         }},
                         {{
-                            "id" : "5b265f7e-b412-4bce-c6e3-12349b72c4a5",
+                            "id" : "1",
                             "text" : "Name is John",
                             "event" : "ADD"
                         }}
@@ -112,15 +112,15 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
             - Old Memory:
                 [
                     {{
-                        "id" : "f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+                        "id" : "0",
                         "text" : "I really like cheese pizza"
                     }},
                     {{
-                        "id" : "0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+                        "id" : "1",
                         "text" : "User is a software engineer"
                     }},
                     {{
-                        "id" : "0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+                        "id" : "2",
                         "text" : "User likes to play cricket"
                     }}
                 ]
@@ -129,20 +129,21 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
                 {{
                 "memory" : [
                         {{
-                            "id" : "f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+                            "id" : "0",
                             "text" : "Loves cheese and chicken pizza",
                             "event" : "UPDATE",
                             "old_memory" : "I really like cheese pizza"
                         }},
                         {{
-                            "id" : "0a14d8f0-e364-4f5c-b305-10da1f0d0878",
+                            "id" : "1",
                             "text" : "User is a software engineer",
                             "event" : "NONE"
                         }},
                         {{
-                            "id" : "b4229775-d860-4ccb-983f-0f628ca112f5",
+                            "id" : "2",
                             "text" : "Loves to play cricket with friends",
-                            "event" : "UPDATE"
+                            "event" : "UPDATE",
+                            "old_memory" : "User likes to play cricket"
                         }}
                     ]
                 }}
@@ -154,11 +155,11 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
             - Old Memory:
                 [
                     {{
-                        "id" : "df1aca24-76cf-4b92-9f58-d03857efcb64",
+                        "id" : "0",
                         "text" : "Name is John"
                     }},
                     {{
-                        "id" : "b4229775-d860-4ccb-983f-0f628ca112f5",
+                        "id" : "1",
                         "text" : "Loves cheese pizza"
                     }}
                 ]
@@ -167,12 +168,12 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
                 {{
                 "memory" : [
                         {{
-                            "id" : "df1aca24-76cf-4b92-9f58-d03857efcb64",
+                            "id" : "0",
                             "text" : "Name is John",
                             "event" : "NONE"
                         }},
                         {{
-                            "id" : "b4229775-d860-4ccb-983f-0f628ca112f5",
+                            "id" : "1",
                             "text" : "Loves cheese pizza",
                             "event" : "DELETE"
                         }}
@@ -184,11 +185,11 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
             - Old Memory:
                 [
                     {{
-                        "id" : "06d8df63-7bd2-4fad-9acb-60871bcecee0",
+                        "id" : "0",
                         "text" : "Name is John"
                     }},
                     {{
-                        "id" : "c190ab1a-a2f1-4f6f-914a-495e9a16b76e",
+                        "id" : "1",
                         "text" : "Loves cheese pizza"
                     }}
                 ]
@@ -197,12 +198,12 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content):
                 {{
                 "memory" : [
                         {{
-                            "id" : "06d8df63-7bd2-4fad-9acb-60871bcecee0",
+                            "id" : "0",
                             "text" : "Name is John",
                             "event" : "NONE"
                         }},
                         {{
-                            "id" : "c190ab1a-a2f1-4f6f-914a-495e9a16b76e",
+                            "id" : "1",
                             "text" : "Loves cheese pizza",
                             "event" : "NONE"
                         }}

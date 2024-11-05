@@ -12,17 +12,11 @@ def mock_genai():
 
 @pytest.fixture
 def config():
-    return BaseEmbedderConfig(
-        api_key="dummy_api_key",
-        model="test_model"
-    )
+    return BaseEmbedderConfig(api_key="dummy_api_key", model="test_model")
 
 
 def test_embed_query(mock_genai, config):
-
-    mock_embedding_response = {
-        'embedding': [0.1, 0.2, 0.3, 0.4]
-    }
+    mock_embedding_response = {"embedding": [0.1, 0.2, 0.3, 0.4]}
     mock_genai.return_value = mock_embedding_response
 
     embedder = GoogleGenAIEmbedding(config)
@@ -31,7 +25,4 @@ def test_embed_query(mock_genai, config):
     embedding = embedder.embed(text)
 
     assert embedding == [0.1, 0.2, 0.3, 0.4]
-    mock_genai.assert_called_once_with(
-        model="test_model",
-        content="Hello, world!"
-    )
+    mock_genai.assert_called_once_with(model="test_model", content="Hello, world!")
