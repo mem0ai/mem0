@@ -13,14 +13,10 @@ from pydantic import ValidationError
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import capture_event
+from mem0.memory.telemetry import AnonymousTelemetry, capture_event
 from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
-
-# Setup user config
-setup_config()
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +43,8 @@ class Memory(MemoryBase):
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
 
-        capture_event("mem0.init", self)
+        self.telemetry = AnonymousTelemetry(self.config.vector_store.provider, self.config.vector_store)
+        capture_event(self.telemetry, "mem0.init", self)
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -233,7 +230,7 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_memories_with_actions: {e}")
 
-        capture_event("mem0.add", self, {"version": self.api_version, "keys": list(filters.keys())})
+        capture_event(self.telemetry, "mem0.add", self, {"version": self.api_version, "keys": list(filters.keys())})
 
         return returned_memories
 
@@ -263,7 +260,7 @@ class Memory(MemoryBase):
         Returns:
             dict: Retrieved memory.
         """
-        capture_event("mem0.get", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0.get", self, {"memory_id": memory_id})
         memory = self.vector_store.get(vector_id=memory_id)
         if not memory:
             return None
@@ -312,7 +309,7 @@ class Memory(MemoryBase):
         if run_id:
             filters["run_id"] = run_id
 
-        capture_event("mem0.get_all", self, {"limit": limit, "keys": list(filters.keys())})
+        capture_event(self.telemetry, "mem0.get_all", self, {"limit": limit, "keys": list(filters.keys())})
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
@@ -403,6 +400,7 @@ class Memory(MemoryBase):
             raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
 
         capture_event(
+            self.telemetry,
             "mem0.search",
             self,
             {"limit": limit, "version": self.api_version, "keys": list(filters.keys())},
@@ -485,7 +483,7 @@ class Memory(MemoryBase):
         Returns:
             dict: Updated memory.
         """
-        capture_event("mem0.update", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0.update", self, {"memory_id": memory_id})
 
         existing_embeddings = {data: self.embedding_model.embed(data)}
 
@@ -499,7 +497,7 @@ class Memory(MemoryBase):
         Args:
             memory_id (str): ID of the memory to delete.
         """
-        capture_event("mem0.delete", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0.delete", self, {"memory_id": memory_id})
         self._delete_memory(memory_id)
         return {"message": "Memory deleted successfully!"}
 
@@ -525,7 +523,7 @@ class Memory(MemoryBase):
                 "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
             )
 
-        capture_event("mem0.delete_all", self, {"keys": list(filters.keys())})
+        capture_event(self.telemetry, "mem0.delete_all", self, {"keys": list(filters.keys())})
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
@@ -547,7 +545,7 @@ class Memory(MemoryBase):
         Returns:
             list: List of changes for the memory.
         """
-        capture_event("mem0.history", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0.history", self, {"memory_id": memory_id})
         return self.db.get_history(memory_id)
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
@@ -568,7 +566,7 @@ class Memory(MemoryBase):
             payloads=[metadata],
         )
         self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
-        capture_event("mem0._create_memory", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0._create_memory", self, {"memory_id": memory_id})
         return memory_id
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
@@ -611,7 +609,7 @@ class Memory(MemoryBase):
             created_at=new_metadata["created_at"],
             updated_at=new_metadata["updated_at"],
         )
-        capture_event("mem0._update_memory", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0._update_memory", self, {"memory_id": memory_id})
         return memory_id
 
     def _delete_memory(self, memory_id):
@@ -620,7 +618,7 @@ class Memory(MemoryBase):
         prev_value = existing_memory.payload["data"]
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(memory_id, prev_value, None, "DELETE", is_deleted=1)
-        capture_event("mem0._delete_memory", self, {"memory_id": memory_id})
+        capture_event(self.telemetry, "mem0._delete_memory", self, {"memory_id": memory_id})
         return memory_id
 
     def reset(self):
@@ -633,7 +631,7 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.db.reset()
-        capture_event("mem0.reset", self)
+        capture_event(self.telemetry, "mem0.reset", self)
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

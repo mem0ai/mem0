@@ -9,6 +9,8 @@ import mem0
 from mem0.memory.setup import get_user_id, setup_config
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
+PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
+POSTHOG_HOST = "https://us.i.posthog.com"
 
 if isinstance(MEM0_TELEMETRY, str):
     MEM0_TELEMETRY = MEM0_TELEMETRY.lower() in ("true", "1", "yes")
@@ -21,11 +23,11 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 
 class AnonymousTelemetry:
-    def __init__(self, project_api_key, host):
-        self.posthog = Posthog(project_api_key=project_api_key, host=host)
+    def __init__(self, vector_store_provider, vector_store_config = None):
+        self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=POSTHOG_HOST)
         # Call setup config to ensure that the user_id is generated
-        setup_config()
-        self.user_id = get_user_id()
+        setup_config(vector_store_provider, vector_store_config)
+        self.user_id = get_user_id(vector_store_provider, vector_store_config)
         if not MEM0_TELEMETRY:
             self.posthog.disabled = True
 
@@ -49,14 +51,7 @@ class AnonymousTelemetry:
         self.posthog.shutdown()
 
 
-# Initialize AnonymousTelemetry
-telemetry = AnonymousTelemetry(
-    project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-    host="https://us.i.posthog.com",
-)
-
-
-def capture_event(event_name, memory_instance, additional_data=None):
+def capture_event(telemetry, event_name, memory_instance, additional_data=None):
     event_data = {
         "collection": memory_instance.collection_name,
         "vector_size": memory_instance.embedding_model.config.embedding_dims,
@@ -75,7 +70,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
     telemetry.capture_event(event_name, event_data)
 
 
-def capture_client_event(event_name, instance, additional_data=None):
+def capture_client_event(telemetry, event_name, instance, additional_data=None):
     event_data = {
         "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",
     }
