@@ -158,7 +158,12 @@
 											},
 											"type": {
 												"type": "string",
-												"description": "Type of the entity (e.g., 'user', 'agent')"
+												"enum": [
+													"user",
+													"agent",
+													"app",
+													"run"
+												]
 											}
 										},
 										"required": [
@@ -229,20 +234,28 @@
 				"operationId": "entities_read",
 				"parameters": [
 					{
-						"name": "org_name",
-						"in": "query",
+						"name": "entity_type",
+						"in": "path",
+						"required": true,
 						"schema": {
-							"type": "string"
+							"type": "string",
+							"enum": [
+								"user",
+								"agent",
+								"app",
+								"run"
+							]
 						},
-						"description": "Filter entities by organization name"
+						"description": "The type of the entity (user, agent, app, or run)"
 					},
 					{
-						"name": "project_name",
-						"in": "query",
+						"name": "entity_id",
+						"in": "path",
+						"required": true,
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter entities by project name"
+						"description": "The unique identifier of the entity"
 					}
 				],
 				"responses": {
@@ -472,7 +485,9 @@
 												"type": "string",
 												"enum": [
 													"user",
-													"agent"
+													"agent",
+													"app",
+													"run"
 												]
 											}
 										},
@@ -805,7 +820,9 @@
 												"type": "string",
 												"enum": [
 													"user",
-													"agent"
+													"agent",
+													"app",
+													"run"
 												]
 											}
 										},
