@@ -48,18 +48,8 @@ class MemoryGraph:
         self.user_id = None
         self.threshold = 0.7
 
-    def add(self, data, filters):
-        """
-        Adds data to the graph.
-
-        Args:
-            data (str): The data to add to the graph.
-            filters (dict): A dictionary containing filters to be applied during the addition.
-        """
-
-        # retrieve the search results
-        search_output = self._search(data, filters)
-
+    #  extracts nodes and relations from data
+    def _llm_extract_entities(self, data):
         if self.config.graph_store.custom_prompt:
             messages = [
                 {
@@ -94,8 +84,10 @@ class MemoryGraph:
             extracted_entities = []
 
         logger.debug(f"Extracted entities: {extracted_entities}")
+        return extracted_entities
 
-        update_memory_prompt = get_update_memory_messages(search_output, extracted_entities)
+    def _llm_update_existing_memory(self, existing_entities, extracted_entities):
+        update_memory_prompt = get_update_memory_messages(existing_entities, extracted_entities)
 
         _tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
@@ -111,19 +103,70 @@ class MemoryGraph:
         )
 
         to_be_added = []
+        to_be_updated = []
 
         for item in memory_updates["tool_calls"]:
             if item["name"] == "add_graph_memory":
                 to_be_added.append(item["arguments"])
             elif item["name"] == "update_graph_memory":
-                self._update_relationship(
-                    item["arguments"]["source"],
-                    item["arguments"]["destination"],
-                    item["arguments"]["relationship"],
-                    filters,
-                )
+                to_be_updated.append(item["arguments"])
             elif item["name"] == "noop":
                 continue
+
+        return to_be_added, to_be_updated
+
+    #  extracts nodes from query, used for searching
+    def _llm_extract_nodes(self, query, filters):
+        _tools = [SEARCH_TOOL]
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
+            _tools = [SEARCH_STRUCT_TOOL]
+        search_results = self.llm.generate_response(
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source node. Extract the entities. ***DO NOT*** answer the question itself if the given text is a question.",
+                },
+                {"role": "user", "content": query},
+            ],
+            tools=_tools,
+        )
+
+        node_list = []
+
+        for item in search_results["tool_calls"]:
+            if item["name"] == "search":
+                try:
+                    node_list.extend(item["arguments"]["nodes"])
+                except Exception as e:
+                    logger.error(f"Error in search tool: {e}")
+
+        node_list = list(set(node_list))
+        node_list = [node.lower().replace(" ", "_") for node in node_list]
+
+        logger.debug(f"Node list for search query : {node_list}")
+        return node_list
+
+    def add(self, data, filters):
+        """
+        Adds data to the graph.
+
+        Args:
+            data (str): The data to add to the graph.
+            filters (dict): A dictionary containing filters to be applied during the addition.
+        """
+
+        # retrieve the search results
+        existing_entities = self._search(data, filters)
+        extracted_entities = self._llm_extract_entities(data)
+        to_be_added, to_be_updated = self._llm_update_existing_memory(existing_entities, extracted_entities)
+
+        for item in to_be_updated:
+            self._update_relationship(
+                item["arguments"]["source"],
+                item["arguments"]["destination"],
+                item["arguments"]["relationship"],
+                filters,
+            )
 
         returned_entities = []
 
@@ -168,34 +211,8 @@ class MemoryGraph:
         return returned_entities
 
     def _search(self, query, filters, limit=100):
-        _tools = [SEARCH_TOOL]
-        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
-            _tools = [SEARCH_STRUCT_TOOL]
-        search_results = self.llm.generate_response(
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source node. Extract the entities. ***DO NOT*** answer the question itself if the given text is a question.",
-                },
-                {"role": "user", "content": query},
-            ],
-            tools=_tools,
-        )
 
-        node_list = []
-
-        for item in search_results["tool_calls"]:
-            if item["name"] == "search":
-                try:
-                    node_list.extend(item["arguments"]["nodes"])
-                except Exception as e:
-                    logger.error(f"Error in search tool: {e}")
-
-        node_list = list(set(node_list))
-        node_list = [node.lower().replace(" ", "_") for node in node_list]
-
-        logger.debug(f"Node list for search query : {node_list}")
-
+        node_list = self._llm_extract_nodes(query, filters)
         result_relations = []
 
         for node in node_list:

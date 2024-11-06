@@ -134,7 +134,7 @@ class Memory(MemoryBase):
             )
             return vector_store_result
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+    def _llm_extract_facts(self, messages):
         parsed_messages = parse_messages(messages)
 
         if self.custom_prompt:
@@ -157,6 +157,21 @@ class Memory(MemoryBase):
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
 
+        return new_retrieved_facts
+
+    def _llm_new_memories_with_actions(self, retrieved_old_memory, new_retrieved_facts):
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+
+        new_memories_with_actions = self.llm.generate_response(
+            messages=[{"role": "user", "content": function_calling_prompt}],
+            response_format={"type": "json_object"},
+        )
+        new_memories_with_actions = json.loads(new_memories_with_actions)
+        return new_memories_with_actions
+
+    def _add_to_vector_store(self, messages, metadata, filters):
+        new_retrieved_facts = self._llm_extract_facts(messages)
+
         retrieved_old_memory = []
         new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
@@ -178,13 +193,7 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
-
-        new_memories_with_actions = self.llm.generate_response(
-            messages=[{"role": "user", "content": function_calling_prompt}],
-            response_format={"type": "json_object"},
-        )
-        new_memories_with_actions = json.loads(new_memories_with_actions)
+        new_memories_with_actions = self._llm_new_memories_with_actions(retrieved_old_memory, new_retrieved_facts)
 
         returned_memories = []
         try:
