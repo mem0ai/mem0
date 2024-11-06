@@ -32,9 +32,16 @@ Example with the mem0 Python package:
 ```python
 from mem0 import MemoryClient
 
+# Recommended: Using organization and project IDs
 client = MemoryClient(
-  organization='YOUR_ORG_NAME',
-  project='YOUR_PROJECT_NAME',
+    org_id='YOUR_ORG_ID',
+    project_id='YOUR_PROJECT_ID',
+)
+
+# Legacy approach (deprecated, will be removed in v0.1.40)
+client = MemoryClient(
+    organization='YOUR_ORG_NAME',  # Deprecated
+    project='YOUR_PROJECT_NAME',   # Deprecated
 )
 ```
 
@@ -43,11 +50,20 @@ Example with the mem0 Node.js package:
 ```javascript
 import { MemoryClient } from "mem0ai";
 
+// Recommended: Using organization and project IDs
 const client = new MemoryClient({
-    organization: "YOUR_ORG_NAME",
-    project: "YOUR_PROJECT_NAME"
+    orgId: "YOUR_ORG_ID",
+    projectId: "YOUR_PROJECT_ID"
+});
+
+// Legacy approach (deprecated, will be removed in v0.1.40)
+const client = new MemoryClient({
+    organization: "YOUR_ORG_NAME",  // Deprecated
+    project: "YOUR_PROJECT_NAME"    // Deprecated
 });
 ```
+
+> **Note**: The use of `organization` and `project` parameters is deprecated and will be removed in version `0.1.40`. Please use `org_id` and `project_id` (Python) or `orgId` and `projectId` (Node.js) instead.
 
 ## Getting Started
 

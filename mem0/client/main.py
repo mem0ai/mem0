@@ -2,6 +2,7 @@ import logging
 import os
 from functools import wraps
 from typing import Any, Dict, List, Optional, Union
+import warnings
 
 import httpx
 
@@ -55,6 +56,8 @@ class MemoryClient:
         host: Optional[str] = None,
         organization: Optional[str] = None,
         project: Optional[str] = None,
+        org_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ):
         """Initialize the MemoryClient.
 
@@ -62,8 +65,10 @@ class MemoryClient:
             api_key: The API key for authenticating with the Mem0 API. If not provided,
                      it will attempt to use the MEM0_API_KEY environment variable.
             host: The base URL for the Mem0 API. Defaults to "https://api.mem0.ai".
-            org_name: The name of the organization. Optional.
-            project_name: The name of the project. Optional.
+            organization: (Deprecated) The name of the organization. Use org_id instead.
+            project: (Deprecated) The name of the project. Use project_id instead.
+            org_id: The ID of the organization.
+            project_id: The ID of the project.
 
         Raises:
             ValueError: If no API key is provided or found in the environment.
@@ -72,10 +77,20 @@ class MemoryClient:
         self.host = host or "https://api.mem0.ai"
         self.organization = organization
         self.project = project
+        self.org_id = org_id
+        self.project_id = project_id
         self.user_id = get_user_id()
 
         if not self.api_key:
             raise ValueError("Mem0 API Key not provided. Please provide an API Key.")
+
+        if organization or project:
+            warnings.warn(
+                "Using 'organization' and 'project' parameters is deprecated and will be removed in version 0.1.40. "
+                "Please use 'org_id' and 'project_id' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         self.client = httpx.Client(
             base_url=self.host,
@@ -338,6 +353,17 @@ class MemoryClient:
         Returns:
             A dictionary containing the prepared parameters.
         """
+        # Add org_id and project_id if available
+        if self.org_id:
+            kwargs["org_id"] = self.org_id
+        if self.project_id:
+            kwargs["project_id"] = self.project_id
+
+        # Add deprecated org_name and project_name for backward compatibility
+        if self.organization:
+            kwargs["org_name"] = self.organization
+        if self.project:
+            kwargs["project_name"] = self.project
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
@@ -351,8 +377,17 @@ class AsyncMemoryClient:
         host: Optional[str] = None,
         organization: Optional[str] = None,
         project: Optional[str] = None,
+        org_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ):
-        self.sync_client = MemoryClient(api_key, host, organization, project)
+        self.sync_client = MemoryClient(
+            api_key, 
+            host, 
+            organization, 
+            project,
+            org_id,
+            project_id
+        )
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,
