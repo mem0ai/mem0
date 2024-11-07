@@ -211,7 +211,8 @@
         "integrations/multion",
         "integrations/autogen",
         "integrations/langchain",
-        "integrations/langgraph"
+        "integrations/langgraph",
+        "integrations/llama-index"
       ]
     },
     {
