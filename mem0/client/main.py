@@ -352,7 +352,19 @@ class MemoryClient:
 
         Returns:
             A dictionary containing the prepared parameters.
+
+        Raises:
+            ValueError: If both org_id/project_id and org_name/project_name are provided.
         """
+        has_new = bool(self.org_id or self.project_id)
+        has_old = bool(self.organization or self.project)
+        
+        if has_new and has_old:
+            raise ValueError(
+                "Please use either org_id/project_id or org_name/project_name, not both. "
+                "Note that org_name/project_name are deprecated."
+            )
+
         # Add org_id and project_id if available
         if self.org_id:
             kwargs["org_id"] = self.org_id

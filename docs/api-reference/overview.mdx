@@ -37,12 +37,6 @@ client = MemoryClient(
     org_id='YOUR_ORG_ID',
     project_id='YOUR_PROJECT_ID',
 )
-
-# Legacy approach (deprecated, will be removed in v0.1.40)
-client = MemoryClient(
-    organization='YOUR_ORG_NAME',  # Deprecated
-    project='YOUR_PROJECT_NAME',   # Deprecated
-)
 ```
 
 Example with the mem0 Node.js package:
@@ -54,12 +48,6 @@ import { MemoryClient } from "mem0ai";
 const client = new MemoryClient({
     orgId: "YOUR_ORG_ID",
     projectId: "YOUR_PROJECT_ID"
-});
-
-// Legacy approach (deprecated, will be removed in v0.1.40)
-const client = new MemoryClient({
-    organization: "YOUR_ORG_NAME",  // Deprecated
-    project: "YOUR_PROJECT_NAME"    // Deprecated
 });
 ```
 
