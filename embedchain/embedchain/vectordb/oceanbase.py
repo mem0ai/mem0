@@ -300,5 +300,5 @@ class OceanBaseVectorDB(BaseVectorDB):
             return None
         operands = []
         for key, value in where.items():
-            operands.append(f"({self.metadata_field}->'$.{key}' == '{value}')")
+            operands.append(f"({self.metadata_field}->'$.{key}' = '{value}')")
         return text(" and ".join(operands))
