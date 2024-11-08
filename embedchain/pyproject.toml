@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.124"
+version = "0.1.125"
 description = "Simplest open source retrieval (RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -96,14 +96,14 @@ python-dotenv = "^1.0.0"
 langchain = "^0.3.1"
 requests = "^2.31.0"
 openai = ">=1.1.1"
-chromadb = "^0.4.24"
+chromadb = "^0.5.10"
 posthog = "^3.0.2"
 rich = "^13.7.0"
 beautifulsoup4 = "^4.12.2"
 pypdf = "^5.0.0"
 gptcache = "^0.1.43"
 pysbd = "^0.3.4"
-mem0ai = "^0.1.25"
+mem0ai = "^0.1.29"
 tiktoken = { version = "^0.7.0", optional = true }
 sentence-transformers = { version = "^2.2.2", optional = true }
 torch = { version = "2.3.0", optional = true }
