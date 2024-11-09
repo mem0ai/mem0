@@ -572,12 +572,38 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"type": "object",
-									"properties": {
-										"message": {
-											"type": "string",
-											"example": "ok"
-										}
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string"
+											},
+											"data": {
+												"type": "object",
+												"properties": {
+													"memory": {
+														"type": "string"
+													}
+												},
+												"required": [
+													"memory"
+												]
+											},
+											"event": {
+												"type": "string",
+												"enum": [
+													"ADD",
+													"UPDATE",
+													"DELETE"
+												]
+											}
+										},
+										"required": [
+											"id",
+											"data",
+											"event"
+										]
 									}
 								}
 							}
