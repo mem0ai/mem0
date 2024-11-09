@@ -137,9 +137,10 @@ class GeminiLLM(LLMBase):
             "top_p": self.config.top_p,
         }
 
-        if response_format is not None and response_format == "json_object":
+        if response_format is not None and response_format["type"] == "json_object":
             params["response_mime_type"] = "application/json"
-            # params["response_schema"] = list[response_format]
+            if "schema" in response_format:
+                params["response_schema"] = response_format["schema"]
         if tool_choice:
             tool_config = content_types.to_tool_config(
                 {
