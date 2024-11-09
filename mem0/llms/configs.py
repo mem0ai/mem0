@@ -11,16 +11,17 @@ class LlmConfig(BaseModel):
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
         if provider in (
-            "openai",
             "ollama",
-            "anthropic",
+            "openai",
             "groq",
             "together",
             "aws_bedrock",
             "litellm",
             "azure_openai",
             "openai_structured",
+            "anthropic",
             "azure_openai_structured",
+            "gemini",
         ):
             return v
         else:
