@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Dict, List, Optional
 
 try:
@@ -44,11 +45,9 @@ class GeminiLLM(LLMBase):
 
             for part in response.candidates[0].content.parts:
                 if fn := part.function_call:
+                    fn_call = type(fn).to_dict(fn)
                     processed_response["tool_calls"].append(
-                        {
-                            "name": fn.name,
-                            "arguments": {key: val for key, val in fn.args.items()},
-                        }
+                        {"name": fn_call["name"], "arguments": fn_call["args"]}
                     )
 
             return processed_response
@@ -108,7 +107,7 @@ class GeminiLLM(LLMBase):
                 func = tool["function"].copy()
                 new_tools.append({"function_declarations": [remove_additional_properties(func)]})
 
-            return new_tools
+            return content_types.to_function_library(new_tools)
         else:
             return None
 
@@ -138,9 +137,9 @@ class GeminiLLM(LLMBase):
             "top_p": self.config.top_p,
         }
 
-        if response_format:
+        if response_format is not None and response_format == "json_object":
             params["response_mime_type"] = "application/json"
-            params["response_schema"] = list[response_format]
+            # params["response_schema"] = list[response_format]
         if tool_choice:
             tool_config = content_types.to_tool_config(
                 {
