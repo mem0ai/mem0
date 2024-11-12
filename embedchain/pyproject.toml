@@ -140,8 +140,8 @@ langchain-cohere = "^0.3.0"
 langchain-community = "^0.3.1"
 langchain-aws = {version = "^0.2.1", optional = true}
 langsmith = "^0.1.17"
+pyobvector = {version = "^0.1.13", optional = true}
 
-pyobvector = "^0.1.6"
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pre-commit = "^3.2.2"
@@ -181,8 +181,7 @@ mysql = ["mysql-connector-python"]
 google = ["google-generativeai"]
 mistralai = ["langchain-mistralai"]
 aws = ["langchain-aws"]
-
-[tool.poetry.group.docs.dependencies]
+pyobvector = ["pyobvector"]
 
 [tool.poetry.scripts]
 ec = "embedchain.cli:cli"

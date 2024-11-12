@@ -97,6 +97,24 @@ yarl = ">=1.0,<2.0"
 speedups = ["Brotli", "aiodns", "brotlicffi"]
 
 [[package]]
+name = "aiomysql"
+version = "0.2.0"
+description = "MySQL driver for asyncio."
+optional = true
+python-versions = ">=3.7"
+files = [
+    {file = "aiomysql-0.2.0-py3-none-any.whl", hash = "sha256:b7c26da0daf23a5ec5e0b133c03d20657276e4eae9b73e040b72787f6f6ade0a"},
+    {file = "aiomysql-0.2.0.tar.gz", hash = "sha256:558b9c26d580d08b8c5fd1be23c5231ce3aeff2dadad989540fee740253deb67"},
+]
+
+[package.dependencies]
+PyMySQL = ">=1.0"
+
+[package.extras]
+rsa = ["PyMySQL[rsa] (>=1.0)"]
+sa = ["sqlalchemy (>=1.3,<1.4)"]
+
+[[package]]
 name = "aiosignal"
 version = "1.3.1"
 description = "aiosignal: a list of registered asynchronous callbacks"
@@ -4506,7 +4524,7 @@ model = ["milvus-model (>=0.1.0)"]
 name = "pymysql"
 version = "1.1.1"
 description = "Pure Python MySQL Driver"
-optional = false
+optional = true
 python-versions = ">=3.7"
 files = [
     {file = "PyMySQL-1.1.1-py3-none-any.whl", hash = "sha256:4de15da4c61dc132f4fb9ab763063e693d521a80fd0e87943b9a453dd4c19d6c"},
@@ -4519,16 +4537,17 @@ rsa = ["cryptography"]
 
 [[package]]
 name = "pyobvector"
-version = "0.1.6"
+version = "0.1.13"
 description = "A python SDK for OceanBase Vector Store, based on SQLAlchemy, compatible with Milvus API."
-optional = false
+optional = true
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "pyobvector-0.1.6-py3-none-any.whl", hash = "sha256:0d700e865a85b4716b9a03384189e49288cd9d5f3cef88aed4740bc82d5fd136"},
-    {file = "pyobvector-0.1.6.tar.gz", hash = "sha256:05551addcac8c596992d5e38b480c83ca3481c6cfc6f56a1a1bddfb2e6ae037e"},
+    {file = "pyobvector-0.1.13-py3-none-any.whl", hash = "sha256:b6a9e7a4673aebeefe835e04f7474d2f2ef8b9c96982af41cf9ce6f3e3500fdb"},
+    {file = "pyobvector-0.1.13.tar.gz", hash = "sha256:e4b8f3ba3ad142cd7584b36278a38c0ef2fe7b6af142cdf5467d988e0737e03e"},
 ]
 
 [package.dependencies]
+aiomysql = ">=0.2.0,<0.3.0"
 numpy = ">=1.26.0,<2.0.0"
 pymysql = ">=1.1.1,<2.0.0"
 sqlalchemy = ">=2.0.32,<3.0.0"
@@ -6780,6 +6799,7 @@ mysql = ["mysql-connector-python"]
 opensearch = ["opensearch-py"]
 opensource = ["gpt4all", "sentence-transformers", "torch"]
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
+pyobvector = ["pyobvector"]
 qdrant = ["qdrant-client"]
 together = ["together"]
 vertexai = ["langchain-google-vertexai"]
@@ -6788,4 +6808,4 @@ weaviate = ["weaviate-client"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "6f83d33b608d27686a75a476bbf717111d82dfdbf0b1e77f7118ef07f16cb40d"
+content-hash = "2c89658261a3d4f92f84dc7ddec4e1d4a55acc2d61b8203c866cf5a8be184e79"
