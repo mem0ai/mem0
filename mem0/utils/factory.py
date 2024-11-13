@@ -22,6 +22,7 @@ class LlmFactory:
         "openai_structured": "mem0.llms.openai_structured.OpenAIStructuredLLM",
         "anthropic": "mem0.llms.anthropic.AnthropicLLM",
         "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM",
+        "gemini": "mem0.llms.gemini.GeminiLLM",
     }
 
     @classmethod
@@ -43,6 +44,7 @@ class EmbedderFactory:
         "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
+        "together": "mem0.embeddings.together.TogetherEmbedding",
     }
 
     @classmethod
@@ -62,6 +64,7 @@ class VectorStoreFactory:
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
+        "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
     }
 
     @classmethod

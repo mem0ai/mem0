@@ -181,9 +181,9 @@ class Completions:
 
     def _format_query_with_memories(self, messages, relevant_memories):
         # Check if self.mem0_client is an instance of Memory or MemoryClient
-        
+
         if isinstance(self.mem0_client, mem0.memory.main.Memory):
-            memories_text = "\n".join(memory["memory"] for memory in relevant_memories['results'])
+            memories_text = "\n".join(memory["memory"] for memory in relevant_memories["results"])
         elif isinstance(self.mem0_client, mem0.client.main.MemoryClient):
             memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
         return f"- Relevant Memories/Facts: {memories_text}\n\n- User Question: {messages[-1]['content']}"

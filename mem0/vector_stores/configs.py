@@ -15,6 +15,7 @@ class VectorStoreConfig(BaseModel):
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
         "milvus": "MilvusDBConfig",
+        "azure_ai_search": "AzureAISearchConfig",
     }
 
     @model_validator(mode="after")
