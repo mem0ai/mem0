@@ -25,7 +25,12 @@ All API requests require authentication using HTTP Basic Auth. Ensure you includ
 
 ## Organizations and projects (optional)
 
-For users who belong to multiple organizations or are working on multiple projects, you can specify the organization and project for an API request. This is done by initializing the Mem0 client with the appropriate parameters. Usage from these API requests will be attributed to the specified organization and project.
+Organizations and projects provide the following capabilities:
+
+- **Multi-org/project Support**: Specify organization and project when initializing the Mem0 client to attribute API usage appropriately
+- **Member Management**: Control access to data through organization and project membership
+- **Access Control**: Only members can access memories and data within their organization/project scope
+- **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration
 
 Example with the mem0 Python package:
 
@@ -34,7 +39,7 @@ from mem0 import MemoryClient
 
 # Recommended: Using organization and project IDs
 client = MemoryClient(
-    org_id='YOUR_ORG_ID',
+    org_id='YOUR_ORG_ID', # It can be found on the organization settings page in dashboard
     project_id='YOUR_PROJECT_ID',
 )
 ```
@@ -46,7 +51,7 @@ Example with the mem0 Node.js package:
 ```javascript
 import { MemoryClient } from "mem0ai";
 
-// Recommended: Using organization and project IDs
+# Recommended: Using organization and project IDs
 const client = new MemoryClient({
     organizationId: "YOUR_ORG_ID",
     projectId: "YOUR_PROJECT_ID"
