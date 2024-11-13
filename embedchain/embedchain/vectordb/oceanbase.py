@@ -156,7 +156,12 @@ class OceanBaseVectorDB(BaseVectorDB):
         metadatas = []
         for r in res.fetchall():
             data_ids.append(r[0])
-            metadatas.append(json.loads(r[1]))
+            if isinstance(r[1], str) or isinstance(r[1], bytes):
+                metadatas.append(json.loads(r[1]))
+            elif isinstance(r[1], dict):
+                metadatas.append(r[1])
+            else:
+                raise ValueError("invalid json type")
 
         return {"ids": data_ids, "metadatas": metadatas}
 
@@ -256,7 +261,12 @@ class OceanBaseVectorDB(BaseVectorDB):
         contexts = []
         for r in res:
             context = r[0]
-            metadata = json.loads(r[1])
+            if isinstance(r[1], str) or isinstance(r[1], bytes):
+                metadata = json.loads(r[1])
+            elif isinstance(r[1], dict):
+                metadata = r[1]
+            else:
+                raise ValueError("invalid json type")
             score = self._parse_distance_to_similarities(r[2])
 
             if citations:
