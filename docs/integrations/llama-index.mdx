@@ -40,7 +40,7 @@ memory_from_client = Mem0Memory.from_client(
 )
 ```
 
-Mem0 Context is used to identify the user, agent or the conversation in the Mem0. It is required to be passed in the at least one of the fields in the `Mem0Memory` constructor. It can be any of the following:
+Context is used to identify the user, agent or the conversation in the Mem0. It is required to be passed in the at least one of the fields in the `Mem0Memory` constructor. It can be any of the following:
 
 ```python
 context = {
@@ -51,6 +51,10 @@ context = {
 ```
 
 `search_msg_limit` is optional, default is 5. It is the number of messages from the chat history to be used for memory retrieval from Mem0. More number of messages will result in more context being used for retrieval but will also increase the retrieval time and might result in some unwanted results.
+
+<Note type="info">
+  `search_msg_limit` is different from `limit`. `limit` is the number of messages to be retrieved from Mem0 and is used in search.
+</Note>
 
 ### Setup with Mem0 OSS
 
@@ -97,11 +101,21 @@ memory_from_config = Mem0Memory.from_config(
 )
 ```
 
+Intilaize the LLM
+
+```python
+import os
+from llama_index.llms.openai import OpenAI
+
+os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
+llm = OpenAI(model="gpt-4o")
+```
+
 ### SimpleChatEngine
 Use the `SimpleChatEngine` to start a chat with the agent with the memory.
 
 ```python
-from llama_index.core import SimpleChatEngine
+from llama_index.core.chat_engine import SimpleChatEngine
 
 agent = SimpleChatEngine.from_defaults(
     llm=llm, memory=memory_from_client  # or memory_from_config
@@ -146,7 +160,7 @@ from llama_index.core.agent import FunctionCallingAgent
 agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool],
     llm=llm,
-    memory=memory,
+    memory=memory_from_client,  # or memory_from_config
     verbose=True,
 )
 
@@ -163,7 +177,7 @@ from llama_index.core.agent import ReActAgent
 agent = ReActAgent.from_tools(
     [call_tool, email_tool],
     llm=llm,
-    memory=memory,
+    memory=memory_from_client,  # or memory_from_config
     verbose=True,
 )
 
