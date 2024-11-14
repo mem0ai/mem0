@@ -148,7 +148,7 @@ class OceanBaseVectorDB(BaseVectorDB):
         res = self.client.get(
             table_name=self.obconfig.collection_name,
             ids=ids,
-            where_clause=[self._generate_oceanbase_filter(where)],
+            where_clause=self._generate_oceanbase_filter(where),
             output_column_name=[self.id_field, self.metadata_field],
         )
 
@@ -254,7 +254,7 @@ class OceanBaseVectorDB(BaseVectorDB):
             with_dist=True,
             topk=n_results,
             output_column_names=[self.text_field, self.metadata_field],
-            where_clause=[self._generate_oceanbase_filter(where)],
+            where_clause=self._generate_oceanbase_filter(where),
             **kwargs,
         )
 
@@ -311,4 +311,4 @@ class OceanBaseVectorDB(BaseVectorDB):
         operands = []
         for key, value in where.items():
             operands.append(f"({self.metadata_field}->'$.{key}' = '{value}')")
-        return text(" and ".join(operands))
+        return [text(" and ".join(operands))]
