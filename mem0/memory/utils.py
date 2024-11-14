@@ -1,3 +1,5 @@
+import json
+
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
 
@@ -15,3 +17,18 @@ def parse_messages(messages):
         if msg["role"] == "assistant":
             response += f"assistant: {msg['content']}\n"
     return response
+
+def format_entities(entities):
+    if not entities:
+        return ""
+    
+    formatted_lines = []
+    for entity in entities:
+        simplified = {
+            "source": entity["source"],
+            "relation": entity["relation"],
+            "destination": entity["destination"]
+        }
+        formatted_lines.append(json.dumps(simplified))
+
+    return "\n".join(formatted_lines)

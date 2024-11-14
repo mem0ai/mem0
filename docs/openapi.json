@@ -189,8 +189,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/entities/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Retrieve all users\nclient.users()\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/entities/ \\\n  --header 'Authorization: <api-key>'"
@@ -530,8 +530,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Retrieve memories for a specific user\nclient.getAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},															
 				{
 				"lang": "cURL",
 				"source": "curl --location --request GET 'https://api.mem0.ai/v1/memories/' \\\n--header 'Authorization: <api-key>'"
@@ -572,12 +572,38 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"type": "object",
-									"properties": {
-										"message": {
-											"type": "string",
-											"example": "ok"
-										}
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string"
+											},
+											"data": {
+												"type": "object",
+												"properties": {
+													"memory": {
+														"type": "string"
+													}
+												},
+												"required": [
+													"memory"
+												]
+											},
+											"event": {
+												"type": "string",
+												"enum": [
+													"ADD",
+													"UPDATE",
+													"DELETE"
+												]
+											}
+										},
+										"required": [
+											"id",
+											"data",
+											"event"
+										]
 									}
 								}
 							}
@@ -611,8 +637,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {\n  method: 'POST',\n  headers: {Authorization: '<api-key>', 'Content-Type': 'application/json'},\n  body: '{\"messages\":[{}],\"agent_id\":\"<string>\",\"user_id\":\"<string>\",\"app_id\":\"<string>\",\"run_id\":\"<string>\",\"metadata\":{},\"includes\":\"<string>\",\"excludes\":\"<string>\",\"infer\":true,\"custom_categories\":{},\"org_name\":\"<string>\",\"project_name\":\"<string>\"}'\n};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"messages\": [\n    {}\n  ],\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"includes\": \"<string>\",\n  \"excludes\": \"<string>\",\n  \"infer\": true,\n  \"custom_categories\": {},\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\"\n}'"
@@ -723,8 +749,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'DELETE', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: <api-key>'"
@@ -865,8 +891,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const axios = require('axios');\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\naxios.post('https://api.mem0.ai/v2/memories/', { filters }, {\n  headers: { 'Authorization': 'Token your-api-key' }\n})\n.then(response => console.log(response.data))\n.catch(error => console.error(error));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\nclient.getAll({ filters, api_version: 'v2' })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl -X POST 'https://api.mem0.ai/v2/memories/' \\\n-H 'Authorization: Token your-api-key' \\\n-H 'Content-Type: application/json' \\\n-d '{\n  \"filters\": {\n    \"AND\": [\n      { \"user_id\": \"alex\" },\n      { \"created_at\": { \"gte\": \"2024-07-01\", \"lte\": \"2024-07-31\" } }\n    ]\n  }\n}'"
@@ -1025,8 +1051,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.0\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/search/ \\\n  --header 'Authorization: <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\"\n}'"
@@ -1154,8 +1180,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {\n  method: 'POST',\n  headers: {Authorization: '<api-key>', 'Content-Type': 'application/json'},\n  body: '{\"query\":\"<string>\",\"filters\":{},\"top_k\":123,\"fields\":[\"<string>\"],\"rerank\":true,\"org_name\":\"<string>\",\"project_name\":\"<string>\"}'\n};\n\nfetch('https://api.mem0.ai/v2/memories/search/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  AND: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { api_version: \"v2\", filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v2/memories/search/ \\\n  --header 'Authorization: <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"filters\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\"\n}'"
@@ -1312,8 +1338,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Retrieve a specific memory\nclient.get(\"<memory_id>\")\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: <api-key>'"
@@ -1482,8 +1508,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'DELETE', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete a specific memory\nclient.delete(\"<memory_id>\")\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/ \\\n  --header 'Authorization: <api-key>'"
@@ -1628,8 +1654,8 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {method: 'GET', headers: {Authorization: '<api-key>'}};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/history/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Get history of how memory changed over time\nclient.history(\"<memory_id>\")\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},				  
 				{
 				"lang": "cURL",
 				"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/memories/{memory_id}/history/ \\\n  --header 'Authorization: <api-key>'"
