@@ -429,6 +429,15 @@
 						"explode": true
 					},
 					{
+						"name": "categories",
+						"in": "query",
+						"schema": {
+							"type": "array",
+							"items": { "type": "string" }
+						},
+						"description": "Filter memories by categories"
+					},
+					{
 						"name": "org_name",
 						"in": "query",
 						"schema": {
