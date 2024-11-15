@@ -306,7 +306,7 @@ class OceanBaseVectorDB(BaseVectorDB):
         self.obconfig.collection_name = name
 
     def _generate_oceanbase_filter(self, where: dict[str, str]):
-        if len(where.keys()) == 0:
+        if where is None or len(where.keys()) == 0:
             return None
         operands = []
         for key, value in where.items():
