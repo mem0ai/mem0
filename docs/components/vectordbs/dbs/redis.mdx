@@ -1,5 +1,15 @@
 [Redis](https://redis.io/) is a scalable, real-time database that can store, search, and analyze vector data.
 
+### Installation
+```bash
+pip install redis redisvl
+```
+
+Redis Stack using Docker:
+```bash
+docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+```
+
 ### Usage
 
 ```python
