@@ -34,7 +34,7 @@
     {
       "name": "Discord",
       "icon": "discord",
-      "url": "https://mem0.ai/discord"
+      "url": "https://mem0.dev/DiD"
     },
     {
       "name": "GitHub",
@@ -64,7 +64,7 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory", "features/custom-categories"]
+          "pages": ["features/selective-memory", "features/custom-categories", "features/direct-import", "features/async-client"]
         }
       ]
     },
@@ -93,7 +93,8 @@
                 "components/llms/models/litellm",
                 "components/llms/models/mistral_AI",
                 "components/llms/models/google_AI",
-                "components/llms/models/aws_bedrock"
+                "components/llms/models/aws_bedrock",
+                "components/llms/models/gemini"
               ]
             }
           ]
@@ -106,9 +107,11 @@
             {
               "group": "Supported Vector Databases",
               "pages": [
+                "components/vectordbs/dbs/qdrant",
                 "components/vectordbs/dbs/chroma",
                 "components/vectordbs/dbs/pgvector",
-                "components/vectordbs/dbs/qdrant"
+                "components/vectordbs/dbs/milvus",
+                "components/vectordbs/dbs/azure_ai_search"
               ]
             }
           ]
@@ -124,7 +127,9 @@
                 "components/embedders/models/openai",
                 "components/embedders/models/azure_openai",
                 "components/embedders/models/ollama",
-                "components/embedders/models/huggingface"
+                "components/embedders/models/huggingface",
+                "components/embedders/models/vertexai",
+                "components/embedders/models/gemini"
               ]
             }
           ]
@@ -142,7 +147,8 @@
         {
           "group": "Memory APIs",
           "pages": [
-            "api-reference/memory/get-memories",
+            "api-reference/memory/v1-get-memories",
+            "api-reference/memory/v2-get-memories",
             "api-reference/memory/add-memories",
             "api-reference/memory/delete-memories",
             "api-reference/memory/get-memory",
@@ -159,15 +165,55 @@
             "api-reference/entities/get-users",
             "api-reference/entities/delete-user"
           ]
+        },
+        {
+          "group": "Organizations APIs",
+          "pages": [
+            "api-reference/organization/get-orgs",
+            "api-reference/organization/get-org",
+            "api-reference/organization/create-org",
+            "api-reference/organization/delete-org",
+            {
+              "group": "Members APIs",
+              "pages": [
+                "api-reference/organization/get-org-members",
+                "api-reference/organization/add-org-member",
+                "api-reference/organization/update-org-member",
+                "api-reference/organization/delete-org-member"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Projects APIs",
+          "pages": [
+            "api-reference/project/get-projects",
+            "api-reference/project/get-project",
+            "api-reference/project/create-project",
+            "api-reference/project/delete-project",
+            {
+              "group": "Members APIs",
+              "pages":[
+                "api-reference/project/get-project-members",
+                "api-reference/project/add-project-member",
+                "api-reference/project/update-project-member",
+                "api-reference/project/delete-project-member"
+              ]
+            }
+          ]
         }
       ]
     },
     {
       "group": "Integrations",
       "pages": [
+        "integrations/vercel-ai-sdk",
+        "integrations/crewai",
         "integrations/multion",
         "integrations/autogen",
-        "integrations/langgraph"
+        "integrations/langchain",
+        "integrations/langgraph",
+        "integrations/llama-index"
       ]
     },
     {
@@ -182,7 +228,7 @@
     }
   ],
   "footerSocials": {
-    "discord": "https://mem0.ai/discord",
+    "discord": "https://mem0.dev/DiD",
     "x": "https://x.com/mem0ai",
     "github": "https://github.com/mem0ai",
     "linkedin": "https://www.linkedin.com/company/mem0/"
@@ -190,7 +236,7 @@
   "analytics": {
     "posthog": {
       "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-      "apiHost": "https://us.i.posthog.com"
+      "apiHost": "https://mango.mem0.ai"
     }
   }
 }

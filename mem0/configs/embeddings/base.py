@@ -25,6 +25,8 @@ class BaseEmbedderConfig(ABC):
         # AzureOpenAI specific
         azure_kwargs: Optional[AzureConfig] = {},
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        # VertexAI specific
+        vertex_credentials_json: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -60,6 +62,9 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
-        
+
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
+
+        # VertexAI specific
+        self.vertex_credentials_json = vertex_credentials_json
