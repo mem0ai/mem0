@@ -10,6 +10,7 @@ from mem0 import Memory
 
 # Set the path to your Google Cloud credentials JSON file
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/your/credentials.json"
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
 
 config = {
     "embedder": {
