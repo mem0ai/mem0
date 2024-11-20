@@ -582,7 +582,7 @@ class Memory(MemoryBase):
 
         new_metadata = metadata or {}
         new_metadata["data"] = data
-        new_metadata["hash"] = existing_memory.payload.get("hash")
+        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
 

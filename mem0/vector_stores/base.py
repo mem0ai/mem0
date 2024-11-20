@@ -38,11 +38,16 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def delete_col(self, name):
+    def delete_col(self):
         """Delete a collection."""
         pass
 
     @abstractmethod
     def col_info(self, name):
         """Get information about a collection."""
+        pass
+
+    @abstractmethod
+    def list(self, filters=None, limit=None):
+        """List all memories."""
         pass
