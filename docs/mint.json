@@ -224,7 +224,8 @@
         "examples/mem0-with-ollama",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
-        "examples/personal-travel-assistant"
+        "examples/personal-travel-assistant",
+        "examples/llama-index-mem0"
       ]
     }
   ],
