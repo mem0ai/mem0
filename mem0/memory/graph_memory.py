@@ -13,15 +13,15 @@ except ImportError:
     raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
 
 from mem0.graphs.tools import (
-    ADD_MEMORY_STRUCT_TOOL_GRAPH,
+    ADD_MEMORY_STRICT_TOOL_GRAPH,
     ADD_MEMORY_TOOL_GRAPH,
-    ADD_MESSAGE_STRUCT_TOOL,
+    ADD_MESSAGE_STRICT_TOOL,
     ADD_MESSAGE_TOOL,
-    NOOP_STRUCT_TOOL,
+    NOOP_STRICT_TOOL,
     NOOP_TOOL,
-    SEARCH_STRUCT_TOOL,
+    SEARCH_STRICT_TOOL,
     SEARCH_TOOL,
-    UPDATE_MEMORY_STRUCT_TOOL_GRAPH,
+    UPDATE_MEMORY_STRICT_TOOL_GRAPH,
     UPDATE_MEMORY_TOOL_GRAPH,
 )
 from mem0.graphs.utils import EXTRACT_ENTITIES_PROMPT, get_update_memory_messages
@@ -83,7 +83,7 @@ class MemoryGraph:
 
         _tools = [ADD_MESSAGE_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
-            _tools = [ADD_MESSAGE_STRUCT_TOOL]
+            _tools = [ADD_MESSAGE_STRICT_TOOL]
 
         extracted_entities = self.llm.generate_response(
             messages=messages,
@@ -102,9 +102,9 @@ class MemoryGraph:
         _tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
             _tools = [
-                UPDATE_MEMORY_STRUCT_TOOL_GRAPH,
-                ADD_MEMORY_STRUCT_TOOL_GRAPH,
-                NOOP_STRUCT_TOOL,
+                UPDATE_MEMORY_STRICT_TOOL_GRAPH,
+                ADD_MEMORY_STRICT_TOOL_GRAPH,
+                NOOP_STRICT_TOOL,
             ]
 
         memory_updates = self.llm.generate_response(
@@ -172,7 +172,7 @@ class MemoryGraph:
     def _search(self, query, filters, limit=100):
         _tools = [SEARCH_TOOL]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
-            _tools = [SEARCH_STRUCT_TOOL]
+            _tools = [SEARCH_STRICT_TOOL]
         search_results = self.llm.generate_response(
             messages=[
                 {

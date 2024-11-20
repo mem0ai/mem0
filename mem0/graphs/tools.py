@@ -144,7 +144,7 @@ SEARCH_TOOL = {
     },
 }
 
-UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
+UPDATE_MEMORY_STRICT_TOOL_GRAPH = {
     "type": "function",
     "function": {
         "name": "update_graph_memory",
@@ -172,7 +172,7 @@ UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
     },
 }
 
-ADD_MEMORY_STRUCT_TOOL_GRAPH = {
+ADD_MEMORY_STRICT_TOOL_GRAPH = {
     "type": "function",
     "function": {
         "name": "add_graph_memory",
@@ -215,7 +215,7 @@ ADD_MEMORY_STRUCT_TOOL_GRAPH = {
 }
 
 
-NOOP_STRUCT_TOOL = {
+NOOP_STRICT_TOOL = {
     "type": "function",
     "function": {
         "name": "noop",
@@ -231,7 +231,7 @@ NOOP_STRUCT_TOOL = {
 }
 
 
-ADD_MESSAGE_STRUCT_TOOL = {
+ADD_MESSAGE_STRICT_TOOL = {
     "type": "function",
     "function": {
         "name": "add_query",
@@ -269,7 +269,7 @@ ADD_MESSAGE_STRUCT_TOOL = {
 }
 
 
-SEARCH_STRUCT_TOOL = {
+SEARCH_STRICT_TOOL = {
     "type": "function",
     "function": {
         "name": "search",
