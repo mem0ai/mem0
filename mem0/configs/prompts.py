@@ -40,9 +40,6 @@ Output: {{"facts" : ["Had a meeting with John at 3pm", "Discussed the new projec
 Input: Hi, my name is John. I am a software engineer.
 Output: {{"facts" : ["Name is John", "Is a Software engineer"]}}
 
-Input: Hi, I may go to London.
-Output: {{"facts" : ["May go to London"]}}
-
 Input: Me favourite movies are Inception and Interstellar.
 Output: {{"facts" : ["Favourite movies are Inception and Interstellar"]}}
 
