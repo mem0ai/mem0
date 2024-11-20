@@ -50,7 +50,7 @@ class MemoryGraph:
         self.user_id = None
         self.threshold = 0.7
 
-    def add(self, data, filters):
+    def add(self, data, filters, graph_prompt):
         """
         Adds data to the graph.
 
@@ -62,7 +62,8 @@ class MemoryGraph:
         # retrieve the search results
         search_output = self._search(data, filters)
 
-        if self.config.graph_store.custom_prompt:
+        custom_prompt = graph_prompt if graph_prompt else self.config.graph_store.custom_prompt
+        if custom_prompt:
             messages = [
                 {
                     "role": "system",

@@ -67,6 +67,7 @@ class Memory(MemoryBase):
         metadata=None,
         filters=None,
         prompt=None,
+        graph_prompt=None,
     ):
         """
         Create a new memory.
@@ -79,6 +80,7 @@ class Memory(MemoryBase):
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
+            graph_prompt (str, optional): Prompt to use for graph memory deduction. Defaults to None.
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
@@ -111,8 +113,8 @@ class Memory(MemoryBase):
             messages = [{"role": "user", "content": messages}]
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
-            future2 = executor.submit(self._add_to_graph, messages, filters)
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters, prompt)
+            future2 = executor.submit(self._add_to_graph, messages, filters, graph_prompt)
 
             concurrent.futures.wait([future1, future2])
 
@@ -134,11 +136,12 @@ class Memory(MemoryBase):
             )
             return vector_store_result
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+    def _add_to_vector_store(self, messages, metadata, filters, prompt):
         parsed_messages = parse_messages(messages)
 
-        if self.custom_prompt:
-            system_prompt = self.custom_prompt
+        custom_prompt = prompt if prompt else self.custom_prompt
+        if custom_prompt:
+            system_prompt = custom_prompt
             user_prompt = f"Input: {parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
@@ -237,7 +240,7 @@ class Memory(MemoryBase):
 
         return returned_memories
 
-    def _add_to_graph(self, messages, filters):
+    def _add_to_graph(self, messages, filters, graph_prompt):
         added_entities = []
         if self.api_version == "v1.1" and self.enable_graph:
             if filters["user_id"]:
@@ -249,7 +252,7 @@ class Memory(MemoryBase):
             else:
                 self.graph.user_id = "USER"
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            added_entities = self.graph.add(data, filters)
+            added_entities = self.graph.add(data, filters, graph_prompt)
 
         return added_entities
 
