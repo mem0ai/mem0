@@ -1,0 +1,44 @@
+[Redis](https://redis.io/) is a scalable, real-time database that can store, search, and analyze vector data.
+
+### Installation
+```bash
+pip install redis redisvl
+```
+
+Redis Stack using Docker:
+```bash
+docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+```
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "redis",
+        "config": {
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "redis_url": "redis://localhost:6379"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+Let's see the available parameters for the `redis` config:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection to store the vectors | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `redis_url` | The URL of the Redis server | `None` |

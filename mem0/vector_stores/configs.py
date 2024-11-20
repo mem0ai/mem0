@@ -16,6 +16,7 @@ class VectorStoreConfig(BaseModel):
         "pgvector": "PGVectorConfig",
         "milvus": "MilvusDBConfig",
         "azure_ai_search": "AzureAISearchConfig",
+        "redis": "RedisDBConfig",
     }
 
     @model_validator(mode="after")
