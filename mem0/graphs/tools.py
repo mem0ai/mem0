@@ -82,11 +82,11 @@ NOOP_TOOL = {
 }
 
 
-ADD_MESSAGE_TOOL = {
+RELATIONS_TOOL = {
     "type": "function",
     "function": {
-        "name": "add_query",
-        "description": "Add new entities and relationships to the graph based on the provided query.",
+        "name": "establish_relations",
+        "description": "Establish relationships among the entities based on the provided text.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -95,18 +95,23 @@ ADD_MESSAGE_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source_node": {"type": "string"},
-                            "source_type": {"type": "string"},
-                            "relation": {"type": "string"},
-                            "destination_node": {"type": "string"},
-                            "destination_type": {"type": "string"},
+                            "source": {
+                                "type": "string",
+                                "description": "The source entity of the relationship."
+                            },
+                            "relation": {
+                                "type": "string",
+                                "description": "The relationship between the source and destination entities."
+                            },
+                            "destination": {
+                                "type": "string",
+                                "description": "The destination entity of the relationship."
+                            },
                         },
-                        "required": [
-                            "source_node",
-                            "source_type",
+                        "required": [   
+                            "source_entity",
                             "relation",
-                            "destination_node",
-                            "destination_type",
+                            "destination_entity",
                         ],
                         "additionalProperties": False,
                     },
@@ -119,29 +124,38 @@ ADD_MESSAGE_TOOL = {
 }
 
 
-SEARCH_TOOL = {
+EXTRACT_ENTITIES_TOOL = {
     "type": "function",
     "function": {
-        "name": "search",
-        "description": "Search for nodes and relations in the graph.",
+        "name": "extract_entities",
+        "description": "Extract entities and their types from the text.",
         "parameters": {
             "type": "object",
             "properties": {
-                "nodes": {
+                "entities": {
                     "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of nodes to search for.",
-                },
-                "relations": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of relations to search for.",
-                },
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "entity": {
+                                "type": "string",
+                                "description": "The name or identifier of the entity."
+                            },
+                            "entity_type": {
+                                "type": "string",
+                                "description": "The type or category of the entity."
+                            }
+                        },
+                        "required": ["entity", "entity_type"],
+                        "additionalProperties": False
+                    },
+                    "description": "An array of entities with their types."
+                }
             },
-            "required": ["nodes", "relations"],
-            "additionalProperties": False,
-        },
-    },
+            "required": ["entities"],
+            "additionalProperties": False
+        }
+    }
 }
 
 UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
@@ -230,12 +244,11 @@ NOOP_STRUCT_TOOL = {
     },
 }
 
-
-ADD_MESSAGE_STRUCT_TOOL = {
+RELATIONS_STRUCT_TOOL = {
     "type": "function",
     "function": {
-        "name": "add_query",
-        "description": "Add new entities and relationships to the graph based on the provided query.",
+        "name": "establish_relations",
+        "description": "Establish relationships among the entities based on the provided text.",
         "strict": True,
         "parameters": {
             "type": "object",
@@ -245,18 +258,23 @@ ADD_MESSAGE_STRUCT_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source_node": {"type": "string"},
-                            "source_type": {"type": "string"},
-                            "relation": {"type": "string"},
-                            "destination_node": {"type": "string"},
-                            "destination_type": {"type": "string"},
+                            "source_entity": {
+                                "type": "string",
+                                "description": "The source entity of the relationship."
+                            },
+                            "relation": {
+                                "type": "string",
+                                "description": "The relationship between the source and destination entities."
+                            },
+                            "destination_entity": {
+                                "type": "string",
+                                "description": "The destination entity of the relationship."
+                            },
                         },
-                        "required": [
-                            "source_node",
-                            "source_type",
+                        "required": [   
+                            "source_entity",
                             "relation",
-                            "destination_node",
-                            "destination_type",
+                            "destination_entity",
                         ],
                         "additionalProperties": False,
                     },
@@ -269,28 +287,37 @@ ADD_MESSAGE_STRUCT_TOOL = {
 }
 
 
-SEARCH_STRUCT_TOOL = {
+EXTRACT_ENTITIES_STRUCT_TOOL = {
     "type": "function",
     "function": {
-        "name": "search",
-        "description": "Search for nodes and relations in the graph.",
+        "name": "extract_entities",
+        "description": "Extract entities and their types from the text.",
         "strict": True,
         "parameters": {
             "type": "object",
             "properties": {
-                "nodes": {
+                "entities": {
                     "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of nodes to search for.",
-                },
-                "relations": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of relations to search for.",
-                },
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "entity": {
+                                "type": "string",
+                                "description": "The name or identifier of the entity."
+                            },
+                            "entity_type": {
+                                "type": "string",
+                                "description": "The type or category of the entity."
+                            }
+                        },
+                        "required": ["entity", "entity_type"],
+                        "additionalProperties": False
+                    },
+                    "description": "An array of entities with their types."
+                }
             },
-            "required": ["nodes", "relations"],
-            "additionalProperties": False,
-        },
-    },
+            "required": ["entities"],
+            "additionalProperties": False
+        }
+    }
 }
