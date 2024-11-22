@@ -651,7 +651,7 @@ curl -X GET "https://api.mem0.ai/v1/entities/" \
 
 ### 4.4 Get All Memories
 
-Fetch all memories for a user, agent, or run using the getAll() method.
+Fetch all memories for a user, agent, or run using the getAll() method. The API is paginated and by default returns 100 records per page. You can customize this using the `page` and `page_size` parameters.
 
 <Note> The `get_all` method supports two output formats: `v1.0` (default) and `v1.1`. To use the latest format, which provides more detailed information about each memory operation, set the `output_format` parameter to `v1.1`: </Note>
 
@@ -661,21 +661,32 @@ Fetch all memories for a user, agent, or run using the getAll() method.
 <CodeGroup>
 
 ```python Python
-# The default output_format is v1.0
-user_memories = client.get_all(user_id="alex", output_format="v1.0")
+# Default pagination (page=1, page_size=100)
+memories = client.get_all(user_id="alex")
 
-# To use the latest output_format (v1.1), set the output_format parameter to "v1.1"
-user_memories = client.get_all(user_id="alex", output_format="v1.1")
+# Custom pagination
+memories = client.get_all(user_id="alex", page=2, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex", output_format: "v1.1" })
+// Default pagination (page=1, page_size=100)
+client.getAll({ user_id: "alex" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Custom pagination
+client.getAll({ user_id: "alex", page: 2, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&output_format=v1.1" \
+# Default pagination
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
+     -H "Authorization: Token your-api-key"
+
+# Custom pagination
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=2&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
 
@@ -736,21 +747,32 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&output_format=v1.1" \
 
 <CodeGroup>
 ```python Python
-# The default output_format is v1.0
-client.get_all(agent_id="ai-tutor", output_format="v1.0")
+# Default pagination (page=1, page_size=100)
+client.get_all(agent_id="ai-tutor")
 
-# To use the latest output_format (v1.1), set the output_format parameter to "v1.1"
-client.get_all(agent_id="ai-tutor", output_format="v1.1")
+# Custom pagination
+client.get_all(agent_id="ai-tutor", page=2, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ agent_id: "ai-tutor", output_format: "v1.1" })
+// Default pagination (page=1, page_size=100)
+client.getAll({ agent_id: "ai-tutor" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Custom pagination
+client.getAll({ agent_id: "ai-tutor", page: 2, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant&output_format=v1.1" \
+# Default pagination
+curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor" \
+     -H "Authorization: Token your-api-key"
+
+# Custom pagination
+curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=2&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
 
@@ -810,21 +832,32 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=travel-assistant&output_f
 <CodeGroup>
 
 ```python Python
-# The default output_format is v1.0
-short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024", output_format="v1.0")
+# Default pagination (page=1, page_size=100)
+short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024")
 
-# To use the latest output_format (v1.1), set the output_format parameter to "v1.1"
-short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024", output_format="v1.1")
+# Custom pagination
+short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024", page=2, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex123", run_id: "trip-planning-2024", output_format: "v1.1" })
+// Default pagination (page=1, page_size=100)
+client.getAll({ user_id: "alex123", run_id: "trip-planning-2024" })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Custom pagination
+client.getAll({ user_id: "alex123", run_id: "trip-planning-2024", page: 2, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planning-2024&output_format=v1.1" \
+# Default pagination
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planning-2024" \
+     -H "Authorization: Token your-api-key"
+
+# Custom pagination
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planning-2024&page=2&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
 
@@ -1269,6 +1302,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```json Output
 {'message': 'ok'}
 ```
+
 </CodeGroup>
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
