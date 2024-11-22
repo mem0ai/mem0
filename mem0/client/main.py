@@ -176,11 +176,7 @@ class MemoryClient:
             self,
             {"api_version": version, "keys": list(kwargs.keys())},
         )
-        data = response.json()
-        if "output_format" in kwargs and kwargs["output_format"] == "v1.0":
-            return data["results"]
-        else:
-            return data
+        return response.json()
 
     @api_error_handler
     def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
