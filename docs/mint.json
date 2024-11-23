@@ -214,7 +214,8 @@
         "integrations/autogen",
         "integrations/langchain",
         "integrations/langgraph",
-        "integrations/llama-index"
+        "integrations/llama-index",
+        "integrations/openlit"
       ]
     },
     {
