@@ -1,0 +1,72 @@
+---
+title: 'OpenLIT (Observability)'
+---
+
+Monitor conversational AI agents using [OpenLIT](https://github.com/openlit/openlit). 
+This integration allows developers to obtain complete OpenTelemetry-native execution traces and metrics for each task performed by AI Agents built with Mem0, enhancing visibility for debugging and deploying agents in production.
+
+## Getting Started
+
+## Step 1: Installation of SDKs
+
+We start by installing `openlit` and `mem0ai`. Use the following commands to install them:
+
+```bash
+pip install openlit mem0ai
+```
+
+### Step 2: Deploy OpenLIT Stack
+
+1. Git Clone OpenLIT [Repository](https://github.com/openlit/openlit)
+
+   Open your command line or terminal and run:
+
+   ```shell
+   git clone git@github.com:openlit/openlit.git
+   ```
+
+2. Self-host using Docker
+
+   Deploy and run OpenLIT with the following command:
+
+   ```shell
+   docker compose up -d
+   ```
+
+### Step 3: Instrument your mem0 AI Agent with OpenLIT
+
+Now create an agent using mem0 and initialize OpenTelemetry monitoring using OpenLIT
+
+```python
+from mem0 import Memory
+import openlit
+
+m = Memory()
+
+openlit.init()
+
+# For a user
+result = m.add("I like to take long walks on weekends.", user_id="alice", metadata={"category": "hobbies"})
+
+related_memories = m.search(query="Help me plan my weekend.", user_id="alice")
+
+# Get all memories
+all_memories = m.get_all(user_id="alice")
+```
+
+> 💡 Info: If the `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` is not provided, the OpenLIT SDK will output traces directly to your console, which is recommended during the development phase.
+OpenLIT can send complete execution traces and metrics directly from your application to any OpenTelemetry endpoint. Configure the telemetry data destination as follows:
+
+| Purpose                                   | Parameter/Environment Variable                   | For Sending to OpenLIT         |
+|-------------------------------------------|--------------------------------------------------|--------------------------------|
+| Send data to an HTTP OTLP endpoint        | `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` | `"http://127.0.0.1:4318"`      |
+| Authenticate telemetry backends           | `otlp_headers` or `OTEL_EXPORTER_OTLP_HEADERS`   | Not required by default        |
+
+### Step 4: Track !
+
+With the Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your AI application's performance, behavior, and identify areas of improvement.
+Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+  - **Email**: `user@openlit.io`
+  - **Password**: `openlituser`
+
+If you're sending metrics and traces to other observability tools, take a look at OpenLIT's [Connections Guide](https://docs.openlit.io/latest/connections/intro) to start using a pre-built dashboard they have created for these tools.
