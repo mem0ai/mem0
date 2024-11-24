@@ -65,6 +65,7 @@ class VectorStoreFactory:
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
+        "redis": "mem0.vector_stores.redis.RedisDB",
     }
 
     @classmethod

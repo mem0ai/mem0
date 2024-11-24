@@ -111,7 +111,8 @@
                 "components/vectordbs/dbs/chroma",
                 "components/vectordbs/dbs/pgvector",
                 "components/vectordbs/dbs/milvus",
-                "components/vectordbs/dbs/azure_ai_search"
+                "components/vectordbs/dbs/azure_ai_search",
+                "components/vectordbs/dbs/redis"
               ]
             }
           ]
@@ -208,10 +209,12 @@
       "group": "Integrations",
       "pages": [
         "integrations/vercel-ai-sdk",
+        "integrations/crewai",
         "integrations/multion",
         "integrations/autogen",
         "integrations/langchain",
-        "integrations/langgraph"
+        "integrations/langgraph",
+        "integrations/llama-index"
       ]
     },
     {
@@ -221,7 +224,8 @@
         "examples/mem0-with-ollama",
         "examples/personal-ai-tutor",
         "examples/customer-support-agent",
-        "examples/personal-travel-assistant"
+        "examples/personal-travel-assistant",
+        "examples/llama-index-mem0"
       ]
     }
   ],
