@@ -1,13 +1,10 @@
 import unittest
-from unittest.mock import MagicMock
 import uuid
+from unittest.mock import MagicMock
+
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    PointStruct,
-    VectorParams,
-    PointIdsList,
-)
+from qdrant_client.models import Distance, PointIdsList, PointStruct, VectorParams
+
 from mem0.vector_stores.qdrant import Qdrant
 
 

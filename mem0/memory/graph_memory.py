@@ -40,13 +40,15 @@ class MemoryGraph:
         )
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
 
-        self.llm_provider = "openai_structured"
-        if self.config.llm.provider:
-            self.llm_provider = self.config.llm.provider
+        # Initialize LLM with graph-specific provider if configured, else use default        
         if self.config.graph_store.llm:
-            self.llm_provider = self.config.graph_store.llm.provider
+            self.llm = LlmFactory.create(
+                self.config.graph_store.llm.provider, 
+                self.config.graph_store.llm.config
+            )
+        else:
+            self.llm = LlmFactory.create("openai_structured", self.config.llm.config)
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
         self.user_id = None
         self.threshold = 0.7
 
@@ -64,7 +66,7 @@ class MemoryGraph:
 
         # extract relations
         extracted_relations = self._extract_relations(data, filters, entity_type_map)
-        
+
         search_output_string = format_entities(search_output)
         extracted_relations_string = format_entities(extracted_relations)
         update_memory_prompt = get_update_memory_messages(search_output_string, extracted_relations_string)
@@ -316,7 +318,7 @@ class MemoryGraph:
             extracted_entities = []
 
         logger.debug(f"Extracted entities: {extracted_entities}")
-        
+
         return extracted_entities
 
     def _update_relationship(self, source, target, relationship, filters):

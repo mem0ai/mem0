@@ -1,4 +1,3 @@
-import json
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
