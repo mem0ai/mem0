@@ -3676,6 +3676,12 @@
 						"type": "boolean",
 						"default": true
 					},
+					"output_format": {
+						"description": "It two output formats: `v1.0` (default) and `v1.1`. To enable the latest format, which provides enhanced detail for each memory operation, set the output_format parameter to `v1.1`. Note that `v1.0` will be deprecated in version 0.1.35.",
+						"title": "Output format",
+						"type": "string",
+						"nullable": true
+					},
 					"custom_categories": {
 						"description": "A list of categories with category name and it's description.",
 						"title": "Custom categories",
@@ -3763,6 +3769,12 @@
 						"type": "boolean",
 						"default": false,
 						"description": "Whether to rerank the memories."
+					},
+					"output_format": {
+						"title": "Output format",
+						"type": "string",
+						"nullable": true,
+						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`."
 					},
 					"org_name": {
 						"title": "Organization Name",
