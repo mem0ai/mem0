@@ -47,6 +47,12 @@ class AnthropicLLM(LLMBase):
                 system_message = message["content"]
             else:
                 filtered_messages.append(message)
+ 
+        # If response_format is JSON, add JSON formatting instruction to system message
+        if response_format and isinstance(response_format, dict) and response_format.get("type") == "json_object":
+            system_message += "\nYou must respond in valid JSON format."
+        else:
+            system_message = "You must response in valid JSON format."
 
         params = {
             "model": self.config.model,
