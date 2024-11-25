@@ -167,7 +167,11 @@ class MemoryClient:
         if version == "v1":
             response = self.client.get(f"/{version}/memories/", params=params)
         elif version == "v2":
-            response = self.client.post(f"/{version}/memories/", json=params)
+            if "page" in params and "page_size" in params:
+                query_params = {"page": params.pop("page"), "page_size": params.pop("page_size")}
+                response = self.client.post(f"/{version}/memories/", json=params, params=query_params)
+            else:
+                response = self.client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
