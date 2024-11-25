@@ -108,7 +108,29 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output (v1.0)
-{'message': 'ok'}
+[
+  {
+    "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+    "data": {
+      "memory": "Name is Alex"
+    },
+    "event": "ADD"
+  },
+  {
+    "id": "b2c3d4e5-f6g7-8h9i-j0k1-l2m3n4o5p6q7",
+    "data": {
+      "memory": "Is a vegetarian"
+    },
+    "event": "ADD"
+  },
+  {
+    "id": "c3d4e5f6-g7h8-9i0j-k1l2-m3n4o5p6q7r8",
+    "data": {
+      "memory": "Is allergic to nuts"
+    },
+    "event": "ADD"
+  }
+]
 ```
 ```json Output (v1.1)
 {
@@ -186,7 +208,22 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output (v1.0)
-{'message': 'ok'}
+[
+  {
+    "id": "f2968654-5cd8-4d58-9f40-57ee339846b6",
+    "data": {
+      "memory": "Interested in vegetarian restaurants in Tokyo"
+    },
+    "event": "ADD"
+  },
+  {
+    "id": "f2968654-5cd8-4d58-9f40-57ee339846b6",
+    "data": {
+      "memory": "Planning a trip to Japan next month"
+    },
+    "event": "ADD"
+  }
+]
 ```
 
 ```json Output (v1.1)
@@ -249,7 +286,29 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output (v1.0)
-{'message': 'ok'}
+[
+    {
+        "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+        "data": {
+            "memory": "Name is Alex"
+        },
+        "event": "ADD"
+    },
+    {
+        "id": "b2c3d4e5-f6g7-8h9i-j0k1-l2m3n4o5p6q7",
+        "data": {
+            "memory": "Is a vegetarian"
+        },
+        "event": "ADD"
+    },
+    {
+        "id": "c3d4e5f6-g7h8-9i0j-k1l2-m3n4o5p6q7r8",
+        "data": {
+            "memory": "Is allergic to nuts"
+        },
+        "event": "ADD"
+    }
+]
 ```
 
 ```json Output (v1.1)
