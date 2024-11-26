@@ -722,28 +722,16 @@ The following examples showcase the paginated output format.
 <CodeGroup>
 
 ```python Python
-memories = client.get_all(user_id="alex")
-
-# Custom pagination
 memories = client.get_all(user_id="alex", page=1, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex" })
-    .then(memories => console.log(memories))
-    .catch(error => console.error(error));
-
-// Custom pagination
 client.getAll({ user_id: "alex", page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
-     -H "Authorization: Token your-api-key"
-
-# Custom pagination
 curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
@@ -819,28 +807,16 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
 
 <CodeGroup>
 ```python Python
-client.get_all(agent_id="ai-tutor")
-
-# Custom pagination
-client.get_all(agent_id="ai-tutor", page=1, page_size=50)
+agent_memories = client.get_all(agent_id="ai-tutor", page=1, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ agent_id: "ai-tutor" })
-    .then(memories => console.log(memories))
-    .catch(error => console.error(error));
-
-// Custom pagination
 client.getAll({ agent_id: "ai-tutor", page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor" \
-     -H "Authorization: Token your-api-key"
-
-# Custom pagination
 curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
@@ -913,28 +889,16 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
 <CodeGroup>
 
 ```python Python
-short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024")
-
-# Custom pagination
 short_term_memories = client.get_all(user_id="alex123", run_id="trip-planning-2024", page=1, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex123", run_id: "trip-planning-2024" })
-    .then(memories => console.log(memories))
-    .catch(error => console.error(error));
-
-// Custom pagination
 client.getAll({ user_id: "alex123", run_id: "trip-planning-2024", page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planning-2024" \
-     -H "Authorization: Token your-api-key"
-
-# Custom pagination
 curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planning-2024&page=1&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
@@ -1082,7 +1046,12 @@ filters = {
       }
    ]
 }
+
+# Default (No Pagination)
 client.get_all(version="v2", filters=filters)
+
+# Pagination (You can also use the page and page_size parameters)
+client.get_all(version="v2", filters=filters, page=1, page_size=50)
 ```
 
 ```javascript JavaScript
@@ -1099,13 +1068,41 @@ const filters = {
       }
    ]
 };
+
+// Default (No Pagination)
 client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Pagination (You can also use the page and page_size parameters)
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
+# Default (No Pagination)
 curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alex"
+                 },
+                 {
+                     "created_at": {
+                         "gte": "2024-07-01",
+                         "lte": "2024-07-31"
+                     }
+                 }
+             ]
+         }
+     }'
+
+# Pagination (You can also use the page and page_size parameters)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -1125,7 +1122,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
      }'
 ```
 
-```json Output
+```json Output (Default)
 [
    {
       "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
@@ -1139,6 +1136,27 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
    }
 ]
 ```
+
+```json Output (Paginated)
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+            "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+            "user_id":"alex",
+            "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+            "metadata":null,
+            "created_at":"2024-07-25T23:57:00.108347-07:00",
+            "updated_at":"2024-07-25T23:57:00.108367-07:00",
+            "categories": ["food_preferences"]
+        }
+    ]
+}
+```
+
 </CodeGroup>
 
 ### 4.5 Memory History
