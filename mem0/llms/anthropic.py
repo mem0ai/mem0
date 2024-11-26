@@ -48,12 +48,12 @@ class AnthropicLLM(LLMBase):
             else:
                 filtered_messages.append(message)
 
-        # If response_format is JSON, add JSON formatting instruction to system message
+        # If response_format is JSON, prefill the assistant response
         if response_format and isinstance(response_format, dict) and response_format.get("type") == "json_object":
-            if system_message:
-                system_message += "\nYou must respond in valid JSON format."
-            else:
-                system_message = "You must respond in valid JSON format."
+            # Prefill assistant response
+            filtered_messages.append(
+                {"role": "assistant", "content": "Here is the JSON requested:\n"}
+            )
 
         params = {
             "model": self.config.model,
@@ -68,4 +68,5 @@ class AnthropicLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.messages.create(**params)
+        
         return response.content[0].text

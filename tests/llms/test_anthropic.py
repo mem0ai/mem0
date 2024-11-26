@@ -61,6 +61,7 @@ def test_generate_response_with_system_message(mock_anthropic_client):
 
     # System message should be separated from other messages
     expected_messages = [{"role": "user", "content": "Hello!"}]
+
     mock_anthropic_client.messages.create.assert_called_once_with(
         model=MODEL,
         messages=expected_messages,
@@ -78,13 +79,21 @@ def test_generate_response_json_format(mock_anthropic_client):
     llm = AnthropicLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Extract facts: Today is sunny and I had coffee."},
+        {"role": "user", "content": "Extract facts: Today is sunny and I had coffee."}
     ]
 
     mock_response = Mock()
     mock_response.content = [Mock(text='{"facts": ["Today is sunny", "I had coffee"]}')]
     mock_anthropic_client.messages.create.return_value = mock_response
 
+    expected_messages = [
+        {"role": "user", "content": "Extract facts: Today is sunny and I had coffee."}
+    ]
+
+    # include prefilled response included in generate_response()
+    expected_messages.append(
+        {"role": "assistant", "content": "Here is the JSON requested:\n"}
+    )
     response = llm.generate_response(
         messages,
         response_format={"type": "json_object"}
@@ -93,8 +102,8 @@ def test_generate_response_json_format(mock_anthropic_client):
     # Check that JSON instruction was added to system message
     mock_anthropic_client.messages.create.assert_called_once_with(
         model=MODEL,
-        messages=[{"role": "user", "content": "Extract facts: Today is sunny and I had coffee."}],
-        system="You are a helpful assistant.\nYou must respond in valid JSON format.",
+        messages=expected_messages,
+        system="You are a helpful assistant.",
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         top_p=TOP_P,
@@ -119,11 +128,14 @@ def test_generate_response_json_format_no_system(mock_anthropic_client):
         response_format={"type": "json_object"}
     )
 
+    # add prefilled response included in generate_response()
+    messages.append({"role": "assistant", "content": "Here is the JSON requested:\n"})
+
     # Check that JSON instruction was added as system message
     mock_anthropic_client.messages.create.assert_called_once_with(
         model=MODEL,
         messages=messages,
-        system="You must respond in valid JSON format.",
+        system="",
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         top_p=TOP_P,
@@ -138,17 +150,14 @@ def test_generate_response_with_tools(mock_anthropic_client):
     messages = [{"role": "user", "content": "What's the weather?"}]
     tools = [
         {
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "description": "Get the current weather",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location": {"type": "string"},
-                    },
-                    "required": ["location"]
-                }
+            "name": "get_weather",
+            "description": "Get the current weather",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "location": {"type": "string"},
+                },
+                "required": ["location"]
             }
         }
     ]
@@ -200,12 +209,15 @@ def test_generate_response_with_fact_retrieval(mock_anthropic_client):
         response_format={"type": "json_object"}
     )
 
-    # System message should combine fact retrieval prompt with JSON instruction
-    expected_system = FACT_RETRIEVAL_PROMPT + "\nYou must respond in valid JSON format."
+    expected_messages = [
+        {"role": "user", "content": user_msg},
+        {"role": "assistant", "content": "Here is the JSON requested:\n"}
+    ]
+
     mock_anthropic_client.messages.create.assert_called_once_with(
         model=MODEL,
-        messages=[{"role": "user", "content": user_msg}],
-        system=expected_system,
+        messages=expected_messages,
+        system=FACT_RETRIEVAL_PROMPT,
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         top_p=TOP_P,
