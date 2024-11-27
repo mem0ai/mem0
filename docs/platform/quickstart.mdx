@@ -1022,6 +1022,86 @@ curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e6342
 ```
 </CodeGroup>
 
+#### Get all memories by categories
+
+You can filter memories by their categories when using get_all:
+
+<CodeGroup>
+
+```python Python
+# Get memories with specific categories
+memories = client.get_all(user_id="alex123", categories=["likes"])
+
+# Get memories with multiple categories
+memories = client.get_all(user_id="alex123", categories=["likes", "food_preferences"])
+
+# Custom pagination with categories
+memories = client.get_all(user_id="alex123", categories=["likes"], page=1, page_size=50)
+```
+
+```javascript JavaScript
+// Get memories with specific categories
+client.getAll({ user_id: "alex123", categories: ["likes"] })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Get memories with multiple categories
+client.getAll({ user_id: "alex123", categories: ["likes", "food_preferences"] })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Custom pagination with categories
+client.getAll({ user_id: "alex123", categories: ["likes"], page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# Get memories with specific categories
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&categories=likes" \
+     -H "Authorization: Token your-api-key"
+
+# Get memories with multiple categories
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&categories=likes,food_preferences" \
+     -H "Authorization: Token your-api-key"
+
+# Custom pagination with categories
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&categories=likes&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key"
+```
+
+```json Output(Paginated)
+{
+    "count": 2,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "06d8df63-7bd2-4fad-9acb-60871bcecee0",
+            "memory": "Likes pizza and pasta",
+            "user_id": "alex123",
+            "hash": "d2088c936e259f2f5d2d75543d31401c",
+            "metadata": null,
+            "created_at": "2024-07-26T00:25:16.566471-07:00",
+            "updated_at": "2024-07-26T00:25:16.566492-07:00",
+            "categories": ["likes", "food_preferences"]
+        },
+        {
+            "id": "b4229775-d860-4ccb-983f-0f628ca112f5",
+            "memory": "Likes to travel to beach destinations",
+            "user_id": "alex123",
+            "hash": "d2088c936e259f2f5d2d75543d31401c",
+            "metadata": null,
+            "created_at": "2024-07-26T00:33:20.350542-07:00",
+            "updated_at": "2024-07-26T00:33:20.350560-07:00",
+            "categories": ["likes"]
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
 #### Get all memories using custom filters
 
 Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, date, and more.
@@ -1096,7 +1176,12 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
                          "gte": "2024-07-01",
                          "lte": "2024-07-31"
                      }
-                 }
+                 },
+                 {
+                    "categories":{
+                        "contains": "food_preferences"
+                    }
+                }
              ]
          }
      }'
