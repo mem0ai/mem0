@@ -158,7 +158,9 @@
             "api-reference/memory/delete-memory",
             "api-reference/memory/v1-search-memories",
             "api-reference/memory/v2-search-memories",
-            "api-reference/memory/history-memory"
+            "api-reference/memory/history-memory",
+            "api-reference/memory/batch-update",
+            "api-reference/memory/batch-delete"
           ]
         },
         {

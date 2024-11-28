@@ -3579,6 +3579,172 @@
 					}
 				]
 		}
+		},
+		"/v1/memories/batch/": {
+			"put": {
+				"tags": [
+					"memories"
+				],
+				"description": "Batch update multiple memories (up to 1000) in a single API call.",
+				"operationId": "memories_batch_update",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"memories": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"required": ["memory_id", "text"],
+											"properties": {
+												"memory_id": {
+													"type": "string",
+													"format": "uuid",
+													"description": "The unique identifier of the memory to update"
+												},
+												"text": {
+													"type": "string",
+													"description": "The new text content for the memory"
+												}
+											}
+										},
+										"maxItems": 1000
+									}
+								},
+								"required": ["memories"]
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "Successfully updated memories",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Successfully updated 2 memories"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad Request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Maximum of 1000 memories can be updated in a single request"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\nupdate_memories = [\n    {\n        \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n        \"text\": \"Watches football\"\n    },\n    {\n        \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n        \"text\": \"Likes to travel\"\n    }\n]\n\nresponse = client.batch_update(update_memories)\nprint(response)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst updateMemories = [\n    {\n        memoryId: \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n        text: \"Watches football\"\n    },\n    {\n        memoryId: \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n        text: \"Likes to travel\"\n    }\n];\n\nclient.batchUpdate(updateMemories)\n    .then(response => console.log('Batch update response:', response))\n    .catch(error => console.error(error));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl -X PUT \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n                 \"text\": \"Watches football\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n                 \"text\": \"Likes to travel\"\n             }\n         ]\n     }'"
+				}
+				]
+			},
+			"delete": {
+				"tags": [
+					"memories"
+				],
+				"description": "Batch delete multiple memories (up to 1000) in a single API call.",
+				"operationId": "memories_batch_delete",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"memory_ids": {
+										"type": "array",
+										"items": {
+											"type": "string",
+											"format": "uuid"
+										},
+										"maxItems": 1000,
+										"description": "Array of memory IDs to delete"
+									}
+								},
+								"required": ["memory_ids"]
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "Successfully deleted memories",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Successfully deleted 2 memories"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Bad Request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Maximum of 1000 memories can be deleted in a single request"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\ndelete_memories = [\n    \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n    \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst deleteMemories = [\n    \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n    \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n];\n\nclient.batchDelete(deleteMemories)\n    .then(response => console.log('Batch delete response:', response))\n    .catch(error => console.error(error));"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl -X DELETE \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memory_ids\": [\n             \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n             \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n         ]\n     }'"
+				}
+				]
+			}
 		}
 	},
 	"components": {
