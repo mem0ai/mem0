@@ -1508,6 +1508,103 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 </CodeGroup>
 
+### 4.9 Batch Update Memories
+Update multiple memories in a single API call. You can update up to 1000 memories at once.
+<CodeGroup>
+```python Python
+update_memories = [
+    {
+        "memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496",
+        "text": "Watches football"
+    },
+    {
+        "memory_id": "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07",
+        "text": "Loves to travel"
+    }
+]
+
+response = client.batch_update(update_memories)
+print(response)
+```
+```javascript JavaScript
+const updateMemories = [
+    {
+        memoryId: "285ed74b-6e05-4043-b16b-3abd5b533496",
+        text: "Watches football"
+    },
+    {
+        memoryId: "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07",
+        text: "Loves to travel"
+    }
+];
+
+client.batchUpdate(updateMemories)
+    .then(response => console.log('Batch update response:', response))
+    .catch(error => console.error(error));
+```
+```bash cURL
+curl -X PUT "https://api.mem0.ai/v1/memories/batch/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "memories": [
+             {
+                 "memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496",
+                 "text": "Watches football"
+             },
+             {
+                 "memory_id": "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07",
+                 "text": "Loves to travel"
+             }
+         ]
+     }'
+```
+```json Output
+{
+    "message": "Successfully updated 2 memories"
+}
+```
+</CodeGroup>
+### 4.10 Batch Delete Memories
+Delete multiple memories in a single API call. You can delete up to 1000 memories at once.
+<CodeGroup>
+```python Python
+delete_memories = [
+    "285ed74b-6e05-4043-b16b-3abd5b533496",
+    "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"
+]
+
+response = client.batch_delete(delete_memories)
+print(response)
+```
+```javascript JavaScript
+const deleteMemories = [
+    "285ed74b-6e05-4043-b16b-3abd5b533496",
+    "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"
+];
+
+client.batchDelete(deleteMemories)
+    .then(response => console.log('Batch delete response:', response))
+    .catch(error => console.error(error));
+```
+```bash cURL
+curl -X DELETE "https://api.mem0.ai/v1/memories/batch/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "memory_ids": [
+             "285ed74b-6e05-4043-b16b-3abd5b533496",
+             "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"
+         ]
+     }'
+```
+```json Output
+{
+    "message": "Successfully deleted 2 memories"
+}
+```
+</CodeGroup>
+
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />
