@@ -317,6 +317,28 @@ class MemoryClient:
         capture_client_event("client.reset", self)
         return {"message": "Client reset successful. All users and memories deleted."}
 
+    @api_error_handler
+    def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch update memories."""
+        response = self.client.put("/v1/batch/", json={"memories": memories})
+        response.raise_for_status()
+
+        capture_client_event("client.batch_update", self)
+        return response.json()
+
+    @api_error_handler
+    def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch delete memories."""
+        response = self.client.request(
+            "DELETE",
+            "/v1/batch/",
+            json={"memories": memories}
+        )
+        response.raise_for_status()
+
+        capture_client_event("client.batch_delete", self)
+        return response.json()
+
     def chat(self):
         """Start a chat with the Mem0 AI. (Not implemented)
 
