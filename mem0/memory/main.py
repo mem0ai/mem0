@@ -1,3 +1,5 @@
+import re
+import json_repair
 import concurrent
 import hashlib
 import json
@@ -151,8 +153,14 @@ class Memory(MemoryBase):
             response_format={"type": "json_object"},
         )
 
+        # Extract JSON content from code blocks in the response using a regular expression
+        search_result = re.search("(```json)((.*\n)+)(```)", response)
+        if search_result:
+            response = search_result.group(2).strip()
+
         try:
-            new_retrieved_facts = json.loads(response)["facts"]
+            # Attempt to load the JSON response using json_repair to fix any invalid JSON syntax
+            new_retrieved_facts = json_repair.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -184,8 +192,17 @@ class Memory(MemoryBase):
             messages=[{"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
         )
-        new_memories_with_actions = json.loads(new_memories_with_actions)
+        # Extract JSON content from possible code blocks in response using re
+        search_result = re.search("(```json)((.*\n)+)(```)", new_memories_with_actions)
+        if search_result:
+            new_memories_with_actions = search_result.group(2).strip()
 
+        try:
+            # Attempt to load the JSON response using json_repair to fix any invalid JSON syntax
+            new_memories_with_actions = json_repair.loads(new_memories_with_actions)
+        except Exception as e:
+            logging.error(f"Could not load JSON from new_memories_with_actions: {e}")
+            new_memories_with_actions = []
         returned_memories = []
         try:
             for resp in new_memories_with_actions["memory"]:
