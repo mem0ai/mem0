@@ -1,5 +1,6 @@
-from unittest.mock import Mock, patch
 import os
+from unittest.mock import Mock, patch
+
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
@@ -11,6 +12,13 @@ def mock_openai_client():
     with patch("mem0.llms.openai.OpenAI") as mock_openai:
         mock_client = Mock()
         mock_openai.return_value = mock_client
+        yield mock_client
+
+@pytest.fixture
+def mock_openai_async_client():
+    with patch("mem0.llms.openai.AsyncOpenAI") as mock_async_openai:
+        mock_client = Mock()
+        mock_async_openai.return_value = mock_client
         yield mock_client
 
 
@@ -39,7 +47,7 @@ def test_openai_llm_base_url():
     assert str(llm.client.base_url) == config_base_url + "/"
 
 
-def test_generate_response_without_tools(mock_openai_client):
+def test_generate_response_without_tools(mock_openai_client, mock_openai_async_client):
     config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OpenAILLM(config)
     messages = [
@@ -59,7 +67,7 @@ def test_generate_response_without_tools(mock_openai_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
-def test_generate_response_with_tools(mock_openai_client):
+def test_generate_response_with_tools(mock_openai_client, mock_openai_async_client):
     config = BaseLlmConfig(model="gpt-4o", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OpenAILLM(config)
     messages = [

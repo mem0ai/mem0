@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
@@ -17,6 +17,7 @@ class OpenAIEmbedding(EmbeddingBase):
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE")
         self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.async_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     def embed(self, text):
         """
@@ -30,3 +31,17 @@ class OpenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
+
+    async def aembed(self, text):
+        """
+        Get the embedding for the given text using OpenAI.
+
+        Args:
+            text (str): The text to embed.
+
+        Returns:
+            list: The embedding vector.
+        """
+        text = text.replace("\n", " ")
+        response = await self.async_client.embeddings.create(input=[text], model=self.config.model)
+        return response.data[0].embedding
