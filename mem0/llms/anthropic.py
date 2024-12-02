@@ -52,7 +52,7 @@ class AnthropicLLM(LLMBase):
         if response_format and isinstance(response_format, dict) and response_format.get("type") == "json_object":
             # Prefill assistant response
             filtered_messages.append(
-                {"role": "assistant", "content": "Here is the JSON requested:\n"}
+                {"role": "assistant", "content": "Here is the JSON requested:"}
             )
 
         params = {
