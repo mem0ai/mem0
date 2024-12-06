@@ -27,6 +27,7 @@ The serialized bot will be represented in JSON and can be saved.
 **Deserialization:** Bot instances that were serialized can be deserialized utilizing 
 the `deserialize(json)` function. This loads back the same bot instance using the JSON-string
 that was returned by the`serialize()` function. Utilziing this is as follows:
+
 `app = App.deserialize(json_string)`
 
 If deserializing fails, the function returns a default instance.
