@@ -7,10 +7,12 @@
 # forked from autogen.agentchat.contrib.capabilities.teachability.Teachability
 
 from typing import Dict, Optional, Union
+
 from autogen.agentchat.assistant_agent import ConversableAgent
 from autogen.agentchat.contrib.capabilities.agent_capability import AgentCapability
 from autogen.agentchat.contrib.text_analyzer_agent import TextAnalyzerAgent
 from termcolor import colored
+
 from mem0 import Memory
 
 
