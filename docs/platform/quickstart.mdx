@@ -1570,8 +1570,8 @@ Delete multiple memories in a single API call. You can delete up to 1000 memorie
 <CodeGroup>
 ```python Python
 delete_memories = [
-    "285ed74b-6e05-4043-b16b-3abd5b533496",
-    "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"
+    {"memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496"},
+    {"memory_id": "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"}
 ]
 
 response = client.batch_delete(delete_memories)
@@ -1579,8 +1579,8 @@ print(response)
 ```
 ```javascript JavaScript
 const deleteMemories = [
-    "285ed74b-6e05-4043-b16b-3abd5b533496",
-    "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"
+    {"memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496"},
+    {"memory_id": "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"}
 ];
 
 client.batchDelete(deleteMemories)
@@ -1593,8 +1593,8 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/batch/" \
      -H "Content-Type: application/json" \
      -d '{
          "memory_ids": [
-             "285ed74b-6e05-4043-b16b-3abd5b533496",
-             "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"
+             {"memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496"},
+             {"memory_id": "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07"}
          ]
      }'
 ```
