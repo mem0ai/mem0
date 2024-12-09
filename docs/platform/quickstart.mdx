@@ -1037,6 +1037,9 @@ memories = client.get_all(user_id="alex123", categories=["likes", "food_preferen
 
 # Custom pagination with categories
 memories = client.get_all(user_id="alex123", categories=["likes"], page=1, page_size=50)
+
+# Get memories with specific keywords
+memories = client.get_all(user_id="alex123", keywords="to play", page=1, page_size=50)
 ```
 
 ```javascript JavaScript
@@ -1054,6 +1057,11 @@ client.getAll({ user_id: "alex123", categories: ["likes", "food_preferences"] })
 client.getAll({ user_id: "alex123", categories: ["likes"], page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
+
+// Get memories with specific keywords
+client.getAll({ user_id: "alex123", keywords: "to play", page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
 ```
 
 ```bash cURL
@@ -1067,6 +1075,10 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&categories=likes,f
 
 # Custom pagination with categories
 curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&categories=likes&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key"
+
+# Get memories with specific keywords
+curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&page=1&page_size=50" \
      -H "Authorization: Token your-api-key"
 ```
 
@@ -1154,6 +1166,11 @@ const filters = {
       {
          "categories":{
             "contains": "food_preferences"
+         }
+      },
+      {
+         "keywords":{
+            "contains": "to play"
          }
       }
    ]
