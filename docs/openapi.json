@@ -454,6 +454,12 @@
 						"description": "Filter memories by project name"
 					},
 					{
+						"name":"keywords",
+						"in": "query",
+						"schema": { "type": "string" },
+						"description": "Filter memories by keywords"
+					},
+					{
 						"name": "page",
 						"in": "query",
 						"schema": { "type": "integer" },
