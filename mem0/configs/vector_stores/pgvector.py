@@ -14,9 +14,6 @@ class PGVectorConfig(BaseModel):
     password: Optional[str] = Field(None, description="Database password")
     host: Optional[str] = Field(None, description="Database host. Default is localhost")
     port: Optional[int] = Field(None, description="Database port. Default is 1536")
-    path: Optional[str] = Field(
-        "/tmp/pgvector", description="Path for local Qdrant database"
-    )
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
@@ -34,8 +31,4 @@ class PGVectorConfig(BaseModel):
         allowed_fields = set(cls.model_fields.keys())
         input_fields = set(values.keys())
         extra_fields = input_fields - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}"
-            )
         return values
