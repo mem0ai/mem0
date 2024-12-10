@@ -1,3 +1,4 @@
+import asyncio
 import concurrent
 import hashlib
 import json
@@ -637,3 +638,170 @@ class Memory(MemoryBase):
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
+    
+    async def _aadd_to_vector_store(self, messages, metadata, filters):
+        parsed_messages = parse_messages(messages)
+
+        if self.custom_prompt:
+            system_prompt = self.custom_prompt
+            user_prompt = f"Input: {parsed_messages}"
+        else:
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+
+        response = await self.llm.agenerate_response(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        try:
+            new_retrieved_facts = json.loads(response)["facts"]
+        except Exception as e:
+            logging.error(f"Error in new_retrieved_facts: {e}")
+            new_retrieved_facts = []
+
+        retrieved_old_memory = []
+        new_message_embeddings = {}
+        for new_mem in new_retrieved_facts:
+            messages_embeddings = await self.embedding_model.aembed(new_mem)
+            new_message_embeddings[new_mem] = messages_embeddings
+            # todo: add async vector store call
+            existing_memories = self.vector_store.search(
+                query=messages_embeddings,
+                limit=5,
+                filters=filters,
+            )
+            for mem in existing_memories:
+                retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
+
+        logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
+
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+        new_memories_with_actions = await self.llm.agenerate_response(
+            messages=[{"role": "user", "content": function_calling_prompt}],
+            response_format={"type": "json_object"},
+        )
+        new_memories_with_actions = json.loads(new_memories_with_actions)
+
+        returned_memories = []
+        try:
+            for resp in new_memories_with_actions["memory"]:
+                logging.info(resp)
+                try:
+                    if resp["event"] == "ADD":
+                        _ = self._create_memory(data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
+                        returned_memories.append(
+                            {
+                                "memory": resp["text"],
+                                "event": resp["event"],
+                            }
+                        )
+                    elif resp["event"] == "UPDATE":
+                        self._update_memory(memory_id=resp["id"], data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata)
+                        returned_memories.append(
+                            {
+                                "memory": resp["text"],
+                                "event": resp["event"],
+                                "previous_memory": resp["old_memory"],
+                            }
+                        )
+                    elif resp["event"] == "DELETE":
+                        self._delete_memory(memory_id=resp["id"])
+                        returned_memories.append(
+                            {
+                                "memory": resp["text"],
+                                "event": resp["event"],
+                            }
+                        )
+                    elif resp["event"] == "NONE":
+                        logging.info("NOOP for Memory.")
+                except Exception as e:
+                    logging.error(f"Error in new_memories_with_actions: {e}")
+        except Exception as e:
+            logging.error(f"Error in new_memories_with_actions: {e}")
+
+        capture_event("mem0.add", self)
+
+        return returned_memories
+
+    async def _aadd_to_graph(self, messages, filters):
+            added_entities = []
+            if self.version == "v1.1" and self.enable_graph:
+                if filters["user_id"]:
+                    self.graph.user_id = filters["user_id"]
+                else:
+                    self.graph.user_id = "USER"
+                data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
+                await self.graph.aadd(data, filters)
+
+            return added_entities
+
+    async def aadd(
+            self,
+            messages,
+            user_id=None,
+            agent_id=None,
+            run_id=None,
+            metadata=None,
+            filters=None,
+            prompt=None,
+        ):
+            """
+            Create a new memory asynchronously.
+
+            Args:
+                messages (str or List[Dict[str, str]]): Messages to store in the memory.
+                user_id (str, optional): ID of the user creating the memory. Defaults to None.
+                agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
+                run_id (str, optional): ID of the run creating the memory. Defaults to None.
+                metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+                filters (dict, optional): Filters to apply to the search. Defaults to None.
+                prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
+
+            Returns:
+                dict: A dictionary containing the result of the memory addition operation.
+            """
+            if self.config.llm.provider not in ['openai', 'openai_structured']:
+                raise NotImplementedError(f"The async add is not implemented for {self.config.llm.provider}.")
+
+            if self.config.embedder.provider not in ['openai']:
+                raise NotImplementedError(f"The async add is not implemented for {self.config.embedder.provider}.")
+
+            if metadata is None:
+                metadata = {}
+
+            filters = filters or {}
+            if user_id:
+                filters["user_id"] = metadata["user_id"] = user_id
+            if agent_id:
+                filters["agent_id"] = metadata["agent_id"] = agent_id
+            if run_id:
+                filters["run_id"] = metadata["run_id"] = run_id
+
+            if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+                raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
+
+            if isinstance(messages, str):
+                messages = [{"role": "user", "content": messages}]
+
+            vector_store_result, graph_result = await asyncio.gather(
+                self._aadd_to_vector_store(messages, metadata, filters),
+                self._aadd_to_graph(messages, filters)
+            )
+
+            if self.version == "v1.1":
+                return {
+                    "results": vector_store_result,
+                    "relations": graph_result,
+                }
+            else:
+                warnings.warn(
+                    "The current add API output format is deprecated. "
+                    "To use the latest format, set `api_version='v1.1'`. "
+                    "The current format will be removed in mem0ai 1.1.0 and later versions.",
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+                return {"message": "ok"}

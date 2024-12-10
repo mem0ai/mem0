@@ -369,3 +369,197 @@ class MemoryGraph:
 
         if not result:
             raise Exception(f"Failed to update or create relationship between {source} and {target}")
+
+    async def aadd(self, data, filters):
+        """
+        Adds data to the graph.
+
+        Args:
+            data (str): The data to add to the graph.
+            filters (dict): A dictionary containing filters to be applied during the addition.
+        """
+        if self.config.llm.provider not in ['openai', 'openai_structured']:
+            raise NotImplementedError(f"The async add is not implemented for {self.config.llm.provider}.")
+
+        if self.config.embedder.provider not in ['openai']:
+            raise NotImplementedError(f"The async add is not implemented for {self.config.embedder.provider}.")
+
+        # retrieve the search results
+        search_output = await self._asearch(data, filters)
+
+        if self.config.graph_store.custom_prompt:
+            messages = [
+                {
+                    "role": "system",
+                    "content": EXTRACT_ENTITIES_PROMPT.replace("USER_ID", self.user_id).replace(
+                        "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
+                    ),
+                },
+                {"role": "user", "content": data},
+            ]
+        else:
+            messages = [
+                {
+                    "role": "system",
+                    "content": EXTRACT_ENTITIES_PROMPT.replace("USER_ID", self.user_id),
+                },
+                {"role": "user", "content": data},
+            ]
+
+        _tools = [ADD_MESSAGE_TOOL]
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
+            _tools = [ADD_MESSAGE_STRUCT_TOOL]
+
+        extracted_entities = await self.llm.agenerate_response(
+            messages=messages,
+            tools=_tools,
+        )
+
+        if extracted_entities["tool_calls"]:
+            extracted_entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+        else:
+            extracted_entities = []
+
+        logger.debug(f"Extracted entities: {extracted_entities}")
+
+        update_memory_prompt = get_update_memory_messages(search_output, extracted_entities)
+
+        _tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH, NOOP_TOOL]
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
+            _tools = [
+                UPDATE_MEMORY_STRUCT_TOOL_GRAPH,
+                ADD_MEMORY_STRUCT_TOOL_GRAPH,
+                NOOP_STRUCT_TOOL,
+            ]
+
+        memory_updates = await self.llm.agenerate_response(
+            messages=update_memory_prompt,
+            tools=_tools,
+        )
+
+        to_be_added = []
+
+        for item in memory_updates["tool_calls"]:
+            if item["name"] == "add_graph_memory":
+                to_be_added.append(item["arguments"])
+            elif item["name"] == "update_graph_memory":
+                self._update_relationship(
+                    item["arguments"]["source"],
+                    item["arguments"]["destination"],
+                    item["arguments"]["relationship"],
+                    filters,
+                )
+            elif item["name"] == "noop":
+                continue
+
+        returned_entities = []
+
+        for item in to_be_added:
+            source = item["source"].lower().replace(" ", "_")
+            source_type = item["source_type"].lower().replace(" ", "_")
+            relation = item["relationship"].lower().replace(" ", "_")
+            destination = item["destination"].lower().replace(" ", "_")
+            destination_type = item["destination_type"].lower().replace(" ", "_")
+
+            returned_entities.append({"source": source, "relationship": relation, "target": destination})
+
+            # Create embeddings
+            source_embedding = await self.embedding_model.aembed(source)
+            dest_embedding = await self.embedding_model.aembed(destination)
+
+            # Updated Cypher query to include node types and embeddings
+            cypher = f"""
+            MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
+            ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding
+            ON MATCH SET n.embedding = $source_embedding
+            MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
+            ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding
+            ON MATCH SET m.embedding = $dest_embedding
+            MERGE (n)-[rel:{relation}]->(m)
+            ON CREATE SET rel.created = timestamp()
+            RETURN n, rel, m
+            """
+
+            params = {
+                "source_name": source,
+                "dest_name": destination,
+                "source_embedding": source_embedding,
+                "dest_embedding": dest_embedding,
+                "user_id": filters["user_id"],
+            }
+
+            _ = self.graph.query(cypher, params=params)
+
+        logger.info(f"Added {len(to_be_added)} new memories to the graph")
+
+        return returned_entities
+    
+    async def _asearch(self, query, filters):
+        _tools = [SEARCH_TOOL]
+        if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
+            _tools = [SEARCH_STRUCT_TOOL]
+        search_results = await self.llm.agenerate_response(
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a smart assistant who understands the entities, their types, and relations in a given text. If user message contains self reference such as 'I', 'me', 'my' etc. then use {filters['user_id']} as the source node. Extract the entities.",
+                },
+                {"role": "user", "content": query},
+            ],
+            tools=_tools,
+        )
+
+        node_list = []
+        relation_list = []
+
+        for item in search_results["tool_calls"]:
+            if item["name"] == "search":
+                try:
+                    node_list.extend(item["arguments"]["nodes"])
+                except Exception as e:
+                    logger.error(f"Error in search tool: {e}")
+
+        node_list = list(set(node_list))
+        relation_list = list(set(relation_list))
+
+        node_list = [node.lower().replace(" ", "_") for node in node_list]
+        relation_list = [relation.lower().replace(" ", "_") for relation in relation_list]
+
+        logger.debug(f"Node list for search query : {node_list}")
+
+        result_relations = []
+
+        for node in node_list:
+            n_embedding = await self.embedding_model.aembed(node)
+
+            cypher_query = """
+            MATCH (n)
+            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+            WITH n, 
+                round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
+                (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
+                sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
+            WHERE similarity >= $threshold
+            MATCH (n)-[r]->(m)
+            RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relation, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
+            UNION
+            MATCH (n)
+            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
+            WITH n, 
+                round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) / 
+                (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) * 
+                sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
+            WHERE similarity >= $threshold
+            MATCH (m)-[r]->(n)
+            RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relation, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id, similarity
+            ORDER BY similarity DESC
+            """
+            params = {
+                "n_embedding": n_embedding,
+                "threshold": self.threshold,
+                "user_id": filters["user_id"],
+            }
+            ans = self.graph.query(cypher_query, params=params)
+            result_relations.extend(ans)
+
+        return result_relations
