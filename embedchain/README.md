@@ -44,7 +44,7 @@ pip install embedchain
 
 ## ✨ Live demo
 
-Checkout the [Chat with PDF](https://embedchain.ai/demo/chat-pdf) live demo we created using Embedchain. You can find the source code [here](https://github.com/embedchain/embedchain/tree/main/examples/chat-pdf).
+Checkout the [Chat with PDF](https://embedchain.ai/demo/chat-pdf) live demo we created using Embedchain. You can find the source code [here](https://github.com/mem0ai/mem0/tree/main/embedchain/examples/chat-pdf).
 
 ## 🔍 Usage
 

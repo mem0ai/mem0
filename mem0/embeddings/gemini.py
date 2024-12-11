@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+
 import google.generativeai as genai
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
@@ -9,7 +10,7 @@ from mem0.embeddings.base import EmbeddingBase
 class GoogleGenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
-        
+
         self.config.model = self.config.model or "models/text-embedding-004"
         self.config.embedding_dims = self.config.embedding_dims or 768
 
@@ -27,4 +28,4 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         response = genai.embed_content(model=self.config.model, content=text)
-        return response['embedding']
+        return response["embedding"]
