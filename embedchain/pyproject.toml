@@ -140,7 +140,7 @@ langchain-cohere = "^0.3.0"
 langchain-community = "^0.3.1"
 langchain-aws = {version = "^0.2.1", optional = true}
 langsmith = "^0.1.17"
-fastembed = { version = "^0.3.6", optional = true, python = ">=3.9,<3.13" }
+fastembed = { version = "^0.4.2", optional = true, python = "<3.13,>=3.8.0" }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
