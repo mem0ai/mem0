@@ -28,6 +28,34 @@ const flattenPrompt = (prompt: LanguageModelV1Prompt) => {
     }).join(" ");
 }
 
+function convertMessagesToMem0Format(messages: LanguageModelV1Prompt) {
+  return messages.map((message) => {
+    // If the content is a string, return it as is
+    if (typeof message.content === "string") {
+      return message;
+    }
+
+    // Flatten the content array into a single string
+    if (Array.isArray(message.content)) {
+      message.content = message.content
+        .map((contentItem) => {
+          if ("text" in contentItem) {
+            return contentItem.text;
+          }
+          return "";
+        })
+        .join(" ");
+    }
+
+    const contentText = message.content;
+
+    return {
+      role: message.role,
+      content: contentText,
+    };
+  });
+}
+
 const searchInternalMemories = async (query: string, config?: Mem0Config, top_k: number = 5)=> {
     tokenIsPresent(config);
     const filters = {
@@ -111,4 +139,4 @@ const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: M
     return memories;
 }
 
-export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories};
+export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories, convertMessagesToMem0Format};
