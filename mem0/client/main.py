@@ -6,13 +6,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from mem0.memory.setup import get_user_id, setup_config
-from mem0.memory.telemetry import capture_client_event
+from mem0.memory.setup import get_user_id
+from mem0.memory.telemetry import AnonymousTelemetry, capture_client_event
 
 logger = logging.getLogger(__name__)
 
-# Setup user config
-setup_config()
+telemetry = AnonymousTelemetry(vector_store_provider="qdrant")
 
 
 class APIError(Exception):
@@ -98,7 +97,7 @@ class MemoryClient:
             timeout=60,
         )
         self._validate_api_key()
-        capture_client_event("client.init", self)
+        capture_client_event(telemetry, "client.init", self)
 
     def _validate_api_key(self):
         """Validate the API key by making a test request."""
@@ -128,7 +127,7 @@ class MemoryClient:
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
-        capture_client_event("client.add", self, {"keys": list(kwargs.keys())})
+        capture_client_event(telemetry, "client.add", self, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -146,7 +145,7 @@ class MemoryClient:
         """
         response = self.client.get(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("client.get", self, {"memory_id": memory_id})
+        capture_client_event(telemetry, "client.get", self, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -176,6 +175,7 @@ class MemoryClient:
         if "metadata" in kwargs:
             del kwargs["metadata"]
         capture_client_event(
+            telemetry,
             "client.get_all",
             self,
             {"api_version": version, "keys": list(kwargs.keys())},
@@ -204,7 +204,9 @@ class MemoryClient:
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
-        capture_client_event("client.search", self, {"api_version": version, "keys": list(kwargs.keys())})
+        capture_client_event(
+            telemetry, "client.search", self, {"api_version": version, "keys": list(kwargs.keys())}
+        )
         return response.json()
 
     @api_error_handler
@@ -217,7 +219,7 @@ class MemoryClient:
         Returns:
             Dict[str, Any]: The response from the server.
         """
-        capture_client_event("client.update", self, {"memory_id": memory_id})
+        capture_client_event(telemetry, "client.update", self, {"memory_id": memory_id})
         response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data})
         response.raise_for_status()
         return response.json()
@@ -237,7 +239,7 @@ class MemoryClient:
         """
         response = self.client.delete(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id})
+        capture_client_event(telemetry, "client.delete", self, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -256,7 +258,7 @@ class MemoryClient:
         params = self._prepare_params(kwargs)
         response = self.client.delete("/v1/memories/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete_all", self, {"keys": list(kwargs.keys())})
+        capture_client_event(telemetry, "client.delete_all", self, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
@@ -274,7 +276,7 @@ class MemoryClient:
         """
         response = self.client.get(f"/v1/memories/{memory_id}/history/")
         response.raise_for_status()
-        capture_client_event("client.history", self, {"memory_id": memory_id})
+        capture_client_event(telemetry, "client.history", self, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -283,7 +285,7 @@ class MemoryClient:
         params = self._prepare_params()
         response = self.client.get("/v1/entities/", params=params)
         response.raise_for_status()
-        capture_client_event("client.users", self)
+        capture_client_event(telemetry, "client.users", self)
         return response.json()
 
     @api_error_handler
@@ -295,7 +297,7 @@ class MemoryClient:
             response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
 
-        capture_client_event("client.delete_users", self)
+        capture_client_event(telemetry, "client.delete_users", self)
         return {"message": "All users, agents, and sessions deleted."}
 
     @api_error_handler
@@ -314,7 +316,7 @@ class MemoryClient:
         # This will also delete the memories
         self.delete_users()
 
-        capture_client_event("client.reset", self)
+        capture_client_event(telemetry, "client.reset", self)
         return {"message": "Client reset successful. All users and memories deleted."}
 
     @api_error_handler
@@ -448,14 +450,14 @@ class AsyncMemoryClient:
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
-        capture_client_event("async_client.add", self.sync_client, {"keys": list(kwargs.keys())})
+        capture_client_event(telemetry, "async_client.add", self.sync_client, {"keys": list(kwargs.keys())})
         return response.json()
 
     @api_error_handler
     async def get(self, memory_id: str) -> Dict[str, Any]:
         response = await self.async_client.get(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("async_client.get", self.sync_client, {"memory_id": memory_id})
+        capture_client_event(telemetry, "async_client.get", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -469,7 +471,10 @@ class AsyncMemoryClient:
         if "metadata" in kwargs:
             del kwargs["metadata"]
         capture_client_event(
-            "async_client.get_all", self.sync_client, {"api_version": version, "keys": list(kwargs.keys())}
+            telemetry,
+            "async_client.get_all",
+            self.sync_client,
+            {"api_version": version, "keys": list(kwargs.keys())},
         )
         return response.json()
 
@@ -482,7 +487,10 @@ class AsyncMemoryClient:
         if "metadata" in kwargs:
             del kwargs["metadata"]
         capture_client_event(
-            "async_client.search", self.sync_client, {"api_version": version, "keys": list(kwargs.keys())}
+            telemetry,
+            "async_client.search",
+            self.sync_client,
+            {"api_version": version, "keys": list(kwargs.keys())},
         )
         return response.json()
 
@@ -490,14 +498,14 @@ class AsyncMemoryClient:
     async def update(self, memory_id: str, data: str) -> Dict[str, Any]:
         response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data})
         response.raise_for_status()
-        capture_client_event("async_client.update", self.sync_client, {"memory_id": memory_id})
+        capture_client_event(telemetry, "async_client.update", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
     async def delete(self, memory_id: str) -> Dict[str, Any]:
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/")
         response.raise_for_status()
-        capture_client_event("async_client.delete", self.sync_client, {"memory_id": memory_id})
+        capture_client_event(telemetry, "async_client.delete", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -505,14 +513,16 @@ class AsyncMemoryClient:
         params = self.sync_client._prepare_params(kwargs)
         response = await self.async_client.delete("/v1/memories/", params=params)
         response.raise_for_status()
-        capture_client_event("async_client.delete_all", self.sync_client, {"keys": list(kwargs.keys())})
+        capture_client_event(
+            telemetry, "async_client.delete_all", self.sync_client, {"keys": list(kwargs.keys())}
+        )
         return response.json()
 
     @api_error_handler
     async def history(self, memory_id: str) -> List[Dict[str, Any]]:
         response = await self.async_client.get(f"/v1/memories/{memory_id}/history/")
         response.raise_for_status()
-        capture_client_event("async_client.history", self.sync_client, {"memory_id": memory_id})
+        capture_client_event(telemetry, "async_client.history", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
@@ -520,7 +530,7 @@ class AsyncMemoryClient:
         params = self.sync_client._prepare_params()
         response = await self.async_client.get("/v1/entities/", params=params)
         response.raise_for_status()
-        capture_client_event("async_client.users", self.sync_client)
+        capture_client_event(telemetry, "async_client.users", self.sync_client)
         return response.json()
 
     @api_error_handler
@@ -530,13 +540,13 @@ class AsyncMemoryClient:
         for entity in entities["results"]:
             response = await self.async_client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
-        capture_client_event("async_client.delete_users", self.sync_client)
+        capture_client_event(telemetry, "async_client.delete_users", self.sync_client)
         return {"message": "All users, agents, and sessions deleted."}
 
     @api_error_handler
     async def reset(self) -> Dict[str, str]:
         await self.delete_users()
-        capture_client_event("async_client.reset", self.sync_client)
+        capture_client_event(telemetry, "async_client.reset", self.sync_client)
         return {"message": "Client reset successful. All users and memories deleted."}
 
     async def chat(self):
