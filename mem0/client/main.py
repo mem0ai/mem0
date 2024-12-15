@@ -103,7 +103,8 @@ class MemoryClient:
     def _validate_api_key(self):
         """Validate the API key by making a test request."""
         try:
-            response = self.client.get("/v1/ping/")
+            params = self._prepare_params()
+            response = self.client.get("/v1/ping/", params=params)
             response.raise_for_status()
         except httpx.HTTPStatusError:
             raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
