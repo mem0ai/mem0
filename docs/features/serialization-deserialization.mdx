@@ -1,0 +1,34 @@
+--- 
+title: ' Serialization/Deserialization '
+--- 
+
+## Introduction 
+
+Serialization allows users to save configurations of bot instances 
+across different user sessions. Deserialization allows users to input
+serialized configurations of bots, allowing the bot instances to be initialized
+from the state that it was serialized in. This allows the user to save
+computational resources and provides a way to utilize different configurations.
+
+## Usage
+
+**Serialization**: Bot instances can be serialized using the `serialize()` function. 
+This function is part of the bot instance and preserves a bots state. It allows the 
+bot instance to convert itself into a JSON-formatted string. 
+Since serialization is placed as a decorator for classes. The bot instance can
+access the function like so: 
+
+`serialized_bot =
+bot_instace.serialize()`.
+
+The serialized bot will be represented in JSON and can be saved.
+
+
+**Deserialization:** Bot instances that were serialized can be deserialized utilizing 
+the `deserialize(json)` function. This loads back the same bot instance using the JSON-string
+that was returned by the`serialize()` function. Utilziing this is as follows:
+
+`app = App.deserialize(json_string)`
+
+If deserializing fails, the function returns a default instance.
+
