@@ -31,6 +31,8 @@ export interface Mem0ChatSettings extends OpenAIChatSettings {
   project_name?: string;
   mem0ApiKey?: string;
   structuredOutputs?: boolean;
+  org_id?: string;
+  project_id?: string;
 }
 
 export interface Mem0Config extends Mem0ChatSettings {}
