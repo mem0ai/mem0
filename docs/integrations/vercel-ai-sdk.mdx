@@ -64,10 +64,13 @@ npm install @mem0/vercel-ai-provider
 ### Standalone Features:
 
     ```typescript
-    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx" });
-    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
+    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
+    await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
     ```
-     > **Note**: For standalone features, such as `addMemories` and `retrieveMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
+     > For standalone features, such as `addMemories`, `retrieveMemories`, and `getMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
+
+     > `getMemories` will return raw memories in the form of an array of objects, while `retrieveMemories` will return a response in string format with a system prompt ingested with the retrieved memories.
 
 ### 1. Basic Text Generation with Memory Context
 
@@ -146,6 +149,7 @@ npm install @mem0/vercel-ai-provider
 
 - `createMem0()`: Initializes a new Mem0 provider instance.
 - `retrieveMemories()`: Retrieves memory context for prompts.
+- `getMemories()`: Get memories from your profile in array format.
 - `addMemories()`: Adds user memories to enhance contextual responses.
 
 ## Best Practices
