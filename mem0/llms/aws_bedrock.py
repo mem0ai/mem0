@@ -1,5 +1,5 @@
+
 import json
-import os
 from typing import Any, Dict, List, Optional
 
 try:
@@ -11,18 +11,13 @@ from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
 
-class AWSBedrockLLM(LLMBase):
+class AWSBedrockLLM(LLMBase):    
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-        self.client = boto3.client(
-            "bedrock-runtime",
-            region_name=os.environ.get("AWS_REGION"),
-            aws_access_key_id=os.environ.get("AWS_ACCESS_KEY"),
-            aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-        )
+            self.config.model="anthropic.claude-3-5-sonnet-20240620-v1:0"
+        self.client = boto3.client("bedrock-runtime")
         self.model_kwargs = {
             "temperature": self.config.temperature,
             "max_tokens_to_sample": self.config.max_tokens,
