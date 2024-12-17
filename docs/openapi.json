@@ -3586,7 +3586,7 @@
 				]
 		}
 		},
-		"/v1/memories/batch/": {
+		"/v1/batch/": {
 			"put": {
 				"tags": [
 					"memories"
@@ -3739,15 +3739,15 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\ndelete_memories = [\n    \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n    \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your-api-key\")\n\ndelete_memories = [\n    {\"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"},\n    {\"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"}\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst deleteMemories = [\n    \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n    \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n];\n\nclient.batchDelete(deleteMemories)\n    .then(response => console.log('Batch delete response:', response))\n    .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst deleteMemories = [\n    { memory_id: \"285ed74b-6e05-4043-b16b-3abd5b533496\" },\n    { memory_id: \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\" }\n];\n\nclient.batchDelete(deleteMemories)\n    .then(response => console.log('Batch delete response:', response))\n    .catch(error => console.error(error));"
 				},
 				{
 				"lang": "cURL",
-				"source": "curl -X DELETE \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memory_ids\": [\n             \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n             \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n         ]\n     }'"
+				"source": "curl -X DELETE \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"delete_memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n             }\n         ]\n     }'"
 				}
 				]
 			}
