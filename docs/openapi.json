@@ -4071,6 +4071,26 @@
 						"type": "string",
 						"nullable": true,
 						"description": "The unique identifier of the project associated with the memory."
+					},
+					"filter_memories": {
+						"title": "Filter memories",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to properly filter the memories according to the input."
+					},
+					"categories": {
+						"title": "Categories",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "A list of categories to filter the memories by."
+					},
+					"only_metadata_based_search": {
+						"title": "Only metadata based search",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to only search for memories based on metadata."
 					}
 				}
 			},
