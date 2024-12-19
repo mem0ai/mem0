@@ -149,7 +149,6 @@ class Completions:
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
         if not messages or messages[0]["role"] != "system":
             return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
-        messages[0]["content"] = MEMORY_ANSWER_PROMPT
         return messages
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
