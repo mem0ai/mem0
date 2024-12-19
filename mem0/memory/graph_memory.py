@@ -76,6 +76,10 @@ class MemoryGraph:
                 ADD_MEMORY_STRUCT_TOOL_GRAPH,
                 NOOP_STRUCT_TOOL,
             ]
+        elif self.llm_provider == "gemini":
+            # The `noop` ​​function n should be removed because it is unnecessary 
+            # and causes the error: "should be non-empty for OBJECT type"
+            _tools = [UPDATE_MEMORY_TOOL_GRAPH, ADD_MEMORY_TOOL_GRAPH]
 
         memory_updates = self.llm.generate_response(
             messages=update_memory_prompt,
