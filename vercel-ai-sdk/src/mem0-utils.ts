@@ -28,6 +28,28 @@ const flattenPrompt = (prompt: LanguageModelV1Prompt) => {
     }).join(" ");
 }
 
+const convertToMem0Format = (messages: LanguageModelV1Prompt) => {
+  return messages.flatMap((message: any) => {
+    if (typeof message.content === 'string') {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    }
+    else{
+      return message.content.map((obj: any) => {
+        if (obj.type === "text") {
+          return {
+            role: message.role,
+            content: obj.text,
+          };
+        } else {
+          return null; // Handle other cases or return null/undefined as needed
+        }
+      }).filter((item: null) => item !== null); // Filter out null values if necessary      
+    }
+})};
+
 function convertMessagesToMem0Format(messages: LanguageModelV1Prompt) {
   return messages.map((message) => {
     // If the content is a string, return it as is
@@ -92,11 +114,13 @@ const searchInternalMemories = async (query: string, config?: Mem0Config, top_k:
 
 const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0Config)=>{
     tokenIsPresent(config);
-    const message = flattenPrompt(messages);
-    const response = await updateMemories([
-        { role: "user", content: message },
-        { role: "assistant", content: "Thank You!" },
-    ], config);
+    let finalMessages: Array<Message> = [];
+    if (typeof messages === "string") {
+        finalMessages = [{ role: "user", content: messages }];
+    }else {
+      finalMessages = convertToMem0Format(messages);
+    }
+    const response = await updateMemories(finalMessages, config);
     return response;
 }
 
