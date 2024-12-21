@@ -212,7 +212,7 @@ class ChromaDB(BaseVectorDB):
         if where and raw_filter:
             raise ValueError("Both `where` and `raw_filter` cannot be used together.")
 
-        where_clause = {}
+        where_clause = None
         if raw_filter:
             where_clause = raw_filter
         if where:
