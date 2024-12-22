@@ -47,13 +47,86 @@ def test_add(memory_instance, version, enable_graph):
     assert result["relations"] == []
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True
     )
 
     # Remove the conditional assertion for _add_to_graph
     memory_instance._add_to_graph.assert_called_once_with(
         [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}
     )
+
+@pytest.mark.parametrize("version, enable_graph, infer", [
+    ("v1.0", False, False), 
+    ("v1.1", True, True), 
+    ("v1.1", True, False)
+])
+def test_add_with_inference(memory_instance, version, enable_graph, infer):
+    memory_instance.config.version = version
+    memory_instance.enable_graph = enable_graph
+    
+    # Setup mocks
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.vector_store.insert = Mock()
+    memory_instance.vector_store.search = Mock(return_value=[])
+    memory_instance.db.add_history = Mock()
+    memory_instance._add_to_graph = Mock(return_value=[])
+    
+    # Mock LLM responses for inference case
+    if infer:
+        memory_instance.llm.generate_response = Mock(side_effect=[
+            '{"facts": ["Test fact 1", "Test fact 2"]}',  # First call for fact retrieval
+            '{"memory": [{"event": "ADD", "text": "Test fact 1"},{"event": "ADD", "text": "Test fact 2"}]}'  # Second call for memory actions
+        ])
+    else:
+        memory_instance.llm.generate_response = Mock()
+    
+    # Execute
+    result = memory_instance.add(
+        messages=[{"role": "user", "content": "Test fact 1 Text fact 2"}], 
+        user_id="test_user", 
+        infer=infer
+    )
+
+    # Verify basic structure of result
+    assert "results" in result
+    assert "relations" in result
+    assert isinstance(result["results"], list)
+    assert isinstance(result["relations"], list)
+
+    # Verify LLM behavior
+    if infer:
+        # Should be called twice: once for fact retrieval, once for memory actions
+        assert memory_instance.llm.generate_response.call_count == 2
+        
+        # Verify first call (fact retrieval)
+        first_call = memory_instance.llm.generate_response.call_args_list[0]
+        assert len(first_call[1]['messages']) == 2
+        assert first_call[1]['messages'][0]['role'] == 'system'
+        assert first_call[1]['messages'][1]['role'] == 'user'
+        
+        # Verify embedding was called for the facts
+        assert memory_instance.embedding_model.embed.call_count == 2
+        
+        # Verify vector store operations
+        assert memory_instance.vector_store.insert.call_count == 2
+    else:
+        # For non-inference case, should directly create memory without LLM
+        memory_instance.llm.generate_response.assert_not_called()
+        # Should still embed the original message
+        memory_instance.embedding_model.embed.assert_called_once_with("user: Test fact 1 Text fact 2\n")
+        memory_instance.vector_store.insert.assert_called_once()
+
+    # Verify graph behavior
+    memory_instance._add_to_graph.assert_called_once_with(
+        [{"role": "user", "content": "Test fact 1 Text fact 2"}], {"user_id": "test_user"}
+    )
+
+    if version == "v1.1":
+        assert isinstance(result, dict)
+        assert "results" in result
+        assert "relations" in result
+    else:
+        assert isinstance(result["results"], list)
 
 
 def test_get(memory_instance):
