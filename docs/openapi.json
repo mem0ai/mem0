@@ -486,6 +486,12 @@
 						"description": "Filter memories by project ID."
 					},
 					{
+						"name":"fields",
+						"in": "query",
+						"schema": { "type": "array", "items": { "type": "string" } },
+						"description": "Filter memories by fields"
+					},
+					{
 						"name":"keywords",
 						"in": "query",
 						"schema": { "type": "string" },
@@ -519,6 +525,20 @@
 											},
 											"name": {
 												"type": "string"
+											},
+											"input": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"role": {
+															"type": "string"
+														},
+														"content": {
+															"type": "string"
+														}
+													}
+												}
 											},
 											"created_at": {
 												"type": "string",
