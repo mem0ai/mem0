@@ -30,6 +30,39 @@ Mem0 offers two powerful ways to leverage our technology: our [managed platform]
 <Card title="All Mem0 Features" icon="list" href="/features" horizontal="false">
     </Card>
 
+# Memory Classification in mem0
+
+Mem0 uses a sophisticated classification system to determine which parts of text should be extracted as memories. Not all text content will generate memories, as the system is designed to identify specific types of memorable information.
+
+### When Memories Are Not Generated
+
+There are several scenarios where mem0 may return an empty list of memories:
+
+- When users input definitional questions (e.g., "What is backpropagation?")
+- For general concept explanations that don't contain personal or experiential information
+- Technical definitions and theoretical explanations
+- General knowledge statements without personal context
+- Abstract or theoretical content
+
+### Example Scenarios
+
+```
+Input: "What is machine learning?"
+No memories extracted - Content is definitional and does not meet memory classification criteria.
+
+Input: "Yesterday I learned about machine learning in class"
+Memory extracted - Contains personal experience and temporal context.
+```
+
+### Best Practices
+
+To ensure successful memory extraction:
+- Include temporal markers (when events occurred)
+- Add personal context or experiences
+- Frame information in terms of real-world applications or experiences
+- Include specific examples or cases rather than general definitions
+
+
 ## Need help?
 
 <Snippet file="get-help.mdx"/>
