@@ -45,6 +45,7 @@ class EmbedderFactory:
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
         "together": "mem0.embeddings.together.TogetherEmbedding",
+        "voyageai": "mem0.embeddings.voyageai.VoyageAIEmbedding",
     }
 
     @classmethod
