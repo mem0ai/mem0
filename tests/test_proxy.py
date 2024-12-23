@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0 import Memory, MemoryClient
-from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
 from mem0.proxy.main import Chat, Completions, Mem0
 
 
@@ -94,4 +93,4 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
 
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
-    assert call_args["messages"][0]["content"] == MEMORY_ANSWER_PROMPT
+    assert call_args["messages"][0]["content"] == "You are a helpful assistant."

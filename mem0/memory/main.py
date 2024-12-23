@@ -67,6 +67,7 @@ class Memory(MemoryBase):
         metadata=None,
         filters=None,
         prompt=None,
+        infer=True,
     ):
         """
         Create a new memory.
@@ -79,7 +80,8 @@ class Memory(MemoryBase):
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
-
+            infer (bool, optional): Whether to use inference to add the memory. Defaults to True.
+            
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
             result: dict of affected events with each dict has the following key:
@@ -111,7 +113,7 @@ class Memory(MemoryBase):
             messages = [{"role": "user", "content": messages}]
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters, infer)
             future2 = executor.submit(self._add_to_graph, messages, filters)
 
             concurrent.futures.wait([future1, future2])
@@ -134,8 +136,16 @@ class Memory(MemoryBase):
             )
             return vector_store_result
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+    def _add_to_vector_store(self, messages, metadata, filters, infer=True):
         parsed_messages = parse_messages(messages)
+
+        if not infer:
+            messages_embeddings = self.embedding_model.embed(parsed_messages)
+            new_message_embeddings = {parsed_messages: messages_embeddings}
+            memory_id = self._create_memory(
+                data=parsed_messages, existing_embeddings=new_message_embeddings, metadata=metadata
+            )
+            return [{"id": memory_id, "memory": parsed_messages, "event": "ADD"}]
 
         if self.custom_prompt:
             system_prompt = self.custom_prompt
