@@ -1,0 +1,50 @@
+[Couchbase](https://www.couchbase.com/) is an award-winning distributed NoSQL developer database platform that delivers unmatched versatility,
+performance, scalability, and financial value for your critical applications. 
+Couchbase embraces AI with coding assistance for developers,
+plus AI services for building applications that include RAG-powered agents, real-time analytics, and cloud-to-edge vector search.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "couchbase",
+        "config": {
+            "connection_str": "couchbase://localhost",
+            "username": "Administrator",
+            "password": "password",
+            "bucket_name": "mem0",
+            "scope_name": "_default",
+            "collection_name": "_default",
+            "embedding_model_dims": 1536,
+            "index_name": "_default_index",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Config
+
+Let's see the available parameters for the `couchbase` config:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connection_str` | The connection string for the Couchbase server | `None` |
+| `username` | The username for the Couchbase server | `None` |
+| `password` | The password for the Couchbase server | `None` |
+| `bucket_name` | The name of the bucket to store the vectors | `mem0` |
+| `scope_name` | The name of the scope to store the vectors | `_default` |
+| `collection_name` | The name of the collection to store the vectors | `_default` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `index_name` | The name of the index to create for the vectors | `_default_index` |
+```
+
+
