@@ -1,0 +1,37 @@
+---
+title: VoyageAI
+---
+
+To use VoyageAI embedding models, set the `VOYAGE_API_KEY` environment variable. You can obtain the Voyage API key from the [VoyageAI Dashboard](https://dash.voyageai.com/api-keys).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["VOYAGE_API_KEY"] = "your_api_key"
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "voyageai",
+        "config": {
+            "model": "voyage-3"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I'm visiting Paris", user_id="john")
+```
+
+### Config
+
+Here are the parameters available for configuring VoyageAI embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `voyage-3` |
+| `embedding_dims` | Dimensions of the embedding model | `None`(which uses the [pre-defined default values](https://docs.voyageai.com/docs/embeddings) according to the selected model) |
+| `api_key` | The VoyageAI API key | `None` |
