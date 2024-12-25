@@ -21,6 +21,7 @@ class LlmConfig(BaseModel):
             "azure_openai",
             "openai_structured",
             "azure_openai_structured",
+            "doubao",
         ):
             return v
         else:
