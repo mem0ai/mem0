@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from mem0.embeddings.vertexai import VertexAIEmbedding
 
 
