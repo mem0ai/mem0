@@ -14,7 +14,7 @@ except ImportError:
 from embedchain.helpers.json_serializable import register_deserializable
 from embedchain.loaders.base_loader import BaseLoader
 from embedchain.utils.misc import clean_string
-
+from datetime import datetime
 
 @register_deserializable
 class YoutubeVideoLoader(BaseLoader):
@@ -41,6 +41,19 @@ class YoutubeVideoLoader(BaseLoader):
         content = doc[0].page_content
         content = clean_string(content)
         metadata = doc[0].metadata
+        # Ensure 'publishedAt' is extracted if available
+        published_at = metadata.get("publishedAt", None)
+        if published_at:
+            try:
+                # Convert to ISO 8601 format (ensuring proper handling for UTC timestamps)
+                if published_at.endswith("Z"):  # Handles UTC 'Z' notation
+                    published_at_iso = datetime.strptime(published_at, "%Y-%m-%dT%H:%M:%SZ").isoformat()
+                else:  # Handles other potential formats
+                    published_at_iso = datetime.fromisoformat(published_at).isoformat()
+                metadata["publishedAt"] = published_at_iso
+            except Exception as e:
+                logging.warning(f"Failed to parse publishedAt field '{published_at}': {e}")
+                
         metadata["url"] = url
         metadata["transcript"] = transcript
 
