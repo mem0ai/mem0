@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field, model_validator
-from volcengine.viking_db import VikingDBService, Field, FieldType
+from volcengine.viking_db import DistanceType
 
 class MetricType(str, Enum):
     """
@@ -15,6 +15,12 @@ class MetricType(str, Enum):
     L2 = "L2"
     IP = "IP"
     COSINE = "COSINE"
+
+METRIC_TO_DISTANCE = {
+    MetricType.L2: DistanceType.L2,
+    MetricType.IP: DistanceType.IP,
+    MetricType.COSINE: DistanceType.COSINE,
+}
 
 class VikingDBConfig(BaseModel):
     collection_name: str = Field("mem0", description="Name of the collection")
