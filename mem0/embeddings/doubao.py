@@ -17,7 +17,7 @@ class DouBaoEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "doubao"
+        self.config.model = self.config.model 
         self.config.embedding_dims = self.config.embedding_dims or 2048
 
         api_key = self.config.api_key or os.getenv("ARK_API_KEY")
