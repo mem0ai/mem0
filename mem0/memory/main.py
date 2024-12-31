@@ -240,11 +240,9 @@ class Memory(MemoryBase):
     def _add_to_graph(self, messages, filters):
         added_entities = []
         if self.api_version == "v1.1" and self.enable_graph:
-            if filters.get("user_id"):
-                filters["user_id"] = filters["user_id"]
-            else:
+            if filters.get("user_id") is None:
                 filters["user_id"] = "user"
-
+                
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
             added_entities = self.graph.add(data, filters)
 
