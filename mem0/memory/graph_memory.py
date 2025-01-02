@@ -20,7 +20,6 @@ from mem0.graphs.tools import (
     UPDATE_MEMORY_TOOL_GRAPH,
 )
 from mem0.graphs.utils import (
-    EXTRACT_ENTITIES_PROMPT,
     EXTRACT_RELATIONS_PROMPT,
     FALKORDB_QUERY,
     NEO4J_QUERY,
@@ -250,7 +249,7 @@ class MemoryGraph:
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
-        results = self.graph_query(query, params={"user_id": filters["user_id"]})
+        results = self.graph_query(query, params={"user_id": filters["user_id"], "limit": limit})
 
         final_results = []
         for result in results:
