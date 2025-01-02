@@ -60,6 +60,7 @@ class MemoryGraph:
         to_be_deleted = self._get_delete_entities_from_search_output(search_output, data, filters)
         
         #TODO: Batch queries with APOC plugin
+        #TODO: Add more filter support
         deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
         added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
         
@@ -293,8 +294,8 @@ class MemoryGraph:
             DELETE r
             RETURN 
                 n.name AS source,
-                m.name AS destination,
-                type(r) AS deleted_relationship
+                m.name AS target,
+                type(r) AS relationship
             """
             params = {
                 "source_name": source,
@@ -338,7 +339,7 @@ class MemoryGraph:
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp()
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS destination
+                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
                 params = {
@@ -363,7 +364,7 @@ class MemoryGraph:
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp()
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS destination
+                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 
                 params = {
@@ -387,7 +388,7 @@ class MemoryGraph:
                     ON CREATE SET 
                         r.created_at = timestamp(),
                         r.updated_at = timestamp()
-                    RETURN source.name AS source, type(r) AS relationship, destination.name AS destination
+                    RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
                     "source_id": source_node_search_result[0]['elementId(source_candidate)'],
@@ -408,7 +409,7 @@ class MemoryGraph:
                     ON MATCH SET m.embedding = $dest_embedding
                     MERGE (n)-[rel:{relationship}]->(m)
                     ON CREATE SET rel.created = timestamp()
-                    RETURN n.name AS source, type(rel) AS relationship, m.name AS destination
+                    RETURN n.name AS source, type(rel) AS relationship, m.name AS target
                     """
                 params = {
                     "source_name": source,
