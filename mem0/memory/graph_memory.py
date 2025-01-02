@@ -3,11 +3,6 @@ import logging
 from mem0.memory.utils import format_entities
 
 try:
-    from langchain_community.graphs import Neo4jGraph
-except ImportError:
-    raise ImportError("langchain_community is not installed. Please install it using pip install langchain-community")
-
-try:
     from rank_bm25 import BM25Okapi
 except ImportError:
     raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
@@ -24,8 +19,13 @@ from mem0.graphs.tools import (
     UPDATE_MEMORY_STRUCT_TOOL_GRAPH,
     UPDATE_MEMORY_TOOL_GRAPH,
 )
-from mem0.graphs.utils import EXTRACT_RELATIONS_PROMPT, get_update_memory_messages
-from mem0.utils.factory import EmbedderFactory, LlmFactory
+from mem0.graphs.utils import (
+    EXTRACT_RELATIONS_PROMPT,
+    FALKORDB_QUERY,
+    NEO4J_QUERY,
+    get_update_memory_messages,
+)
+from mem0.utils.factory import EmbedderFactory, LlmFactory, GraphFactory
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,11 @@ logger = logging.getLogger(__name__)
 class MemoryGraph:
     def __init__(self, config):
         self.config = config
-        self.graph = Neo4jGraph(
-            self.config.graph_store.config.url,
-            self.config.graph_store.config.username,
-            self.config.graph_store.config.password,
+        self.graph = GraphFactory.create(
+            self.config.graph_store.provider, self.config.graph_store.config
+            )
+        self.embedding_model = EmbedderFactory.create(
+            self.config.embedder.provider, self.config.embedder.config
         )
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
 
@@ -133,7 +134,7 @@ class MemoryGraph:
                 "user_id": filters["user_id"],
             }
 
-            _ = self.graph.query(cypher, params=params)
+            _ = self.graph_query(cypher, params=params)
 
         logger.info(f"Added {len(to_be_added)} new memories to the graph")
 
@@ -169,36 +170,20 @@ class MemoryGraph:
         for node in list(entity_type_map.keys()):
             n_embedding = self.embedding_model.embed(node)
 
-            cypher_query = """
-            MATCH (n)
-            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
-            WITH n,
-                round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) /
-                (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) *
-                sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
-            WHERE similarity >= $threshold
-            MATCH (n)-[r]->(m)
-            RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relation, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
-            UNION
-            MATCH (n)
-            WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
-            WITH n,
-                round(reduce(dot = 0.0, i IN range(0, size(n.embedding)-1) | dot + n.embedding[i] * $n_embedding[i]) /
-                (sqrt(reduce(l2 = 0.0, i IN range(0, size(n.embedding)-1) | l2 + n.embedding[i] * n.embedding[i])) *
-                sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
-            WHERE similarity >= $threshold
-            MATCH (m)-[r]->(n)
-            RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relation, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id, similarity
-            ORDER BY similarity DESC
-            LIMIT $limit
-            """
+            if self.config.graph_store.provider == "falkordb":
+                cypher_query = FALKORDB_QUERY
+            elif self.config.graph_store.provider == "neo4j":
+                cypher_query = NEO4J_QUERY
+            else:
+                raise ValueError("Unsupported graph database provider for querying")
+            
             params = {
                 "n_embedding": n_embedding,
                 "threshold": self.threshold,
                 "user_id": filters["user_id"],
                 "limit": limit,
             }
-            ans = self.graph.query(cypher_query, params=params)
+            ans = self.graph_query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations, entity_type_map
@@ -223,7 +208,7 @@ class MemoryGraph:
         if not search_output:
             return []
 
-        search_outputs_sequence = [[item["source"], item["relation"], item["destination"]] for item in search_output]
+        search_outputs_sequence = [[item[0], item[2], item[4]] for item in search_output]
         bm25 = BM25Okapi(search_outputs_sequence)
 
         tokenized_query = query.split(" ")
@@ -243,7 +228,7 @@ class MemoryGraph:
         DETACH DELETE n
         """
         params = {"user_id": filters["user_id"]}
-        self.graph.query(cypher, params=params)
+        self.graph_query(cypher, params=params)
 
     def get_all(self, filters, limit=100):
         """
@@ -264,17 +249,15 @@ class MemoryGraph:
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
-        results = self.graph.query(query, params={"user_id": filters["user_id"], "limit": limit})
+        results = self.graph_query(query, params={"user_id": filters["user_id"], "limit": limit})
 
         final_results = []
         for result in results:
-            final_results.append(
-                {
-                    "source": result["source"],
-                    "relationship": result["relationship"],
-                    "target": result["target"],
-                }
-            )
+            final_results.append({
+                "source": result[0],
+                "relationship": result[1],
+                "target": result[2]
+            })
 
         logger.info(f"Retrieved {len(final_results)} relationships")
 
@@ -341,7 +324,7 @@ class MemoryGraph:
         MERGE (n1 {name: $source, user_id: $user_id})
         MERGE (n2 {name: $target, user_id: $user_id})
         """
-        self.graph.query(
+        self.graph_query(
             check_and_create_query,
             params={"source": source, "target": target, "user_id": filters["user_id"]},
         )
@@ -351,7 +334,7 @@ class MemoryGraph:
         MATCH (n1 {name: $source, user_id: $user_id})-[r]->(n2 {name: $target, user_id: $user_id})
         DELETE r
         """
-        self.graph.query(
+        self.graph_query(
             delete_query,
             params={"source": source, "target": target, "user_id": filters["user_id"]},
         )
@@ -362,10 +345,34 @@ class MemoryGraph:
         CREATE (n1)-[r:{relationship}]->(n2)
         RETURN n1, r, n2
         """
-        result = self.graph.query(
+        result = self.graph_query(
             create_query,
             params={"source": source, "target": target, "user_id": filters["user_id"]},
         )
 
         if not result:
             raise Exception(f"Failed to update or create relationship between {source} and {target}")
+    
+    def graph_query(self, query, params):
+        """
+        Execute a Cypher query on the graph database.
+        FalkorDB supported multi-graph usage, the graphs is switched based on the user_id.
+
+        Args:
+            query (str): The Cypher query to execute.
+            params (dict): A dictionary containing params to be applied during the query.
+
+        Returns:
+            list: A list of dictionaries containing the results of the query.
+        """
+        if self.config.graph_store.provider == "falkordb":
+            # TODO: Use langchain to switch graphs after the multi-graph feature is released
+            self.graph._graph = self.graph._driver.select_graph(params["user_id"])
+            
+        query_output = self.graph.query(query, params=params)
+        
+        if self.config.graph_store.provider == "neo4j":
+            query_output = [list(d.values()) for d in query_output]
+            
+        
+        return query_output
