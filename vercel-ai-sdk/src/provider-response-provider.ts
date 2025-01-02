@@ -1,6 +1,6 @@
 import { createOpenAI, OpenAIProviderSettings } from "@ai-sdk/openai";
 import { generateText as aiGenerateText, streamText as aiStreamText, LanguageModelV1Prompt } from "ai";
-import { updateMemories, retrieveMemories, flattenPrompt } from "./mem0-utils";
+import { updateMemories, retrieveMemories, flattenPrompt, convertMessagesToMem0Format } from "./mem0-utils";
 import { Mem0Config } from "./mem0-chat-settings";
 import { Mem0ProviderSettings } from "./mem0-provider";
 import { CohereProviderSettings, createCohere } from "@ai-sdk/cohere";
@@ -73,10 +73,9 @@ class Mem0AITextGenerator {
                 system: newPrompt
             });
 
-            await updateMemories([
-                { role: "user", content: flattenPromptResponse },
-                { role: "assistant", content: response.text },
-            ], config);
+            const mem0Prompts = convertMessagesToMem0Format(prompt);
+
+            await updateMemories(mem0Prompts as any, config);
 
             return response;
         } catch (error) {

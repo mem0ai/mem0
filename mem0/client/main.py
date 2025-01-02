@@ -103,7 +103,8 @@ class MemoryClient:
     def _validate_api_key(self):
         """Validate the API key by making a test request."""
         try:
-            response = self.client.get("/v1/ping/")
+            params = self._prepare_params()
+            response = self.client.get("/v1/ping/", params=params)
             response.raise_for_status()
         except httpx.HTTPStatusError:
             raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
@@ -167,7 +168,11 @@ class MemoryClient:
         if version == "v1":
             response = self.client.get(f"/{version}/memories/", params=params)
         elif version == "v2":
-            response = self.client.post(f"/{version}/memories/", json=params)
+            if "page" in params and "page_size" in params:
+                query_params = {"page": params.pop("page"), "page_size": params.pop("page_size")}
+                response = self.client.post(f"/{version}/memories/", json=params, params=query_params)
+            else:
+                response = self.client.post(f"/{version}/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -312,6 +317,28 @@ class MemoryClient:
 
         capture_client_event("client.reset", self)
         return {"message": "Client reset successful. All users and memories deleted."}
+
+    @api_error_handler
+    def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch update memories."""
+        response = self.client.put("/v1/batch/", json={"memories": memories})
+        response.raise_for_status()
+
+        capture_client_event("client.batch_update", self)
+        return response.json()
+
+    @api_error_handler
+    def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch delete memories."""
+        response = self.client.request(
+            "DELETE",
+            "/v1/batch/",
+            json={"memories": memories}
+        )
+        response.raise_for_status()
+
+        capture_client_event("client.batch_delete", self)
+        return response.json()
 
     def chat(self):
         """Start a chat with the Mem0 AI. (Not implemented)
