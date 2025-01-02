@@ -19,12 +19,11 @@ class DouBaoLLM(LLMBase):
         
         base_url = self.config.openai_base_url or "https://ark.cn-beijing.volces.com/api/v3"
         api_key = self.config.api_key or os.environ.get("ARK_API_KEY")
-        
         self.client = Ark(
             base_url=base_url,
             api_key=api_key
         )
-
+        
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
