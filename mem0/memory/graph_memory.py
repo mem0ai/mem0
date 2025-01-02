@@ -94,7 +94,7 @@ class MemoryGraph:
 
         search_results = []
         for item in reranked_results:
-            search_results.append({"source": item[0], "relationship": item[1], "target": item[2]})
+            search_results.append({"source": item[0], "relationship": item[1], "destination": item[2]})
 
         logger.info(f"Returned {len(search_results)} search results")
 
