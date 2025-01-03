@@ -1,5 +1,3 @@
-import json
-
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
 
@@ -18,10 +16,11 @@ def parse_messages(messages):
             response += f"assistant: {msg['content']}\n"
     return response
 
+
 def format_entities(entities):
     if not entities:
         return ""
-    
+
     formatted_lines = []
     for entity in entities:
         simplified = f"{entity['source']} -- {entity['relatationship']} -- {entity['destination']}"
