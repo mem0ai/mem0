@@ -109,6 +109,10 @@ The Mem0's graph supports the following operations:
 
 ### Add Memories
 
+<Note>
+If you are using Mem0 with Graph Memory, it is recommended to pass `user_id`. The default value of `user_id` (in case of graph memory) is `user`.
+</Note>
+
 <CodeGroup>
 ```python Code
 m.add("I like pizza", user_id="alice")
