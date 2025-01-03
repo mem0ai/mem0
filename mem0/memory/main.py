@@ -69,29 +69,8 @@ class Memory(MemoryBase):
         prompt=None,
     ):
         """
-        Create a new memory.
-
-        Args:
-            messages (str or List[Dict[str, str]]): Messages to store in the memory.
-            user_id (str, optional): ID of the user creating the memory. Defaults to None.
-            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
-            run_id (str, optional): ID of the run creating the memory. Defaults to None.
-            metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
-            prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
-
-        Returns:
-            dict: A dictionary containing the result of the memory addition operation.
-            result: dict of affected events with each dict has the following key:
-              'memories': affected memories
-              'graph': affected graph memories
-
-              'memories' and 'graph' is a dict, each with following subkeys:
-                'add': added memory
-                'update': updated memory
-                'delete': deleted memory
-
-
+        Create a new memory, optionally storing user_id/agent_id/run_id or any combo
+        in both vector store and graph store.
         """
         if metadata is None:
             metadata = {}
@@ -135,6 +114,7 @@ class Memory(MemoryBase):
             return vector_store_result
 
     def _add_to_vector_store(self, messages, metadata, filters):
+        logger.debug("Entering _add_to_vector_store with provided messages and metadata.")
         parsed_messages = parse_messages(messages)
 
         if self.custom_prompt:
@@ -184,6 +164,8 @@ class Memory(MemoryBase):
             messages=[{"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
         )
+        logger.debug(f"Function/tool usage in _add_to_vector_store: {new_memories_with_actions}")
+
         new_memories_with_actions = json.loads(new_memories_with_actions)
 
         returned_memories = []
@@ -238,30 +220,23 @@ class Memory(MemoryBase):
         return returned_memories
 
     def _add_to_graph(self, messages, filters):
+        logger.debug("Entering _add_to_graph. Checking if graph is enabled and performing knowledge graph addition.")
         added_entities = []
         if self.api_version == "v1.1" and self.enable_graph:
-            if filters["user_id"]:
-                self.graph.user_id = filters["user_id"]
-            elif filters["agent_id"]:
-                self.graph.agent_id = filters["agent_id"]
-            elif filters["run_id"]:
-                self.graph.run_id = filters["run_id"]
-            else:
-                self.graph.user_id = "USER"
+            # Provide all three IDs if present
+            self.graph.user_id = filters.get("user_id", None)
+            self.graph.agent_id = filters.get("agent_id", None)
+            self.graph.run_id = filters.get("run_id", None)
+
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
             added_entities = self.graph.add(data, filters)
+            logger.debug(f"Tool usage / function calls in _add_to_graph for knowledge graph: {added_entities}")
 
         return added_entities
 
     def get(self, memory_id):
         """
         Retrieve a memory by ID.
-
-        Args:
-            memory_id (str): ID of the memory to retrieve.
-
-        Returns:
-            dict: Retrieved memory.
         """
         capture_event("mem0.get", self, {"memory_id": memory_id})
         memory = self.vector_store.get(vector_id=memory_id)
@@ -299,10 +274,7 @@ class Memory(MemoryBase):
 
     def get_all(self, user_id=None, agent_id=None, run_id=None, limit=100):
         """
-        List all memories.
-
-        Returns:
-            list: List of all memories.
+        List all memories, can filter by user_id, agent_id, and/or run_id
         """
         filters = {}
         if user_id:
@@ -378,18 +350,7 @@ class Memory(MemoryBase):
 
     def search(self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None):
         """
-        Search for memories.
-
-        Args:
-            query (str): Query to search for.
-            user_id (str, optional): ID of the user to search for. Defaults to None.
-            agent_id (str, optional): ID of the agent to search for. Defaults to None.
-            run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
-
-        Returns:
-            list: List of search results.
+        Search for memories, can filter by user_id, agent_id, run_id.
         """
         filters = filters or {}
         if user_id:
@@ -477,13 +438,6 @@ class Memory(MemoryBase):
     def update(self, memory_id, data):
         """
         Update a memory by ID.
-
-        Args:
-            memory_id (str): ID of the memory to update.
-            data (dict): Data to update the memory with.
-
-        Returns:
-            dict: Updated memory.
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
 
@@ -495,9 +449,6 @@ class Memory(MemoryBase):
     def delete(self, memory_id):
         """
         Delete a memory by ID.
-
-        Args:
-            memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id})
         self._delete_memory(memory_id)
@@ -505,12 +456,7 @@ class Memory(MemoryBase):
 
     def delete_all(self, user_id=None, agent_id=None, run_id=None):
         """
-        Delete all memories.
-
-        Args:
-            user_id (str, optional): ID of the user to delete memories for. Defaults to None.
-            agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
-            run_id (str, optional): ID of the run to delete memories for. Defaults to None.
+        Delete all memories for user_id, agent_id, or run_id. Must specify at least one.
         """
         filters = {}
         if user_id:
@@ -540,12 +486,6 @@ class Memory(MemoryBase):
     def history(self, memory_id):
         """
         Get the history of changes for a memory by ID.
-
-        Args:
-            memory_id (str): ID of the memory to get history for.
-
-        Returns:
-            list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id})
         return self.db.get_history(memory_id)
