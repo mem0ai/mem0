@@ -1,4 +1,4 @@
-# This example shows how to use graph config to use falkordb graph databese
+# This example shows how to use graph config to use falkordb graph database
 import os
 from mem0 import Memory
 from dotenv import load_dotenv
