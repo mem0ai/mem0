@@ -167,6 +167,7 @@ Here's how you can do it:
 ```python
 from mem0 import Memory
 
+# FalkorDB
 config = {
     "graph_store": {
         "provider": "falkordb",
@@ -179,6 +180,19 @@ config = {
     },
     "version": "v1.1"
 }
+# Neo4j
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "---"
+            "username": "---",
+            "password": "---",
+        }
+    },
+    "version": "v1.1"
+}
+
 
 m = Memory.from_config(config_dict=config)
 
