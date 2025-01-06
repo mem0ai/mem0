@@ -236,6 +236,7 @@ class VikingDB(VectorStoreBase):
             self._payload_to_fields(payload)
         )
         self.collection.upsert_data(data=Data(fields))
+        return fields
 
     def get(self, vector_id):
         """
