@@ -14,7 +14,7 @@ except ImportError:
 
 from volcengine.viking_db import VikingDBService
 from volcengine.viking_db import VectorIndexParams, Collection, Index, Data, Field as VikingDBField, FieldType as VikingDBFieldType
-
+from volcengine.viking_db.exception import CollectionNotExistException 
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,15 @@ class VikingDB(VectorStoreBase):
             vector_size=self.embedding_model_dims,
             metric_type=self.metric_type,
         )
-
+        
+    def _has_collection(self):
+        try:
+            self.client.get_collection(self.collection_name)
+        except CollectionNotExistException:
+            return False
+        
+        return True
+        
     def create_col(
         self,
         collection_name: str,
@@ -88,8 +96,7 @@ class VikingDB(VectorStoreBase):
             vector_size (str): Dimensions of the embedding model (defaults to 2048).
             metric_type (MetricType, optional): etric type for similarity search. Defaults to MetricType.IP.
         """
-        # self.client.create_collection(fields=)
-        if self.client.get_collection(collection_name) is not None:
+        if self._has_collection():
             logger.info(f"Collection {collection_name} already exists. Skipping creation.")
         else:
             fields = [
