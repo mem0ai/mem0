@@ -145,7 +145,8 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.get(f"/v1/memories/{memory_id}/")
+        params = self._prepare_params()
+        response = self.client.get(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id})
         return response.json()
@@ -219,7 +220,8 @@ class MemoryClient:
             Dict[str, Any]: The response from the server.
         """
         capture_client_event("client.update", self, {"memory_id": memory_id})
-        response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data})
+        params = self._prepare_params()
+        response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data}, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -236,7 +238,8 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.delete(f"/v1/memories/{memory_id}/")
+        params = self._prepare_params()
+        response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("client.delete", self, {"memory_id": memory_id})
         return response.json()
@@ -273,7 +276,8 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.get(f"/v1/memories/{memory_id}/history/")
+        params = self._prepare_params()
+        response = self.client.get(f"/v1/memories/{memory_id}/history/", params=params)
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id})
         return response.json()
@@ -454,7 +458,8 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def get(self, memory_id: str) -> Dict[str, Any]:
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/")
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.get(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("async_client.get", self.sync_client, {"memory_id": memory_id})
         return response.json()
@@ -489,14 +494,16 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update(self, memory_id: str, data: str) -> Dict[str, Any]:
-        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data})
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data}, params=params)
         response.raise_for_status()
         capture_client_event("async_client.update", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
     async def delete(self, memory_id: str) -> Dict[str, Any]:
-        response = await self.async_client.delete(f"/v1/memories/{memory_id}/")
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("async_client.delete", self.sync_client, {"memory_id": memory_id})
         return response.json()
@@ -511,7 +518,8 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def history(self, memory_id: str) -> List[Dict[str, Any]]:
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/")
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
         response.raise_for_status()
         capture_client_event("async_client.history", self.sync_client, {"memory_id": memory_id})
         return response.json()
