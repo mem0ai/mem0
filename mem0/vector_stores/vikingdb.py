@@ -28,8 +28,8 @@ DEFAULT_FILTER_FIELDS = [
     VikingDBField(field_name="agent_id", field_type=VikingDBFieldType.String, default_val=""),
     VikingDBField(field_name="run_id", field_type=VikingDBFieldType.String, default_val=""),
     VikingDBField(field_name="user_id", field_type=VikingDBFieldType.String, default_val=""),
-    VikingDBField(field_name="created_at", field_type=VikingDBFieldType.Int64, default_val=0),
-    VikingDBField(field_name="updated_at", field_type=VikingDBFieldType.Int64, default_val=0),
+    VikingDBField(field_name="created_at", field_type=VikingDBFieldType.String, default_val=""),
+    VikingDBField(field_name="updated_at", field_type=VikingDBFieldType.String, default_val=""),
 ]
 
 
@@ -97,6 +97,8 @@ class VikingDB(VectorStoreBase):
             metric_type (MetricType, optional): etric type for similarity search. Defaults to MetricType.IP.
         """
         if self._has_collection():
+            self.collection = self.client.get_collection(self.collection_name)
+            self.index = self.collection.indexes[0]
             logger.info(f"Collection {collection_name} already exists. Skipping creation.")
         else:
             fields = [
@@ -116,12 +118,12 @@ class VikingDB(VectorStoreBase):
                 scalar_index=[field.field_name for field in default_filter_fields]
             )
     
-    def _payload_to_fields(payload) -> Dict:
-        excluded_fields = {k: payload[k] for k in excluded_keys}
+    def _payload_to_fields(self, payload) -> Dict:
+        excluded_fields = {k:v for k, v in payload.items() if k in excluded_keys}
         excluded_fields["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
         return excluded_fields
     
-    def _fields_to_payload(fields) -> Dict:
+    def _fields_to_payload(self, fields) -> Dict:
         excluded_fields = {k: fields[k] for k in excluded_keys}
         metadata = fields.get("metadata", "")
         excluded_fields["metadata"] = json.loads(metadata)
@@ -136,15 +138,15 @@ class VikingDB(VectorStoreBase):
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
         data: List[Data] = []
-        for idx, embedding, payload in zip(ids, vectors, payloads):
+        for idx, vector, payload in zip(ids, vectors, payloads):
             fields = {
                 "id": idx, 
-                "vectors": embedding,
+                "vectors": vector,
             }
             fields.update(
                 self._payload_to_fields(payload)
             )
-            data.append(fields)
+            data.append(Data(fields))
         self.collection.upsert_data(data)
         
     def _create_filter(self, filters: dict):
@@ -157,7 +159,7 @@ class VikingDB(VectorStoreBase):
             dict: formated filter.
         """
         conds = []
-        for k,v in filters:
+        for k,v in filters.items():
             cond = { "op": "must", "field": k, "conds": v if isinstance(v, list) else [v]}
             conds.append(cond)
             

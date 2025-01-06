@@ -35,4 +35,4 @@ class DouBaoEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
+        return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding[:self.config.embedding_dims]
