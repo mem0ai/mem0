@@ -85,7 +85,7 @@ NOOP_TOOL = {
 RELATIONS_TOOL = {
     "type": "function",
     "function": {
-        "name": "establish_relations",
+        "name": "establish_relationships",
         "description": "Establish relationships among the entities based on the provided text.",
         "parameters": {
             "type": "object",
@@ -99,7 +99,7 @@ RELATIONS_TOOL = {
                                 "type": "string",
                                 "description": "The source entity of the relationship."
                             },
-                            "relation": {
+                            "relationship": {
                                 "type": "string",
                                 "description": "The relationship between the source and destination entities."
                             },
@@ -109,9 +109,9 @@ RELATIONS_TOOL = {
                             },
                         },
                         "required": [   
-                            "source_entity",
-                            "relation",
-                            "destination_entity",
+                            "source",
+                            "relationship",
+                            "destination",
                         ],
                         "additionalProperties": False,
                     },
@@ -262,7 +262,7 @@ RELATIONS_STRUCT_TOOL = {
                                 "type": "string",
                                 "description": "The source entity of the relationship."
                             },
-                            "relation": {
+                            "relatationship": {
                                 "type": "string",
                                 "description": "The relationship between the source and destination entities."
                             },
@@ -273,7 +273,7 @@ RELATIONS_STRUCT_TOOL = {
                         },
                         "required": [   
                             "source_entity",
-                            "relation",
+                            "relatationship",
                             "destination_entity",
                         ],
                         "additionalProperties": False,
@@ -320,4 +320,67 @@ EXTRACT_ENTITIES_STRUCT_TOOL = {
             "additionalProperties": False
         }
     }
+}
+
+DELETE_MEMORY_STRUCT_TOOL_GRAPH = {
+    "type": "function",
+    "function": {
+        "name": "delete_graph_memory",
+        "description": "Delete the relationship between two nodes. This function deletes the existing relationship.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "The identifier of the source node in the relationship.",
+                },
+                "relationship": {
+                    "type": "string",
+                    "description": "The existing relationship between the source and destination nodes that needs to be deleted.",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The identifier of the destination node in the relationship.",
+                }
+            },
+            "required": [
+                "source",
+                "relationship",
+                "destination",
+            ],
+            "additionalProperties": False,
+        },
+    },
+}
+
+DELETE_MEMORY_TOOL_GRAPH = {
+    "type": "function",
+    "function": {
+        "name": "delete_graph_memory",
+        "description": "Delete the relationship between two nodes. This function deletes the existing relationship.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "The identifier of the source node in the relationship.",
+                },
+                "relationship": {
+                    "type": "string",
+                    "description": "The existing relationship between the source and destination nodes that needs to be deleted.",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The identifier of the destination node in the relationship.",
+                }
+            },
+            "required": [
+                "source",
+                "relationship",
+                "destination",
+            ],
+            "additionalProperties": False,
+        },
+    },
 }
