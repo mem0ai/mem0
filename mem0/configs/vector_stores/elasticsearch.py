@@ -1,5 +1,7 @@
 from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field, model_validator
+
 
 class ElasticsearchConfig(BaseModel):
     collection_name: str = Field("mem0", description="Name of the index")
@@ -12,6 +14,7 @@ class ElasticsearchConfig(BaseModel):
     embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
     verify_certs: bool = Field(True, description="Verify SSL certificates")
     use_ssl: bool = Field(True, description="Use SSL for connection")
+    auto_create_index: bool = Field(True, description="Automatically create index during initialization")
 
     @model_validator(mode="before")
     @classmethod
@@ -19,12 +22,11 @@ class ElasticsearchConfig(BaseModel):
         # Check if either cloud_id or host/port is provided
         if not values.get("cloud_id") and not values.get("host"):
             raise ValueError("Either cloud_id or host must be provided")
-        
+
         # Check if authentication is provided
-        if not any([values.get("api_key"), 
-                   (values.get("user") and values.get("password"))]):
+        if not any([values.get("api_key"), (values.get("user") and values.get("password"))]):
             raise ValueError("Either api_key or user/password must be provided")
-        
+
         return values
 
     @model_validator(mode="before")
