@@ -502,7 +502,7 @@
     "tags": [
       "exports"
     ],
-    "summary": "Create an export with schema",
+    "summary": "Create an export job with schema",
     "description": "Create a structured export of memories based on a provided schema.",
     "operationId": "exports_create",
     "requestBody": {
