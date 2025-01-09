@@ -400,7 +400,7 @@
 		"exports"
 	  ],
 	  "summary": "Export data based on filters",
-	  "description": "Retrieve the structured export of memories for a user. It return the latest export for the user.",
+	  "description": "Retrieve the structured export of memories for a `user_id`, `run_id`, `session_id` or `app_id`. It return the latest export for the provided filters.",
 	  "operationId": "exports_list",
 	  "parameters": [
 		{
