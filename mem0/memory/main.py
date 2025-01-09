@@ -16,7 +16,11 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
+from mem0.memory.utils import (
+    get_fact_retrieval_messages,
+    parse_messages,
+    remove_code_blocks,
+)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -152,6 +156,7 @@ class Memory(MemoryBase):
         )
 
         try:
+            response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
@@ -184,6 +189,8 @@ class Memory(MemoryBase):
             messages=[{"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
         )
+
+        new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
         new_memories_with_actions = json.loads(new_memories_with_actions)
 
         returned_memories = []
