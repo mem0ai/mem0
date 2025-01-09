@@ -13,7 +13,7 @@ except ImportError:
     raise ImportError("The 'volcengine' library is required. Please install it using 'pip install volcengine'.")
 
 from volcengine.viking_db import VikingDBService
-from volcengine.viking_db import VectorIndexParams, Collection, Index, Data, Field as VikingDBField, FieldType as VikingDBFieldType
+from volcengine.viking_db import VectorIndexParams, Collection, Index, Data, ScalarOrder, Order, Field as VikingDBField, FieldType as VikingDBFieldType
 from volcengine.viking_db.exception import CollectionNotExistException 
 
 logger = logging.getLogger(__name__)
@@ -169,12 +169,12 @@ class VikingDB(VectorStoreBase):
         }
         return dsl_filter
 
-    def _parse_output(self, data: list[Data]):
+    def _parse_output(self, data: List[Data]):
         """
         Parse the output data.
 
         Args:
-            data (Dict): Output data.
+            data (List[Data]): Output data.
 
         Returns:
             List[OutputData]: Parsed output data.
@@ -285,11 +285,7 @@ class VikingDB(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors.
         """
-        pass
-        # query_filter = self._create_filter(filters) if filters else None
-        # result = self.client.query(collection_name=self.collection_name, filter=query_filter, limit=limit)
-        # memories = []
-        # for data in result:
-        #     obj = OutputData(id=data.get("id"), score=None, payload=data.get("metadata"))
-        #     memories.append(obj)
-        # return [memories]
+        query_filter = self._create_filter(filters) if filters else None
+        data = self.index.search(order=ScalarOrder(field_name="create_ts", order=Order.Asc), filter=query_filter, limit=limit)
+        result = self._parse_output(data=data)
+        return result
