@@ -394,6 +394,200 @@
 				}
 			}
 		},
+  "/v1/exports/": {
+	"get": {
+	  "tags": [
+		"exports"
+	  ],
+	  "summary": "Export data based on filters",
+	  "description": "Get the latest memory export.",
+	  "operationId": "exports_list",
+	  "parameters": [
+		{
+		  "name": "user_id",
+		  "in": "query",
+		  "schema": {
+			"type": "string"
+		  },
+		  "description": "Filter exports by user ID"
+		},
+		{
+		  "name": "run_id",
+		  "in": "query",
+		  "schema": {
+			"type": "string"
+		  },
+		  "description": "Filter exports by run ID"
+		},
+		{
+		  "name": "session_id",
+		  "in": "query",
+		  "schema": {
+			"type": "string"
+		  },
+		  "description": "Filter exports by session ID"
+		},
+		{
+		  "name": "app_id",
+		  "in": "query",
+		  "schema": {
+			"type": "string"
+		  },
+		  "description": "Filter exports by app ID"
+		},
+		{
+		  "name": "org_id",
+		  "in": "query",
+		  "schema": {
+			"type": "string"
+		  },
+		  "description": "Filter exports by organization ID"
+		},
+		{
+		  "name": "project_id",
+		  "in": "query",
+		  "schema": {
+			"type": "string"
+		  },
+		  "description": "Filter exports by project ID"
+		}
+	  ],
+	  "responses": {
+		"200": {
+		  "description": "Successful export",
+		  "content": {
+			"application/json": {
+			  "schema": {
+				"type": "object",
+				"description": "Export data response"
+			  }
+			}
+		  }
+		},
+		"400": {
+		  "description": "Bad Request",
+		  "content": {
+			"application/json": {
+			  "schema": {
+				"type": "object",
+				"properties": {
+				  "message": {
+					"type": "string",
+					"example": "One of the filters: app_id, user_id, agent_id, run_id is required!"
+				  }
+				}
+			  }
+			}
+		  }
+		},
+		"404": {
+		  "description": "Not Found",
+		  "content": {
+			"application/json": {
+			  "schema": {
+				"type": "object",
+				"properties": {
+				  "error": {
+					"type": "string",
+					"example": "No memory export request found"
+				  }
+				}
+			  }
+			}
+		  }
+		}
+	  }
+	},
+	"post": {
+    "tags": [
+      "exports"
+    ],
+    "summary": "Create an export job with schema",
+    "description": "Create a structured export of memories based on a provided schema.",
+    "operationId": "exports_create",
+    "requestBody": {
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["schema"],
+            "properties": {
+              "schema": {
+                "type": "object",
+                "description": "Schema definition for the export"
+              },
+              "user_id": {
+                "type": "string",
+                "description": "Filter exports by user ID"
+              },
+              "run_id": {
+                "type": "string",
+                "description": "Filter exports by run ID"
+              },
+              "session_id": {
+                "type": "string",
+                "description": "Filter exports by session ID"
+              },
+              "app_id": {
+                "type": "string",
+                "description": "Filter exports by app ID"
+              },
+              "org_id": {
+                "type": "string",
+                "description": "Filter exports by organization ID"
+              },
+              "project_id": {
+                "type": "string",
+                "description": "Filter exports by project ID"
+              }
+            }
+          }
+        }
+      },
+      "required": true
+    },
+    "responses": {
+      "201": {
+        "description": "Export created successfully",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Memory export request received. The export will be ready in a few seconds."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "550e8400-e29b-41d4-a716-446655440000"
+                }
+              },
+              "required": ["message", "id"]
+            }
+          }
+        }
+      },
+      "400": {
+        "description": "Bad Request", 
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Schema is required and must be a valid object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  },
 		"/v1/memories/": {
 			"get": {
 				"tags": [

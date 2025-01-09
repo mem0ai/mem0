@@ -1630,6 +1630,177 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/batch/" \
 ```
 </CodeGroup>
 
+### 4.11 Create Memory Export
+Submit a job to create a structured export of memories using a customizable Pydantic schema. This process may take some time to complete, especially if you’re exporting a large number of memories. You can tailor the export by applying various filters (e.g., `user_id`, `agent_id`, `run_id`, or `session_id`) and by modifying the Pydantic schema to ensure the final data matches your exact needs.
+
+For example, if you want to extract professional profile information from memories, you can define a schema and export the memories in that structured format:
+
+<CodeGroup>
+
+```python Python
+response = client.create_memory_export(schema=json_schema, user_id="user123")
+print(response)
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/export/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "schema":{json_schema},
+         "user_id": "user123"
+     }'
+```
+
+```json json_schema
+{
+    "$defs": {
+        "EducationLevel": {
+            "enum": ["high_school", "bachelors", "masters"],
+            "title": "EducationLevel",
+            "type": "string"
+        },
+        "EmploymentStatus": {
+            "enum": ["full_time", "part_time", "student"],
+            "title": "EmploymentStatus", 
+            "type": "string"
+        }
+    },
+    "example": {
+        "current_role": "Senior Software Engineer",
+        "education_level": "masters",
+        "employment_status": "full_time",
+        "full_name": "John Doe",
+        "skills": ["Python", "AWS", "Machine Learning"],
+        "years_experience": 8
+    },
+    "properties": {
+        "full_name": {
+            "anyOf": [
+                {
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": None,
+            "description": "The professional's full name",
+            "title": "Full Name"
+        },
+        "current_role": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": None,
+            "description": "Current job title or role",
+            "title": "Current Role"
+        },
+        "years_experience": {
+            "anyOf": [
+                {
+                    "maximum": 70,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": None,
+            "description": "Years of professional experience",
+            "title": "Years Experience"
+        },
+        "employment_status": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/EmploymentStatus"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": None,
+            "description": "Current employment status"
+        },
+        "education_level": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/EducationLevel"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": None,
+            "description": "Highest level of education completed"
+        },
+        "skills": {
+            "anyOf": [
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": None,
+            "description": "Professional skills and competencies",
+            "title": "Skills"
+        }
+    },
+    "title": "ProfessionalProfile",
+    "type": "object"
+}
+```
+
+```json Output
+{
+    "message": "Memory export request received. The export will be ready in a few seconds.",
+    "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+</CodeGroup>
+
+### 4.12 Get Memory Export
+Retrieve the structured export of memories after you have submitted a export job using the previous endpoint. It return the latest memory export.
+
+<CodeGroup>
+
+```python Python
+response = client.get_memory_export(user_id="user123")
+print(response)
+```
+
+```bash cURL
+curl -X GET "https://api.mem0.ai/v1/memories/export/?user_id=user123" \
+     -H "Authorization: Token your-api-key"
+```
+
+```json Output
+{
+    "full_name": "John Doe",
+    "current_role": "Senior Software Engineer",
+    "years_experience": 8,
+    "employment_status": "full_time",
+    "education_level": "masters",
+    "skills": ["Python", "AWS", "Machine Learning"]
+}
+```
+
+</CodeGroup>
+
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
 <Snippet file="get-help.mdx" />
