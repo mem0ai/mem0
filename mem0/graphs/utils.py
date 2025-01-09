@@ -90,5 +90,8 @@ source -- relationship -- destination
 Provide a list of deletion instructions, each specifying the relationship to be deleted.
 """
 
+
 def get_delete_messages(existing_memories_string, data, user_id):
-    return DELETE_RELATIONS_SYSTEM_PROMPT.replace("USER_ID", user_id), f"Here are the existing memories: {existing_memories_string} \n\n New Information: {data}"
+    return DELETE_RELATIONS_SYSTEM_PROMPT.replace(
+        "USER_ID", user_id
+    ), f"Here are the existing memories: {existing_memories_string} \n\n New Information: {data}"

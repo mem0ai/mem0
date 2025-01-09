@@ -362,11 +362,7 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.request(
-            "DELETE",
-            "/v1/batch/",
-            json={"memories": memories}
-        )
+        response = self.client.request("DELETE", "/v1/batch/", json={"memories": memories})
         response.raise_for_status()
 
         capture_client_event("client.batch_delete", self)
@@ -383,15 +379,12 @@ class MemoryClient:
         Returns:
             Dict containing export request ID and status message
         """
-        response = self.client.post(
-            "/v1/exports/",
-            json={"schema": schema, **self._prepare_params(kwargs)}
-        )
+        response = self.client.post("/v1/exports/", json={"schema": schema, **self._prepare_params(kwargs)})
         response.raise_for_status()
         capture_client_event("client.create_memory_export", self, {"schema": schema, "keys": list(kwargs.keys())})
         return response.json()
 
-    @api_error_handler 
+    @api_error_handler
     def get_memory_export(self, **kwargs) -> Dict[str, Any]:
         """Get a memory export.
 
@@ -401,10 +394,7 @@ class MemoryClient:
         Returns:
             Dict containing the exported data
         """
-        response = self.client.get(
-            "/v1/exports/",
-            params=self._prepare_params(kwargs)
-        )
+        response = self.client.get("/v1/exports/", params=self._prepare_params(kwargs))
         response.raise_for_status()
         capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
         return response.json()
@@ -456,7 +446,7 @@ class MemoryClient:
 
         has_new = bool(self.org_id or self.project_id)
         has_old = bool(self.organization or self.project)
-        
+
         if has_new and has_old:
             raise ValueError(
                 "Please use either org_id/project_id or org_name/project_name, not both. "
@@ -480,7 +470,7 @@ class MemoryClient:
 
 class AsyncMemoryClient:
     """Asynchronous client for interacting with the Mem0 API.
-    
+
     This class provides asynchronous versions of all MemoryClient methods.
     It uses httpx.AsyncClient for making non-blocking API requests.
 
@@ -498,14 +488,7 @@ class AsyncMemoryClient:
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
     ):
-        self.sync_client = MemoryClient(
-            api_key, 
-            host, 
-            organization, 
-            project,
-            org_id,
-            project_id
-        )
+        self.sync_client = MemoryClient(api_key, host, organization, project, org_id, project_id)
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,

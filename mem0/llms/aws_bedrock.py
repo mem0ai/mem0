@@ -1,4 +1,3 @@
-
 import json
 from typing import Any, Dict, List, Optional
 
@@ -11,12 +10,12 @@ from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
 
-class AWSBedrockLLM(LLMBase):    
+class AWSBedrockLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model="anthropic.claude-3-5-sonnet-20240620-v1:0"
+            self.config.model = "anthropic.claude-3-5-sonnet-20240620-v1:0"
         self.client = boto3.client("bedrock-runtime")
         self.model_kwargs = {
             "temperature": self.config.temperature,

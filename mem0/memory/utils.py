@@ -1,5 +1,4 @@
 import re
-import json
 
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 
@@ -18,6 +17,7 @@ def parse_messages(messages):
         if msg["role"] == "assistant":
             response += f"assistant: {msg['content']}\n"
     return response
+
 
 def format_entities(entities):
     if not entities:

@@ -95,20 +95,17 @@ RELATIONS_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source": {
-                                "type": "string",
-                                "description": "The source entity of the relationship."
-                            },
+                            "source": {"type": "string", "description": "The source entity of the relationship."},
                             "relationship": {
                                 "type": "string",
-                                "description": "The relationship between the source and destination entities."
+                                "description": "The relationship between the source and destination entities.",
                             },
                             "destination": {
                                 "type": "string",
-                                "description": "The destination entity of the relationship."
+                                "description": "The destination entity of the relationship.",
                             },
                         },
-                        "required": [   
+                        "required": [
                             "source",
                             "relationship",
                             "destination",
@@ -137,25 +134,19 @@ EXTRACT_ENTITIES_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "entity": {
-                                "type": "string",
-                                "description": "The name or identifier of the entity."
-                            },
-                            "entity_type": {
-                                "type": "string",
-                                "description": "The type or category of the entity."
-                            }
+                            "entity": {"type": "string", "description": "The name or identifier of the entity."},
+                            "entity_type": {"type": "string", "description": "The type or category of the entity."},
                         },
                         "required": ["entity", "entity_type"],
-                        "additionalProperties": False
+                        "additionalProperties": False,
                     },
-                    "description": "An array of entities with their types."
+                    "description": "An array of entities with their types.",
                 }
             },
             "required": ["entities"],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
@@ -260,18 +251,18 @@ RELATIONS_STRUCT_TOOL = {
                         "properties": {
                             "source_entity": {
                                 "type": "string",
-                                "description": "The source entity of the relationship."
+                                "description": "The source entity of the relationship.",
                             },
                             "relatationship": {
                                 "type": "string",
-                                "description": "The relationship between the source and destination entities."
+                                "description": "The relationship between the source and destination entities.",
                             },
                             "destination_entity": {
                                 "type": "string",
-                                "description": "The destination entity of the relationship."
+                                "description": "The destination entity of the relationship.",
                             },
                         },
-                        "required": [   
+                        "required": [
                             "source_entity",
                             "relatationship",
                             "destination_entity",
@@ -301,25 +292,19 @@ EXTRACT_ENTITIES_STRUCT_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "entity": {
-                                "type": "string",
-                                "description": "The name or identifier of the entity."
-                            },
-                            "entity_type": {
-                                "type": "string",
-                                "description": "The type or category of the entity."
-                            }
+                            "entity": {"type": "string", "description": "The name or identifier of the entity."},
+                            "entity_type": {"type": "string", "description": "The type or category of the entity."},
                         },
                         "required": ["entity", "entity_type"],
-                        "additionalProperties": False
+                        "additionalProperties": False,
                     },
-                    "description": "An array of entities with their types."
+                    "description": "An array of entities with their types.",
                 }
             },
             "required": ["entities"],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 DELETE_MEMORY_STRUCT_TOOL_GRAPH = {
@@ -342,7 +327,7 @@ DELETE_MEMORY_STRUCT_TOOL_GRAPH = {
                 "destination": {
                     "type": "string",
                     "description": "The identifier of the destination node in the relationship.",
-                }
+                },
             },
             "required": [
                 "source",
@@ -373,7 +358,7 @@ DELETE_MEMORY_TOOL_GRAPH = {
                 "destination": {
                     "type": "string",
                     "description": "The identifier of the destination node in the relationship.",
-                }
+                },
             },
             "required": [
                 "source",
