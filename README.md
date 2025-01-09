@@ -26,6 +26,9 @@
   <a href="https://pepy.tech/project/mem0ai">
     <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads" >
   </a>
+  <a href="https://github.com/mem0ai/mem0">
+    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
+  </a>
   <a href="https://pypi.org/project/mem0ai" target="_blank">
         <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
     </a>
