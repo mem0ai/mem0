@@ -1631,7 +1631,7 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/batch/" \
 </CodeGroup>
 
 ### 4.11 Create Memory Export
-Create a structured export of memories based on a provided Pydantic schema. This feature allows you to extract memories in a structured format that matches your schema definition. The export will consider `all memories` that match the parameters you provide, such as `user_id`, `agent_id`, `run_id`, or `session_id`.
+Submit a job to create a structured export of memories using a customizable Pydantic schema. This process may take some time to complete, especially if you’re exporting a large number of memories. You can tailor the export by applying various filters (e.g., `user_id`, `agent_id`, `run_id`, or `session_id`) and by modifying the Pydantic schema to ensure the final data matches your exact needs.
 
 For example, if you want to extract professional profile information from memories, you can define a schema and export the memories in that structured format:
 
