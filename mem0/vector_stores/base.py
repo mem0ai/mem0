@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class VectorStoreBase(ABC):
     @abstractmethod
-    def create_col(self, vector_size, distance):
+    def create_col(self, name, vector_size, distance):
         """Create a new collection."""
         pass
 
