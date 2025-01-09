@@ -8,27 +8,27 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def insert(self, name, vectors, payloads=None, ids=None):
+    def insert(self, vectors, payloads=None, ids=None):
         """Insert vectors into a collection."""
         pass
 
     @abstractmethod
-    def search(self, name, query, limit=5, filters=None):
+    def search(self, query, limit=5, filters=None):
         """Search for similar vectors."""
         pass
 
     @abstractmethod
-    def delete(self, name, vector_id):
+    def delete(self, vector_id):
         """Delete a vector by ID."""
         pass
 
     @abstractmethod
-    def update(self, name, vector_id, vector=None, payload=None):
+    def update(self, vector_id, vector=None, payload=None):
         """Update a vector and its payload."""
         pass
 
     @abstractmethod
-    def get(self, name, vector_id):
+    def get(self, vector_id):
         """Retrieve a vector by ID."""
         pass
 
@@ -43,7 +43,7 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def col_info(self, name):
+    def col_info(self):
         """Get information about a collection."""
         pass
 
