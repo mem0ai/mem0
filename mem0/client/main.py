@@ -48,6 +48,11 @@ class MemoryClient:
         api_key (str): The API key for authenticating with the Mem0 API.
         host (str): The base URL for the Mem0 API.
         client (httpx.Client): The HTTP client used for making API requests.
+        organization (str, optional): (Deprecated) Organization name.
+        project (str, optional): (Deprecated) Project name.
+        org_id (str, optional): Organization ID.
+        project_id (str, optional): Project ID.
+        user_id (str): Unique identifier for the user.
     """
 
     def __init__(
@@ -324,7 +329,19 @@ class MemoryClient:
 
     @api_error_handler
     def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Batch update memories."""
+        """Batch update memories.
+
+        Args:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
+                - memory_id (str): ID of the memory to update
+                - text (str): New text content for the memory
+
+        Returns:
+            str: Message indicating the success of the batch update.
+
+        Raises:
+            APIError: If the API request fails.
+        """
         response = self.client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
 
@@ -333,7 +350,18 @@ class MemoryClient:
 
     @api_error_handler
     def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Batch delete memories."""
+        """Batch delete memories.
+
+        Args:
+            memories: List of memory dictionaries to delete. Each dictionary must contain:
+                - memory_id (str): ID of the memory to delete
+
+        Returns:
+            str: Message indicating the success of the batch deletion.
+
+        Raises:
+            APIError: If the API request fails.
+        """
         response = self.client.request(
             "DELETE",
             "/v1/batch/",
@@ -342,6 +370,43 @@ class MemoryClient:
         response.raise_for_status()
 
         capture_client_event("client.batch_delete", self)
+        return response.json()
+
+    @api_error_handler
+    def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+        """Create a memory export with the provided schema.
+
+        Args:
+            schema: JSON schema defining the export structure
+            **kwargs: Optional filters like user_id, run_id, etc.
+
+        Returns:
+            Dict containing export request ID and status message
+        """
+        response = self.client.post(
+            "/v1/exports/",
+            json={"schema": schema, **self._prepare_params(kwargs)}
+        )
+        response.raise_for_status()
+        capture_client_event("client.create_memory_export", self, {"schema": schema, "keys": list(kwargs.keys())})
+        return response.json()
+
+    @api_error_handler 
+    def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+        """Get a memory export.
+
+        Args:
+            **kwargs: Filters like user_id to get specific export
+
+        Returns:
+            Dict containing the exported data
+        """
+        response = self.client.get(
+            "/v1/exports/",
+            params=self._prepare_params(kwargs)
+        )
+        response.raise_for_status()
+        capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
         return response.json()
 
     def chat(self):
@@ -414,7 +479,15 @@ class MemoryClient:
 
 
 class AsyncMemoryClient:
-    """Asynchronous client for interacting with the Mem0 API."""
+    """Asynchronous client for interacting with the Mem0 API.
+    
+    This class provides asynchronous versions of all MemoryClient methods.
+    It uses httpx.AsyncClient for making non-blocking API requests.
+
+    Attributes:
+        sync_client (MemoryClient): Underlying synchronous client instance.
+        async_client (httpx.AsyncClient): Async HTTP client for making API requests.
+    """
 
     def __init__(
         self,
