@@ -344,6 +344,26 @@ class MemoryClient:
         capture_client_event("client.batch_delete", self)
         return response.json()
 
+    @api_error_handler
+    def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+        """Create a memory export."""
+        payload = {"schema": schema}
+        params = self._prepare_params(kwargs)
+        payload.update(params)
+        response = self.client.post("/v1/exports/", json=payload)
+        response.raise_for_status()
+        capture_client_event("client.create_memory_export", self, {"schema": schema, "keys": list(kwargs.keys())})
+        return response.json()
+
+    @api_error_handler
+    def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+        """Get a memory export."""
+        params = self._prepare_params(kwargs)
+        response = self.client.get("/v1/exports/", params=params)
+        response.raise_for_status()
+        capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
+        return response.json()
+
     def chat(self):
         """Start a chat with the Mem0 AI. (Not implemented)
 

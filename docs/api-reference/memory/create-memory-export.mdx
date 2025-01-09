@@ -1,0 +1,6 @@
+---
+title: 'Create Memory Export'
+openapi: post /v1/exports/
+---
+
+Create a structured export of memories based on a provided Pydantic schema. This feature allows you to extract memories in a structured format that matches your schema definition. The export will consider `all memories` that match the parameters you provide, such as `user_id`, `agent_id`, `run_id`, or `session_id`.
