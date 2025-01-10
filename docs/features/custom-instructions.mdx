@@ -31,7 +31,7 @@ Your task is to extract ONLY health-related information from conversations, incl
 - Doctor visits and appointments
 - Health metrics (weight, blood pressure, etc)
 """
-response = client.update_instructions_and_categories({"custom_instructions": prompt})
+response = client.update_custom_instructions_and_categories({"custom_instructions": prompt})
 print(response)
 ```
 
@@ -47,7 +47,7 @@ You can also retrieve the current custom instructions:
 <CodeGroup>
 ```python Code
 # Retrieve current custom instructions
-response = client.get_instructions_and_categories(["custom_instructions"])
+response = client.get_custom_instructions_and_categories(["custom_instructions"])
 print(response)
 ```
 

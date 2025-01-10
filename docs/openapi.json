@@ -4045,12 +4045,12 @@
 				]
 			}
 		},
-		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/prompts/": {
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/": {
 			"get": {
-			"tags": ["prompts"],
-			"summary": "Get project prompts",
+			"tags": ["custom-instructions-and-categories"],
+			"summary": "Get custom instructions and categories",
 			"description": "Retrieve custom categories and instructions for a specific project",
-			"operationId": "get_project_prompts",
+			"operationId": "get_custom_instructions_and_categories",
 			"parameters": [
 				{
 				"name": "org_id",
@@ -4073,7 +4073,7 @@
 			],
 			"responses": {
 				"200": {
-				"description": "Successfully retrieved project prompts",
+				"description": "Successfully retrieved custom instructions and categories",
 				"content": {
 					"application/json": {
 					"schema": {
@@ -4105,7 +4105,7 @@
 						"properties": {
 						"error": {
 							"type": "string",
-							"example": "Unauthorized to modify project prompts."
+							"example": "Unauthorized to modify custom instructions and categories."
 						}
 						}
 					}
@@ -4116,19 +4116,19 @@
 			"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/prompts/\"\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.get(url, headers=headers)\nprint(response.json())"
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/\"\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.get(url, headers=headers)\nprint(response.json())"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "fetch('https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/prompts/', {\n  headers: {\n    'Authorization': 'Token <api-key>'\n  }\n})\n.then(response => response.json())\n.then(data => console.log(data))\n.catch(error => console.error(error));"
+				"source": "fetch('https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/', {\n  headers: {\n    'Authorization': 'Token <api-key>'\n  }\n})\n.then(response => response.json())\n.then(data => console.log(data))\n.catch(error => console.error(error));"
 				}
 			]
 			},
 			"post": {
-			"tags": ["prompts"],
-			"summary": "Update project prompts",
+			"tags": ["custom-instructions-and-categories"],
+			"summary": "Update custom instructions and categories",
 			"description": "Update custom categories and instructions for a specific project",
-			"operationId": "update_project_prompts",
+			"operationId": "update_custom_instructions_and_categories",
 			"parameters": [
 			{
 				"name": "org_id",
@@ -4173,7 +4173,7 @@
 			},
 			"responses": {
 			"200": {
-				"description": "Successfully updated project prompts",
+				"description": "Successfully updated custom instructions and categories",
 				"content": {
 				"application/json": {
 					"schema": {
@@ -4216,7 +4216,7 @@
 					"properties": {
 						"error": {
 						"type": "string",
-						"example": "Unauthorized to modify project prompts."
+						"example": "Unauthorized to modify custom instructions and categories."
 						}
 					}
 					}
@@ -4227,11 +4227,11 @@
 			"x-code-samples": [
 			{
 				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/prompts/\"\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\npayload = {\n    \"custom_categories\": [\"new_category1\", \"new_category2\"],\n    \"custom_instructions\": \"New custom instructions text\"\n}\n\nresponse = requests.post(url, headers=headers, json=payload)\nprint(response.json())"
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/\"\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\npayload = {\n    \"custom_categories\": [\"new_category1\", \"new_category2\"],\n    \"custom_instructions\": \"New custom instructions text\"\n}\n\nresponse = requests.post(url, headers=headers, json=payload)\nprint(response.json())"
 			},
 			{
 				"lang": "JavaScript",
-				"source": "fetch('https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/prompts/', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Token <api-key>',\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    custom_categories: ['new_category1', 'new_category2'],\n    custom_instructions: 'New custom instructions text'\n  })\n})\n.then(response => response.json())\n.then(data => console.log(data))\n.catch(error => console.error(error));"
+				"source": "fetch('https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Token <api-key>',\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    custom_categories: ['new_category1', 'new_category2'],\n    custom_instructions: 'New custom instructions text'\n  })\n})\n.then(response => response.json())\n.then(data => console.log(data))\n.catch(error => console.error(error));"
 			}
 			]
 		}

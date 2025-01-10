@@ -400,7 +400,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_instructions_and_categories(self, fields: List[str]) -> Dict[str, Any]:
+    def get_custom_instructions_and_categories(self, fields: List[str]) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
         Args:
@@ -418,18 +418,19 @@ class MemoryClient:
 
         params = self._prepare_params({"fields": fields})
         response = self.client.get(
-            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/prompts/", params=params
+            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/custom-instructions-and-categories/",
+            params=params,
         )
         response.raise_for_status()
-        capture_client_event("client.get_instructions_and_categories", self, {"fields": fields})
+        capture_client_event("client.get_custom_instructions_and_categories", self, {"fields": fields})
         return response.json()
 
     @api_error_handler
-    def update_instructions_and_categories(self, prompts: Dict[str, Any]) -> Dict[str, Any]:
+    def update_custom_instructions_and_categories(self, fields: Dict[str, Any]) -> Dict[str, Any]:
         """Update instructions or categories for the current project.
 
         Args:
-            prompts: Dictionary of prompt fields to update
+            fields: Dictionary of fields to update
                     (e.g. {"custom_categories": "new instructions", "custom_categories": ["cat1"]})
 
         Returns:
@@ -443,10 +444,11 @@ class MemoryClient:
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
         response = self.client.post(
-            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/prompts/", json=prompts
+            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/custom-instructions-and-categories/",
+            json=fields,
         )
         response.raise_for_status()
-        capture_client_event("client.update_instructions_and_categories", self, {"fields": list(prompts.keys())})
+        capture_client_event("client.update_custom_instructions_and_categories", self, {"fields": list(fields.keys())})
         return response.json()
 
     def chat(self):
@@ -729,31 +731,33 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_instructions_and_categories(self, fields: List[str]) -> Dict[str, Any]:
+    async def get_custom_instructions_and_categories(self, fields: List[str]) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
         params = self.sync_client._prepare_params({"fields": fields})
         response = await self.async_client.get(
-            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/prompts/",
+            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/custom-instructions-and-categories/",
             params=params,
         )
         response.raise_for_status()
-        capture_client_event("async_client.get_instructions_and_categories", self.sync_client, {"fields": fields})
+        capture_client_event(
+            "async_client.get_custom_instructions_and_categories", self.sync_client, {"fields": fields}
+        )
         return response.json()
 
     @api_error_handler
-    async def update_instructions_and_categories(self, prompts: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_custom_instructions_and_categories(self, fields: Dict[str, Any]) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
         response = await self.async_client.post(
-            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/prompts/",
-            json=prompts,
+            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/custom-instructions-and-categories/",
+            json=fields,
         )
         response.raise_for_status()
         capture_client_event(
-            "async_client.update_instructions_and_categories", self.sync_client, {"fields": list(prompts.keys())}
+            "async_client.update_custom_instructions_and_categories", self.sync_client, {"fields": list(fields.keys())}
         )
         return response.json()
 
