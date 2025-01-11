@@ -59,7 +59,7 @@ new_categories = [
     {"cooking": "For users interested in cooking and culinary experiences"},
     {"fitness": "Content related to fitness and exercise"}
 ]
-response = client.update_custom_instructions_and_categories({"custom_categories": new_categories})
+response = client.update_custom_instructions_and_categories(custom_categories=new_categories)
 print(response)
 ```
 
@@ -79,7 +79,7 @@ from mem0 import MemoryClient
 client = MemoryClient(api_key="xxx")
 
 # Get current custom categories
-categories = client.get_custom_instructions_and_categories(["custom_categories"])
+categories = client.get_custom_instructions_and_categories(custom_categories=True)
 print(categories)
 ```
 
