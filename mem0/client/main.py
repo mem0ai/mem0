@@ -416,6 +416,9 @@ class MemoryClient:
         """
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
+        
+        if not custom_instructions and not custom_categories:
+            return {}
 
         fields = []
         if custom_instructions:
@@ -741,9 +744,12 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_custom_instructions_and_categories(self, custom_instructions: Optional[bool]=True, custom_categories: Optional[bool]=False) -> Dict[str, Any]:
+    async def get_custom_instructions_and_categories(self, custom_instructions: Optional[bool]=False, custom_categories: Optional[bool]=False) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
+
+        if not custom_instructions and not custom_categories:
+            return {}
 
         fields = []
         if custom_instructions:
