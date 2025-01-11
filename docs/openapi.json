@@ -702,6 +702,18 @@
 						"in": "query",
 						"schema": { "type": "integer" },
 						"description": "Number of items per page. Default: 100"
+					},
+					{
+						"name": "start_date",
+						"in": "query",
+						"schema": { "type": "string" },
+						"description": "Filter memories by start date"
+					},
+					{
+						"name": "end_date",
+						"in": "query",
+						"schema": { "type": "string" },
+						"description": "Filter memories by end date"
 					}
 				],
 				"responses": {
