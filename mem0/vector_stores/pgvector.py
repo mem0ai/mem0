@@ -32,6 +32,7 @@ class PGVector(VectorStoreBase):
         host,
         port,
         diskann,
+        hnsw,
     ):
         """
         Initialize the PGVector database.
@@ -45,9 +46,11 @@ class PGVector(VectorStoreBase):
             host (str, optional): Database host
             port (int, optional): Database port
             diskann (bool, optional): Use DiskANN for faster search
+            hnsw (bool, optional): Use HNSW for faster search
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
+        self.use_hnsw = hnsw
 
         self.conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         self.cur = self.conn.cursor()
@@ -59,11 +62,10 @@ class PGVector(VectorStoreBase):
     def create_col(self, embedding_model_dims):
         """
         Create a new collection (table in PostgreSQL).
-        Will also initialize DiskANN index if the extension is installed.
+        Will also initialize vector search index if specified.
 
         Args:
-            name (str): Name of the collection.
-            embedding_model_dims (int, optional): Dimension of the embedding vector.
+            embedding_model_dims (int): Dimension of the embedding vector.
         """
         self.cur.execute(
             f"""
@@ -82,11 +84,19 @@ class PGVector(VectorStoreBase):
                 # Create DiskANN index if extension is installed for faster search
                 self.cur.execute(
                     f"""
-                    CREATE INDEX IF NOT EXISTS {self.collection_name}_vector_idx
+                    CREATE INDEX IF NOT EXISTS {self.collection_name}_diskann_idx
                     ON {self.collection_name}
                     USING diskann (vector);
                 """
                 )
+        elif self.use_hnsw:
+            self.cur.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS {self.collection_name}_hnsw_idx
+                ON {self.collection_name}
+                USING hnsw (vector vector_cosine_ops)
+            """
+            )
 
         self.conn.commit()
 
