@@ -399,6 +399,58 @@ class MemoryClient:
         capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
         return response.json()
 
+    @api_error_handler
+    def get_custom_instructions_and_categories(self, fields: List[str]) -> Dict[str, Any]:
+        """Get instructions or categories for the current project.
+
+        Args:
+            fields: List of field names to retrieve (e.g. ['custom_instructions', 'custom_categories'])
+
+        Returns:
+            Dictionary containing the requested instructions or categories.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
+        if not (self.org_id and self.project_id):
+            raise ValueError("org_id and project_id must be set to access instructions or categories")
+
+        params = self._prepare_params({"fields": fields})
+        response = self.client.get(
+            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/custom-instructions-and-categories/",
+            params=params,
+        )
+        response.raise_for_status()
+        capture_client_event("client.get_custom_instructions_and_categories", self, {"fields": fields})
+        return response.json()
+
+    @api_error_handler
+    def update_custom_instructions_and_categories(self, fields: Dict[str, Any]) -> Dict[str, Any]:
+        """Update instructions or categories for the current project.
+
+        Args:
+            fields: Dictionary of fields to update
+                    (e.g. {"custom_categories": "new instructions", "custom_categories": ["cat1"]})
+
+        Returns:
+            Dictionary containing the API response.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
+        if not (self.org_id and self.project_id):
+            raise ValueError("org_id and project_id must be set to update instructions or categories")
+
+        response = self.client.post(
+            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/custom-instructions-and-categories/",
+            json=fields,
+        )
+        response.raise_for_status()
+        capture_client_event("client.update_custom_instructions_and_categories", self, {"fields": list(fields.keys())})
+        return response.json()
+
     def chat(self):
         """Start a chat with the Mem0 AI. (Not implemented)
 
@@ -603,6 +655,111 @@ class AsyncMemoryClient:
         await self.delete_users()
         capture_client_event("async_client.reset", self.sync_client)
         return {"message": "Client reset successful. All users and memories deleted."}
+
+    @api_error_handler
+    async def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch update memories.
+
+        Args:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
+                - memory_id (str): ID of the memory to update
+                - text (str): New text content for the memory
+
+        Returns:
+            str: Message indicating the success of the batch update.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+        response = await self.async_client.put("/v1/batch/", json={"memories": memories})
+        response.raise_for_status()
+
+        capture_client_event("async_client.batch_update", self.sync_client)
+        return response.json()
+
+    @api_error_handler
+    async def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch delete memories.
+
+        Args:
+            memories: List of memory dictionaries to delete. Each dictionary must contain:
+                - memory_id (str): ID of the memory to delete
+
+        Returns:
+            str: Message indicating the success of the batch deletion.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+        response = await self.async_client.request("DELETE", "/v1/batch/", json={"memories": memories})
+        response.raise_for_status()
+
+        capture_client_event("async_client.batch_delete", self.sync_client)
+        return response.json()
+
+    @api_error_handler
+    async def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+        """Create a memory export with the provided schema.
+
+        Args:
+            schema: JSON schema defining the export structure
+            **kwargs: Optional filters like user_id, run_id, etc.
+
+        Returns:
+            Dict containing export request ID and status message
+        """
+        response = await self.async_client.post("/v1/exports/", json={"schema": schema, **self._prepare_params(kwargs)})
+        response.raise_for_status()
+        capture_client_event(
+            "async_client.create_memory_export", self.sync_client, {"schema": schema, "keys": list(kwargs.keys())}
+        )
+        return response.json()
+
+    @api_error_handler
+    async def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+        """Get a memory export.
+
+        Args:
+            **kwargs: Filters like user_id to get specific export
+
+        Returns:
+            Dict containing the exported data
+        """
+        response = await self.async_client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response.raise_for_status()
+        capture_client_event("async_client.get_memory_export", self.sync_client, {"keys": list(kwargs.keys())})
+        return response.json()
+
+    @api_error_handler
+    async def get_custom_instructions_and_categories(self, fields: List[str]) -> Dict[str, Any]:
+        if not (self.sync_client.org_id and self.sync_client.project_id):
+            raise ValueError("org_id and project_id must be set to access instructions or categories")
+
+        params = self.sync_client._prepare_params({"fields": fields})
+        response = await self.async_client.get(
+            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/custom-instructions-and-categories/",
+            params=params,
+        )
+        response.raise_for_status()
+        capture_client_event(
+            "async_client.get_custom_instructions_and_categories", self.sync_client, {"fields": fields}
+        )
+        return response.json()
+
+    @api_error_handler
+    async def update_custom_instructions_and_categories(self, fields: Dict[str, Any]) -> Dict[str, Any]:
+        if not (self.sync_client.org_id and self.sync_client.project_id):
+            raise ValueError("org_id and project_id must be set to update instructions or categories")
+
+        response = await self.async_client.post(
+            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/custom-instructions-and-categories/",
+            json=fields,
+        )
+        response.raise_for_status()
+        capture_client_event(
+            "async_client.update_custom_instructions_and_categories", self.sync_client, {"fields": list(fields.keys())}
+        )
+        return response.json()
 
     async def chat(self):
         raise NotImplementedError("Chat is not implemented yet")
