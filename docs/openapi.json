@@ -394,200 +394,200 @@
 				}
 			}
 		},
-  "/v1/exports/": {
-	"get": {
-	  "tags": [
-		"exports"
-	  ],
-	  "summary": "Export data based on filters",
-	  "description": "Get the latest memory export.",
-	  "operationId": "exports_list",
-	  "parameters": [
-		{
-		  "name": "user_id",
-		  "in": "query",
-		  "schema": {
-			"type": "string"
-		  },
-		  "description": "Filter exports by user ID"
-		},
-		{
-		  "name": "run_id",
-		  "in": "query",
-		  "schema": {
-			"type": "string"
-		  },
-		  "description": "Filter exports by run ID"
-		},
-		{
-		  "name": "session_id",
-		  "in": "query",
-		  "schema": {
-			"type": "string"
-		  },
-		  "description": "Filter exports by session ID"
-		},
-		{
-		  "name": "app_id",
-		  "in": "query",
-		  "schema": {
-			"type": "string"
-		  },
-		  "description": "Filter exports by app ID"
-		},
-		{
-		  "name": "org_id",
-		  "in": "query",
-		  "schema": {
-			"type": "string"
-		  },
-		  "description": "Filter exports by organization ID"
-		},
-		{
-		  "name": "project_id",
-		  "in": "query",
-		  "schema": {
-			"type": "string"
-		  },
-		  "description": "Filter exports by project ID"
-		}
-	  ],
-	  "responses": {
-		"200": {
-		  "description": "Successful export",
-		  "content": {
-			"application/json": {
-			  "schema": {
-				"type": "object",
-				"description": "Export data response"
-			  }
-			}
-		  }
-		},
-		"400": {
-		  "description": "Bad Request",
-		  "content": {
-			"application/json": {
-			  "schema": {
-				"type": "object",
-				"properties": {
-				  "message": {
-					"type": "string",
-					"example": "One of the filters: app_id, user_id, agent_id, run_id is required!"
-				  }
+		"/v1/exports/": {
+			"get": {
+			"tags": [
+				"exports"
+			],
+			"summary": "Export data based on filters",
+			"description": "Get the latest memory export.",
+			"operationId": "exports_list",
+			"parameters": [
+				{
+				"name": "user_id",
+				"in": "query",
+				"schema": {
+					"type": "string"
+				},
+				"description": "Filter exports by user ID"
+				},
+				{
+				"name": "run_id",
+				"in": "query",
+				"schema": {
+					"type": "string"
+				},
+				"description": "Filter exports by run ID"
+				},
+				{
+				"name": "session_id",
+				"in": "query",
+				"schema": {
+					"type": "string"
+				},
+				"description": "Filter exports by session ID"
+				},
+				{
+				"name": "app_id",
+				"in": "query",
+				"schema": {
+					"type": "string"
+				},
+				"description": "Filter exports by app ID"
+				},
+				{
+				"name": "org_id",
+				"in": "query",
+				"schema": {
+					"type": "string"
+				},
+				"description": "Filter exports by organization ID"
+				},
+				{
+				"name": "project_id",
+				"in": "query",
+				"schema": {
+					"type": "string"
+				},
+				"description": "Filter exports by project ID"
 				}
-			  }
-			}
-		  }
-		},
-		"404": {
-		  "description": "Not Found",
-		  "content": {
-			"application/json": {
-			  "schema": {
-				"type": "object",
-				"properties": {
-				  "error": {
-					"type": "string",
-					"example": "No memory export request found"
-				  }
+			],
+			"responses": {
+				"200": {
+				"description": "Successful export",
+				"content": {
+					"application/json": {
+					"schema": {
+						"type": "object",
+						"description": "Export data response"
+					}
+					}
 				}
-			  }
+				},
+				"400": {
+				"description": "Bad Request",
+				"content": {
+					"application/json": {
+					"schema": {
+						"type": "object",
+						"properties": {
+						"message": {
+							"type": "string",
+							"example": "One of the filters: app_id, user_id, agent_id, run_id is required!"
+						}
+						}
+					}
+					}
+				}
+				},
+				"404": {
+				"description": "Not Found",
+				"content": {
+					"application/json": {
+					"schema": {
+						"type": "object",
+						"properties": {
+						"error": {
+							"type": "string",
+							"example": "No memory export request found"
+						}
+						}
+					}
+					}
+				}
+				}
 			}
-		  }
+			},
+			"post": {
+			"tags": [
+			"exports"
+			],
+			"summary": "Create an export job with schema",
+			"description": "Create a structured export of memories based on a provided schema.",
+			"operationId": "exports_create",
+			"requestBody": {
+			"content": {
+				"application/json": {
+				"schema": {
+					"type": "object",
+					"required": ["schema"],
+					"properties": {
+					"schema": {
+						"type": "object",
+						"description": "Schema definition for the export"
+					},
+					"user_id": {
+						"type": "string",
+						"description": "Filter exports by user ID"
+					},
+					"run_id": {
+						"type": "string",
+						"description": "Filter exports by run ID"
+					},
+					"session_id": {
+						"type": "string",
+						"description": "Filter exports by session ID"
+					},
+					"app_id": {
+						"type": "string",
+						"description": "Filter exports by app ID"
+					},
+					"org_id": {
+						"type": "string",
+						"description": "Filter exports by organization ID"
+					},
+					"project_id": {
+						"type": "string",
+						"description": "Filter exports by project ID"
+					}
+					}
+				}
+				}
+			},
+			"required": true
+			},
+			"responses": {
+			"201": {
+				"description": "Export created successfully",
+				"content": {
+				"application/json": {
+					"schema": {
+					"type": "object",
+					"properties": {
+						"message": {
+						"type": "string",
+						"example": "Memory export request received. The export will be ready in a few seconds."
+						},
+						"id": {
+						"type": "string",
+						"format": "uuid",
+						"example": "550e8400-e29b-41d4-a716-446655440000"
+						}
+					},
+					"required": ["message", "id"]
+					}
+				}
+				}
+			},
+			"400": {
+				"description": "Bad Request", 
+				"content": {
+				"application/json": {
+					"schema": {
+					"type": "object",
+					"properties": {
+						"message": {
+						"type": "string",
+						"example": "Schema is required and must be a valid object"
+						}
+					}
+					}
+				}
+				}
+			}
+			}
 		}
-	  }
-	},
-	"post": {
-    "tags": [
-      "exports"
-    ],
-    "summary": "Create an export job with schema",
-    "description": "Create a structured export of memories based on a provided schema.",
-    "operationId": "exports_create",
-    "requestBody": {
-      "content": {
-        "application/json": {
-          "schema": {
-            "type": "object",
-            "required": ["schema"],
-            "properties": {
-              "schema": {
-                "type": "object",
-                "description": "Schema definition for the export"
-              },
-              "user_id": {
-                "type": "string",
-                "description": "Filter exports by user ID"
-              },
-              "run_id": {
-                "type": "string",
-                "description": "Filter exports by run ID"
-              },
-              "session_id": {
-                "type": "string",
-                "description": "Filter exports by session ID"
-              },
-              "app_id": {
-                "type": "string",
-                "description": "Filter exports by app ID"
-              },
-              "org_id": {
-                "type": "string",
-                "description": "Filter exports by organization ID"
-              },
-              "project_id": {
-                "type": "string",
-                "description": "Filter exports by project ID"
-              }
-            }
-          }
-        }
-      },
-      "required": true
-    },
-    "responses": {
-      "201": {
-        "description": "Export created successfully",
-        "content": {
-          "application/json": {
-            "schema": {
-              "type": "object",
-              "properties": {
-                "message": {
-                  "type": "string",
-                  "example": "Memory export request received. The export will be ready in a few seconds."
-                },
-                "id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "example": "550e8400-e29b-41d4-a716-446655440000"
-                }
-              },
-              "required": ["message", "id"]
-            }
-          }
-        }
-      },
-      "400": {
-        "description": "Bad Request", 
-        "content": {
-          "application/json": {
-            "schema": {
-              "type": "object",
-              "properties": {
-                "message": {
-                  "type": "string",
-                  "example": "Schema is required and must be a valid object"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  },
+		},
 		"/v1/memories/": {
 			"get": {
 				"tags": [
@@ -4044,6 +4044,197 @@
 				}
 				]
 			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/": {
+			"get": {
+			"tags": ["custom-instructions-and-categories"],
+			"summary": "Get custom instructions and categories",
+			"description": "Retrieve custom categories and instructions for a specific project",
+			"operationId": "get_custom_instructions_and_categories",
+			"parameters": [
+				{
+				"name": "org_id",
+				"in": "path",
+				"required": true,
+				"schema": {
+					"type": "string"
+				},
+				"description": "Organization ID"
+				},
+				{
+				"name": "project_id", 
+				"in": "path",
+				"required": true,
+				"schema": {
+					"type": "string"
+				},
+				"description": "Project ID"
+				}
+			],
+			"responses": {
+				"200": {
+				"description": "Successfully retrieved custom instructions and categories",
+				"content": {
+					"application/json": {
+					"schema": {
+						"type": "object",
+						"properties": {
+						"custom_categories": {
+							"type": "array",
+							"items": {
+							"type": "string"
+							},
+							"description": "List of custom categories for the project"
+						},
+						"custom_instructions": {
+							"type": "string",
+							"description": "Custom instructions text for the project"
+						}
+						},
+						"required": ["custom_categories", "custom_instructions"]
+					}
+					}
+				}
+				},
+				"403": {
+				"description": "Unauthorized access",
+				"content": {
+					"application/json": {
+					"schema": {
+						"type": "object",
+						"properties": {
+						"error": {
+							"type": "string",
+							"example": "Unauthorized to modify custom instructions and categories."
+						}
+						}
+					}
+					}
+				}
+				}
+			},
+			"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/\"\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.get(url, headers=headers)\nprint(response.json())"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "fetch('https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/', {\n  headers: {\n    'Authorization': 'Token <api-key>'\n  }\n})\n.then(response => response.json())\n.then(data => console.log(data))\n.catch(error => console.error(error));"
+				}
+			]
+			},
+			"post": {
+			"tags": ["custom-instructions-and-categories"],
+			"summary": "Update custom instructions and categories",
+			"description": "Update custom categories and instructions for a specific project",
+			"operationId": "update_custom_instructions_and_categories",
+			"parameters": [
+			{
+				"name": "org_id",
+				"in": "path",
+				"required": true,
+				"schema": {
+				"type": "string"
+				},
+				"description": "Organization ID"
+			},
+			{
+				"name": "project_id",
+				"in": "path",
+				"required": true,
+				"schema": {
+				"type": "string"
+				},
+				"description": "Project ID"
+			}
+			],
+			"requestBody": {
+			"content": {
+				"application/json": {
+				"schema": {
+					"type": "object",
+					"properties": {
+					"custom_categories": {
+						"type": "array",
+						"items": {
+						"type": "string"
+						},
+						"description": "List of new custom categories for the project"
+					},
+					"custom_instructions": {
+						"type": "string",
+						"description": "New custom instructions text for the project"
+					}
+					}
+				}
+				}
+			}
+			},
+			"responses": {
+			"200": {
+				"description": "Successfully updated custom instructions and categories",
+				"content": {
+				"application/json": {
+					"schema": {
+					"type": "object",
+					"properties": {
+						"message": {
+						"type": "string",
+						"example": "Updated custom categories / instructions"
+						}
+					}
+					}
+				}
+				}
+			},
+			"400": {
+				"description": "Bad request",
+				"content": {
+				"application/json": {
+					"schema": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "array",
+						"items": {
+						"type": "string"
+						}
+					},
+					"example": {
+						"field_name": ["error message"]
+					}
+					}
+				}
+				}
+			},
+			"403": {
+				"description": "Unauthorized access",
+				"content": {
+				"application/json": {
+					"schema": {
+					"type": "object",
+					"properties": {
+						"error": {
+						"type": "string",
+						"example": "Unauthorized to modify custom instructions and categories."
+						}
+					}
+					}
+				}
+				}
+			}
+			},
+			"x-code-samples": [
+			{
+				"lang": "Python",
+				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/\"\nheaders = {\n    \"Authorization\": \"Token <api-key>\",\n    \"Content-Type\": \"application/json\"\n}\npayload = {\n    \"custom_categories\": [\"new_category1\", \"new_category2\"],\n    \"custom_instructions\": \"New custom instructions text\"\n}\n\nresponse = requests.post(url, headers=headers, json=payload)\nprint(response.json())"
+			},
+			{
+				"lang": "JavaScript",
+				"source": "fetch('https://api.mem0.ai/api/organizations/{org_id}/projects/{project_id}/custom-instructions-and-categories/', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Token <api-key>',\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    custom_categories: ['new_category1', 'new_category2'],\n    custom_instructions: 'New custom instructions text'\n  })\n})\n.then(response => response.json())\n.then(data => console.log(data))\n.catch(error => console.error(error));"
+			}
+			]
+		}
 		}
 	},
 	"components": {

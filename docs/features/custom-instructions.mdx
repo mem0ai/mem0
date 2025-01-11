@@ -1,0 +1,59 @@
+---
+title: Custom Instructions
+description: 'Enhance your product experience by adding custom instructions tailored to your needs'
+---
+
+## Introduction to Custom Instructions
+
+Custom instructions allow you to define specific guidelines for your project. This feature helps ensure consistency and provides clear direction for handling project-specific requirements.
+
+Custom instructions are particularly useful when you want to:
+- Define how information should be extracted from conversations
+- Specify what types of data should be captured or ignored
+- Set rules for categorizing and organizing memories
+- Maintain consistent handling of project-specific requirements
+
+When custom instructions are set at the project level, they will be applied to all new memories added within that project. This ensures that your data is processed according to your defined guidelines across your entire project.
+
+## Setting Custom Instructions
+
+You can set custom instructions for your project using the following method:
+
+<CodeGroup>
+```python Code
+# Update custom instructions
+prompt = """
+Your task is to extract ONLY health-related information from conversations, including:
+
+- Medical conditions, symptoms, diagnoses
+- Medications, treatments, procedures
+- Diet, exercise, sleep habits
+- Doctor visits and appointments
+- Health metrics (weight, blood pressure, etc)
+"""
+response = client.update_custom_instructions_and_categories({"custom_instructions": prompt})
+print(response)
+```
+
+```json Output
+{
+    "message": "Updated custom instructions"
+}
+```
+</CodeGroup>
+
+You can also retrieve the current custom instructions:
+
+<CodeGroup>
+```python Code
+# Retrieve current custom instructions
+response = client.get_custom_instructions_and_categories(["custom_instructions"])
+print(response)
+```
+
+```json Output
+{
+    "custom_instructions": "Your task is to extract ONLY health-related information from conversations, including:\n\n- Medical conditions, symptoms, diagnoses\n- Medications, treatments, procedures\n- Diet, exercise, sleep habits\n- Doctor visits and appointments\n- Health metrics (weight, blood pressure, etc)"
+}
+```
+</CodeGroup>
