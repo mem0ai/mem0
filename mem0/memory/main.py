@@ -140,7 +140,7 @@ class Memory(MemoryBase):
             )
             return vector_store_result
 
-    def _add_to_vector_store(self, messages, metadata, filters, prompt):
+    def _add_to_vector_store(self, messages, metadata, filters, prompt=None):
         parsed_messages = parse_messages(messages)
 
         custom_prompt = prompt if prompt else self.custom_prompt
@@ -247,7 +247,7 @@ class Memory(MemoryBase):
 
         return returned_memories
 
-    def _add_to_graph(self, messages, filters, graph_prompt):
+    def _add_to_graph(self, messages, filters, graph_prompt=None):
         added_entities = []
         if self.api_version == "v1.1" and self.enable_graph:
             if filters.get("user_id") is None:
