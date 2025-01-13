@@ -459,7 +459,7 @@ class MemoryClient:
             json=payload,
         )
         response.raise_for_status()
-        capture_client_event("client.update_project_details", self, {"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        capture_client_event("client.update_project", self, {"custom_instructions": custom_instructions, "custom_categories": custom_categories})
         return response.json()
 
     def chat(self):
