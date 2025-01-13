@@ -119,30 +119,38 @@ class ElasticsearchDB(VectorStoreBase):
         return results
 
     def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
-        """Search for similar vectors."""
+        """Search for similar vectors using KNN search with pre-filtering."""
         search_query = {
             "query": {
-                "script_score": {
-                    "query": {"match_all": {}},
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
-                        "params": {"query_vector": query},
-                    },
+                "bool": {
+                    "must": [
+                        # Exact match filters for memory isolation
+                        *({"term": {f"payload.{k}": v}} for k, v in (filters or {}).items()),
+                        # KNN vector search
+                        {
+                            "knn": {
+                                "vector": {
+                                    "vector": query,
+                                    "k": limit
+                                }
+                            }
+                        }
+                    ]
                 }
-            },
-            "size": limit,
-        }
-
-        if filters:
-            search_query["query"]["script_score"]["query"] = {
-                "bool": {"must": [{"match": {f"payload.{k}": v}} for k, v in filters.items()]}
             }
+        }
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
         results = []
         for hit in response["hits"]["hits"]:
-            results.append(OutputData(id=hit["_id"], score=hit["_score"], payload=hit["_source"].get("payload", {})))
+            results.append(
+                OutputData(
+                    id=hit["_id"],
+                    score=hit["_score"],
+                    payload=hit["_source"].get("payload", {})
+                )
+            )
 
         return results
 
