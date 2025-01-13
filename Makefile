@@ -13,7 +13,7 @@ install:
 install_all:
 	poetry install
 	poetry run pip install groq together boto3 litellm ollama chromadb sentence_transformers vertexai \
-	                        google-generativeai
+	                        google-generativeai elasticsearch
 
 # Format code with ruff
 format:
