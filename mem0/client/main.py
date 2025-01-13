@@ -742,7 +742,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_project_details(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+    async def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
