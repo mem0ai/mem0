@@ -516,17 +516,19 @@ class MemoryClient:
                 "Note that org_name/project_name are deprecated."
             )
 
-        # Add org_id and project_id if available
-        if self.org_id:
+        # Add org_id and project_id if both are available
+        if self.org_id and self.project_id:
             kwargs["org_id"] = self.org_id
-        if self.project_id:
             kwargs["project_id"] = self.project_id
+        elif self.org_id or self.project_id:
+            raise ValueError("Please provide both org_id and project_id, or neither.")
 
-        # Add deprecated org_name and project_name for backward compatibility
-        if self.organization:
+        # Add deprecated org_name and project_name if both are available
+        if self.organization and self.project:
             kwargs["org_name"] = self.organization
-        if self.project:
             kwargs["project_name"] = self.project
+        elif self.organization or self.project:
+            raise ValueError("Please provide both org_name and project_name, or neither.")
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
