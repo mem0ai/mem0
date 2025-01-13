@@ -37,7 +37,6 @@ ruff = "^0.6.5"
 isort = "^5.13.2"
 pytest = "^8.2.2"
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
