@@ -3,7 +3,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import dotenv
-from elasticsearch import Elasticsearch
+
+try:
+    from elasticsearch import Elasticsearch
+except ImportError:
+    raise ImportError(
+        "Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`"
+    ) from None
 
 from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 
