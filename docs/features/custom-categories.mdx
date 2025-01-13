@@ -45,7 +45,55 @@ Mostly cook at home because of gym plan. (fitness, cooking)
 
 <Note> The more detailed the description of categories is, the better output the user will receive. When custom categories are provided in the `add` API call, they will completely replace the default categories and will be directly assigned to the memory, so make sure to include all categories you want to use. </Note>
 
-<Note> We will soon release a feature that allows users to set custom categories in `project`. This will allow the functionality where relevant categories are automatically assigned to the memory based on the input text provided. </Note>
+
+## Setting Project-Level Custom Categories
+
+You can also set custom categories at the project level, which will be applied to all memories added within that project. We will automatically assign relevant categories from your custom set to new memories based on their content. 
+
+Here's how to set custom categories:
+
+<CodeGroup>
+```python Code
+# Update custom categories
+new_categories = [
+    {"cooking": "For users interested in cooking and culinary experiences"},
+    {"fitness": "Content related to fitness and exercise"}
+]
+response = client.update_custom_instructions_and_categories({"custom_categories": new_categories})
+print(response)
+```
+
+```json Output
+{
+    "message": "Updated custom categories"
+}
+```
+</CodeGroup>
+
+You can also retrieve the current custom categories:
+
+<CodeGroup>
+```python Code
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="xxx")
+
+# Get current custom categories
+categories = client.get_custom_instructions_and_categories(["custom_categories"])
+print(categories)
+```
+
+```json Output
+{
+    "custom_categories": [
+        {"cooking": "For users interested in cooking and culinary experiences"},
+        {"fitness": "Content related to fitness and exercise"}
+    ]
+}
+```
+</CodeGroup>
+
+These project-level categories will be automatically applied to all new memories added to the project.
 
 ## Default Categories
 Here is the list of **default categories**. Ensure you review these before creating custom categories to prevent duplication.
