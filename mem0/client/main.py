@@ -754,7 +754,7 @@ class AsyncMemoryClient:
         )
         response.raise_for_status()
         capture_client_event(
-            "async_client.get_project_details", self.sync_client, {"fields": fields}
+            "async_client.get_project", self.sync_client, {"fields": fields}
         )
         return response.json()
 
