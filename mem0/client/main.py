@@ -433,7 +433,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def update_project_details(self, custom_instructions: Optional[str]=None, custom_categories: Optional[List[str]]=None) -> Dict[str, Any]:
+    def update_project(self, custom_instructions: Optional[str]=None, custom_categories: Optional[List[str]]=None) -> Dict[str, Any]:
         """Update the project settings.
 
         Args:
