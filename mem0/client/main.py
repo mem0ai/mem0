@@ -407,7 +407,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_project_details(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+    def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
         Args:
