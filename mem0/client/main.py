@@ -770,7 +770,7 @@ class AsyncMemoryClient:
         )
         response.raise_for_status()
         capture_client_event(
-            "async_client.update_project_details", self.sync_client, {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+            "async_client.update_project", self.sync_client, {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
         )
         return response.json()
 
