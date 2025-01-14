@@ -521,14 +521,14 @@ class MemoryClient:
             kwargs["org_id"] = self.org_id
             kwargs["project_id"] = self.project_id
         elif self.org_id or self.project_id:
-            raise ValueError("Please provide both org_id and project_id, or neither.")
+            raise ValueError("Please provide both org_id and project_id")
 
         # Add deprecated org_name and project_name if both are available
         if self.organization and self.project:
             kwargs["org_name"] = self.organization
             kwargs["project_name"] = self.project
         elif self.organization or self.project:
-            raise ValueError("Please provide both org_name and project_name, or neither.")
+            raise ValueError("Please provide both org_name and project_name")
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
