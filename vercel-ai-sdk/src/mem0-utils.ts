@@ -28,6 +28,56 @@ const flattenPrompt = (prompt: LanguageModelV1Prompt) => {
     }).join(" ");
 }
 
+const convertToMem0Format = (messages: LanguageModelV1Prompt) => {
+  return messages.flatMap((message: any) => {
+    if (typeof message.content === 'string') {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    }
+    else{
+      return message.content.map((obj: any) => {
+        if (obj.type === "text") {
+          return {
+            role: message.role,
+            content: obj.text,
+          };
+        } else {
+          return null; // Handle other cases or return null/undefined as needed
+        }
+      }).filter((item: null) => item !== null); // Filter out null values if necessary      
+    }
+})};
+
+function convertMessagesToMem0Format(messages: LanguageModelV1Prompt) {
+  return messages.map((message) => {
+    // If the content is a string, return it as is
+    if (typeof message.content === "string") {
+      return message;
+    }
+
+    // Flatten the content array into a single string
+    if (Array.isArray(message.content)) {
+      message.content = message.content
+        .map((contentItem) => {
+          if ("text" in contentItem) {
+            return contentItem.text;
+          }
+          return "";
+        })
+        .join(" ");
+    }
+
+    const contentText = message.content;
+
+    return {
+      role: message.role,
+      content: contentText,
+    };
+  });
+}
+
 const searchInternalMemories = async (query: string, config?: Mem0Config, top_k: number = 5)=> {
     tokenIsPresent(config);
     const filters = {
@@ -46,10 +96,16 @@ const searchInternalMemories = async (query: string, config?: Mem0Config, top_k:
         },
       ],
     };
+    const org_project_filters = {
+      org_id: config&&config.org_id,
+      project_id: config&&config.project_id,
+      org_name: !config?.org_id ? config&&config.org_name : undefined,  // deprecated
+      project_name: !config?.org_id ? config&&config.project_name : undefined, // deprecated
+    }
     const options = {
         method: 'POST',
         headers: {Authorization: `Token ${(config&&config.mem0ApiKey) || (typeof process !== 'undefined' && process.env && process.env.MEM0_API_KEY) || ""}`, 'Content-Type': 'application/json'}, 
-        body: JSON.stringify({query, filters, top_k, version: "v2", org_name: config&&config.org_name, project_name: config&&config.project_name}),
+        body: JSON.stringify({query, filters, top_k, version: "v2", ...org_project_filters}),
     };
     const response  = await fetch('https://api.mem0.ai/v2/memories/search/', options);
     const data =  await response.json();
@@ -58,11 +114,13 @@ const searchInternalMemories = async (query: string, config?: Mem0Config, top_k:
 
 const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0Config)=>{
     tokenIsPresent(config);
-    const message = flattenPrompt(messages);
-    const response = await updateMemories([
-        { role: "user", content: message },
-        { role: "assistant", content: "Thank You!" },
-    ], config);
+    let finalMessages: Array<Message> = [];
+    if (typeof messages === "string") {
+        finalMessages = [{ role: "user", content: messages }];
+    }else {
+      finalMessages = convertToMem0Format(messages);
+    }
+    const response = await updateMemories(finalMessages, config);
     return response;
 }
 
@@ -94,7 +152,24 @@ const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?:
         console.error("Error while parsing memories");
         // console.log(e);
     }
+    if(memories.length === 0){
+      return "";
+    }
     return `System Message: ${systemPrompt} ${memoriesText}`;
+}
+
+const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0Config)=>{
+    tokenIsPresent(config);
+    const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
+    let memories = [];
+    try{
+        // @ts-ignore
+        memories = await searchInternalMemories(message, config);
+    }
+    catch(e){
+        console.error("Error while searching memories");
+    }
+    return memories;
 }
 
 const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0Config)=>{
@@ -111,4 +186,4 @@ const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: M
     return memories;
 }
 
-export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories};
+export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories, convertMessagesToMem0Format, getMemories};

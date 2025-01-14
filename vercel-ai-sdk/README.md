@@ -81,9 +81,14 @@ you must either set `MEM0_API_KEY` as an environment variable or pass it directl
 Example:
 
 ```typescript
-await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx" });
-await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
+await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
+await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", org_id: "org_xx", project_id: "proj_xx" });
 ```
+
+### Note:
+
+`retrieveMemories` enriches the prompt with relevant memories from your profile, while `getMemories` returns the memories in array format which can be used for further processing.
 
 ## Usage Examples
 
@@ -199,6 +204,7 @@ for await (const textPart of textStream) {
 - `createMem0()`: Initializes a new mem0 provider instance with optional configuration
 - `retrieveMemories()`: Enriches prompts with relevant memories
 - `addMemories()`: Add memories to your profile
+- `getMemories()`: Get memories from your profile in array format
 
 ## Configuration Options
 
