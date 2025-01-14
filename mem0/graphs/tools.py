@@ -1,4 +1,3 @@
-
 UPDATE_MEMORY_TOOL_GRAPH = {
     "type": "function",
     "function": {
@@ -9,21 +8,21 @@ UPDATE_MEMORY_TOOL_GRAPH = {
             "properties": {
                 "source": {
                     "type": "string",
-                    "description": "The identifier of the source node in the relationship to be updated. This should match an existing node in the graph."
+                    "description": "The identifier of the source node in the relationship to be updated. This should match an existing node in the graph.",
                 },
                 "destination": {
                     "type": "string",
-                    "description": "The identifier of the destination node in the relationship to be updated. This should match an existing node in the graph."
+                    "description": "The identifier of the destination node in the relationship to be updated. This should match an existing node in the graph.",
                 },
                 "relationship": {
                     "type": "string",
-                    "description": "The new or updated relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected."
-                }
+                    "description": "The new or updated relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.",
+                },
             },
             "required": ["source", "destination", "relationship"],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 ADD_MEMORY_TOOL_GRAPH = {
@@ -36,29 +35,35 @@ ADD_MEMORY_TOOL_GRAPH = {
             "properties": {
                 "source": {
                     "type": "string",
-                    "description": "The identifier of the source node in the new relationship. This can be an existing node or a new node to be created."
+                    "description": "The identifier of the source node in the new relationship. This can be an existing node or a new node to be created.",
                 },
                 "destination": {
                     "type": "string",
-                    "description": "The identifier of the destination node in the new relationship. This can be an existing node or a new node to be created."
+                    "description": "The identifier of the destination node in the new relationship. This can be an existing node or a new node to be created.",
                 },
                 "relationship": {
                     "type": "string",
-                    "description": "The type of relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected."
+                    "description": "The type of relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.",
                 },
                 "source_type": {
                     "type": "string",
-                    "description": "The type or category of the source node. This helps in classifying and organizing nodes in the graph."
+                    "description": "The type or category of the source node. This helps in classifying and organizing nodes in the graph.",
                 },
                 "destination_type": {
                     "type": "string",
-                    "description": "The type or category of the destination node. This helps in classifying and organizing nodes in the graph."
-                }
+                    "description": "The type or category of the destination node. This helps in classifying and organizing nodes in the graph.",
+                },
             },
-            "required": ["source", "destination", "relationship", "source_type", "destination_type"],
-            "additionalProperties": False
-        }
-    }
+            "required": [
+                "source",
+                "destination",
+                "relationship",
+                "source_type",
+                "destination_type",
+            ],
+            "additionalProperties": False,
+        },
+    },
 }
 
 
@@ -71,17 +76,17 @@ NOOP_TOOL = {
             "type": "object",
             "properties": {},
             "required": [],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 
-ADD_MESSAGE_TOOL = {
+RELATIONS_TOOL = {
     "type": "function",
     "function": {
-        "name": "add_query",
-        "description": "Add new entities and relationships to the graph based on the provided query.",
+        "name": "establish_relationships",
+        "description": "Establish relationships among the entities based on the provided text.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -90,51 +95,58 @@ ADD_MESSAGE_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source_node": {"type": "string"},
-                            "source_type": {"type": "string"},
-                            "relation": {"type": "string"},
-                            "destination_node": {"type": "string"},
-                            "destination_type": {"type": "string"}
+                            "source": {"type": "string", "description": "The source entity of the relationship."},
+                            "relationship": {
+                                "type": "string",
+                                "description": "The relationship between the source and destination entities.",
+                            },
+                            "destination": {
+                                "type": "string",
+                                "description": "The destination entity of the relationship.",
+                            },
                         },
-                        "required": ["source_node", "source_type", "relation", "destination_node", "destination_type"],
-                        "additionalProperties": False
-                    }
+                        "required": [
+                            "source",
+                            "relationship",
+                            "destination",
+                        ],
+                        "additionalProperties": False,
+                    },
                 }
             },
             "required": ["entities"],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 
-SEARCH_TOOL = {
+EXTRACT_ENTITIES_TOOL = {
     "type": "function",
     "function": {
-        "name": "search",
-        "description": "Search for nodes and relations in the graph.",
+        "name": "extract_entities",
+        "description": "Extract entities and their types from the text.",
         "parameters": {
             "type": "object",
             "properties": {
-                "nodes": {
+                "entities": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {
+                            "entity": {"type": "string", "description": "The name or identifier of the entity."},
+                            "entity_type": {"type": "string", "description": "The type or category of the entity."},
+                        },
+                        "required": ["entity", "entity_type"],
+                        "additionalProperties": False,
                     },
-                    "description": "List of nodes to search for."
-                },
-                "relations": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of relations to search for."
+                    "description": "An array of entities with their types.",
                 }
             },
-            "required": ["nodes", "relations"],
-            "additionalProperties": False
-        }
-    }
+            "required": ["entities"],
+            "additionalProperties": False,
+        },
+    },
 }
 
 UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
@@ -148,21 +160,21 @@ UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
             "properties": {
                 "source": {
                     "type": "string",
-                    "description": "The identifier of the source node in the relationship to be updated. This should match an existing node in the graph."
+                    "description": "The identifier of the source node in the relationship to be updated. This should match an existing node in the graph.",
                 },
                 "destination": {
                     "type": "string",
-                    "description": "The identifier of the destination node in the relationship to be updated. This should match an existing node in the graph."
+                    "description": "The identifier of the destination node in the relationship to be updated. This should match an existing node in the graph.",
                 },
                 "relationship": {
                     "type": "string",
-                    "description": "The new or updated relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected."
-                }
+                    "description": "The new or updated relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.",
+                },
             },
             "required": ["source", "destination", "relationship"],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 ADD_MEMORY_STRUCT_TOOL_GRAPH = {
@@ -176,29 +188,35 @@ ADD_MEMORY_STRUCT_TOOL_GRAPH = {
             "properties": {
                 "source": {
                     "type": "string",
-                    "description": "The identifier of the source node in the new relationship. This can be an existing node or a new node to be created."
+                    "description": "The identifier of the source node in the new relationship. This can be an existing node or a new node to be created.",
                 },
                 "destination": {
                     "type": "string",
-                    "description": "The identifier of the destination node in the new relationship. This can be an existing node or a new node to be created."
+                    "description": "The identifier of the destination node in the new relationship. This can be an existing node or a new node to be created.",
                 },
                 "relationship": {
                     "type": "string",
-                    "description": "The type of relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected."
+                    "description": "The type of relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.",
                 },
                 "source_type": {
                     "type": "string",
-                    "description": "The type or category of the source node. This helps in classifying and organizing nodes in the graph."
+                    "description": "The type or category of the source node. This helps in classifying and organizing nodes in the graph.",
                 },
                 "destination_type": {
                     "type": "string",
-                    "description": "The type or category of the destination node. This helps in classifying and organizing nodes in the graph."
-                }
+                    "description": "The type or category of the destination node. This helps in classifying and organizing nodes in the graph.",
+                },
             },
-            "required": ["source", "destination", "relationship", "source_type", "destination_type"],
-            "additionalProperties": False
-        }
-    }
+            "required": [
+                "source",
+                "destination",
+                "relationship",
+                "source_type",
+                "destination_type",
+            ],
+            "additionalProperties": False,
+        },
+    },
 }
 
 
@@ -212,17 +230,16 @@ NOOP_STRUCT_TOOL = {
             "type": "object",
             "properties": {},
             "required": [],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
-
-ADD_MESSAGE_STRUCT_TOOL = {
+RELATIONS_STRUCT_TOOL = {
     "type": "function",
     "function": {
-        "name": "add_query",
-        "description": "Add new entities and relationships to the graph based on the provided query.",
+        "name": "establish_relations",
+        "description": "Establish relationships among the entities based on the provided text.",
         "strict": True,
         "parameters": {
             "type": "object",
@@ -232,50 +249,123 @@ ADD_MESSAGE_STRUCT_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source_node": {"type": "string"},
-                            "source_type": {"type": "string"},
-                            "relation": {"type": "string"},
-                            "destination_node": {"type": "string"},
-                            "destination_type": {"type": "string"}
+                            "source_entity": {
+                                "type": "string",
+                                "description": "The source entity of the relationship.",
+                            },
+                            "relatationship": {
+                                "type": "string",
+                                "description": "The relationship between the source and destination entities.",
+                            },
+                            "destination_entity": {
+                                "type": "string",
+                                "description": "The destination entity of the relationship.",
+                            },
                         },
-                        "required": ["source_node", "source_type", "relation", "destination_node", "destination_type"],
-                        "additionalProperties": False
-                    }
+                        "required": [
+                            "source_entity",
+                            "relatationship",
+                            "destination_entity",
+                        ],
+                        "additionalProperties": False,
+                    },
                 }
             },
             "required": ["entities"],
-            "additionalProperties": False
-        }
-    }
+            "additionalProperties": False,
+        },
+    },
 }
 
 
-SEARCH_STRUCT_TOOL = {
+EXTRACT_ENTITIES_STRUCT_TOOL = {
     "type": "function",
     "function": {
-        "name": "search",
-        "description": "Search for nodes and relations in the graph.",
+        "name": "extract_entities",
+        "description": "Extract entities and their types from the text.",
         "strict": True,
         "parameters": {
             "type": "object",
             "properties": {
-                "nodes": {
+                "entities": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {
+                            "entity": {"type": "string", "description": "The name or identifier of the entity."},
+                            "entity_type": {"type": "string", "description": "The type or category of the entity."},
+                        },
+                        "required": ["entity", "entity_type"],
+                        "additionalProperties": False,
                     },
-                    "description": "List of nodes to search for."
-                },
-                "relations": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of relations to search for."
+                    "description": "An array of entities with their types.",
                 }
             },
-            "required": ["nodes", "relations"],
-            "additionalProperties": False
-        }
-    }
+            "required": ["entities"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+DELETE_MEMORY_STRUCT_TOOL_GRAPH = {
+    "type": "function",
+    "function": {
+        "name": "delete_graph_memory",
+        "description": "Delete the relationship between two nodes. This function deletes the existing relationship.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "The identifier of the source node in the relationship.",
+                },
+                "relationship": {
+                    "type": "string",
+                    "description": "The existing relationship between the source and destination nodes that needs to be deleted.",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The identifier of the destination node in the relationship.",
+                },
+            },
+            "required": [
+                "source",
+                "relationship",
+                "destination",
+            ],
+            "additionalProperties": False,
+        },
+    },
+}
+
+DELETE_MEMORY_TOOL_GRAPH = {
+    "type": "function",
+    "function": {
+        "name": "delete_graph_memory",
+        "description": "Delete the relationship between two nodes. This function deletes the existing relationship.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "The identifier of the source node in the relationship.",
+                },
+                "relationship": {
+                    "type": "string",
+                    "description": "The existing relationship between the source and destination nodes that needs to be deleted.",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The identifier of the destination node in the relationship.",
+                },
+            },
+            "required": [
+                "source",
+                "relationship",
+                "destination",
+            ],
+            "additionalProperties": False,
+        },
+    },
 }

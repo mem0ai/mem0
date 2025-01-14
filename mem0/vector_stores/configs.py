@@ -8,15 +8,16 @@ class VectorStoreConfig(BaseModel):
         description="Provider of the vector store (e.g., 'qdrant', 'chroma')",
         default="qdrant",
     )
-    config: Optional[Dict] = Field(
-        description="Configuration for the specific vector store", default=None
-    )
+    config: Optional[Dict] = Field(description="Configuration for the specific vector store", default=None)
 
     _provider_configs: Dict[str, str] = {
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
-        "milvus" : "MilvusDBConfig"
+        "milvus": "MilvusDBConfig",
+        "azure_ai_search": "AzureAISearchConfig",
+        "redis": "RedisDBConfig",
+        "elasticsearch": "ElasticsearchConfig",
     }
 
     @model_validator(mode="after")

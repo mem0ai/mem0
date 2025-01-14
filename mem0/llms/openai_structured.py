@@ -1,6 +1,5 @@
-import os
 import json
-
+import os
 from typing import Dict, List, Optional
 
 from openai import OpenAI
@@ -17,9 +16,8 @@ class OpenAIStructuredLLM(LLMBase):
             self.config.model = "gpt-4o-2024-08-06"
 
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
-        base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE")
+        base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE") or "https://api.openai.com/v1"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
-
 
     def _parse_response(self, response, tools):
         """
@@ -31,8 +29,8 @@ class OpenAIStructuredLLM(LLMBase):
 
         Returns:
             str or dict: The processed response.
-        """        
-        
+        """
+
         if tools:
             processed_response = {
                 "content": response.choices[0].message.content,
@@ -52,7 +50,6 @@ class OpenAIStructuredLLM(LLMBase):
 
         else:
             return response.choices[0].message.content
-        
 
     def generate_response(
         self,

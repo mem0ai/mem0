@@ -1,5 +1,4 @@
 import json
-import os
 from typing import Any, Dict, List, Optional
 
 try:
@@ -17,12 +16,7 @@ class AWSBedrockLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-        self.client = boto3.client(
-            "bedrock-runtime",
-            region_name=os.environ.get("AWS_REGION"),
-            aws_access_key_id=os.environ.get("AWS_ACCESS_KEY"),
-            aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-        )
+        self.client = boto3.client("bedrock-runtime")
         self.model_kwargs = {
             "temperature": self.config.temperature,
             "max_tokens_to_sample": self.config.max_tokens,
@@ -125,9 +119,7 @@ class AWSBedrockLLM(LLMBase):
                 },
             }
             input_body["textGenerationConfig"] = {
-                k: v
-                for k, v in input_body["textGenerationConfig"].items()
-                if v is not None
+                k: v for k, v in input_body["textGenerationConfig"].items() if v is not None
             }
 
         return input_body
@@ -161,9 +153,7 @@ class AWSBedrockLLM(LLMBase):
                     }
                 }
 
-                for prop, details in (
-                    function["parameters"].get("properties", {}).items()
-                ):
+                for prop, details in function["parameters"].get("properties", {}).items():
                     new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = {
                         "type": details.get("type", "string"),
                         "description": details.get("description", ""),
@@ -176,6 +166,7 @@ class AWSBedrockLLM(LLMBase):
     def generate_response(
         self,
         messages: List[Dict[str, str]],
+        response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
     ):
@@ -216,9 +207,7 @@ class AWSBedrockLLM(LLMBase):
             # Use invoke_model method when no tools are provided
             prompt = self._format_messages(messages)
             provider = self.model.split(".")[0]
-            input_body = self._prepare_input(
-                provider, self.config.model, prompt, **self.model_kwargs
-            )
+            input_body = self._prepare_input(provider, self.config.model, prompt, **self.model_kwargs)
             body = json.dumps(input_body)
 
             response = self.client.invoke_model(

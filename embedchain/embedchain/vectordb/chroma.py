@@ -136,6 +136,7 @@ class ChromaDB(BaseVectorDB):
         documents: list[str],
         metadatas: list[object],
         ids: list[str],
+        **kwargs: Optional[dict[str, Any]],
     ) -> Any:
         """
         Add vectors to chroma database
@@ -211,7 +212,7 @@ class ChromaDB(BaseVectorDB):
         if where and raw_filter:
             raise ValueError("Both `where` and `raw_filter` cannot be used together.")
 
-        where_clause = {}
+        where_clause = None
         if raw_filter:
             where_clause = raw_filter
         if where:

@@ -14,6 +14,7 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+
 class OutputData(BaseModel):
     id: Optional[str]
     score: Optional[float]
@@ -22,7 +23,16 @@ class OutputData(BaseModel):
 
 class PGVector(VectorStoreBase):
     def __init__(
-        self, dbname, collection_name, embedding_model_dims, user, password, host, port, diskann
+        self,
+        dbname,
+        collection_name,
+        embedding_model_dims,
+        user,
+        password,
+        host,
+        port,
+        diskann,
+        hnsw,
     ):
         """
         Initialize the PGVector database.
@@ -36,13 +46,13 @@ class PGVector(VectorStoreBase):
             host (str, optional): Database host
             port (int, optional): Database port
             diskann (bool, optional): Use DiskANN for faster search
+            hnsw (bool, optional): Use HNSW for faster search
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
+        self.use_hnsw = hnsw
 
-        self.conn = psycopg2.connect(
-            dbname=dbname, user=user, password=password, host=host, port=port
-        )
+        self.conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         self.cur = self.conn.cursor()
 
         collections = self.list_cols()
@@ -52,11 +62,10 @@ class PGVector(VectorStoreBase):
     def create_col(self, embedding_model_dims):
         """
         Create a new collection (table in PostgreSQL).
-        Will also initialize DiskANN index if the extension is installed.
+        Will also initialize vector search index if specified.
 
         Args:
-            name (str): Name of the collection.
-            embedding_model_dims (int, optional): Dimension of the embedding vector.
+            embedding_model_dims (int): Dimension of the embedding vector.
         """
         self.cur.execute(
             f"""
@@ -73,12 +82,21 @@ class PGVector(VectorStoreBase):
             self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
             if self.cur.fetchone():
                 # Create DiskANN index if extension is installed for faster search
-                self.cur.execute(f"""
-                    CREATE INDEX IF NOT EXISTS {self.collection_name}_vector_idx
+                self.cur.execute(
+                    f"""
+                    CREATE INDEX IF NOT EXISTS {self.collection_name}_diskann_idx
                     ON {self.collection_name}
                     USING diskann (vector);
                 """
                 )
+        elif self.use_hnsw:
+            self.cur.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS {self.collection_name}_hnsw_idx
+                ON {self.collection_name}
+                USING hnsw (vector vector_cosine_ops)
+            """
+            )
 
         self.conn.commit()
 
@@ -94,10 +112,7 @@ class PGVector(VectorStoreBase):
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
 
-        data = [
-            (id, vector, payload)
-            for id, vector, payload in zip(ids, vectors, json_payloads)
-        ]
+        data = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, json_payloads)]
         execute_values(
             self.cur,
             f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES %s",
@@ -125,9 +140,7 @@ class PGVector(VectorStoreBase):
                 filter_conditions.append("payload->>%s = %s")
                 filter_params.extend([k, str(v)])
 
-        filter_clause = (
-            "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
-        )
+        filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
         self.cur.execute(
             f"""
@@ -137,13 +150,11 @@ class PGVector(VectorStoreBase):
             ORDER BY distance
             LIMIT %s
         """,
-        (query, *filter_params, limit),
+            (query, *filter_params, limit),
         )
 
         results = self.cur.fetchall()
-        return [
-            OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results
-        ]
+        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
 
     def delete(self, vector_id):
         """
@@ -152,9 +163,7 @@ class PGVector(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.cur.execute(
-            f"DELETE FROM {self.collection_name} WHERE id = %s", (vector_id,)
-        )
+        self.cur.execute(f"DELETE FROM {self.collection_name} WHERE id = %s", (vector_id,))
         self.conn.commit()
 
     def update(self, vector_id, vector=None, payload=None):
@@ -204,9 +213,7 @@ class PGVector(VectorStoreBase):
         Returns:
             List[str]: List of collection names.
         """
-        self.cur.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-        )
+        self.cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         return [row[0] for row in self.cur.fetchall()]
 
     def delete_col(self):
@@ -254,9 +261,7 @@ class PGVector(VectorStoreBase):
                 filter_conditions.append("payload->>%s = %s")
                 filter_params.extend([k, str(v)])
 
-        filter_clause = (
-            "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
-        )
+        filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
         query = f"""
             SELECT id, vector, payload
