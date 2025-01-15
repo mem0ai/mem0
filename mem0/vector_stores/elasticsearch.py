@@ -1,307 +1,224 @@
 import logging
-import json
-from typing import Dict, Optional, List, Any
+from typing import Any, Dict, List, Optional
+
+try:
+    from elasticsearch import Elasticsearch
+    from elasticsearch.helpers import bulk
+except ImportError:
+    raise ImportError(
+        "Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`"
+    ) from None
 
 from pydantic import BaseModel
 
-
+from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
 from mem0.vector_stores.base import VectorStoreBase
-
-try:
-    from elasticsearch import Elasticsearch, helpers
-except ImportError:
-    raise ImportError("The 'elasticsearch' library is required. Please install it using 'pip install elasticsearch'.")
 
 logger = logging.getLogger(__name__)
 
+
 class OutputData(BaseModel):
-    id: Optional[str]  # memory id
-    score: Optional[float]  # distance
-    metadata: Optional[Dict]  
+    id: str
+    score: float
+    payload: Dict
+
 
 class ElasticsearchDB(VectorStoreBase):
-    def __init__(
-        self,
-        collection_name: str,
-        embedding_model_dims: int,
-        metric_type: str,
-        url: str,
-        api_key: str,
-    ) -> None:
-        """Initialize the Elasticsearch.
+    def __init__(self, **kwargs):
+        config = ElasticsearchConfig(**kwargs)
 
-        Args:
-            collection_name (str): Name of the collection (defaults to mem0).
-            embedding_model_dims (int): Dimensions of the embedding model (defaults to 2048).
-            metric_type (str): Metric type for similarity search (defaults to dot_product).
-            url (str): url for Elasticsearch server.
-            api_key (str): api_key for Elasticsearch server.
-        """
-        self.collection_name = collection_name
-        self.embedding_model_dims = embedding_model_dims
-        self.metric_type = metric_type
-        self.client = Elasticsearch(url, api_key=api_key)
-        self.create_col(
-            collection_name=self.collection_name,
-            vector_size=self.embedding_model_dims,
-            metric_type=self.metric_type,
-        )
-        
-    def create_col(
-        self,
-        collection_name: str,
-        vector_size: str,
-        metric_type: str,
-    ) -> None:
-        """Create a new collection with index_type AUTOINDEX.
-
-        Args:
-            collection_name (str): Name of the collection (defaults to mem0).
-            vector_size (str): Dimensions of the embedding model (defaults to 2048).
-            metric_type (str): etric type for similarity search. Defaults to dot_product.
-        """
-        if self.client.indices.exists(index=collection_name):
-            logger.info(f"Collection {collection_name} already exists. Skipping creation.")
-        else:
-            fields = {
-                'id': {
-                    'type': 'keyword'
-                },
-                'vectors': {
-                    'type': 'dense_vector', 
-                    'dims': vector_size, 
-                    'index': True, 
-                    'similarity': metric_type
-                },
-                'metadata': {
-                    'type': 'object', 
-                    'dynamic': True
-                }
-            }
-            self.client.indices.create(index=collection_name, body={
-                'mappings': {
-                    'properties': fields
-                }
-            })
-            
-    def insert(self, ids, vectors, metadatas):
-        """Insert vectors into a collection.
-
-        Args:
-            vectors (List[List[float]]): List of vectors to insert.
-            metadatas (List[Dict], optional): List of metadatas corresponding to vectors.
-            ids (List[str], optional): List of IDs corresponding to vectors.
-        """
-        documents = []
-        for idx, vector, metadata in zip(ids, vectors, metadatas):
-            fields = {
-                "id": idx, 
-                "vectors": vector,
-                "metadata": metadata
-            }
-            documents.append({
-                '_index': self.collection_name,
-                '_source': fields
-            })
-        helpers.bulk(self.client, documents)
-        
-    def _create_filter(self, filters: dict):
-        """Prepare filters for efficient query.
-
-        Args:
-            filters (dict): filters [user_id, agent_id, run_id]
-
-        Returns:
-            dict: formated filter.
-        """
-        process_filter = {}
-        FILTER_PREFIX = "metadata"
-        for k, v in filters.items():
-            process_filter[f"{FILTER_PREFIX}.{k}"] = v
-        return process_filter
-
-    def _parse_output(self, data: list):
-        """
-        Parse the output data.
-
-        Args:
-            data (list): Output data.
-
-        Returns:
-            List[OutputData]: Parsed output data.
-        """
-        memory = []
-        for value in data:
-            source = value.get('_source')
-            
-            uid, score, metadata = (
-                source.get('id'),
-                value.get('_score'),
-                source.get('metadata'),
+        # Initialize Elasticsearch client
+        if config.cloud_id:
+            self.client = Elasticsearch(
+                cloud_id=config.cloud_id,
+                api_key=config.api_key,
+                verify_certs=config.verify_certs,
             )
-            
-            memory_obj = OutputData(id=uid, score=score, metadata=metadata)
-            memory.append(memory_obj)
-                
-        return memory
-    
-    def _get_id_from_resp(self, resp: dict):
-        count = resp['hits']['total']['value']
-        _id = None
-        if count > 0:
-            _id =  resp['hits']['hits'][0]['_id'] 
-        return _id
+        else:
+            self.client = Elasticsearch(
+                hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
+                basic_auth=(config.user, config.password) if (config.user and config.password) else None,
+                verify_certs=config.verify_certs,
+            )
 
-    def search(self, query: list, limit: int = 5, filters: dict = None) -> list:
-        """
-        Search for similar vectors.
+        self.collection_name = config.collection_name
+        self.vector_dim = config.embedding_model_dims
 
-        Args:
-            query (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
-            filters (Dict, optional): Filters to apply to the search. Defaults to None.
+        # Create index only if auto_create_index is True
+        if config.auto_create_index:
+            self.create_index()
 
-        Returns:
-            list: Search results.
-        """
-        process_filter = self._create_filter(filters)
-        process_query = {
-            'query': {
-                'bool': {
-                    'must': {
-                        'knn': {
-                            'field': 'vectors',
-                            'query_vector': query,
-                            'k': limit,
-                        }
+    def create_index(self) -> None:
+        """Create Elasticsearch index with proper mappings if it doesn't exist"""
+        index_settings = {
+            "mappings": {
+                "properties": {
+                    "text": {"type": "text"},
+                    "embedding": {
+                        "type": "dense_vector",
+                        "dims": self.vector_dim,
+                        "index": True,
+                        "similarity": "cosine",
                     },
-                    'filter': {
-                        'term': process_filter
-                    }
-                }
-            }
-        }
-        response = self.client.search(index=self.collection_name, body=process_query)
-        result = self._parse_output(response['hits']['hits'])
-        return result
-        
-    def delete(self, vector_id):
-        """
-        Delete a vector by ID.
-
-        Args:
-            vector_id (str): ID of the vector to delete.
-        """
-        query = {
-            'query': {
-                'term': {
-                    'id': vector_id
+                    "metadata": {"type": "object"},
+                    "user_id": {"type": "keyword"},
+                    "hash": {"type": "keyword"},
                 }
             }
         }
 
-        resp = self.client.search(index=self.collection_name, body=query)
-        _id = self._get_id_from_resp(resp)
-        self.client.delete(index=self.collection_name, id=_id)
+        if not self.client.indices.exists(index=self.collection_name):
+            self.client.indices.create(index=self.collection_name, body=index_settings)
+            logger.info(f"Created index {self.collection_name}")
+        else:
+            logger.info(f"Index {self.collection_name} already exists")
 
-    def update(self, vector_id=None, vectors=None, metadata=None):
-        """
-        Update a vector and its metadata.
-
-        Args:
-            vector_id (str): ID of the vector to update.
-            vectors (List[float], optional): Updated vector.
-            metadata (Dict, optional): Updated metadata.
-        """
-        # TODO None vector 
-        query = {
-            'query': {
-                'term': {
-                    'id': vector_id
+    def create_col(self, name: str, vector_size: int, distance: str = "cosine") -> None:
+        """Create a new collection (index in Elasticsearch)."""
+        index_settings = {
+            "mappings": {
+                "properties": {
+                    "vector": {"type": "dense_vector", "dims": vector_size, "index": True, "similarity": "cosine"},
+                    "payload": {"type": "object"},
+                    "id": {"type": "keyword"},
                 }
             }
         }
 
-        resp = self.client.search(index=self.collection_name, body=query)
-        _id = self._get_id_from_resp(resp)
-        update_body = {
-            'doc': {
-                'id': vector_id,
-                'vectors': vectors,
-                'metadata': metadata,
-            }
-        }
-        self.client.update(index=self.collection_name, id=_id, body=update_body)
+        if not self.client.indices.exists(index=name):
+            self.client.indices.create(index=name, body=index_settings)
+            logger.info(f"Created index {name}")
 
-    def get(self, vector_id):
-        """
-        Retrieve a vector by ID.
+    def insert(
+        self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
+    ) -> List[OutputData]:
+        """Insert vectors into the index."""
+        if not ids:
+            ids = [str(i) for i in range(len(vectors))]
 
-        Args:
-            vector_id (str): ID of the vector to retrieve.
+        if payloads is None:
+            payloads = [{} for _ in range(len(vectors))]
 
-        Returns:
-            OutputData: Retrieved vector.
-        """
-        query = {
-            'query': {
-                'term': {
-                    'id': vector_id
+        actions = []
+        for i, (vec, id_) in enumerate(zip(vectors, ids)):
+            action = {"_index": self.collection_name, "_id": id_, "vector": vec, "payload": payloads[i]}
+            actions.append(action)
+
+        bulk(self.client, actions)
+
+        # Return OutputData objects for inserted documents
+        results = []
+        for i, id_ in enumerate(ids):
+            results.append(
+                OutputData(
+                    id=id_,
+                    score=1.0,  # Default score for inserts
+                    payload=payloads[i],
+                )
+            )
+        return results
+
+    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+        """Search for similar vectors using KNN search with pre-filtering."""
+        search_query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        # Exact match filters for memory isolation
+                        *({"term": {f"payload.{k}": v}} for k, v in (filters or {}).items()),
+                        # KNN vector search
+                        {
+                            "knn": {
+                                "vector": {
+                                    "vector": query,
+                                    "k": limit
+                                }
+                            }
+                        }
+                    ]
                 }
             }
         }
-        
-        resp = self.client.search(index=self.collection_name, body=query)
-        _id = self._get_id_from_resp(resp)
-        result = self.client.get(index=self.collection_name, id=_id)
-        output = self._parse_output([result])
-        return output[0]
 
-    def list_cols(self):
-        """
-        List all collections.
+        response = self.client.search(index=self.collection_name, body=search_query)
 
-        Returns:
-            List[dict]: List of collection.
-        """
-        return self.client.indices.get_alias("*")
+        results = []
+        for hit in response["hits"]["hits"]:
+            results.append(
+                OutputData(
+                    id=hit["_id"],
+                    score=hit["_score"],
+                    payload=hit["_source"].get("payload", {})
+                )
+            )
 
-    def delete_col(self):
-        """Delete a collection."""
-        return self.client.indices.delete(index=self.collection_name)
+        return results
 
-    def col_info(self):
-        """
-        Get information about a collection.
+    def delete(self, vector_id: str) -> None:
+        """Delete a vector by ID."""
+        self.client.delete(index=self.collection_name, id=vector_id)
 
-        Returns:
-            Dict[str, Any]: Collection information.
-        """
-        return self.client.indices.get(index=self.collection_name)
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
+        """Update a vector and its payload."""
+        doc = {}
+        if vector is not None:
+            doc["vector"] = vector
+        if payload is not None:
+            doc["payload"] = payload
 
-    def list(self, filters: dict = None, limit: int = 100) -> list:
-        """
-        List all vectors in a collection.
+        self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
 
-        Args:
-            filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+    def get(self, vector_id: str) -> Optional[OutputData]:
+        """Retrieve a vector by ID."""
+        try:
+            response = self.client.get(index=self.collection_name, id=vector_id)
+            return OutputData(
+                id=response["_id"],
+                score=1.0,  # Default score for direct get
+                payload=response["_source"].get("payload", {}),
+            )
+        except KeyError as e:
+            logger.warning(f"Missing key in Elasticsearch response: {e}")
+            return None
+        except TypeError as e:
+            logger.warning(f"Invalid response type from Elasticsearch: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error while parsing Elasticsearch response: {e}")
+            return None
 
-        Returns:
-            List[OutputData]: List of vectors.
-        """
-        query_filter = self._create_filter(filters) if filters else None
-        query = {
-            'query': {
-                'bool': {
-                    'filter': {
-                        'term': query_filter
-                    }
-                }
-            },
-            'size': limit
-        }
+    def list_cols(self) -> List[str]:
+        """List all collections (indices)."""
+        return list(self.client.indices.get_alias().keys())
+
+    def delete_col(self) -> None:
+        """Delete a collection (index)."""
+        self.client.indices.delete(index=self.collection_name)
+
+    def col_info(self, name: str) -> Any:
+        """Get information about a collection (index)."""
+        return self.client.indices.get(index=name)
+
+    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
+        """List all memories."""
+        query: Dict[str, Any] = {"query": {"match_all": {}}}
+
+        if filters:
+            query["query"] = {"bool": {"must": [{"match": {f"payload.{k}": v}} for k, v in filters.items()]}}
+
+        if limit:
+            query["size"] = limit
+
         response = self.client.search(index=self.collection_name, body=query)
-        result = self._parse_output(response['hits']['hits'])
-        return result
-    
+
+        results = []
+        for hit in response["hits"]["hits"]:
+            results.append(
+                OutputData(
+                    id=hit["_id"],
+                    score=1.0,  # Default score for list operation
+                    payload=hit["_source"].get("payload", {}),
+                )
+            )
+
+        return [results]
