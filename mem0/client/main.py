@@ -48,6 +48,11 @@ class MemoryClient:
         api_key (str): The API key for authenticating with the Mem0 API.
         host (str): The base URL for the Mem0 API.
         client (httpx.Client): The HTTP client used for making API requests.
+        organization (str, optional): (Deprecated) Organization name.
+        project (str, optional): (Deprecated) Project name.
+        org_id (str, optional): Organization ID.
+        project_id (str, optional): Project ID.
+        user_id (str): Unique identifier for the user.
     """
 
     def __init__(
@@ -106,6 +111,13 @@ class MemoryClient:
             params = self._prepare_params()
             response = self.client.get("/v1/ping/", params=params)
             response.raise_for_status()
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('org_id') and data.get('project_id'):
+                    self.org_id = data.get('org_id')
+                    self.project_id = data.get('project_id')
+
         except httpx.HTTPStatusError:
             raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
 
@@ -145,7 +157,8 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.get(f"/v1/memories/{memory_id}/")
+        params = self._prepare_params()
+        response = self.client.get(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id})
         return response.json()
@@ -219,7 +232,8 @@ class MemoryClient:
             Dict[str, Any]: The response from the server.
         """
         capture_client_event("client.update", self, {"memory_id": memory_id})
-        response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data})
+        params = self._prepare_params()
+        response = self.client.put(f"/v1/memories/{memory_id}/", json={"text": data}, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -236,7 +250,8 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.delete(f"/v1/memories/{memory_id}/")
+        params = self._prepare_params()
+        response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("client.delete", self, {"memory_id": memory_id})
         return response.json()
@@ -273,7 +288,8 @@ class MemoryClient:
         Raises:
             APIError: If the API request fails.
         """
-        response = self.client.get(f"/v1/memories/{memory_id}/history/")
+        params = self._prepare_params()
+        response = self.client.get(f"/v1/memories/{memory_id}/history/", params=params)
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id})
         return response.json()
@@ -320,7 +336,19 @@ class MemoryClient:
 
     @api_error_handler
     def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Batch update memories."""
+        """Batch update memories.
+
+        Args:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
+                - memory_id (str): ID of the memory to update
+                - text (str): New text content for the memory
+
+        Returns:
+            str: Message indicating the success of the batch update.
+
+        Raises:
+            APIError: If the API request fails.
+        """
         response = self.client.put("/v1/batch/", json={"memories": memories})
         response.raise_for_status()
 
@@ -329,15 +357,109 @@ class MemoryClient:
 
     @api_error_handler
     def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Batch delete memories."""
-        response = self.client.request(
-            "DELETE",
-            "/v1/batch/",
-            json={"memories": memories}
-        )
+        """Batch delete memories.
+
+        Args:
+            memories: List of memory dictionaries to delete. Each dictionary must contain:
+                - memory_id (str): ID of the memory to delete
+
+        Returns:
+            str: Message indicating the success of the batch deletion.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+        response = self.client.request("DELETE", "/v1/batch/", json={"memories": memories})
         response.raise_for_status()
 
         capture_client_event("client.batch_delete", self)
+        return response.json()
+
+    @api_error_handler
+    def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+        """Create a memory export with the provided schema.
+
+        Args:
+            schema: JSON schema defining the export structure
+            **kwargs: Optional filters like user_id, run_id, etc.
+
+        Returns:
+            Dict containing export request ID and status message
+        """
+        response = self.client.post("/v1/exports/", json={"schema": schema, **self._prepare_params(kwargs)})
+        response.raise_for_status()
+        capture_client_event("client.create_memory_export", self, {"schema": schema, "keys": list(kwargs.keys())})
+        return response.json()
+
+    @api_error_handler
+    def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+        """Get a memory export.
+
+        Args:
+            **kwargs: Filters like user_id to get specific export
+
+        Returns:
+            Dict containing the exported data
+        """
+        response = self.client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response.raise_for_status()
+        capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
+        return response.json()
+
+    @api_error_handler
+    def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+        """Get instructions or categories for the current project.
+
+        Args:
+            fields: List of fields to retrieve
+
+        Returns:
+            Dictionary containing the requested fields.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
+        if not (self.org_id and self.project_id):
+            raise ValueError("org_id and project_id must be set to access instructions or categories")
+
+        params = self._prepare_params({"fields": fields})
+        response = self.client.get(
+            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
+            params=params,
+        )
+        response.raise_for_status()
+        capture_client_event("client.get_project_details", self, {"fields": fields})
+        return response.json()
+
+    @api_error_handler
+    def update_project(self, custom_instructions: Optional[str]=None, custom_categories: Optional[List[str]]=None) -> Dict[str, Any]:
+        """Update the project settings.
+
+        Args:
+            custom_instructions: New instructions for the project
+            custom_categories: New categories for the project
+
+        Returns:
+            Dictionary containing the API response.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
+        if not (self.org_id and self.project_id):
+            raise ValueError("org_id and project_id must be set to update instructions or categories")
+
+        if custom_instructions is None and custom_categories is None:
+            raise ValueError("Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them")
+
+        payload = self._prepare_params({"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        response = self.client.patch(
+            f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
+            json=payload,
+        )
+        response.raise_for_status()
+        capture_client_event("client.update_project", self, {"custom_instructions": custom_instructions, "custom_categories": custom_categories})
         return response.json()
 
     def chat(self):
@@ -387,30 +509,40 @@ class MemoryClient:
 
         has_new = bool(self.org_id or self.project_id)
         has_old = bool(self.organization or self.project)
-        
+
         if has_new and has_old:
             raise ValueError(
                 "Please use either org_id/project_id or org_name/project_name, not both. "
                 "Note that org_name/project_name are deprecated."
             )
 
-        # Add org_id and project_id if available
-        if self.org_id:
+        # Add org_id and project_id if both are available
+        if self.org_id and self.project_id:
             kwargs["org_id"] = self.org_id
-        if self.project_id:
             kwargs["project_id"] = self.project_id
+        elif self.org_id or self.project_id:
+            raise ValueError("Please provide both org_id and project_id")
 
-        # Add deprecated org_name and project_name for backward compatibility
-        if self.organization:
+        # Add deprecated org_name and project_name if both are available
+        if self.organization and self.project:
             kwargs["org_name"] = self.organization
-        if self.project:
             kwargs["project_name"] = self.project
+        elif self.organization or self.project:
+            raise ValueError("Please provide both org_name and project_name")
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
 
 class AsyncMemoryClient:
-    """Asynchronous client for interacting with the Mem0 API."""
+    """Asynchronous client for interacting with the Mem0 API.
+
+    This class provides asynchronous versions of all MemoryClient methods.
+    It uses httpx.AsyncClient for making non-blocking API requests.
+
+    Attributes:
+        sync_client (MemoryClient): Underlying synchronous client instance.
+        async_client (httpx.AsyncClient): Async HTTP client for making API requests.
+    """
 
     def __init__(
         self,
@@ -421,14 +553,7 @@ class AsyncMemoryClient:
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
     ):
-        self.sync_client = MemoryClient(
-            api_key, 
-            host, 
-            organization, 
-            project,
-            org_id,
-            project_id
-        )
+        self.sync_client = MemoryClient(api_key, host, organization, project, org_id, project_id)
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,
@@ -454,7 +579,8 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def get(self, memory_id: str) -> Dict[str, Any]:
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/")
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.get(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("async_client.get", self.sync_client, {"memory_id": memory_id})
         return response.json()
@@ -489,14 +615,16 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update(self, memory_id: str, data: str) -> Dict[str, Any]:
-        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data})
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data}, params=params)
         response.raise_for_status()
         capture_client_event("async_client.update", self.sync_client, {"memory_id": memory_id})
         return response.json()
 
     @api_error_handler
     async def delete(self, memory_id: str) -> Dict[str, Any]:
-        response = await self.async_client.delete(f"/v1/memories/{memory_id}/")
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
         capture_client_event("async_client.delete", self.sync_client, {"memory_id": memory_id})
         return response.json()
@@ -511,7 +639,8 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def history(self, memory_id: str) -> List[Dict[str, Any]]:
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/")
+        params = self.sync_client._prepare_params()
+        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
         response.raise_for_status()
         capture_client_event("async_client.history", self.sync_client, {"memory_id": memory_id})
         return response.json()
@@ -539,6 +668,113 @@ class AsyncMemoryClient:
         await self.delete_users()
         capture_client_event("async_client.reset", self.sync_client)
         return {"message": "Client reset successful. All users and memories deleted."}
+
+    @api_error_handler
+    async def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch update memories.
+
+        Args:
+            memories: List of memory dictionaries to update. Each dictionary must contain:
+                - memory_id (str): ID of the memory to update
+                - text (str): New text content for the memory
+
+        Returns:
+            str: Message indicating the success of the batch update.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+        response = await self.async_client.put("/v1/batch/", json={"memories": memories})
+        response.raise_for_status()
+
+        capture_client_event("async_client.batch_update", self.sync_client)
+        return response.json()
+
+    @api_error_handler
+    async def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch delete memories.
+
+        Args:
+            memories: List of memory dictionaries to delete. Each dictionary must contain:
+                - memory_id (str): ID of the memory to delete
+
+        Returns:
+            str: Message indicating the success of the batch deletion.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+        response = await self.async_client.request("DELETE", "/v1/batch/", json={"memories": memories})
+        response.raise_for_status()
+
+        capture_client_event("async_client.batch_delete", self.sync_client)
+        return response.json()
+
+    @api_error_handler
+    async def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+        """Create a memory export with the provided schema.
+
+        Args:
+            schema: JSON schema defining the export structure
+            **kwargs: Optional filters like user_id, run_id, etc.
+
+        Returns:
+            Dict containing export request ID and status message
+        """
+        response = await self.async_client.post("/v1/exports/", json={"schema": schema, **self._prepare_params(kwargs)})
+        response.raise_for_status()
+        capture_client_event(
+            "async_client.create_memory_export", self.sync_client, {"schema": schema, "keys": list(kwargs.keys())}
+        )
+        return response.json()
+
+    @api_error_handler
+    async def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+        """Get a memory export.
+
+        Args:
+            **kwargs: Filters like user_id to get specific export
+
+        Returns:
+            Dict containing the exported data
+        """
+        response = await self.async_client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response.raise_for_status()
+        capture_client_event("async_client.get_memory_export", self.sync_client, {"keys": list(kwargs.keys())})
+        return response.json()
+
+    @api_error_handler
+    async def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+        if not (self.sync_client.org_id and self.sync_client.project_id):
+            raise ValueError("org_id and project_id must be set to access instructions or categories")
+
+
+        params = self._prepare_params({"fields": fields})
+        response = await self.async_client.get(
+            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
+            params=params,
+        )
+        response.raise_for_status()
+        capture_client_event(
+            "async_client.get_project", self.sync_client, {"fields": fields}
+        )
+        return response.json()
+
+    @api_error_handler
+    async def update_project(self, custom_instructions: Optional[str], custom_categories: Optional[List[str]]) -> Dict[str, Any]:
+        if not (self.sync_client.org_id and self.sync_client.project_id):
+            raise ValueError("org_id and project_id must be set to update instructions or categories")
+
+        payload = self.sync_client._prepare_params({"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        response = await self.async_client.patch(
+            f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
+            json=payload,
+        )
+        response.raise_for_status()
+        capture_client_event(
+            "async_client.update_project", self.sync_client, {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+        )
+        return response.json()
 
     async def chat(self):
         raise NotImplementedError("Chat is not implemented yet")

@@ -16,7 +16,7 @@ class TogetherEmbedding(EmbeddingBase):
         # TODO: check if this is correct
         self.config.embedding_dims = self.config.embedding_dims or 768
         self.client = Together(api_key=api_key)
-    
+
     def embed(self, text):
         """
         Get the embedding for the given text using OpenAI.
