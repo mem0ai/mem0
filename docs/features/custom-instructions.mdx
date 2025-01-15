@@ -22,16 +22,31 @@ You can set custom instructions for your project using the following method:
 <CodeGroup>
 ```python Code
 # Update custom instructions
-prompt = """
-Your task is to extract ONLY health-related information from conversations, including:
+prompt ="""
+Your Task: Extract ONLY health-related information from conversations, focusing on the following areas:
 
-- Medical conditions, symptoms, diagnoses
-- Medications, treatments, procedures
-- Diet, exercise, sleep habits
-- Doctor visits and appointments
-- Health metrics (weight, blood pressure, etc)
+1. Medical Conditions, Symptoms, and Diagnoses:
+   - Illnesses, disorders, or symptoms (e.g., fever, diabetes).
+   - Confirmed or suspected diagnoses.
+
+2. Medications, Treatments, and Procedures:
+   - Prescription or OTC medications (names, dosages).
+   - Treatments, therapies, or medical procedures.
+
+3. Diet, Exercise, and Sleep:
+   - Dietary habits, fitness routines, and sleep patterns.
+
+4. Doctor Visits and Appointments:
+   - Past, upcoming, or regular medical visits.
+
+5. Health Metrics:
+   - Data like weight, BP, cholesterol, or sugar levels.
+
+Guidelines:
+- Focus solely on health-related content.
+- Maintain clarity and context accuracy while recording.
 """
-response = client.update_custom_instructions_and_categories({"custom_instructions": prompt})
+response = client.update_project(custom_instructions=prompt)
 print(response)
 ```
 
@@ -47,13 +62,13 @@ You can also retrieve the current custom instructions:
 <CodeGroup>
 ```python Code
 # Retrieve current custom instructions
-response = client.get_custom_instructions_and_categories(["custom_instructions"])
+response = client.update_project(fields=["custom_instructions"])
 print(response)
 ```
 
 ```json Output
 {
-    "custom_instructions": "Your task is to extract ONLY health-related information from conversations, including:\n\n- Medical conditions, symptoms, diagnoses\n- Medications, treatments, procedures\n- Diet, exercise, sleep habits\n- Doctor visits and appointments\n- Health metrics (weight, blood pressure, etc)"
+    "custom_instructions": "Your Task: Extract ONLY health-related information from conversations, focusing on the following areas:\n1. Medical Conditions, Symptoms, and Diagnoses - illnesses, disorders, or symptoms (e.g., fever, diabetes), confirmed or suspected diagnoses.\n2. Medications, Treatments, and Procedures - prescription or OTC medications (names, dosages), treatments, therapies, or medical procedures.\n3. Diet, Exercise, and Sleep - dietary habits, fitness routines, and sleep patterns.\n4. Doctor Visits and Appointments - past, upcoming, or regular medical visits.\n5. Health Metrics - data like weight, BP, cholesterol, or sugar levels.\n\nGuidelines: Focus solely on health-related content. Maintain clarity and context accuracy while recording."
 }
 ```
 </CodeGroup>
