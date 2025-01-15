@@ -3295,29 +3295,150 @@
 				},
 				"x-code-samples": [
 				{
-				"lang": "Python",
-				"source": "import requests\n\nurl = \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/\"\n\nheaders = {\"Authorization\": \"<api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
-				},
-				{
-				"lang": "JavaScript",
-				"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
-				},
-				{
-				"lang": "cURL",
-				"source": "curl --request GET \\\n  --url https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/ \\\n  --header 'Authorization: Token <api-key>'"
-				},
-				{
-				"lang": "Go",
-				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
-				},
-				{
-				"lang": "PHP",
-				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
-				},
-				{
-				"lang": "Java",
-				"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					"lang": "Python",
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nresponse = client.get_project()\nprint(response)"
+					},
+					{
+					"lang": "JavaScript",
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nclient.getProject()\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+					"lang": "cURL",
+					"source": "curl --request GET \\\n  --url https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+					"lang": "Go",
+					"source": "// To use the Go SDK, install the package:\n// go get github.com/mem0ai/mem0-go\n\npackage main\n\nimport (\n\t\"fmt\"\n\t\"github.com/mem0ai/mem0-go\"\n)\n\nfunc main() {\n\tclient := mem0.NewClient(\"your-api-key\")\n\n\tresponse, err := client.GetProject()\n\tif err != nil {\n\t\tfmt.Printf(\"Error: %v\\n\", err)\n\t\treturn\n\t}\n\tfmt.Printf(\"%+v\\n\", response)\n}"
+					},
+					{
+					"lang": "PHP",
+					"source": "<?php\n// To use the PHP SDK, install the package:\n// composer require mem0ai/mem0-php\n\nrequire_once('vendor/autoload.php');\n\nuse Mem0\\MemoryClient;\n\n$client = new MemoryClient('your-api-key');\n\ntry {\n    $response = $client->getProject();\n    print_r($response);\n} catch (Exception $e) {\n    echo 'Error: ' . $e->getMessage();\n}"
+					},
+					{
+					"lang": "Java",
+					"source": "// To use the Java SDK, add this dependency to your pom.xml:\n// <dependency>\n//     <groupId>ai.mem0</groupId>\n//     <artifactId>mem0-java</artifactId>\n//     <version>1.0.0</version>\n// </dependency>\n\nimport ai.mem0.MemoryClient;\n\npublic class Example {\n    public static void main(String[] args) {\n        MemoryClient client = new MemoryClient(\"your-api-key\");\n        \n        try {\n            Object response = client.getProject();\n            System.out.println(response);\n        } catch (Exception e) {\n            System.err.println(\"Error: \" + e.getMessage());\n        }\n    }\n}"
 					}
+				]
+			},
+			"patch": {
+				"tags": [
+					"projects"
+				],
+				"summary": "Update Project",
+				"description": "Update a specific project's settings.",
+				"operationId": "update_project",
+				"parameters": [
+					{
+						"name": "org_id", 
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path", 
+						"required": true,
+						"description": "Unique identifier of the project to be updated",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Name of the project"
+									},
+									"description": {
+										"type": "string",
+										"description": "Description of the project"
+									},
+									"custom_instructions": {
+										"type": "array",
+										"items": {
+											"type": "string"
+										},
+										"description": "Custom instructions for memory processing in this project"
+									},
+									"custom_categories": {
+										"type": "array",
+										"items": {
+											"type": "object"
+										},
+										"description": "List of custom categories to be used for memory categorization"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Project updated successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Project updated successfully"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Organization or project not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Organization or project not found"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+					"lang": "Python",
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nnew_categories = [\n    {\"cooking\": \"For users interested in cooking and culinary experiences\"},\n    {\"fitness\": \"Includes content related to fitness and workouts\"}\n]\n\nresponse = client.update_project(custom_categories=new_categories)\nprint(response)"
+				},
+				{
+					"lang": "JavaScript", 
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst newCategories = [\n    {\"cooking\": \"For users interested in cooking and culinary experiences\"},\n    {\"fitness\": \"Includes content related to fitness and workouts\"}\n];\n\nclient.updateProject({ custom_categories: newCategories })\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				},
+				{
+					"lang": "cURL",
+					"source": "curl --request PATCH \\\n  --url https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n    \"custom_categories\": [\n      {\"cooking\": \"For users interested in cooking and culinary experiences\"},\n      {\"fitness\": \"Includes content related to fitness and workouts\"}\n    ]\n  }'"
+				},
+				{
+					"lang": "Go",
+					"source": "// To use the Go SDK, install the package:\n// go get github.com/mem0ai/mem0-go\n\npackage main\n\nimport (\n\t\"fmt\"\n\t\"github.com/mem0ai/mem0-go\"\n)\n\nfunc main() {\n\tclient := mem0.NewClient(\"your-api-key\")\n\n\tnewCategories := []map[string]string{\n\t\t{\"cooking\": \"For users interested in cooking and culinary experiences\"},\n\t\t{\"fitness\": \"Includes content related to fitness and workouts\"},\n\t}\n\n\tresponse, err := client.UpdateProject(mem0.UpdateProjectParams{\n\t\tCustomCategories: newCategories,\n\t})\n\tif err != nil {\n\t\tfmt.Printf(\"Error: %v\\n\", err)\n\t\treturn\n\t}\n\tfmt.Printf(\"%+v\\n\", response)\n}"
+				},
+				{
+					"lang": "PHP",
+					"source": "<?php\n// To use the PHP SDK, install the package:\n// composer require mem0ai/mem0-php\n\nrequire_once('vendor/autoload.php');\n\nuse Mem0\\MemoryClient;\n\n$client = new MemoryClient('your-api-key');\n\n$newCategories = [\n    ['cooking' => 'For users interested in cooking and culinary experiences'],\n    ['fitness' => 'Includes content related to fitness and workouts']\n];\n\ntry {\n    $response = $client->updateProject(['custom_categories' => $newCategories]);\n    print_r($response);\n} catch (Exception $e) {\n    echo 'Error: ' . $e->getMessage();\n}"
+				},
+				{
+					"lang": "Java",
+					"source": "// To use the Java SDK, add this dependency to your pom.xml:\n// <dependency>\n//     <groupId>ai.mem0</groupId>\n//     <artifactId>mem0-java</artifactId>\n//     <version>1.0.0</version>\n// </dependency>\n\nimport ai.mem0.MemoryClient;\nimport java.util.*;\n\npublic class Example {\n    public static void main(String[] args) {\n        MemoryClient client = new MemoryClient(\"your-api-key\");\n        \n        List<Map<String, String>> newCategories = Arrays.asList(\n            Collections.singletonMap(\"cooking\", \"For users interested in cooking and culinary experiences\"),\n            Collections.singletonMap(\"fitness\", \"Includes content related to fitness and workouts\")\n        );\n        \n        try {\n            Map<String, Object> params = new HashMap<>();\n            params.put(\"custom_categories\", newCategories);\n            \n            Object response = client.updateProject(params);\n            System.out.println(response);\n        } catch (Exception e) {\n            System.err.println(\"Error: \" + e.getMessage());\n        }\n    }\n}"
+				}
 				]
 			},
 			"delete": {
