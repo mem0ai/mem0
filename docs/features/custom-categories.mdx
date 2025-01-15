@@ -56,10 +56,24 @@ Here's how to set custom categories:
 ```python Code
 # Update custom categories
 new_categories = [
-    {"cooking": "For users interested in cooking and culinary experiences"},
-    {"fitness": "Content related to fitness and exercise"}
-]
-response = client.update_custom_instructions_and_categories({"custom_categories": new_categories})
+        {
+            "cooking": "For users interested in cooking and culinary experiences. Includes recipes, cooking tips, meal prep ideas, healthy eating guides, kitchen hacks, and recommendations for cooking tools or ingredients."
+        },
+        {
+            "gym": "Captures all the gym and workout-related content. Includes fitness plans, weightlifting techniques, cardio routines, yoga practices, recovery tips, and recommendations for gym equipment or supplements."
+        },
+        {
+            "office-work": "Includes all the work-related content, focusing on productivity tips, team collaboration strategies, email management, remote work setup advice, time management techniques, and tools for boosting efficiency in a professional setting."
+        },
+        {
+            "personal-life": "Includes all the personal life-related content, such as self-care routines, relationship advice, mindfulness practices, hobbies, life goals, and tips for maintaining a work-life balance."
+        },
+        {
+            "cricket": "Captures all the cricket-related content. Includes match analysis, player statistics, tournament schedules, game highlights, tips for playing cricket, and updates on domestic and international cricket leagues."
+        }
+    ]
+
+response = client.update_project(custom_categories=new_categories)
 print(response)
 ```
 
@@ -79,17 +93,31 @@ from mem0 import MemoryClient
 client = MemoryClient(api_key="xxx")
 
 # Get current custom categories
-categories = client.get_custom_instructions_and_categories(["custom_categories"])
+categories = client.get_project(fields=["custom_categories"])
 print(categories)
 ```
 
 ```json Output
 {
     "custom_categories": [
-        {"cooking": "For users interested in cooking and culinary experiences"},
-        {"fitness": "Content related to fitness and exercise"}
+        {
+            "cooking": "For users interested in cooking and culinary experiences. Includes recipes, cooking tips, meal prep ideas, healthy eating guides, kitchen hacks, and recommendations for cooking tools or ingredients."
+        },
+        {
+            "gym": "Captures all the gym and workout-related content. Includes fitness plans, weightlifting techniques, cardio routines, yoga practices, recovery tips, and recommendations for gym equipment or supplements."
+        },
+        {
+            "office-work": "Includes all the work-related content, focusing on productivity tips, team collaboration strategies, email management, remote work setup advice, time management techniques, and tools for boosting efficiency in a professional setting."
+        },
+        {
+            "personal-life": "Includes all the personal life-related content, such as self-care routines, relationship advice, mindfulness practices, hobbies, life goals, and tips for maintaining a work-life balance."
+        },
+        {
+            "cricket": "Captures all the cricket-related content. Includes match analysis, player statistics, tournament schedules, game highlights, tips for playing cricket, and updates on domestic and international cricket leagues."
+        }
     ]
 }
+
 ```
 </CodeGroup>
 
