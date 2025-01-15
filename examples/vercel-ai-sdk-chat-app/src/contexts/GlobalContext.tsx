@@ -119,7 +119,7 @@ const GlobalState = (props: any) => {
     try {
       const smemories = await searchMemories(messages, {
         user_id: selectedUser || "",
-        mem0ApiKey: import.meta.env.VITE_MEM0_API_KEY,
+        mem0ApiKey: selectedMem0Key,
       });
 
       const newMemories = smemories.map((memory: any) => ({
