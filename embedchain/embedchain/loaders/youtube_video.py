@@ -21,7 +21,7 @@ class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
         video_id = _parse_video_id(url)
-
+        print(url)
         languages = ["en"]
         try:
             # Fetching transcript data
@@ -41,11 +41,12 @@ class YoutubeVideoLoader(BaseLoader):
         content = doc[0].page_content
         content = clean_string(content)
         metadata = doc[0].metadata
+        
         # Ensure 'publishedAt' is extracted if available
         published_at = metadata.get("publishedAt", None)
         if published_at:
             try:
-                # Convert to ISO 8601 format (ensuring proper handling for UTC timestamps)
+                # Convert to ISO 8601 format (proper handling for UTC timestamps)
                 if published_at.endswith("Z"):  # Handles UTC 'Z' notation
                     published_at_iso = datetime.strptime(published_at, "%Y-%m-%dT%H:%M:%SZ").isoformat()
                 else:  # Handles other potential formats
@@ -53,9 +54,12 @@ class YoutubeVideoLoader(BaseLoader):
                 metadata["publishedAt"] = published_at_iso
             except Exception as e:
                 logging.warning(f"Failed to parse publishedAt field '{published_at}': {e}")
+            
+        print(metadata)
                 
         metadata["url"] = url
         metadata["transcript"] = transcript
+
 
         output.append(
             {
