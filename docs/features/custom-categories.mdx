@@ -67,7 +67,7 @@ You can also retrieve the current custom categories:
 <CodeGroup>
 ```python Code
 # Get current custom categories
-categories = client.get_custom_instructions_and_categories(["custom_categories"])
+categories = client.get_project(fields=["custom_categories"])
 print(categories)
 ```
 
@@ -79,6 +79,7 @@ print(categories)
     {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
   ]
 }
+
 ```
 </CodeGroup>
 
