@@ -114,9 +114,9 @@ class MemoryClient:
 
             if response.status_code == 200:
                 data = response.json()
-                if data.get('org_id') and data.get('project_id'):
-                    self.org_id = data.get('org_id')
-                    self.project_id = data.get('project_id')
+                if data.get("org_id") and data.get("project_id"):
+                    self.org_id = data.get("org_id")
+                    self.project_id = data.get("project_id")
 
         except httpx.HTTPStatusError:
             raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
@@ -407,7 +407,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+    def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
         Args:
@@ -433,7 +433,9 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def update_project(self, custom_instructions: Optional[str]=None, custom_categories: Optional[List[str]]=None) -> Dict[str, Any]:
+    def update_project(
+        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """Update the project settings.
 
         Args:
@@ -451,15 +453,23 @@ class MemoryClient:
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
         if custom_instructions is None and custom_categories is None:
-            raise ValueError("Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them")
+            raise ValueError(
+                "Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them"
+            )
 
-        payload = self._prepare_params({"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        payload = self._prepare_params(
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+        )
         response = self.client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
             json=payload,
         )
         response.raise_for_status()
-        capture_client_event("client.update_project", self, {"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        capture_client_event(
+            "client.update_project",
+            self,
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories},
+        )
         return response.json()
 
     def chat(self):
@@ -744,10 +754,9 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+    async def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
-
 
         params = self._prepare_params({"fields": fields})
         response = await self.async_client.get(
@@ -755,24 +764,28 @@ class AsyncMemoryClient:
             params=params,
         )
         response.raise_for_status()
-        capture_client_event(
-            "async_client.get_project", self.sync_client, {"fields": fields}
-        )
+        capture_client_event("async_client.get_project", self.sync_client, {"fields": fields})
         return response.json()
 
     @api_error_handler
-    async def update_project(self, custom_instructions: Optional[str], custom_categories: Optional[List[str]]) -> Dict[str, Any]:
+    async def update_project(
+        self, custom_instructions: Optional[str], custom_categories: Optional[List[str]]
+    ) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        payload = self.sync_client._prepare_params({"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        payload = self.sync_client._prepare_params(
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+        )
         response = await self.async_client.patch(
             f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
             json=payload,
         )
         response.raise_for_status()
         capture_client_event(
-            "async_client.update_project", self.sync_client, {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+            "async_client.update_project",
+            self.sync_client,
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories},
         )
         return response.json()
 
