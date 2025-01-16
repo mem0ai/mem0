@@ -5,9 +5,7 @@ try:
     from elasticsearch import Elasticsearch
     from elasticsearch.helpers import bulk
 except ImportError:
-    raise ImportError(
-        "Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`"
-    ) from None
+    raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
 from pydantic import BaseModel
 
@@ -127,14 +125,7 @@ class ElasticsearchDB(VectorStoreBase):
                         # Exact match filters for memory isolation
                         *({"term": {f"payload.{k}": v}} for k, v in (filters or {}).items()),
                         # KNN vector search
-                        {
-                            "knn": {
-                                "vector": {
-                                    "vector": query,
-                                    "k": limit
-                                }
-                            }
-                        }
+                        {"knn": {"vector": {"vector": query, "k": limit}}},
                     ]
                 }
             }
@@ -144,13 +135,7 @@ class ElasticsearchDB(VectorStoreBase):
 
         results = []
         for hit in response["hits"]["hits"]:
-            results.append(
-                OutputData(
-                    id=hit["_id"],
-                    score=hit["_score"],
-                    payload=hit["_source"].get("payload", {})
-                )
-            )
+            results.append(OutputData(id=hit["_id"], score=hit["_score"], payload=hit["_source"].get("payload", {})))
 
         return results
 
