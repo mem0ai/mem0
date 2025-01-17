@@ -199,8 +199,6 @@
             "api-reference/project/update-project",
             "api-reference/project/create-project",
             "api-reference/project/delete-project",
-            "api-reference/project/get-instructions-and-categories",
-            "api-reference/project/update-instructions-and-categories",
             {
               "group": "Members APIs",
               "pages":[

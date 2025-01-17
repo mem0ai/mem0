@@ -665,6 +665,91 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 ```
 </CodeGroup>
 
+Example 3: Search using metadata and categories Filters
+<CodeGroup>
+```python Python
+query = "What do you know about me?"
+filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+         "categories":{
+            "contains": "food_preferences"
+         }
+    }
+    ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+client.search(query, { version: "v2", filters })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+             "AND": [
+                 {
+                     "metadata": {
+                         "food": "vegan"
+                     }
+                 },
+                 {
+                     "categories": {
+                         "contains": "food_preferences"
+                     }
+                 }
+             ]
+         }
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "654fee-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700eiy8749aed75a",
+        "metadata": {"food": "vegan"},
+        "categories": ["food_preferences"],
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+
+</CodeGroup>
+
 
 ### 4.3 Get All Users
 
@@ -1460,6 +1545,7 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/?user_id=alex" \
 ```json Output
 {'message': 'Memories deleted successfully!'}
 ```
+
 </CodeGroup>
 
 Delete all users.
