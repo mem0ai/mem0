@@ -46,7 +46,7 @@ class MemoryGraph:
         self.user_id = None
         self.threshold = 0.7
 
-    def add(self, data, filters):
+    def add(self, data, filters, graph_prompt=None):
         """
         Adds data to the graph.
 
@@ -55,7 +55,7 @@ class MemoryGraph:
             filters (dict): A dictionary containing filters to be applied during the addition.
         """
         entity_type_map = self._retrieve_nodes_from_data(data, filters)
-        to_be_added = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+        to_be_added = self._establish_nodes_relations_from_data(data, filters, entity_type_map, graph_prompt)
         search_output = self._search_graph_db(node_list=list(entity_type_map.keys()), filters=filters)
         to_be_deleted = self._get_delete_entities_from_search_output(search_output, data, filters)
 
@@ -173,14 +173,15 @@ class MemoryGraph:
         logger.debug(f"Entity type map: {entity_type_map}")
         return entity_type_map
 
-    def _establish_nodes_relations_from_data(self, data, filters, entity_type_map):
+    def _establish_nodes_relations_from_data(self, data, filters, entity_type_map, graph_prompt=None):
         """Eshtablish relations among the extracted nodes."""
-        if self.config.graph_store.custom_prompt:
+        custom_prompt = graph_prompt if graph_prompt else self.config.graph_store.custom_prompt
+        if custom_prompt:
             messages = [
                 {
                     "role": "system",
                     "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]).replace(
-                        "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
+                        "CUSTOM_PROMPT", f"4. {custom_prompt}"
                     ),
                 },
                 {"role": "user", "content": data},
@@ -294,7 +295,7 @@ class MemoryGraph:
             -[r:{relatationship}]->
             (m {{name: $dest_name, user_id: $user_id}})
             DELETE r
-            RETURN 
+            RETURN
                 n.name AS source,
                 m.name AS target,
                 type(r) AS relationship
@@ -339,7 +340,7 @@ class MemoryGraph:
                         destination.created = timestamp(),
                         destination.embedding = $destination_embedding
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
@@ -364,7 +365,7 @@ class MemoryGraph:
                         source.created = timestamp(),
                         source.embedding = $source_embedding
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
@@ -387,7 +388,7 @@ class MemoryGraph:
                     MATCH (destination)
                     WHERE elementId(destination) = $destination_id
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created_at = timestamp(),
                         r.updated_at = timestamp()
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
@@ -436,7 +437,7 @@ class MemoryGraph:
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
         cypher = """
             MATCH (source_candidate)
-            WHERE source_candidate.embedding IS NOT NULL 
+            WHERE source_candidate.embedding IS NOT NULL
             AND source_candidate.user_id = $user_id
 
             WITH source_candidate,
@@ -469,7 +470,7 @@ class MemoryGraph:
     def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
         cypher = """
             MATCH (destination_candidate)
-            WHERE destination_candidate.embedding IS NOT NULL 
+            WHERE destination_candidate.embedding IS NOT NULL
             AND destination_candidate.user_id = $user_id
 
             WITH destination_candidate,
