@@ -1136,9 +1136,32 @@
 						"name": "filters",
 						"in": "query",
 						"schema": {
-							"type": "object"
+							"type": "object",
+							"properties": {
+								"user_id": {"type": "string"},
+								"agent_id": {"type": "string"},
+								"app_id": {"type": "string"},
+								"run_id": {"type": "string"},
+								"created_at": {"type": "string", "format": "date-time"},
+								"updated_at": {"type": "string", "format": "date-time"},
+								"categories": {"type": "array", "items": {"type": "string"}},
+								"keywords": {"type": "string"}
+							},
+							"additionalProperties": {
+								"type": "object",
+								"properties": {
+									"in": {"type": "array"},
+									"gte": {"type": "string"},
+									"lte": {"type": "string"},
+									"gt": {"type": "string"},
+									"lt": {"type": "string"},
+									"ne": {"type": "string"},
+									"contains": {"type": "string"},
+									"icontains": {"type": "string"}
+								}
+							}
 						},
-						"description": "Filters to apply to the memories",
+						"description": "Filters to apply to the memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains)",
 						"style": "deepObject",
 						"explode": true
 					},
@@ -4523,9 +4546,30 @@
 					"filters": {
 						"title": "Filters",
 						"type": "object",
-						"description": "A dictionary of filters to apply to the search. Users can pass AND, OR, IN, gte, lte, gt, lt, ne, icontains operators for advanced filtering.",
+						"description": "A dictionary of filters to apply to the search. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains).",
+						"properties": {
+							"user_id": {"type": "string"},
+							"agent_id": {"type": "string"},
+							"app_id": {"type": "string"},
+							"run_id": {"type": "string"},
+							"created_at": {"type": "string", "format": "date-time"},
+							"updated_at": {"type": "string", "format": "date-time"},
+							"text": {"type": "string"},
+							"categories": {"type": "array", "items": {"type": "string"}},
+							"metadata": {"type": "object"}
+						},
 						"additionalProperties": {
-							"type": "object"
+							"type": "object",
+							"properties": {
+								"in": {"type": "array"},
+								"gte": {"type": "string"},
+								"lte": {"type": "string"},
+								"gt": {"type": "string"},
+								"lt": {"type": "string"},
+								"ne": {"type": "string"},
+								"contains": {"type": "string"},
+								"icontains": {"type": "string"}
+							}
 						}
 					},
 					"top_k": {
@@ -4547,6 +4591,18 @@
 						"type": "boolean",
 						"default": false,
 						"description": "Whether to rerank the memories."
+					},
+					"threshold": {
+						"title": "Threshold",
+						"type": "number",
+						"default": 0.3,
+						"description": "The minimum similarity threshold for returned results."
+					},
+					"smart_search": {
+						"title": "Smart Search",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to enable smart search functionality."
 					},
 					"org_name": {
 						"title": "Organization Name",
