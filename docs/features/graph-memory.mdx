@@ -1,0 +1,89 @@
+---
+title: Graph Memory
+description: 'Knowledge Graph of your memories'
+---
+
+
+Mem0 uses a graph database to store memories in a knowledge graph. This allows for more complex queries and relationships between memories.
+
+## Add
+
+To create an knowledge graph of your memories, you can use the `enable_graph` param in the `add()` method.
+
+```python
+from mem0 import MemoryClient
+
+m = MemoryClient(api_key="your_api_key")
+
+m.add(
+    messages=[
+        {"role": "user", "content": "I like to eat pizza"},
+    ],
+    user_id="sam",
+    agent_id="agent_1",
+    enable_graph=True,
+)
+``` 
+This will create a knowledge graph of the memories and store it in the graph database. 
+
+
+## Search
+
+Use the `search()` method with the `enable_graph` params to get the knowledge graph of the memories.
+
+```python
+result = m.search(
+    query="preferences of sam",
+    user_id="sam",
+    agent_id="agent_1",
+    enable_graph=True,
+    output_format="v1.1"
+)
+print(result)
+```
+
+<Note type="info">
+  The `output_format` parameter is mandatory to get the graph results. If not provided, the graph search will not work.
+</Note>
+
+This will return the nodes and relationships that are related to the query "preferences of sam".
+
+<CodeGroup>
+```json Output
+{
+    'results': [{'id': '438fb702-b839-4ffc-9fb4-2bead4efaf1c', 'memory': 'Likes to play cricket', 'agent_id': 'agent_1', 'user_id': 'sam', 'hash': '5e86143436d3842514f63aab4a8335a9', 'metadata': None, 'categories': None, 'created_at': '2025-01-12T21:10:20.044056-08:00', 'updated_at': '2025-01-12T21:10:20.044092-08:00', 'score': 0.37636341138324625}], 
+    'relations': [{'source': 'sam', 'source_type': 'person', 'relationship': 'likes_to_eat', 'target': 'pizza', 'target_type': 'food'}]
+}
+```
+</CodeGroup>
+
+## Get All
+
+Use the `get_all()` method with the `enable_graph` property to get all the memories in the graph database.
+
+```python
+result = client.get_all(
+    user_id="sam",
+    agent_id="agent_1",
+    enable_graph=True,
+    output_format="v1.1"
+)
+print(result)
+```
+
+This will return all the memories in the graph database.
+
+<CodeGroup>
+```json Output
+{
+    'results': [
+        {'id': 'e3a2bd50-bef8-45a3-9ee0-f97dc4e981c2', 'memory': 'Likes to eat pizza', 'agent_id': 'agent_1', 'user_id': 'sam', 'hash': 'e0b64254f555327eca2f7fd606dbb680', 'metadata': None, 'categories': None, 'created_at': '2025-01-12T22:42:24.200506-08:00', 'updated_at': '2025-01-12T22:42:24.200556-08:00'}, 
+        {'id': '438fb702-b839-4ffc-9fb4-2bead4efaf1c', 'memory': 'Likes to play cricket', 'agent_id': 'agent_1', 'user_id': 'sam', 'hash': '5e86143436d3842514f63aab4a8335a9', 'metadata': None, 'categories': None, 'created_at': '2025-01-12T21:10:20.044056-08:00', 'updated_at': '2025-01-12T21:10:20.044092-08:00'}, 
+        {'id': 'b2e0c620-04c1-4cd5-a644-9c344b8b9495', 'memory': 'Likes to play football', 'agent_id': 'agent_1', 'user_id': 'sam', 'hash': '8d562874903746a692f53eb4e5d6de92', 'metadata': None, 'categories': None, 'created_at': '2025-01-12T21:03:56.876662-08:00', 'updated_at': '2025-01-12T21:03:56.876688-08:00'}], 
+    'relations': [
+        {'source': 'sam', 'source_type': 'person', 'relationship': 'likes_to_eat', 'target': 'pizza', 'target_type': 'food'}, 
+        {'source': 'sam', 'source_type': 'person', 'relationship': 'likes_to_play', 'target': 'cricket', 'target_type': 'sport'}
+    ]
+}
+```
+</CodeGroup>
