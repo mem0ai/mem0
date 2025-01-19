@@ -758,7 +758,7 @@ class AsyncMemoryClient:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
-        params = self._prepare_params({"fields": fields})
+        params = self.sync_client._prepare_params({"fields": fields})
         response = await self.async_client.get(
             f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
             params=params,
@@ -769,10 +769,15 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_project(
-        self, custom_instructions: Optional[str], custom_categories: Optional[List[str]]
+        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
+
+        if custom_instructions is None and custom_categories is None:
+            raise ValueError(
+                "Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them"
+            )
 
         payload = self.sync_client._prepare_params(
             {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
