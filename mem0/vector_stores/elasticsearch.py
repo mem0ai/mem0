@@ -53,15 +53,13 @@ class ElasticsearchDB(VectorStoreBase):
                 "index": {
                     "number_of_replicas": 1,
                     "number_of_shards": 5,
-                    "refresh_interval": "1s",
-                    "knn": True,
-                    "knn.algo_param.ef_search": 100
+                    "refresh_interval": "1s"
                 }
             },
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "embedding": {
+                    "vector": {
                         "type": "dense_vector",
                         "dims": self.vector_dim,
                         "index": True,
@@ -70,7 +68,7 @@ class ElasticsearchDB(VectorStoreBase):
                     "metadata": {
                         "type": "object",
                         "properties": {
-                            "user_id": {"type": "keyword"}  # Indexed for fast filtering
+                            "user_id": {"type": "keyword"}
                         }
                     }
                 }
@@ -115,7 +113,7 @@ class ElasticsearchDB(VectorStoreBase):
                 "_index": self.collection_name,
                 "_id": id_,
                 "_source": {
-                    "embedding": vec,
+                    "vector": vec,
                     "metadata": payloads[i]  # Store all metadata in the metadata field
                 }
             }
@@ -140,7 +138,7 @@ class ElasticsearchDB(VectorStoreBase):
             # If no filters, just do KNN search
             search_query = {
                 "knn": {
-                    "field": "embedding",
+                    "field": "vector",
                     "query_vector": query,
                     "k": limit,
                     "num_candidates": limit * 2
@@ -158,7 +156,7 @@ class ElasticsearchDB(VectorStoreBase):
             
             search_query = {
                 "knn": {
-                    "field": "embedding",
+                    "field": "vector",
                     "query_vector": query,
                     "k": limit,
                     "num_candidates": limit * 2,
@@ -192,7 +190,7 @@ class ElasticsearchDB(VectorStoreBase):
         """Update a vector and its payload."""
         doc = {}
         if vector is not None:
-            doc["embedding"] = vector
+            doc["vector"] = vector
         if payload is not None:
             doc["metadata"] = payload
 
