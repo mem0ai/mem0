@@ -49,18 +49,28 @@ class ElasticsearchDB(VectorStoreBase):
     def create_index(self) -> None:
         """Create Elasticsearch index with proper mappings if it doesn't exist"""
         index_settings = {
+            "settings": {
+                "index": {
+                    "number_of_replicas": 1,
+                    "number_of_shards": 5,
+                    "refresh_interval": "1s"
+                }
+            },
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "embedding": {
+                    "vector": {
                         "type": "dense_vector",
                         "dims": self.vector_dim,
                         "index": True,
-                        "similarity": "cosine",
+                        "similarity": "cosine"
                     },
-                    "metadata": {"type": "object"},
-                    "user_id": {"type": "keyword"},
-                    "hash": {"type": "keyword"},
+                    "metadata": {
+                        "type": "object",
+                        "properties": {
+                            "user_id": {"type": "keyword"}
+                        }
+                    }
                 }
             }
         }
@@ -99,43 +109,76 @@ class ElasticsearchDB(VectorStoreBase):
 
         actions = []
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
-            action = {"_index": self.collection_name, "_id": id_, "vector": vec, "payload": payloads[i]}
+            action = {
+                "_index": self.collection_name,
+                "_id": id_,
+                "_source": {
+                    "vector": vec,
+                    "metadata": payloads[i]  # Store all metadata in the metadata field
+                }
+            }
             actions.append(action)
 
         bulk(self.client, actions)
 
-        # Return OutputData objects for inserted documents
         results = []
         for i, id_ in enumerate(ids):
             results.append(
                 OutputData(
                     id=id_,
                     score=1.0,  # Default score for inserts
-                    payload=payloads[i],
+                    payload=payloads[i]
                 )
             )
         return results
 
     def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
         """Search for similar vectors using KNN search with pre-filtering."""
-        search_query = {
-            "query": {
-                "bool": {
-                    "must": [
-                        # Exact match filters for memory isolation
-                        *({"term": {f"payload.{k}": v}} for k, v in (filters or {}).items()),
-                        # KNN vector search
-                        {"knn": {"vector": {"vector": query, "k": limit}}},
-                    ]
+        if not filters:
+            # If no filters, just do KNN search
+            search_query = {
+                "knn": {
+                    "field": "vector",
+                    "query_vector": query,
+                    "k": limit,
+                    "num_candidates": limit * 2
                 }
             }
-        }
+        else:
+            # If filters exist, apply them with KNN search
+            filter_conditions = []
+            for key, value in filters.items():
+                filter_conditions.append({
+                    "term": {
+                        f"metadata.{key}": value
+                    }
+                })
+            
+            search_query = {
+                "knn": {
+                    "field": "vector",
+                    "query_vector": query,
+                    "k": limit,
+                    "num_candidates": limit * 2,
+                    "filter": {
+                        "bool": {
+                            "must": filter_conditions
+                        }
+                    }
+                }
+            }
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
         results = []
         for hit in response["hits"]["hits"]:
-            results.append(OutputData(id=hit["_id"], score=hit["_score"], payload=hit["_source"].get("payload", {})))
+            results.append(
+                OutputData(
+                    id=hit["_id"],
+                    score=hit["_score"],
+                    payload=hit.get("_source", {}).get("metadata", {})
+                )
+            )
 
         return results
 
@@ -149,7 +192,7 @@ class ElasticsearchDB(VectorStoreBase):
         if vector is not None:
             doc["vector"] = vector
         if payload is not None:
-            doc["payload"] = payload
+            doc["metadata"] = payload
 
         self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
 
@@ -160,7 +203,7 @@ class ElasticsearchDB(VectorStoreBase):
             return OutputData(
                 id=response["_id"],
                 score=1.0,  # Default score for direct get
-                payload=response["_source"].get("payload", {}),
+                payload=response["_source"].get("metadata", {})
             )
         except KeyError as e:
             logger.warning(f"Missing key in Elasticsearch response: {e}")
@@ -189,7 +232,18 @@ class ElasticsearchDB(VectorStoreBase):
         query: Dict[str, Any] = {"query": {"match_all": {}}}
 
         if filters:
-            query["query"] = {"bool": {"must": [{"match": {f"payload.{k}": v}} for k, v in filters.items()]}}
+            filter_conditions = []
+            for key, value in filters.items():
+                filter_conditions.append({
+                    "term": {
+                        f"metadata.{key}": value
+                    }
+                })
+            query["query"] = {
+                "bool": {
+                    "must": filter_conditions
+                }
+            }
 
         if limit:
             query["size"] = limit
@@ -202,7 +256,7 @@ class ElasticsearchDB(VectorStoreBase):
                 OutputData(
                     id=hit["_id"],
                     score=1.0,  # Default score for list operation
-                    payload=hit["_source"].get("payload", {}),
+                    payload=hit.get("_source", {}).get("metadata", {})
                 )
             )
 

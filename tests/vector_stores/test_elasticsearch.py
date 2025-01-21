@@ -92,13 +92,11 @@ class TestElasticsearchDB(unittest.TestCase):
         # Verify field mappings
         mappings = create_args["body"]["mappings"]["properties"]
         self.assertEqual(mappings["text"]["type"], "text")
-        self.assertEqual(mappings["embedding"]["type"], "dense_vector")
-        self.assertEqual(mappings["embedding"]["dims"], 1536)
-        self.assertEqual(mappings["embedding"]["index"], True)
-        self.assertEqual(mappings["embedding"]["similarity"], "cosine")
+        self.assertEqual(mappings["vector"]["type"], "dense_vector")
+        self.assertEqual(mappings["vector"]["dims"], 1536)
+        self.assertEqual(mappings["vector"]["index"], True)
+        self.assertEqual(mappings["vector"]["similarity"], "cosine")
         self.assertEqual(mappings["metadata"]["type"], "object")
-        self.assertEqual(mappings["user_id"]["type"], "keyword")
-        self.assertEqual(mappings["hash"]["type"], "keyword")
         
         # Reset mocks for next test
         self.client_mock.reset_mock()
@@ -170,8 +168,8 @@ class TestElasticsearchDB(unittest.TestCase):
             self.assertEqual(len(actions), 2)
             self.assertEqual(actions[0]["_index"], "test_collection")
             self.assertEqual(actions[0]["_id"], "id1")
-            self.assertEqual(actions[0]["vector"], vectors[0])
-            self.assertEqual(actions[0]["payload"], payloads[0])
+            self.assertEqual(actions[0]["_source"]["vector"], vectors[0])
+            self.assertEqual(actions[0]["_source"]["metadata"], payloads[0])
             
             # Verify returned objects
             self.assertEqual(len(results), 2)
@@ -189,7 +187,7 @@ class TestElasticsearchDB(unittest.TestCase):
                         "_score": 0.8,
                         "_source": {
                             "vector": [0.1] * 1536,
-                            "payload": {"key1": "value1"}
+                            "metadata": {"key1": "value1"}
                         }
                     }
                 ]
@@ -210,14 +208,11 @@ class TestElasticsearchDB(unittest.TestCase):
         body = search_args["body"]
         
         # Verify KNN query structure
-        self.assertIn("query", body)
-        self.assertIn("bool", body["query"])
-        self.assertIn("must", body["query"]["bool"])
-        
-        # Verify KNN parameters
-        knn_query = body["query"]["bool"]["must"][-1]["knn"]["vector"]
-        self.assertEqual(knn_query["vector"], query_vector)
-        self.assertEqual(knn_query["k"], 5)
+        self.assertIn("knn", body)
+        self.assertEqual(body["knn"]["field"], "vector")
+        self.assertEqual(body["knn"]["query_vector"], query_vector)
+        self.assertEqual(body["knn"]["k"], 5)
+        self.assertEqual(body["knn"]["num_candidates"], 10)
 
         # Verify results
         self.assertEqual(len(results), 1)
@@ -231,10 +226,8 @@ class TestElasticsearchDB(unittest.TestCase):
             "_id": "id1",
             "_source": {
                 "vector": [0.1] * 1536,
-                "payload": {"key": "value"},
-                "text": "sample text",
-                "user_id": "test_user",
-                "hash": "sample_hash"
+                "metadata": {"key": "value"},
+                "text": "sample text"
             }
         }
         self.client_mock.get.return_value = mock_response
@@ -248,17 +241,11 @@ class TestElasticsearchDB(unittest.TestCase):
             id="id1"
         )
         
-        # Basic assertions that should pass if OutputData is created correctly
+        # Verify result
         self.assertIsNotNone(result)
-        self.assertTrue(hasattr(result, 'id'))
-        self.assertTrue(hasattr(result, 'score'))
-        self.assertTrue(hasattr(result, 'payload'))
-        
-        # If the above assertions pass, we can safely check the values
-        if result is not None:  # This satisfies the linter
-            self.assertEqual(result.id, "id1")
-            self.assertEqual(result.score, 1.0)
-            self.assertEqual(result.payload, {"key": "value"})
+        self.assertEqual(result.id, "id1")
+        self.assertEqual(result.score, 1.0)
+        self.assertEqual(result.payload, {"key": "value"})
 
     def test_get_not_found(self):
         # Mock get raising exception
@@ -277,7 +264,7 @@ class TestElasticsearchDB(unittest.TestCase):
                         "_id": "id1",
                         "_source": {
                             "vector": [0.1] * 1536,
-                            "payload": {"key1": "value1"}
+                            "metadata": {"key1": "value1"}
                         },
                         "_score": 1.0
                     },
@@ -285,7 +272,7 @@ class TestElasticsearchDB(unittest.TestCase):
                         "_id": "id2",
                         "_source": {
                             "vector": [0.2] * 1536,
-                            "payload": {"key2": "value2"}
+                            "metadata": {"key2": "value2"}
                         },
                         "_score": 0.8
                     }
