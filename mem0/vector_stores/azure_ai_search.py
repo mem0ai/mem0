@@ -126,13 +126,13 @@ class AzureAISearch(VectorStoreBase):
     def _build_filter_expression(self, filters):
         filter_conditions = []
         for key, value in filters.items():
-            # 如果值是字符串，添加引号
+            # If the value is a string, add quotes
             if isinstance(value, str):
                 condition = f"{key} eq '{value}'"
             else:
                 condition = f"{key} eq {value}"
             filter_conditions.append(condition)
-        # 使用 'and' 连接多个条件
+        # Use 'and' to join multiple conditions
         filter_expression = ' and '.join(filter_conditions)
         return filter_expression
 
@@ -147,7 +147,7 @@ class AzureAISearch(VectorStoreBase):
         Returns:
             list: Search results.
         """
-        # 构建过滤表达式
+        # Build filter expression
         filter_expression = None
         if filters:
             filter_expression = self._build_filter_expression(filters)
