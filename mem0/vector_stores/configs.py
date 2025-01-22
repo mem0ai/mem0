@@ -18,6 +18,7 @@ class VectorStoreConfig(BaseModel):
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
         "elasticsearch": "ElasticsearchConfig",
+        "vikingdb": "VikingDBConfig",
     }
 
     @model_validator(mode="after")
