@@ -1566,6 +1566,37 @@ client.delete_users()
 {'message': 'All users, agents, and runs deleted.'}
 ```
 
+Delete specific user or agent or app or run.
+
+```python Python
+# Delete specific user
+client.delete_users(user_id="alex")
+
+# Delete specific agent
+#client.delete_users(agent_id="travel-assistant")
+
+# Delete specific app
+#client.delete_users(app_id="travel-app")
+
+# Delete specific run
+#client.delete_users(run_id="travel-run")
+```
+
+```javascript JavaScript
+client.delete_users({ user_id: "alex" })
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X DELETE "https://api.mem0.ai/v1/entities/?user_id=alex" \
+     -H "Authorization: Token your-api-key"
+```
+
+```json Output
+{'message': 'Entity deleted successfully.'}
+```
+
 </CodeGroup>
 
 ### 4.8 Reset Client
