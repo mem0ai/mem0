@@ -107,3 +107,20 @@ m.add("I like going to hikes", user_id="alice")
 }
 ```
 </CodeGroup>
+
+
+## Customizing Prompts per Memory Addition
+
+In addition to setting a default prompt in the configuration, you can also override prompts for individual memory entries by using the prompt and graph_prompt parameters in m.add(). This allows you to tailor specific entries without changing the overall configuration.
+
+For example, to add a memory with a custom prompt:
+
+```python Code
+m.add("Yesterday, I ordered a laptop, the order id is 12345", user_id="alice", prompt=custom_prompt)
+```
+
+You can also use graph_prompt to customize the prompt specifically for graph memory entries:
+
+```python Code
+m.add("Yesterday, I ordered a laptop, the order id is 12345", user_id="alice", graph_prompt=graph_prompt)
+```
