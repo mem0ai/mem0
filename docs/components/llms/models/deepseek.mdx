@@ -1,0 +1,49 @@
+---
+title: DeepSeek
+---
+
+To use DeepSeek LLM models, you have to set the `DEEPSEEK_API_KEY` environment variable. You can also optionally set `DEEPSEEK_API_BASE` if you need to use a different API endpoint (defaults to "https://api.deepseek.com").
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["DEEPSEEK_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "your-api-key" # for embedder model
+
+config = {
+    "llm": {
+        "provider": "deepseek",
+        "config": {
+            "model": "deepseek-chat",  # default model
+            "temperature": 0.2,
+            "max_tokens": 1500,
+            "top_p": 1.0
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+You can also configure the API base URL in the config:
+
+```python
+config = {
+    "llm": {
+        "provider": "deepseek",
+        "config": {
+            "model": "deepseek-chat",
+            "deepseek_base_url": "https://your-custom-endpoint.com",
+            "api_key": "your-api-key"  # alternatively to using environment variable
+        }
+    }
+}
+```
+
+## Config
+
+All available parameters for the `deepseek` config are present in [Master List of All Params in Config](../config).
