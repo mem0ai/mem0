@@ -155,8 +155,6 @@ class Memory(MemoryBase):
             response_format={"type": "json_object"},
         )
 
-        response = parse_json_response(response)
-
         try:
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
