@@ -33,6 +33,8 @@ class BaseLlmConfig(ABC):
         azure_kwargs: Optional[AzureConfig] = {},
         # AzureOpenAI specific
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        # DeepSeek specific
+        deepseek_base_url: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -69,6 +71,8 @@ class BaseLlmConfig(ABC):
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server(s) settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
+        :param deepseek_base_url: DeepSeek base URL to be use, defaults to None
+        :type deepseek_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -91,6 +95,9 @@ class BaseLlmConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # DeepSeek specific
+        self.deepseek_base_url = deepseek_base_url
 
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**azure_kwargs) or {}

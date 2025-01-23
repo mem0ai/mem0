@@ -23,6 +23,7 @@ class LlmFactory:
         "anthropic": "mem0.llms.anthropic.AnthropicLLM",
         "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM",
         "gemini": "mem0.llms.gemini.GeminiLLM",
+        "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
     }
 
     @classmethod
