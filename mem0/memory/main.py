@@ -195,7 +195,10 @@ class Memory(MemoryBase):
 
         returned_memories = []
         try:
-            for resp in new_memories_with_actions["memory"]:
+            actions = new_memories_with_actions
+            if isinstance(actions, dict):
+                actions = new_memories_with_actions.get("memory", [])
+            for resp in actions:
                 logging.info(resp)
                 try:
                     if resp["event"] == "ADD":
