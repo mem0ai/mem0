@@ -11,6 +11,7 @@ class VectorStoreConfig(BaseModel):
     config: Optional[Dict] = Field(description="Configuration for the specific vector store", default=None)
 
     _provider_configs: Dict[str, str] = {
+        "mongodb": "MongoVectorConfig",
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
@@ -24,6 +25,9 @@ class VectorStoreConfig(BaseModel):
     def validate_and_create_config(self) -> "VectorStoreConfig":
         provider = self.provider
         config = self.config
+
+        print(f"Provider: {provider}")
+        print(f"Available providers: {list(self._provider_configs.keys())}")
 
         if provider not in self._provider_configs:
             raise ValueError(f"Unsupported vector store provider: {provider}")
