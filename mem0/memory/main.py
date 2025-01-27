@@ -73,7 +73,7 @@ class Memory(MemoryBase):
         prompt=None,
     ):
         """
-        Create a new memory.
+        Adds, updates, or deletes memories as appropriate, based on the provided message(s).
 
         Args:
             messages (str or List[Dict[str, str]]): Messages to store in the memory.
@@ -81,7 +81,7 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            filters (dict, optional): Filters to apply to the search. Defaults to None.
+            filters (dict, optional): Filters to apply to the search for pre-existing memories. Defaults to None.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
@@ -157,14 +157,14 @@ class Memory(MemoryBase):
 
         try:
             response = remove_code_blocks(response)
-            new_retrieved_facts = json.loads(response)["facts"]
+            new_generated_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+            new_generated_facts = []
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-        for new_mem in new_retrieved_facts:
+        for new_mem in new_generated_facts:
             messages_embeddings = self.embedding_model.embed(new_mem)
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
@@ -183,7 +183,7 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_generated_facts)
 
         new_memories_with_actions = self.llm.generate_response(
             messages=[{"role": "user", "content": function_calling_prompt}],
@@ -233,8 +233,6 @@ class Memory(MemoryBase):
                                 "event": resp["event"],
                             }
                         )
-                    elif resp["event"] == "NONE":
-                        logging.info("NOOP for Memory.")
                 except Exception as e:
                     logging.error(f"Error in new_memories_with_actions: {e}")
         except Exception as e:
