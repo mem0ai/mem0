@@ -3,11 +3,6 @@ import logging
 from mem0.memory.utils import format_entities
 
 try:
-    from langchain_community.graphs import Neo4jGraph
-except ImportError:
-    raise ImportError("langchain_community is not installed. Please install it using pip install langchain-community")
-
-try:
     from rank_bm25 import BM25Okapi
 except ImportError:
     raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
@@ -20,8 +15,11 @@ from mem0.graphs.tools import (
     RELATIONS_STRUCT_TOOL,
     RELATIONS_TOOL,
 )
-from mem0.graphs.utils import EXTRACT_RELATIONS_PROMPT, get_delete_messages
-from mem0.utils.factory import EmbedderFactory, LlmFactory
+from mem0.graphs.utils import (
+    EXTRACT_RELATIONS_PROMPT,
+    get_delete_messages,
+)
+from mem0.utils.factory import EmbedderFactory, LlmFactory, GraphFactory
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +27,11 @@ logger = logging.getLogger(__name__)
 class MemoryGraph:
     def __init__(self, config):
         self.config = config
-        self.graph = Neo4jGraph(
-            self.config.graph_store.config.url,
-            self.config.graph_store.config.username,
-            self.config.graph_store.config.password,
+        self.graph = GraphFactory.create(
+            self.config.graph_store.provider, self.config.graph_store.config
+            )
+        self.embedding_model = EmbedderFactory.create(
+            self.config.embedder.provider, self.config.embedder.config
         )
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
 
@@ -86,9 +85,7 @@ class MemoryGraph:
         if not search_output:
             return []
 
-        search_outputs_sequence = [
-            [item["source"], item["relatationship"], item["destination"]] for item in search_output
-        ]
+        search_outputs_sequence = [[item[0], item[2], item[4]] for item in search_output]
         bm25 = BM25Okapi(search_outputs_sequence)
 
         tokenized_query = query.split(" ")
@@ -108,7 +105,7 @@ class MemoryGraph:
         DETACH DELETE n
         """
         params = {"user_id": filters["user_id"]}
-        self.graph.query(cypher, params=params)
+        self.graph_query(cypher, params=params)
 
     def get_all(self, filters, limit=100):
         """
@@ -129,17 +126,15 @@ class MemoryGraph:
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
-        results = self.graph.query(query, params={"user_id": filters["user_id"], "limit": limit})
+        results = self.graph_query(query, params={"user_id": filters["user_id"], "limit": limit})
 
         final_results = []
         for result in results:
-            final_results.append(
-                {
-                    "source": result["source"],
-                    "relationship": result["relationship"],
-                    "target": result["target"],
-                }
-            )
+            final_results.append({
+                "source": result[0],
+                "relationship": result[1],
+                "target": result[2]
+            })
 
         logger.info(f"Retrieved {len(final_results)} relationships")
 
@@ -248,7 +243,7 @@ class MemoryGraph:
                 "user_id": filters["user_id"],
                 "limit": limit,
             }
-            ans = self.graph.query(cypher_query, params=params)
+            ans = self.graph_query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
@@ -304,7 +299,7 @@ class MemoryGraph:
                 "dest_name": destination,
                 "user_id": user_id,
             }
-            result = self.graph.query(cypher, params=params)
+            result = self.graph_query(cypher, params=params)
             results.append(result)
         return results
 
@@ -345,14 +340,14 @@ class MemoryGraph:
                     """
 
                 params = {
-                    "source_id": source_node_search_result[0]["elementId(source_candidate)"],
+                    "source_id": source_node_search_result[0][0],
                     "destination_name": destination,
                     "relationship": relationship,
                     "destination_type": destination_type,
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
                 }
-                resp = self.graph.query(cypher, params=params)
+                resp = self.graph_query(cypher, params=params)
                 results.append(resp)
 
             elif destination_node_search_result and not source_node_search_result:
@@ -377,7 +372,7 @@ class MemoryGraph:
                     "source_embedding": source_embedding,
                     "user_id": user_id,
                 }
-                resp = self.graph.query(cypher, params=params)
+                resp = self.graph_query(cypher, params=params)
                 results.append(resp)
 
             elif source_node_search_result and destination_node_search_result:
@@ -393,12 +388,12 @@ class MemoryGraph:
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
-                    "source_id": source_node_search_result[0]["elementId(source_candidate)"],
-                    "destination_id": destination_node_search_result[0]["elementId(destination_candidate)"],
+                    "source_id": source_node_search_result[0][0],
+                    "destination_id": destination_node_search_result[0][0],
                     "user_id": user_id,
                     "relationship": relationship,
                 }
-                resp = self.graph.query(cypher, params=params)
+                resp = self.graph_query(cypher, params=params)
                 results.append(resp)
 
             elif not source_node_search_result and not destination_node_search_result:
@@ -422,7 +417,7 @@ class MemoryGraph:
                     "dest_embedding": dest_embedding,
                     "user_id": user_id,
                 }
-                resp = self.graph.query(cypher, params=params)
+                resp = self.graph_query(cypher, params=params)
                 results.append(resp)
         return results
 
@@ -463,7 +458,7 @@ class MemoryGraph:
             "threshold": threshold,
         }
 
-        result = self.graph.query(cypher, params=params)
+        result = self.graph_query(cypher, params=params)
         return result
 
     def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
@@ -495,5 +490,30 @@ class MemoryGraph:
             "threshold": threshold,
         }
 
-        result = self.graph.query(cypher, params=params)
+        result = self.graph_query(cypher, params=params)
         return result
+    
+    def graph_query(self, query, params):
+        """
+        Execute a Cypher query on the graph database.
+        FalkorDB supported multi-graph usage, the graphs is switched based on the user_id.
+
+        Args:
+            query (str): The Cypher query to execute.
+            params (dict): A dictionary containing params to be applied during the query.
+
+        Returns:
+            list: A list of dictionaries containing the results of the query.
+        """
+        if self.config.graph_store.provider == "falkordb":
+            query = query.replace("elementId", "Id").replace("round(", "").replace(", 4)", "")
+            # TODO: Use langchain to switch graphs after the multi-graph feature is released
+            self.graph._graph = self.graph._driver.select_graph(params["user_id"])
+            
+        query_output = self.graph.query(query, params=params)
+        
+        if self.config.graph_store.provider == "neo4j":
+            query_output = [list(d.values()) for d in query_output]
+            
+        
+        return query_output
