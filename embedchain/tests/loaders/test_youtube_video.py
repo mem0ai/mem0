@@ -44,7 +44,6 @@ def test_load_data(youtube_video_loader):
                           "transcript": 'Unavailable',},
         }
     ]
-    print(expected_data)
 
     assert result["data"] == expected_data
 

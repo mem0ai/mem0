@@ -21,7 +21,6 @@ class YoutubeVideoLoader(BaseLoader):
     def load_data(self, url):
         """Load data from a Youtube video."""
         video_id = _parse_video_id(url)
-        print(url)
         languages = ["en"]
         try:
             # Fetching transcript data
@@ -55,7 +54,6 @@ class YoutubeVideoLoader(BaseLoader):
             except Exception as e:
                 logging.warning(f"Failed to parse publishedAt field '{published_at}': {e}")
             
-        print(metadata)
                 
         metadata["url"] = url
         metadata["transcript"] = transcript
