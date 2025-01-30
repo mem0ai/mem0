@@ -27,8 +27,12 @@ npm install mem0ai
 
 <CodeGroup>
 ```python Python
+import os
 from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 ```
 
 ```javascript JavaScript
@@ -43,9 +47,12 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 For asynchronous operations in Python, you can use the AsyncMemoryClient:
 
 ```python Python
+import os
 from mem0 import AsyncMemoryClient
 
-client = AsyncMemoryClient(api_key="your-api-key")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = AsyncMemoryClient()
 
 
 async def main():
