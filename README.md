@@ -128,7 +128,7 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 - Enhance your AI interactions by storing memories across ChatGPT, Perplexity, and Claude using our browser extension.
 
-![Chrome Extension Demo](https://github.com/user-attachments/assets b170d458-c020-47f7-9f1c-78211200ad2c)
+![Chrome Extension Demo](https://github.com/user-attachments/assets/b170d458-c020-47f7-9f1c-78211200ad2c)
 
 
 ## Documentation
