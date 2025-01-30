@@ -2397,5 +2397,4 @@ graph = ["langchain-community", "neo4j", "rank-bm25"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-
 content-hash = "6dba8e3091ed9a081a2035313e674206e2bee10072cb5c0ce6fb407686ce5156"
