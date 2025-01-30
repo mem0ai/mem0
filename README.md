@@ -78,6 +78,10 @@ Mem0 requires an LLM to function, with `gpt-4o` from OpenAI as the default. Howe
 First step is to instantiate the memory:
 
 ```python
+import os
+from openai import OpenAI
+from mem0 import Memory
+
 # Initialize OpenAI and Mem0
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 memory = Memory.from_config({"version": "v1.1"})
