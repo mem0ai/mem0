@@ -2,7 +2,14 @@
   <a href="https://github.com/mem0ai/mem0">
   <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
-<p align="center"><a href=https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps target='_blank'><img alt=Launch YC: Mem0 - Open Source Memory Layer for AI Apps src=https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps/upvote_embed.svg/></a></p>
+<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
+  <a href="https://trendshift.io/repositories/11194" target="_blank">
+    <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
+  </a>
+  <a href="https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps" target="_blank">
+    <img alt="Launch YC: Mem0 - Open Source Memory Layer for AI Apps" src="https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps/upvote_embed.svg"/>
+  </a>
+</p>
 
 
   <p align="center">
@@ -18,6 +25,9 @@
   </a>
   <a href="https://pepy.tech/project/mem0ai">
     <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads" >
+  </a>
+  <a href="https://github.com/mem0ai/mem0">
+    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
   </a>
   <a href="https://pypi.org/project/mem0ai" target="_blank">
         <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">

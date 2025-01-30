@@ -64,7 +64,7 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory", "features/custom-categories", "features/direct-import", "features/async-client"]
+          "pages": ["features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
         },
         "features/langchain-tools"
       ]
@@ -113,7 +113,8 @@
                 "components/vectordbs/dbs/pgvector",
                 "components/vectordbs/dbs/milvus",
                 "components/vectordbs/dbs/azure_ai_search",
-                "components/vectordbs/dbs/redis"
+                "components/vectordbs/dbs/redis",
+                "components/vectordbs/dbs/elasticsearch"
               ]
             }
           ]
@@ -160,7 +161,9 @@
             "api-reference/memory/v2-search-memories",
             "api-reference/memory/history-memory",
             "api-reference/memory/batch-update",
-            "api-reference/memory/batch-delete"
+            "api-reference/memory/batch-delete",
+            "api-reference/memory/create-memory-export",
+            "api-reference/memory/get-memory-export"
           ]
         },
         {
@@ -193,6 +196,7 @@
           "pages": [
             "api-reference/project/get-projects",
             "api-reference/project/get-project",
+            "api-reference/project/update-project",
             "api-reference/project/create-project",
             "api-reference/project/delete-project",
             {
