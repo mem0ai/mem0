@@ -123,13 +123,14 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 - AI Companion: Experience personalized conversations with an AI that remembers your preferences and past interactions
 
-![AI Companion Demo](https://github.com/user-attachments/assets/46e60f82-682f-4157-a8de-215193a04baa)
+[AI Companion Demo](https://github.com/user-attachments/assets/3fc72023-a72c-4593-8be0-3cee3ba744da)
 
 <br/><br/>
 
-- Enhance your AI interactions by storing memories across ChatGPT, Perplexity, and Claude using our browser extension.
+- Enhance your AI interactions by storing memories across ChatGPT, Perplexity, and Claude using our browser extension. Get [chrome extension](https://chromewebstore.google.com/detail/mem0/onihkkbipkfeijkadecaafbgagkhglop?hl=en).
 
-![Chrome Extension Demo](https://github.com/user-attachments/assets/b170d458-c020-47f7-9f1c-78211200ad2c)
+
+[Chrome Extension Demo](https://github.com/user-attachments/assets/ca92e40b-c453-4ff6-b25e-739fb18a8650)
 
 
 ## Documentation
