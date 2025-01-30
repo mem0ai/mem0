@@ -53,7 +53,6 @@
       "pages": [
         "overview",
         "quickstart",
-        "playground",
         "features"
       ]
     },
@@ -65,8 +64,7 @@
         {
           "group": "Features",
           "pages": ["features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
-        },
-        "features/langchain-tools"
+        }
       ]
     },
     {
@@ -221,7 +219,8 @@
         "integrations/autogen",
         "integrations/langchain",
         "integrations/langgraph",
-        "integrations/llama-index"
+        "integrations/llama-index",
+        "integrations/langchain-tools"
       ]
     },
     {

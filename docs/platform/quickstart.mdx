@@ -27,8 +27,12 @@ npm install mem0ai
 
 <CodeGroup>
 ```python Python
+import os
 from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 ```
 
 ```javascript JavaScript
@@ -43,9 +47,12 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 For asynchronous operations in Python, you can use the AsyncMemoryClient:
 
 ```python Python
+import os
 from mem0 import AsyncMemoryClient
 
-client = AsyncMemoryClient(api_key="your-api-key")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = AsyncMemoryClient()
 
 
 async def main():
@@ -1641,7 +1648,18 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output
-{'message': 'ok'}
+[{'id': '3f4eccba-3b09-497a-81ab-cca1ababb36b',
+  'memory': 'Is allergic to nuts',
+  'event': 'DELETE'},
+ {'id': 'f5dcfbf4-5f0b-422a-8ad4-cadb9e941e25',
+  'memory': 'Is a vegetarian',
+  'event': 'DELETE'},
+ {'id': 'dd32f70c-fa69-4fc7-997b-fb4a66d1a0fa',
+  'memory': 'Name is Alex',
+  'event': 'DELETE'}]{'message': 'ok'}
+  {'id': '3f4eccba-3b09-497a-81ab-cca1ababb36b',
+  'memory': 'Likes Chicken',
+  'event': 'DELETE'}
 ```
 
 </CodeGroup>
