@@ -126,23 +126,43 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ```python Python
 query = "What can I cook for dinner tonight?"
-client.search(query, user_id="alex")
+filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        }
+    ]
+}
+client.search(query, version="v2", filters=filters)
 ```
 
 ```javascript JavaScript
 const query = "What can I cook for dinner tonight?";
-client.search(query, { user_id: "alex" })
+const filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        }
+    ]
+};
+client.search(query, { version: "v2", filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/" \
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
          "query": "What can I cook for dinner tonight?",
-         "user_id": "alex"
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alex"
+                 }
+             ]
+         }
      }'
 ```
 
@@ -177,18 +197,44 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
 <CodeGroup>
 
 ```python Python
-user_memories = client.get_all(user_id="alex")
+filters = {
+   "AND": [
+      {
+         "user_id": "alice"
+      }
+   ]
+}
+
+all_memories = client.get_all(version="v2", filters=filters, page=1, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex" })
+const filters = {
+   "AND": [
+      {
+         "user_id": "alice"
+      }
+   ]
+};
+
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
-     -H "Authorization: Token your-api-key"
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alice"
+                 }
+             ]
+         }
+     }'
 ```
 
 ```json Output
