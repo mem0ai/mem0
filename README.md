@@ -78,39 +78,42 @@ Mem0 requires an LLM to function, with `gpt-4o` from OpenAI as the default. Howe
 First step is to instantiate the memory:
 
 ```python
-import os
-from mem0 import Memory
+# Initialize OpenAI and Mem0
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+memory = Memory.from_config({"version": "v1.1"})
+# Can also be initialized as memory = Memory()
 
-os.environ["OPENAI_API_KEY"] = "your_api_key"
+def chat_with_memory(message: str, user_id: str = "default_user") -> str:
+    # Get and format relevant past conversations from Mem0
+    past = memory.search(query=message, user_id=user_id, limit=3)
+    context = "Previous conversations:\n" + "\n".join(f"- {c['memory']}" for c in past["results"])
 
-m = Memory()
-# Use this if you want to use the v1.1 API
-# m = Memory.from_config({"version": "v1.1"})
+    # Get AI response
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": f"You are a helpful AI companion. {context}"},
+            {"role": "user", "content": message}
+        ]
+    )
 
-# Initial conversation - Store user preferences
-m.add(
-    [
-      {
-        "role": "user",
-        "content": "I'm a software engineer working on ML projects. I prefer Python over Java."
-      }
-    ],
-    user_id="sarah",
-    metadata={"category": "background"}
-)
+    # Store conversation to Mem0
+    memory.add([
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": response.choices[0].message.content}
+    ], user_id=user_id)
 
-# Later conversation - Add new information
-m.add(
-    "Working on a computer vision project using PyTorch. Struggling with GPU optimization.", # message can be a string or a list of messages
-    user_id="sarah",
-    metadata={"category": "current_work"}
-)
+    return response.choices[0].message.content
 
-# Search for relevant context before providing technical advice
-memories = m.search(
-    query="What do we know about Sarah's technical background and current challenges?",
-    user_id="sarah"
-)
+
+print("Start chatting! (type 'exit' to end)")
+while True:
+    user_input = input("\nYou: ").strip()
+    if user_input.lower() == 'exit':
+        break
+
+    response = chat_with_memory(user_input)
+    print(f"AI: {response}")
 ```
 
 For more advanced usage and API documentation, visit our [documentation](https://docs.mem0.ai).
