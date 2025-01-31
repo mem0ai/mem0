@@ -132,6 +132,14 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 [Chrome Extension Demo](https://github.com/user-attachments/assets/ca92e40b-c453-4ff6-b25e-739fb18a8650)
 
+<br/><br/>
+
+- Customer support bot using <strong>Langgraph and Mem0</strong>. Get the complete code from [here](https://docs.mem0.ai/integrations/langgraph)
+
+
+[Langgraph: Customer Bot](https://github.com/user-attachments/assets/0e614805-48a6-40ed-bc12-e897c2260231)
+
+
 
 ## Documentation
 
