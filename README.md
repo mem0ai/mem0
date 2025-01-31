@@ -137,13 +137,13 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 - Customer support bot using <strong>Langgraph and Mem0</strong>. Get the complete code from [here](https://docs.mem0.ai/integrations/langgraph)
 
 
-[Langgraph: Customer Bot](https://github.com/user-attachments/assets/0e614805-48a6-40ed-bc12-e897c2260231)
+[Langgraph: Customer Bot](https://github.com/user-attachments/assets/ca6b482e-7f46-42c8-aa08-f88d1d93a5f4)
 
 <br/><br/>
 
 - Use Mem0 with CrewAI to get personalized results. Full example [here](https://docs.mem0.ai/integrations/crewai)
 
-[CrewAI Demo](https://github.com/user-attachments/assets/1dde651e-f1a4-46e1-8690-665b8bb5a874)
+[CrewAI Demo](https://github.com/user-attachments/assets/69172a79-ccb9-4340-91f1-caa7d2dd4213)
 
 
 
