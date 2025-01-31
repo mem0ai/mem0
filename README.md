@@ -139,6 +139,12 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 [Langgraph: Customer Bot](https://github.com/user-attachments/assets/0e614805-48a6-40ed-bc12-e897c2260231)
 
+<br/><br/>
+
+- Use Mem0 with CrewAI to get personalized results. Full example [here](https://docs.mem0.ai/integrations/crewai)
+
+[CrewAI Demo](https://github.com/user-attachments/assets/1dde651e-f1a4-46e1-8690-665b8bb5a874)
+
 
 
 ## Documentation
