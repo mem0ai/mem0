@@ -3,6 +3,8 @@ title: Quickstart
 ---
 Mem0 offers two powerful ways to leverage our technology: [our managed platform](#mem0-platform-managed-solution) and [our open source solution](#mem0-open-source).
 
+Check out our [Playground](https://mem0.dev/pd-pg) to see Mem0 in action.
+
 <CardGroup cols={2}>
   <Card title="Mem0 Platform" icon="chart-simple" href="#mem0-platform-managed-solution">
     Better, faster, fully managed, and hassle free solution.
@@ -13,7 +15,7 @@ Mem0 offers two powerful ways to leverage our technology: [our managed platform]
 </CardGroup>
 
 
-## Mem0 Platform (Managed Solution)
+## Mem0 Platform
 
 Our fully managed platform provides a hassle-free way to integrate Mem0's capabilities into your AI agents and assistants. Sign up for Mem0 platform [here](https://mem0.dev/pd).
 
@@ -53,8 +55,12 @@ npm install mem0ai
 <Accordion title="Instantiate client">
 <CodeGroup>
 ```python Python
+import os
 from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 ```
 
 ```javascript JavaScript
@@ -98,7 +104,15 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output
-{'message': 'ok'}
+[{'id': '24e466b5-e1c6-4bde-8a92-f09a327ffa60',
+  'memory': 'Name is Alex',
+  'event': 'ADD'},
+ {'id': 'f2d874ac-09c7-49db-b34a-22cf666bd4ad',
+  'memory': 'Is a vegetarian',
+  'event': 'ADD'},
+ {'id': 'bce04006-01e8-4dbc-8a22-67fa46f1822c',
+  'memory': 'Is allergic to nuts',
+  'event': 'ADD'}]
 ```
 </CodeGroup>
 </Accordion>
@@ -112,23 +126,43 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ```python Python
 query = "What can I cook for dinner tonight?"
-client.search(query, user_id="alex")
+filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        }
+    ]
+}
+client.search(query, version="v2", filters=filters)
 ```
 
 ```javascript JavaScript
 const query = "What can I cook for dinner tonight?";
-client.search(query, { user_id: "alex" })
+const filters = {
+    "AND": [
+        {
+            "user_id": "alex"
+        }
+    ]
+};
+client.search(query, { version: "v2", filters })
     .then(results => console.log(results))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/search/" \
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
          "query": "What can I cook for dinner tonight?",
-         "user_id": "alex"
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alex"
+                 }
+             ]
+         }
      }'
 ```
 
@@ -163,18 +197,44 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
 <CodeGroup>
 
 ```python Python
-user_memories = client.get_all(user_id="alex")
+filters = {
+   "AND": [
+      {
+         "user_id": "alice"
+      }
+   ]
+}
+
+all_memories = client.get_all(version="v2", filters=filters, page=1, page_size=50)
 ```
 
 ```javascript JavaScript
-client.getAll({ user_id: "alex" })
+const filters = {
+   "AND": [
+      {
+         "user_id": "alice"
+      }
+   ]
+};
+
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
     .then(memories => console.log(memories))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex" \
-     -H "Authorization: Token your-api-key"
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                 {
+                     "user_id": "alice"
+                 }
+             ]
+         }
+     }'
 ```
 
 ```json Output
@@ -244,7 +304,9 @@ result = m.add("I like to take long walks on weekends.", user_id="alice", metada
 ```
 
 ```json Output
-{'message': 'ok'}
+[{'id': 'ea9b08ee-09d7-4e8b-9912-687ad65548b4',
+  'memory': 'Likes to take long walks on weekends',
+  'event': 'ADD'}]
 ```
 </CodeGroup>
 </Accordion>
