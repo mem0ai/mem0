@@ -37,12 +37,16 @@ class MemoryGraph:
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
 
         self.llm_provider = "openai_structured"
+        self.llm_config = None
         if self.config.llm.provider:
             self.llm_provider = self.config.llm.provider
+            self.llm_config = self.config.llm.config
         if self.config.graph_store.llm:
             self.llm_provider = self.config.graph_store.llm.provider
+            if self.config.graph_store.llm.config:
+                self.llm_config = self.config.graph_store.llm.config
 
-        self.llm = LlmFactory.create(self.llm_provider, self.config.llm.config)
+        self.llm = LlmFactory.create(self.llm_provider, self.llm_config)
         self.user_id = None
         self.threshold = 0.7
 
