@@ -63,7 +63,7 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
+          "pages": ["features/advanced-retrieval", "features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
         }
       ]
     },

@@ -1,0 +1,47 @@
+---
+title: Advanced Retrieval
+---
+
+Mem0's **Advanced Retrieval** feature delivers superior search results by leveraging state-of-the-art search algorithms. Beyond the default search functionality, Mem0 offers the following advanced retrieval modes:
+
+1. **Keyword Search**
+
+   This mode emphasizes keywords within the query, returning memories that contain the most relevant keywords alongside those from the default search. By default, this parameter is set to `false`. Enabling it enhances search recall, though it may slightly impact precision.
+
+   ```python
+   client.search(query, keyword_search=True, user_id='alex')
+   ```
+
+2. **Reranking**
+
+   Reranking allows you to reorder the memories returned by the default search based on relevance. This parameter is set to `false` by default. When enabled, it reorders the memories based on the relevance score.
+
+   ```python
+   client.search(query, rerank=True, user_id='alex')
+   ```
+
+3. **Filtering**
+
+   Filtering enables you to narrow down the search results by applying specific criteria. This parameter is set to `false` by default. Activating it enhances search precision, potentially reducing recall by a small margin.
+
+   ```python
+   client.search(query, filter_memories=True, user_id='alex')
+   ```
+
+**Note:** You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs.
+
+
+### Latency Numbers
+
+Here are the typical latency ranges for each search mode:
+
+| **Mode**            | **Latency**      |
+|---------------------|------------------|
+| **Keyword Search**  | **>10ms**        |
+| **Reranking**       | **150-200ms**    |
+| **Filtering**       | **200-300ms**    |
+
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
