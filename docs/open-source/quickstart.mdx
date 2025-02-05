@@ -245,6 +245,106 @@ m.delete_all(user_id="alice")
 m.reset() # Reset all memories
 ```
 
+## Configuration Parameters
+
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
+
+<AccordionGroup>
+<Accordion title="Vector Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Vector store provider (e.g., "qdrant") | "qdrant"   |
+| `host`       | Host address                    | "localhost" |
+| `port`       | Port number                     | 6333       |
+</Accordion>
+
+<Accordion title="LLM Configuration">
+| Parameter              | Description                                   | Provider          |
+|-----------------------|-----------------------------------------------|-------------------|
+| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
+| `model`               | Model to use                                  | All              |
+| `temperature`         | Temperature of the model                      | All              |
+| `api_key`             | API key to use                                | All              |
+| `max_tokens`          | Tokens to generate                            | All              |
+| `top_p`               | Probability threshold for nucleus sampling    | All              |
+| `top_k`               | Number of highest probability tokens to keep  | All              |
+| `http_client_proxies` | Allow proxy server settings                   | AzureOpenAI      |
+| `models`              | List of models                                | Openrouter       |
+| `route`               | Routing strategy                              | Openrouter       |
+| `openrouter_base_url` | Base URL for Openrouter API                  | Openrouter       |
+| `site_url`            | Site URL                                      | Openrouter       |
+| `app_name`            | Application name                              | Openrouter       |
+| `ollama_base_url`     | Base URL for Ollama API                      | Ollama           |
+| `openai_base_url`     | Base URL for OpenAI API                      | OpenAI           |
+| `azure_kwargs`        | Azure LLM args for initialization            | AzureOpenAI      |
+| `deepseek_base_url`   | Base URL for DeepSeek API                    | DeepSeek         |
+</Accordion>
+
+<Accordion title="Embedder Configuration">
+| Parameter    | Description                     | Default                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Embedding provider              | "openai"                     |
+| `model`      | Embedding model to use          | "text-embedding-3-small"     |
+| `api_key`    | API key for embedding service   | None                        |
+</Accordion>
+
+<Accordion title="Graph Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Graph store provider (e.g., "neo4j") | "neo4j"    |
+| `url`        | Connection URL                  | None        |
+| `username`   | Authentication username         | None        |
+| `password`   | Authentication password         | None        |
+</Accordion>
+
+<Accordion title="General Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `version`         | API version                          | "v1.0"                     |
+| `custom_prompt`   | Custom prompt for memory processing  | None                       |
+</Accordion>
+
+<Accordion title="Complete Configuration Example">
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "api_key": "your-api-key",
+            "model": "gpt-4"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": "your-api-key",
+            "model": "text-embedding-3-small"
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "neo4j+s://your-instance",
+            "username": "neo4j",
+            "password": "password"
+        }
+    },
+    "history_db_path": "/path/to/history.db",
+    "version": "v1.1",
+    "custom_prompt": "Optional custom prompt for memory processing"
+}
+```
+</Accordion>
+</AccordionGroup>
+
 ## Run Mem0 Locally
 
 Please refer to the example [Mem0 with Ollama](../examples/mem0-with-ollama) to run Mem0 locally.
