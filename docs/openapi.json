@@ -868,7 +868,7 @@
 				{
 				"lang": "JavaScript",
 				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Retrieve memories for a specific user\nclient.getAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
-				},															
+				},
 				{
 				"lang": "cURL",
 				"source": "curl --location --request GET 'https://api.mem0.ai/v1/memories/' \\\n--header 'Authorization: Token <api-key>'"
@@ -4479,6 +4479,12 @@
 						"default": false,
 						"description": "Whether to rerank the memories."
 					},
+					"keyword_search": {
+						"title": "Keyword search",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to search for memories based on keywords."
+					},
 					"output_format": {
 						"title": "Output format",
 						"type": "string",
@@ -4592,17 +4598,23 @@
 						"default": false,
 						"description": "Whether to rerank the memories."
 					},
+					"keyword_search": {
+						"title": "Keyword search",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to search for memories based on keywords."
+					},
+					"filter_memories": {
+						"title": "Filter memories",
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to filter the memories."
+					},
 					"threshold": {
 						"title": "Threshold",
 						"type": "number",
 						"default": 0.3,
 						"description": "The minimum similarity threshold for returned results."
-					},
-					"smart_search": {
-						"title": "Smart Search",
-						"type": "boolean",
-						"default": false,
-						"description": "Whether to enable smart search functionality."
 					},
 					"org_name": {
 						"title": "Organization Name",
