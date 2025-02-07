@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -12,9 +13,7 @@ try:
     from azure.search.documents import SearchClient
     from azure.search.documents.indexes import SearchIndexClient
     from azure.search.documents.indexes.models import (
-        BinaryQuantizationCompression,  # Added for binary quantization
-    )
-    from azure.search.documents.indexes.models import (
+        BinaryQuantizationCompression,
         HnswAlgorithmConfiguration,
         ScalarQuantizationCompression,
         SearchField,
@@ -46,8 +45,8 @@ class AzureAISearch(VectorStoreBase):
         collection_name,
         api_key,
         embedding_model_dims,
-        compression_type="none",  # "none", "scalar", or "binary"
-        use_float16=False,
+        compression_type: Optional[str] = None,  
+        use_float16: bool = False,
     ):
         """
         Initialize the Azure AI Search vector store.
@@ -57,14 +56,16 @@ class AzureAISearch(VectorStoreBase):
             collection_name (str): Index name.
             api_key (str): API key for the Azure AI Search service.
             embedding_model_dims (int): Dimension of the embedding vector.
-            compression_type (str): Specifies the type of quantization to use.
-                Allowed values are "none", "scalar", or "binary".
+            compression_type (Optional[str]): Specifies the type of quantization to use.
+                Allowed values are None (no quantization), "scalar", or "binary".
             use_float16 (bool): Whether to store vectors in half precision (Edm.Half) or full precision (Edm.Single).
+                (Note: This flag is preserved from the initial implementation per feedback.)
         """
         self.index_name = collection_name
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
-        self.compression_type = compression_type.lower()
+        # If compression_type is None, treat it as "none".
+        self.compression_type = (compression_type or "none").lower()  
         self.use_float16 = use_float16
 
         self.search_client = SearchClient(
@@ -77,12 +78,8 @@ class AzureAISearch(VectorStoreBase):
             credential=AzureKeyCredential(api_key),
         )
 
-        # Inject custom UserAgent header ("mem0") for tracking indexes created via mem0.
-        try:
-            self.search_client._client._config.user_agent_policy.add_user_agent("mem0")
-            self.index_client._client._config.user_agent_policy.add_user_agent("mem0")
-        except Exception as e:
-            logger.warning(f"Failed to add custom UserAgent header: {e}")
+        self.search_client._client._config.user_agent_policy.add_user_agent("mem0")
+        self.index_client._client._config.user_agent_policy.add_user_agent("mem0")
 
         self.create_col()  # create the collection / index
 
@@ -99,15 +96,28 @@ class AzureAISearch(VectorStoreBase):
         compression_name = None
         if self.compression_type == "scalar":
             compression_name = "myCompression"
+            # For SQ, rescoring defaults to True and oversampling defaults to 4.
             compression_configurations = [
-                ScalarQuantizationCompression(compression_name=compression_name)
+                ScalarQuantizationCompression(
+                    compression_name=compression_name
+                    # rescoring defaults to True and oversampling defaults to 4
+                )
             ]
         elif self.compression_type == "binary":
             compression_name = "myCompression"
+            # For BQ, rescoring defaults to True and oversampling defaults to 10.
             compression_configurations = [
-                BinaryQuantizationCompression(compression_name=compression_name)
+                BinaryQuantizationCompression(
+                    compression_name=compression_name
+                    # rescoring defaults to True and oversampling defaults to 10
+                )
             ]
-
+        # If no compression is desired, compression_configurations remains empty.
+        
+        # Note regarding hybrid search:
+        # FEEDBACK (Discussion): We could store an additional "text" field for hybrid search (keeping the original text searchable)
+        # but that would change the index design. This is not implemented here to avoid breaking changes.
+        
         fields = [
             SimpleField(name="id", type=SearchFieldDataType.String, key=True),
             SimpleField(name="user_id", type=SearchFieldDataType.String, filterable=True),
@@ -116,7 +126,7 @@ class AzureAISearch(VectorStoreBase):
             SearchField(
                 name="vector",
                 type=vector_type,
-                searchable=True, # Tehnically don't need this on SearchField but leaving for visibility
+                searchable=True, 
                 vector_search_dimensions=self.embedding_model_dims,
                 vector_search_profile_name="my-vector-config",
             ),
@@ -125,7 +135,11 @@ class AzureAISearch(VectorStoreBase):
 
         vector_search = VectorSearch(
             profiles=[
-                VectorSearchProfile(name="my-vector-config", algorithm_configuration_name="my-algorithms-config")
+                VectorSearchProfile(
+                    name="my-vector-config",
+                    algorithm_configuration_name="my-algorithms-config",
+                    compression_name=compression_name if self.compression_type != "none" else None
+                )
             ],
             algorithms=[HnswAlgorithmConfiguration(name="my-algorithms-config")],
             compressions=compression_configurations,
@@ -156,15 +170,24 @@ class AzureAISearch(VectorStoreBase):
             self._generate_document(vector, payload, id)
             for id, vector, payload in zip(ids, vectors, payloads)
         ]
-        self.search_client.upload_documents(documents)
+        response = self.search_client.upload_documents(documents)
+        for doc in response:
+            if not doc.get("status", False):
+                raise Exception(f"Insert failed for document {doc.get('id')}: {doc}")
+        return response
+
+    def _sanitize_key(self, key: str) -> str:
+        return re.sub(r"[^\w]", "", key)
 
     def _build_filter_expression(self, filters):
         filter_conditions = []
         for key, value in filters.items():
+            safe_key = self._sanitize_key(key)
             if isinstance(value, str):
-                condition = f"{key} eq '{value}'"
+                safe_value = value.replace("'", "''")
+                condition = f"{safe_key} eq '{safe_value}'"
             else:
-                condition = f"{key} eq {value}"
+                condition = f"{safe_key} eq {value}"
             filter_conditions.append(condition)
         filter_expression = " and ".join(filter_conditions)
         return filter_expression
@@ -181,7 +204,7 @@ class AzureAISearch(VectorStoreBase):
                 Known values: "preFilter" (default) and "postFilter".
 
         Returns:
-            list: Search results.
+            List[OutputData]: Search results.
         """
         filter_expression = None
         if filters:
@@ -190,18 +213,22 @@ class AzureAISearch(VectorStoreBase):
         vector_query = VectorizedQuery(
             vector=query, k_nearest_neighbors=limit, fields="vector"
         )
-        # Pass vector_filter_mode to the search call.
         search_results = self.search_client.search(
             vector_queries=[vector_query],
             filter=filter_expression,
             top=limit,
-            vector_filter_mode=vector_filter_mode  # New query parameter for filter mode.
+            vector_filter_mode=vector_filter_mode,  # FEEDBACK 3: New parameter for filter mode.
         )
 
         results = []
         for result in search_results:
             payload = json.loads(result["payload"])
-            results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
+            results.append(
+                OutputData(
+                    id=result["id"], score=result["@search.score"], payload=payload
+                )
+            )
+        # FEEDBACK 5/6: Return the list of results directly.
         return results
 
     def delete(self, vector_id):
@@ -211,8 +238,13 @@ class AzureAISearch(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.search_client.delete_documents(documents=[{"id": vector_id}])
+        response = self.search_client.delete_documents(documents=[{"id": vector_id}])
+        # FEEDBACK 6: Check delete response; throw an exception if any deletion failed.
+        for doc in response:
+            if not doc.get("status", False):
+                raise Exception(f"Delete failed for document {vector_id}: {doc}")
         logger.info(f"Deleted document with ID '{vector_id}' from index '{self.index_name}'.")
+        return response
 
     def update(self, vector_id, vector=None, payload=None):
         """
@@ -231,7 +263,11 @@ class AzureAISearch(VectorStoreBase):
             document["payload"] = json_payload
             for field in ["user_id", "run_id", "agent_id"]:
                 document[field] = payload.get(field)
-        self.search_client.merge_or_upload_documents(documents=[document])
+        response = self.search_client.merge_or_upload_documents(documents=[document])
+        for doc in response:
+            if not doc.get("status", False):
+                raise Exception(f"Update failed for document {vector_id}: {doc}")
+        return response
 
     def get(self, vector_id) -> OutputData:
         """
@@ -247,7 +283,9 @@ class AzureAISearch(VectorStoreBase):
             result = self.search_client.get_document(key=vector_id)
         except ResourceNotFoundError:
             return None
-        return OutputData(id=result["id"], score=None, payload=json.loads(result["payload"]))
+        return OutputData(
+            id=result["id"], score=None, payload=json.loads(result["payload"])
+        )
 
     def list_cols(self) -> List[str]:
         """
@@ -256,8 +294,11 @@ class AzureAISearch(VectorStoreBase):
         Returns:
             List[str]: List of index names.
         """
-        indexes = self.index_client.list_indexes()
-        return [index.name for index in indexes]
+        try:
+            names = self.index_client.list_index_names()
+        except AttributeError:
+            names = [index.name for index in self.index_client.list_indexes()]
+        return names
 
     def delete_col(self):
         """Delete the index."""
@@ -268,7 +309,7 @@ class AzureAISearch(VectorStoreBase):
         Get information about the index.
 
         Returns:
-            Dict[str, Any]: Index information.
+            dict: Index information.
         """
         index = self.index_client.get_index(self.index_name)
         return {"name": index.name, "fields": index.fields}
@@ -278,7 +319,7 @@ class AzureAISearch(VectorStoreBase):
         List all vectors in the index.
 
         Args:
-            filters (Dict, optional): Filters to apply to the list.
+            filters (dict, optional): Filters to apply to the list.
             limit (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
@@ -289,14 +330,16 @@ class AzureAISearch(VectorStoreBase):
             filter_expression = self._build_filter_expression(filters)
 
         search_results = self.search_client.search(
-            search_text="*",
-            filter=filter_expression,
-            top=limit
+            search_text="*", filter=filter_expression, top=limit
         )
         results = []
         for result in search_results:
             payload = json.loads(result["payload"])
-            results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
+            results.append(
+                OutputData(
+                    id=result["id"], score=result["@search.score"], payload=payload
+                )
+            )
         return results
 
     def __del__(self):

@@ -17,10 +17,14 @@ def mock_clients():
         mock_index_client = MockIndexClient.return_value
 
         # Stub required methods on search_client.
+        # FEEDBACK: Set default return values for methods that are iterated over.
         mock_search_client.upload_documents = Mock()
+        mock_search_client.upload_documents.return_value = [{"status": True, "id": "doc1"}]
         mock_search_client.search = Mock()
         mock_search_client.delete_documents = Mock()
+        mock_search_client.delete_documents.return_value = [{"status": True, "id": "doc1"}]
         mock_search_client.merge_or_upload_documents = Mock()
+        mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1"}]
         mock_search_client.get_document = Mock()
         mock_search_client.close = Mock()
 
@@ -64,6 +68,7 @@ def test_insert(azure_ai_search_instance):
     payloads = [{"user_id": "user1", "run_id": "run1"}]
     ids = ["doc1"]
 
+    # FEEDBACK: The upload_documents method is now set to return an iterable.
     instance.insert(vectors, payloads, ids)
 
     mock_search_client.upload_documents.assert_called_once()
@@ -87,7 +92,7 @@ def test_search_preFilter(azure_ai_search_instance):
         "@search.score": 0.95,
         "payload": json.dumps({"user_id": "user1"})
     }
-    # Configure the mock to return an iterator (e.g., a list) with fake_result.
+    # Configure the mock to return an iterator (list) with fake_result.
     mock_search_client.search.return_value = [fake_result]
 
     query_vector = [0.1, 0.2, 0.3]
@@ -129,6 +134,8 @@ def test_search_postFilter(azure_ai_search_instance):
 def test_delete(azure_ai_search_instance):
     instance, mock_search_client, _ = azure_ai_search_instance
     vector_id = "doc1"
+    # Set delete_documents to return an iterable with a successful response.
+    mock_search_client.delete_documents.return_value = [{"status": True, "id": vector_id}]
     instance.delete(vector_id)
     mock_search_client.delete_documents.assert_called_once_with(documents=[{"id": vector_id}])
 
@@ -137,6 +144,8 @@ def test_update(azure_ai_search_instance):
     vector_id = "doc1"
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"user_id": "updated"}
+    # Set merge_or_upload_documents to return an iterable with a successful response.
+    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": vector_id}]
     instance.update(vector_id, vector=new_vector, payload=new_payload)
     mock_search_client.merge_or_upload_documents.assert_called_once()
     kwargs = mock_search_client.merge_or_upload_documents.call_args.kwargs
