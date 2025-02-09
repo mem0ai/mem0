@@ -40,4 +40,4 @@ clean:
 	poetry run rm -rf dist
 
 test:
-	poetry run pytest -n auto tests
+	poetry run pytest --forked -n auto tests
