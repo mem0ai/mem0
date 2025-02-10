@@ -52,7 +52,7 @@
     "url": "content"
   },
   {
-    "name": "Examples and Cookbooks",
+    "name": "Examples",
     "url": "examples"
   },
   {
@@ -225,6 +225,7 @@
     {
       "group": "Integrations",
       "pages": [
+        "integrations/overview",
         "integrations/vercel-ai-sdk",
         "integrations/crewai",
         "integrations/multion",
