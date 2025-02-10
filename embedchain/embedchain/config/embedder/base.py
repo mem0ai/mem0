@@ -14,6 +14,7 @@ class BaseEmbedderConfig:
         vector_dimension: Optional[int] = None,
         endpoint: Optional[str] = None,
         api_key: Optional[str] = None,
+        api_version: Optional[str] = None,
         api_base: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
@@ -32,6 +33,8 @@ class BaseEmbedderConfig:
         :type endpoint: Optional[str], optional
         :param api_key: hugginface api key, defaults to None
         :type api_key: Optional[str], optional
+        :param api_version: Azure OpenAI API version, defaults to None
+        :type api_version: Optional[str], optional
         :param api_base: huggingface api base, defaults to None
         :type api_base: Optional[str], optional
         :param model_kwargs: key-value arguments for the embedding model, defaults a dict inside init.
@@ -47,6 +50,7 @@ class BaseEmbedderConfig:
         self.vector_dimension = vector_dimension
         self.endpoint = endpoint
         self.api_key = api_key
+        self.api_version = api_version
         self.api_base = api_base
         self.model_kwargs = model_kwargs or {}
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
