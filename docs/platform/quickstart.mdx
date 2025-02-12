@@ -3,6 +3,10 @@ title: Guide
 description: 'Get started with Mem0 Platform in minutes'
 ---
 
+<Note type="info">
+  🎉 Looking for TypeScript support? Mem0 has you covered! Check out an example [here](/platform/quickstart/#4-11-working-with-mem0-in-typescript).
+</Note>
+
 ## 1. Installation
 
 <CodeGroup>
@@ -1758,6 +1762,52 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/batch/" \
 {
     "message": "Successfully deleted 2 memories"
 }
+```
+</CodeGroup>
+
+### 4.11 Working with Mem0 in TypeScript
+Manage memories using TypeScript with Mem0. Mem0 has completet TypeScript support Below is an example demonstrating how to add and search memories.
+
+<CodeGroup>
+```typescript TypeScript
+import MemoryClient, { Message, SearchOptions, MemoryOptions }  from 'mem0ai';
+
+const apiKey = 'your-api-key-here';
+const client = new MemoryClient(apiKey);
+
+// Messages
+const messages: Message[] = [
+    { role: "user", content: "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts." },
+    { role: "assistant", content: "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions." }
+];
+
+// ADD
+const memoryOptions: MemoryOptions = {
+    user_id: "alex",
+    agent_id: "travel-assistant"
+}
+
+client.add(messages, memoryOptions)
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+
+// SEARCH
+const query: string = "What do you know about me?";
+const searchOptions: SearchOptions = {
+    user_id: "alex",
+    filters: {
+        OR: [
+          { agent_id: "travel-assistant" },
+          { user_id: "alex" }
+        ]
+      },
+      threshold: 0.1,
+      api_version: 'v2'
+}
+  
+client.search(query, searchOptions)
+.then(results => console.log(results))
+.catch(error => console.error(error));
 ```
 </CodeGroup>
 
