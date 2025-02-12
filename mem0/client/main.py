@@ -114,9 +114,9 @@ class MemoryClient:
 
             if response.status_code == 200:
                 data = response.json()
-                if data.get('org_id') and data.get('project_id'):
-                    self.org_id = data.get('org_id')
-                    self.project_id = data.get('project_id')
+                if data.get("org_id") and data.get("project_id"):
+                    self.org_id = data.get("org_id")
+                    self.project_id = data.get("project_id")
 
         except httpx.HTTPStatusError:
             raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
@@ -304,16 +304,61 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_users(self) -> Dict[str, str]:
-        """Delete all users, agents, or sessions."""
+    def delete_users(
+        self,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        app_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """Delete specific entities or all entities if no filters provided.
+
+        Args:
+            user_id: Optional user ID to delete specific user
+            agent_id: Optional agent ID to delete specific agent
+            app_id: Optional app ID to delete specific app
+            run_id: Optional run ID to delete specific run
+
+        Returns:
+            Dict with success message
+
+        Raises:
+            ValueError: If specified entity not found
+            APIError: If deletion fails
+        """
         params = self._prepare_params()
         entities = self.users()
-        for entity in entities["results"]:
+
+        # Filter entities based on provided IDs using list comprehension
+        to_delete = [
+            entity
+            for entity in entities["results"]
+            if (user_id and entity["type"] == "user" and entity["name"] == user_id)
+            or (agent_id and entity["type"] == "agent" and entity["name"] == agent_id)
+            or (app_id and entity["type"] == "app" and entity["name"] == app_id)
+            or (run_id and entity["type"] == "run" and entity["name"] == run_id)
+        ]
+
+        # If filters provided but no matches found, raise error
+        if not to_delete and (user_id or agent_id or app_id or run_id):
+            raise ValueError("No entity found with the provided ID.")
+        # If no filters provided, delete all entities
+        elif not to_delete:
+            to_delete = entities["results"]
+
+        # Delete entities and check response immediately
+        for entity in to_delete:
             response = self.client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
 
-        capture_client_event("client.delete_users", self)
-        return {"message": "All users, agents, and sessions deleted."}
+        capture_client_event(
+            "client.delete_users", self, {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}
+        )
+        return {
+            "message": "Entity deleted successfully."
+            if (user_id or agent_id or app_id or run_id)
+            else "All users, agents, apps and runs deleted."
+        }
 
     @api_error_handler
     def reset(self) -> Dict[str, str]:
@@ -407,7 +452,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+    def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
         Args:
@@ -433,7 +478,9 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def update_project(self, custom_instructions: Optional[str]=None, custom_categories: Optional[List[str]]=None) -> Dict[str, Any]:
+    def update_project(
+        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """Update the project settings.
 
         Args:
@@ -451,15 +498,23 @@ class MemoryClient:
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
         if custom_instructions is None and custom_categories is None:
-            raise ValueError("Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them")
+            raise ValueError(
+                "Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them"
+            )
 
-        payload = self._prepare_params({"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        payload = self._prepare_params(
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+        )
         response = self.client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
             json=payload,
         )
         response.raise_for_status()
-        capture_client_event("client.update_project", self, {"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        capture_client_event(
+            "client.update_project",
+            self,
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories},
+        )
         return response.json()
 
     def chat(self):
@@ -654,14 +709,59 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete_users(self) -> Dict[str, str]:
+    async def delete_users(
+        self,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        app_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """Delete specific entities or all entities if no filters provided.
+
+        Args:
+            user_id: Optional user ID to delete specific user
+            agent_id: Optional agent ID to delete specific agent
+            app_id: Optional app ID to delete specific app
+            run_id: Optional run ID to delete specific run
+
+        Returns:
+            Dict with success message
+
+        Raises:
+            ValueError: If specified entity not found
+            APIError: If deletion fails
+        """
         params = self.sync_client._prepare_params()
         entities = await self.users()
-        for entity in entities["results"]:
+
+        # Filter entities based on provided IDs using list comprehension
+        to_delete = [
+            entity
+            for entity in entities["results"]
+            if (user_id and entity["type"] == "user" and entity["name"] == user_id)
+            or (agent_id and entity["type"] == "agent" and entity["name"] == agent_id)
+            or (app_id and entity["type"] == "app" and entity["name"] == app_id)
+            or (run_id and entity["type"] == "run" and entity["name"] == run_id)
+        ]
+
+        # If filters provided but no matches found, raise error
+        if not to_delete and (user_id or agent_id or app_id or run_id):
+            raise ValueError("No entity found with the provided ID.")
+        # If no filters provided, delete all entities
+        elif not to_delete:
+            to_delete = entities["results"]
+
+        # Delete entities and check response immediately
+        for entity in to_delete:
             response = await self.async_client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
+
         capture_client_event("async_client.delete_users", self.sync_client)
-        return {"message": "All users, agents, and sessions deleted."}
+        return {
+            "message": "Entity deleted successfully."
+            if (user_id or agent_id or app_id or run_id)
+            else "All users, agents, apps and runs deleted."
+        }
 
     @api_error_handler
     async def reset(self) -> Dict[str, str]:
@@ -744,35 +844,43 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_project(self, fields: Optional[List[str]]=None) -> Dict[str, Any]:
+    async def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
-
-        params = self._prepare_params({"fields": fields})
+        params = self.sync_client._prepare_params({"fields": fields})
         response = await self.async_client.get(
             f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
             params=params,
         )
         response.raise_for_status()
-        capture_client_event(
-            "async_client.get_project", self.sync_client, {"fields": fields}
-        )
+        capture_client_event("async_client.get_project", self.sync_client, {"fields": fields})
         return response.json()
 
     @api_error_handler
-    async def update_project(self, custom_instructions: Optional[str], custom_categories: Optional[List[str]]) -> Dict[str, Any]:
+    async def update_project(
+        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        payload = self.sync_client._prepare_params({"custom_instructions": custom_instructions, "custom_categories": custom_categories})
+        if custom_instructions is None and custom_categories is None:
+            raise ValueError(
+                "Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them"
+            )
+
+        payload = self.sync_client._prepare_params(
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+        )
         response = await self.async_client.patch(
             f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
             json=payload,
         )
         response.raise_for_status()
         capture_client_event(
-            "async_client.update_project", self.sync_client, {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+            "async_client.update_project",
+            self.sync_client,
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories},
         )
         return response.json()
 

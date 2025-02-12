@@ -432,7 +432,7 @@ class Memory(MemoryBase):
                 return {"results": original_memories}
         else:
             warnings.warn(
-                "The current get_all API output format is deprecated. "
+                "The current search API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,

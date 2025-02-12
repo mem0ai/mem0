@@ -53,8 +53,7 @@
       "pages": [
         "overview",
         "quickstart",
-        "playground",
-        "features"
+        "faqs"
       ]
     },
     {
@@ -64,9 +63,8 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
-        },
-        "features/langchain-tools"
+          "pages": ["features/advanced-retrieval", "features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
+        }
       ]
     },
     {
@@ -199,8 +197,6 @@
             "api-reference/project/update-project",
             "api-reference/project/create-project",
             "api-reference/project/delete-project",
-            "api-reference/project/get-instructions-and-categories",
-            "api-reference/project/update-instructions-and-categories",
             {
               "group": "Members APIs",
               "pages":[
@@ -223,7 +219,8 @@
         "integrations/autogen",
         "integrations/langchain",
         "integrations/langgraph",
-        "integrations/llama-index"
+        "integrations/llama-index",
+        "integrations/langchain-tools"
       ]
     },
     {

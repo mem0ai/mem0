@@ -27,8 +27,12 @@ npm install mem0ai
 
 <CodeGroup>
 ```python Python
+import os
 from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 ```
 
 ```javascript JavaScript
@@ -43,9 +47,12 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 For asynchronous operations in Python, you can use the AsyncMemoryClient:
 
 ```python Python
+import os
 from mem0 import AsyncMemoryClient
 
-client = AsyncMemoryClient(api_key="your-api-key")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = AsyncMemoryClient()
 
 
 async def main():
@@ -493,7 +500,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 
 #### Search using custom filters
 
-Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, date, and more. 
+Our advanced search allows you to set custom search filters. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and text. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For more details, see [V2 Search Memories](/api-reference/memory/v2-search-memories).
 
 Here you need to define `version` as `v2` in the search method.
 
@@ -663,6 +670,91 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
     }
 ]
 ```
+</CodeGroup>
+
+Example 3: Search using metadata and categories Filters
+<CodeGroup>
+```python Python
+query = "What do you know about me?"
+filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+         "categories":{
+            "contains": "food_preferences"
+         }
+    }
+    ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+client.search(query, { version: "v2", filters })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+             "AND": [
+                 {
+                     "metadata": {
+                         "food": "vegan"
+                     }
+                 },
+                 {
+                     "categories": {
+                         "contains": "food_preferences"
+                     }
+                 }
+             ]
+         }
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "654fee-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
+            },
+            {
+                "role": "assistant",
+                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
+            }
+        ],
+        "user_id": "alex",
+        "hash": "9ee7e1455e84d1dab700eiy8749aed75a",
+        "metadata": {"food": "vegan"},
+        "categories": ["food_preferences"],
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+
 </CodeGroup>
 
 
@@ -1124,7 +1216,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&p
 
 #### Get all memories using custom filters
 
-Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, date, and more.
+Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For more details, see [V2 Get Memories](/api-reference/memory/v2-get-memories).
 
 Here you need to define `version` as `v2` in the get_all method.
 
@@ -1460,6 +1552,7 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/?user_id=alex" \
 ```json Output
 {'message': 'Memories deleted successfully!'}
 ```
+
 </CodeGroup>
 
 Delete all users.
@@ -1478,6 +1571,33 @@ client.delete_users()
 
 ```json Output
 {'message': 'All users, agents, and runs deleted.'}
+```
+
+</CodeGroup>
+Delete specific user or agent or app or run.
+
+<CodeGroup>
+```python Python
+# Delete specific user
+client.delete_users(user_id="alex")
+
+# Delete specific agent
+# client.delete_users(agent_id="travel-assistant")
+```
+
+```javascript JavaScript
+client.delete_users({ user_id: "alex" })
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X DELETE "https://api.mem0.ai/v1/entities/?user_id=alex" \
+     -H "Authorization: Token your-api-key"
+```
+
+```json Output
+{'message': 'Entity deleted successfully.'}
 ```
 
 </CodeGroup>
@@ -1528,7 +1648,18 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output
-{'message': 'ok'}
+[{'id': '3f4eccba-3b09-497a-81ab-cca1ababb36b',
+  'memory': 'Is allergic to nuts',
+  'event': 'DELETE'},
+ {'id': 'f5dcfbf4-5f0b-422a-8ad4-cadb9e941e25',
+  'memory': 'Is a vegetarian',
+  'event': 'DELETE'},
+ {'id': 'dd32f70c-fa69-4fc7-997b-fb4a66d1a0fa',
+  'memory': 'Name is Alex',
+  'event': 'DELETE'}]{'message': 'ok'}
+  {'id': '3f4eccba-3b09-497a-81ab-cca1ababb36b',
+  'memory': 'Likes Chicken',
+  'event': 'DELETE'}
 ```
 
 </CodeGroup>
