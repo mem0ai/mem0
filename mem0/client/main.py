@@ -100,7 +100,7 @@ class MemoryClient:
         self.client = httpx.Client(
             base_url=self.host,
             headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
-            timeout=60,
+            timeout=300,
         )
         self._validate_api_key()
         capture_client_event("client.init", self)
