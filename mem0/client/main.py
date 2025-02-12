@@ -169,7 +169,7 @@ class MemoryClient:
 
         Args:
             version: The API version to use for the search endpoint.
-            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, limit).
+            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, top_k).
 
         Returns:
             A list of dictionaries containing memories.
@@ -203,7 +203,7 @@ class MemoryClient:
         Args:
             query: The search query string.
             version: The API version to use for the search endpoint.
-            **kwargs: Additional parameters such as user_id, agent_id, app_id, limit, filters.
+            **kwargs: Additional parameters such as user_id, agent_id, app_id, top_k, filters.
 
         Returns:
             A list of dictionaries containing search results.
