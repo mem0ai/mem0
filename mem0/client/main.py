@@ -612,7 +612,7 @@ class AsyncMemoryClient:
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,
-            timeout=60,
+            timeout=300,
         )
 
     async def __aenter__(self):
