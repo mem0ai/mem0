@@ -28,7 +28,7 @@ new_categories = [
     {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
 ]
 
-response = client.update_custom_instructions_and_categories({"custom_categories": new_categories})
+response = client.update_project(custom_categories = new_categories)
 print(response)
 ```
 
@@ -51,7 +51,7 @@ messages = [
 ]
 
 # Add memories with custom categories
-client.add(messages, user_id="alice"))
+client.add(messages, user_id="alice")
 ```
 
 ```python Memories with categories
@@ -172,11 +172,11 @@ Name is Alice (personal_details)
 ```
 </CodeGroup>
 
-You can check whether default categories are being used by calling `get_custom_instructions_and_categories()`. If `custom_categories` returns `None`, it means the default categories are being used.
+You can check whether default categories are being used by calling `get_project()`. If `custom_categories` returns `None`, it means the default categories are being used.
 
 <CodeGroup>
 ```python Code
-client.get_custom_instructions_and_categories(["custom_categories"])
+client.get_project(["custom_categories"])
 ```
 
 ```json Output
