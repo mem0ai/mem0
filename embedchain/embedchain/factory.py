@@ -61,6 +61,7 @@ class EmbedderFactory:
         "nvidia": "embedchain.embedder.nvidia.NvidiaEmbedder",
         "cohere": "embedchain.embedder.cohere.CohereEmbedder",
         "ollama": "embedchain.embedder.ollama.OllamaEmbedder",
+        "fastembed": "embedchain.embedder.fastembed.FastEmbedEmbedder",
         "aws_bedrock": "embedchain.embedder.aws_bedrock.AWSBedrockEmbedder",
     }
     provider_to_config_class = {
@@ -71,6 +72,7 @@ class EmbedderFactory:
         "clarifai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "openai": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "ollama": "embedchain.config.embedder.ollama.OllamaEmbedderConfig",
+        "fastembed": "embedchain.config.embedder.base.BaseEmbedderConfig",
         "aws_bedrock": "embedchain.config.embedder.aws_bedrock.AWSBedrockEmbedderConfig",
     }
 
