@@ -1368,43 +1368,21 @@
 												"type": "string",
 												"description": "The content of the memory"
 											},
-											"input": {
-												"type": "array",
-												"items": {
-													"type": "object",
-													"properties": {
-														"role": {
-															"type": "string",
-															"enum": [
-																"user",
-																"assistant"
-															],
-															"description": "The role of the speaker in the conversation"
-														},
-														"content": {
-															"type": "string",
-															"description": "The content of the message"
-														}
-													},
-													"required": [
-														"role",
-														"content"
-													]
-												},
-												"description": "The conversation input that was used to generate this memory"
-											},
 											"user_id": {
 												"type": "string",
 												"description": "The identifier of the user associated with this memory"
-											},
-											"hash": {
-												"type": "string",
-												"description": "A hash of the memory content"
 											},
 											"metadata": {
 												"type": "object",
 												"nullable": true,
 												"description": "Additional metadata associated with the memory"
+											},
+											"categories": {
+												"type": "array",
+												"items": {
+													"type": "string"
+												},
+												"description": "Categories associated with the memory"
 											},
 											"created_at": {
 												"type": "string",
@@ -1420,9 +1398,7 @@
 										"required": [
 											"id",
 											"memory",
-											"input",
 											"user_id",
-											"hash",
 											"created_at",
 											"updated_at"
 										]
@@ -1513,43 +1489,21 @@
 												"type": "string",
 												"description": "The content of the memory"
 											},
-											"input": {
-												"type": "array",
-												"items": {
-													"type": "object",
-													"properties": {
-														"role": {
-															"type": "string",
-															"enum": [
-																"user",
-																"assistant"
-															],
-															"description": "The role of the speaker in the conversation"
-														},
-														"content": {
-															"type": "string",
-															"description": "The content of the message"
-														}
-													},
-													"required": [
-														"role",
-														"content"
-													]
-												},
-												"description": "The conversation input that was used to generate this memory"
-											},
 											"user_id": {
 												"type": "string",
 												"description": "The identifier of the user associated with this memory"
-											},
-											"hash": {
-												"type": "string",
-												"description": "A hash of the memory content"
 											},
 											"metadata": {
 												"type": "object",
 												"nullable": true,
 												"description": "Additional metadata associated with the memory"
+											},
+											"categories": {
+												"type": "array",
+												"items": {
+													"type": "string"
+												},
+												"description": "Categories associated with the memory"
 											},
 											"created_at": {
 												"type": "string",
@@ -1565,9 +1519,7 @@
 										"required": [
 											"id",
 											"memory",
-											"input",
 											"user_id",
-											"hash",
 											"created_at",
 											"updated_at"
 										]
