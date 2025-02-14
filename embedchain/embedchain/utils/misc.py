@@ -473,6 +473,7 @@ def validate_config(config_data):
                     Optional("deployment_name"): Optional(str),
                     Optional("api_key"): str,
                     Optional("api_base"): str,
+                    Optional("api_version"): Or(str, datetime.date),
                     Optional("title"): str,
                     Optional("task_type"): str,
                     Optional("vector_dimension"): int,

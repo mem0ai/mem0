@@ -38,9 +38,9 @@ def test_get_answer(azure_openai_llm):
 
         assert response == "Test Response"
         mock_chat.assert_called_once_with(
-            deployment_name=azure_openai_llm.config.deployment_name,
-            openai_api_version="2024-02-01",
-            model_name=azure_openai_llm.config.model or "gpt-4o-mini",
+            azure_endpoint=azure_openai_llm.config.deployment_name,
+            api_version="2025-01-01-preview",
+            azure_deployment=azure_openai_llm.config.model or "gpt-4o-mini",
             temperature=azure_openai_llm.config.temperature,
             max_tokens=azure_openai_llm.config.max_tokens,
             streaming=azure_openai_llm.config.stream,
@@ -73,7 +73,7 @@ def test_with_api_version():
         model="gpt-4o-mini",
         max_tokens=50,
         system_prompt="System Prompt",
-        api_version="2024-02-01",
+        api_version="2024-12-01-preview",
     )
 
     with patch("langchain_openai.AzureChatOpenAI") as mock_chat:
@@ -81,9 +81,9 @@ def test_with_api_version():
         llm.get_llm_model_answer("Test Prompt")
 
         mock_chat.assert_called_once_with(
-            deployment_name="azure_deployment",
-            openai_api_version="2024-02-01",
-            model_name="gpt-4o-mini",
+            azure_endpoint="azure_deployment",
+            api_version="2024-12-01-preview",
+            azure_deployment="gpt-4o-mini",
             temperature=0.7,
             max_tokens=50,
             streaming=False,
@@ -116,9 +116,9 @@ def test_get_llm_model_answer_with_http_client_proxies():
         llm.get_llm_model_answer("Test query")
 
         mock_chat.assert_called_once_with(
-            deployment_name="azure_deployment",
-            openai_api_version="2024-02-01",
-            model_name="gpt-4o-mini",
+            azure_endpoint="azure_deployment",
+            api_version="2025-01-01-preview",
+            azure_deployment="gpt-4o-mini",
             temperature=0.7,
             max_tokens=50,
             streaming=False,
@@ -152,9 +152,9 @@ def test_get_llm_model_answer_with_http_async_client_proxies():
         llm.get_llm_model_answer("Test query")
 
         mock_chat.assert_called_once_with(
-            deployment_name="azure_deployment",
-            openai_api_version="2024-02-01",
-            model_name="gpt-4o-mini",
+            azure_endpoint="azure_deployment",
+            api_version="2025-01-01-preview",
+            azure_deployment="gpt-4o-mini",
             temperature=0.7,
             max_tokens=50,
             streaming=False,

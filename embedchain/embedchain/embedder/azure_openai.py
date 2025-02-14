@@ -15,7 +15,10 @@ class AzureOpenAIEmbedder(BaseEmbedder):
             self.config.model = "text-embedding-ada-002"
 
         embeddings = AzureOpenAIEmbeddings(
-            deployment=self.config.deployment_name,
+            model=self.config.model,
+            azure_endpoint=self.config.deployment_name,
+            openai_api_version=str(self.config.api_version) if self.config.api_version else "2025-01-01-preview",
+            dimensions=self.config.vector_dimension,
             http_client=self.config.http_client,
             http_async_client=self.config.http_async_client,
         )
