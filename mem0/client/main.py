@@ -100,7 +100,7 @@ class MemoryClient:
         self.client = httpx.Client(
             base_url=self.host,
             headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
-            timeout=60,
+            timeout=300,
         )
         self._validate_api_key()
         capture_client_event("client.init", self)
@@ -169,7 +169,7 @@ class MemoryClient:
 
         Args:
             version: The API version to use for the search endpoint.
-            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, limit).
+            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, top_k).
 
         Returns:
             A list of dictionaries containing memories.
@@ -203,7 +203,7 @@ class MemoryClient:
         Args:
             query: The search query string.
             version: The API version to use for the search endpoint.
-            **kwargs: Additional parameters such as user_id, agent_id, app_id, limit, filters.
+            **kwargs: Additional parameters such as user_id, agent_id, app_id, top_k, filters.
 
         Returns:
             A list of dictionaries containing search results.
@@ -612,7 +612,7 @@ class AsyncMemoryClient:
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,
-            timeout=60,
+            timeout=300,
         )
 
     async def __aenter__(self):
