@@ -132,7 +132,6 @@ class TestOpenSearchDB(unittest.TestCase):
         search_args = self.client_mock.search.call_args[1]
         self.assertEqual(search_args["index"], "test_collection")
         body = search_args["body"]
-        print(f"see here body: {body}")
         self.assertIn("knn", body["query"])
         self.assertIn("vector", body["query"]["knn"])
         self.assertEqual(body["query"]["knn"]["vector"]["vector"], query_vector)
