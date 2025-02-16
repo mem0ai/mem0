@@ -172,7 +172,9 @@ class Memory(MemoryBase):
                 limit=5,
                 filters=filters,
             )
+            print("Existing Memories: ", existing_memories)
             for mem in existing_memories:
+                print("Existing Memory: ", mem)
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
 
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
