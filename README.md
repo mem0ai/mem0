@@ -82,11 +82,11 @@ from openai import OpenAI
 from mem0 import Memory
 
 openai_client = OpenAI()
-mem0 = Memory()
+memory = Memory()
 
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Retrieve relevant memories
-    relevant_memories = mem0.search(query=message, user_id=user_id, limit=3)
+    relevant_memories = memory.search(query=message, user_id=user_id, limit=3)
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories)
     
     # Generate Assistant response
@@ -97,7 +97,7 @@ def chat_with_memories(message: str, user_id: str = "default_user") -> str:
 
     # Create new memories from the conversation
     messages.append({"role": "assistant", "content": assistant_response})
-    mem0.add(messages, user_id=user_id)
+    memory.add(messages, user_id=user_id)
 
     return assistant_response
 
