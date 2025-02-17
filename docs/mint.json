@@ -228,7 +228,6 @@
         "integrations/overview",
         "integrations/vercel-ai-sdk",
         "integrations/crewai",
-        "integrations/multion",
         "integrations/autogen",
         "integrations/langchain",
         "integrations/langgraph",
