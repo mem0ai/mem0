@@ -1,8 +1,7 @@
 import re
-from openai import OpenAI
-client = OpenAI()
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
 from rest_framework.exceptions import APIException
+from mem0.llms.openai import OpenAILLM
 
 
 def get_fact_retrieval_messages(message):
@@ -51,8 +50,8 @@ def get_image_description(image_url):
     """
     Get the description of the image
     """
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
+    llm = OpenAILLM()
+    response = llm.generate_response(
         messages=[
             {
                 "role": "user",
@@ -63,9 +62,8 @@ def get_image_description(image_url):
             },
         ],
         max_tokens=100,
-        temperature=0,
     )
-    return response.choices[0].message.content
+    return response
 
 
 def parse_vision_messages(messages):
