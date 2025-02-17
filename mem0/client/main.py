@@ -50,8 +50,6 @@ class MemoryClient:
         api_key (str): The API key for authenticating with the Mem0 API.
         host (str): The base URL for the Mem0 API.
         client (httpx.Client): The HTTP client used for making API requests.
-        organization (str, optional): (Deprecated) Organization name.
-        project (str, optional): (Deprecated) Project name.
         org_id (str, optional): Organization ID.
         project_id (str, optional): Project ID.
         user_id (str): Unique identifier for the user.
@@ -61,8 +59,6 @@ class MemoryClient:
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        organization: Optional[str] = None,
-        project: Optional[str] = None,
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
     ):
@@ -72,8 +68,6 @@ class MemoryClient:
             api_key: The API key for authenticating with the Mem0 API. If not provided,
                      it will attempt to use the MEM0_API_KEY environment variable.
             host: The base URL for the Mem0 API. Defaults to "https://api.mem0.ai".
-            organization: (Deprecated) The name of the organization. Use org_id instead.
-            project: (Deprecated) The name of the project. Use project_id instead.
             org_id: The ID of the organization.
             project_id: The ID of the project.
 
@@ -82,22 +76,12 @@ class MemoryClient:
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
         self.host = host or "https://api.mem0.ai"
-        self.organization = organization
-        self.project = project
         self.org_id = org_id
         self.project_id = project_id
         self.user_id = get_user_id()
 
         if not self.api_key:
             raise ValueError("Mem0 API Key not provided. Please provide an API Key.")
-
-        if organization or project:
-            warnings.warn(
-                "Using 'organization' and 'project' parameters is deprecated and will be removed in version 0.1.60. "
-                "Please use 'org_id' and 'project_id' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         self.client = httpx.Client(
             base_url=self.host,
@@ -566,20 +550,11 @@ class MemoryClient:
             A dictionary containing the prepared parameters.
 
         Raises:
-            ValueError: If both org_id/project_id and org_name/project_name are provided.
+            ValueError: If either org_id or project_id is provided but not both.
         """
 
         if kwargs is None:
             kwargs = {}
-
-        has_new = bool(self.org_id or self.project_id)
-        has_old = bool(self.organization or self.project)
-
-        if has_new and has_old:
-            raise ValueError(
-                "Please use either org_id/project_id or org_name/project_name, not both. "
-                "Note that org_name/project_name are deprecated."
-            )
 
         # Add org_id and project_id if both are available
         if self.org_id and self.project_id:
@@ -587,13 +562,6 @@ class MemoryClient:
             kwargs["project_id"] = self.project_id
         elif self.org_id or self.project_id:
             raise ValueError("Please provide both org_id and project_id")
-
-        # Add deprecated org_name and project_name if both are available
-        if self.organization and self.project:
-            kwargs["org_name"] = self.organization
-            kwargs["project_name"] = self.project
-        elif self.organization or self.project:
-            raise ValueError("Please provide both org_name and project_name")
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
@@ -613,12 +581,10 @@ class AsyncMemoryClient:
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        organization: Optional[str] = None,
-        project: Optional[str] = None,
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
     ):
-        self.sync_client = MemoryClient(api_key, host, organization, project, org_id, project_id)
+        self.sync_client = MemoryClient(api_key, host, org_id, project_id)
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,
