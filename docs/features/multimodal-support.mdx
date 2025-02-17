@@ -6,28 +6,35 @@ Mem0 extends its capabilities beyond text by supporting multimodal data, includi
 
 ## How It Works
 
-When a user provides an image, Mem0 processes the image to extract textual information and relevant details, which are then added to the user's memory. This feature enhances the system's ability to understand and remember user preferences based on visual inputs.
+When a user provides an image, Mem0 processes the image to extract textual information and relevant details, which are then added to the user's memory. This feature enhances the system's ability to understand and remember details based on visual inputs.
 
+<CodeGroup>
 ```python Code
 from mem0 import MemoryClient
 
 # Initialize the MemoryClient with your API key
 client = MemoryClient(api_key="your_api_key_here")
 
-# Example conversation including an image
 messages = [
-    {"role": "user", "content": "Hi, my name is Alice."},
-    {"role": "assistant", "content": "Nice to meet you, Alice! That's a unique name. What do you like to eat?"},
-    {"role": "user", "content": {"type": "image_url", "image_url": {"url": "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"}}},
-    {"role": "assistant", "content": "Such a tasty choice!"}
+    {
+        "role": "user",
+        "content": "Hi, my name is Alice."
+    },
+    {
+        "role": "assistant",
+        "content": "Nice to meet you, Alice! What do you like to eat?"
+    },
+    {
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+            }
+        }
+    },
 ]
 
-# Add the conversation messages to Mem0's memory for user 'alice'
-client.add(messages, user_id="alice")
-```
-
-<CodeGroup>
-```python Code
 # Calling the add method to ingest messages into the memory system
 client.add(messages, user_id="alice")
 ```
@@ -50,11 +57,11 @@ client.add(messages, user_id="alice")
 ```
 </CodeGroup>
 
-# Methods to Add Images
+## Image Integration Methods
 
 Mem0 allows you to add images to user interactions through two primary methods: by providing an image URL or by using a Base64-encoded image. Below are examples demonstrating each approach.
 
-## 1. Providing an Image URL
+## 1. Using an Image URL (Recommended)
 
 You can include an image by passing its direct URL. This method is simple and efficient for online images.
 
@@ -74,7 +81,7 @@ image_message = {
 }
 ```
 
-## 2. Using a Base64-Encoded Image
+## 2. Using Base64 Image Encoding for Local Files
 
 For local images or scenarios where embedding the image directly is preferable, you can use a Base64-encoded string.
 
