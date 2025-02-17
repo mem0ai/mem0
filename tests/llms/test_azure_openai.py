@@ -97,8 +97,8 @@ def test_generate_response_with_tools(mock_openai_client):
     [None, {"Firstkey": "FirstVal", "SecondKey": "SecondVal"}],
 )
 def test_generate_with_http_proxies(default_headers):
-    mock_http_client = Mock(spec=httpx.Client)
-    mock_http_client_instance = Mock(spec=httpx.Client)
+    mock_http_client = Mock()
+    mock_http_client_instance = Mock()
     mock_http_client.return_value = mock_http_client_instance
     azure_kwargs = {"api_key": "test"}
     if default_headers:
@@ -106,7 +106,7 @@ def test_generate_with_http_proxies(default_headers):
 
     with (
         patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
-        patch("httpx.Client", new=mock_http_client) as mock_http_client,
+        patch("httpx.Client", new=mock_http_client),
     ):
         config = BaseLlmConfig(
             model=MODEL,
