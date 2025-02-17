@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 # Setup user config
 setup_config()
 
+warnings.filterwarnings("default", category=DeprecationWarning)
+
 
 class APIError(Exception):
     """Exception raised for errors in the API."""
@@ -91,7 +93,7 @@ class MemoryClient:
 
         if organization or project:
             warnings.warn(
-                "Using 'organization' and 'project' parameters is deprecated and will be removed in version 0.1.40. "
+                "Using 'organization' and 'project' parameters is deprecated and will be removed in version 0.1.60. "
                 "Please use 'org_id' and 'project_id' instead.",
                 DeprecationWarning,
                 stacklevel=2,
@@ -136,6 +138,14 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         kwargs = self._prepare_params(kwargs)
+        if kwargs.get("output_format") != "v1.1":
+            warnings.warn(
+                "Using default output format 'v1.0' is deprecated and will be removed in version 0.1.70. "
+                "Please use output_format='v1.1' for enhanced memory details. "
+                "Check out the docs for more information: https://docs.mem0.ai/platform/quickstart#4-1-create-memories",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
