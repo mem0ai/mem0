@@ -47,6 +47,18 @@
       "url": "mailto:taranjeet@mem0.ai"
     }
   ],
+  "tabs": [{
+    "name": "Documentation",
+    "url": "content"
+  },
+  {
+    "name": "Examples",
+    "url": "examples"
+  },
+  {
+    "name": "Integrations",
+    "url": "integrations"
+  }],
   "navigation": [
     {
       "group": "Get Started",
@@ -213,9 +225,9 @@
     {
       "group": "Integrations",
       "pages": [
+        "integrations/overview",
         "integrations/vercel-ai-sdk",
         "integrations/crewai",
-        "integrations/multion",
         "integrations/autogen",
         "integrations/langchain",
         "integrations/langgraph",
