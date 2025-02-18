@@ -96,16 +96,21 @@ class MemoryClient:
         try:
             params = self._prepare_params()
             response = self.client.get("/v1/ping/", params=params)
+            data = response.json()
+
             response.raise_for_status()
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("org_id") and data.get("project_id"):
-                    self.org_id = data.get("org_id")
-                    self.project_id = data.get("project_id")
+            if data.get("org_id") and data.get("project_id"):
+                self.org_id = data.get("org_id")
+                self.project_id = data.get("project_id")
 
-        except httpx.HTTPStatusError:
-            raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
+        except httpx.HTTPStatusError as e:
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get("detail", str(e))
+            except:
+                error_message = str(e)
+            raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
     def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
