@@ -80,10 +80,7 @@ def parse_vision_messages(messages):
                     msg["content"]["text"] = description
                     returned_messages.append({"role": msg["role"], "content": description})
                 except Exception:
-                    raise APIException(
-                        {"error": {"message": f"Error while downloading {image_url}."}},
-                        code=400
-                    )
+                    raise Exception(f"Error while downloading {image_url}.")
             else:
                 returned_messages.append(msg)
         else:
