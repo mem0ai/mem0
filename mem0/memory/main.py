@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 import pytz
 from pydantic import ValidationError
-
+from mem0.memory.utils import parse_vision_messages
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
@@ -114,6 +114,8 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
+        messages = parse_vision_messages(messages)
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
             future2 = executor.submit(self._add_to_graph, messages, filters)
@@ -143,7 +145,7 @@ class Memory(MemoryBase):
 
         if self.custom_prompt:
             system_prompt = self.custom_prompt
-            user_prompt = f"Input: {parsed_messages}"
+            user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 

@@ -1,10 +1,10 @@
 import re
-
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
+from mem0.llms.openai import OpenAILLM
 
 
 def get_fact_retrieval_messages(message):
-    return FACT_RETRIEVAL_PROMPT, f"Input: {message}"
+    return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
 
 
 def parse_messages(messages):
@@ -43,3 +43,45 @@ def remove_code_blocks(content: str) -> str:
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     return match.group(1).strip() if match else content.strip()
+
+
+def get_image_description(image_url):
+    """
+    Get the description of the image
+    """
+    llm = OpenAILLM()
+    response = llm.generate_response(
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Provide a description of the image and do not include any additional text."},
+                    {"type": "image_url", "image_url": {"url": image_url}}
+                ],
+            },
+        ],
+        max_tokens=100,
+    )
+    return response
+
+
+def parse_vision_messages(messages):
+    """
+    Parse the vision messages from the messages
+    """
+    returned_messages = []
+    for msg in messages:
+        if msg["role"] != "system":
+            if not isinstance(msg["content"], str) and msg["content"]["type"] == "image_url":
+                image_url = msg["content"]["image_url"]["url"]
+                try:
+                    description = get_image_description(image_url)
+                    msg["content"]["text"] = description
+                    returned_messages.append({"role": msg["role"], "content": description})
+                except Exception:
+                    raise Exception(f"Error while downloading {image_url}.")
+            else:
+                returned_messages.append(msg)
+        else:
+            returned_messages.append(msg)
+    return returned_messages

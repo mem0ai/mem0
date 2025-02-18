@@ -63,6 +63,7 @@ class OpenAILLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        max_tokens: int = 100,
     ):
         """
         Generate a response based on the given messages using OpenAI.
@@ -80,7 +81,7 @@ class OpenAILLM(LLMBase):
             "model": self.config.model,
             "messages": messages,
             "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
+            "max_tokens": max_tokens,
             "top_p": self.config.top_p,
         }
 
