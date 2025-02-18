@@ -1,6 +1,5 @@
 import re
 from mem0.configs.prompts import FACT_RETRIEVAL_PROMPT
-from rest_framework.exceptions import APIException
 from mem0.llms.openai import OpenAILLM
 
 
