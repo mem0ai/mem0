@@ -45,7 +45,6 @@ const Memories = (props: { isMemoriesExpanded: boolean }) => {
   
   // Track memory positions for animation
   useEffect(() => {
-    console.log(prevMemories&&"Memories changed");
     setPrevMemories(memories);
   }, [memories]);
 
