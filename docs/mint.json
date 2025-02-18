@@ -75,7 +75,7 @@
         "platform/quickstart",
         {
           "group": "Features",
-          "pages": ["features/advanced-retrieval", "features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
+          "pages": ["features/platform-overview", "features/advanced-retrieval", "features/multimodal-support", "features/selective-memory", "features/custom-categories", "features/custom-instructions", "features/direct-import", "features/async-client", "features/memory-export"]
         }
       ]
     },
@@ -149,7 +149,7 @@
         },
         {
           "group": "Features",
-          "pages": ["features/openai_compatibility", "features/custom-prompts"]
+          "pages": ["features/openai_compatibility", "features/custom-prompts", "open-source/multimodal-support"]
         }
       ]
     },
