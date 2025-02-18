@@ -96,22 +96,6 @@
 				"operationId": "entities_list",
 				"parameters": [
 					{
-						"name": "org_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter entities by organization name. Will be deprecated soon, use `org_id` instead."
-					},
-					{
-						"name": "project_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter entities by project name. Will be deprecated soon, use `project_id` instead."
-					},
-					{
 						"name": "org_id",
 						"in": "query",
 						"schema": {
@@ -700,22 +684,6 @@
 						"description": "Filter memories by categories"
 					},
 					{
-						"name": "org_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by organization name. Will be deprecated soon, use `org_id` instead."
-					},
-					{
-						"name": "project_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by project name. Will be deprecated soon, use `project_id` instead."
-					},
-					{
 						"name": "org_id",
 						"in": "query",
 						"schema": {
@@ -978,19 +946,19 @@
 				},				  
 				{
 				"lang": "cURL",
-				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"messages\": [\n    {}\n  ],\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"includes\": \"<string>\",\n  \"excludes\": \"<string>\",\n  \"infer\": true,\n  \"custom_categories\": {},\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\", \n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"messages\": [\n    {}\n  ],\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"includes\": \"<string>\",\n  \"excludes\": \"<string>\",\n  \"infer\": true,\n  \"custom_categories\": {}, \n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
 				},
 				{
 				"lang": "Go",
-				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\", \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 				},
 				{
 				"lang": "PHP",
-				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\", \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {}, \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 				},
 				{
 				"lang": "Java",
-				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\", \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\")\n  .asString();"
+				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {}, \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\")\n  .asString();"
 					}
 				],
 				"x-codegen-request-body-name": "data"
@@ -1043,22 +1011,6 @@
 						"description": "Filter memories by metadata (JSON string)",
 						"style": "deepObject",
 						"explode": true
-					},
-					{
-						"name": "org_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by organization name. Will be deprecated soon, use `org_id` instead."
-					},
-					{
-						"name": "project_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by project name. Will be deprecated soon, use `project_id` instead."
 					},
 					{
 						"name": "org_id",
@@ -1164,22 +1116,6 @@
 						"description": "Filters to apply to the memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains)",
 						"style": "deepObject",
 						"explode": true
-					},
-					{
-						"name": "org_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by organization name. Will be deprecated soon, use `org_id` instead."
-					},
-					{
-						"name": "project_name",
-						"in": "query",
-						"schema": {
-							"type": "string"
-						},
-						"description": "Filter memories by project name. Will be deprecated soon, use `project_id` instead."
 					},
 					{
 						"name": "org_id",
@@ -1435,7 +1371,7 @@
 				},				  
 				{
 				"lang": "cURL",
-				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/search/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\", \n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/search/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
 				},
 				{
 				"lang": "Go",
@@ -1540,19 +1476,19 @@
 				},				  
 				{
 				"lang": "cURL",
-				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v2/memories/search/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"filters\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_name\": \"<string>\",\n  \"project_name\": \"<string>\",\n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v2/memories/search/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"query\": \"<string>\",\n  \"filters\": {},\n  \"top_k\": 123,\n  \"fields\": [\n    \"<string>\"\n  ],\n  \"rerank\": true,\n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
 				},
 				{
 				"lang": "Go",
-				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v2/memories/search/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"query\\\": \\\"<string>\\\",\n  \\\"filters\\\": {},\n  \\\"top_k\\\": 123,\n  \\\"fields\\\": [\n    \\\"<string>\\\"\n  ],\n  \\\"rerank\\\": true,\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\",\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\\\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v2/memories/search/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"query\\\": \\\"<string>\\\",\n  \\\"filters\\\": {},\n  \\\"top_k\\\": 123,\n  \\\"fields\\\": [\n    \\\"<string>\\\"\n  ],\n  \\\"rerank\\\": true,\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\\\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 				},
 				{
 				"lang": "PHP",
-				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v2/memories/search/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"query\\\": \\\"<string>\\\",\n  \\\"filters\\\": {},\n  \\\"top_k\\\": 123,\n  \\\"fields\\\": [\n    \\\"<string>\\\"\n  ],\n  \\\"rerank\\\": true,\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\",\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\\\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v2/memories/search/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"query\\\": \\\"<string>\\\",\n  \\\"filters\\\": {},\n  \\\"top_k\\\": 123,\n  \\\"fields\\\": [\n    \\\"<string>\\\"\n  ],\n  \\\"rerank\\\": true,\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\\\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 				},
 				{
 				"lang": "Java",
-				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v2/memories/search/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"query\\\": \\\"<string>\\\",\n  \\\"filters\\\": {},\n  \\\"top_k\\\": 123,\n  \\\"fields\\\": [\n    \\\"<string>\\\"\n  ],\n  \\\"rerank\\\": true,\n  \\\"org_name\\\": \\\"<string>\\\",\n  \\\"project_name\\\": \\\"<string>\\\",\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\\\"\n}\")\n  .asString();"
+				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v2/memories/search/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"query\\\": \\\"<string>\\\",\n  \\\"filters\\\": {},\n  \\\"top_k\\\": 123,\n  \\\"fields\\\": [\n    \\\"<string>\\\"\n  ],\n  \\\"rerank\\\": true,\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\\\"\n}\")\n  .asString();"
 					}
 				],
 				"x-codegen-request-body-name": "data"
@@ -4340,18 +4276,6 @@
 						},
 						"nullable": true
 					},
-				"org_name": {
-					"description": "The name of the organization associated with this memory. Will be deprecated soon use `org_id` instead.",
-					"title": "Organization name",
-					"type": "string",
-					"nullable": true
-				},
-				"project_name": {
-					"description": "The name of the project associated with this memory. Will be deprecated soon use project_id instead.",
-					"title": "Project name",
-					"type": "string",
-					"nullable": true
-				},
 				"org_id": {
 					"description": "The unique identifier of the organization associated with this memory.",
 					"title": "Organization id",
@@ -4442,18 +4366,6 @@
 						"type": "string",
 						"nullable": true,
 						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`."
-					},
-					"org_name": {
-						"title": "Organization Name",
-						"type": "string",
-						"nullable": true,
-						"description": "The name of the organization associated with the memory. Will be deprecated soon use `org_id` instead."
-					},
-					"project_name": {
-						"title": "Project Name",
-						"type": "string",
-						"nullable": true,
-						"description": "The name of the project associated with the memory. Will be deprecated soon use project_id instead."
 					},
 					"org_id": {
 						"title": "Organization id",
@@ -4567,18 +4479,6 @@
 						"type": "number",
 						"default": 0.3,
 						"description": "The minimum similarity threshold for returned results."
-					},
-					"org_name": {
-						"title": "Organization Name",
-						"type": "string",
-						"nullable": true,
-						"description": "The name of the organization associated with the memory. Will be deprecated soon use `org_id` instead."
-					},
-					"project_name": {
-						"title": "Project Name",
-						"type": "string",
-						"nullable": true,
-						"description": "The name of the project associated with the memory. Will be deprecated soon use `project_id` instead."
 					},
 					"org_id": {
 						"title": "Organization id",
