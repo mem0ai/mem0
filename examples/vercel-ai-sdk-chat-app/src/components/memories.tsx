@@ -8,7 +8,7 @@ import {  motion } from "framer-motion";
 
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MemoryItem = ({ memory, index }: { memory: Memory; index: number }) => {
+const MemoryItem = ({ memory }: { memory: Memory; index: number }) => {
   return (
     <motion.div
       layout
