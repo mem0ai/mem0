@@ -28,6 +28,14 @@
                 ]
               },
               {
+                "group": "Core Concepts",
+                "icon": "brain",
+                "pages": [
+                  "core-concepts/memory-types",
+                  "core-concepts/memory-operations"
+                ]
+              },
+              {
                 "group": "Platform",
                 "icon": "cogs",
                 "pages": [
