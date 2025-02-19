@@ -45,7 +45,7 @@ console.log(webhooks);
 ```json Output
 [
     {
-        'id': 6,
+        'webhook_id': "wh_123",
         'url': 'https://mem0.ai',
         'name': 'mem0',
         'owner': 'john',
@@ -101,7 +101,7 @@ console.log(webhook);
 
 ```json Output
 {
-  'id': 1,
+  'webhook_id': "wh_123",
   'name': 'Memory Logger',
   'url': 'https://your-app.com/webhook',
   'project': 'default-project',
@@ -123,14 +123,14 @@ Modify an existing webhook's configuration. Remember that webhooks can only be u
 ```python Python
 # Update webhook in default project
 updated_webhook = client.update_webhook(
-    webhook_id=1,
+    webhook_id="wh_123",
     name="Updated Logger",
     url="https://your-app.com/new-webhook"
 )
 
 # Or update in a specific project
 updated_webhook = client.update_webhook(
-    webhook_id=1,
+    webhook_id="wh_123",
     name="Updated Logger",
     url="https://your-app.com/new-webhook",
     project_id="proj_123"
@@ -140,13 +140,13 @@ print(updated_webhook)
 
 ```javascript JavaScript
 // Update webhook in default project
-const updatedWebhook = await client.updateWebhook(1, {
+const updatedWebhook = await client.updateWebhook("wh_123", {
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook"
 });
 
 // Or update in a specific project
-const updatedWebhook = await client.updateWebhook(1, {
+const updatedWebhook = await client.updateWebhook("wh_123", {
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook",
     projectId: "proj_123"
@@ -170,19 +170,19 @@ Remove a webhook configuration from a project:
 
 ```python Python
 # Delete webhook from default project
-response = client.delete_webhook(webhook_id=1)
+response = client.delete_webhook(webhook_id="wh_123")
 
 # Or delete from a specific project
-response = client.delete_webhook(webhook_id=1, project_id="proj_123")
+response = client.delete_webhook(webhook_id="wh_123", project_id="proj_123")
 print(response)
 ```
 
 ```javascript JavaScript
 // Delete webhook from default project
-const response = await client.deleteWebhook(1);
+const response = await client.deleteWebhook("wh_123");
 
 // Or delete from a specific project
-const response = await client.deleteWebhook(1, "proj_123");
+const response = await client.deleteWebhook("wh_123", "proj_123");
 console.log(response);
 ```
 
