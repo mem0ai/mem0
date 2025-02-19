@@ -1,0 +1,223 @@
+---
+title: Webhooks
+description: 'Configure and manage webhooks to receive real-time notifications about memory events'
+icon: "webhook"
+iconType: "solid"
+---
+
+## Overview
+
+Webhooks allow you to receive real-time notifications when memory events occur in your Mem0 project. Webhooks are configured at the project level, meaning each webhook is associated with a specific project and will only receive events from that project. You can configure webhooks to send HTTP POST requests to your specified URLs whenever memories are created, updated, or deleted.
+
+## Managing Webhooks
+
+### Get Webhooks
+
+Retrieve all webhooks configured for your project. By default, it uses the project_id from your client configuration, but you can optionally specify a different project:
+
+<CodeGroup>
+
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Get webhooks for the default project
+webhooks = client.get_webhooks()
+
+# Or specify a different project
+webhooks = client.get_webhooks(project_id="proj_123")
+print(webhooks)
+```
+
+```javascript JavaScript
+const { MemoryClient } = require('mem0ai');
+const client = new MemoryClient('your-api-key');
+
+// Get webhooks for the default project
+const webhooks = await client.getWebhooks();
+
+// Or specify a different project
+const webhooks = await client.getWebhooks("proj_123");
+console.log(webhooks);
+```
+
+```json Output
+[
+    {
+        'id': 6,
+        'url': 'https://mem0.ai',
+        'name': 'mem0',
+        'owner': 'john',
+        'project': 'default-project',
+        'secret': '3254dde069fe2490216dba7ca4e0f3595619a28e5909ba80d45caed7577f1040',
+        'is_active': True,
+        'created_at': '2025-02-18T22:59:56.804993-08:00',
+        'updated_at': '2025-02-18T23:06:41.479361-08:00'
+    }
+]
+
+```
+
+</CodeGroup>
+
+### Create Webhook
+
+Create a new webhook for your project. The webhook will only receive events from the specified project:
+
+<CodeGroup>
+
+```python Python
+# Create a webhook in the default project
+webhook = client.create_webhook(
+    url="https://your-app.com/webhook",
+    name="Memory Logger"
+)
+
+# Or create in a specific project
+webhook = client.create_webhook(
+    url="https://your-app.com/webhook",
+    name="Memory Logger",
+    project_id="proj_123"
+)
+print(webhook)
+```
+
+```javascript JavaScript
+// Create a webhook in the default project
+const webhook = await client.createWebhook({
+    url: "https://your-app.com/webhook",
+    name: "Memory Logger"
+});
+
+// Or create in a specific project
+const webhook = await client.createWebhook({
+    url: "https://your-app.com/webhook",
+    name: "Memory Logger",
+    projectId: "proj_123"
+});
+console.log(webhook);
+```
+
+```json Output
+{
+  'id': 1,
+  'name': 'Memory Logger',
+  'url': 'https://your-app.com/webhook',
+  'project': 'default-project',
+  'secret': '3254dde069fe2490216dba7ca4e0f3595619a28e5909ba80d45caed7577f1040',
+  'is_active': True,
+  'created_at': '2025-02-18T22:59:56.804993-08:00',
+  'updated_at': '2025-02-18T23:06:41.479361-08:00'
+}
+```
+
+</CodeGroup>
+
+### Update Webhook
+
+Modify an existing webhook's configuration. Remember that webhooks can only be updated within their associated project:
+
+<CodeGroup>
+
+```python Python
+# Update webhook in default project
+updated_webhook = client.update_webhook(
+    webhook_id=1,
+    name="Updated Logger",
+    url="https://your-app.com/new-webhook"
+)
+
+# Or update in a specific project
+updated_webhook = client.update_webhook(
+    webhook_id=1,
+    name="Updated Logger",
+    url="https://your-app.com/new-webhook",
+    project_id="proj_123"
+)
+print(updated_webhook)
+```
+
+```javascript JavaScript
+// Update webhook in default project
+const updatedWebhook = await client.updateWebhook(1, {
+    name: "Updated Logger",
+    url: "https://your-app.com/new-webhook"
+});
+
+// Or update in a specific project
+const updatedWebhook = await client.updateWebhook(1, {
+    name: "Updated Logger",
+    url: "https://your-app.com/new-webhook",
+    projectId: "proj_123"
+});
+console.log(updatedWebhook);
+```
+
+```json Output
+{
+  "message": "Webhook updated successfully"
+}
+```
+
+</CodeGroup>
+
+### Delete Webhook
+
+Remove a webhook configuration from a project:
+
+<CodeGroup>
+
+```python Python
+# Delete webhook from default project
+response = client.delete_webhook(webhook_id=1)
+
+# Or delete from a specific project
+response = client.delete_webhook(webhook_id=1, project_id="proj_123")
+print(response)
+```
+
+```javascript JavaScript
+// Delete webhook from default project
+const response = await client.deleteWebhook(1);
+
+// Or delete from a specific project
+const response = await client.deleteWebhook(1, "proj_123");
+console.log(response);
+```
+
+```json Output
+{
+  "message": "Webhook deleted successfully"
+}
+```
+
+</CodeGroup>
+
+## Webhook Payload
+
+When a memory event occurs in your project, Mem0 sends a POST request to your webhook URL with the following payload structure:
+
+```json
+{
+    "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+    "data": {
+      "memory": "Name is Alex"
+    },
+    "event": "ADD"
+}
+```
+
+## Best Practices
+
+1. **Implement Retry Logic**: Your webhook endpoint should be able to handle temporary failures and implement appropriate retry mechanisms.
+
+2. **Verify Webhook Source**: Implement security measures to verify that webhook requests are coming from Mem0.
+
+3. **Process Events Asynchronously**: Handle webhook events asynchronously to prevent timeouts and ensure reliable processing.
+
+4. **Monitor Webhook Health**: Regularly check your webhook logs to ensure proper functionality and handle any delivery failures.
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
