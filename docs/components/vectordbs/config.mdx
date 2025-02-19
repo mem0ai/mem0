@@ -1,10 +1,12 @@
-## What is Config?
+---
+title: Configurations
+icon: "gear"
+iconType: "solid"
+---
 
-Config in mem0 is a dictionary that specifies the settings for your vector database. It allows you to customize the behavior and connection details of your chosen vector store.
+## How to define configurations?
 
-## How to Define Config
-
-The config is defined as a Python dictionary with two main keys:
+The `config` is defined as a Python dictionary with two main keys:
 - `vector_store`: Specifies the vector database provider and its configuration
   - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus","azure_ai_search")
   - `config`: A nested dictionary containing provider-specific settings

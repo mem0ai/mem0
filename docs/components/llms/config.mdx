@@ -1,10 +1,12 @@
-## What is Config?
+---
+title: Configurations
+icon: "gear"
+iconType: "solid"
+---
 
-Config in mem0 is a dictionary that specifies the settings for your llms. It allows you to customize the behavior and connection details of your chosen llm.
+## How to define configurations?
 
-## How to Define Config
-
-The config is defined as a Python dictionary with two main keys:
+The `config` is defined as a Python dictionary with two main keys:
 - `llm`: Specifies the llm provider and its configuration
   - `provider`: The name of the llm (e.g., "openai", "groq")
   - `config`: A nested dictionary containing provider-specific settings
