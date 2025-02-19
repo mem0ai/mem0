@@ -45,7 +45,8 @@
                       "features/custom-instructions",
                       "features/direct-import",
                       "features/async-client",
-                      "features/memory-export"
+                      "features/memory-export",
+                      "features/webhook"
                     ]
                   }
                 ]
