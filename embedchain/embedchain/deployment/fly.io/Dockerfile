@@ -6,18 +6,12 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 # Set the working directory
 WORKDIR /app
 
-# Copy application files and adjust permissions
-COPY requirements.txt /app/
+# Copy application files and adjust permissions in a single step
+COPY . /app
 RUN chown -R appuser:appgroup /app
 
 # Install dependencies before switching to non-root user
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application files
-COPY . /app
-
-# Ensure correct permissions
-RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
 USER appuser
