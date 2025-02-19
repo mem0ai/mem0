@@ -1,0 +1,295 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "Mem0",
+  "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
+  "colors": {
+    "primary": "#6c60f0",
+    "light": "#E6FFA2",
+    "dark": "#a3df02"
+  },
+  "favicon": "/logo/favicon.png",
+  "navigation": {
+    "anchors": [
+      {
+        "anchor": "Documentation",
+        "icon": "book-open",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Get Started",
+                "icon": "rocket",
+                "pages": [
+                  "overview",
+                  "quickstart",
+                  "faqs"
+                ]
+              },
+              {
+                "group": "Platform",
+                "icon": "cogs",
+                "pages": [
+                  "platform/overview",
+                  "platform/quickstart",
+                  {
+                    "group": "Features",
+                    "icon": "star",
+                    "pages": [
+                      "features/platform-overview",
+                      "features/advanced-retrieval",
+                      "features/multimodal-support",
+                      "features/selective-memory",
+                      "features/custom-categories",
+                      "features/custom-instructions",
+                      "features/direct-import",
+                      "features/async-client",
+                      "features/memory-export"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Open Source",
+                "icon": "code-branch",
+                "pages": [
+                  "open-source/quickstart",
+                  {
+                    "group": "Features",
+                    "icon": "wrench",
+                    "pages": [
+                      "features/openai_compatibility",
+                      "features/custom-prompts",
+                      "open-source/multimodal-support"
+                    ]
+                  },
+                  {
+                    "group": "Graph Memory",
+                    "icon": "spider-web",
+                    "pages": [
+                      "open-source/graph_memory/overview",
+                      "open-source/graph_memory/features"
+                    ]
+                  },
+                  {
+                    "group": "LLMs",
+                    "icon": "brain",
+                    "pages": [
+                      "components/llms/overview",
+                      "components/llms/config",
+                      {
+                        "group": "Supported LLMs",
+                        "icon": "list",
+                        "pages": [
+                          "components/llms/models/openai",
+                          "components/llms/models/anthropic",
+                          "components/llms/models/azure_openai",
+                          "components/llms/models/ollama",
+                          "components/llms/models/together",
+                          "components/llms/models/groq",
+                          "components/llms/models/litellm",
+                          "components/llms/models/mistral_AI",
+                          "components/llms/models/google_AI",
+                          "components/llms/models/aws_bedrock",
+                          "components/llms/models/gemini"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Vector Databases",
+                    "icon": "database",
+                    "pages": [
+                      "components/vectordbs/overview",
+                      "components/vectordbs/config",
+                      {
+                        "group": "Supported Vector Databases",
+                        "icon": "server",
+                        "pages": [
+                          "components/vectordbs/dbs/qdrant",
+                          "components/vectordbs/dbs/chroma",
+                          "components/vectordbs/dbs/pgvector",
+                          "components/vectordbs/dbs/milvus",
+                          "components/vectordbs/dbs/azure_ai_search",
+                          "components/vectordbs/dbs/redis",
+                          "components/vectordbs/dbs/elasticsearch"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Embedding Models",
+                    "icon": "layer-group",
+                    "pages": [
+                      "components/embedders/overview",
+                      "components/embedders/config",
+                      {
+                        "group": "Supported Embedding Models",
+                        "icon": "list",
+                        "pages": [
+                          "components/embedders/models/openai",
+                          "components/embedders/models/azure_openai",
+                          "components/embedders/models/ollama",
+                          "components/embedders/models/huggingface",
+                          "components/embedders/models/vertexai",
+                          "components/embedders/models/gemini"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Examples",
+            "groups": [
+              {
+                "group": "💡 Examples",
+                "icon": "lightbulb",
+                "pages": [
+                  "examples/overview",
+                  "examples/mem0-with-ollama",
+                  "examples/personal-ai-tutor",
+                  "examples/customer-support-agent",
+                  "examples/personal-travel-assistant",
+                  "examples/llama-index-mem0"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Integrations",
+            "groups": [
+              {
+                "group": "Integrations",
+                "icon": "plug",
+                "pages": [
+                  "integrations/overview",
+                  "integrations/vercel-ai-sdk",
+                  "integrations/crewai",
+                  "integrations/autogen",
+                  "integrations/langchain",
+                  "integrations/langgraph",
+                  "integrations/llama-index",
+                  "integrations/langchain-tools"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "icon": "square-terminal",
+            "groups": [
+              {
+                "group": "API Reference",
+                "icon": "terminal",
+                "pages": [
+                  "api-reference/overview",
+                  {
+                    "group": "Memory APIs",
+                    "icon": "microchip",
+                    "pages": [
+                      "api-reference/memory/v1-get-memories",
+                      "api-reference/memory/v2-get-memories",
+                      "api-reference/memory/add-memories",
+                      "api-reference/memory/delete-memories",
+                      "api-reference/memory/get-memory",
+                      "api-reference/memory/update-memory",
+                      "api-reference/memory/delete-memory",
+                      "api-reference/memory/v1-search-memories",
+                      "api-reference/memory/v2-search-memories",
+                      "api-reference/memory/history-memory",
+                      "api-reference/memory/batch-update",
+                      "api-reference/memory/batch-delete",
+                      "api-reference/memory/create-memory-export",
+                      "api-reference/memory/get-memory-export"
+                    ]
+                  },
+                  {
+                    "group": "Entities APIs",
+                    "icon": "users",
+                    "pages": [
+                      "api-reference/entities/get-users",
+                      "api-reference/entities/delete-user"
+                    ]
+                  },
+                  {
+                    "group": "Organizations APIs",
+                    "icon": "building",
+                    "pages": [
+                      "api-reference/organization/get-orgs",
+                      "api-reference/organization/get-org",
+                      "api-reference/organization/create-org",
+                      "api-reference/organization/update-org",
+                      "api-reference/organization/delete-org",
+                      "api-reference/organization/get-org-members",
+                      "api-reference/organization/add-org-member",
+                      "api-reference/organization/remove-org-member",
+                      "api-reference/organization/get-org-projects",
+                      "api-reference/organization/add-org-project",
+                      "api-reference/organization/remove-org-project"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "anchor": "Your Dashboard",
+        "href": "https://app.mem0.ai",
+        "icon": "chart-simple"
+      },
+      {
+        "anchor": "Discord",
+        "href": "https://mem0.dev/DiD",
+        "icon": "discord"
+      },
+      {
+        "anchor": "GitHub",
+        "href": "https://github.com/mem0ai/mem0",
+        "icon": "github"
+      },
+      {
+        "anchor": "Support",
+        "href": "mailto:founders@mem0.ai",
+        "icon": "envelope"
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://github.com/mem0ai/mem0"
+  },
+  "background": {
+    "color": {
+      "light": "#fff",
+      "dark": "#0f1117"
+    }
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Your Dashboard",
+      "href": "https://app.mem0.ai"
+    }
+  },
+  "footer": {
+    "socials": {
+      "discord": "https://mem0.dev/DiD",
+      "x": "https://x.com/mem0ai",
+      "github": "https://github.com/mem0ai",
+      "linkedin": "https://www.linkedin.com/company/mem0/"
+    }
+  },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
+      "apiHost": "https://mango.mem0.ai"
+    }
+  }
+}

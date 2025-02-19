@@ -1,15 +1,19 @@
-## What is Config?
+---
+title: Configurations
+icon: "gear"
+iconType: "solid"
+---
 
 Config in mem0 is a dictionary that specifies the settings for your embedding models. It allows you to customize the behavior and connection details of your chosen embedder.
 
-## How to Define Config
+## How to define configurations?
 
 The config is defined as a Python dictionary with two main keys:
 - `embedder`: Specifies the embedder provider and its configuration
   - `provider`: The name of the embedder (e.g., "openai", "ollama")
   - `config`: A nested dictionary containing provider-specific settings
 
-## How to Use Config
+## How to use configurations?
 
 Here's a general example of how to use the config with mem0:
 
