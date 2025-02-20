@@ -4276,18 +4276,24 @@
 						},
 						"nullable": true
 					},
-				"org_id": {
-					"description": "The unique identifier of the organization associated with this memory.",
-					"title": "Organization id",
-					"type": "string",
-					"nullable": true
-				},
-				"project_id": {
-					"description": "The unique identifier of the project associated with this memory.",
-					"title": "Project id",
-					"type": "string",
-					"nullable": true
-				}
+					"custom_instructions": {
+						"description": "Defines project-specific guidelines for handling and organizing memories. When set at the project level, they apply to all new memories in that project.",
+						"title": "Custom instructions",
+						"type": "string",
+						"nullable": true
+					},
+					"org_id": {
+						"description": "The unique identifier of the organization associated with this memory.",
+						"title": "Organization id",
+						"type": "string",
+						"nullable": true
+					},
+					"project_id": {
+						"description": "The unique identifier of the project associated with this memory.",
+						"title": "Project id",
+						"type": "string",
+						"nullable": true
+					}
 				}
 			},
 			"MemorySearchInput": {
