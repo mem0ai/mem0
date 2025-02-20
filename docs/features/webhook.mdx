@@ -18,6 +18,10 @@ Create a new webhook for your project. The webhook will only receive events from
 <CodeGroup>
 
 ```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
 # Create webhook in a specific project
 webhook = client.create_webhook(
     url="https://your-app.com/webhook",
@@ -29,6 +33,9 @@ print(webhook)
 ```
 
 ```javascript JavaScript
+const { MemoryClient } = require('mem0ai');
+const client = new MemoryClient('your-api-key');
+
 // Create webhook in a specific project
 const webhook = await client.createWebhook({
     url: "https://your-app.com/webhook",
@@ -41,14 +48,14 @@ console.log(webhook);
 
 ```json Output
 {
-  'webhook_id': "wh_123",
-  'name': 'Memory Logger',
-  'url': 'https://your-app.com/webhook',
-  'event_types': ['memory_add'],
-  'project': 'default-project',
-  'is_active': True,
-  'created_at': '2025-02-18T22:59:56.804993-08:00',
-  'updated_at': '2025-02-18T23:06:41.479361-08:00'
+  "webhook_id": "wh_123",
+  "name": "Memory Logger",
+  "url": "https://your-app.com/webhook",
+  "event_types": ["memory_add"],
+  "project": "default-project",
+  "is_active": true,
+  "created_at": "2025-02-18T22:59:56.804993-08:00",
+  "updated_at": "2025-02-18T23:06:41.479361-08:00"
 }
 ```
 
@@ -61,19 +68,12 @@ Retrieve all webhooks configured for your project:
 <CodeGroup>
 
 ```python Python
-from mem0 import MemoryClient
-
-client = MemoryClient(api_key="your-api-key")
-
 # Get webhooks for a specific project
 webhooks = client.get_webhooks(project_id="proj_123")
 print(webhooks)
 ```
 
 ```javascript JavaScript
-const { MemoryClient } = require('mem0ai');
-const client = new MemoryClient('your-api-key');
-
 // Get webhooks for a specific project
 const webhooks = await client.getWebhooks({projectId: "proj_123"});
 console.log(webhooks);
@@ -82,15 +82,15 @@ console.log(webhooks);
 ```json Output
 [
     {
-        'webhook_id': "wh_123",
-        'url': 'https://mem0.ai',
-        'name': 'mem0',
-        'owner': 'john',
-        'event_types': ['memory_add'],
-        'project': 'default-project',
-        'is_active': True,
-        'created_at': '2025-02-18T22:59:56.804993-08:00',
-        'updated_at': '2025-02-18T23:06:41.479361-08:00'
+        "webhook_id": "wh_123",
+        "url": "https://mem0.ai",
+        "name": "mem0",
+        "owner": "john",
+        "event_types": ["memory_add"],
+        "project": "default-project",
+        "is_active": true,
+        "created_at": "2025-02-18T22:59:56.804993-08:00",
+        "updated_at": "2025-02-18T23:06:41.479361-08:00"
     }
 ]
 
@@ -121,9 +121,9 @@ print(updated_webhook)
 const updatedWebhook = await client.updateWebhook({
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook",
+    eventTypes: ["memory:update", "memory:add"],
     projectId: "proj_123",
-    webhookId: "wh_123",
-    eventTypes: ["memory:update", "memory:add"]
+    webhookId: "wh_123"
 });
 console.log(updatedWebhook);
 ```
