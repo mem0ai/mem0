@@ -13,7 +13,7 @@ Webhooks allow you to receive real-time notifications when memory events occur i
 
 ### Get Webhooks
 
-Retrieve all webhooks configured for your project. By default, it uses the project_id from your client configuration, but you can optionally specify a different project:
+Retrieve all webhooks configured for your project:
 
 <CodeGroup>
 
@@ -22,10 +22,7 @@ from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
 
-# Get webhooks for the default project
-webhooks = client.get_webhooks()
-
-# Or specify a different project
+# Get webhooks for a specific project
 webhooks = client.get_webhooks(project_id="proj_123")
 print(webhooks)
 ```
@@ -34,10 +31,7 @@ print(webhooks)
 const { MemoryClient } = require('mem0ai');
 const client = new MemoryClient('your-api-key');
 
-// Get webhooks for the default project
-const webhooks = await client.getWebhooks();
-
-// Or specify a different project
+// Get webhooks for a specific project
 const webhooks = await client.getWebhooks("proj_123");
 console.log(webhooks);
 ```
@@ -49,6 +43,7 @@ console.log(webhooks);
         'url': 'https://mem0.ai',
         'name': 'mem0',
         'owner': 'john',
+        'event_types': ['memory_add'],
         'project': 'default-project',
         'is_active': True,
         'created_at': '2025-02-18T22:59:56.804993-08:00',
@@ -67,33 +62,23 @@ Create a new webhook for your project. The webhook will only receive events from
 <CodeGroup>
 
 ```python Python
-# Create a webhook in the default project
-webhook = client.create_webhook(
-    url="https://your-app.com/webhook",
-    name="Memory Logger"
-)
-
-# Or create in a specific project
+# Create webhook in a specific project
 webhook = client.create_webhook(
     url="https://your-app.com/webhook",
     name="Memory Logger",
     project_id="proj_123"
+    event_types=["memory:add"]
 )
 print(webhook)
 ```
 
 ```javascript JavaScript
-// Create a webhook in the default project
-const webhook = await client.createWebhook({
-    url: "https://your-app.com/webhook",
-    name: "Memory Logger"
-});
-
-// Or create in a specific project
+// Create webhook in a specific project
 const webhook = await client.createWebhook({
     url: "https://your-app.com/webhook",
     name: "Memory Logger",
-    projectId: "proj_123"
+    projectId: "proj_123",
+    eventTypes: ["memory:add"]
 });
 console.log(webhook);
 ```
@@ -103,6 +88,7 @@ console.log(webhook);
   'webhook_id': "wh_123",
   'name': 'Memory Logger',
   'url': 'https://your-app.com/webhook',
+  'event_types': ['memory_add'],
   'project': 'default-project',
   'is_active': True,
   'created_at': '2025-02-18T22:59:56.804993-08:00',
@@ -119,28 +105,18 @@ Modify an existing webhook's configuration. Remember that webhooks can only be u
 <CodeGroup>
 
 ```python Python
-# Update webhook in default project
+# Update webhook for a specific project
 updated_webhook = client.update_webhook(
     name="Updated Logger",
     url="https://your-app.com/new-webhook"
-)
-
-# Or update in a specific project
-updated_webhook = client.update_webhook(
-    name="Updated Logger",
-    url="https://your-app.com/new-webhook"
+    project_id="proj_123",
+    webhook_id="wh_123"
 )
 print(updated_webhook)
 ```
 
 ```javascript JavaScript
-// Update webhook in default project
-const updatedWebhook = await client.updateWebhook("wh_123", {
-    name: "Updated Logger",
-    url: "https://your-app.com/new-webhook"
-});
-
-// Or update in a specific project
+// Update webhook for a specific project
 const updatedWebhook = await client.updateWebhook("wh_123", {
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook",
@@ -164,19 +140,13 @@ Remove a webhook configuration from a project:
 <CodeGroup>
 
 ```python Python
-# Delete webhook from default project
-response = client.delete_webhook(webhook_id="wh_123")
-
-# Or delete from a specific project
+# Delete webhook from a specific project
 response = client.delete_webhook(webhook_id="wh_123", project_id="proj_123")
 print(response)
 ```
 
 ```javascript JavaScript
-// Delete webhook from default project
-const response = await client.deleteWebhook("wh_123");
-
-// Or delete from a specific project
+// Delete webhook from a specific project
 const response = await client.deleteWebhook("wh_123", "proj_123");
 console.log(response);
 ```
@@ -188,6 +158,14 @@ console.log(response);
 ```
 
 </CodeGroup>
+
+## Event Types
+
+Mem0 supports the following event types for webhooks:
+
+- `memory:add`: Triggered when a new memory is added.
+- `memory:update`: Triggered when an existing memory is updated.
+- `memory:delete`: Triggered when a memory is deleted.
 
 ## Webhook Payload
 
