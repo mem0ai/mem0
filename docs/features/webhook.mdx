@@ -11,50 +11,6 @@ Webhooks allow you to receive real-time notifications when memory events occur i
 
 ## Managing Webhooks
 
-### Get Webhooks
-
-Retrieve all webhooks configured for your project:
-
-<CodeGroup>
-
-```python Python
-from mem0 import MemoryClient
-
-client = MemoryClient(api_key="your-api-key")
-
-# Get webhooks for a specific project
-webhooks = client.get_webhooks(project_id="proj_123")
-print(webhooks)
-```
-
-```javascript JavaScript
-const { MemoryClient } = require('mem0ai');
-const client = new MemoryClient('your-api-key');
-
-// Get webhooks for a specific project
-const webhooks = await client.getWebhooks("proj_123");
-console.log(webhooks);
-```
-
-```json Output
-[
-    {
-        'webhook_id': "wh_123",
-        'url': 'https://mem0.ai',
-        'name': 'mem0',
-        'owner': 'john',
-        'event_types': ['memory_add'],
-        'project': 'default-project',
-        'is_active': True,
-        'created_at': '2025-02-18T22:59:56.804993-08:00',
-        'updated_at': '2025-02-18T23:06:41.479361-08:00'
-    }
-]
-
-```
-
-</CodeGroup>
-
 ### Create Webhook
 
 Create a new webhook for your project. The webhook will only receive events from the specified project:
@@ -66,7 +22,7 @@ Create a new webhook for your project. The webhook will only receive events from
 webhook = client.create_webhook(
     url="https://your-app.com/webhook",
     name="Memory Logger",
-    project_id="proj_123"
+    project_id="proj_123",
     event_types=["memory:add"]
 )
 print(webhook)
@@ -98,6 +54,50 @@ console.log(webhook);
 
 </CodeGroup>
 
+### Get Webhooks
+
+Retrieve all webhooks configured for your project:
+
+<CodeGroup>
+
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Get webhooks for a specific project
+webhooks = client.get_webhooks(project_id="proj_123")
+print(webhooks)
+```
+
+```javascript JavaScript
+const { MemoryClient } = require('mem0ai');
+const client = new MemoryClient('your-api-key');
+
+// Get webhooks for a specific project
+const webhooks = await client.getWebhooks({projectId: "proj_123"});
+console.log(webhooks);
+```
+
+```json Output
+[
+    {
+        'webhook_id': "wh_123",
+        'url': 'https://mem0.ai',
+        'name': 'mem0',
+        'owner': 'john',
+        'event_types': ['memory_add'],
+        'project': 'default-project',
+        'is_active': True,
+        'created_at': '2025-02-18T22:59:56.804993-08:00',
+        'updated_at': '2025-02-18T23:06:41.479361-08:00'
+    }
+]
+
+```
+
+</CodeGroup>
+
 ### Update Webhook
 
 Modify an existing webhook's configuration. Remember that webhooks can only be updated within their associated project:
@@ -108,7 +108,8 @@ Modify an existing webhook's configuration. Remember that webhooks can only be u
 # Update webhook for a specific project
 updated_webhook = client.update_webhook(
     name="Updated Logger",
-    url="https://your-app.com/new-webhook"
+    url="https://your-app.com/new-webhook",
+    event_types=["memory:update", "memory:add"],
     project_id="proj_123",
     webhook_id="wh_123"
 )
@@ -117,10 +118,12 @@ print(updated_webhook)
 
 ```javascript JavaScript
 // Update webhook for a specific project
-const updatedWebhook = await client.updateWebhook("wh_123", {
+const updatedWebhook = await client.updateWebhook({
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook",
-    projectId: "proj_123"
+    projectId: "proj_123",
+    webhookId: "wh_123",
+    eventTypes: ["memory:update", "memory:add"]
 });
 console.log(updatedWebhook);
 ```
@@ -169,15 +172,17 @@ Mem0 supports the following event types for webhooks:
 
 ## Webhook Payload
 
-When a memory event occurs in your project, Mem0 sends a POST request to your webhook URL with the following payload structure:
+When a memory event occurs in your project, Mem0 sends a POST request to your webhook URL with the following example payload structure:
 
 ```json
 {
-    "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
-    "data": {
-      "memory": "Name is Alex"
-    },
-    "event": "ADD"
+    "event_details": {
+        "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+            "data": {
+            "memory": "Name is Alex"
+            },
+        "event": "ADD"
+    }
 }
 ```
 
