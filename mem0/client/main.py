@@ -525,7 +525,7 @@ class MemoryClient:
         raise NotImplementedError("Chat is not implemented yet")
 
     @api_error_handler
-    def get_webhooks(self, project_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_webhooks(self, project_id: str) -> Dict[str, Any]:
         """Get webhooks configuration for the project.
 
         Args:
@@ -539,18 +539,13 @@ class MemoryClient:
             ValueError: If project_id is not set.
         """
 
-        project_id = project_id or self.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to access webhooks")
-
         response = self.client.get(f"api/v1/webhooks/{project_id}/webhook/")
         response.raise_for_status()
         capture_client_event("client.get_webhook", self)
         return response.json()
 
     @api_error_handler
-    def create_webhook(self, url: str, name: str, project_id: Optional[str] = None) -> Dict[str, Any]:
+    def create_webhook(self, url: str, name: str, project_id: str) -> Dict[str, Any]:
         """Create a webhook for the current project.
 
         Args:
@@ -564,10 +559,6 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If project_id is not set.
         """
-        project_id = project_id or self.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to create webhook")
 
         payload = {"url": url, "name": name}
         response = self.client.post(f"api/v1/webhooks/{project_id}/webhook/", json=payload)
@@ -577,15 +568,15 @@ class MemoryClient:
 
     @api_error_handler
     def update_webhook(
-        self, webhook_id: int, name: Optional[str] = None, url: Optional[str] = None, project_id: Optional[str] = None
+        self, webhook_id: int, project_id: str, name: Optional[str] = None, url: Optional[str] = None
     ) -> Dict[str, Any]:
         """Update a webhook configuration.
 
         Args:
             webhook_id: ID of the webhook to update
+            project_id: The ID of the project to update the webhook for.
             name: Optional new name for the webhook
             url: Optional new URL for the webhook
-            project_id: The ID of the project to update the webhook for.
 
         Returns:
             Dictionary containing the updated webhook details.
@@ -594,10 +585,6 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If project_id is not set.
         """
-        project_id = project_id or self.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to update webhook")
 
         payload = {k: v for k, v in {"name": name, "url": url}.items() if v is not None}
         response = self.client.put(f"api/v1/webhooks/{project_id}/webhook/{webhook_id}/", json=payload)
@@ -606,7 +593,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_webhook(self, webhook_id: int, project_id: Optional[str] = None) -> Dict[str, str]:
+    def delete_webhook(self, webhook_id: int, project_id: str) -> Dict[str, str]:
         """Delete a webhook configuration.
 
         Args:
@@ -620,10 +607,6 @@ class MemoryClient:
             APIError: If the API request fails.
             ValueError: If project_id is not set.
         """
-        project_id = project_id or self.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to delete webhook")
 
         response = self.client.delete(f"api/v1/webhooks/{project_id}/webhook/{webhook_id}/")
         response.raise_for_status()
@@ -975,11 +958,7 @@ class AsyncMemoryClient:
         raise NotImplementedError("Chat is not implemented yet")
 
     @api_error_handler
-    async def get_webhooks(self, project_id: Optional[str] = None) -> Dict[str, Any]:
-        project_id = project_id or self.sync_client.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to access webhooks")
+    async def get_webhooks(self, project_id: str) -> Dict[str, Any]:
 
         response = await self.async_client.get(
             f"api/v1/webhooks/{project_id}/webhook/",
@@ -989,11 +968,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def create_webhook(self, url: str, name: str, project_id: Optional[str] = None) -> Dict[str, Any]:
-        project_id = project_id or self.sync_client.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to create webhook")
+    async def create_webhook(self, url: str, name: str, project_id: str) -> Dict[str, Any]:
 
         response = await self.async_client.post(
             f"api/v1/webhooks/{project_id}/webhook/", json={"url": url, "name": name}
@@ -1004,12 +979,8 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_webhook(
-        self, webhook_id: int, name: Optional[str] = None, url: Optional[str] = None, project_id: Optional[str] = None
+        self, webhook_id: int,project_id: str, name: Optional[str] = None, url: Optional[str] = None
     ) -> Dict[str, Any]:
-        project_id = project_id or self.sync_client.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to update webhook")
 
         payload = {k: v for k, v in {"name": name, "url": url}.items() if v is not None}
         response = await self.async_client.put(f"api/v1/webhooks/{project_id}/webhook/{webhook_id}/", json=payload)
@@ -1018,11 +989,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete_webhook(self, webhook_id: int, project_id: Optional[str] = None) -> Dict[str, str]:
-        project_id = project_id or self.sync_client.project_id
-
-        if not project_id:
-            raise ValueError("project_id must be set to delete webhook")
+    async def delete_webhook(self, webhook_id: int, project_id: str) -> Dict[str, str]:
 
         response = await self.async_client.delete(f"api/v1/webhooks/{project_id}/webhook/{webhook_id}/")
         response.raise_for_status()
