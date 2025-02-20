@@ -122,7 +122,8 @@
                           "components/vectordbs/dbs/milvus",
                           "components/vectordbs/dbs/azure_ai_search",
                           "components/vectordbs/dbs/redis",
-                          "components/vectordbs/dbs/elasticsearch"
+                          "components/vectordbs/dbs/elasticsearch",
+                          "components/vectordbs/dbs/opensearch"
                         ]
                       }
                     ]
