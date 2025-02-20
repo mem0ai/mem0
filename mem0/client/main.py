@@ -545,12 +545,13 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def create_webhook(self, url: str, name: str, project_id: str) -> Dict[str, Any]:
+    def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
         """Create a webhook for the current project.
 
         Args:
             url: The URL to send the webhook to.
             name: The name of the webhook.
+            event_types: List of event types to trigger the webhook for.
 
         Returns:
             Dictionary containing the created webhook details.
@@ -560,7 +561,7 @@ class MemoryClient:
             ValueError: If project_id is not set.
         """
 
-        payload = {"url": url, "name": name}
+        payload = {"url": url, "name": name, "event_types": event_types}
         response = self.client.post(f"api/v1/webhooks/{project_id}/webhook/", json=payload)
         response.raise_for_status()
         capture_client_event("client.create_webhook", self)
@@ -568,7 +569,7 @@ class MemoryClient:
 
     @api_error_handler
     def update_webhook(
-        self, webhook_id: int, project_id: str, name: Optional[str] = None, url: Optional[str] = None
+        self, webhook_id: int, project_id: str, name: Optional[str] = None, url: Optional[str] = None, event_types: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Update a webhook configuration.
 
@@ -577,6 +578,7 @@ class MemoryClient:
             project_id: The ID of the project to update the webhook for.
             name: Optional new name for the webhook
             url: Optional new URL for the webhook
+            event_types: Optional list of event types to trigger the webhook for.
 
         Returns:
             Dictionary containing the updated webhook details.
@@ -586,7 +588,7 @@ class MemoryClient:
             ValueError: If project_id is not set.
         """
 
-        payload = {k: v for k, v in {"name": name, "url": url}.items() if v is not None}
+        payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
         response = self.client.put(f"api/v1/webhooks/{project_id}/webhook/{webhook_id}/", json=payload)
         response.raise_for_status()
         capture_client_event("client.update_webhook", self, {"webhook_id": webhook_id})
@@ -968,10 +970,11 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def create_webhook(self, url: str, name: str, project_id: str) -> Dict[str, Any]:
+    async def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
 
+        payload = {"url": url, "name": name, "event_types": event_types}
         response = await self.async_client.post(
-            f"api/v1/webhooks/{project_id}/webhook/", json={"url": url, "name": name}
+            f"api/v1/webhooks/{project_id}/webhook/", json=payload
         )
         response.raise_for_status()
         capture_client_event("async_client.create_webhook", self.sync_client)
@@ -979,10 +982,10 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_webhook(
-        self, webhook_id: int,project_id: str, name: Optional[str] = None, url: Optional[str] = None
+        self, webhook_id: int,project_id: str, name: Optional[str] = None, url: Optional[str] = None, event_types: Optional[List[str]] = None
     ) -> Dict[str, Any]:
 
-        payload = {k: v for k, v in {"name": name, "url": url}.items() if v is not None}
+        payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
         response = await self.async_client.put(f"api/v1/webhooks/{project_id}/webhook/{webhook_id}/", json=payload)
         response.raise_for_status()
         capture_client_event("async_client.update_webhook", self.sync_client, {"webhook_id": webhook_id})
