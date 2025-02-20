@@ -24,9 +24,9 @@ class AzureOpenAILlm(BaseLlm):
             raise ValueError("Deployment name must be provided for Azure OpenAI")
 
         chat = AzureChatOpenAI(
-            deployment_name=config.deployment_name,
-            openai_api_version=str(config.api_version) if config.api_version else "2024-02-01",
-            model_name=config.model or "gpt-4o-mini",
+            azure_endpoint=config.deployment_name,
+            api_version=str(config.api_version) if config.api_version else "2025-01-01-preview",
+            azure_deployment=config.model or "gpt-4o-mini",
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             streaming=config.stream,
