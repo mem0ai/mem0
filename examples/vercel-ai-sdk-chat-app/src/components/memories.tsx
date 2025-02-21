@@ -3,12 +3,12 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { Memory } from "../types";
 import GlobalContext from "@/contexts/GlobalContext";
-import { useContext, useEffect, useState } from "react";
+import { useContext } from "react";
 import {  motion } from "framer-motion";
 
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MemoryItem = ({ memory, index }: { memory: Memory; index: number }) => {
+const MemoryItem = ({ memory }: { memory: Memory; index: number }) => {
   return (
     <motion.div
       layout
@@ -39,14 +39,6 @@ const MemoryItem = ({ memory, index }: { memory: Memory; index: number }) => {
 const Memories = (props: { isMemoriesExpanded: boolean }) => {
   const { isMemoriesExpanded } = props;
   const { memories } = useContext(GlobalContext);
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [prevMemories, setPrevMemories] = useState<Memory[]>([]);
-  
-  // Track memory positions for animation
-  useEffect(() => {
-    setPrevMemories(memories);
-  }, [memories]);
 
   return (
     <Card
