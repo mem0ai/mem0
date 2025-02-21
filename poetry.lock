@@ -405,6 +405,46 @@ files = [
 ]
 
 [[package]]
+name = "couchbase"
+version = "4.3.5"
+description = "Python Client for Couchbase"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "couchbase-4.3.5-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:7b354e59ebd3da994b54fa48859116e59d72394307f52783b83cb76d125414d5"},
+    {file = "couchbase-4.3.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:3a701989e3539faf8b50278337a1df88c6713b1da2d4eb7c1161c0c73c618a3a"},
+    {file = "couchbase-4.3.5-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:80144ead758494e353d79ac939cdfd8d567f08d5c49c6c3633b4d30f5cb1bb34"},
+    {file = "couchbase-4.3.5-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2981c90cb222809513333d7edcfdff4cda16eb7144cd100775552900109d22d9"},
+    {file = "couchbase-4.3.5-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:2ca0bf5d0a4a70747c5bb8284efb9e7631dfbfd671b2c1847715cc338c4cf17b"},
+    {file = "couchbase-4.3.5-cp310-cp310-win_amd64.whl", hash = "sha256:e21fe0d38828db02271ece96359cc6b4f2bbc17b3a7f617c799987c6fdea6920"},
+    {file = "couchbase-4.3.5-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:21cb325b4a5b017581ee038dc2362865bcd59b3aa65685432a362f9f8e8f3276"},
+    {file = "couchbase-4.3.5-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:5f063f79af8fe2425025ac9675e95bc914329db72f40adfd609451dcaf177920"},
+    {file = "couchbase-4.3.5-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:c28c05189c138408693d926211d80e0cb82fae02ac5e4619cb37efeb26349c1c"},
+    {file = "couchbase-4.3.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:caf8f30cd1d587829685cffe575ec2b0f750a10611fe9f14e615070c1756079b"},
+    {file = "couchbase-4.3.5-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:0aaef43bac983332e8bd8484a286a9576a878a95b4e5bfc6bf9c4aa8b3ff71b4"},
+    {file = "couchbase-4.3.5-cp311-cp311-win_amd64.whl", hash = "sha256:07deb48cd32e726088d2b2b93bb52fdca0b26e3e36b7d8b3728ea993a90b4327"},
+    {file = "couchbase-4.3.5-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:5c9f5754d7391ad3c53adb46a8b401bfd4e0db38aba707a5ed6daad295091afd"},
+    {file = "couchbase-4.3.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:92cea5d666d484c3801c2186ba2e0dd9df1bc654296c5862c94bf7a56e7e1e34"},
+    {file = "couchbase-4.3.5-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:f471b746cf13e9789de13fccd1ba4fbd3ae95e72710c3b07eb98cf8d72a5053b"},
+    {file = "couchbase-4.3.5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:80de6c8ddf39c4ee380d093fcf83a6300e837db8a6f60a8ddb7df6fcbb662595"},
+    {file = "couchbase-4.3.5-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:9ce0c9e073a616cc6353ea93e9bac0fe6f79ff6df03fccf0c846f19b5ddf957b"},
+    {file = "couchbase-4.3.5-cp312-cp312-win_amd64.whl", hash = "sha256:b78f98001f40450ef1bbaf7d73fa28f0734e9bd72b38b96c18eb2090a09094fb"},
+    {file = "couchbase-4.3.5-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:4f1462a0a353a13203f21313b17b30a5e13a2f86205b5437b4f5bd86878ad2aa"},
+    {file = "couchbase-4.3.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d13924326834f81eae2ecb820119bc80460d6b556eb9cad63c5214ddd12e408e"},
+    {file = "couchbase-4.3.5-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:c12ffcdbf11ab959c69f6e96f9e2aa9259c84ef9771cd3f10fa3930dade2fb2f"},
+    {file = "couchbase-4.3.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:9deee11a39765455a326fd66d570163543cdaf65dc95e0e44c257dd14febdd3e"},
+    {file = "couchbase-4.3.5-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:693675658668e83685f6e3d8a969ffb0447a48e74efe6fa77dadca281fa72b8d"},
+    {file = "couchbase-4.3.5-cp313-cp313-win_amd64.whl", hash = "sha256:3b6aaeb3aea49c2b8f891e3dbaf8e5d73d049badee784bef14c6f24098528db9"},
+    {file = "couchbase-4.3.5-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:5f25329baa41b013802b8fe8f978cf5603891afc8024dc0cda4ca3e52ec26bfe"},
+    {file = "couchbase-4.3.5-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:8129d25c1bbcb78c32fc73e2480cb2beaf50dd5938fb8fa671ab63f89482528f"},
+    {file = "couchbase-4.3.5-cp39-cp39-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:26e9447e9dfc6e33d78a72f306830261147b0e62aebf5789f4b4b4ba9b86b3ef"},
+    {file = "couchbase-4.3.5-cp39-cp39-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2c01c5e835bb397525686d6c8e90ecf62a4510b71488e2a407c8bd76573f89ba"},
+    {file = "couchbase-4.3.5-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:57fec6e1ef686804336664ca679b7550c6aa4fab14609a265151afd31e2b5707"},
+    {file = "couchbase-4.3.5-cp39-cp39-win_amd64.whl", hash = "sha256:679c92733d4ff421f72a54481608e7b005b87e93eae95af184e8212d88dca262"},
+    {file = "couchbase-4.3.5.tar.gz", hash = "sha256:2e2f239b2959ece983195e3ee17a9142bc75b23b0f6733031198648a5f1107ed"},
+]
+
+[[package]]
 name = "dataclasses-json"
 version = "0.6.7"
 description = "Easily serialize dataclasses to and from JSON."
@@ -2627,4 +2667,4 @@ graph = ["langchain-community", "neo4j", "rank-bm25"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "6dba8e3091ed9a081a2035313e674206e2bee10072cb5c0ce6fb407686ce5156"
+content-hash = "c9a26bb0c975c0a15ac56bf9669bae8694cccc9be6d7c7c920ebd1e2f62c2adf"
