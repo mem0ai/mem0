@@ -100,7 +100,7 @@ console.log(webhooks);
 
 ### Update Webhook
 
-Modify an existing webhook's configuration. Remember that webhooks can only be updated within their associated project:
+Modify an existing webhook's configuration. Use `webhook_id` to update the parameters of the webhook:
 
 <CodeGroup>
 
@@ -110,7 +110,6 @@ updated_webhook = client.update_webhook(
     name="Updated Logger",
     url="https://your-app.com/new-webhook",
     event_types=["memory:update", "memory:add"],
-    project_id="proj_123",
     webhook_id="wh_123"
 )
 print(updated_webhook)
@@ -138,19 +137,19 @@ console.log(updatedWebhook);
 
 ### Delete Webhook
 
-Remove a webhook configuration from a project:
+Webhook can be deleted by using the `webhook_id` of the webhook:
 
 <CodeGroup>
 
 ```python Python
 # Delete webhook from a specific project
-response = client.delete_webhook(webhook_id="wh_123", project_id="proj_123")
+response = client.delete_webhook(webhook_id="wh_123")
 print(response)
 ```
 
 ```javascript JavaScript
 // Delete webhook from a specific project
-const response = await client.deleteWebhook("wh_123", "proj_123");
+const response = await client.deleteWebhook({webhookId: "wh_123"});
 console.log(response);
 ```
 
