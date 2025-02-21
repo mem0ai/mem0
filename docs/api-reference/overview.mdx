@@ -38,27 +38,25 @@ Organizations and projects provide the following capabilities:
 
 Example with the mem0 Python package:
 
+<Tabs>
+  <Tab title="Python">
+
 ```python
 from mem0 import MemoryClient
-
-# Recommended: Using organization and project IDs
-client = MemoryClient(
-    org_id='YOUR_ORG_ID', # It can be found on the organization settings page in dashboard
-    project_id='YOUR_PROJECT_ID',
-)
+client = MemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
 ```
 
-Example with the mem0 Node.js package:
+  </Tab>
+
+  <Tab title="Node.js">
 
 ```javascript
 import { MemoryClient } from "mem0ai";
-
-# Recommended: Using organization and project IDs
-const client = new MemoryClient({
-    organizationId: "YOUR_ORG_ID",
-    projectId: "YOUR_PROJECT_ID"
-});
+const client = new MemoryClient({organizationId: "YOUR_ORG_ID", projectId: "YOUR_PROJECT_ID"});
 ```
+
+  </Tab>
+</Tabs>
 
 ## Getting Started
 
