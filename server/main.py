@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, HTTPException, Query, Path
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any, Dict
 from mem0 import Memory
@@ -12,7 +12,7 @@ load_dotenv()
 MEMORY_INSTANCE = Memory()
 
 app = FastAPI(
-    title="Mem0 API",
+    title="Mem0 REST APIs",
     description="A REST API for managing and searching memories for your AI Agents and Apps.",
     version="1.0.0",
 )
@@ -150,3 +150,9 @@ def reset_memory():
         return {"message": "All memories reset"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)
+def home():
+    """Redirect to the OpenAPI documentation."""
+    return RedirectResponse(url='/docs')
