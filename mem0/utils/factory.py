@@ -67,6 +67,7 @@ class VectorStoreFactory:
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "redis": "mem0.vector_stores.redis.RedisDB",
+        "couchbase": "mem0.vector_stores.couchbase.Couchbase",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB"
     }

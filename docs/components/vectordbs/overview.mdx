@@ -17,6 +17,7 @@ See the list of supported vector databases below.
   <Card title="Milvus" href="/components/vectordbs/dbs/milvus"></Card>
   <Card title="Azure AI Search" href="/components/vectordbs/dbs/azure_ai_search"></Card>
   <Card title="Redis" href="/components/vectordbs/dbs/redis"></Card>
+  <Card title="Couchbase" href="/components/vectordbs/dbs/couchbase"></Card>
   <Card title="Elasticsearch" href="/components/vectordbs/dbs/elasticsearch"></Card>
   <Card title="OpenSearch" href="/components/vectordbs/dbs/opensearch"></Card>
 </CardGroup>
@@ -37,4 +38,3 @@ for example 768, you may encounter below error:
 `ValueError: shapes (0,1536) and (768,) not aligned: 1536 (dim 1) != 768 (dim 0)`
 
 you could add `"embedding_model_dims": 768,` to the config of the vector_store to overcome this issue.
-
