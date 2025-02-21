@@ -17,6 +17,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 qdrant-client = "^1.9.1"
+couchbase = "^4.3.5"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
 posthog = "^3.5.0"
