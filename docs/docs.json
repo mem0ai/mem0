@@ -70,7 +70,8 @@
                     "pages": [
                       "features/openai_compatibility",
                       "features/custom-prompts",
-                      "open-source/multimodal-support"
+                      "open-source/multimodal-support",
+                      "open-source/features/rest-api"
                     ]
                   },
                   {
@@ -201,18 +202,18 @@
                     "group": "Memory APIs",
                     "icon": "microchip",
                     "pages": [
-                      "api-reference/memory/v1-get-memories",
-                      "api-reference/memory/v2-get-memories",
                       "api-reference/memory/add-memories",
-                      "api-reference/memory/delete-memories",
+                      "api-reference/memory/v2-search-memories",
+                      "api-reference/memory/v1-search-memories",
+                      "api-reference/memory/v2-get-memories",
+                      "api-reference/memory/v1-get-memories",
+                      "api-reference/memory/history-memory",
                       "api-reference/memory/get-memory",
                       "api-reference/memory/update-memory",
-                      "api-reference/memory/delete-memory",
-                      "api-reference/memory/v1-search-memories",
-                      "api-reference/memory/v2-search-memories",
-                      "api-reference/memory/history-memory",
                       "api-reference/memory/batch-update",
+                      "api-reference/memory/delete-memory",
                       "api-reference/memory/batch-delete",
+                      "api-reference/memory/delete-memories",
                       "api-reference/memory/create-memory-export",
                       "api-reference/memory/get-memory-export"
                     ]
@@ -229,17 +230,12 @@
                     "group": "Organizations APIs",
                     "icon": "building",
                     "pages": [
+                      "api-reference/organization/create-org",
                       "api-reference/organization/get-orgs",
                       "api-reference/organization/get-org",
-                      "api-reference/organization/create-org",
-                      "api-reference/organization/update-org",
-                      "api-reference/organization/delete-org",
                       "api-reference/organization/get-org-members",
                       "api-reference/organization/add-org-member",
-                      "api-reference/organization/remove-org-member",
-                      "api-reference/organization/get-org-projects",
-                      "api-reference/organization/add-org-project",
-                      "api-reference/organization/remove-org-project"
+                      "api-reference/organization/delete-org"
                     ]
                   }
                 ]
