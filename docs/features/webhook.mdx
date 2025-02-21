@@ -121,7 +121,6 @@ const updatedWebhook = await client.updateWebhook({
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook",
     eventTypes: ["memory:update", "memory:add"],
-    projectId: "proj_123",
     webhookId: "wh_123"
 });
 console.log(updatedWebhook);
