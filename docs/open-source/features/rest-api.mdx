@@ -31,16 +31,30 @@ Mem0 provides a REST API server (written using FastAPI). Users can perform all o
 OPENAI_API_KEY=your-openai-api-key
 ```
 
-2. Build the Docker image:
+2. Either pull the docker image from docker hub or build the docker image locally.
+
+<Tabs>
+  <Tab title="Pull from Docker Hub">
+
+```bash
+docker pull mem0/mem0-api-server
+```
+
+  </Tab>
+
+  <Tab title="Build Locally">
 
 ```bash
 docker build -t mem0-api-server .
 ```
 
+  </Tab>
+</Tabs>
+
 3. Run the Docker container:
 
 ``` bash
-docker run -p 8000:8000 mem0-api-server
+docker run -p 8000:8000 mem0-api-server --env-file .env
 ```
 
 4. Access the API at http://localhost:8000.
