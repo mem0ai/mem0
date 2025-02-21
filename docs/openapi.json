@@ -4141,7 +4141,7 @@
 				]
 			}
 		},
-		"/api/v1/webhooks/get_or_create/{project_id}/": {
+		"/api/v1/webhooks/projects/{project_id}/": {
 			"get": {
 				"tags": ["webhooks"],
 				"summary": "Get Project Webhooks",
@@ -4410,7 +4410,7 @@
 			]
 			}
 		},
-		"/api/v1/webhooks/update_or_delete/{webhook_id}/": {
+		"/api/v1/webhooks/{webhook_id}/": {
 			"put": {
 				"tags": ["webhooks"],
 				"summary": "Update Webhook",
