@@ -237,6 +237,16 @@
                       "api-reference/organization/add-org-member",
                       "api-reference/organization/delete-org"
                     ]
+                  },
+                  {
+                    "group": "Webhook APIs",
+                    "icon": "webhook",
+                    "pages": [
+                      "api-reference/webhook/create-webhook",
+                      "api-reference/webhook/get-webhook",
+                      "api-reference/webhook/update-webhook",
+                      "api-reference/webhook/delete-webhook"
+                    ]
                   }
                 ]
               }

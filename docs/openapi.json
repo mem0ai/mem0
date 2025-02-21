@@ -4140,6 +4140,506 @@
 				}
 				]
 			}
+		},
+		"/api/v1/webhooks/projects/{project_id}/": {
+			"get": {
+				"tags": ["webhooks"],
+				"summary": "Get Project Webhooks",
+				"description": "Retrieve all webhooks for a specific project",
+				"operationId": "get_project_webhooks",
+				"parameters": [
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "List of webhooks for the project",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"webhook_id": {
+												"type": "string",
+												"description": "Unique identifier of the webhook"
+											},
+											"name": {
+												"type": "string",
+												"description": "Name of the webhook"
+											},
+											"url": {
+												"type": "string",
+												"description": "URL endpoint for the webhook"
+											},
+											"event_types": {
+												"type": "array",
+												"items": {
+													"type": "string"
+												},
+												"description": "List of event types the webhook subscribes to"
+											},
+											"is_active": {
+												"type": "boolean",
+												"description": "Whether the webhook is active"
+											},
+											"project": {
+												"type": "string",
+												"description": "Name of the project the webhook is associated with"
+											},
+											"created_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp when the webhook was created"
+											},
+											"updated_at": {
+												"type": "string",
+												"format": "date-time",
+												"description": "Timestamp when the webhook was last updated"
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Unauthorized access",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "You don't have access to this project"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+					"lang": "Python",
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Get all webhooks\nwebhooks = client.get_webhooks(project_id=\"your_project_id\")\nprint(webhooks)\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)"
+				},
+				{
+					"lang": "JavaScript",
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: 'your-api-key' });\n\n// Get all webhooks\nclient.getWebhooks('your_project_id')\n  .then(webhooks => console.log(webhooks))\n  .catch(err => console.error(err));\n\n// Create a webhook\nclient.createWebhook({\n  url: 'https://your-webhook-url.com',\n  name: 'My Webhook',\n  project_id: 'your_project_id',\n  event_types: ['memory:add']\n})\n  .then(webhook => console.log(webhook))\n  .catch(err => console.error(err));"
+				},
+				{
+					"lang": "cURL",
+					"source": "# Get all webhooks\ncurl --request GET \\\n  --url 'https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/' \\\n  --header 'Authorization: Token your-api-key'\n\n# Create a webhook\ncurl --request POST \\\n  --url 'https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/' \\\n  --header 'Authorization: Token your-api-key' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n    \"url\": \"https://your-webhook-url.com\",\n    \"name\": \"My Webhook\",\n    \"event_types\": [\"memory:add\"]\n  }'"
+				},
+				{
+					"lang": "PHP",
+					"source": "<?php\n\n$curl = curl_init();\n\n// Get all webhooks\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_HTTPHEADER => [\"Authorization: Token your-api-key\"],\n]);\n\n$response = curl_exec($curl);\n\n// Create a webhook\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_POST => true,\n  CURLOPT_POSTFIELDS => json_encode([\n    \"url\" => \"https://your-webhook-url.com\",\n    \"name\" => \"My Webhook\",\n    \"event_types\" => [\"memory:add\"]\n  ]),\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token your-api-key\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\ncurl_close($curl);"
+				},
+				{
+					"lang": "Go",
+					"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\t// Get all webhooks\n\treq, _ := http.NewRequest(\"GET\", \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\", nil)\n\treq.Header.Add(\"Authorization\", \"Token your-api-key\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\tfmt.Println(string(body))\n\n\t// Create a webhook\n\tpayload := strings.NewReader(`{\n\t\t\"url\": \"https://your-webhook-url.com\",\n\t\t\"name\": \"My Webhook\",\n\t\t\"event_types\": [\"memory:add\"]\n\t}`)\n\n\treq, _ = http.NewRequest(\"POST\", \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\", payload)\n\treq.Header.Add(\"Authorization\", \"Token your-api-key\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ = http.DefaultClient.Do(req)\n\tdefer res.Body.Close()\n\tbody, _ = ioutil.ReadAll(res.Body)\n\tfmt.Println(string(body))\n}"
+				},
+				{
+					"lang": "Java",
+					"source": "// Get all webhooks\nHttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\")\n  .header(\"Authorization\", \"Token your-api-key\")\n  .asString();\n\n// Create a webhook\nHttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\")\n  .header(\"Authorization\", \"Token your-api-key\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n    \\\"url\\\": \\\"https://your-webhook-url.com\\\",\n    \\\"name\\\": \\\"My Webhook\\\",\n    \\\"event_types\\\": [\\\"memory:add\\\"]\n  }\")\n  .asString();"
+				}
+			]
+			},
+			"post": {
+				"tags": ["webhooks"],
+				"summary": "Create Webhook",
+				"description": "Create a new webhook for a specific project",
+				"operationId": "create_webhook",
+				"parameters": [
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": ["url"],
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Name of the webhook"
+									},
+									"url": {
+										"type": "string",
+										"description": "URL endpoint for the webhook"
+									},
+									"event_types": {
+										"type": "array",
+										"items": {
+											"type": "string",
+											"enum": ["memory:add", "memory:update", "memory:delete"]
+										},
+										"description": "List of event types to subscribe to"
+									},
+									"is_active": {
+										"type": "boolean",
+										"description": "Whether the webhook is active"
+									},
+									"project_id": {
+										"type": "string",
+										"description": "Unique identifier of the project"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Webhook created successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"webhook_id": {
+											"type": "string"
+										},
+										"name": {
+											"type": "string"
+										},
+										"url": {
+											"type": "string"
+										},
+										"event_types": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										},
+										"is_active": {
+											"type": "boolean"
+										},
+										"project": {
+											"type": "string"
+										},
+										"created_at": {
+											"type": "string",
+											"format": "date-time"
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Unauthorized access",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "You don't have access to this project"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+					"lang": "Python",
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)"
+				},
+				{
+					"lang": "JavaScript",
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Create a webhook\nclient.createWebhook({\n    url: \"https://your-webhook-url.com\",\n    name: \"My Webhook\",\n    project_id: \"your_project_id\",\n    event_types: [\"memory:add\"]\n})\n    .then(response => console.log('Create webhook response:', response))\n    .catch(error => console.error(error));"
+				},
+				{
+					"lang": "cURL",
+					"source": "curl -X POST \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"url\": \"https://your-webhook-url.com\",\n         \"name\": \"My Webhook\",\n         \"event_types\": [\"memory:add\"]\n     }'"
+				},
+				{
+					"lang": "PHP",
+					"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n    CURLOPT_URL => \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\",\n    CURLOPT_RETURNTRANSFER => true,\n    CURLOPT_POST => true,\n    CURLOPT_POSTFIELDS => json_encode([\n        \"url\" => \"https://your-webhook-url.com\",\n        \"name\" => \"My Webhook\",\n        \"event_types\" => [\"memory:add\"]\n    ]),\n    CURLOPT_HTTPHEADER => [\n        \"Authorization: Token your-api-key\",\n        \"Content-Type: application/json\"\n    ],\n]);\n\n$response = curl_exec($curl);\ncurl_close($curl);\n\necho $response;"
+				},
+				{
+					"lang": "Go",
+					"source": "package main\n\nimport (\n    \"fmt\"\n    \"strings\"\n    \"net/http\"\n    \"io/ioutil\"\n)\n\nfunc main() {\n    payload := strings.NewReader(`{\n        \"url\": \"https://your-webhook-url.com\",\n        \"name\": \"My Webhook\",\n        \"event_types\": [\"memory:add\"]\n    }`)\n\n    req, _ := http.NewRequest(\"POST\", \"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\", payload)\n    req.Header.Add(\"Authorization\", \"Token your-api-key\")\n    req.Header.Add(\"Content-Type\", \"application/json\")\n\n    res, _ := http.DefaultClient.Do(req)\n    defer res.Body.Close()\n    body, _ := ioutil.ReadAll(res.Body)\n\n    fmt.Println(string(body))\n}"
+				},
+				{
+					"lang": "Java",
+					"source": "import com.konghq.unirest.http.HttpResponse;\nimport com.konghq.unirest.http.Unirest;\n\n// Create a webhook\nHttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/api/v1/webhooks/your_project_id/webhook/\")\n    .header(\"Authorization\", \"Token your-api-key\")\n    .header(\"Content-Type\", \"application/json\")\n    .body(\"{\n        \\\"url\\\": \\\"https://your-webhook-url.com\\\",\n        \\\"name\\\": \\\"My Webhook\\\",\n        \\\"event_types\\\": [\\\"memory:add\\\"]\n    }\")\n    .asString();\n\nSystem.out.println(response.getBody());"
+				}
+			]
+			}
+		},
+		"/api/v1/webhooks/{webhook_id}/": {
+			"put": {
+				"tags": ["webhooks"],
+				"summary": "Update Webhook",
+				"description": "Update an existing webhook",
+				"operationId": "update_webhook",
+				"parameters": [
+					{
+						"name": "webhook_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the webhook",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "New name for the webhook"
+									},
+									"url": {
+										"type": "string",
+										"description": "New URL endpoint for the webhook"
+									},
+									"event_types": {
+										"type": "array",
+										"items": {
+											"type": "string",
+											"enum": ["memory:add", "memory:update", "memory:delete"]
+										},
+										"description": "New list of event types to subscribe to"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Webhook updated successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Webhook updated successfully"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Unauthorized access",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "You don't have access to this webhook"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Webhook not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Webhook not found"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a webhook\nwebhook = client.update_webhook(\n    webhook_id=\"your_webhook_id\",\n    name=\"Updated Webhook\",\n    url=\"https://new-webhook-url.com\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: 'your-api-key' });\n\n// Update a webhook\nclient.updateWebhook('your_webhook_id', {\n  name: 'Updated Webhook',\n  url: 'https://new-webhook-url.com',\n  event_types: ['memory:add']\n})\n  .then(webhook => console.log(webhook))\n  .catch(err => console.error(err));\n\n// Delete a webhook\nclient.deleteWebhook('your_webhook_id')\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "# Update a webhook\ncurl --request PUT \\\n  --url 'https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/' \\\n  --header 'Authorization: Token your-api-key' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n    \"name\": \"Updated Webhook\",\n    \"url\": \"https://new-webhook-url.com\",\n    \"event_types\": [\"memory:add\"]\n  }'\n\n# Delete a webhook\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/' \\\n  --header 'Authorization: Token your-api-key'"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\n// Update a webhook\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_CUSTOMREQUEST => \"PUT\",\n  CURLOPT_POSTFIELDS => json_encode([\n    \"name\" => \"Updated Webhook\",\n    \"url\" => \"https://new-webhook-url.com\",\n    \"event_types\" => [\"memory:add\"]\n  ]),\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token your-api-key\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n\n// Delete a webhook\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\"Authorization: Token your-api-key\"],\n]);\n\n$response = curl_exec($curl);\ncurl_close($curl);"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\t// Update a webhook\n\tpayload := strings.NewReader(`{\n\t\t\"name\": \"Updated Webhook\",\n\t\t\"url\": \"https://new-webhook-url.com\",\n\t\t\"event_types\": [\"memory:add\"]\n\t}`)\n\n\treq, _ := http.NewRequest(\"PUT\", \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\", payload)\n\treq.Header.Add(\"Authorization\", \"Token your-api-key\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\tfmt.Println(string(body))\n\n\t// Delete a webhook\n\treq, _ = http.NewRequest(\"DELETE\", \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\", nil)\n\treq.Header.Add(\"Authorization\", \"Token your-api-key\")\n\n\tres, _ = http.DefaultClient.Do(req)\n\tdefer res.Body.Close()\n\tbody, _ = ioutil.ReadAll(res.Body)\n\tfmt.Println(string(body))\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "// Update a webhook\nHttpResponse<String> response = Unirest.put(\"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\")\n  .header(\"Authorization\", \"Token your-api-key\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n    \\\"name\\\": \\\"Updated Webhook\\\",\n    \\\"url\\\": \\\"https://new-webhook-url.com\\\",\n    \\\"event_types\\\": [\\\"memory:add\\\"]\n  }\")\n  .asString();\n\n// Delete a webhook\nHttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\")\n  .header(\"Authorization\", \"Token your-api-key\")\n  .asString();"
+					}
+				]
+			},
+			"delete": {
+				"tags": ["webhooks"],
+				"summary": "Delete Webhook",
+				"description": "Delete an existing webhook",
+				"operationId": "delete_webhook",
+				"parameters": [
+					{
+						"name": "webhook_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the webhook",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Webhook deleted successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string",
+											"example": "Webhook deleted successfully"
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Unauthorized access",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "You don't have access to this webhook"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Webhook not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Webhook not found"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"x-code-samples": [
+				{
+					"lang": "Python",
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
+				},
+				{
+					"lang": "JavaScript",
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete a webhook\nclient.deleteWebhook(\"your_webhook_id\")\n    .then(response => console.log('Delete webhook response:', response))\n    .catch(error => console.error(error));"
+				},
+				{
+					"lang": "cURL",
+					"source": "curl -X DELETE \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\" \\\n     -H \"Authorization: Token your-api-key\""
+				},
+				{
+					"lang": "PHP",
+					"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n    CURLOPT_URL => \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\",\n    CURLOPT_RETURNTRANSFER => true,\n    CURLOPT_CUSTOMREQUEST => \"DELETE\",\n    CURLOPT_HTTPHEADER => [\"Authorization: Token your-api-key\"],\n]);\n\n$response = curl_exec($curl);\ncurl_close($curl);\n\necho $response;"
+				},
+				{
+					"lang": "Go",
+					"source": "package main\n\nimport (\n    \"fmt\"\n    \"net/http\"\n    \"io/ioutil\"\n)\n\nfunc main() {\n    req, _ := http.NewRequest(\"DELETE\", \"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\", nil)\n    req.Header.Add(\"Authorization\", \"Token your-api-key\")\n\n    res, _ := http.DefaultClient.Do(req)\n    defer res.Body.Close()\n    body, _ := ioutil.ReadAll(res.Body)\n\n    fmt.Println(string(body))\n}"
+				},
+				{
+					"lang": "Java",
+					"source": "import com.konghq.unirest.http.HttpResponse;\nimport com.konghq.unirest.http.Unirest;\n\n// Delete a webhook\nHttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/api/v1/webhooks/your_webhook_id/webhook/\")\n    .header(\"Authorization\", \"Token your-api-key\")\n    .asString();\n\nSystem.out.println(response.getBody());"
+				}
+			]
+			}
 		}
 	},
 	"components": {
