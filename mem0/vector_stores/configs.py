@@ -18,6 +18,8 @@ class VectorStoreConfig(BaseModel):
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
         "couchbase": "CouchbaseConfig",
+        "elasticsearch": "ElasticsearchConfig",
+        "opensearch": "OpenSearchConfig",
     }
 
     @model_validator(mode="after")

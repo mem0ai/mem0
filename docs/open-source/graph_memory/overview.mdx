@@ -1,6 +1,8 @@
 ---
 title: Overview
 description: 'Enhance your memory system with graph-based knowledge representation and retrieval'
+icon: "database"
+iconType: "solid"
 ---
 
 Mem0 now supports **Graph Memory**.
@@ -12,7 +14,7 @@ This integration enables users to leverage the strengths of both vector-based an
 To use Mem0 with Graph Memory support, install it using pip:
 
 ```bash
-pip install mem0ai[graph]
+pip install "mem0ai[graph]"
 ```
 
 This command installs Mem0 along with the necessary dependencies for graph functionality.
@@ -108,6 +110,10 @@ m = Memory.from_config(config_dict=config)
 The Mem0's graph supports the following operations:
 
 ### Add Memories
+
+<Note>
+If you are using Mem0 with Graph Memory, it is recommended to pass `user_id`. The default value of `user_id` (in case of graph memory) is `user`.
+</Note>
 
 <CodeGroup>
 ```python Code

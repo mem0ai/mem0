@@ -9,14 +9,18 @@ from typing import Any, Dict
 
 import pytz
 from pydantic import ValidationError
-
+from mem0.memory.utils import parse_vision_messages
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_fact_retrieval_messages, parse_messages
+from mem0.memory.utils import (
+    get_fact_retrieval_messages,
+    parse_messages,
+    remove_code_blocks,
+)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -110,6 +114,8 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
+        messages = parse_vision_messages(messages)
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
             future2 = executor.submit(self._add_to_graph, messages, filters)
@@ -139,7 +145,7 @@ class Memory(MemoryBase):
 
         if self.custom_prompt:
             system_prompt = self.custom_prompt
-            user_prompt = f"Input: {parsed_messages}"
+            user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
@@ -152,6 +158,7 @@ class Memory(MemoryBase):
         )
 
         try:
+            response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
@@ -169,7 +176,10 @@ class Memory(MemoryBase):
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
-
+        unique_data = {}
+        for item in retrieved_old_memory:
+            unique_data[item['id']] = item
+        retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
         # mapping UUIDs with integers for handling UUID hallucinations
@@ -184,6 +194,8 @@ class Memory(MemoryBase):
             messages=[{"role": "user", "content": function_calling_prompt}],
             response_format={"type": "json_object"},
         )
+
+        new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
         new_memories_with_actions = json.loads(new_memories_with_actions)
 
         returned_memories = []
@@ -240,14 +252,9 @@ class Memory(MemoryBase):
     def _add_to_graph(self, messages, filters):
         added_entities = []
         if self.api_version == "v1.1" and self.enable_graph:
-            if filters["user_id"]:
-                self.graph.user_id = filters["user_id"]
-            elif filters["agent_id"]:
-                self.graph.agent_id = filters["agent_id"]
-            elif filters["run_id"]:
-                self.graph.run_id = filters["run_id"]
-            else:
-                self.graph.user_id = "USER"
+            if filters.get("user_id") is None:
+                filters["user_id"] = "user"
+
             data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
             added_entities = self.graph.add(data, filters)
 
@@ -430,7 +437,7 @@ class Memory(MemoryBase):
                 return {"results": original_memories}
         else:
             warnings.warn(
-                "The current get_all API output format is deprecated. "
+                "The current search API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,
