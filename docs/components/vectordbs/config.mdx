@@ -8,7 +8,7 @@ iconType: "solid"
 
 The `config` is defined as a Python dictionary with two main keys:
 - `vector_store`: Specifies the vector database provider and its configuration
-  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus","azure_ai_search")
+  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus","azure_ai_search", "google_matching_engine")
   - `config`: A nested dictionary containing provider-specific settings
 
 ## How to Use Config
@@ -60,6 +60,12 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `url` | Full URL for the server |
 | `api_key` | API key for the server |
 | `on_disk` | Enable persistent storage |
+| `endpoint_id` | Endpoint ID (Google Matching Engine) |
+| `index_id` | Index ID (Google Matching Engine) |
+| `deployment_index_id` | Deployment index ID (Google Matching Engine) |
+| `project_id` | Project ID (Google Matching Engine) |
+| `project_number` | Project number (Google Matching Engine) |
+| `vector_search_api_endpoint` | Vector search API endpoint (Google Matching Engine) |
 
 ## Customizing Config
 
