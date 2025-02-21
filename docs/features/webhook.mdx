@@ -27,7 +27,7 @@ webhook = client.create_webhook(
     url="https://your-app.com/webhook",
     name="Memory Logger",
     project_id="proj_123",
-    event_types=["memory:add"]
+    event_types=["memory_add"]
 )
 print(webhook)
 ```
@@ -41,7 +41,7 @@ const webhook = await client.createWebhook({
     url: "https://your-app.com/webhook",
     name: "Memory Logger",
     projectId: "proj_123",
-    eventTypes: ["memory:add"]
+    eventTypes: ["memory_add"]
 });
 console.log(webhook);
 ```
@@ -109,7 +109,7 @@ Modify an existing webhook's configuration. Use `webhook_id` to update the param
 updated_webhook = client.update_webhook(
     name="Updated Logger",
     url="https://your-app.com/new-webhook",
-    event_types=["memory:update", "memory:add"],
+    event_types=["memory_update", "memory_add"],
     webhook_id="wh_123"
 )
 print(updated_webhook)
@@ -120,7 +120,7 @@ print(updated_webhook)
 const updatedWebhook = await client.updateWebhook({
     name: "Updated Logger",
     url: "https://your-app.com/new-webhook",
-    eventTypes: ["memory:update", "memory:add"],
+    eventTypes: ["memory_update", "memory_add"],
     webhookId: "wh_123"
 });
 console.log(updatedWebhook);
@@ -164,9 +164,9 @@ console.log(response);
 
 Mem0 supports the following event types for webhooks:
 
-- `memory:add`: Triggered when a new memory is added.
-- `memory:update`: Triggered when an existing memory is updated.
-- `memory:delete`: Triggered when a memory is deleted.
+- `memory_add`: Triggered when a new memory is added.
+- `memory_update`: Triggered when an existing memory is updated.
+- `memory_delete`: Triggered when a memory is deleted.
 
 ## Webhook Payload
 
