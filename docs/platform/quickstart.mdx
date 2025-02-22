@@ -405,6 +405,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
         "user_id": "alex",
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -420,6 +421,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
             "user_id": "alex",
             "metadata": {"food": "vegan"},
             "categories": ["food_preferences"],
+            "immutable": false,
             "created_at": "2024-07-20T01:30:36.275141-07:00",
             "updated_at": "2024-07-20T01:30:36.275172-07:00"
         }
@@ -463,6 +465,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "user_id": "alex",
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -552,6 +555,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "user_id": "alex",
         "metadata": null,
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -616,6 +620,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "user_id": "alex",
         "metadata": null,
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -689,6 +694,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "user_id": "alex",
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -788,6 +794,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
             "agent_id":"travel-assistant",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories":None
@@ -798,6 +805,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
             "agent_id":"travel-assistant",
             "hash":"35a305373d639b0bffc6c2a3e2eb4244",
             "metadata":"None",
+            "immutable": false,
             "created_at":"2024-07-26T00:31:03.543759-07:00",
             "updated_at":"2024-07-26T00:31:03.543778-07:00",
             "categories":None
@@ -820,6 +828,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
                 "agent_id":"travel-assistant",
                 "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
                 "metadata":None,
+                "immutable": false,
                 "created_at":"2024-07-25T23:57:00.108347-07:00",
                 "updated_at":"2024-07-25T23:57:00.108367-07:00",
                 "categories":None
@@ -830,6 +839,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
                 "agent_id":"travel-assistant",
                 "hash":"35a305373d639b0bffc6c2a3e2eb4244",
                 "metadata":"None",
+                "immutable": false,
                 "created_at":"2024-07-26T00:31:03.543759-07:00",
                 "updated_at":"2024-07-26T00:31:03.543778-07:00",
                 "categories":None
@@ -873,6 +883,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
             "agent_id":"ai-tutor",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories":None
@@ -883,6 +894,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
             "agent_id":"ai-tutor",
             "hash":"35a305373d639b0bffc6c2a3e2eb4244",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:31:03.543759-07:00",
             "updated_at":"2024-07-26T00:31:03.543778-07:00",
             "categories":None
@@ -905,6 +917,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
                 "agent_id": "ai-tutor",
                 "hash": "62bc074f56d1f909f1b4c2b639f56f6a",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-25T23:57:00.108347-07:00",
                 "updated_at": "2024-07-25T23:57:00.108367-07:00"
             },
@@ -914,6 +927,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
                 "agent_id": "ai-tutor",
                 "hash": "35a305373d639b0bffc6c2a3e2eb4244",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:31:03.543759-07:00",
                 "updated_at": "2024-07-26T00:31:03.543778-07:00"
             }
@@ -955,6 +969,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
             "user_id":"alex123",
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:25:16.566471-07:00",
             "updated_at":"2024-07-26T00:25:16.566492-07:00",
             "categories":None
@@ -965,6 +980,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
             "user_id":"alex123",
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:33:20.350542-07:00",
             "updated_at":"2024-07-26T00:33:20.350560-07:00",
             "categories":None
@@ -975,6 +991,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
             "user_id":"alex123",
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:51:09.642275-07:00",
             "updated_at":"2024-07-26T00:51:09.642295-07:00",
             "categories":None
@@ -997,6 +1014,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
                 "user_id": "alex123",
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:25:16.566471-07:00",
                 "updated_at": "2024-07-26T00:25:16.566492-07:00",
                 "categories": ["food_preferences"]
@@ -1007,6 +1025,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
                 "user_id": "alex123",
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:33:20.350542-07:00",
                 "updated_at": "2024-07-26T00:33:20.350560-07:00",
                 "categories": ["food_preferences"]
@@ -1017,6 +1036,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
                 "user_id": "alex123",
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:51:09.642275-07:00",
                 "updated_at": "2024-07-26T00:51:09.642295-07:00",
                 "categories": None
@@ -1055,6 +1075,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e6342
    "user_id":"alex123",
    "hash":"d2088c936e259f2f5d2d75543d31401c",
    "metadata":"None",
+   "immutable": false,
    "created_at":"2024-07-26T00:25:16.566471-07:00",
    "updated_at":"2024-07-26T00:25:16.566492-07:00",
    "categories": ["travel"]
@@ -1134,6 +1155,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&p
             "user_id": "alex123",
             "hash": "d2088c936e259f2f5d2d75543d31401c",
             "metadata": null,
+            "immutable": false,
             "created_at": "2024-07-26T00:25:16.566471-07:00",
             "updated_at": "2024-07-26T00:25:16.566492-07:00",
             "categories": ["likes", "food_preferences"]
@@ -1144,6 +1166,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&p
             "user_id": "alex123",
             "hash": "d2088c936e259f2f5d2d75543d31401c",
             "metadata": null,
+            "immutable": false,
             "created_at": "2024-07-26T00:33:20.350542-07:00",
             "updated_at": "2024-07-26T00:33:20.350560-07:00",
             "categories": ["likes"]
@@ -1282,6 +1305,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
       "user_id":"alex",
       "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
       "metadata":null,
+      "immutable": false,
       "created_at":"2024-07-25T23:57:00.108347-07:00",
       "updated_at":"2024-07-25T23:57:00.108367-07:00",
       "categories": ["food_preferences"]
@@ -1301,6 +1325,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
             "user_id":"alex",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":null,
+            "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories": ["food_preferences"]
