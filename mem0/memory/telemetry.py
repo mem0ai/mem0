@@ -29,7 +29,7 @@ class AnonymousTelemetry:
         if not MEM0_TELEMETRY:
             self.posthog.disabled = True
 
-    def capture_event(self, event_name, properties=None):
+    def capture_event(self, event_name, properties=None, user_email=None):
         if properties is None:
             properties = {}
         properties = {
@@ -43,7 +43,8 @@ class AnonymousTelemetry:
             "machine": platform.machine(),
             **properties,
         }
-        self.posthog.capture(distinct_id=self.user_id, event=event_name, properties=properties)
+        distinct_id = self.user_id if user_email is None else user_email
+        self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
 
     def close(self):
         self.posthog.shutdown()
@@ -82,4 +83,4 @@ def capture_client_event(event_name, instance, additional_data=None):
     if additional_data:
         event_data.update(additional_data)
 
-    telemetry.capture_event(event_name, event_data)
+    telemetry.capture_event(event_name, event_data, instance.user_email)

@@ -49,30 +49,14 @@ class ElasticsearchDB(VectorStoreBase):
     def create_index(self) -> None:
         """Create Elasticsearch index with proper mappings if it doesn't exist"""
         index_settings = {
-            "settings": {
-                "index": {
-                    "number_of_replicas": 1,
-                    "number_of_shards": 5,
-                    "refresh_interval": "1s"
-                }
-            },
+            "settings": {"index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s"}},
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {
-                        "type": "dense_vector",
-                        "dims": self.vector_dim,
-                        "index": True,
-                        "similarity": "cosine"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "properties": {
-                            "user_id": {"type": "keyword"}
-                        }
-                    }
+                    "vector": {"type": "dense_vector", "dims": self.vector_dim, "index": True, "similarity": "cosine"},
+                    "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
-            }
+            },
         }
 
         if not self.client.indices.exists(index=self.collection_name):
@@ -114,8 +98,8 @@ class ElasticsearchDB(VectorStoreBase):
                 "_id": id_,
                 "_source": {
                     "vector": vec,
-                    "metadata": payloads[i]  # Store all metadata in the metadata field
-                }
+                    "metadata": payloads[i],  # Store all metadata in the metadata field
+                },
             }
             actions.append(action)
 
@@ -127,7 +111,7 @@ class ElasticsearchDB(VectorStoreBase):
                 OutputData(
                     id=id_,
                     score=1.0,  # Default score for inserts
-                    payload=payloads[i]
+                    payload=payloads[i],
                 )
             )
         return results
@@ -136,35 +120,20 @@ class ElasticsearchDB(VectorStoreBase):
         """Search for similar vectors using KNN search with pre-filtering."""
         if not filters:
             # If no filters, just do KNN search
-            search_query = {
-                "knn": {
-                    "field": "vector",
-                    "query_vector": query,
-                    "k": limit,
-                    "num_candidates": limit * 2
-                }
-            }
+            search_query = {"knn": {"field": "vector", "query_vector": query, "k": limit, "num_candidates": limit * 2}}
         else:
             # If filters exist, apply them with KNN search
             filter_conditions = []
             for key, value in filters.items():
-                filter_conditions.append({
-                    "term": {
-                        f"metadata.{key}": value
-                    }
-                })
-            
+                filter_conditions.append({"term": {f"metadata.{key}": value}})
+
             search_query = {
                 "knn": {
                     "field": "vector",
                     "query_vector": query,
                     "k": limit,
                     "num_candidates": limit * 2,
-                    "filter": {
-                        "bool": {
-                            "must": filter_conditions
-                        }
-                    }
+                    "filter": {"bool": {"must": filter_conditions}},
                 }
             }
 
@@ -173,11 +142,7 @@ class ElasticsearchDB(VectorStoreBase):
         results = []
         for hit in response["hits"]["hits"]:
             results.append(
-                OutputData(
-                    id=hit["_id"],
-                    score=hit["_score"],
-                    payload=hit.get("_source", {}).get("metadata", {})
-                )
+                OutputData(id=hit["_id"], score=hit["_score"], payload=hit.get("_source", {}).get("metadata", {}))
             )
 
         return results
@@ -203,7 +168,7 @@ class ElasticsearchDB(VectorStoreBase):
             return OutputData(
                 id=response["_id"],
                 score=1.0,  # Default score for direct get
-                payload=response["_source"].get("metadata", {})
+                payload=response["_source"].get("metadata", {}),
             )
         except KeyError as e:
             logger.warning(f"Missing key in Elasticsearch response: {e}")
@@ -234,16 +199,8 @@ class ElasticsearchDB(VectorStoreBase):
         if filters:
             filter_conditions = []
             for key, value in filters.items():
-                filter_conditions.append({
-                    "term": {
-                        f"metadata.{key}": value
-                    }
-                })
-            query["query"] = {
-                "bool": {
-                    "must": filter_conditions
-                }
-            }
+                filter_conditions.append({"term": {f"metadata.{key}": value}})
+            query["query"] = {"bool": {"must": filter_conditions}}
 
         if limit:
             query["size"] = limit
@@ -256,7 +213,7 @@ class ElasticsearchDB(VectorStoreBase):
                 OutputData(
                     id=hit["_id"],
                     score=1.0,  # Default score for list operation
-                    payload=hit.get("_source", {}).get("metadata", {})
+                    payload=hit.get("_source", {}).get("metadata", {}),
                 )
             )
 

@@ -6,13 +6,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
-
-# Setup user config
-setup_config()
 
 warnings.filterwarnings("default", category=DeprecationWarning)
 
@@ -78,17 +74,16 @@ class MemoryClient:
         self.host = host or "https://api.mem0.ai"
         self.org_id = org_id
         self.project_id = project_id
-        self.user_id = get_user_id()
 
         if not self.api_key:
             raise ValueError("Mem0 API Key not provided. Please provide an API Key.")
 
         self.client = httpx.Client(
             base_url=self.host,
-            headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
+            headers={"Authorization": f"Token {self.api_key}"},
             timeout=300,
         )
-        self._validate_api_key()
+        self.user_email = self._validate_api_key()
         capture_client_event("client.init", self)
 
     def _validate_api_key(self):
@@ -103,6 +98,8 @@ class MemoryClient:
             if data.get("org_id") and data.get("project_id"):
                 self.org_id = data.get("org_id")
                 self.project_id = data.get("project_id")
+
+            return data.get("user_email")
 
         except httpx.HTTPStatusError as e:
             try:

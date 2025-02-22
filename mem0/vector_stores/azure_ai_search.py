@@ -118,8 +118,7 @@ class AzureAISearch(VectorStoreBase):
         logger.info(f"Inserting {len(vectors)} vectors into index {self.index_name}")
 
         documents = [
-            self._generate_document(vector, payload, id)
-            for id, vector, payload in zip(ids, vectors, payloads)
+            self._generate_document(vector, payload, id) for id, vector, payload in zip(ids, vectors, payloads)
         ]
         self.search_client.upload_documents(documents)
 
@@ -133,7 +132,7 @@ class AzureAISearch(VectorStoreBase):
                 condition = f"{key} eq {value}"
             filter_conditions.append(condition)
         # Use 'and' to join multiple conditions
-        filter_expression = ' and '.join(filter_conditions)
+        filter_expression = " and ".join(filter_conditions)
         return filter_expression
 
     def search(self, query, limit=5, filters=None):
@@ -152,14 +151,8 @@ class AzureAISearch(VectorStoreBase):
         if filters:
             filter_expression = self._build_filter_expression(filters)
 
-        vector_query = VectorizedQuery(
-            vector=query, k_nearest_neighbors=limit, fields="vector"
-        )
-        search_results = self.search_client.search(
-            vector_queries=[vector_query],
-            filter=filter_expression,
-            top=limit
-        )
+        vector_query = VectorizedQuery(vector=query, k_nearest_neighbors=limit, fields="vector")
+        search_results = self.search_client.search(vector_queries=[vector_query], filter=filter_expression, top=limit)
 
         results = []
         for result in search_results:
@@ -245,11 +238,7 @@ class AzureAISearch(VectorStoreBase):
         if filters:
             filter_expression = self._build_filter_expression(filters)
 
-        search_results = self.search_client.search(
-            search_text="*",
-            filter=filter_expression,
-            top=limit
-        )
+        search_results = self.search_client.search(search_text="*", filter=filter_expression, top=limit)
         results = []
         for result in search_results:
             payload = json.loads(result["payload"])

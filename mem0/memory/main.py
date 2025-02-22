@@ -178,7 +178,7 @@ class Memory(MemoryBase):
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
         unique_data = {}
         for item in retrieved_old_memory:
-            unique_data[item['id']] = item
+            unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 

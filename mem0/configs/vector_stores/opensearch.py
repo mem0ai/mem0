@@ -36,7 +36,6 @@ class OpenSearchConfig(BaseModel):
         extra_fields = input_fields - allowed_fields
         if extra_fields:
             raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. "
-                f"Allowed fields: {', '.join(allowed_fields)}"
+                f"Extra fields not allowed: {', '.join(extra_fields)}. " f"Allowed fields: {', '.join(allowed_fields)}"
             )
         return values
