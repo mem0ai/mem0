@@ -774,26 +774,20 @@
 												"type": "string",
 												"format": "date-time"
 											},
-											"total_memories": {
-												"type": "integer"
-											},
 											"owner": {
 												"type": "string"
+											},
+											"immutable": {
+												"type": "boolean",
+												"description": "Whether the memory is immutable.",
+												"title": "Immutable",
+												"default": false
 											},
 											"organization": {
 												"type": "string"
 											},
 											"metadata": {
 												"type": "object"
-											},
-											"type": {
-												"type": "string",
-												"enum": [
-													"user",
-													"agent",
-													"app",
-													"run"
-												]
 											}
 										},
 										"required": [
@@ -1170,26 +1164,20 @@
 												"type": "string",
 												"format": "date-time"
 											},
-											"total_memories": {
-												"type": "integer"
-											},
 											"owner": {
 												"type": "string"
+											},
+											"immutable": {
+												"type": "boolean",
+												"description": "Whether the memory is immutable.",
+												"title": "Immutable",
+												"default": false
 											},
 											"organization": {
 												"type": "string"
 											},
 											"metadata": {
 												"type": "object"
-											},
-											"type": {
-												"type": "string",
-												"enum": [
-													"user",
-													"agent",
-													"app",
-													"run"
-												]
 											}
 										},
 										"required": [
@@ -1320,6 +1308,12 @@
 												},
 												"description": "Categories associated with the memory"
 											},
+											"immutable": {
+												"type": "boolean",
+												"description": "Whether the memory is immutable.",
+												"title": "Immutable",
+												"default": false
+											},
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
@@ -1440,6 +1434,12 @@
 													"type": "string"
 												},
 												"description": "Categories associated with the memory"
+											},
+											"immutable": {
+												"type": "boolean",
+												"description": "Whether the memory is immutable.",
+												"title": "Immutable",
+												"default": false
 											},
 											"created_at": {
 												"type": "string",
@@ -4781,6 +4781,12 @@
 						"title": "Custom instructions",
 						"type": "string",
 						"nullable": true
+					},
+					"immutable": {
+						"description": "Whether the memory is immutable.",
+						"title": "Immutable",
+						"type": "boolean",
+						"default": false
 					},
 					"org_id": {
 						"description": "The unique identifier of the organization associated with this memory.",
