@@ -34,10 +34,11 @@ USER_ID = "your-user-id"
 
 # Set up OpenAI API key
 os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
+os.environ['MEM0_API_KEY'] = MEM0_API_KEY
 
 # Initialize Mem0 and MultiOn
 memory = Memory()  # For local usage
-memory_client = MemoryClient(api_key=MEM0_API_KEY)  # For API usage
+memory_client = MemoryClient()  # For API usage
 multion = MultiOn(api_key=MULTION_API_KEY)
 ```
 
