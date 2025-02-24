@@ -13,10 +13,12 @@ When a user submits an image, Mem0 processes it to extract textual information a
 
 <CodeGroup>
 ```python Code
+import os
 from mem0 import MemoryClient
 
-# Initialize the MemoryClient with your API key
-client = MemoryClient(api_key="your_api_key_here")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 
 messages = [
     {

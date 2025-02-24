@@ -17,9 +17,12 @@ Create a webhook for your project; it will receive events only from that project
 <CodeGroup>
 
 ```python Python
+import os
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="your-api-key")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 
 # Create webhook in a specific project
 webhook = client.create_webhook(
@@ -33,7 +36,7 @@ print(webhook)
 
 ```javascript JavaScript
 const { MemoryClient } = require('mem0ai');
-const client = new MemoryClient('your-api-key');
+const client = new MemoryClient({ apiKey: 'your-api-key'});
 
 // Create webhook in a specific project
 const webhook = await client.createWebhook({

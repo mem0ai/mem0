@@ -426,8 +426,12 @@ Get started with using Mem0 APIs in your applications. For more details, refer t
 Here is an example of how to use Mem0 APIs:
 
 ```python
+import os
 from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key") # get api_key from https://app.mem0.ai/
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient() # get api_key from https://app.mem0.ai/
 
 # Store messages
 messages = [
