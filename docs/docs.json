@@ -54,7 +54,7 @@
                       "features/direct-import",
                       "features/async-client",
                       "features/memory-export",
-                      "features/webhook"
+                      "features/webhooks"
                     ]
                   }
                 ]
