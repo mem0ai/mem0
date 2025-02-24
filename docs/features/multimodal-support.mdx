@@ -1,14 +1,15 @@
 ---
 title: Multimodal Support
+description: Integrate images into your interactions with Mem0
 icon: "image"
 iconType: "solid"
 ---
 
-Mem0 extends its capabilities beyond text by supporting multimodal data, including images. Users can seamlessly integrate images into their interactions, allowing Mem0 to extract pertinent information from visual content and enrich the memory system.
+Mem0 extends its capabilities beyond text by supporting multimodal data, including images. With this feature, users can seamlessly integrate images into their interactions—allowing Mem0 to extract relevant information from visual content and enrich the memory system.
 
 ## How It Works
 
-When a user provides an image, Mem0 processes the image to extract textual information and relevant details, which are then added to the user's memory. This feature enhances the system's ability to understand and remember details based on visual inputs.
+When a user submits an image, Mem0 processes it to extract textual information and other pertinent details. These details are then added to the user's memory, enhancing the system's ability to understand and recall visual inputs.
 
 <CodeGroup>
 ```python Code
@@ -61,13 +62,13 @@ client.add(messages, user_id="alice")
 
 ## Image Integration Methods
 
-Mem0 allows you to add images to user interactions through two primary methods: by providing an image URL or by using a Base64-encoded image. Below are examples demonstrating each approach.
+Mem0 supports incorporating images into user interactions using two primary methods: by providing an image URL or by using a Base64-encoded image. The examples below demonstrate both approaches.
 
 ## 1. Using an Image URL (Recommended)
 
-You can include an image by passing its direct URL. This method is simple and efficient for online images.
+You can include an image by providing its direct URL. This method is simple and efficient for online images.
 
-```python
+```python {2, 5-13}
 # Define the image URL
 image_url = "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
 
@@ -81,12 +82,12 @@ image_message = {
         }
     }
 }
+client.add([image_message], user_id="alice")
 ```
 
 ## 2. Using Base64 Image Encoding for Local Files
 
-For local images or scenarios where embedding the image directly is preferable, you can use a Base64-encoded string.
-
+For local images—or when embedding the image directly is preferable—you can use a Base64-encoded string.
 ```python
 import base64
 
@@ -107,9 +108,10 @@ image_message = {
         }
     }
 }
+client.add([image_message], user_id="alice")
 ```
 
-By utilizing these methods, you can effectively incorporate images into user interactions, enhancing the multimodal capabilities of your Mem0 instance.
+Using these methods, you can seamlessly incorporate images into your interactions, further enhancing Mem0's multimodal capabilities.
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
