@@ -69,7 +69,7 @@ class VectorStoreFactory:
         "redis": "mem0.vector_stores.redis.RedisDB",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "google_matching_engine": "mem0.vector_stores.google_matching_engine.GoogleMatchingEngine",
-        "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB"
+        "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
     }
 
     @classmethod

@@ -50,10 +50,7 @@ class OpenSearchDB(VectorStoreBase):
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {
-                        "type": "knn_vector",
-                        "dimension": self.vector_dim
-                    },
+                    "vector": {"type": "knn_vector", "dimension": self.vector_dim},
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
             },
@@ -73,7 +70,7 @@ class OpenSearchDB(VectorStoreBase):
                     "vector": {
                         "type": "knn_vector",
                         "dimension": vector_size,
-                        "method": { "engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
@@ -125,12 +122,12 @@ class OpenSearchDB(VectorStoreBase):
                         "k": limit,
                     }
                 }
-            }
+            },
         }
 
         if filters:
             filter_conditions = [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]
-            search_query["query"]["knn"]["vector"]["filter"] = { "bool": {"filter": filter_conditions} }
+            search_query["query"]["knn"]["vector"]["filter"] = {"bool": {"filter": filter_conditions}}
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
@@ -180,10 +177,17 @@ class OpenSearchDB(VectorStoreBase):
         query = {"query": {"match_all": {}}}
 
         if filters:
-            query["query"] = {"bool": {"must": [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]}}
+            query["query"] = {
+                "bool": {"must": [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]}
+            }
 
         if limit:
             query["size"] = limit
 
         response = self.client.search(index=self.collection_name, body=query)
-        return [[OutputData(id=hit["_id"], score=1.0, payload=hit["_source"].get("metadata", {})) for hit in response["hits"]["hits"]]]
+        return [
+            [
+                OutputData(id=hit["_id"], score=1.0, payload=hit["_source"].get("metadata", {}))
+                for hit in response["hits"]["hits"]
+            ]
+        ]

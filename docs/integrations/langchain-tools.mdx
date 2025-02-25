@@ -25,9 +25,11 @@ from langchain_core.tools import StructuredTool
 from mem0 import MemoryClient
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
+import os
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
 
 client = MemoryClient(
-    api_key=your_api_key,
     org_id=your_org_id,
     project_id=your_project_id
 )

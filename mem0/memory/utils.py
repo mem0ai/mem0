@@ -55,8 +55,11 @@ def get_image_description(image_url):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Provide a description of the image and do not include any additional text."},
-                    {"type": "image_url", "image_url": {"url": image_url}}
+                    {
+                        "type": "text",
+                        "text": "Provide a description of the image and do not include any additional text.",
+                    },
+                    {"type": "image_url", "image_url": {"url": image_url}},
                 ],
             },
         ],
