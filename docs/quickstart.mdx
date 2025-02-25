@@ -78,16 +78,20 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 
 ```python Python
 messages = [
-    {"role": "user", "content": "I'm working on a complex project at work involving microservices architecture. We're using Kubernetes and facing some scaling issues."},
-    {"role": "assistant", "content": "I understand you're working on a microservices project with Kubernetes scaling challenges. I'll remember this context for our future discussions about your architecture."}
+    {"role": "user", "content": "Thinking of making a sandwich. What do you recommend?"},
+    {"role": "assistant", "content": "How about adding some cheese for extra flavor?"},
+    {"role": "user", "content": "Actually, I don't like cheese."},
+    {"role": "assistant", "content": "I'll remember that you don't like cheese for future recommendations."}
 ]
 client.add(messages, user_id="alex")
 ```
 
 ```javascript JavaScript
 const messages = [
-    {"role": "user", "content": "I'm working on a complex project at work involving microservices architecture. We're using Kubernetes and facing some scaling issues."},
-    {"role": "assistant", "content": "I understand you're working on a microservices project with Kubernetes scaling challenges. I'll remember this context for our future discussions about your architecture."}
+    {"role": "user", "content": "Thinking of making a sandwich. What do you recommend?"},
+    {"role": "assistant", "content": "How about adding some cheese for extra flavor?"},
+    {"role": "user", "content": "Actually, I don't like cheese."},
+    {"role": "assistant", "content": "I'll remember that you don't like cheese for future recommendations."}
 ];
 client.add(messages, { user_id: "alex" })
     .then(response => console.log(response))
@@ -100,22 +104,21 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
      -H "Content-Type: application/json" \
      -d '{
          "messages": [
-             {"role": "user", "content": "I'm working on a complex project at work involving microservices architecture. We're using Kubernetes and facing some scaling issues."},
-             {"role": "assistant", "content": "I understand you're working on a microservices project with Kubernetes scaling challenges. I'll remember this context for our future discussions about your architecture."}
+             {"role": "user", "content": "I live in San Francisco. Thinking of making a sandwich. What do you recommend?"},
+             {"role": "assistant", "content": "How about adding some cheese for extra flavor?"},
+             {"role": "user", "content": "Actually, I don't like cheese."},
+             {"role": "assistant", "content": "I'll remember that you don't like cheese for future recommendations."}
          ],
          "user_id": "alex"
      }'
 ```
 
 ```json Output
-[{'id': 'b6c82fa2-0c7d-4a67-a2f0-cd18ff3fd11d',
-  'data': {'memory': 'Working on a complex project at work involving microservices architecture'},
+[{'id': '24e466b5-e1c6-4bde-8a92-f09a327ffa60',
+  'memory': 'Does not like cheese',
   'event': 'ADD'},
- {'id': '36ef3b08-1095-499d-bfde-e7824ce472a1',
-  'data': {'memory': 'Using Kubernetes'},
-  'event': 'ADD'},
- {'id': 'e330be1d-bef7-44be-81b1-fb77795f2941',
-  'data': {'memory': 'Facing scaling issues'},
+ {'id': 'e8d78459-fadd-4c5a-bece-abb8c3dc7ed7',
+  'memory': 'Lives in San Francisco',
   'event': 'ADD'}]
 ```
 </CodeGroup>
@@ -129,7 +132,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 <CodeGroup>
 
 ```python Python
-query = "What should I consider when implementing auto-scaling for my services?"
+# Example showing location and preference-aware recommendations
+query = "I'm craving some pizza. Any recommendations?"
 filters = {
     "AND": [
         {
@@ -141,7 +145,7 @@ client.search(query, version="v2", filters=filters)
 ```
 
 ```javascript JavaScript
-const query = "What should I consider when implementing auto-scaling for my services?";
+const query = "I'm craving some pizza. Any recommendations?";
 const filters = {
     "AND": [
         {
@@ -159,7 +163,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
-         "query": "What should I consider when implementing auto-scaling for my services?",
+         "query": "I'm craving some pizza. Any recommendations?",
          "filters": {
              "AND": [
                  {
@@ -173,37 +177,22 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 ```json Output
 [
     {
-        'id': 'e330be1d-bef7-44be-81b1-fb77795f2941',
-        'memory': 'Facing scaling issues',
-        'user_id': 'alex',
-        'metadata': None,
-        'categories': ['technology'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:43:52.703779-08:00',
-        'updated_at': '2025-02-24T11:43:52.703787-08:00',
-        'score': 0.5454271706684217
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Does not like cheese",
+        "user_id": "alex",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00",
+        "score": 0.92
     },
     {
-        'id': 'b6c82fa2-0c7d-4a67-a2f0-cd18ff3fd11d',
-        'memory': 'Working on a complex project at work involving microservices architecture',
-        'user_id': 'alex',
-        'metadata': None,
-        'categories': ['professional_details', 'technology'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:43:52.633668-08:00',
-        'updated_at': '2025-02-24T11:43:52.633680-08:00',
-        'score': 0.42846170920590354
-    },
-    {
-        'id': '36ef3b08-1095-499d-bfde-e7824ce472a1',
-        'memory': 'Using Kubernetes',
-        'user_id': 'alex',
-        'metadata': None,
-        'categories': ['technology'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:43:52.665060-08:00',
-        'updated_at': '2025-02-24T11:43:52.665069-08:00',
-        'score': 0.37370257095068116
+        "id": "8f165f7e-b411-4afe-b7e5-35789b72c4b6",
+        "memory": "Lives in San Francisco",
+        "user_id": "alex",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00",
+        "score": 0.85
     }
 ]
 ```
@@ -258,34 +247,22 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
 ```json Output
 [
     {
-        'id': 'e330be1d-bef7-44be-81b1-fb77795f2941',
-        'memory': 'Facing scaling issues',
-        'user_id': 'alex',
-        'metadata': None,
-        'categories': ['technology'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:43:52.703779-08:00',
-        'updated_at': '2025-02-24T11:43:52.703787-08:00'
+        "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Does not like cheese",
+        "user_id": "alex",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00",
+        "score": 0.92
     },
     {
-        'id': '36ef3b08-1095-499d-bfde-e7824ce472a1',
-        'memory': 'Using Kubernetes',
-        'user_id': 'alex',
-        'metadata': None,
-        'categories': ['technology'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:43:52.665060-08:00',
-        'updated_at': '2025-02-24T11:43:52.665069-08:00'
-    },
-    {
-        'id': 'b6c82fa2-0c7d-4a67-a2f0-cd18ff3fd11d',
-        'memory': 'Working on a complex project at work involving microservices architecture',
-        'user_id': 'alex',
-        'metadata': None,
-        'categories': ['professional_details', 'technology'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:43:52.633668-08:00',
-        'updated_at': '2025-02-24T11:43:52.633680-08:00'
+        "id": "8f165f7e-b411-4afe-b7e5-35789b72c4b6",
+        "memory": "Lives in San Francisco",
+        "user_id": "alex",
+        "metadata": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00",
+        "score": 0.85
     }
 ]
 ```
@@ -330,15 +307,15 @@ m = Memory()
 <CodeGroup>
 ```python Code
 # For a user
-result = m.add("I prefer using TypeScript for backend development and have experience with NestJS framework.", user_id="alice", metadata={"category": "technical_preferences"})
+result = m.add("I like to drink coffee in the morning and go for a walk.", user_id="alice", metadata={"category": "preferences"})
 ```
 
 ```json Output
-[{'id': '68152743-3777-4272-b2fe-4fa2759e32aa',
-  'data': {'memory': 'Prefers using TypeScript for backend development'},
+[{'id': '3dc6f65f-fb3f-4e91-89a8-ed1a22f8898a',
+  'data': {'memory': 'Likes to drink coffee in the morning'},
   'event': 'ADD'},
- {'id': 'e8d78459-fadd-4c5a-bece-abb8c3dc7ed7',
-  'data': {'memory': 'Has experience with NestJS framework'},
+ {'id': 'f1673706-e3d6-4f12-a767-0384c7697d53',
+  'data': {'memory': 'Likes to go for a walk'},
   'event': 'ADD'}]
 ```
 </CodeGroup>
@@ -351,28 +328,28 @@ result = m.add("I prefer using TypeScript for backend development and have exper
 <Accordion title="Search for relevant memories">
 <CodeGroup>
 ```python Code
-related_memories = m.search(query="What backend framework should I use for my new project?", user_id="alice")
+related_memories = m.search("Should I drink coffee or tea?", user_id="alice")
 ```
 
 ```json Output
 [
     {
-        'id': '68152743-3777-4272-b2fe-4fa2759e32aa',
-        'memory': 'Prefers using TypeScript for backend development',
+        'id': '3dc6f65f-fb3f-4e91-89a8-ed1a22f8898a',
+        'memory': 'Likes to drink coffee in the morning',
         'user_id': 'alice',
-        'metadata': {'category': 'technical_preferences'},
-        'categories': ['technology', 'professional_details'],
+        'metadata': {'category': 'preferences'},
+        'categories': ['user_preferences', 'food'],
         'immutable': False,
-        'created_at': '2025-02-24T11:47:52.839872-08:00',
-        'updated_at': '2025-02-24T11:47:52.839884-08:00',
-        'score': 0.5922864255990515
+        'created_at': '2025-02-24T20:11:39.010261-08:00',
+        'updated_at': '2025-02-24T20:11:39.010274-08:00',
+        'score': 0.5915589089130715
     },
     {
         'id': 'e8d78459-fadd-4c5a-bece-abb8c3dc7ed7',
-        'memory': 'Has experience with NestJS framework',
+        'memory': 'Likes to go for a walk',
         'user_id': 'alice',
-        'metadata': {'category': 'technical_preferences'},
-        'categories': ['professional_details', 'technology'],
+        'metadata': {'category': 'preferences'},
+        'categories': ['hobby', 'food'],
         'immutable': False,
         'created_at': '2025-02-24T11:47:52.893038-08:00',
         'updated_at': '2025-02-24T11:47:52.893048-08:00',
@@ -381,6 +358,7 @@ related_memories = m.search(query="What backend framework should I use for my ne
 ]
 ```
 </CodeGroup>
+
 </Accordion>
 </AccordionGroup>
 
