@@ -110,7 +110,7 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    def add(self, messages: Union[str, List[Dict[str, str]]], version: str = "v1", **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
@@ -133,7 +133,7 @@ class MemoryClient:
                 stacklevel=2,
             )
         payload = self._prepare_payload(messages, kwargs)
-        response = self.client.post("/v1/memories/", json=payload)
+        response = self.client.post(f"/{version}/memories/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
