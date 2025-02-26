@@ -18,11 +18,7 @@ class XAILLM(LLMBase):
         base_url = self.config.xai_base_url or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    def generate_response(
-        self,
-        messages: List[Dict[str, str]],
-        response_format=None
-    ):
+    def generate_response(self, messages: List[Dict[str, str]], response_format=None):
         """
         Generate a response based on the given messages using XAI.
 
