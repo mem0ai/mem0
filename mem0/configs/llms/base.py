@@ -14,10 +14,10 @@ class BaseLlmConfig(ABC):
     def __init__(
         self,
         model: Optional[str] = None,
-        temperature: float = 0,
+        temperature: float = 0.1,
         api_key: Optional[str] = None,
         max_tokens: int = 3000,
-        top_p: float = 0,
+        top_p: float = 0.1,
         top_k: int = 1,
         # Openrouter specific
         models: Optional[list[str]] = None,
