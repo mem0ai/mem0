@@ -11,13 +11,20 @@ import mem0
 try:
     import litellm
 except ImportError:
-    user_input = input("The 'litellm' library is required. Install it now? [y/N]: ")
+    user_input = input(
+        "The 'litellm' library is required. Install it now? [y/N]: "
+    )
     if user_input.lower() == "y":
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "litellm"
+            ])
             import litellm
         except subprocess.CalledProcessError:
-            print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
+            print(
+                "Failed to install 'litellm'. "
+                "Please install it manually using 'pip install litellm'."
+            )
             sys.exit(1)
     else:
         raise ImportError("The required 'litellm' library is not installed.")
@@ -95,7 +102,8 @@ class Completions:
         base_url: Optional[str] = None,
         api_version: Optional[str] = None,
         api_key: Optional[str] = None,
-        model_list: Optional[list] = None,  # pass in a list of api_base,keys, etc.
+        model_list: Optional[list] = None,  # pass in a list of api_base,
+                                           # keys, etc.
     ):
         if not any([user_id, agent_id, run_id]):
             raise ValueError("One of user_id, agent_id, run_id must be provided")
@@ -179,13 +187,17 @@ class Completions:
         )
 
     def _format_query_with_memories(self, messages, relevant_memories):
-        # Check if self.mem0_client is an instance of Memory or MemoryClient
-
         entities = []
         if isinstance(self.mem0_client, mem0.memory.main.Memory):
-            memories_text = "\n".join(memory["memory"] for memory in relevant_memories["results"])
+            memories_text = "\n".join(
+                memory["memory"] for memory in relevant_memories["results"]
+            )
             if relevant_memories.get("relations"):
                 entities = [entity for entity in relevant_memories["relations"]]
         elif isinstance(self.mem0_client, mem0.client.main.MemoryClient):
             memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
-        return f"- Relevant Memories/Facts: {memories_text}\n\n- Entities: {entities}\n\n- User Question: {messages[-1]['content']}"
+        return (
+            f"- Relevant Memories/Facts: {memories_text}\n\n"
+            f"- Entities: {entities}\n\n"
+            f"- User Question: {messages[-1]['content']}"
+        )

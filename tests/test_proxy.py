@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0 import Memory, MemoryClient
-from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
 from mem0.proxy.main import Chat, Completions, Mem0
 
 
@@ -64,9 +63,16 @@ def test_completions_create(mock_memory_client, mock_litellm):
 
     messages = [{"role": "user", "content": "Hello, how are you?"}]
     mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
-    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
+    mock_litellm.completion.return_value = {
+        "choices": [{"message": {"content": "I'm doing well, thank you!"}}]
+    }
 
-    response = completions.create(model="gpt-4o-mini", messages=messages, user_id="test_user", temperature=0.7)
+    response = completions.create(
+        model="gpt-4o-mini", 
+        messages=messages, 
+        user_id="test_user", 
+        temperature=0.7
+    )
 
     mock_memory_client.add.assert_called_once()
     mock_memory_client.search.assert_called_once()
@@ -88,9 +94,15 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
         {"role": "user", "content": "Hello, how are you?"},
     ]
     mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
-    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
+    mock_litellm.completion.return_value = {
+        "choices": [{"message": {"content": "I'm doing well, thank you!"}}]
+    }
 
-    completions.create(model="gpt-4o-mini", messages=messages, user_id="test_user")
+    completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        user_id="test_user"
+    )
 
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
