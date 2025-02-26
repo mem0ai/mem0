@@ -33,6 +33,12 @@ def mock_litellm():
         yield mock
 
 
+@pytest.fixture
+def mock_telemetry():
+    with patch("mem0.proxy.main.capture_client_event") as mock:
+        yield mock
+
+
 def test_mem0_initialization_with_api_key(mock_openai_embedding_client, mock_openai_llm_client):
     mem0 = Mem0()
     assert isinstance(mem0.mem0_client, Memory)
@@ -58,7 +64,7 @@ def test_chat_initialization(mock_memory_client):
     assert isinstance(chat.completions, Completions)
 
 
-def test_completions_create(mock_memory_client, mock_litellm):
+def test_completions_create(mock_memory_client, mock_litellm, mock_telemetry):
     completions = Completions(mock_memory_client)
 
     messages = [{"role": "user", "content": "Hello, how are you?"}]
@@ -85,8 +91,12 @@ def test_completions_create(mock_memory_client, mock_litellm):
 
     assert response == {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
 
+    mock_telemetry.assert_called_once_with("mem0.chat.create", completions)
 
-def test_completions_create_with_system_message(mock_memory_client, mock_litellm):
+
+def test_completions_create_with_system_message(
+    mock_memory_client, mock_litellm, mock_telemetry
+):
     completions = Completions(mock_memory_client)
 
     messages = [
@@ -107,3 +117,5 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
     assert call_args["messages"][0]["content"] == "You are a helpful assistant."
+
+    mock_telemetry.assert_called_once_with("mem0.chat.create", completions)

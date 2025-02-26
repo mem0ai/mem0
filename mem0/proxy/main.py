@@ -60,6 +60,7 @@ class Chat:
 class Completions:
     def __init__(self, mem0_client):
         self.mem0_client = mem0_client
+        self.user_email = None  # Initialize user_email as None
 
     def create(
         self,
