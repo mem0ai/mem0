@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from vertexai.language_models import TextEmbeddingModel
+from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
@@ -13,7 +13,8 @@ class VertexAIEmbedding(EmbeddingBase):
 
         self.config.model = self.config.model or "text-embedding-004"
         self.config.embedding_dims = self.config.embedding_dims or 256
-
+        self.config.vertex_embedding_task = self.config.vertex_embedding_task or "SEMANTIC_SIMILARITY"
+        
         credentials_path = self.config.vertex_credentials_json
 
         if credentials_path:
@@ -35,6 +36,7 @@ class VertexAIEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        embeddings = self.model.get_embeddings(texts=[text], output_dimensionality=self.config.embedding_dims)
+        text_input = TextEmbeddingInput(text=text, task_type=self.config.vertex_embedding_task)
+        embeddings = self.model.get_embeddings(texts=[text_input], output_dimensionality=self.config.embedding_dims)
 
         return embeddings[0].values

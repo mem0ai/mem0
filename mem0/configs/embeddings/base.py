@@ -27,6 +27,7 @@ class BaseEmbedderConfig(ABC):
         http_client_proxies: Optional[Union[Dict, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
+        vertex_embedding_task: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -47,6 +48,10 @@ class BaseEmbedderConfig(ABC):
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
+        :param vertex_credentials_json: The path to the Vertex AI credentials JSON file, defaults to None
+        :type vertex_credentials_json: Optional[str], optional
+        :param vertex_embedding_task: The task to be used for the Vertex AI embedding model, defaults to None
+        :type vertex_embedding_task: Optional[str], optional
         """
 
         self.model = model
@@ -68,3 +73,4 @@ class BaseEmbedderConfig(ABC):
 
         # VertexAI specific
         self.vertex_credentials_json = vertex_credentials_json
+        self.vertex_embedding_task = vertex_embedding_task
