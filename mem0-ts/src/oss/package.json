@@ -1,5 +1,5 @@
 {
-  "name": "saket-test",
+  "name": "mem0ai-oss",
   "version": "1.0.0",
   "description": "TypeScript implementation of mem0 memory system",
   "main": "dist/index.js",
