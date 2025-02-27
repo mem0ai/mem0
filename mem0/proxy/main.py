@@ -143,7 +143,7 @@ class Completions:
             api_key=api_key,
             model_list=model_list,
         )
-        capture_client_event("mem0.chat.create", self)
+        capture_client_event("mem0.chat.create", self.mem0_client)
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
