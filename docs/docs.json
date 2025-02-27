@@ -103,8 +103,6 @@
                             "icon": "server",
                             "pages": [
                               "open-source-typescript/components/vectordbs/dbs/qdrant",
-                              "open-source-typescript/components/vectordbs/dbs/chroma",
-                              "open-source-typescript/components/vectordbs/dbs/pgvector",
                               "open-source-typescript/components/vectordbs/dbs/redis"
                             ]
                           }

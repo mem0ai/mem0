@@ -7,7 +7,7 @@ iconType: "solid"
 ## How to define configurations?
 
 The `config` is defined as a TypeScript object with two main keys:
-- `vector_store`: Specifies the vector database provider and its configuration
+- `vectorStore`: Specifies the vector database provider and its configuration
   - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus", "azure_ai_search", "redis", "memory")
   - `config`: A nested object containing provider-specific settings
 
@@ -36,24 +36,22 @@ await memory.add("Your text here", { userId: "user", metadata: { category: "exam
 
 Here's a general example of how to use the config with Mem0:
 
-### Example for pgvector
+### Example for qdrant
 
 ```typescript
 import { Memory } from 'mem0ai/oss';
 
 const config = {
   vector_store: {
-    provider: 'pgvector',
+    provider: 'qdrant',
     config: {
       collectionName: 'memories',
-      dimension: 1536,
-      dbname: 'vectordb',
-      user: 'postgres',
-      password: 'postgres',
-      host: 'localhost',
-      port: 5432,
       embeddingModelDims: 1536,
-      hnsw: true,
+      host: 'localhost',
+      port: 6333,
+      url: 'https://your-qdrant-url.com',
+      apiKey: 'your-qdrant-api-key',
+      onDisk: true,
     },
   },
 };
@@ -78,13 +76,9 @@ Here's a comprehensive list of all parameters that can be used across different 
 |------------------------|--------------------------------------|
 | `collectionName`       | Name of the collection               |
 | `dimension`            | Dimensions of the embedding model     |
-| `dbname`               | Name of the database (for pgvector) |
-| `user`                 | Username for database connection (for pgvector) |
-| `password`             | Password for database connection (for pgvector) |
 | `host`                 | Host where the server is running     |
 | `port`                 | Port where the server is running     |
 | `embeddingModelDims`   | Dimensions of the embedding model     |
-| `hnsw`                 | Enable HNSW indexing (for pgvector) |
 | `url`                  | URL for the Qdrant server            |
 | `apiKey`               | API key for the Qdrant server        |
 | `path`                 | Path for the Qdrant server           |

@@ -11,12 +11,13 @@ const config = {
   vector_store: {
     provider: 'qdrant',
     config: {
-      collection_name: 'test',
+      collectionName: 'memories',
+      embeddingModelDims: 1536,
       host: 'localhost',
       port: 6333,
       url: 'https://your-qdrant-url.com',
-      api_key: 'your-qdrant-api-key',
-      on_disk: true,
+      apiKey: 'your-qdrant-api-key',
+      onDisk: true,
     },
   },
 };
@@ -31,12 +32,11 @@ Let's see the available parameters for the `qdrant` config:
 
 | Parameter              | Description                                      | Default Value |
 |------------------------|--------------------------------------------------|---------------|
-| `collection_name`      | The name of the collection to store the vectors   | `mem0`        |
-| `embedding_model_dims` | Dimensions of the embedding model                 | `1536`        |
-| `client`               | Custom client for Qdrant                          | `None`        |
+| `collectionName`      | The name of the collection to store the vectors   | `mem0`        |
+| `embeddingModelDims` | Dimensions of the embedding model                 | `1536`        |
 | `host`                 | The host where the Qdrant server is running      | `None`        |
 | `port`                 | The port where the Qdrant server is running      | `None`        |
 | `path`                 | Path for the Qdrant database                      | `/tmp/qdrant` |
 | `url`                  | Full URL for the Qdrant server                   | `None`        |
-| `api_key`              | API key for the Qdrant server                    | `None`        |
-| `on_disk`              | For enabling persistent storage                    | `False`       |
+| `apiKey`              | API key for the Qdrant server                    | `None`        |
+| `onDisk`              | For enabling persistent storage                    | `False`       |
