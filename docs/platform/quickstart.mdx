@@ -1183,7 +1183,7 @@ Our advanced retrieval allows you to set custom filters when fetching memories. 
 
 Here you need to define `version` as `v2` in the get_all method.
 
-Example: Get all memories using user_id and date filters
+Example 1. Get all memories using user_id and date filters
 
 <CodeGroup>
 
@@ -1325,6 +1325,124 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
             "user_id":"alex",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":null,
+            "immutable": false,
+            "created_at":"2024-07-25T23:57:00.108347-07:00",
+            "updated_at":"2024-07-25T23:57:00.108367-07:00",
+            "categories": ["food_preferences"]
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
+Example 2: Search using metadata and categories Filters
+<CodeGroup>
+```python Python
+filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+         "categories":{
+            "contains": "food_preferences"
+         }
+    }
+    ]
+}
+# Default (No Pagination)
+client.get_all(version="v2", filters=filters)
+
+# Pagination (You can also use the page and page_size parameters)
+client.get_all(version="v2", filters=filters, page=1, page_size=50)
+```
+
+```javascript JavaScript
+const filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+// Default (No Pagination)
+client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Pagination (You can also use the page and page_size parameters)
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# Default (No Pagination)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                {"metadata": {"food": "vegan"}},
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+         }
+     }'
+
+# Pagination (You can also use the page and page_size parameters)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+                    "AND": [
+                {"metadata": {"food": "vegan"}},
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+         }
+     }'
+```
+
+```json Output (Default)
+[
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+      "user_id":"alex",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":{"food":"vegan"},
+      "immutable": false,
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00",
+      "categories": ["food_preferences"]
+   }
+]
+```
+
+```json Output (Paginated)
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+            "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+            "user_id":"alex",
+            "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+            "metadata":{"food":"vegan"},
             "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
