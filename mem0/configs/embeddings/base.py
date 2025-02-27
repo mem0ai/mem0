@@ -27,6 +27,8 @@ class BaseEmbedderConfig(ABC):
         http_client_proxies: Optional[Union[Dict, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
+        # Jina specific
+        jina_base_url: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -47,6 +49,8 @@ class BaseEmbedderConfig(ABC):
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
+        :param jina_base_url: Base URL for the Jina API, defaults to None
+        :type jina_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -68,3 +72,6 @@ class BaseEmbedderConfig(ABC):
 
         # VertexAI specific
         self.vertex_credentials_json = vertex_credentials_json
+
+        # Jina specific
+        self.jina_base_url = jina_base_url

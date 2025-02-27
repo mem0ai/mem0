@@ -47,6 +47,7 @@ class EmbedderFactory:
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
         "together": "mem0.embeddings.together.TogetherEmbedding",
+        "jina": "mem0.embeddings.jina.JinaEmbedding",
     }
 
     @classmethod
