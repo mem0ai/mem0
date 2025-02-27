@@ -1091,6 +1091,7 @@
 								"created_at": {"type": "string", "format": "date-time"},
 								"updated_at": {"type": "string", "format": "date-time"},
 								"categories": {"type": "array", "items": {"type": "string"}},
+								"metadata": {"type": "object"},
 								"keywords": {"type": "string"}
 							},
 							"additionalProperties": {
