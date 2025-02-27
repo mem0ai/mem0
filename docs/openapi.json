@@ -1113,6 +1113,15 @@
 						"explode": true
 					},
 					{
+						"name": "fields",
+						"in": "query",
+						"schema": {
+							"type": "array",
+							"items": {"type": "string"}
+						},
+						"description": "A list of field names to include in the response. If not provided, all fields will be returned."
+					},
+					{
 						"name": "org_id",
 						"in": "query",
 						"schema": {
