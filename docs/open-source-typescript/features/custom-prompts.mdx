@@ -1,0 +1,141 @@
+---
+title: Custom Prompts
+description: 'Enhance your product experience by adding custom prompts tailored to your needs'
+icon: "pencil"
+iconType: "solid"
+---
+
+## Introduction to Custom Prompts
+
+Custom prompts allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. 
+By defining a custom prompt, you can control how information is extracted, processed, and stored in your memory system.
+
+To create an effective custom prompt:
+1. Be specific about the information to extract.
+2. Provide few-shot examples to guide the LLM.
+3. Ensure examples follow the format shown below.
+
+Example of a custom prompt:
+
+```typescript
+const customPrompt = `
+Please only extract entities containing customer support information, order details, and user information. 
+Here are some few shot examples:
+
+Input: Hi.
+Output: {"facts" : []}
+
+Input: The weather is nice today.
+Output: {"facts" : []}
+
+Input: My order #12345 hasn't arrived yet.
+Output: {"facts" : ["Order #12345 not received"]}
+
+Input: I'm John Doe, and I'd like to return the shoes I bought last week.
+Output: {"facts" : ["Customer name: John Doe", "Wants to return shoes", "Purchase made last week"]}
+
+Input: I ordered a red shirt, size medium, but received a blue one instead.
+Output: {"facts" : ["Ordered red shirt, size medium", "Received blue shirt instead"]}
+
+Return the facts and customer information in a json format as shown above.
+`;
+```
+
+Here we initialize the custom prompt in the config:
+
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  version: 'v1.1',
+  embedder: {
+    provider: 'openai',
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: 'text-embedding-3-small',
+    },
+  },
+  vectorStore: {
+    provider: 'memory',
+    config: {
+      collectionName: 'memories',
+      dimension: 1536,
+    },
+  },
+  llm: {
+    provider: 'openai',
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: 'gpt-4-turbo-preview',
+      temperature: 0.2,
+      maxTokens: 1500,
+    },
+  },
+  customPrompt: customPrompt,
+  historyDbPath: 'memory.db',
+};
+
+const memory = new Memory(config);
+```
+
+### Example 1
+
+In this example, we are adding a memory of a user ordering a laptop. As seen in the output, the custom prompt is used to extract the relevant information from the user's message.
+
+<CodeGroup>
+```typescript Code
+await memory.add('Yesterday, I ordered a laptop, the order id is 12345', 'user123');
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "c03c9045-df76-4949-bbc5-d5dc1932aa5c",
+      "memory": "Ordered a laptop",
+      "metadata": {}
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "Order ID: 12345",
+      "metadata": {}
+    },
+    {
+      "id": "e5f2a012-3b45-4c67-9d8e-123456789abc",
+      "memory": "Order placed yesterday",
+      "metadata": {}
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Example 2
+
+In this example, we are adding a memory of a user liking to go on hikes. This add message is not specific to the use-case mentioned in the custom prompt. 
+Hence, the memory is not added.
+
+<CodeGroup>
+```typescript Code
+await memory.add('I like going to hikes', 'user123');
+```
+
+```json Output
+{
+  "results": []
+}
+```
+</CodeGroup>
+
+You can also use custom prompts with chat messages:
+
+```typescript
+const messages = [
+  { role: 'user', content: 'Hi, I ordered item #54321 last week but haven\'t received it yet.' },
+  { role: 'assistant', content: 'I understand you\'re concerned about your order #54321. Let me help track that for you.' }
+];
+
+await memory.add(messages, 'user123');
+```
+
+The custom prompt will process both the user and assistant messages to extract relevant information according to the defined format.
