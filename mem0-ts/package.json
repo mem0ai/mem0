@@ -82,23 +82,21 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^1.1.14",
+    "axios": "1.7.7",
+    "openai": "4.28.0",
+    "uuid": "9.0.1",
+    "zod": "3.22.4"
+  },
+  "peerDependencies": {
     "@anthropic-ai/sdk": "0.18.0",
-    "@mem0/vercel-ai-provider": "^0.0.12",
+    "groq-sdk": "0.3.0",
     "@qdrant/js-client-rest": "1.13.0",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
     "@types/sqlite3": "3.1.11",
-    "axios": "1.7.7",
-    "groq-sdk": "0.3.0",
-    "openai": "4.28.0",
     "pg": "8.11.3",
-    "posthog-node": "4.0.0",
     "redis": "4.7.0",
-    "saket-mem0-test": "^0.0.14",
-    "sqlite3": "5.1.7",
-    "uuid": "9.0.1",
-    "zod": "3.22.4"
+    "sqlite3": "5.1.7"
   },
   "peerDependenciesMeta": {
     "posthog-node": {
