@@ -27,7 +27,9 @@ class BaseEmbedderConfig(ABC):
         http_client_proxies: Optional[Union[Dict, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
-        vertex_embedding_task: Optional[str] = None,
+        memory_add_embedding_type: Optional[str] = None,
+        memory_update_embedding_type: Optional[str] = None,
+        memory_search_embedding_type: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -50,8 +52,12 @@ class BaseEmbedderConfig(ABC):
         :type http_client_proxies: Optional[Dict | str], optional
         :param vertex_credentials_json: The path to the Vertex AI credentials JSON file, defaults to None
         :type vertex_credentials_json: Optional[str], optional
-        :param vertex_embedding_task: The task to be used for the Vertex AI embedding model, defaults to None
-        :type vertex_embedding_task: Optional[str], optional
+        :param memory_add_embedding_type: The type of embedding to use for the add memory action, defaults to None
+        :type memory_add_embedding_type: Optional[str], optional
+        :param memory_update_embedding_type: The type of embedding to use for the update memory action, defaults to None
+        :type memory_update_embedding_type: Optional[str], optional
+        :param memory_search_embedding_type: The type of embedding to use for the search memory action, defaults to None
+        :type memory_search_embedding_type: Optional[str], optional
         """
 
         self.model = model
@@ -73,4 +79,6 @@ class BaseEmbedderConfig(ABC):
 
         # VertexAI specific
         self.vertex_credentials_json = vertex_credentials_json
-        self.vertex_embedding_task = vertex_embedding_task
+        self.memory_add_embedding_type = memory_add_embedding_type
+        self.memory_update_embedding_type = memory_update_embedding_type
+        self.memory_search_embedding_type = memory_search_embedding_type

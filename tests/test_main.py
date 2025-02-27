@@ -119,7 +119,7 @@ def test_search(memory_instance, version, enable_graph):
     memory_instance.vector_store.search.assert_called_once_with(
         query=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
     )
-    memory_instance.embedding_model.embed.assert_called_once_with("test query")
+    memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
 
     if enable_graph:
         memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)

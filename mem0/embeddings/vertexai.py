@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Literal, Optional
 
 from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel
 
@@ -13,7 +13,12 @@ class VertexAIEmbedding(EmbeddingBase):
 
         self.config.model = self.config.model or "text-embedding-004"
         self.config.embedding_dims = self.config.embedding_dims or 256
-        self.config.vertex_embedding_task = self.config.vertex_embedding_task or "SEMANTIC_SIMILARITY"
+        
+        self.embedding_types = {
+            "add": self.config.memory_add_embedding_type or "RETRIEVAL_DOCUMENT",
+            "update": self.config.memory_update_embedding_type or "RETRIEVAL_DOCUMENT",
+            "search": self.config.memory_search_embedding_type or "RETRIEVAL_QUERY"
+        }
         
         credentials_path = self.config.vertex_credentials_json
 
@@ -26,17 +31,24 @@ class VertexAIEmbedding(EmbeddingBase):
 
         self.model = TextEmbeddingModel.from_pretrained(self.config.model)
 
-    def embed(self, text):
+    def embed(self, text, memory_action:Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using Vertex AI.
 
         Args:
             text (str): The text to embed.
-
+            memory_action (optional): The type of embedding to use. Must be one of "add", "search", or "update". Defaults to None.
         Returns:
             list: The embedding vector.
         """
-        text_input = TextEmbeddingInput(text=text, task_type=self.config.vertex_embedding_task)
+        embedding_type = "SEMANTIC_SIMILARITY"
+        if memory_action is not None:
+            if memory_action not in self.embedding_types:
+                raise ValueError(f"Invalid memory action: {memory_action}")
+            
+            embedding_type = self.embedding_types[memory_action]
+            
+        text_input = TextEmbeddingInput(text=text, task_type=embedding_type)
         embeddings = self.model.get_embeddings(texts=[text_input], output_dimensionality=self.config.embedding_dims)
 
         return embeddings[0].values
