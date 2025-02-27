@@ -1,5 +1,5 @@
-import sqlite3 from 'sqlite3';
-import { promisify } from 'util';
+import sqlite3 from "sqlite3";
+import { promisify } from "util";
 
 export class SQLiteManager {
   private db: sqlite3.Database;
@@ -55,18 +55,27 @@ export class SQLiteManager {
       `INSERT INTO memory_history 
       (memory_id, previous_value, new_value, action, created_at, updated_at, is_deleted)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [memoryId, previousValue, newValue, action, createdAt, updatedAt, isDeleted],
+      [
+        memoryId,
+        previousValue,
+        newValue,
+        action,
+        createdAt,
+        updatedAt,
+        isDeleted,
+      ],
     );
   }
 
   async getHistory(memoryId: string): Promise<any[]> {
-    return this.all('SELECT * FROM memory_history WHERE memory_id = ? ORDER BY id DESC', [
-      memoryId,
-    ]);
+    return this.all(
+      "SELECT * FROM memory_history WHERE memory_id = ? ORDER BY id DESC",
+      [memoryId],
+    );
   }
 
   async reset(): Promise<void> {
-    await this.run('DROP TABLE IF EXISTS memory_history');
+    await this.run("DROP TABLE IF EXISTS memory_history");
     await this.init();
   }
 

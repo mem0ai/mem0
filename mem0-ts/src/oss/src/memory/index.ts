@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
-import { createHash } from 'crypto';
+import { v4 as uuidv4 } from "uuid";
+import { createHash } from "crypto";
 import {
   MemoryConfig,
   MemoryConfigSchema,
@@ -7,19 +7,23 @@ import {
   Message,
   SearchFilters,
   SearchResult,
-} from '../types';
-import { EmbedderFactory, LLMFactory, VectorStoreFactory } from '../utils/factory';
+} from "../types";
+import {
+  EmbedderFactory,
+  LLMFactory,
+  VectorStoreFactory,
+} from "../utils/factory";
 import {
   getFactRetrievalMessages,
   getUpdateMemoryMessages,
   parseMessages,
   removeCodeBlocks,
-} from '../prompts';
-import { SQLiteManager } from '../storage';
-import { Embedder } from '../embeddings/base';
-import { LLM } from '../llms/base';
-import { VectorStore } from '../vector_stores/base';
-import { ConfigManager } from '../config/manager';
+} from "../prompts";
+import { SQLiteManager } from "../storage";
+import { Embedder } from "../embeddings/base";
+import { LLM } from "../llms/base";
+import { VectorStore } from "../vector_stores/base";
+import { ConfigManager } from "../config/manager";
 
 export class Memory {
   private config: MemoryConfig;
@@ -44,10 +48,13 @@ export class Memory {
       this.config.vectorStore.provider,
       this.config.vectorStore.config,
     );
-    this.llm = LLMFactory.create(this.config.llm.provider, this.config.llm.config);
-    this.db = new SQLiteManager(this.config.historyDbPath || ':memory:');
+    this.llm = LLMFactory.create(
+      this.config.llm.provider,
+      this.config.llm.config,
+    );
+    this.db = new SQLiteManager(this.config.historyDbPath || ":memory:");
     this.collectionName = this.config.vectorStore.config.collectionName;
-    this.apiVersion = this.config.version || 'v1.0';
+    this.apiVersion = this.config.version || "v1.0";
   }
 
   static fromConfig(configDict: Record<string, any>): Memory {
@@ -55,7 +62,7 @@ export class Memory {
       const config = MemoryConfigSchema.parse(configDict);
       return new Memory(config);
     } catch (e) {
-      console.error('Configuration validation error:', e);
+      console.error("Configuration validation error:", e);
       throw e;
     }
   }
@@ -74,14 +81,20 @@ export class Memory {
     if (runId) filters.runId = metadata.runId = runId;
 
     if (!filters.userId && !filters.agentId && !filters.runId) {
-      throw new Error('One of the filters: userId, agentId or runId is required!');
+      throw new Error(
+        "One of the filters: userId, agentId or runId is required!",
+      );
     }
 
     const parsedMessages = Array.isArray(messages)
       ? messages
-      : [{ role: 'user', content: messages }];
+      : [{ role: "user", content: messages }];
 
-    const vectorStoreResult = await this.addToVectorStore(parsedMessages, metadata, filters);
+    const vectorStoreResult = await this.addToVectorStore(
+      parsedMessages,
+      metadata,
+      filters,
+    );
 
     return { results: vectorStoreResult };
   }
@@ -91,7 +104,7 @@ export class Memory {
     metadata: Record<string, any>,
     filters: SearchFilters,
   ): Promise<MemoryItem[]> {
-    const parsedMessages = messages.map((m) => m.content).join('\n');
+    const parsedMessages = messages.map((m) => m.content).join("\n");
 
     // Get prompts
     const [systemPrompt, userPrompt] = this.customPrompt
@@ -101,10 +114,10 @@ export class Memory {
     // Extract facts using LLM
     const response = await this.llm.generateResponse(
       [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
       ],
-      { type: 'json_object' },
+      { type: "json_object" },
     );
 
     const cleanResponse = removeCodeBlocks(response);
@@ -119,7 +132,11 @@ export class Memory {
       const embedding = await this.embedder.embed(fact);
       newMessageEmbeddings[fact] = embedding;
 
-      const existingMemories = await this.vectorStore.search(embedding, 5, filters);
+      const existingMemories = await this.vectorStore.search(
+        embedding,
+        5,
+        filters,
+      );
       for (const mem of existingMemories) {
         retrievedOldMemory.push({ id: mem.id, text: mem.payload.data });
       }
@@ -127,7 +144,8 @@ export class Memory {
 
     // Remove duplicates from old memories
     const uniqueOldMemories = retrievedOldMemory.filter(
-      (mem, index) => retrievedOldMemory.findIndex((m) => m.id === mem.id) === index,
+      (mem, index) =>
+        retrievedOldMemory.findIndex((m) => m.id === mem.id) === index,
     );
 
     // Create UUID mapping for handling UUID hallucinations
@@ -140,8 +158,8 @@ export class Memory {
     // Get memory update decisions
     const updatePrompt = getUpdateMemoryMessages(uniqueOldMemories, facts);
     const updateResponse = await this.llm.generateResponse(
-      [{ role: 'user', content: updatePrompt }],
-      { type: 'json_object' },
+      [{ role: "user", content: updatePrompt }],
+      { type: "json_object" },
     );
 
     const cleanUpdateResponse = removeCodeBlocks(updateResponse);
@@ -152,8 +170,12 @@ export class Memory {
     for (const action of memoryActions) {
       try {
         switch (action.event) {
-          case 'ADD': {
-            const memoryId = await this.createMemory(action.text, newMessageEmbeddings, metadata);
+          case "ADD": {
+            const memoryId = await this.createMemory(
+              action.text,
+              newMessageEmbeddings,
+              metadata,
+            );
             results.push({
               id: memoryId,
               memory: action.text,
@@ -161,9 +183,14 @@ export class Memory {
             });
             break;
           }
-          case 'UPDATE': {
+          case "UPDATE": {
             const realMemoryId = tempUuidMapping[action.id];
-            await this.updateMemory(realMemoryId, action.text, newMessageEmbeddings, metadata);
+            await this.updateMemory(
+              realMemoryId,
+              action.text,
+              newMessageEmbeddings,
+              metadata,
+            );
             results.push({
               id: realMemoryId,
               memory: action.text,
@@ -174,7 +201,7 @@ export class Memory {
             });
             break;
           }
-          case 'DELETE': {
+          case "DELETE": {
             const realMemoryId = tempUuidMapping[action.id];
             await this.deleteMemory(realMemoryId);
             results.push({
@@ -214,13 +241,13 @@ export class Memory {
 
     // Add additional metadata
     const excludedKeys = new Set([
-      'userId',
-      'agentId',
-      'runId',
-      'hash',
-      'data',
-      'createdAt',
-      'updatedAt',
+      "userId",
+      "agentId",
+      "runId",
+      "hash",
+      "data",
+      "createdAt",
+      "updatedAt",
     ]);
     for (const [key, value] of Object.entries(memory.payload)) {
       if (!excludedKeys.has(key)) {
@@ -244,20 +271,26 @@ export class Memory {
     if (runId) filters.runId = runId;
 
     if (!filters.userId && !filters.agentId && !filters.runId) {
-      throw new Error('One of the filters: userId, agentId or runId is required!');
+      throw new Error(
+        "One of the filters: userId, agentId or runId is required!",
+      );
     }
 
     const queryEmbedding = await this.embedder.embed(query);
-    const memories = await this.vectorStore.search(queryEmbedding, limit, filters);
+    const memories = await this.vectorStore.search(
+      queryEmbedding,
+      limit,
+      filters,
+    );
 
     const excludedKeys = new Set([
-      'userId',
-      'agentId',
-      'runId',
-      'hash',
-      'data',
-      'createdAt',
-      'updatedAt',
+      "userId",
+      "agentId",
+      "runId",
+      "hash",
+      "data",
+      "createdAt",
+      "updatedAt",
     ]);
     const results = memories.map((mem) => ({
       id: mem.id,
@@ -280,15 +313,19 @@ export class Memory {
   async update(memoryId: string, data: string): Promise<{ message: string }> {
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
-    return { message: 'Memory updated successfully!' };
+    return { message: "Memory updated successfully!" };
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
     await this.deleteMemory(memoryId);
-    return { message: 'Memory deleted successfully!' };
+    return { message: "Memory deleted successfully!" };
   }
 
-  async deleteAll(userId?: string, agentId?: string, runId?: string): Promise<{ message: string }> {
+  async deleteAll(
+    userId?: string,
+    agentId?: string,
+    runId?: string,
+  ): Promise<{ message: string }> {
     const filters: SearchFilters = {};
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
@@ -296,7 +333,7 @@ export class Memory {
 
     if (!Object.keys(filters).length) {
       throw new Error(
-        'At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method.',
+        "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method.",
       );
     }
 
@@ -305,7 +342,7 @@ export class Memory {
       await this.deleteMemory(memory.id);
     }
 
-    return { message: 'Memories deleted successfully!' };
+    return { message: "Memories deleted successfully!" };
   }
 
   async history(memoryId: string): Promise<any[]> {
@@ -335,13 +372,13 @@ export class Memory {
     const [memories] = await this.vectorStore.list(filters, limit);
 
     const excludedKeys = new Set([
-      'userId',
-      'agentId',
-      'runId',
-      'hash',
-      'data',
-      'createdAt',
-      'updatedAt',
+      "userId",
+      "agentId",
+      "runId",
+      "hash",
+      "data",
+      "createdAt",
+      "updatedAt",
     ]);
     const results = memories.map((mem) => ({
       id: mem.id,
@@ -366,17 +403,24 @@ export class Memory {
     metadata: Record<string, any>,
   ): Promise<string> {
     const memoryId = uuidv4();
-    const embedding = existingEmbeddings[data] || (await this.embedder.embed(data));
+    const embedding =
+      existingEmbeddings[data] || (await this.embedder.embed(data));
 
     const memoryMetadata = {
       ...metadata,
       data,
-      hash: createHash('md5').update(data).digest('hex'),
+      hash: createHash("md5").update(data).digest("hex"),
       createdAt: new Date().toISOString(),
     };
 
     await this.vectorStore.insert([embedding], [memoryId], [memoryMetadata]);
-    await this.db.addHistory(memoryId, null, data, 'ADD', memoryMetadata.createdAt);
+    await this.db.addHistory(
+      memoryId,
+      null,
+      data,
+      "ADD",
+      memoryMetadata.createdAt,
+    );
 
     return memoryId;
   }
@@ -393,17 +437,24 @@ export class Memory {
     }
 
     const prevValue = existingMemory.payload.data;
-    const embedding = existingEmbeddings[data] || (await this.embedder.embed(data));
+    const embedding =
+      existingEmbeddings[data] || (await this.embedder.embed(data));
 
     const newMetadata = {
       ...metadata,
       data,
-      hash: createHash('md5').update(data).digest('hex'),
+      hash: createHash("md5").update(data).digest("hex"),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.userId && { userId: existingMemory.payload.userId }),
-      ...(existingMemory.payload.agentId && { agentId: existingMemory.payload.agentId }),
-      ...(existingMemory.payload.runId && { runId: existingMemory.payload.runId }),
+      ...(existingMemory.payload.userId && {
+        userId: existingMemory.payload.userId,
+      }),
+      ...(existingMemory.payload.agentId && {
+        agentId: existingMemory.payload.agentId,
+      }),
+      ...(existingMemory.payload.runId && {
+        runId: existingMemory.payload.runId,
+      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);
@@ -411,7 +462,7 @@ export class Memory {
       memoryId,
       prevValue,
       data,
-      'UPDATE',
+      "UPDATE",
       newMetadata.createdAt,
       newMetadata.updatedAt,
     );
@@ -427,7 +478,15 @@ export class Memory {
 
     const prevValue = existingMemory.payload.data;
     await this.vectorStore.delete(memoryId);
-    await this.db.addHistory(memoryId, prevValue, null, 'DELETE', undefined, undefined, 1);
+    await this.db.addHistory(
+      memoryId,
+      prevValue,
+      null,
+      "DELETE",
+      undefined,
+      undefined,
+      1,
+    );
 
     return memoryId;
   }

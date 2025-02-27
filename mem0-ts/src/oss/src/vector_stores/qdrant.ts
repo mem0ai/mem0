@@ -1,7 +1,7 @@
-import { QdrantClient } from '@qdrant/js-client-rest';
-import { VectorStore } from './base';
-import { SearchFilters, VectorStoreConfig, VectorStoreResult } from '../types';
-import * as fs from 'fs';
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { VectorStore } from "./base";
+import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import * as fs from "fs";
 
 interface QdrantConfig extends VectorStoreConfig {
   client?: QdrantClient;
@@ -15,7 +15,7 @@ interface QdrantConfig extends VectorStoreConfig {
   embeddingModelDims: number;
 }
 
-type DistanceType = 'Cosine' | 'Euclid' | 'Dot';
+type DistanceType = "Cosine" | "Euclid" | "Dot";
 
 interface QdrantPoint {
   id: string | number;
@@ -56,7 +56,7 @@ interface QdrantCondition {
 
 interface QdrantVectorParams {
   size: number;
-  distance: 'Cosine' | 'Euclid' | 'Dot' | 'Manhattan';
+  distance: "Cosine" | "Euclid" | "Dot" | "Manhattan";
   on_disk?: boolean;
 }
 
@@ -65,7 +65,7 @@ interface QdrantCollectionInfo {
     params?: {
       vectors?: {
         size: number;
-        distance: 'Cosine' | 'Euclid' | 'Dot' | 'Manhattan';
+        distance: "Cosine" | "Euclid" | "Dot" | "Manhattan";
         on_disk?: boolean;
       };
     };
@@ -94,7 +94,10 @@ export class Qdrant implements VectorStore {
       if (!Object.keys(params).length) {
         params.path = config.path;
         if (!config.onDisk && config.path) {
-          if (fs.existsSync(config.path) && fs.statSync(config.path).isDirectory()) {
+          if (
+            fs.existsSync(config.path) &&
+            fs.statSync(config.path).isDirectory()
+          ) {
             fs.rmSync(config.path, { recursive: true });
           }
         }
@@ -110,7 +113,7 @@ export class Qdrant implements VectorStore {
   private async createCol(
     vectorSize: number,
     onDisk: boolean,
-    distance: DistanceType = 'Cosine',
+    distance: DistanceType = "Cosine",
   ): Promise<void> {
     try {
       // Check if collection exists
@@ -122,7 +125,7 @@ export class Qdrant implements VectorStore {
       if (!exists) {
         const vectorParams: QdrantVectorParams = {
           size: vectorSize,
-          distance: distance as 'Cosine' | 'Euclid' | 'Dot' | 'Manhattan',
+          distance: distance as "Cosine" | "Euclid" | "Dot" | "Manhattan",
           on_disk: onDisk,
         };
 
@@ -153,9 +156,9 @@ export class Qdrant implements VectorStore {
       }
     } catch (error) {
       if (error instanceof Error) {
-        console.error('Error creating/verifying collection:', error.message);
+        console.error("Error creating/verifying collection:", error.message);
       } else {
-        console.error('Error creating/verifying collection:', error);
+        console.error("Error creating/verifying collection:", error);
       }
       throw error;
     }
@@ -166,7 +169,12 @@ export class Qdrant implements VectorStore {
 
     const conditions: QdrantCondition[] = [];
     for (const [key, value] of Object.entries(filters)) {
-      if (typeof value === 'object' && value !== null && 'gte' in value && 'lte' in value) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "gte" in value &&
+        "lte" in value
+      ) {
         conditions.push({
           key,
           range: {
@@ -187,7 +195,11 @@ export class Qdrant implements VectorStore {
     return conditions.length ? { must: conditions } : undefined;
   }
 
-  async insert(vectors: number[][], ids: string[], payloads: Record<string, any>[]): Promise<void> {
+  async insert(
+    vectors: number[][],
+    ids: string[],
+    payloads: Record<string, any>[],
+  ): Promise<void> {
     const points = vectors.map((vector, idx) => ({
       id: ids[idx],
       vector: vector,
@@ -232,7 +244,11 @@ export class Qdrant implements VectorStore {
     };
   }
 
-  async update(vectorId: string, vector: number[], payload: Record<string, any>): Promise<void> {
+  async update(
+    vectorId: string,
+    vector: number[],
+    payload: Record<string, any>,
+  ): Promise<void> {
     const point = {
       id: vectorId,
       vector: vector,
@@ -254,7 +270,10 @@ export class Qdrant implements VectorStore {
     await this.client.deleteCollection(this.collectionName);
   }
 
-  async list(filters?: SearchFilters, limit: number = 100): Promise<[VectorStoreResult[], number]> {
+  async list(
+    filters?: SearchFilters,
+    limit: number = 100,
+  ): Promise<[VectorStoreResult[], number]> {
     const scrollRequest = {
       limit,
       filter: this.createFilter(filters),
@@ -262,7 +281,10 @@ export class Qdrant implements VectorStore {
       with_vectors: false,
     };
 
-    const response = await this.client.scroll(this.collectionName, scrollRequest);
+    const response = await this.client.scroll(
+      this.collectionName,
+      scrollRequest,
+    );
 
     const results = response.points.map((point) => ({
       id: String(point.id),

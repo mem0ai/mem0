@@ -1,1 +1,1 @@
-export * from './SQLiteManager';
+export * from "./SQLiteManager";

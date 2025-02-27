@@ -1,20 +1,27 @@
-import { MemoryConfig, MemoryConfigSchema } from '../types';
-import { DEFAULT_MEMORY_CONFIG } from './defaults';
+import { MemoryConfig, MemoryConfigSchema } from "../types";
+import { DEFAULT_MEMORY_CONFIG } from "./defaults";
 
 export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
     const mergedConfig = {
       version: userConfig.version || DEFAULT_MEMORY_CONFIG.version,
       embedder: {
-        provider: userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider,
+        provider:
+          userConfig.embedder?.provider ||
+          DEFAULT_MEMORY_CONFIG.embedder.provider,
         config: {
           apiKey:
-            userConfig.embedder?.config?.apiKey || DEFAULT_MEMORY_CONFIG.embedder.config.apiKey,
-          model: userConfig.embedder?.config?.model || DEFAULT_MEMORY_CONFIG.embedder.config.model,
+            userConfig.embedder?.config?.apiKey ||
+            DEFAULT_MEMORY_CONFIG.embedder.config.apiKey,
+          model:
+            userConfig.embedder?.config?.model ||
+            DEFAULT_MEMORY_CONFIG.embedder.config.model,
         },
       },
       vectorStore: {
-        provider: userConfig.vectorStore?.provider || DEFAULT_MEMORY_CONFIG.vectorStore.provider,
+        provider:
+          userConfig.vectorStore?.provider ||
+          DEFAULT_MEMORY_CONFIG.vectorStore.provider,
         config: {
           collectionName:
             userConfig.vectorStore?.config?.collectionName ||
@@ -26,13 +33,19 @@ export class ConfigManager {
         },
       },
       llm: {
-        provider: userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider,
+        provider:
+          userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider,
         config: {
-          apiKey: userConfig.llm?.config?.apiKey || DEFAULT_MEMORY_CONFIG.llm.config.apiKey,
-          model: userConfig.llm?.config?.model || DEFAULT_MEMORY_CONFIG.llm.config.model,
+          apiKey:
+            userConfig.llm?.config?.apiKey ||
+            DEFAULT_MEMORY_CONFIG.llm.config.apiKey,
+          model:
+            userConfig.llm?.config?.model ||
+            DEFAULT_MEMORY_CONFIG.llm.config.model,
         },
       },
-      historyDbPath: userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
+      historyDbPath:
+        userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
       customPrompt: userConfig.customPrompt,
       graphStore: userConfig.graphStore,
     };

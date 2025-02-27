@@ -1,13 +1,13 @@
-import { createClient } from 'redis';
+import { createClient } from "redis";
 import type {
   RedisClientType,
   RedisDefaultModules,
   RedisFunctions,
   RedisModules,
   RedisScripts,
-} from 'redis';
-import { VectorStore } from './base';
-import { SearchFilters, VectorStoreConfig, VectorStoreResult } from '../types';
+} from "redis";
+import { VectorStore } from "./base";
+import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
@@ -77,35 +77,35 @@ interface RedisModule {
 }
 
 const DEFAULT_FIELDS: RedisField[] = [
-  { name: 'memory_id', type: 'tag' },
-  { name: 'hash', type: 'tag' },
-  { name: 'agent_id', type: 'tag' },
-  { name: 'run_id', type: 'tag' },
-  { name: 'user_id', type: 'tag' },
-  { name: 'memory', type: 'text' },
-  { name: 'metadata', type: 'text' },
-  { name: 'created_at', type: 'numeric' },
-  { name: 'updated_at', type: 'numeric' },
+  { name: "memory_id", type: "tag" },
+  { name: "hash", type: "tag" },
+  { name: "agent_id", type: "tag" },
+  { name: "run_id", type: "tag" },
+  { name: "user_id", type: "tag" },
+  { name: "memory", type: "text" },
+  { name: "metadata", type: "text" },
+  { name: "created_at", type: "numeric" },
+  { name: "updated_at", type: "numeric" },
   {
-    name: 'embedding',
-    type: 'vector',
+    name: "embedding",
+    type: "vector",
     attrs: {
-      algorithm: 'flat',
-      distance_metric: 'cosine',
-      datatype: 'float32',
+      algorithm: "flat",
+      distance_metric: "cosine",
+      datatype: "float32",
       dims: 0, // Will be set in constructor
     },
   },
 ];
 
 const EXCLUDED_KEYS = new Set([
-  'user_id',
-  'agent_id',
-  'run_id',
-  'hash',
-  'data',
-  'created_at',
-  'updated_at',
+  "user_id",
+  "agent_id",
+  "run_id",
+  "hash",
+  "data",
+  "created_at",
+  "updated_at",
 ]);
 
 export class RedisDB implements VectorStore {
@@ -126,7 +126,7 @@ export class RedisDB implements VectorStore {
         prefix: this.indexPrefix,
       },
       fields: DEFAULT_FIELDS.map((field) => {
-        if (field.name === 'embedding' && field.attrs) {
+        if (field.name === "embedding" && field.attrs) {
           return {
             ...field,
             attrs: {
@@ -146,19 +146,19 @@ export class RedisDB implements VectorStore {
       socket: {
         reconnectStrategy: (retries) => {
           if (retries > 10) {
-            console.error('Max reconnection attempts reached');
-            return new Error('Max reconnection attempts reached');
+            console.error("Max reconnection attempts reached");
+            return new Error("Max reconnection attempts reached");
           }
           return Math.min(retries * 100, 3000);
         },
       },
     });
 
-    this.client.on('error', (err) => console.error('Redis Client Error:', err));
-    this.client.on('connect', () => console.log('Redis Client Connected'));
+    this.client.on("error", (err) => console.error("Redis Client Error:", err));
+    this.client.on("connect", () => console.log("Redis Client Connected"));
 
     this.initialize().catch((err) => {
-      console.error('Failed to initialize Redis:', err);
+      console.error("Failed to initialize Redis:", err);
       throw err;
     });
   }
@@ -166,10 +166,11 @@ export class RedisDB implements VectorStore {
   private async initialize(): Promise<void> {
     try {
       await this.client.connect();
-      console.log('Connected to Redis');
+      console.log("Connected to Redis");
 
       // Check if Redis Stack modules are loaded
-      const modulesResponse = (await this.client.moduleList()) as unknown as any[];
+      const modulesResponse =
+        (await this.client.moduleList()) as unknown as any[];
 
       // Parse module list to find search module
       const hasSearch = modulesResponse.some((module: any[]) => {
@@ -177,12 +178,12 @@ export class RedisDB implements VectorStore {
         for (let i = 0; i < module.length; i += 2) {
           moduleMap.set(module[i], module[i + 1]);
         }
-        return moduleMap.get('name')?.toLowerCase() === 'search';
+        return moduleMap.get("name")?.toLowerCase() === "search";
       });
 
       if (!hasSearch) {
         throw new Error(
-          'RediSearch module is not loaded. Please ensure Redis Stack is properly installed and running.',
+          "RediSearch module is not loaded. Please ensure Redis Stack is properly installed and running.",
         );
       }
 
@@ -192,10 +193,13 @@ export class RedisDB implements VectorStore {
       while (retries < maxRetries) {
         try {
           await this.createIndex();
-          console.log('Redis index created successfully');
+          console.log("Redis index created successfully");
           break;
         } catch (error) {
-          console.error(`Error creating index (attempt ${retries + 1}/${maxRetries}):`, error);
+          console.error(
+            `Error creating index (attempt ${retries + 1}/${maxRetries}):`,
+            error,
+          );
           retries++;
           if (retries === maxRetries) {
             throw error;
@@ -205,7 +209,7 @@ export class RedisDB implements VectorStore {
         }
       }
     } catch (error) {
-      console.error('Error during Redis initialization:', error);
+      console.error("Error during Redis initialization:", error);
       throw error;
     }
   }
@@ -223,28 +227,28 @@ export class RedisDB implements VectorStore {
       const schema: Record<string, any> = {};
 
       for (const field of this.schema.fields) {
-        if (field.type === 'vector') {
+        if (field.type === "vector") {
           schema[field.name] = {
-            type: 'VECTOR',
-            ALGORITHM: 'FLAT',
-            TYPE: 'FLOAT32',
+            type: "VECTOR",
+            ALGORITHM: "FLAT",
+            TYPE: "FLOAT32",
             DIM: field.attrs!.dims,
-            DISTANCE_METRIC: 'COSINE',
+            DISTANCE_METRIC: "COSINE",
             INITIAL_CAP: 1000,
           };
-        } else if (field.type === 'numeric') {
+        } else if (field.type === "numeric") {
           schema[field.name] = {
-            type: 'NUMERIC',
+            type: "NUMERIC",
             SORTABLE: true,
           };
-        } else if (field.type === 'tag') {
+        } else if (field.type === "tag") {
           schema[field.name] = {
-            type: 'TAG',
-            SEPARATOR: '|',
+            type: "TAG",
+            SEPARATOR: "|",
           };
-        } else if (field.type === 'text') {
+        } else if (field.type === "text") {
           schema[field.name] = {
-            type: 'TEXT',
+            type: "TEXT",
             WEIGHT: 1,
           };
         }
@@ -252,17 +256,21 @@ export class RedisDB implements VectorStore {
 
       // Create the index
       await this.client.ft.create(this.indexName, schema, {
-        ON: 'HASH',
-        PREFIX: this.indexPrefix + ':',
+        ON: "HASH",
+        PREFIX: this.indexPrefix + ":",
         STOPWORDS: [],
       });
     } catch (error) {
-      console.error('Error creating Redis index:', error);
+      console.error("Error creating Redis index:", error);
       throw error;
     }
   }
 
-  async insert(vectors: number[][], ids: string[], payloads: Record<string, any>[]): Promise<void> {
+  async insert(
+    vectors: number[][],
+    ids: string[],
+    payloads: Record<string, any>[],
+  ): Promise<void> {
     const data = vectors.map((vector, idx) => {
       const payload = payloads[idx];
       const id = ids[idx];
@@ -277,7 +285,7 @@ export class RedisDB implements VectorStore {
       };
 
       // Add optional fields
-      ['agent_id', 'run_id', 'user_id'].forEach((field) => {
+      ["agent_id", "run_id", "user_id"].forEach((field) => {
         if (field in payload) {
           entry[field] = payload[field];
         }
@@ -285,7 +293,9 @@ export class RedisDB implements VectorStore {
 
       // Add metadata excluding specific keys
       entry.metadata = JSON.stringify(
-        Object.fromEntries(Object.entries(payload).filter(([key]) => !EXCLUDED_KEYS.has(key))),
+        Object.fromEntries(
+          Object.entries(payload).filter(([key]) => !EXCLUDED_KEYS.has(key)),
+        ),
       );
 
       return entry;
@@ -302,7 +312,7 @@ export class RedisDB implements VectorStore {
         ),
       );
     } catch (error) {
-      console.error('Error during vector insert:', error);
+      console.error("Error during vector insert:", error);
       throw error;
     }
   }
@@ -316,8 +326,8 @@ export class RedisDB implements VectorStore {
       ? Object.entries(filters)
           .filter(([_, value]) => value !== null)
           .map(([key, value]) => `@${key}:{${value}}`)
-          .join(' ')
-      : '*';
+          .join(" ")
+      : "*";
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -326,16 +336,16 @@ export class RedisDB implements VectorStore {
         vec: Buffer.from(queryVector),
       },
       RETURN: [
-        'memory_id',
-        'hash',
-        'agent_id',
-        'run_id',
-        'user_id',
-        'memory',
-        'metadata',
-        'created_at',
+        "memory_id",
+        "hash",
+        "agent_id",
+        "run_id",
+        "user_id",
+        "memory",
+        "metadata",
+        "created_at",
       ],
-      SORTBY: 'vector_score',
+      SORTBY: "vector_score",
       DIALECT: 2,
       LIMIT: {
         from: 0,
@@ -361,7 +371,7 @@ export class RedisDB implements VectorStore {
           ...(doc.value.agent_id && { agent_id: doc.value.agent_id }),
           ...(doc.value.run_id && { run_id: doc.value.run_id }),
           ...(doc.value.user_id && { user_id: doc.value.user_id }),
-          ...JSON.parse(doc.value.metadata || '{}'),
+          ...JSON.parse(doc.value.metadata || "{}"),
         };
 
         return {
@@ -371,7 +381,7 @@ export class RedisDB implements VectorStore {
         };
       });
     } catch (error) {
-      console.error('Error during vector search:', error);
+      console.error("Error during vector search:", error);
       throw error;
     }
   }
@@ -379,13 +389,17 @@ export class RedisDB implements VectorStore {
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     try {
       // Check if the memory exists first
-      const exists = await this.client.exists(`${this.indexPrefix}:${vectorId}`);
+      const exists = await this.client.exists(
+        `${this.indexPrefix}:${vectorId}`,
+      );
       if (!exists) {
         console.warn(`Memory with ID ${vectorId} does not exist`);
         return null;
       }
 
-      const result = await this.client.hGetAll(`${this.indexPrefix}:${vectorId}`);
+      const result = await this.client.hGetAll(
+        `${this.indexPrefix}:${vectorId}`,
+      );
       if (!Object.keys(result).length) return null;
 
       const doc = {
@@ -415,7 +429,9 @@ export class RedisDB implements VectorStore {
           }
           // Validate the date is valid
           if (isNaN(created_at.getTime())) {
-            console.warn(`Invalid created_at timestamp: ${result.created_at}, using current date`);
+            console.warn(
+              `Invalid created_at timestamp: ${result.created_at}, using current date`,
+            );
             created_at = new Date();
           }
         }
@@ -459,7 +475,7 @@ export class RedisDB implements VectorStore {
         ...(doc.agent_id && { agent_id: doc.agent_id }),
         ...(doc.run_id && { run_id: doc.run_id }),
         ...(doc.user_id && { user_id: doc.user_id }),
-        ...JSON.parse(doc.metadata || '{}'),
+        ...JSON.parse(doc.metadata || "{}"),
       };
 
       return {
@@ -467,12 +483,16 @@ export class RedisDB implements VectorStore {
         payload,
       };
     } catch (error) {
-      console.error('Error getting vector:', error);
+      console.error("Error getting vector:", error);
       throw error;
     }
   }
 
-  async update(vectorId: string, vector: number[], payload: Record<string, any>): Promise<void> {
+  async update(
+    vectorId: string,
+    vector: number[],
+    payload: Record<string, any>,
+  ): Promise<void> {
     const entry: Record<string, any> = {
       memory_id: vectorId,
       hash: payload.hash,
@@ -483,7 +503,7 @@ export class RedisDB implements VectorStore {
     };
 
     // Add optional fields
-    ['agent_id', 'run_id', 'user_id'].forEach((field) => {
+    ["agent_id", "run_id", "user_id"].forEach((field) => {
       if (field in payload) {
         entry[field] = payload[field];
       }
@@ -491,13 +511,15 @@ export class RedisDB implements VectorStore {
 
     // Add metadata excluding specific keys
     entry.metadata = JSON.stringify(
-      Object.fromEntries(Object.entries(payload).filter(([key]) => !EXCLUDED_KEYS.has(key))),
+      Object.fromEntries(
+        Object.entries(payload).filter(([key]) => !EXCLUDED_KEYS.has(key)),
+      ),
     );
 
     try {
       await this.client.hSet(`${this.indexPrefix}:${vectorId}`, entry);
     } catch (error) {
-      console.error('Error during vector update:', error);
+      console.error("Error during vector update:", error);
       throw error;
     }
   }
@@ -522,7 +544,7 @@ export class RedisDB implements VectorStore {
 
       console.log(`Successfully deleted memory with ID ${vectorId}`);
     } catch (error) {
-      console.error('Error deleting memory:', error);
+      console.error("Error deleting memory:", error);
       throw error;
     }
   }
@@ -531,17 +553,20 @@ export class RedisDB implements VectorStore {
     await this.client.ft.dropIndex(this.indexName);
   }
 
-  async list(filters?: SearchFilters, limit: number = 100): Promise<[VectorStoreResult[], number]> {
+  async list(
+    filters?: SearchFilters,
+    limit: number = 100,
+  ): Promise<[VectorStoreResult[], number]> {
     const filterExpr = filters
       ? Object.entries(filters)
           .filter(([_, value]) => value !== null)
           .map(([key, value]) => `@${key}:{${value}}`)
-          .join(' ')
-      : '*';
+          .join(" ")
+      : "*";
 
     const searchOptions = {
-      SORTBY: 'created_at',
-      SORTDIR: 'DESC',
+      SORTBY: "created_at",
+      SORTDIR: "DESC",
       LIMIT: {
         from: 0,
         size: limit,
@@ -566,7 +591,7 @@ export class RedisDB implements VectorStore {
         ...(doc.value.agent_id && { agent_id: doc.value.agent_id }),
         ...(doc.value.run_id && { run_id: doc.value.run_id }),
         ...(doc.value.user_id && { user_id: doc.value.user_id }),
-        ...JSON.parse(doc.value.metadata || '{}'),
+        ...JSON.parse(doc.value.metadata || "{}"),
       },
     }));
 

@@ -1,6 +1,6 @@
-import { Client, Pool } from 'pg';
-import { VectorStore } from './base';
-import { SearchFilters, VectorStoreConfig, VectorStoreResult } from '../types';
+import { Client, Pool } from "pg";
+import { VectorStore } from "./base";
+import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface PGVectorConfig extends VectorStoreConfig {
   dbname?: string;
@@ -24,10 +24,10 @@ export class PGVector implements VectorStore {
     this.collectionName = config.collectionName;
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
-    this.dbName = config.dbname || 'vector_store';
+    this.dbName = config.dbname || "vector_store";
 
     this.client = new Client({
-      database: 'postgres', // Initially connect to default postgres database
+      database: "postgres", // Initially connect to default postgres database
       user: config.user,
       password: config.password,
       host: config.host,
@@ -37,7 +37,10 @@ export class PGVector implements VectorStore {
     this.initialize(config, config.embeddingModelDims);
   }
 
-  private async initialize(config: PGVectorConfig, embeddingModelDims: number): Promise<void> {
+  private async initialize(
+    config: PGVectorConfig,
+    embeddingModelDims: number,
+  ): Promise<void> {
     try {
       await this.client.connect();
 
@@ -61,7 +64,7 @@ export class PGVector implements VectorStore {
       await this.client.connect();
 
       // Create vector extension
-      await this.client.query('CREATE EXTENSION IF NOT EXISTS vector');
+      await this.client.query("CREATE EXTENSION IF NOT EXISTS vector");
 
       // Check if the collection exists
       const collections = await this.listCols();
@@ -69,15 +72,16 @@ export class PGVector implements VectorStore {
         await this.createCol(embeddingModelDims);
       }
     } catch (error) {
-      console.error('Error during initialization:', error);
+      console.error("Error during initialization:", error);
       throw error;
     }
   }
 
   private async checkDatabaseExists(dbName: string): Promise<boolean> {
-    const result = await this.client.query('SELECT 1 FROM pg_database WHERE datname = $1', [
-      dbName,
-    ]);
+    const result = await this.client.query(
+      "SELECT 1 FROM pg_database WHERE datname = $1",
+      [dbName],
+    );
     return result.rows.length > 0;
   }
 
@@ -111,7 +115,7 @@ export class PGVector implements VectorStore {
           `);
         }
       } catch (error) {
-        console.warn('DiskANN index creation failed:', error);
+        console.warn("DiskANN index creation failed:", error);
       }
     } else if (this.useHnsw) {
       try {
@@ -121,15 +125,19 @@ export class PGVector implements VectorStore {
           USING hnsw (vector vector_cosine_ops);
         `);
       } catch (error) {
-        console.warn('HNSW index creation failed:', error);
+        console.warn("HNSW index creation failed:", error);
       }
     }
   }
 
-  async insert(vectors: number[][], ids: string[], payloads: Record<string, any>[]): Promise<void> {
+  async insert(
+    vectors: number[][],
+    ids: string[],
+    payloads: Record<string, any>[],
+  ): Promise<void> {
     const values = vectors.map((vector, i) => ({
       id: ids[i],
-      vector: `[${vector.join(',')}]`, // Format vector as string with square brackets
+      vector: `[${vector.join(",")}]`, // Format vector as string with square brackets
       payload: payloads[i],
     }));
 
@@ -140,7 +148,9 @@ export class PGVector implements VectorStore {
 
     // Execute inserts in parallel using Promise.all
     await Promise.all(
-      values.map((value) => this.client.query(query, [value.id, value.vector, value.payload])),
+      values.map((value) =>
+        this.client.query(query, [value.id, value.vector, value.payload]),
+      ),
     );
   }
 
@@ -150,7 +160,7 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const filterConditions: string[] = [];
-    const queryVector = `[${query.join(',')}]`; // Format query vector as string with square brackets
+    const queryVector = `[${query.join(",")}]`; // Format query vector as string with square brackets
     const filterValues: any[] = [queryVector, limit];
     let filterIndex = 3;
 
@@ -163,7 +173,9 @@ export class PGVector implements VectorStore {
     }
 
     const filterClause =
-      filterConditions.length > 0 ? 'WHERE ' + filterConditions.join(' AND ') : '';
+      filterConditions.length > 0
+        ? "WHERE " + filterConditions.join(" AND ")
+        : "";
 
     const searchQuery = `
       SELECT id, vector <=> $1::vector AS distance, payload
@@ -196,8 +208,12 @@ export class PGVector implements VectorStore {
     };
   }
 
-  async update(vectorId: string, vector: number[], payload: Record<string, any>): Promise<void> {
-    const vectorStr = `[${vector.join(',')}]`; // Format vector as string with square brackets
+  async update(
+    vectorId: string,
+    vector: number[],
+    payload: Record<string, any>,
+  ): Promise<void> {
+    const vectorStr = `[${vector.join(",")}]`; // Format vector as string with square brackets
     await this.client.query(
       `
       UPDATE ${this.collectionName}
@@ -209,7 +225,10 @@ export class PGVector implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.client.query(`DELETE FROM ${this.collectionName} WHERE id = $1`, [vectorId]);
+    await this.client.query(
+      `DELETE FROM ${this.collectionName} WHERE id = $1`,
+      [vectorId],
+    );
   }
 
   async deleteCol(): Promise<void> {
@@ -225,7 +244,10 @@ export class PGVector implements VectorStore {
     return result.rows.map((row) => row.table_name);
   }
 
-  async list(filters?: SearchFilters, limit: number = 100): Promise<[VectorStoreResult[], number]> {
+  async list(
+    filters?: SearchFilters,
+    limit: number = 100,
+  ): Promise<[VectorStoreResult[], number]> {
     const filterConditions: string[] = [];
     const filterValues: any[] = [];
     let paramIndex = 1;
@@ -239,7 +261,9 @@ export class PGVector implements VectorStore {
     }
 
     const filterClause =
-      filterConditions.length > 0 ? 'WHERE ' + filterConditions.join(' AND ') : '';
+      filterConditions.length > 0
+        ? "WHERE " + filterConditions.join(" AND ")
+        : "";
 
     const listQuery = `
       SELECT id, payload

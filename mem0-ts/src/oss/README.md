@@ -46,7 +46,7 @@ npm run build
 ### Basic Example
 
 ```typescript
-import { Memory } from 'mem0-ts';
+import { Memory } from "mem0-ts";
 
 // Create a memory instance with default OpenAI configuration
 const memory = new Memory();
@@ -68,32 +68,32 @@ const memory = new Memory({
 // Or with custom configuration
 const memory = new Memory({
   embedder: {
-    provider: 'openai',
+    provider: "openai",
     config: {
       apiKey: process.env.OPENAI_API_KEY,
-      model: 'text-embedding-3-small',
+      model: "text-embedding-3-small",
     },
   },
   vectorStore: {
-    provider: 'memory',
+    provider: "memory",
     config: {
-      collectionName: 'custom-memories',
+      collectionName: "custom-memories",
     },
   },
   llm: {
-    provider: 'openai',
+    provider: "openai",
     config: {
       apiKey: process.env.OPENAI_API_KEY,
-      model: 'gpt-4-turbo-preview',
+      model: "gpt-4-turbo-preview",
     },
   },
 });
 
 // Add a memory
-await memory.add('The sky is blue', 'user123');
+await memory.add("The sky is blue", "user123");
 
 // Search memories
-const results = await memory.search('What color is the sky?', 'user123');
+const results = await memory.search("What color is the sky?", "user123");
 ```
 
 ### Default Configuration

@@ -1,5 +1,5 @@
-import { VectorStore } from './base';
-import { SearchFilters, VectorStoreConfig, VectorStoreResult } from '../types';
+import { VectorStore } from "./base";
+import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface MemoryVector {
   id: string;
@@ -30,10 +30,16 @@ export class MemoryVectorStore implements VectorStore {
 
   private filterVector(vector: MemoryVector, filters?: SearchFilters): boolean {
     if (!filters) return true;
-    return Object.entries(filters).every(([key, value]) => vector.payload[key] === value);
+    return Object.entries(filters).every(
+      ([key, value]) => vector.payload[key] === value,
+    );
   }
 
-  async insert(vectors: number[][], ids: string[], payloads: Record<string, any>[]): Promise<void> {
+  async insert(
+    vectors: number[][],
+    ids: string[],
+    payloads: Record<string, any>[],
+  ): Promise<void> {
     for (let i = 0; i < vectors.length; i++) {
       if (vectors[i].length !== this.dimension) {
         throw new Error(
@@ -54,7 +60,9 @@ export class MemoryVectorStore implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     if (query.length !== this.dimension) {
-      throw new Error(`Query dimension mismatch. Expected ${this.dimension}, got ${query.length}`);
+      throw new Error(
+        `Query dimension mismatch. Expected ${this.dimension}, got ${query.length}`,
+      );
     }
 
     const results: VectorStoreResult[] = [];
@@ -82,7 +90,11 @@ export class MemoryVectorStore implements VectorStore {
     };
   }
 
-  async update(vectorId: string, vector: number[], payload: Record<string, any>): Promise<void> {
+  async update(
+    vectorId: string,
+    vector: number[],
+    payload: Record<string, any>,
+  ): Promise<void> {
     if (vector.length !== this.dimension) {
       throw new Error(
         `Vector dimension mismatch. Expected ${this.dimension}, got ${vector.length}`,
@@ -105,7 +117,10 @@ export class MemoryVectorStore implements VectorStore {
     this.vectors.clear();
   }
 
-  async list(filters?: SearchFilters, limit: number = 100): Promise<[VectorStoreResult[], number]> {
+  async list(
+    filters?: SearchFilters,
+    limit: number = 100,
+  ): Promise<[VectorStoreResult[], number]> {
     const results: VectorStoreResult[] = [];
     for (const vector of this.vectors.values()) {
       if (this.filterVector(vector, filters)) {

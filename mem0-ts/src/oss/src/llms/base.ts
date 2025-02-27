@@ -1,4 +1,4 @@
-import { Message } from '../types';
+import { Message } from "../types";
 
 export interface LLMResponse {
   content: string;
@@ -6,6 +6,9 @@ export interface LLMResponse {
 }
 
 export interface LLM {
-  generateResponse(messages: Message[], responseFormat?: { type: string }): Promise<string>;
+  generateResponse(
+    messages: Message[],
+    responseFormat?: { type: string },
+  ): Promise<string>;
   generateChat(messages: Message[]): Promise<LLMResponse>;
 }

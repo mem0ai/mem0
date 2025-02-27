@@ -24,8 +24,8 @@ export interface ProjectOptions {
 }
 
 export enum API_VERSION {
-  V1 = 'v1',
-  V2 = 'v2',
+  V1 = "v1",
+  V2 = "v2",
 }
 
 export interface Messages {
@@ -62,10 +62,10 @@ export interface SearchOptions extends MemoryOptions {
 }
 
 enum Event {
-  ADD = 'ADD',
-  UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
-  NOOP = 'NOOP',
+  ADD = "ADD",
+  UPDATE = "UPDATE",
+  DELETE = "DELETE",
+  NOOP = "NOOP",
 }
 
 export interface MemoryData {
@@ -131,9 +131,9 @@ export interface PromptUpdatePayload {
 }
 
 enum WebhookEvent {
-  MEMORY_ADDED = 'memory_add',
-  MEMORY_UPDATED = 'memory_update',
-  MEMORY_DELETED = 'memory_delete',
+  MEMORY_ADDED = "memory_add",
+  MEMORY_UPDATED = "memory_update",
+  MEMORY_DELETED = "memory_delete",
 }
 
 export interface Webhook {

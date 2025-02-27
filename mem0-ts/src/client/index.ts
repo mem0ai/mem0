@@ -1,7 +1,11 @@
-import { MemoryClient } from './mem0';
-import type { TelemetryClient, TelemetryInstance } from './telemetry.types';
-import { telemetry, captureClientEvent, generateHash } from './telemetry.browser';
-import type * as MemoryTypes from './mem0.types';
+import { MemoryClient } from "./mem0";
+import type { TelemetryClient, TelemetryInstance } from "./telemetry.types";
+import {
+  telemetry,
+  captureClientEvent,
+  generateHash,
+} from "./telemetry.browser";
+import type * as MemoryTypes from "./mem0.types";
 
 // Re-export all types from mem0.types
 export type {
@@ -19,7 +23,7 @@ export type {
   Message,
   AllUsers,
   User,
-} from './mem0.types';
+} from "./mem0.types";
 
 // Export telemetry types
 export type { TelemetryClient, TelemetryInstance };

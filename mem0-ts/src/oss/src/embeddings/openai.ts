@@ -1,6 +1,6 @@
-import OpenAI from 'openai';
-import { Embedder } from './base';
-import { EmbeddingConfig } from '../types';
+import OpenAI from "openai";
+import { Embedder } from "./base";
+import { EmbeddingConfig } from "../types";
 
 export class OpenAIEmbedder implements Embedder {
   private openai: OpenAI;
@@ -8,7 +8,7 @@ export class OpenAIEmbedder implements Embedder {
 
   constructor(config: EmbeddingConfig) {
     this.openai = new OpenAI({ apiKey: config.apiKey });
-    this.model = config.model || 'text-embedding-3-small';
+    this.model = config.model || "text-embedding-3-small";
   }
 
   async embed(text: string): Promise<number[]> {

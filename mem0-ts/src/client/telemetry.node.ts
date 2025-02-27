@@ -1,16 +1,16 @@
 // @ts-nocheck
-import type { TelemetryClient } from './telemetry.types';
+import type { TelemetryClient } from "./telemetry.types";
 
-let version = '1.0.20';
+let version = "1.0.20";
 
-const MEM0_TELEMETRY = process.env.MEM0_TELEMETRY !== 'false';
-const POSTHOG_API_KEY = 'phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX';
-const POSTHOG_HOST = 'https://us.i.posthog.com';
+const MEM0_TELEMETRY = process.env.MEM0_TELEMETRY !== "false";
+const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
+const POSTHOG_HOST = "https://us.i.posthog.com";
 
 // Node-specific hash function using crypto module
 function generateHash(input: string): string {
-  const crypto = require('crypto');
-  return crypto.createHash('sha256').update(input).digest('hex');
+  const crypto = require("crypto");
+  return crypto.createHash("sha256").update(input).digest("hex");
 }
 
 class NodeTelemetry implements TelemetryClient {
@@ -24,7 +24,9 @@ class NodeTelemetry implements TelemetryClient {
 
   private async initializeClient(projectApiKey: string, host: string) {
     try {
-      const { PostHog } = await import('posthog-node').catch(() => ({ PostHog: null }));
+      const { PostHog } = await import("posthog-node").catch(() => ({
+        PostHog: null,
+      }));
       if (PostHog) {
         this.client = new PostHog(projectApiKey, { host, flushAt: 1 });
       }
@@ -38,7 +40,7 @@ class NodeTelemetry implements TelemetryClient {
     if (!this.client || !MEM0_TELEMETRY) return;
 
     const eventProperties = {
-      client_source: 'nodejs',
+      client_source: "nodejs",
       client_version: getVersion(),
       ...this.getEnvironmentInfo(),
       ...properties,
@@ -57,7 +59,7 @@ class NodeTelemetry implements TelemetryClient {
 
   private getEnvironmentInfo() {
     try {
-      const os = require('os');
+      const os = require("os");
       return {
         node_version: process.version,
         os: process.platform,
@@ -86,12 +88,20 @@ function getVersion() {
 
 const telemetry = new NodeTelemetry(POSTHOG_API_KEY, POSTHOG_HOST);
 
-async function captureClientEvent(eventName: string, instance: any, additionalData = {}) {
+async function captureClientEvent(
+  eventName: string,
+  instance: any,
+  additionalData = {},
+) {
   const eventData = {
     function: `${instance.constructor.name}`,
     ...additionalData,
   };
-  await telemetry.captureEvent(instance.telemetryId, `client.${eventName}`, eventData);
+  await telemetry.captureEvent(
+    instance.telemetryId,
+    `client.${eventName}`,
+    eventData,
+  );
 }
 
 export { telemetry, captureClientEvent, generateHash };

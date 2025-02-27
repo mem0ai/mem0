@@ -1,27 +1,27 @@
-import { MemoryConfig } from '../types';
+import { MemoryConfig } from "../types";
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
-  version: 'v1.1',
+  version: "v1.1",
   embedder: {
-    provider: 'openai',
+    provider: "openai",
     config: {
-      apiKey: process.env.OPENAI_API_KEY || '',
-      model: 'text-embedding-3-small',
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: "text-embedding-3-small",
     },
   },
   vectorStore: {
-    provider: 'memory',
+    provider: "memory",
     config: {
-      collectionName: 'memories',
+      collectionName: "memories",
       dimension: 1536,
     },
   },
   llm: {
-    provider: 'openai',
+    provider: "openai",
     config: {
-      apiKey: process.env.OPENAI_API_KEY || '',
-      model: 'gpt-4-turbo-preview',
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: "gpt-4-turbo-preview",
     },
   },
-  historyDbPath: 'memory.db',
+  historyDbPath: "memory.db",
 };
