@@ -29,7 +29,7 @@ const openaiClient = new OpenAI();
 const memory = new Memory();
 
 async function chatWithMemories(message, userId = "default_user") {
-  const relevantMemories = await memory.search(message, userId);
+  const relevantMemories = await memory.search(message, { userId: userId });
   
   const memoriesStr = relevantMemories.results
     .map(entry => `- ${entry.memory}`)
@@ -52,7 +52,7 @@ ${memoriesStr}`;
   const assistantResponse = response.choices[0].message.content || "";
   
   messages.push({ role: "assistant", content: assistantResponse });
-  await memory.add(messages, userId);
+  await memory.add(messages, { userId: userId });
   
   return assistantResponse;
 }
