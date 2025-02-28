@@ -84,7 +84,7 @@ In this example, we are adding a memory of a user ordering a laptop. As seen in 
 
 <CodeGroup>
 ```typescript Code
-await memory.add('Yesterday, I ordered a laptop, the order id is 12345', 'user123');
+await memory.add('Yesterday, I ordered a laptop, the order id is 12345', { userId: "user123" });
 ```
 
 ```json Output
@@ -117,7 +117,7 @@ Hence, the memory is not added.
 
 <CodeGroup>
 ```typescript Code
-await memory.add('I like going to hikes', 'user123');
+await memory.add('I like going to hikes', { userId: "user123" });
 ```
 
 ```json Output
@@ -135,7 +135,7 @@ const messages = [
   { role: 'assistant', content: 'I understand you\'re concerned about your order #54321. Let me help track that for you.' }
 ];
 
-await memory.add(messages, 'user123');
+await memory.add(messages, { userId: "user123" });
 ```
 
 The custom prompt will process both the user and assistant messages to extract relevant information according to the defined format.
