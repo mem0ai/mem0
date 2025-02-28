@@ -330,7 +330,7 @@ result = m.add("I like to drink coffee in the morning and go for a walk.", user_
 ```
 
 ```typescript TypeScript
-const result = memory.add("I like to drink coffee in the morning and go for a walk.", 'alice');
+const result = memory.add("I like to drink coffee in the morning and go for a walk.", { userId: "alice", metadata: { category: "preferences" } });
 ```
 
 ```json Output
@@ -361,7 +361,7 @@ related_memories = m.search("Should I drink coffee or tea?", user_id="alice")
 ```
 
 ```typescript TypeScript
-const relatedMemories = memory.search("Should I drink coffee or tea?", "alice");
+const relatedMemories = memory.search("Should I drink coffee or tea?", { userId: "alice" });
 ```
 
 ```json Output

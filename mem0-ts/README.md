@@ -2,6 +2,9 @@
 
 Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users. We offer both cloud and open-source solutions to cater to different needs.
 
+See the complete [OSS Docs](https://docs.mem0.ai/open-source-typescript/quickstart).
+See the complete [Platform API Reference](https://docs.mem0.ai/api-reference/overview).
+
 ## 1. Installation
 
 For the open-source version, you can install the Mem0 package using npm:

@@ -67,15 +67,14 @@ const memory = new Memory({
 
 <CodeGroup>
 ```typescript Code
-// For a user
-const result = await memory.add('Hi, my name is John and I am a software', 'user123');
-console.log(result);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
 
-// const messages = [
-//    {"role": "user", "content": "Hi, I'm Alex. I like to play cricket on weekends."},
-//    {"role": "assistant", "content": "Hello Alex! It's great to know that you enjoy playing cricket on weekends. I'll remember that for future reference."}
-// ]
-// await memory.add(messages, 'user123');
+await memory.add(messages, { userId: "user123", metadata: { category: "movie_recommendations" } });
 ```
 
 ```json Output
@@ -83,13 +82,24 @@ console.log(result);
   "results": [
     {
       "id": "c03c9045-df76-4949-bbc5-d5dc1932aa5c",
-      "memory": "Name is John",
-      "metadata": [Object]
+      "memory": "User is planning to watch a movie tonight.",
+      "metadata": {
+        "category": "movie_recommendations"
+      }
     },
     {
       "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
-      "memory": "Is a software",
-      "metadata": [Object]
+      "memory": "User is not a big fan of thriller movies.",
+      "metadata": {
+        "category": "movie_recommendations"
+      }
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
+      "metadata": {
+        "category": "movie_recommendations"
+      }
     }
   ]
 }
@@ -101,7 +111,7 @@ console.log(result);
 <CodeGroup>
 ```typescript Code
 // Get all memories
-const allMemories = await memory.getAll('user123');
+const allMemories = await memory.getAll({ userId: "user123" });
 console.log(allMemories)
 ```
 
@@ -110,20 +120,35 @@ console.log(allMemories)
   "results": [
     {
       "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
-      "memory": "Name is Alex Jones",
+      "memory": "User is planning to watch a movie tonight.",
       "hash": "1a271c007316c94377175ee80e746a19",
       "createdAt": "2025-02-27T16:33:20.557Z",
       "updatedAt": "2025-02-27T16:33:27.051Z",
-      "metadata": {},
+      "metadata": {
+        "category": "movie_recommendations"
+      },
       "userId": "user123"
     },
     {
       "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
-      "memory": "Likes to play cricket on weekends",
+      "memory": "User loves sci-fi movies.",
       "hash": "285d07801ae42054732314853e9eadd7",
       "createdAt": "2025-02-27T16:33:20.560Z",
       "updatedAt": undefined,
-      "metadata": {},
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "user123"
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
       "userId": "user123"
     }
   ]
@@ -137,18 +162,20 @@ console.log(allMemories)
 <CodeGroup>
 ```typescript Code
 // Get a single memory by ID
-const singleMemory = await memory.get('6c1c11a2-4fbc-4a2b-8e8a-d60e67e57aaa');
+const singleMemory = await memory.get('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
 console.log(singleMemory);
 ```
 
 ```json Output
 {
-  "id": "6c1c11a2-4fbc-4a2b-8e8a-d60e67e57aaa",
-  "memory": "Name is Alex",
-  "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
-  "createdAt": "2025-02-27T16:37:04.378Z",
+  "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+  "memory": "User is planning to watch a movie tonight.",
+  "hash": "1a271c007316c94377175ee80e746a19",
+  "createdAt": "2025-02-27T16:33:20.557Z",
   "updatedAt": undefined,
-  "metadata": {},
+  "metadata": {
+    "category": "movie_recommendations"
+  },
   "userId": "user123"
 }
 ```
@@ -158,7 +185,7 @@ console.log(singleMemory);
 
 <CodeGroup>
 ```typescript Code
-const result = await memory.search('What do you know about me?', 'user123');
+const result = await memory.search('What do you know about me?', { userId: "user123" });
 console.log(result);
 ```
 
@@ -166,23 +193,39 @@ console.log(result);
 {
   "results": [
     {
-      "id": "28c3eee7-186e-4644-8c5d-13b306233d4e",
-      "memory": "Name is Alex",
-      "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
-      "createdAt": "2025-02-27T16:43:56.310Z",
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "hash": "1a271c007316c94377175ee80e746a19",
+      "createdAt": "2025-02-27T16:33:20.557Z",
       "updatedAt": undefined,
-      "score": 0.08920719231944799,
-      "metadata": {},
+      "score": 0.38920719231944799,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
       "userId": "user123"
     },
     {
-      "id": "f3433da0-45f4-444f-a4bc-59a170890a1f",
-      "memory": "Likes to play cricket on weekends",
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
       "hash": "285d07801ae42054732314853e9eadd7",
-      "createdAt": "2025-02-27T16:43:56.314Z",
+      "createdAt": "2025-02-27T16:33:20.560Z",
       "updatedAt": undefined,
-      "score": 0.06869761478135689,
-      "metadata": {},
+      "score": 0.36869761478135689,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "user123"
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "score": 0.33855272141248272,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
       "userId": "user123"
     }
   ]
@@ -195,9 +238,8 @@ console.log(result);
 <CodeGroup>
 ```typescript Code
 const result = await memory.update(
-  '6c1c11a2-4fbc-4a2b-8e8a-d60e67e57aaa',
-  'I love India, it is my favorite country.',
-  'user123'
+  '892db2ae-06d9-49e5-8b3e-585ef9b85b8e',
+  'I love India, it is my favorite country.'
 );
 console.log(result);
 ```
@@ -213,7 +255,7 @@ console.log(result);
 
 <CodeGroup>
 ```typescript Code
-const history = await memory.history('d2cc4cef-e0c1-47dd-948a-677030482e9e');
+const history = await memory.history('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
 console.log(history);
 ```
 
@@ -221,21 +263,21 @@ console.log(history);
 [
   {
     "id": 39,
-    "memory_id": "d2cc4cef-e0c1-47dd-948a-677030482e9e",
-    "previous_value": "Name is Alex",
-    "new_value": "Name is Alex Jones",
+    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previous_value": "User is planning to watch a movie tonight.",
+    "new_value": "I love India, it is my favorite country.",
     "action": "UPDATE",
-    "created_at": "2025-02-27T16:46:15.853Z",
-    "updated_at": "2025-02-27T16:46:20.909Z",
+    "created_at": "2025-02-27T16:33:20.557Z",
+    "updated_at": "2025-02-27T16:33:27.051Z",
     "is_deleted": 0
   },
   {
     "id": 37,
-    "memory_id": "d2cc4cef-e0c1-47dd-948a-677030482e9e",
+    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
     "previous_value": null,
-    "new_value": "Name is Alex",
+    "new_value": "User is planning to watch a movie tonight.",
     "action": "ADD",
-    "created_at": "2025-02-27T16:46:15.853Z",
+    "created_at": "2025-02-27T16:33:20.557Z",
     "updated_at": null,
     "is_deleted": 0
   }
@@ -247,10 +289,10 @@ console.log(history);
 
 ```typescript
 // Delete a memory by id
-await memory.delete('bf4d4092-cf91-4181-bfeb-b6fa2ed3061b');
+await memory.delete('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
 
 // Delete all memories for a user
-await memory.deleteAll('alice');
+await memory.deleteAll({ userId: "user123" });
 ```
 
 ### Reset Memory
