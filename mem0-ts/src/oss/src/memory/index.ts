@@ -24,6 +24,16 @@ import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { ConfigManager } from "../config/manager";
+import { 
+  AddMemoryRequest, 
+  SearchMemoryRequest, 
+  GetAllMemoryRequest, 
+  DeleteAllMemoryRequest,
+  GetMemoryRequest,
+  UpdateMemoryRequest,
+  HistoryRequest,
+  ResetRequest
+} from "./memory.types";
 
 export class Memory {
   private config: MemoryConfig;
@@ -67,15 +77,10 @@ export class Memory {
     }
   }
 
-  async add(
-    messages: string | Message[],
-    userId?: string,
-    agentId?: string,
-    runId?: string,
-    metadata: Record<string, any> = {},
-    filters: SearchFilters = {},
-    prompt?: string,
-  ): Promise<SearchResult> {
+  async add(request: AddMemoryRequest): Promise<SearchResult> {
+    const { messages, config } = request;
+    const { userId, agentId, runId, metadata = {}, filters = {}, prompt } = config;
+
     if (userId) filters.userId = metadata.userId = userId;
     if (agentId) filters.agentId = metadata.agentId = agentId;
     if (runId) filters.runId = metadata.runId = runId;
@@ -87,7 +92,7 @@ export class Memory {
     }
 
     const parsedMessages = Array.isArray(messages)
-      ? messages
+      ? messages as Message[]
       : [{ role: "user", content: messages }];
 
     const vectorStoreResult = await this.addToVectorStore(
@@ -220,7 +225,8 @@ export class Memory {
     return results;
   }
 
-  async get(memoryId: string): Promise<MemoryItem | null> {
+  async get(request: GetMemoryRequest): Promise<MemoryItem | null> {
+    const { memoryId } = request;
     const memory = await this.vectorStore.get(memoryId);
     if (!memory) return null;
 
@@ -258,14 +264,10 @@ export class Memory {
     return { ...memoryItem, ...filters };
   }
 
-  async search(
-    query: string,
-    userId?: string,
-    agentId?: string,
-    runId?: string,
-    limit: number = 100,
-    filters: SearchFilters = {},
-  ): Promise<SearchResult> {
+  async search(request: SearchMemoryRequest): Promise<SearchResult> {
+    const { query, config } = request;
+    const { userId, agentId, runId, limit = 100, filters = {} } = config;
+
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
     if (runId) filters.runId = runId;
@@ -310,22 +312,23 @@ export class Memory {
     return { results };
   }
 
-  async update(memoryId: string, data: string): Promise<{ message: string }> {
+  async update(request: UpdateMemoryRequest): Promise<{ message: string }> {
+    const { memoryId, data } = request;
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
     return { message: "Memory updated successfully!" };
   }
 
-  async delete(memoryId: string): Promise<{ message: string }> {
+  async delete(request: GetMemoryRequest): Promise<{ message: string }> {
+    const { memoryId } = request;
     await this.deleteMemory(memoryId);
     return { message: "Memory deleted successfully!" };
   }
 
-  async deleteAll(
-    userId?: string,
-    agentId?: string,
-    runId?: string,
-  ): Promise<{ message: string }> {
+  async deleteAll(request: DeleteAllMemoryRequest): Promise<{ message: string }> {
+    const { config } = request;
+    const { userId, agentId, runId } = config;
+    
     const filters: SearchFilters = {};
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
@@ -345,11 +348,12 @@ export class Memory {
     return { message: "Memories deleted successfully!" };
   }
 
-  async history(memoryId: string): Promise<any[]> {
+  async history(request: HistoryRequest): Promise<any[]> {
+    const { memoryId } = request;
     return this.db.getHistory(memoryId);
   }
 
-  async reset(): Promise<void> {
+  async reset(request: ResetRequest): Promise<void> {
     await this.db.reset();
     await this.vectorStore.deleteCol();
     this.vectorStore = VectorStoreFactory.create(
@@ -358,12 +362,10 @@ export class Memory {
     );
   }
 
-  async getAll(
-    userId?: string,
-    agentId?: string,
-    runId?: string,
-    limit: number = 100,
-  ): Promise<SearchResult> {
+  async getAll(request: GetAllMemoryRequest): Promise<SearchResult> {
+    const { config } = request;
+    const { userId, agentId, runId, limit = 100 } = config;
+    
     const filters: SearchFilters = {};
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
