@@ -26,7 +26,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             default_headers=default_headers,
         )
 
-    def embed(self, text, memory_action:Optional[Literal["add", "search", "update"]] = None):
+    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using OpenAI.
 
