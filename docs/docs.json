@@ -65,8 +65,8 @@
                 "pages": [
                   "open-source/quickstart",
                   {
-                    "group": "Typescript",
-                    "icon": "code",
+                    "group": "Node.js",
+                    "icon": "js",
                     "pages": [
                       "open-source-typescript/quickstart",
                       {
@@ -125,6 +125,7 @@
                       }
                     ]
                   },
+                  "open-source/python-quickstart",
                   {
                     "group": "Features",
                     "icon": "wrench",
