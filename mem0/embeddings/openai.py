@@ -18,7 +18,7 @@ class OpenAIEmbedding(EmbeddingBase):
         base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE")
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    def embed(self, text, memory_action:Optional[Literal["add", "search", "update"]] = None):
+    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using OpenAI.
 
