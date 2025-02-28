@@ -114,12 +114,18 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output
-[{'id': '24e466b5-e1c6-4bde-8a92-f09a327ffa60',
-  'memory': 'Does not like cheese',
-  'event': 'ADD'},
- {'id': 'e8d78459-fadd-4c5a-bece-abb8c3dc7ed7',
-  'memory': 'Lives in San Francisco',
-  'event': 'ADD'}]
+[
+  {
+    "id": "24e466b5-e1c6-4bde-8a92-f09a327ffa60",
+    "memory": "Does not like cheese",
+    "event": "ADD"
+  },
+  {
+    "id": "e8d78459-fadd-4c5a-bece-abb8c3dc7ed7",
+    "memory": "Lives in San Francisco",
+    "event": "ADD"
+  }
+]
 ```
 </CodeGroup>
 </Accordion>
@@ -288,9 +294,15 @@ Follow the steps below to get started with Mem0 Open Source:
 
 <AccordionGroup>
 <Accordion title="Install package">
-```bash
+<CodeGroup>
+```bash pip
 pip install mem0ai
 ```
+
+```bash npm
+npm install mem0ai
+```
+</CodeGroup>
 </Accordion>
 </AccordionGroup>
 
@@ -298,10 +310,17 @@ pip install mem0ai
 
 <AccordionGroup>
 <Accordion title="Instantiate client">
+<CodeGroup>
 ```python Python
 from mem0 import Memory
 m = Memory()
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+const memory = new Memory();
+```
+</CodeGroup>
 </Accordion>
 <Accordion title="Add memories">
 <CodeGroup>
@@ -310,13 +329,23 @@ m = Memory()
 result = m.add("I like to drink coffee in the morning and go for a walk.", user_id="alice", metadata={"category": "preferences"})
 ```
 
+```typescript TypeScript
+const result = memory.add("I like to drink coffee in the morning and go for a walk.", 'alice');
+```
+
 ```json Output
-[{'id': '3dc6f65f-fb3f-4e91-89a8-ed1a22f8898a',
-  'data': {'memory': 'Likes to drink coffee in the morning'},
-  'event': 'ADD'},
- {'id': 'f1673706-e3d6-4f12-a767-0384c7697d53',
-  'data': {'memory': 'Likes to go for a walk'},
-  'event': 'ADD'}]
+[
+    {
+        "id": "3dc6f65f-fb3f-4e91-89a8-ed1a22f8898a",
+        "data": {"memory": "Likes to drink coffee in the morning"},
+        "event": "ADD"
+    },
+    {
+        "id": "f1673706-e3d6-4f12-a767-0384c7697d53",
+        "data": {"memory": "Likes to go for a walk"},
+        "event": "ADD"
+    }
+]
 ```
 </CodeGroup>
 </Accordion>
@@ -327,33 +356,37 @@ result = m.add("I like to drink coffee in the morning and go for a walk.", user_
 <AccordionGroup>
 <Accordion title="Search for relevant memories">
 <CodeGroup>
-```python Code
+```python Python
 related_memories = m.search("Should I drink coffee or tea?", user_id="alice")
+```
+
+```typescript TypeScript
+const relatedMemories = memory.search("Should I drink coffee or tea?", "alice");
 ```
 
 ```json Output
 [
     {
-        'id': '3dc6f65f-fb3f-4e91-89a8-ed1a22f8898a',
-        'memory': 'Likes to drink coffee in the morning',
-        'user_id': 'alice',
-        'metadata': {'category': 'preferences'},
-        'categories': ['user_preferences', 'food'],
-        'immutable': False,
-        'created_at': '2025-02-24T20:11:39.010261-08:00',
-        'updated_at': '2025-02-24T20:11:39.010274-08:00',
-        'score': 0.5915589089130715
+        "id": "3dc6f65f-fb3f-4e91-89a8-ed1a22f8898a",
+        "memory": "Likes to drink coffee in the morning",
+        "user_id": "alice",
+        "metadata": {"category": "preferences"},
+        "categories": ["user_preferences", "food"],
+        "immutable": false,
+        "created_at": "2025-02-24T20:11:39.010261-08:00",
+        "updated_at": "2025-02-24T20:11:39.010274-08:00",
+        "score": 0.5915589089130715
     },
     {
-        'id': 'e8d78459-fadd-4c5a-bece-abb8c3dc7ed7',
-        'memory': 'Likes to go for a walk',
-        'user_id': 'alice',
-        'metadata': {'category': 'preferences'},
-        'categories': ['hobby', 'food'],
-        'immutable': False,
-        'created_at': '2025-02-24T11:47:52.893038-08:00',
-        'updated_at': '2025-02-24T11:47:52.893048-08:00',
-        'score': 0.43263634637810866
+        "id": "e8d78459-fadd-4c5a-bece-abb8c3dc7ed7",
+        "memory": "Likes to go for a walk",
+        "user_id": "alice",
+        "metadata": {"category": "preferences"},
+        "categories": ["hobby", "food"],
+        "immutable": false,
+        "created_at": "2025-02-24T11:47:52.893038-08:00",
+        "updated_at": "2025-02-24T11:47:52.893048-08:00",
+        "score": 0.43263634637810866
     }
 ]
 ```
@@ -362,6 +395,11 @@ related_memories = m.search("Should I drink coffee or tea?", user_id="alice")
 </Accordion>
 </AccordionGroup>
 
-<Card title="Mem0 Open source" icon="code-branch" href="/open-source/overview">
-  Learn more about Mem0 open source
+<CardGroup cols={2}>
+<Card title="Mem0 OSS Python SDK" icon="python" href="/open-source/python-quickstart">
+  Learn more about Mem0 OSS Python SDK
 </Card>
+<Card title="Mem0 OSS Node.js SDK" icon="node" href="/open-source-typescript/quickstart">
+  Learn more about Mem0 OSS Node.js SDK
+</Card>
+</CardGroup>

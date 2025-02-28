@@ -1,0 +1,36 @@
+---
+title: OpenAI
+---
+
+To use OpenAI embedding models, you need to provide the API key directly in your configuration. You can obtain the OpenAI API key from the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+
+### Usage
+
+Here's how to configure OpenAI embedding models in your application:
+
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'openai',
+    config: {
+      apiKey: 'your-openai-api-key',
+      model: 'text-embedding-3-large',
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("I'm visiting Paris", { userId: "john" });
+```
+
+### Config
+
+Here are the parameters available for configuring the OpenAI embedder:
+
+| Parameter              | Description                                      | Default Value |
+|------------------------|--------------------------------------------------|---------------|
+| `model`                | The name of the embedding model to use           | `text-embedding-3-small` |
+| `embedding_dims`       | Dimensions of the embedding model                 | `1536`        |
+| `api_key`              | The OpenAI API key                               | `None`        |

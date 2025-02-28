@@ -1,0 +1,44 @@
+[pgvector](https://github.com/pgvector/pgvector) is open-source vector similarity search for Postgres. After connecting with Postgres, run `CREATE EXTENSION IF NOT EXISTS vector;` to create the vector extension.
+
+### Usage
+
+Here's how to configure pgvector in your application:
+
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vector_store: {
+    provider: 'pgvector',
+    config: {
+      collectionName: 'memories',
+      dimension: 1536,
+      dbname: 'vectordb',
+      user: 'postgres',
+      password: 'postgres',
+      host: 'localhost',
+      port: 5432,
+      embeddingModelDims: 1536,
+      hnsw: true,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Likes to play cricket on weekends", { userId: "alice", metadata: { category: "hobbies" } });
+```
+
+### Config
+
+Here's the parameters available for configuring pgvector:
+
+| Parameter              | Description                                      | Default Value |
+|------------------------|--------------------------------------------------|---------------|
+| `dbname`               | The name of the database                         | `postgres`    |
+| `collectionName`       | The name of the collection                       | `mem0`        |
+| `embeddingModelDims`   | Dimensions of the embedding model                 | `1536`        |
+| `user`                 | Username to connect to the database              | `None`        |
+| `password`             | Password to connect to the database              | `None`        |
+| `host`                 | The host where the Postgres server is running    | `None`        |
+| `port`                 | The port where the Postgres server is running    | `None`        |
+| `hnsw`                 | Enable HNSW indexing                             | `False`       |
