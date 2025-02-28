@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import GlobalContext from '@/contexts/GlobalContext'
-
+import { Provider } from '@/constants/messages'
 export default function ApiSettingsPopup(props: { isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>> }) {
   const {isOpen, setIsOpen} = props
   const [mem0ApiKey, setMem0ApiKey] = useState('')
@@ -15,7 +15,7 @@ export default function ApiSettingsPopup(props: { isOpen: boolean, setIsOpen: Di
 
   const handleSave = () => {
     // Here you would typically save the settings to your backend or local storage
-    selectorHandler(mem0ApiKey, providerApiKey, provider);
+    selectorHandler(mem0ApiKey, providerApiKey, provider as Provider);
     setIsOpen(false)
   }
 
