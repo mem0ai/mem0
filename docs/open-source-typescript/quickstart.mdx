@@ -1,0 +1,338 @@
+---
+title: Node.js Guide
+description: 'Get started with Mem0 quickly!'
+icon: "node"
+iconType: "solid"
+---
+
+> Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
+
+## Installation
+
+To install Mem0, you can use npm. Run the following command in your terminal:
+
+```bash
+npm install mem0ai
+```
+
+## Basic Usage
+
+### Initialize Mem0
+
+<Tabs>
+  <Tab title="Basic">
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory();
+```
+  </Tab>
+  <Tab title="Advanced">
+If you want to run Mem0 in production, initialize using the following method:
+
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+    version: 'v1.1',
+    embedder: {
+      provider: 'openai',
+      config: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        model: 'text-embedding-3-small',
+      },
+    },
+    vectorStore: {
+      provider: 'memory',
+      config: {
+        collectionName: 'memories',
+        dimension: 1536,
+      },
+    },
+    llm: {
+      provider: 'openai',
+      config: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        model: 'gpt-4-turbo-preview',
+      },
+    },
+    historyDbPath: 'memory.db',
+  });
+```
+  </Tab>
+</Tabs>
+
+
+### Store a Memory
+
+<CodeGroup>
+```typescript Code
+// For a user
+const result = await memory.add('Hi, my name is John and I am a software', 'user123');
+console.log(result);
+
+// const messages = [
+//    {"role": "user", "content": "Hi, I'm Alex. I like to play cricket on weekends."},
+//    {"role": "assistant", "content": "Hello Alex! It's great to know that you enjoy playing cricket on weekends. I'll remember that for future reference."}
+// ]
+// await memory.add(messages, 'user123');
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "c03c9045-df76-4949-bbc5-d5dc1932aa5c",
+      "memory": "Name is John",
+      "metadata": [Object]
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "Is a software",
+      "metadata": [Object]
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Retrieve Memories
+
+<CodeGroup>
+```typescript Code
+// Get all memories
+const allMemories = await memory.getAll('user123');
+console.log(allMemories)
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "Name is Alex Jones",
+      "hash": "1a271c007316c94377175ee80e746a19",
+      "createdAt": "2025-02-27T16:33:20.557Z",
+      "updatedAt": "2025-02-27T16:33:27.051Z",
+      "metadata": {},
+      "userId": "user123"
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "Likes to play cricket on weekends",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "metadata": {},
+      "userId": "user123"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+
+<br />
+
+<CodeGroup>
+```typescript Code
+// Get a single memory by ID
+const singleMemory = await memory.get('6c1c11a2-4fbc-4a2b-8e8a-d60e67e57aaa');
+console.log(singleMemory);
+```
+
+```json Output
+{
+  "id": "6c1c11a2-4fbc-4a2b-8e8a-d60e67e57aaa",
+  "memory": "Name is Alex",
+  "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
+  "createdAt": "2025-02-27T16:37:04.378Z",
+  "updatedAt": undefined,
+  "metadata": {},
+  "userId": "user123"
+}
+```
+</CodeGroup>
+
+### Search Memories
+
+<CodeGroup>
+```typescript Code
+const result = await memory.search('What do you know about me?', 'user123');
+console.log(result);
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "28c3eee7-186e-4644-8c5d-13b306233d4e",
+      "memory": "Name is Alex",
+      "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
+      "createdAt": "2025-02-27T16:43:56.310Z",
+      "updatedAt": undefined,
+      "score": 0.08920719231944799,
+      "metadata": {},
+      "userId": "user123"
+    },
+    {
+      "id": "f3433da0-45f4-444f-a4bc-59a170890a1f",
+      "memory": "Likes to play cricket on weekends",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:43:56.314Z",
+      "updatedAt": undefined,
+      "score": 0.06869761478135689,
+      "metadata": {},
+      "userId": "user123"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Update a Memory
+
+<CodeGroup>
+```typescript Code
+const result = await memory.update(
+  '6c1c11a2-4fbc-4a2b-8e8a-d60e67e57aaa',
+  'I love India, it is my favorite country.',
+  'user123'
+);
+console.log(result);
+```
+
+```json Output
+{
+  "message": "Memory updated successfully!"
+}
+```
+</CodeGroup>
+
+### Memory History
+
+<CodeGroup>
+```typescript Code
+const history = await memory.history('d2cc4cef-e0c1-47dd-948a-677030482e9e');
+console.log(history);
+```
+
+```json Output
+[
+  {
+    "id": 39,
+    "memory_id": "d2cc4cef-e0c1-47dd-948a-677030482e9e",
+    "previous_value": "Name is Alex",
+    "new_value": "Name is Alex Jones",
+    "action": "UPDATE",
+    "created_at": "2025-02-27T16:46:15.853Z",
+    "updated_at": "2025-02-27T16:46:20.909Z",
+    "is_deleted": 0
+  },
+  {
+    "id": 37,
+    "memory_id": "d2cc4cef-e0c1-47dd-948a-677030482e9e",
+    "previous_value": null,
+    "new_value": "Name is Alex",
+    "action": "ADD",
+    "created_at": "2025-02-27T16:46:15.853Z",
+    "updated_at": null,
+    "is_deleted": 0
+  }
+]
+```
+</CodeGroup>
+
+### Delete Memory
+
+```typescript
+// Delete a memory by id
+await memory.delete('bf4d4092-cf91-4181-bfeb-b6fa2ed3061b');
+
+// Delete all memories for a user
+await memory.deleteAll('alice');
+```
+
+### Reset Memory
+
+```typescript
+await memory.reset(); // Reset all memories
+```
+
+## Configuration Parameters
+
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
+
+<AccordionGroup>
+<Accordion title="Vector Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Vector store provider (e.g., "memory") | "memory"   |
+| `host`       | Host address                    | "localhost" |
+| `port`       | Port number                     | undefined       |
+</Accordion>
+
+<Accordion title="LLM Configuration">
+| Parameter              | Description                                   | Provider          |
+|-----------------------|-----------------------------------------------|-------------------|
+| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
+| `model`               | Model to use                                  | All              |
+| `temperature`         | Temperature of the model                      | All              |
+| `apiKey`             | API key to use                                | All              |
+| `maxTokens`          | Tokens to generate                            | All              |
+| `topP`               | Probability threshold for nucleus sampling    | All              |
+| `topK`               | Number of highest probability tokens to keep  | All              |
+| `openaiBaseUrl`     | Base URL for OpenAI API                      | OpenAI           |
+</Accordion>
+
+<Accordion title="Embedder Configuration">
+| Parameter    | Description                     | Default                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Embedding provider              | "openai"                     |
+| `model`      | Embedding model to use          | "text-embedding-3-small"     |
+| `apiKey`    | API key for embedding service   | None                        |
+</Accordion>
+
+<Accordion title="General Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `historyDbPath` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `version`         | API version                          | "v1.0"                     |
+| `customPrompt`   | Custom prompt for memory processing  | None                       |
+</Accordion>
+
+<Accordion title="Complete Configuration Example">
+```typescript
+const config = {
+      version: 'v1.1',
+      embedder: {
+        provider: 'openai',
+        config: {
+          apiKey: process.env.OPENAI_API_KEY || '',
+          model: 'text-embedding-3-small',
+        },
+      },
+      vectorStore: {
+        provider: 'memory',
+        config: {
+          collectionName: 'memories',
+          dimension: 1536,
+        },
+      },
+      llm: {
+        provider: 'openai',
+        config: {
+          apiKey: process.env.OPENAI_API_KEY || '',
+          model: 'gpt-4-turbo-preview',
+        },
+      },
+      historyDbPath: 'memory.db',
+      customPrompt: "I'm a virtual assistant. I'm here to help you with your queries.",
+    }
+```
+</Accordion>
+</AccordionGroup>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

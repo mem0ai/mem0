@@ -1,0 +1,100 @@
+---
+title: Configurations
+icon: "gear"
+iconType: "solid"
+---
+
+## How to define configurations?
+
+The `config` is defined as a TypeScript object with two main keys:
+- `vectorStore`: Specifies the vector database provider and its configuration
+  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus", "azure_ai_search", "redis", "memory")
+  - `config`: A nested object containing provider-specific settings
+
+## In-Memory Storage Option
+
+We also support an in-memory storage option for the vector store, which is useful for reduced overhead and faster access times. Here's how to configure it:
+
+### Example for In-Memory Storage
+
+```typescript
+const configMemory = {
+  vector_store: {
+    provider: 'memory',
+    config: {
+      collectionName: 'memories',
+      dimension: 1536,
+    },
+  },
+};
+
+const memory = new Memory(configMemory);
+await memory.add("Your text here", { userId: "user", metadata: { category: "example" } });
+```
+
+## How to Use Config
+
+Here's a general example of how to use the config with Mem0:
+
+### Example for qdrant
+
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vector_store: {
+    provider: 'qdrant',
+    config: {
+      collectionName: 'memories',
+      embeddingModelDims: 1536,
+      host: 'localhost',
+      port: 6333,
+      url: 'https://your-qdrant-url.com',
+      apiKey: 'your-qdrant-api-key',
+      onDisk: true,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Your text here", { userId: "user", metadata: { category: "example" } });
+```
+
+## Why is Config Needed?
+
+Config is essential for:
+1. Specifying which vector database to use.
+2. Providing necessary connection details (e.g., host, port, credentials).
+3. Customizing database-specific settings (e.g., collection name, path).
+4. Ensuring proper initialization and connection to your chosen vector store.
+
+## Master List of All Params in Config
+
+Here's a comprehensive list of all parameters that can be used across different vector databases:
+
+| Parameter              | Description                          |
+|------------------------|--------------------------------------|
+| `collectionName`       | Name of the collection               |
+| `dimension`            | Dimensions of the embedding model     |
+| `host`                 | Host where the server is running     |
+| `port`                 | Port where the server is running     |
+| `embeddingModelDims`   | Dimensions of the embedding model     |
+| `url`                  | URL for the Qdrant server            |
+| `apiKey`               | API key for the Qdrant server        |
+| `path`                 | Path for the Qdrant server           |
+| `onDisk`               | Enable persistent storage (for Qdrant) |
+| `redisUrl`             | URL for the Redis server             |
+| `username`             | Username for Redis connection         |
+| `password`             | Password for Redis connection         |
+
+## Customizing Config
+
+Each vector database has its own specific configuration requirements. To customize the config for your chosen vector store:
+
+1. Identify the vector database you want to use from [supported vector databases](./dbs).
+2. Refer to the `Config` section in the respective vector database's documentation.
+3. Include only the relevant parameters for your chosen database in the `config` object.
+
+## Supported Vector Databases
+
+For detailed information on configuring specific vector databases, please visit the [Supported Vector Databases](./dbs) section. There you'll find individual pages for each supported vector store with provider-specific usage examples and configuration details.

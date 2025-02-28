@@ -71,6 +71,12 @@ Install the Mem0 package via pip:
 pip install mem0ai
 ```
 
+Install the Mem0 package via npm:
+
+```bash
+npm install mem0ai
+```
+
 ### Basic Usage
 
 Mem0 requires an LLM to function, with `gpt-4o` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/llms).
@@ -113,6 +119,8 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+See the example for [Node.js](https://docs.mem0.ai/examples/ai_companion_js).
 
 For more advanced usage and API documentation, visit our [documentation](https://docs.mem0.ai).
 
