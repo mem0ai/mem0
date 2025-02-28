@@ -47,15 +47,15 @@ Config is essential for:
 
 Here's a comprehensive list of all parameters that can be used across different embedders:
 
-| Parameter | Description |
-|-----------|-------------|
-| `model` | Embedding model to use |
-| `api_key` | API key of the provider |
-| `embedding_dims` | Dimensions of the embedding model |
-| `http_client_proxies` | Allow proxy server settings |
-| `ollama_base_url` | Base URL for the Ollama embedding model |
-| `model_kwargs` | Key-Value arguments for the Huggingface embedding model |
-| `azure_kwargs` | Key-Value arguments for the AzureOpenAI embedding model |
+| Parameter | Description | Provider |
+|-----------|-------------|----------|
+| `model` | Embedding model to use | All |
+| `api_key` | API key of the provider | All |
+| `embedding_dims` | Dimensions of the embedding model | All |
+| `http_client_proxies` | Allow proxy server settings | All |
+| `ollama_base_url` | Base URL for the Ollama embedding model | Ollama |
+| `model_kwargs` | Key-Value arguments for the Huggingface embedding model | Huggingface |
+| `azure_kwargs` | Key-Value arguments for the AzureOpenAI embedding model | Azure OpenAI |
 | `openai_base_url`    | Base URL for OpenAI API                       | OpenAI            |
 | `vertex_credentials_json` | Path to the Google Cloud credentials JSON file for VertexAI                       | VertexAI            |
 | `memory_add_embedding_type` | The type of embedding to use for the add memory action                       | VertexAI            |
