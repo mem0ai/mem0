@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Literal, Optional
 
 import google.generativeai as genai
 
@@ -18,11 +18,12 @@ class GoogleGenAIEmbedding(EmbeddingBase):
 
         genai.configure(api_key=api_key)
 
-    def embed(self, text):
+    def embed(self, text, memory_action:Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using Google Generative AI.
         Args:
             text (str): The text to embed.
+            memory_action (optional): The type of embedding to use. Must be one of "add", "search", or "update". Defaults to None.
         Returns:
             list: The embedding vector.
         """
