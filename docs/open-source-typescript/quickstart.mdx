@@ -278,11 +278,11 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
 | `model`               | Model to use                                  | All              |
 | `temperature`         | Temperature of the model                      | All              |
-| `api_key`             | API key to use                                | All              |
-| `max_tokens`          | Tokens to generate                            | All              |
-| `top_p`               | Probability threshold for nucleus sampling    | All              |
-| `top_k`               | Number of highest probability tokens to keep  | All              |
-| `openai_base_url`     | Base URL for OpenAI API                      | OpenAI           |
+| `apiKey`             | API key to use                                | All              |
+| `maxTokens`          | Tokens to generate                            | All              |
+| `topP`               | Probability threshold for nucleus sampling    | All              |
+| `topK`               | Number of highest probability tokens to keep  | All              |
+| `openaiBaseUrl`     | Base URL for OpenAI API                      | OpenAI           |
 </Accordion>
 
 <Accordion title="Embedder Configuration">
@@ -290,15 +290,15 @@ Mem0 offers extensive configuration options to customize its behavior according 
 |-------------|---------------------------------|------------------------------|
 | `provider`   | Embedding provider              | "openai"                     |
 | `model`      | Embedding model to use          | "text-embedding-3-small"     |
-| `api_key`    | API key for embedding service   | None                        |
+| `apiKey`    | API key for embedding service   | None                        |
 </Accordion>
 
 <Accordion title="General Configuration">
 | Parameter         | Description                          | Default                    |
 |------------------|--------------------------------------|----------------------------|
-| `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `historyDbPath` | Path to the history database         | "{mem0_dir}/history.db"    |
 | `version`         | API version                          | "v1.0"                     |
-| `custom_prompt`   | Custom prompt for memory processing  | None                       |
+| `customPrompt`   | Custom prompt for memory processing  | None                       |
 </Accordion>
 
 <Accordion title="Complete Configuration Example">
@@ -332,41 +332,6 @@ const config = {
 ```
 </Accordion>
 </AccordionGroup>
-
-
-## Use Mem0 Platform APIs
-
-```typescript
-import MemoryClient from 'mem0ai';
-const client = new MemoryClient({ apiKey: 'your-api-key' });
-
-// First interaction: Storing user preferences
-const messages = [
-  {
-    "role": "user",
-    "content": "I love indian food but I cannot eat pizza since allergic to cheese."
-  },
-];
-const user_id = "alice";
-client.add(messages, { user_id })
-    .then(response => console.log("Memory saved:", response))
-    .catch(error => console.error(error));
-
-// Second interaction: Leveraging stored memory
-const query = "Suggest restaurants in San Francisco to eat.";
-const filters = {
-    "AND": [
-        {
-            "user_id": user_id
-        }
-    ]
-};
-client.search(query, { version: "v2", filters })
-    .then(results => console.log(results))
-    .catch(error => console.error(error));
-```
-
-Mem0 remembers the user's preference for Indian food and their cheese allergy, using this information to provide more relevant and personalized restaurant suggestions in San Francisco.
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
