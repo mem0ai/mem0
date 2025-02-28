@@ -16,14 +16,14 @@ def mock_deepseek_client():
 
 def test_deepseek_llm_base_url():
     # case1: default config with deepseek official base url
-    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=2000, top_p=1.0, api_key="api_key")
+    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = DeepSeekLLM(config)
     assert str(llm.client.base_url) == "https://api.deepseek.com"
 
     # case2: with env variable DEEPSEEK_API_BASE
     provider_base_url = "https://api.provider.com/v1/"
     os.environ["DEEPSEEK_API_BASE"] = provider_base_url
-    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=2000, top_p=1.0, api_key="api_key")
+    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = DeepSeekLLM(config)
     assert str(llm.client.base_url) == provider_base_url
 
@@ -32,7 +32,7 @@ def test_deepseek_llm_base_url():
     config = BaseLlmConfig(
         model="deepseek-chat", 
         temperature=0.7, 
-        max_tokens=2000, 
+        max_tokens=100, 
         top_p=1.0, 
         api_key="api_key", 
         deepseek_base_url=config_base_url

@@ -8,7 +8,7 @@ from mem0.llms.azure_openai import AzureOpenAILLM
 
 MODEL = "gpt-4o"  # or your custom deployment name
 TEMPERATURE = 0.7
-MAX_TOKENS = 2000
+MAX_TOKENS = 100
 TOP_P = 1.0
 
 
