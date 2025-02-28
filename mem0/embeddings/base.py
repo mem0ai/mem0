@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Literal, Optional
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 
@@ -18,13 +18,13 @@ class EmbeddingBase(ABC):
             self.config = config
 
     @abstractmethod
-    def embed(self, text):
+    def embed(self, text, memory_action:Optional[Literal["add", "search", "update"]]):
         """
         Get the embedding for the given text.
 
         Args:
             text (str): The text to embed.
-
+            memory_action (optional): The type of embedding to use. Must be one of "add", "search", or "update". Defaults to None.
         Returns:
             list: The embedding vector.
         """

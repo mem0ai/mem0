@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 import pytz
 from pydantic import ValidationError
-from mem0.memory.utils import parse_vision_messages
+
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
@@ -19,6 +19,7 @@ from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     get_fact_retrieval_messages,
     parse_messages,
+    parse_vision_messages,
     remove_code_blocks,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
@@ -167,7 +168,7 @@ class Memory(MemoryBase):
         retrieved_old_memory = []
         new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
-            messages_embeddings = self.embedding_model.embed(new_mem)
+            messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
                 query=messages_embeddings,
@@ -446,7 +447,7 @@ class Memory(MemoryBase):
             return original_memories
 
     def _search_vector_store(self, query, filters, limit):
-        embeddings = self.embedding_model.embed(query)
+        embeddings = self.embedding_model.embed(query, "search")
         memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
 
         excluded_keys = {
@@ -494,7 +495,7 @@ class Memory(MemoryBase):
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
 
-        existing_embeddings = {data: self.embedding_model.embed(data)}
+        existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
         self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
@@ -562,7 +563,7 @@ class Memory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = self.embedding_model.embed(data)
+            embeddings = self.embedding_model.embed(data, "add")
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
         metadata["data"] = data
@@ -603,7 +604,7 @@ class Memory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = self.embedding_model.embed(data)
+            embeddings = self.embedding_model.embed(data, "update")
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
