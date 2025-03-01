@@ -24,12 +24,12 @@ class Qdrant(VectorStoreBase):
         self,
         collection_name: str,
         embedding_model_dims: int,
-        client: QdrantClient = None,
-        host: str = None,
-        port: int = None,
-        path: str = None,
-        url: str = None,
-        api_key: str = None,
+        client: QdrantClient | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        path: str | None = None,
+        url: str | None = None,
+        api_key: str | None = None,
         on_disk: bool = False,
     ):
         """
