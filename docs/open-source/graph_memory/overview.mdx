@@ -38,8 +38,7 @@ allowfullscreen
 ## Initialize Graph Memory
 
 To initialize Graph Memory you'll need to set up your configuration with graph store providers.
-Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/). 
-Moreover, you also need to set the version to `v1.1` (*prior versions are not supported*).
+Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/).
 
 <Note>If you are using Neo4j locally, then you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
 
@@ -65,8 +64,7 @@ config = {
             "username": "neo4j",
             "password": "xxx"
         }
-    },
-    "version": "v1.1"
+    }
 }
 
 m = Memory.from_config(config_dict=config)
@@ -98,8 +96,7 @@ config = {
                 "temperature": 0.0,
             }
         }
-    },
-    "version": "v1.1"
+    }
 }
 
 m = Memory.from_config(config_dict=config)
