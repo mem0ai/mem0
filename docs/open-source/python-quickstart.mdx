@@ -71,8 +71,7 @@ config = {
             "username": "neo4j",
             "password": "---"
         }
-    },
-    "version": "v1.1"
+    }
 }
 
 m = Memory.from_config(config_dict=config)
@@ -100,10 +99,6 @@ result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"
 {
     "results": [
         {"id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", "memory": "Likes to play cricket on weekends", "event": "ADD"}
-    ],
-    "relations": [
-        {"source": "alice", "relationship": "likes_to_play", "target": "cricket"}, 
-        {"source": "alice", "relationship": "plays_on", "target": "weekends"}
     ]
 }
 ```
@@ -129,10 +124,6 @@ all_memories = m.get_all(user_id="alice")
             "updated_at": None, 
             "user_id": "alice"
         }
-    ], 
-    "relations": [
-        {"source": "alice", "relationship": "likes_to_play", "target": "cricket"}, 
-        {"source": "alice", "relationship": "plays_on", "target": "weekends"}
     ]
 }
 ```
@@ -180,10 +171,6 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
             "updated_at": None, 
             "user_id": "alice"
         }
-    ], 
-    "relations": [
-        {"source": "alice", "relationship": "plays_on", "target": "weekends"}, 
-        {"source": "alice", "relationship": "likes_to_play", "target": "cricket"}
     ]
 }
 ```
@@ -303,7 +290,7 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | Parameter         | Description                          | Default                    |
 |------------------|--------------------------------------|----------------------------|
 | `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
-| `version`         | API version                          | "v1.0"                     |
+| `version`         | API version                          | "v1.1"                     |
 | `custom_prompt`   | Custom prompt for memory processing  | None                       |
 </Accordion>
 
