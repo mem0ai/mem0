@@ -6,16 +6,17 @@ iconType: "solid"
 
 ## How to define configurations?
 
-The `config` is defined as a Python dictionary with two main keys:
+The `config` is defined as an object with two main keys:
 - `vector_store`: Specifies the vector database provider and its configuration
-  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus","azure_ai_search")
-  - `config`: A nested dictionary containing provider-specific settings
+  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus", "azure_ai_search")
+  - `config`: A nested object containing provider-specific settings
 
 ## How to Use Config
 
 Here's a general example of how to use the config with mem0:
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -34,6 +35,29 @@ m = Memory.from_config(config)
 m.add("Your text here", user_id="user", metadata={"category": "example"})
 ```
 
+```typescript TypeScript
+// Example for in-memory vector database (Only supported in TypeScript)
+import { Memory } from 'mem0ai/oss';
+
+const configMemory = {
+  vector_store: {
+    provider: 'memory',
+    config: {
+      collectionName: 'memories',
+      dimension: 1536,
+    },
+  },
+};
+
+const memory = new Memory(configMemory);
+await memory.add("Your text here", { userId: "user", metadata: { category: "example" } });
+```
+</CodeGroup>
+
+<Note>
+  The in-memory vector database is only supported in the TypeScript implementation.
+</Note>
+
 ## Why is Config Needed?
 
 Config is essential for:
@@ -46,6 +70,8 @@ Config is essential for:
 
 Here's a comprehensive list of all parameters that can be used across different vector databases:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description |
 |-----------|-------------|
 | `collection_name` | Name of the collection |
@@ -60,6 +86,24 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `url` | Full URL for the server |
 | `api_key` | API key for the server |
 | `on_disk` | Enable persistent storage |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description |
+|-----------|-------------|
+| `collectionName` | Name of the collection |
+| `embeddingModelDims` | Dimensions of the embedding model |
+| `dimension` | Dimensions of the embedding model (for memory provider) |
+| `host` | Host where the server is running |
+| `port` | Port where the server is running |
+| `url` | URL for the server |
+| `apiKey` | API key for the server |
+| `path` | Path for the database |
+| `onDisk` | Enable persistent storage |
+| `redisUrl` | URL for the Redis server |
+| `username` | Username for database connection |
+| `password` | Password for database connection |
+</Tab>
+</Tabs>
 
 ## Customizing Config
 

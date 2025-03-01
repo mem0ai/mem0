@@ -8,16 +8,18 @@ Config in mem0 is a dictionary that specifies the settings for your embedding mo
 
 ## How to define configurations?
 
-The config is defined as a Python dictionary with two main keys:
+The config is defined as an object (or dictionary) with two main keys:
 - `embedder`: Specifies the embedder provider and its configuration
   - `provider`: The name of the embedder (e.g., "openai", "ollama")
-  - `config`: A nested dictionary containing provider-specific settings
+  - `config`: A nested object or dictionary containing provider-specific settings
+
 
 ## How to use configurations?
 
 Here's a general example of how to use the config with mem0:
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -36,6 +38,25 @@ m = Memory.from_config(config)
 m.add("Your text here", user_id="user", metadata={"category": "example"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'openai',
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: 'text-embedding-3-small',
+      // Provider-specific settings go here
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Your text here", { userId: "user", metadata: { category: "example" } });
+```
+</CodeGroup>
+
 ## Why is Config Needed?
 
 Config is essential for:
@@ -47,6 +68,8 @@ Config is essential for:
 
 Here's a comprehensive list of all parameters that can be used across different embedders:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Provider |
 |-----------|-------------|----------|
 | `model` | Embedding model to use | All |
@@ -61,7 +84,15 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `memory_add_embedding_type` | The type of embedding to use for the add memory action                       | VertexAI            |
 | `memory_update_embedding_type` | The type of embedding to use for the update memory action                       | VertexAI            |
 | `memory_search_embedding_type` | The type of embedding to use for the search memory action                       | VertexAI            |
-
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Provider |
+|-----------|-------------|----------|
+| `model` | Embedding model to use | All |
+| `apiKey` | API key of the provider | All |
+| `embeddingDims` | Dimensions of the embedding model | All |
+</Tab>
+</Tabs>
 
 ## Supported Embedding Models
 

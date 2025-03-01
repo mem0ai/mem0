@@ -65,6 +65,7 @@
                 "pages": [
                   "open-source/quickstart",
                   "open-source/python-quickstart",
+                  "open-source-typescript/quickstart",
                   {
                     "group": "Features",
                     "icon": "wrench",
@@ -148,67 +149,6 @@
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
                           "components/embedders/models/gemini"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "group": "Node.js",
-                    "icon": "js",
-                    "pages": [
-                      "open-source-typescript/quickstart",
-                      {
-                        "group": "Features",
-                        "icon": "wrench",
-                        "pages": [
-                          "open-source-typescript/features/custom-prompts"
-                        ]
-                      },
-                      {
-                        "group": "LLMs",
-                        "icon": "brain",
-                        "pages": [
-                          "open-source-typescript/components/llms/overview",
-                          "open-source-typescript/components/llms/config",
-                          {
-                            "group": "Supported LLMs",
-                            "icon": "list",
-                            "pages": [
-                              "open-source-typescript/components/llms/models/openai",
-                              "open-source-typescript/components/llms/models/anthropic",
-                              "open-source-typescript/components/llms/models/groq"
-                            ]
-                          }
-                        ]
-                      },{
-                        "group": "Vector Databases",
-                        "icon": "database",
-                        "pages": [
-                          "open-source-typescript/components/vectordbs/overview",
-                          "open-source-typescript/components/vectordbs/config",
-                          {
-                            "group": "Supported Vector Databases",
-                            "icon": "server",
-                            "pages": [
-                              "open-source-typescript/components/vectordbs/dbs/qdrant",
-                              "open-source-typescript/components/vectordbs/dbs/redis"
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "group": "Embedding Models",
-                        "icon": "layer-group",
-                        "pages": [
-                          "open-source-typescript/components/embedders/overview",
-                          "open-source-typescript/components/embedders/config",
-                          {
-                            "group": "Supported Embedding Models",
-                            "icon": "list",
-                            "pages": [
-                              "open-source-typescript/components/embedders/models/openai"
-                            ]
-                          }
                         ]
                       }
                     ]

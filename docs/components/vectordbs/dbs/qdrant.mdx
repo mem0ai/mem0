@@ -2,7 +2,8 @@
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -23,10 +24,32 @@ m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'qdrant',
+    config: {
+      collectionName: 'memories',
+      embeddingModelDims: 1536,
+      host: 'localhost',
+      port: 6333,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Likes to play cricket on weekends", { userId: "alice", metadata: { category: "hobbies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Let's see the available parameters for the `qdrant` config:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection to store the vectors | `mem0` |
@@ -38,3 +61,17 @@ Let's see the available parameters for the `qdrant` config:
 | `url` | Full URL for the qdrant server | `None` |
 | `api_key` | API key for the qdrant server | `None` |
 | `on_disk` | For enabling persistent storage | `False` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | The name of the collection to store the vectors | `mem0` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `host` | The host where the Qdrant server is running | `None` |
+| `port` | The port where the Qdrant server is running | `None` |
+| `path` | Path for the Qdrant database | `/tmp/qdrant` |
+| `url` | Full URL for the Qdrant server | `None` |
+| `apiKey` | API key for the Qdrant server | `None` |
+| `onDisk` | For enabling persistent storage | `False` |
+</Tab>
+</Tabs>

@@ -6,7 +6,8 @@ To use OpenAI LLM models, you have to set the `OPENAI_API_KEY` environment varia
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -38,6 +39,26 @@ m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'openai',
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: 'gpt-4-turbo-preview',
+      temperature: 0.2,
+      maxTokens: 1500,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Likes to play cricket on weekends", { userId: "alice", metadata: { category: "hobbies" } });
+```
+</CodeGroup>
+
 We also support the new [OpenAI structured-outputs](https://platform.openai.com/docs/guides/structured-outputs/introduction) model.
 
 ```python
@@ -59,7 +80,9 @@ config = {
 m = Memory.from_config(config)
 ```
 
-
+<Note>
+  OpenAI structured-outputs is currently only available in the Python implementation.
+</Note>
 
 ## Config
 

@@ -12,7 +12,8 @@ docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:lat
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -34,12 +35,46 @@ m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'redis',
+    config: {
+      collectionName: 'memories',
+      embeddingModelDims: 1536,
+      redisUrl: 'redis://localhost:6379',
+      username: 'your-redis-username',
+      password: 'your-redis-password',
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Likes to play cricket on weekends", { userId: "alice", metadata: { category: "hobbies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Let's see the available parameters for the `redis` config:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection to store the vectors | `mem0` |
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `redis_url` | The URL of the Redis server | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | The name of the collection to store the vectors | `mem0` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `redisUrl` | The URL of the Redis server | `None` |
+| `username` | Username for Redis connection | `None` |
+| `password` | Password for Redis connection | `None` |
+</Tab>
+</Tabs>
