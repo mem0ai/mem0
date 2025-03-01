@@ -105,10 +105,10 @@ class ChromaDB(VectorStoreBase):
             chromadb.Collection: The created or retrieved collection.
         """
         # Skip creating collection if already exists
-        collections = self.list_cols()
-        for collection in collections:
-            if collection.name == name:
-                logging.debug(f"Collection {name} already exists. Skipping creation.")
+        collection_info = self.client.get_collection(name=name)
+        if collection_info:
+            logging.debug(f"Collection {name} already exists. Skipping creation.")
+            return collection_info
 
         collection = self.client.get_or_create_collection(
             name=name,
