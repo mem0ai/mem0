@@ -17,7 +17,8 @@ To create an effective custom prompt:
 
 Example of a custom prompt:
 
-```python
+<CodeGroup>
+```python Python
 custom_prompt = """
 Please only extract entities containing customer support information, order details, and user information. 
 Here are some few shot examples:
@@ -39,12 +40,37 @@ Output: {{"facts" : ["Ordered red shirt, size medium", "Received blue shirt inst
 
 Return the facts and customer information in a json format as shown above.
 """
-
 ```
 
-Here we initialize the custom prompt in the config.
+```typescript TypeScript
+const customPrompt = `
+Please only extract entities containing customer support information, order details, and user information. 
+Here are some few shot examples:
 
-```python
+Input: Hi.
+Output: {"facts" : []}
+
+Input: The weather is nice today.
+Output: {"facts" : []}
+
+Input: My order #12345 hasn't arrived yet.
+Output: {"facts" : ["Order #12345 not received"]}
+
+Input: I am John Doe, and I would like to return the shoes I bought last week.
+Output: {"facts" : ["Customer name: John Doe", "Wants to return shoes", "Purchase made last week"]}
+
+Input: I ordered a red shirt, size medium, but received a blue one instead.
+Output: {"facts" : ["Ordered red shirt, size medium", "Received blue shirt instead"]}
+
+Return the facts and customer information in a json format as shown above.
+`;
+```
+</CodeGroup>
+
+Here we initialize the custom prompt in the config:
+
+<CodeGroup>
+```python Python
 from mem0 import Memory
 
 config = {
@@ -63,13 +89,38 @@ config = {
 m = Memory.from_config(config_dict=config, user_id="alice")
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  version: 'v1.1',
+  llm: {
+    provider: 'openai',
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: 'gpt-4-turbo-preview',
+      temperature: 0.2,
+      maxTokens: 1500,
+    },
+  },
+  customPrompt: customPrompt
+};
+
+const memory = new Memory(config);
+```
+</CodeGroup>
+
 ### Example 1
 
 In this example, we are adding a memory of a user ordering a laptop. As seen in the output, the custom prompt is used to extract the relevant information from the user's message.
 
 <CodeGroup>
-```python Code
+```python Python
 m.add("Yesterday, I ordered a laptop, the order id is 12345", user_id="alice")
+```
+
+```typescript TypeScript
+await memory.add('Yesterday, I ordered a laptop, the order id is 12345', { userId: "user123" });
 ```
 
 ```json Output
@@ -97,9 +148,14 @@ m.add("Yesterday, I ordered a laptop, the order id is 12345", user_id="alice")
 
 In this example, we are adding a memory of a user liking to go on hikes. This add message is not specific to the use-case mentioned in the custom prompt. 
 Hence, the memory is not added.
+
 <CodeGroup>
-```python Code
+```python Python
 m.add("I like going to hikes", user_id="alice")
+```
+
+```typescript TypeScript
+await memory.add('I like going to hikes', { userId: "user123" });
 ```
 
 ```json Output
@@ -109,3 +165,5 @@ m.add("I like going to hikes", user_id="alice")
 }
 ```
 </CodeGroup>
+
+The custom prompt will process both the user and assistant messages to extract relevant information according to the defined format.
