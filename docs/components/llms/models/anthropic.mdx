@@ -1,8 +1,13 @@
+---
+title: Anthropic
+---
+
 To use anthropic's models, please set the `ANTHROPIC_API_KEY` which you find on their [Account Settings Page](https://console.anthropic.com/account/keys).
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -23,6 +28,26 @@ config = {
 m = Memory.from_config(config)
 m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'anthropic',
+    config: {
+      apiKey: process.env.ANTHROPIC_API_KEY || '',
+      model: 'claude-3-7-sonnet-latest',
+      temperature: 0.1,
+      maxTokens: 2000,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Likes to play cricket on weekends", { userId: "alice", metadata: { category: "hobbies" } });
+```
+</CodeGroup>
 
 ## Config
 
