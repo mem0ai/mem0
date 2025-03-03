@@ -1,8 +1,9 @@
 from unittest.mock import Mock, patch
+
 import pytest
 
+from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
 from mem0.vector_stores.supabase import Supabase
-from mem0.configs.vector_stores.supabase import IndexMethod, IndexMeasure
 
 
 @pytest.fixture
@@ -110,8 +111,14 @@ def test_update_vector(supabase_instance, mock_collection):
 
 
 def test_get_vector(supabase_instance, mock_collection):
-    mock_result = [("id1", [0.1, 0.2, 0.3], {"name": "vector1"})]
-    mock_collection.fetch.return_value = mock_result
+    # Create a Mock object to represent the record
+    mock_record = Mock()
+    mock_record.id = "id1"
+    mock_record.metadata = {"name": "vector1"}
+    mock_record.values = [0.1, 0.2, 0.3]
+
+    # Set the fetch return value to a list containing our mock record
+    mock_collection.fetch.return_value = [mock_record]
 
     result = supabase_instance.get(vector_id="id1")
 
