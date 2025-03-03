@@ -22,20 +22,26 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dispatch, SetStateAction } from "react";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { MemoryUI } from "./memory-ui";
+import ThemeAwareLogo from "../mem0/theme-aware-logo";
+import ThemeAwareLogo2 from "../assistant-ui/theme-aware-logo";
+import Link from "next/link";
 
 interface ThreadProps {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  isDarkMode: boolean;
 }
 
-export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen }) => {
+interface ThreadWelcomeProps {
+  isDarkMode: boolean;
+}
+
+export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, isDarkMode }) => {
   return (
     <ThreadPrimitive.Root
       className="bg-[#f8fafc] dark:bg-zinc-900 box-border h-full flex flex-col overflow-hidden relative"
@@ -72,7 +78,7 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen }) => {
             <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
               <ThreadListPrimitive.New asChild>
                 <Button
-                  className="data-[active]:bg-[#eef2ff] hover:bg-[#eef2ff] dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
+                  className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
                   variant="default"
                 >
                   <PlusIcon className="w-4 h-4" />
@@ -89,8 +95,8 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen }) => {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="flex h-full flex-col items-center px-4 pt-8">
-          <ThreadWelcome />
+        <div className="flex h-full flex-col items-center px-4 pt-8 justify-end">
+          <ThreadWelcome isDarkMode={isDarkMode} />
 
           <ThreadPrimitive.Messages
             components={{
@@ -128,17 +134,49 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC = () => {
+const ThreadWelcome: FC<ThreadWelcomeProps> = ({ isDarkMode }) => {
   return (
     <ThreadPrimitive.Empty>
       <div className="flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
-        <div className="flex w-full flex-grow flex-col items-center justify-center">
-          <Avatar className="bg-[#eef2ff] dark:bg-zinc-800 text-[#4f46e5] dark:text-[#6366f1]">
-            <AvatarFallback>M</AvatarFallback>
-          </Avatar>
-          <p className="mt-4 font-medium text-[#1e293b] dark:text-white">How can I help you today?</p>
+        <div className="flex w-full flex-grow flex-col items-center justify-start h-[calc(100vh-18rem)]">
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="text-5xl font-bold text-[#1e293b] dark:text-white mb-4">
+              mem0ry-ui
+            </div>
+            <div className="text-sm text-[#1e293b] dark:text-slate-400 mb-4">
+              powered by
+            </div>
+            <div className="flex items-center dark:text-white">
+              <Link href="https://mem0.ai" className="flex items-center">
+                <ThemeAwareLogo
+                  width={120}
+                  height={40}
+                  isDarkMode={isDarkMode}
+                />
+              </Link>
+              <div className="flex items-center font-bold mx-2">x</div>
+              <Link
+                href="https://www.assistant-ui.com"
+                className="flex items-center"
+              >
+                <ThemeAwareLogo2
+                  width={25}
+                  height={25}
+                  isDarkMode={isDarkMode}
+                />
+                <div className="flex items-center font-bold mx-2">
+                  assistant-ui
+                </div>
+              </Link>
+            </div>
+          </div>
         </div>
+        <div className="flex flex-col items-center justify-center">
+        <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
+            How can I help you today?
+          </p>
         <ThreadWelcomeSuggestions />
+        </div>
       </div>
     </ThreadPrimitive.Empty>
   );
@@ -146,23 +184,23 @@ const ThreadWelcome: FC = () => {
 
 const ThreadWelcomeSuggestions: FC = () => {
   return (
-    <div className="mt-3 flex w-full items-stretch justify-center gap-4">
+    <div className="mt-3 flex w-full items-stretch justify-center gap-4 dark:text-white">
       <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I like to travel to "
         method="replace"
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">Travel</span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I like to eat "
         method="replace"
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">Food</span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I am working on "
         method="replace"
       >
@@ -263,7 +301,7 @@ const EditComposer: FC = () => {
           </Button>
         </ComposerPrimitive.Cancel>
         <ComposerPrimitive.Send asChild>
-          <Button className="bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white">
+          <Button className="bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-[2rem]">
             Send
           </Button>
         </ComposerPrimitive.Send>

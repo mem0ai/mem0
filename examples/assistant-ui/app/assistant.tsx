@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Sun, Moon, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
+import Link from "next/link";
 
 const useUserId = () => {
   const [userId, setUserId] = useState<string>("");
@@ -48,10 +50,9 @@ export const Assistant = () => {
       <div className={`h-dvh bg-[#f8fafc] text-[#1e293b] ${isDarkMode ? "dark" : ""}`}>
         <header className="h-16 border-b border-[#e2e8f0] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-[#4f46e5] flex items-center justify-center text-white font-bold mr-2">
-              M
-            </div>
-            <h1 className="text-xl font-bold">Mem0 AssistantUI</h1>
+          <Link href="/" className="flex items-center">
+            <ThemeAwareLogo width={120} height={40} isDarkMode={isDarkMode} />
+          </Link>
           </div>
 
           <div className="flex items-center">
@@ -61,7 +62,7 @@ export const Assistant = () => {
               onClick={() => setSidebarOpen(true)}
               className="text-[#475569] dark:text-zinc-300 md:hidden"
             >
-              <MessageSquare className="w-8 h-8" />
+              <MessageSquare className="w-10 h-10" />
             </Button>
             <button
               className="p-2 rounded-full hover:bg-[#eef2ff] dark:hover:bg-zinc-800 text-[#475569] dark:text-zinc-300"
@@ -75,7 +76,7 @@ export const Assistant = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-4rem)]">
           <ThreadList />
-          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} isDarkMode={isDarkMode} />
         </div>
       </div>
     </AssistantRuntimeProvider>
