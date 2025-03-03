@@ -33,7 +33,7 @@ export const Assistant = () => {
     body: { userId },
   });
 
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleDarkMode = () => {
