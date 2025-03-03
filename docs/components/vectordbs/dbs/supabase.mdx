@@ -1,0 +1,78 @@
+[Supabase](https://supabase.com/) is an open-source Firebase alternative that provides a PostgreSQL database with pgvector extension for vector similarity search. It offers a powerful and scalable solution for storing and querying vector embeddings.
+
+Create a [Supabase](https://supabase.com/dashboard/projects) account and project, then get your connection string from Project Settings > Database. See the [docs](https://supabase.github.io/vecs/hosting/) for details.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "supabase",
+        "config": {
+            "connection_string": "postgresql://user:password@host:port/database",
+            "collection_name": "memories",
+            "index_method": "hnsw",  # Optional: defaults to "auto"
+            "index_measure": "cosine_distance"  # Optional: defaults to "cosine_distance"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Supabase:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connection_string` | PostgreSQL connection string (required) | None |
+| `collection_name` | Name for the vector collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `index_method` | Vector index method to use | `auto` |
+| `index_measure` | Distance measure for similarity search | `cosine_distance` |
+
+### Index Methods
+
+The following index methods are supported:
+
+- `auto`: Automatically selects the best available index method
+- `hnsw`: Hierarchical Navigable Small World graph index (faster search, more memory usage)
+- `ivfflat`: Inverted File Flat index (good balance of speed and memory)
+
+### Distance Measures
+
+Available distance measures for similarity search:
+
+- `cosine_distance`: Cosine similarity (recommended for most embedding models)
+- `l2_distance`: Euclidean distance
+- `l1_distance`: Manhattan distance
+- `max_inner_product`: Maximum inner product similarity
+
+### Best Practices
+
+1. **Index Method Selection**:
+   - Use `hnsw` for fastest search performance when memory is not a constraint
+   - Use `ivfflat` for a good balance of search speed and memory usage
+   - Use `auto` if unsure, it will select the best method based on your data
+
+2. **Distance Measure Selection**:
+   - Use `cosine_distance` for most embedding models (OpenAI, Hugging Face, etc.)
+   - Use `max_inner_product` if your vectors are normalized
+   - Use `l2_distance` or `l1_distance` if working with raw feature vectors
+
+3. **Connection String**:
+   - Always use environment variables for sensitive information in the connection string
+   - Format: `postgresql://user:password@host:port/database`

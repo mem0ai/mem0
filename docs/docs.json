@@ -128,7 +128,8 @@
                           "components/vectordbs/dbs/azure_ai_search",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
-                          "components/vectordbs/dbs/opensearch"
+                          "components/vectordbs/dbs/opensearch",
+                          "components/vectordbs/dbs/supabase"
                         ]
                       }
                     ]

@@ -52,7 +52,7 @@ jobs:
           virtualenvs-in-project: true
       - name: Load cached venv
         id: cached-poetry-dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
@@ -83,7 +83,7 @@ jobs:
           virtualenvs-in-project: true
       - name: Load cached venv
         id: cached-poetry-dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .venv
           key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
