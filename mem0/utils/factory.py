@@ -70,6 +70,7 @@ class VectorStoreFactory:
         "redis": "mem0.vector_stores.redis.RedisDB",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
+        "supabase": "mem0.vector_stores.supabase.Supabase",
     }
 
     @classmethod
