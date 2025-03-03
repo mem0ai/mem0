@@ -1,7 +1,13 @@
 ---
 title: Guide
 description: 'Get started with Mem0 Platform in minutes'
+icon: "book"
+iconType: "solid"
 ---
+
+<Note type="info">
+  🎉 Looking for TypeScript support? Mem0 has you covered! Check out an example [here](/platform/quickstart/#4-11-working-with-mem0-in-typescript).
+</Note>
 
 ## 1. Installation
 
@@ -27,8 +33,12 @@ npm install mem0ai
 
 <CodeGroup>
 ```python Python
+import os
 from mem0 import MemoryClient
-client = MemoryClient(api_key="your-api-key")
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 ```
 
 ```javascript JavaScript
@@ -43,9 +53,12 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 For asynchronous operations in Python, you can use the AsyncMemoryClient:
 
 ```python Python
+import os
 from mem0 import AsyncMemoryClient
 
-client = AsyncMemoryClient(api_key="your-api-key")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = AsyncMemoryClient()
 
 
 async def main():
@@ -154,7 +167,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </CodeGroup>
 
 
-<Note> The `add` method offers support for two output formats: `v1.0` (default) and `v1.1`. To enable the latest format, which provides enhanced detail for each memory operation, set the `output_format` parameter to `v1.1`. Note that `v1.0` will be deprecated in version `0.1.30`. </Note>
+<Note> The `add` method offers support for two output formats: `v1.0` (default) and `v1.1`. To enable the latest format, which provides enhanced detail for each memory operation, set the `output_format` parameter to `v1.1`. </Note>
 
 <Note>
     Messages passed along with `user_id`, `run_id`, or `app_id` are stored as user memories, while messages from the assistant are excluded from memory. To store messages for the assistant, use `agent_id` exclusively and avoid including other IDs, such as user_id, alongside it. This ensures the memory is properly attributed to the assistant.
@@ -389,20 +402,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
     {
         "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
         "memory": "Vegetarian. Allergic to nuts.",
-        "input": [
-            {
-                "role": "user",
-                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-            },
-            {
-                "role": "assistant",
-                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-            }
-        ],
         "user_id": "alex",
-        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -415,20 +418,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
         {
             "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
             "memory": "Vegetarian. Allergic to nuts.",
-            "input": [
-                {
-                    "role": "user",
-                    "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-                },
-                {
-                    "role": "assistant",
-                    "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-                }
-            ],
             "user_id": "alex",
-            "hash": "9ee7e1455e84d1dab700ed8749aed75a",
             "metadata": {"food": "vegan"},
             "categories": ["food_preferences"],
+            "immutable": false,
             "created_at": "2024-07-20T01:30:36.275141-07:00",
             "updated_at": "2024-07-20T01:30:36.275172-07:00"
         }
@@ -469,20 +462,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
     {
         "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
         "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
-        "input": [
-            {
-                "role": "user",
-                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-            },
-            {
-                "role": "assistant",
-                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-            }
-        ],
         "user_id": "alex",
-        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -569,20 +552,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
     {
         "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
         "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
-        "input": [
-            {
-                "role": "user",
-                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-            },
-            {
-                "role": "assistant",
-                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-            }
-        ],
         "user_id": "alex",
-        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": null,
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -644,20 +617,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
     {
         "id": "7f165f7e-b411-4afe-b7e5-35789b72c4a5",
         "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
-        "input": [
-            {
-                "role": "user",
-                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-            },
-            {
-                "role": "assistant",
-                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-            }
-        ],
         "user_id": "alex",
-        "hash": "9ee7e1455e84d1dab700ed8749aed75a",
         "metadata": null,
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -728,20 +691,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
     {
         "id": "654fee-b411-4afe-b7e5-35789b72c4a5",
         "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
-        "input": [
-            {
-                "role": "user",
-                "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."
-            },
-            {
-                "role": "assistant",
-                "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."
-            }
-        ],
         "user_id": "alex",
-        "hash": "9ee7e1455e84d1dab700eiy8749aed75a",
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
+        "immutable": false,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -841,6 +794,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
             "agent_id":"travel-assistant",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories":None
@@ -851,6 +805,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
             "agent_id":"travel-assistant",
             "hash":"35a305373d639b0bffc6c2a3e2eb4244",
             "metadata":"None",
+            "immutable": false,
             "created_at":"2024-07-26T00:31:03.543759-07:00",
             "updated_at":"2024-07-26T00:31:03.543778-07:00",
             "categories":None
@@ -873,6 +828,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
                 "agent_id":"travel-assistant",
                 "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
                 "metadata":None,
+                "immutable": false,
                 "created_at":"2024-07-25T23:57:00.108347-07:00",
                 "updated_at":"2024-07-25T23:57:00.108367-07:00",
                 "categories":None
@@ -883,6 +839,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
                 "agent_id":"travel-assistant",
                 "hash":"35a305373d639b0bffc6c2a3e2eb4244",
                 "metadata":"None",
+                "immutable": false,
                 "created_at":"2024-07-26T00:31:03.543759-07:00",
                 "updated_at":"2024-07-26T00:31:03.543778-07:00",
                 "categories":None
@@ -926,6 +883,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
             "agent_id":"ai-tutor",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories":None
@@ -936,6 +894,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
             "agent_id":"ai-tutor",
             "hash":"35a305373d639b0bffc6c2a3e2eb4244",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:31:03.543759-07:00",
             "updated_at":"2024-07-26T00:31:03.543778-07:00",
             "categories":None
@@ -958,6 +917,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
                 "agent_id": "ai-tutor",
                 "hash": "62bc074f56d1f909f1b4c2b639f56f6a",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-25T23:57:00.108347-07:00",
                 "updated_at": "2024-07-25T23:57:00.108367-07:00"
             },
@@ -967,6 +927,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
                 "agent_id": "ai-tutor",
                 "hash": "35a305373d639b0bffc6c2a3e2eb4244",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:31:03.543759-07:00",
                 "updated_at": "2024-07-26T00:31:03.543778-07:00"
             }
@@ -1008,6 +969,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
             "user_id":"alex123",
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:25:16.566471-07:00",
             "updated_at":"2024-07-26T00:25:16.566492-07:00",
             "categories":None
@@ -1018,6 +980,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
             "user_id":"alex123",
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:33:20.350542-07:00",
             "updated_at":"2024-07-26T00:33:20.350560-07:00",
             "categories":None
@@ -1028,6 +991,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
             "user_id":"alex123",
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
+            "immutable": false,
             "created_at":"2024-07-26T00:51:09.642275-07:00",
             "updated_at":"2024-07-26T00:51:09.642295-07:00",
             "categories":None
@@ -1050,6 +1014,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
                 "user_id": "alex123",
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:25:16.566471-07:00",
                 "updated_at": "2024-07-26T00:25:16.566492-07:00",
                 "categories": ["food_preferences"]
@@ -1060,6 +1025,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
                 "user_id": "alex123",
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:33:20.350542-07:00",
                 "updated_at": "2024-07-26T00:33:20.350560-07:00",
                 "categories": ["food_preferences"]
@@ -1070,6 +1036,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&run_id=trip-planni
                 "user_id": "alex123",
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
+                "immutable": false,
                 "created_at": "2024-07-26T00:51:09.642275-07:00",
                 "updated_at": "2024-07-26T00:51:09.642295-07:00",
                 "categories": None
@@ -1108,6 +1075,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e6342
    "user_id":"alex123",
    "hash":"d2088c936e259f2f5d2d75543d31401c",
    "metadata":"None",
+   "immutable": false,
    "created_at":"2024-07-26T00:25:16.566471-07:00",
    "updated_at":"2024-07-26T00:25:16.566492-07:00",
    "categories": ["travel"]
@@ -1187,6 +1155,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&p
             "user_id": "alex123",
             "hash": "d2088c936e259f2f5d2d75543d31401c",
             "metadata": null,
+            "immutable": false,
             "created_at": "2024-07-26T00:25:16.566471-07:00",
             "updated_at": "2024-07-26T00:25:16.566492-07:00",
             "categories": ["likes", "food_preferences"]
@@ -1197,6 +1166,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&p
             "user_id": "alex123",
             "hash": "d2088c936e259f2f5d2d75543d31401c",
             "metadata": null,
+            "immutable": false,
             "created_at": "2024-07-26T00:33:20.350542-07:00",
             "updated_at": "2024-07-26T00:33:20.350560-07:00",
             "categories": ["likes"]
@@ -1209,11 +1179,11 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex123&keywords=to play&p
 
 #### Get all memories using custom filters
 
-Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For more details, see [V2 Get Memories](/api-reference/memory/v2-get-memories).
+Our advanced retrieval allows you to set custom filters when fetching memories. You can filter by user_id, agent_id, app_id, run_id, created_at, updated_at, categories, and keywords. The filters support logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains). For more details, see [v2 Get Memories](/api-reference/memory/v2-get-memories).
 
 Here you need to define `version` as `v2` in the get_all method.
 
-Example: Get all memories using user_id and date filters
+Example 1. Get all memories using user_id and date filters
 
 <CodeGroup>
 
@@ -1335,6 +1305,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
       "user_id":"alex",
       "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
       "metadata":null,
+      "immutable": false,
       "created_at":"2024-07-25T23:57:00.108347-07:00",
       "updated_at":"2024-07-25T23:57:00.108367-07:00",
       "categories": ["food_preferences"]
@@ -1354,6 +1325,125 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
             "user_id":"alex",
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":null,
+            "immutable": false,
+            "created_at":"2024-07-25T23:57:00.108347-07:00",
+            "updated_at":"2024-07-25T23:57:00.108367-07:00",
+            "categories": ["food_preferences"]
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
+Example 2: Search using metadata and categories Filters
+<CodeGroup>
+```python Python
+filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+         "categories":{
+            "contains": "food_preferences"
+         }
+    }
+    ]
+}
+# Default (No Pagination)
+client.get_all(version="v2", filters=filters)
+
+# Pagination (You can also use the page and page_size parameters)
+client.get_all(version="v2", filters=filters, page=1, page_size=50)
+```
+
+```javascript JavaScript
+const filters = {
+    "AND": [
+        {"metadata": {"food": "vegan"}},
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+// Default (No Pagination)
+client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Pagination (You can also use the page and page_size parameters)
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# Default (No Pagination)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                {"metadata": {"food": "vegan"}},
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+         }
+     }'
+
+# Pagination (You can also use the page and page_size parameters)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+                    "AND": [
+                {"metadata": {"food": "vegan"}},
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+         }
+     }'
+```
+
+```json Output (Default)
+[
+   {
+      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+      "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+      "user_id":"alex",
+      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+      "metadata":{"food":"vegan"},
+      "immutable": false,
+      "created_at":"2024-07-25T23:57:00.108347-07:00",
+      "updated_at":"2024-07-25T23:57:00.108367-07:00",
+      "categories": ["food_preferences"]
+   }
+]
+```
+
+```json Output (Paginated)
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
+            "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
+            "user_id":"alex",
+            "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
+            "metadata":{"food":"vegan"},
+            "immutable": false,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories": ["food_preferences"]
@@ -1641,7 +1731,18 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 ```
 
 ```json Output
-{'message': 'ok'}
+[{'id': '3f4eccba-3b09-497a-81ab-cca1ababb36b',
+  'memory': 'Is allergic to nuts',
+  'event': 'DELETE'},
+ {'id': 'f5dcfbf4-5f0b-422a-8ad4-cadb9e941e25',
+  'memory': 'Is a vegetarian',
+  'event': 'DELETE'},
+ {'id': 'dd32f70c-fa69-4fc7-997b-fb4a66d1a0fa',
+  'memory': 'Name is Alex',
+  'event': 'DELETE'}]{'message': 'ok'}
+  {'id': '3f4eccba-3b09-497a-81ab-cca1ababb36b',
+  'memory': 'Likes Chicken',
+  'event': 'DELETE'}
 ```
 
 </CodeGroup>
@@ -1740,6 +1841,52 @@ curl -X DELETE "https://api.mem0.ai/v1/memories/batch/" \
 {
     "message": "Successfully deleted 2 memories"
 }
+```
+</CodeGroup>
+
+### 4.11 Working with Mem0 in TypeScript
+Manage memories using TypeScript with Mem0. Mem0 has completet TypeScript support Below is an example demonstrating how to add and search memories.
+
+<CodeGroup>
+```typescript TypeScript
+import MemoryClient, { Message, SearchOptions, MemoryOptions }  from 'mem0ai';
+
+const apiKey = 'your-api-key-here';
+const client = new MemoryClient(apiKey);
+
+// Messages
+const messages: Message[] = [
+    { role: "user", content: "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts." },
+    { role: "assistant", content: "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions." }
+];
+
+// ADD
+const memoryOptions: MemoryOptions = {
+    user_id: "alex",
+    agent_id: "travel-assistant"
+}
+
+client.add(messages, memoryOptions)
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+
+// SEARCH
+const query: string = "What do you know about me?";
+const searchOptions: SearchOptions = {
+    user_id: "alex",
+    filters: {
+        OR: [
+          { agent_id: "travel-assistant" },
+          { user_id: "alex" }
+        ]
+      },
+      threshold: 0.1,
+      api_version: 'v2'
+}
+  
+client.search(query, searchOptions)
+.then(results => console.log(results))
+.catch(error => console.error(error));
 ```
 </CodeGroup>
 

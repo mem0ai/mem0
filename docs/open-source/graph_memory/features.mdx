@@ -1,6 +1,8 @@
 ---
 title: Features
 description: 'Graph Memory features'
+icon: "list-check"
+iconType: "solid"
 ---
 
 Graph Memory is a powerful feature that allows users to create and utilize complex relationships between pieces of information.
@@ -26,8 +28,7 @@ config = {
             "password": "xxx"
         },
         "custom_prompt": "Please only extract entities containing sports related relationships and nothing else.",
-    },
-    "version": "v1.1"
+    }
 }
 
 m = Memory.from_config(config_dict=config)

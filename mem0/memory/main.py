@@ -19,6 +19,7 @@ from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     get_fact_retrieval_messages,
     parse_messages,
+    parse_vision_messages,
     remove_code_blocks,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
@@ -45,7 +46,7 @@ class Memory(MemoryBase):
 
         self.enable_graph = False
 
-        if self.api_version == "v1.1" and self.config.graph_store.config:
+        if self.config.graph_store.config:
             from mem0.memory.graph_memory import MemoryGraph
 
             self.graph = MemoryGraph(self.config)
@@ -114,6 +115,8 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
+        messages = parse_vision_messages(messages)
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
             future2 = executor.submit(self._add_to_graph, messages, filters)
@@ -123,12 +126,7 @@ class Memory(MemoryBase):
             vector_store_result = future1.result()
             graph_result = future2.result()
 
-        if self.api_version == "v1.1":
-            return {
-                "results": vector_store_result,
-                "relations": graph_result,
-            }
-        else:
+        if self.api_version == "v1.0":
             warnings.warn(
                 "The current add API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -138,12 +136,20 @@ class Memory(MemoryBase):
             )
             return vector_store_result
 
+        if self.enable_graph:
+            return {
+                "results": vector_store_result,
+                "relations": graph_result,
+            }
+
+        return {"results": vector_store_result}
+
     def _add_to_vector_store(self, messages, metadata, filters):
         parsed_messages = parse_messages(messages)
 
         if self.custom_prompt:
             system_prompt = self.custom_prompt
-            user_prompt = f"Input: {parsed_messages}"
+            user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
@@ -165,7 +171,7 @@ class Memory(MemoryBase):
         retrieved_old_memory = []
         new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
-            messages_embeddings = self.embedding_model.embed(new_mem)
+            messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
                 query=messages_embeddings,
@@ -174,7 +180,10 @@ class Memory(MemoryBase):
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
-
+        unique_data = {}
+        for item in retrieved_old_memory:
+            unique_data[item["id"]] = item
+        retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
         # mapping UUIDs with integers for handling UUID hallucinations
@@ -246,7 +255,7 @@ class Memory(MemoryBase):
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
-        if self.api_version == "v1.1" and self.enable_graph:
+        if self.enable_graph:
             if filters.get("user_id") is None:
                 filters["user_id"] = "user"
 
@@ -318,11 +327,7 @@ class Memory(MemoryBase):
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, filters, limit)
-                if self.api_version == "v1.1" and self.enable_graph
-                else None
-            )
+            future_graph_entities = executor.submit(self.graph.get_all, filters, limit) if self.enable_graph else None
 
             concurrent.futures.wait(
                 [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
@@ -331,12 +336,10 @@ class Memory(MemoryBase):
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
-        if self.api_version == "v1.1":
-            if self.enable_graph:
-                return {"results": all_memories, "relations": graph_entities}
-            else:
-                return {"results": all_memories}
-        else:
+        if self.enable_graph:
+            return {"results": all_memories, "relations": graph_entities}
+
+        if self.api_version == "v1.0":
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -345,6 +348,8 @@ class Memory(MemoryBase):
                 stacklevel=2,
             )
             return all_memories
+        else:
+            return {"results": all_memories}
 
     def _get_all_from_vector_store(self, filters, limit):
         memories = self.vector_store.list(filters=filters, limit=limit)
@@ -413,9 +418,7 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, filters, limit)
-                if self.api_version == "v1.1" and self.enable_graph
-                else None
+                executor.submit(self.graph.search, query, filters, limit) if self.enable_graph else None
             )
 
             concurrent.futures.wait(
@@ -425,12 +428,10 @@ class Memory(MemoryBase):
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
-        if self.api_version == "v1.1":
-            if self.enable_graph:
-                return {"results": original_memories, "relations": graph_entities}
-            else:
-                return {"results": original_memories}
-        else:
+        if self.enable_graph:
+            return {"results": original_memories, "relations": graph_entities}
+
+        if self.api_version == "v1.0":
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -439,9 +440,11 @@ class Memory(MemoryBase):
                 stacklevel=2,
             )
             return original_memories
+        else:
+            return {"results": original_memories}
 
     def _search_vector_store(self, query, filters, limit):
-        embeddings = self.embedding_model.embed(query)
+        embeddings = self.embedding_model.embed(query, "search")
         memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
 
         excluded_keys = {
@@ -489,7 +492,7 @@ class Memory(MemoryBase):
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
 
-        existing_embeddings = {data: self.embedding_model.embed(data)}
+        existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
         self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
@@ -534,7 +537,7 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
-        if self.api_version == "v1.1" and self.enable_graph:
+        if self.enable_graph:
             self.graph.delete_all(filters)
 
         return {"message": "Memories deleted successfully!"}
@@ -557,7 +560,7 @@ class Memory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = self.embedding_model.embed(data)
+            embeddings = self.embedding_model.embed(data, "add")
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
         metadata["data"] = data
@@ -598,7 +601,7 @@ class Memory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = self.embedding_model.embed(data)
+            embeddings = self.embedding_model.embed(data, "update")
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,

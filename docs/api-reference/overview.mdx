@@ -1,4 +1,8 @@
-# Mem0 API Overview
+---
+title: Overview
+icon: "info"
+iconType: "solid"
+---
 
 Mem0 provides a powerful set of APIs that allow you to integrate advanced memory management capabilities into your applications. Our APIs are designed to be intuitive, efficient, and scalable, enabling you to create, retrieve, update, and delete memories across various entities such as users, agents, apps, and runs.
 
@@ -34,29 +38,25 @@ Organizations and projects provide the following capabilities:
 
 Example with the mem0 Python package:
 
+<Tabs>
+  <Tab title="Python">
+
 ```python
 from mem0 import MemoryClient
-
-# Recommended: Using organization and project IDs
-client = MemoryClient(
-    org_id='YOUR_ORG_ID', # It can be found on the organization settings page in dashboard
-    project_id='YOUR_PROJECT_ID',
-)
+client = MemoryClient(org_id='YOUR_ORG_ID', project_id='YOUR_PROJECT_ID')
 ```
-> **Note**: The use of `organization` and `project` parameters is deprecated and will be removed in version `0.1.40`. Please use `org_id` and `project_id` instead.
 
+  </Tab>
 
-Example with the mem0 Node.js package:
+  <Tab title="Node.js">
 
 ```javascript
 import { MemoryClient } from "mem0ai";
-
-# Recommended: Using organization and project IDs
-const client = new MemoryClient({
-    organizationId: "YOUR_ORG_ID",
-    projectId: "YOUR_PROJECT_ID"
-});
+const client = new MemoryClient({organizationId: "YOUR_ORG_ID", projectId: "YOUR_PROJECT_ID"});
 ```
+
+  </Tab>
+</Tabs>
 
 ## Getting Started
 

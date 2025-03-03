@@ -1,5 +1,7 @@
 ---
 title: Overview
+icon: "info"
+iconType: "solid"
 ---
 
 Mem0 includes built-in support for various popular databases. Memory can utilize the database provided by the user, ensuring efficient use for specific needs.
@@ -7,6 +9,10 @@ Mem0 includes built-in support for various popular databases. Memory can utilize
 ## Supported Vector Databases
 
 See the list of supported vector databases below.
+
+<Note>
+  The following vector databases are supported in the Python implementation. The TypeScript implementation currently only supports Qdrant, Redis and in-memory vector database.
+</Note>
 
 <CardGroup cols={3}>
   <Card title="Qdrant" href="/components/vectordbs/dbs/qdrant"></Card>
@@ -16,6 +22,7 @@ See the list of supported vector databases below.
   <Card title="Azure AI Search" href="/components/vectordbs/dbs/azure_ai_search"></Card>
   <Card title="Redis" href="/components/vectordbs/dbs/redis"></Card>
   <Card title="Elasticsearch" href="/components/vectordbs/dbs/elasticsearch"></Card>
+  <Card title="OpenSearch" href="/components/vectordbs/dbs/opensearch"></Card>
 </CardGroup>
 
 ## Usage

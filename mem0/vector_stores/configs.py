@@ -19,6 +19,7 @@ class VectorStoreConfig(BaseModel):
         "redis": "RedisDBConfig",
         "elasticsearch": "ElasticsearchConfig",
         "google_matching_engine": "GoogleMatchingEngineConfig",
+        "opensearch": "OpenSearchConfig",
     }
 
     @model_validator(mode="after")

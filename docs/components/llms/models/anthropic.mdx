@@ -1,8 +1,13 @@
+---
+title: Anthropic
+---
+
 To use anthropic's models, please set the `ANTHROPIC_API_KEY` which you find on their [Account Settings Page](https://console.anthropic.com/account/keys).
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -13,7 +18,7 @@ config = {
     "llm": {
         "provider": "anthropic",
         "config": {
-            "model": "claude-3-5-sonnet-latest",
+            "model": "claude-3-7-sonnet-latest",
             "temperature": 0.1,
             "max_tokens": 2000,
         }
@@ -21,8 +26,40 @@ config = {
 }
 
 m = Memory.from_config(config)
-m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'anthropic',
+    config: {
+      apiKey: process.env.ANTHROPIC_API_KEY || '',
+      model: 'claude-3-7-sonnet-latest',
+      temperature: 0.1,
+      maxTokens: 2000,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
 
 ## Config
 

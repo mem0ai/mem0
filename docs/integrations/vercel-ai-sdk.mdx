@@ -5,7 +5,7 @@ title: Vercel AI SDK
 The [**Mem0 AI SDK Provider**](https://www.npmjs.com/package/@mem0/vercel-ai-provider) is a library developed by **Mem0** to integrate with the Vercel AI SDK. This library brings enhanced AI interaction capabilities to your applications by introducing persistent memory functionality.
 
 <Note type="info">
-  🎉 Exciting news! Mem0 AI SDK now supports **OpenAI**, **Anthropic**, **Cohere**, and **Groq** providers.
+  🎉 Exciting news! Mem0 AI SDK now supports <strong>Tools Call</strong>.
 </Note>
 
 ## Overview
@@ -43,10 +43,18 @@ npm install @mem0/vercel-ai-provider
       config: {
         compatibility: "strict",
       },
+      // Optional Mem0 Global Config
+      mem0Config: {
+        user_id: "mem0-user-id",
+        org_id: "mem0-org-id",
+        project_id: "mem0-project-id",
+      },
     });
     ```
 
     > **Note**: The `openai` provider is set as default. Consider using `MEM0_API_KEY` and `OPENAI_API_KEY` as environment variables for security.
+
+    > **Note**: The `mem0Config` is optional. It is used to set the global config for the Mem0 Client (eg. `user_id`, `agent_id`, `app_id`, `run_id`, `org_id`, `project_id` etc).
 
 3. Add Memories to Enhance Context:
 
@@ -143,6 +151,44 @@ npm install @mem0/vercel-ai-provider
     for await (const textPart of textStream) {
         process.stdout.write(textPart);
     }
+    ```
+
+### 4. Generate Responses with Tools Call
+
+    ```typescript
+    import { generateText } from "ai";
+    import { createMem0 } from "@mem0/vercel-ai-provider";
+    import { z } from "zod";
+
+    const mem0 = createMem0({
+      provider: "anthropic",
+      apiKey: "anthropic-api-key",
+      mem0Config: {
+        // Global User ID
+        user_id: "borat"
+      }
+    });
+
+    const prompt = "What the temperature in the city that I live in?"
+
+    const result = await generateText({
+      model: mem0('claude-3-5-sonnet-20240620'),
+      tools: {
+        weather: tool({
+          description: 'Get the weather in a location',
+          parameters: z.object({
+            location: z.string().describe('The location to get the weather for'),
+          }),
+          execute: async ({ location }) => ({
+            location,
+            temperature: 72 + Math.floor(Math.random() * 21) - 10,
+          }),
+        }),
+      },
+      prompt: prompt,
+    });
+
+    console.log(result);
     ```
 
 ## Key Features
