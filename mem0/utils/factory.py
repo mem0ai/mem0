@@ -69,7 +69,7 @@ class VectorStoreFactory:
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "redis": "mem0.vector_stores.redis.RedisDB",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
-        "google_matching_engine": "mem0.vector_stores.google_matching_engine.GoogleMatchingEngine",
+        "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
     }
 

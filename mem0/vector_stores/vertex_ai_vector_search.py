@@ -12,7 +12,9 @@ from google.oauth2 import service_account
 from langchain.schema import Document
 from pydantic import BaseModel
 
-from mem0.configs.vector_stores.google_matching_engine import GoogleMatchingEngineConfig
+from mem0.configs.vector_stores.vertex_ai_vector_search import (
+    GoogleMatchingEngineConfig,
+)
 from mem0.vector_stores.base import VectorStoreBase
 
 # Configure logging

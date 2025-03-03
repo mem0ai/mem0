@@ -1,10 +1,9 @@
-## Google Cloud Matching Engine
+## Google Cloud Vertex AI Vector Search
 
-[Google Cloud Matching Engine](https://cloud.google.com/vertex-ai/docs/matching-engine/overview) is a scalable vector database service that lets you store and query large embedding datasets.
 
 ### Usage
 
-To use Google Cloud Matching Engine with `mem0`, you need to configure the `vector_store` in your `mem0` config:
+To use Google Cloud Vertex AI Vector Search with `mem0`, you need to configure the `vector_store` in your `mem0` config:
 
 
 ```python
@@ -15,10 +14,10 @@ os.environ["GEMINI_API_KEY"] = = "sk-xx"
 
 config = {
     "vector_store": {
-        "provider": "google_matching_engine",
+        "provider": "vertex_ai_vector_search",
         "config": {
-            "endpoint_id": "YOUR_ENDPOINT_ID",            # Required: Matching Engine endpoint ID
-            "index_id": "YOUR_INDEX_ID",                  # Required: Matching Engine index ID 
+            "endpoint_id": "YOUR_ENDPOINT_ID",            # Required: Vector Search endpoint ID
+            "index_id": "YOUR_INDEX_ID",                  # Required: Vector Search index ID 
             "deployment_index_id": "YOUR_DEPLOYMENT_INDEX_ID",  # Required: Deployment-specific ID
             "project_id": "YOUR_PROJECT_ID",              # Required: Google Cloud project ID
             "project_number": "YOUR_PROJECT_NUMBER",      # Required: Google Cloud project number
@@ -37,8 +36,8 @@ m.add("Your text here", user_id="user", metadata={"category": "example"})
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
-| `endpoint_id` | Matching Engine endpoint ID | Yes |
-| `index_id` | Matching Engine index ID | Yes |
+| `endpoint_id` | Vector Search endpoint ID | Yes |
+| `index_id` | Vector Search index ID | Yes |
 | `deployment_index_id` | Deployment-specific index ID | Yes |
 | `project_id` | Google Cloud project ID | Yes |
 | `project_number` | Google Cloud project number | Yes |
