@@ -51,7 +51,8 @@ class TestQdrant(unittest.TestCase):
 
     def test_search(self):
         query_vector = [0.1, 0.2]
-        self.client_mock.search.return_value = [{"id": str(uuid.uuid4()), "score": 0.95, "payload": {"key": "value"}}]
+        mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})
+        self.client_mock.query_points.return_value = MagicMock(points=[mock_point])
 
         results = self.qdrant.search(query=query_vector, limit=1)
 
@@ -63,9 +64,8 @@ class TestQdrant(unittest.TestCase):
         )
 
         self.assertEqual(len(results), 1)
-        self.assertIn("id", results[0])
-        self.assertIn("score", results[0])
-        self.assertIn("payload", results[0])
+        self.assertEqual(results[0].payload, {"key": "value"})
+        self.assertEqual(results[0].score, 0.95)
 
     def test_delete(self):
         vector_id = str(uuid.uuid4())
