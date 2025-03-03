@@ -28,7 +28,7 @@ class Supabase(VectorStoreBase):
         collection_name: str,
         embedding_model_dims: int,
         index_method: IndexMethod = IndexMethod.AUTO,
-        index_measure: IndexMeasure = IndexMeasure.COSINE
+        index_measure: IndexMeasure = IndexMeasure.COSINE,
     ):
         """
         Initialize the Supabase vector store using vecs.
@@ -67,12 +67,7 @@ class Supabase(VectorStoreBase):
             return {key: {"$eq": value}}
 
         # For multiple filters, use $and clause
-        return {
-            "$and": [
-                {key: {"$eq": value}}
-                for key, value in filters.items()
-            ]
-        }
+        return {"$and": [{key: {"$eq": value}} for key, value in filters.items()]}
 
     def create_col(self, embedding_model_dims: Optional[int] = None) -> None:
         """
@@ -85,24 +80,22 @@ class Supabase(VectorStoreBase):
         """
         dims = embedding_model_dims or self.embedding_model_dims
         if not dims:
-            raise ValueError("embedding_model_dims must be provided either during initialization or when creating collection")
+            raise ValueError(
+                "embedding_model_dims must be provided either during initialization or when creating collection"
+            )
 
         logger.info(f"Creating new collection: {self.collection_name}")
         try:
-            self.collection = self.db.get_or_create_collection(
-                name=self.collection_name,
-                dimension=dims
-            )
-            self.collection.create_index(
-                method=self.index_method.value,
-                measure=self.index_measure.value
-            )
+            self.collection = self.db.get_or_create_collection(name=self.collection_name, dimension=dims)
+            self.collection.create_index(method=self.index_method.value, measure=self.index_measure.value)
             logger.info(f"Successfully created collection {self.collection_name} with dimension {dims}")
         except Exception as e:
             logger.error(f"Failed to create collection: {str(e)}")
             raise
 
-    def insert(self, vectors: List[List[float]], payloads: Optional[List[dict]] = None, ids: Optional[List[str]] = None):
+    def insert(
+        self, vectors: List[List[float]], payloads: Optional[List[dict]] = None, ids: Optional[List[str]] = None
+    ):
         """
         Insert vectors into the collection.
 
@@ -112,18 +105,15 @@ class Supabase(VectorStoreBase):
             ids (List[str], optional): List of IDs corresponding to vectors
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
-        
+
         if not ids:
             ids = [str(uuid.uuid4()) for _ in vectors]
         if not payloads:
             payloads = [{} for _ in vectors]
 
-        records = [
-            (id, vector, payload)
-            for id, vector, payload in zip(ids, vectors, payloads)
-        ]
+        records = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, payloads)]
         print(records)
-        
+
         self.collection.upsert(records)
 
     def search(self, query: List[float], limit: int = 5, filters: Optional[dict] = None) -> List[OutputData]:
@@ -141,22 +131,11 @@ class Supabase(VectorStoreBase):
         filters = self._preprocess_filters(filters)
         print(filters)
         results = self.collection.query(
-            data=query,
-            limit=limit,
-            filters=filters,
-            include_metadata=True,
-            include_value=True
+            data=query, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
         print(results)
 
-        return [
-            OutputData(
-                id=str(result[0]),
-                score=float(result[1]),
-                payload=result[2]
-            )
-            for result in results
-        ]
+        return [OutputData(id=str(result[0]), score=float(result[1]), payload=result[2]) for result in results]
 
     def delete(self, vector_id: str):
         """
@@ -180,8 +159,8 @@ class Supabase(VectorStoreBase):
             # If only updating metadata, we need to get the existing vector
             existing = self.get(vector_id)
             if existing and existing.payload:
-                vector = existing.payload.get('vector', [])
-        
+                vector = existing.payload.get("vector", [])
+
         if vector:
             self.collection.upsert([(vector_id, vector, payload or {})])
 
@@ -200,11 +179,7 @@ class Supabase(VectorStoreBase):
             return []
 
         record = result[0]
-        return OutputData(
-            id=str(record.id),
-            score=None,
-            payload=record.metadata
-        )
+        return OutputData(id=str(record.id), score=None, payload=record.metadata)
 
     def list_cols(self) -> List[str]:
         """
@@ -231,10 +206,7 @@ class Supabase(VectorStoreBase):
             "name": info.name,
             "count": info.vectors,
             "dimension": info.dimension,
-            "index": {
-                "method": info.index_method,
-                "metric": info.distance_metric
-            }
+            "index": {"method": info.index_method, "metric": info.distance_metric},
         }
 
     def list(self, filters: Optional[dict] = None, limit: int = 100) -> List[OutputData]:
@@ -251,22 +223,9 @@ class Supabase(VectorStoreBase):
         filters = self._preprocess_filters(filters)
         query = [0] * self.embedding_model_dims
         ids = self.collection.query(
-            data=query,
-            limit=limit,
-            filters=filters,
-            include_metadata=True,
-            include_value=False
+            data=query, limit=limit, filters=filters, include_metadata=True, include_value=False
         )
         ids = [id[0] for id in ids]
-        records = self.collection.fetch(
-            ids=ids
-        )
+        records = self.collection.fetch(ids=ids)
 
-        return [[
-            OutputData(
-                id=str(record[0]),
-                score=None,
-                payload=record[2]
-            )
-            for record in records
-        ]]
+        return [[OutputData(id=str(record[0]), score=None, payload=record[2]) for record in records]]
