@@ -14,7 +14,8 @@ export class OpenAILLM implements LLM {
   async generateResponse(
     messages: Message[],
     responseFormat?: { type: string },
-  ): Promise<string> {
+    tools?: any[],
+  ): Promise<string | LLMResponse> {
     const completion = await this.openai.chat.completions.create({
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
@@ -22,8 +23,23 @@ export class OpenAILLM implements LLM {
       })),
       model: this.model,
       response_format: responseFormat as { type: "text" | "json_object" },
+      ...(tools && { tools, tool_choice: "auto" }),
     });
-    return completion.choices[0].message.content || "";
+
+    const response = completion.choices[0].message;
+
+    if (response.tool_calls) {
+      return {
+        content: response.content || "",
+        role: response.role,
+        toolCalls: response.tool_calls.map((call) => ({
+          name: call.function.name,
+          arguments: call.function.arguments,
+        })),
+      };
+    }
+
+    return response.content || "";
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {

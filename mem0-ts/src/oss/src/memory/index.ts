@@ -24,6 +24,7 @@ import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { ConfigManager } from "../config/manager";
+import { MemoryGraph } from "./graph_memory";
 import {
   AddMemoryOptions,
   SearchMemoryOptions,
@@ -40,6 +41,8 @@ export class Memory {
   private db: SQLiteManager;
   private collectionName: string;
   private apiVersion: string;
+  private graphMemory?: MemoryGraph;
+  private enableGraph: boolean;
 
   constructor(config: Partial<MemoryConfig> = {}) {
     // Merge and validate config
@@ -61,6 +64,12 @@ export class Memory {
     this.db = new SQLiteManager(this.config.historyDbPath || ":memory:");
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
+    this.enableGraph = this.config.enableGraph || false;
+
+    // Initialize graph memory if configured
+    if (this.enableGraph && this.config.graphStore) {
+      this.graphMemory = new MemoryGraph(this.config);
+    }
   }
 
   static fromConfig(configDict: Record<string, any>): Memory {
@@ -100,13 +109,30 @@ export class Memory {
       ? (messages as Message[])
       : [{ role: "user", content: messages }];
 
+    // Add to vector store
     const vectorStoreResult = await this.addToVectorStore(
       parsedMessages,
       metadata,
       filters,
     );
 
-    return { results: vectorStoreResult };
+    // Add to graph store if available
+    let graphResult;
+    if (this.graphMemory) {
+      try {
+        graphResult = await this.graphMemory.add(
+          parsedMessages.map((m) => m.content).join("\n"),
+          filters,
+        );
+      } catch (error) {
+        console.error("Error adding to graph memory:", error);
+      }
+    }
+
+    return {
+      results: vectorStoreResult,
+      relations: graphResult?.relations,
+    };
   }
 
   private async addToVectorStore(
@@ -284,12 +310,23 @@ export class Memory {
       );
     }
 
+    // Search vector store
     const queryEmbedding = await this.embedder.embed(query);
     const memories = await this.vectorStore.search(
       queryEmbedding,
       limit,
       filters,
     );
+
+    // Search graph store if available
+    let graphResults;
+    if (this.graphMemory) {
+      try {
+        graphResults = await this.graphMemory.search(query, filters);
+      } catch (error) {
+        console.error("Error searching graph memory:", error);
+      }
+    }
 
     const excludedKeys = new Set([
       "userId",
@@ -315,7 +352,10 @@ export class Memory {
       ...(mem.payload.runId && { runId: mem.payload.runId }),
     }));
 
-    return { results };
+    return {
+      results,
+      relations: graphResults,
+    };
   }
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
@@ -360,6 +400,9 @@ export class Memory {
   async reset(): Promise<void> {
     await this.db.reset();
     await this.vectorStore.deleteCol();
+    if (this.graphMemory) {
+      await this.graphMemory.deleteAll({ userId: "default" });
+    }
     this.vectorStore = VectorStoreFactory.create(
       this.config.vectorStore.provider,
       this.config.vectorStore.config,

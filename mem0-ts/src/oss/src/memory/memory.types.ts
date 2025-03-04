@@ -14,7 +14,6 @@ export interface AddMemoryOptions extends Entity {
 }
 
 export interface SearchMemoryOptions extends Entity {
-  query: string;
   limit?: number;
   filters?: SearchFilters;
 }
