@@ -115,8 +115,8 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
-        if self.config.llm.config["enable_vision"]:
-            messages = parse_vision_messages(messages, self.llm, self.config.llm.config["vision_details"])
+        if self.config.llm.config.get("enable_vision"):
+            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
         else:
             messages = parse_vision_messages(messages)
 
