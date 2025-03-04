@@ -24,27 +24,34 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { MemoryUI } from "./memory-ui";
-import ThemeAwareLogo from "../mem0/theme-aware-logo";
-import Link from "next/link";
 import MarkdownRenderer from "../mem0/markdown";
 import React from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ThreadProps {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
-  isDarkMode: boolean;
+  onResetUserId?: () => void;
 }
 
-interface ThreadWelcomeProps {
-  isDarkMode: boolean;
-}
+export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, onResetUserId }) => {
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
-export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, isDarkMode }) => {
   return (
     <ThreadPrimitive.Root
       className="bg-[#f8fafc] dark:bg-zinc-900 box-border h-full flex flex-col overflow-hidden relative"
@@ -68,14 +75,49 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, isDarkMod
         <div className="h-full flex flex-col">
           <div className="flex items-center justify-between border-b dark:text-white border-[#e2e8f0] dark:border-zinc-800 p-4">
             <h2 className="font-medium">Recent Chats</h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setSidebarOpen(false)}
-              className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800 h-8 w-8 p-0"
-            >
-              ✕
-            </Button>
+            <div className="flex items-center gap-2">
+              {onResetUserId && (
+                <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <TooltipIconButton
+                      tooltip="Reset Memory"
+                      className="hover:text-[#4f46e5] text-[#475569] dark:text-zinc-300 dark:hover:text-[#6366f1] size-8 p-0"
+                      variant="ghost"
+                    >
+                      <RefreshCwIcon className="w-4 h-4" />
+                    </TooltipIconButton>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-white dark:bg-zinc-900 border-[#e2e8f0] dark:border-zinc-800">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-[#1e293b] dark:text-white">Reset Memory</AlertDialogTitle>
+                      <AlertDialogDescription className="text-[#475569] dark:text-zinc-300">
+                        This will permanently delete all your chat history and memories. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          onResetUserId();
+                          setResetDialogOpen(false);
+                        }}
+                        className="bg-[#4f46e5] hover:bg-[#4338ca] dark:bg-[#6366f1] dark:hover:bg-[#4f46e5] text-white"
+                      >
+                        Reset
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSidebarOpen(false)}
+                className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800 h-8 w-8 p-0"
+              >
+                ✕
+              </Button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-3">
             <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
@@ -99,7 +141,7 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, isDarkMod
 
       <ScrollArea className="flex-1">
         <div className="flex h-full flex-col items-center px-4 pt-8 justify-end">
-          <ThreadWelcome isDarkMode={isDarkMode} />
+          <ThreadWelcome />
 
           <ThreadPrimitive.Messages
             components={{
@@ -137,27 +179,18 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC<ThreadWelcomeProps> = ({ isDarkMode }) => {
+const ThreadWelcome: FC = () => {
   return (
     <ThreadPrimitive.Empty>
       <div className="flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
         <div className="flex w-full flex-grow flex-col items-center justify-start h-[calc(100vh-23rem)] md:h-[calc(100vh-18rem)]">
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-5xl font-bold text-[#1e293b] dark:text-white mb-4">
-              mem0ry-demo
+            <div className="text-5xl font-bold text-[#1e293b] dark:text-white mb-2">
+              Mem0 Demo
             </div>
-            <div className="text-sm text-[#1e293b] dark:text-slate-400 mb-4">
-              powered by
-            </div>
-            <div className="flex items-center dark:text-white">
-              <Link href="https://mem0.ai" className="flex items-center">
-                <ThemeAwareLogo
-                  width={120}
-                  height={40}
-                  isDarkMode={isDarkMode}
-                />
-              </Link>
-            </div>
+            <p className="text-center text-sm text-[#1e293b] dark:text-white mb-2 w-3/4">
+            A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.
+            </p>
           </div>
         </div>
         <div className="flex flex-col items-center justify-center">

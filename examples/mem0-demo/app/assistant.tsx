@@ -24,11 +24,26 @@ const useUserId = () => {
     setUserId(id);
   }, []);
 
-  return userId;
+  const resetUserId = () => {
+    const newId = uuidv4();
+    localStorage.setItem("userId", newId);
+    setUserId(newId);
+    // Clear all threads from localStorage
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('thread:')) {
+        localStorage.removeItem(key);
+      }
+    });
+    // Force reload to clear all states
+    window.location.reload();
+  };
+
+  return { userId, resetUserId };
 };
 
 export const Assistant = () => {
-  const userId = useUserId();
+  const { userId, resetUserId } = useUserId();
   const runtime = useChatRuntime({
     api: "/api/chat",
     body: { userId },
@@ -77,8 +92,8 @@ export const Assistant = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
-          <ThreadList />
-          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} isDarkMode={isDarkMode} />
+          <ThreadList onResetUserId={resetUserId} />
+          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} />
         </div>
       </div>
     </AssistantRuntimeProvider>

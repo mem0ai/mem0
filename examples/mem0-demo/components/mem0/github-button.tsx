@@ -6,7 +6,7 @@ const GithubButton = ({ url }: { url: string }) => {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-1 px-2 py-1 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition border border-gray-700"
+      className="flex items-center bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition border border-gray-700"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -20,7 +20,6 @@ const GithubButton = ({ url }: { url: string }) => {
           clipRule="evenodd"
         />
       </svg>
-      <span className="text-md font-semibold">GitHub</span>
     </a>
   );
 };
