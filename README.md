@@ -135,6 +135,12 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 <br/><br/>
 
+- Mem0 Demo: A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.
+
+[Mem0 Demo](https://github.com/user-attachments/assets/cebc4f8e-bdb9-4837-868d-13c5ab7bb433)
+
+<br/><br/>
+
 - Enhance your AI interactions by storing memories across ChatGPT, Perplexity, and Claude using our browser extension. Get [chrome extension](https://chromewebstore.google.com/detail/mem0/onihkkbipkfeijkadecaafbgagkhglop?hl=en).
 
 
