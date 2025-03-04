@@ -1,3 +1,5 @@
+"use client"
+
 import {
   ActionBarPrimitive,
   BranchPickerPrimitive,
@@ -6,6 +8,7 @@ import {
   ThreadPrimitive,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
+  useMessage,
 } from "@assistant-ui/react";
 import type { FC } from "react";
 import {
@@ -24,12 +27,12 @@ import { cn } from "@/lib/utils";
 import { Dispatch, SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "../ui/scroll-area";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { MemoryUI } from "./memory-ui";
 import ThemeAwareLogo from "../mem0/theme-aware-logo";
-import ThemeAwareLogo2 from "../assistant-ui/theme-aware-logo";
 import Link from "next/link";
+import MarkdownRenderer from "../mem0/markdown";
+import React from "react";
 
 interface ThreadProps {
   sidebarOpen: boolean;
@@ -138,10 +141,10 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({ isDarkMode }) => {
   return (
     <ThreadPrimitive.Empty>
       <div className="flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
-        <div className="flex w-full flex-grow flex-col items-center justify-start h-[calc(100vh-18rem)]">
+        <div className="flex w-full flex-grow flex-col items-center justify-start h-[calc(100vh-23rem)] md:h-[calc(100vh-18rem)]">
           <div className="flex flex-col items-center justify-center h-full">
             <div className="text-5xl font-bold text-[#1e293b] dark:text-white mb-4">
-              mem0ry-ui
+              mem0ry-demo
             </div>
             <div className="text-sm text-[#1e293b] dark:text-slate-400 mb-4">
               powered by
@@ -153,20 +156,6 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({ isDarkMode }) => {
                   height={40}
                   isDarkMode={isDarkMode}
                 />
-              </Link>
-              <div className="flex items-center font-bold mx-2">x</div>
-              <Link
-                href="https://www.assistant-ui.com"
-                className="flex items-center"
-              >
-                <ThemeAwareLogo2
-                  width={25}
-                  height={25}
-                  isDarkMode={isDarkMode}
-                />
-                <div className="flex items-center font-bold mx-2">
-                  assistant-ui
-                </div>
               </Link>
             </div>
           </div>
@@ -258,7 +247,7 @@ const UserMessage: FC = () => {
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       <UserActionBar />
 
-      <div className="bg-[#4f46e5] dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2">
+      <div className="bg-[#4f46e5] text-sm dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2">
         <MessagePrimitive.Content />
       </div>
 
@@ -311,11 +300,25 @@ const EditComposer: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
+  const content = useMessage((m) => m.content);
+  const markdownText = React.useMemo(() => {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content) && content.length > 0 && 'text' in content[0]) {
+      return content[0].text || '';
+    }
+    return '';
+  }, [content]);
+
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <MemoryUI />
-        <MessagePrimitive.Content components={{ Text: MarkdownText }} />
+        <MarkdownRenderer 
+          markdownText={markdownText}
+          showCopyButton={true}
+          isDarkMode={document.documentElement.classList.contains('dark')}
+        />
       </div>
 
       <AssistantActionBar />

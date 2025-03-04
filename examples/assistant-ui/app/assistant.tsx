@@ -10,6 +10,7 @@ import { Sun, Moon, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
 import Link from "next/link";
+import GithubButton from "@/components/mem0/github-button";
 
 const useUserId = () => {
   const [userId, setUserId] = useState<string>("");
@@ -33,7 +34,7 @@ export const Assistant = () => {
     body: { userId },
   });
 
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleDarkMode = () => {
@@ -47,7 +48,7 @@ export const Assistant = () => {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div className={`h-dvh bg-[#f8fafc] text-[#1e293b] ${isDarkMode ? "dark" : ""}`}>
+      <div className={`h-dvh bg-[#f8fafc] dark:bg-zinc-900 text-[#1e293b] ${isDarkMode ? "dark" : ""}`}>
         <header className="h-16 border-b border-[#e2e8f0] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <div className="flex items-center">
           <Link href="/" className="flex items-center">
@@ -71,10 +72,11 @@ export const Assistant = () => {
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
+            <GithubButton url="https://github.com/mem0ai/mem0/tree/main/examples" />
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-4rem)]">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
           <ThreadList />
           <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} isDarkMode={isDarkMode} />
         </div>

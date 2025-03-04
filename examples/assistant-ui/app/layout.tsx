@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mem0ry-UI",
-  description: "Mem0ry-UI: A chat interface for Mem0ry powered by Mem0 and assistant-ui",
+  title: "Mem0-Demo",
+  description: "Mem0-Demo: By Mem0",
 };
 
 export default function RootLayout({
