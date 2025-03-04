@@ -190,7 +190,8 @@
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
-                  "integrations/langchain-tools"
+                  "integrations/langchain-tools",
+                  "integrations/dify"
                 ]
               }
             ]
