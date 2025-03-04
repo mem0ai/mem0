@@ -10,11 +10,25 @@ Mem0 extends its capabilities beyond text by supporting multimodal data, includi
 
 When a user provides an image, Mem0 processes the image to extract textual information and relevant details, which are then added to the user's memory. This feature enhances the system's ability to understand and remember details based on visual inputs.
 
+<Note>
+To enable multimodal support, you must set `enable_vision = True` in your configuration. The `vision_details` parameter can be set to "auto" (default), "low", or "high" to control the level of detail in image processing.
+</Note>
+
 <CodeGroup>
 ```python Code
 from mem0 import Memory
 
-client = Memory()
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "enable_vision": True,
+            "vision_details": "high"
+        }
+    }
+}
+
+client = Memory.from_config(config=config)
 
 messages = [
     {
@@ -109,10 +123,6 @@ image_message = {
 ```
 
 By utilizing these methods, you can effectively incorporate images into user interactions, enhancing the multimodal capabilities of your Mem0 instance.
-
-<Note>
-Currently, we support only OpenAI models for image description.
-</Note>
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 

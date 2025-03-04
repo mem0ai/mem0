@@ -115,7 +115,10 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
-        messages = parse_vision_messages(messages)
+        if self.config.llm.config.get("enable_vision"):
+            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+        else:
+            messages = parse_vision_messages(messages)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
