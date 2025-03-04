@@ -62,8 +62,7 @@ def get_image_description(image_url):
                     {"type": "image_url", "image_url": {"url": image_url}},
                 ],
             },
-        ],
-        max_tokens=100,
+        ]
     )
     return response
 
