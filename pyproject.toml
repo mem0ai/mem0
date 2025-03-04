@@ -30,12 +30,13 @@ rank-bm25 = "^0.2.2"
 graph = ["langchain-community", "neo4j", "rank-bm25"]
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.2.2"
+pytest-xdist = "^3.6.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.5"
 isort = "^5.13.2"
-pytest = "^8.2.2"
+pytest-xdist = "^3.6.0"
+pytest-forked = "^1.6.0"
 
 [build-system]
 requires = ["poetry-core"]
