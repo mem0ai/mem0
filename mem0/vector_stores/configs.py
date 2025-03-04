@@ -20,6 +20,7 @@ class VectorStoreConfig(BaseModel):
         "elasticsearch": "ElasticsearchConfig",
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",
+        "supabase": "SupabaseConfig",
     }
 
     @model_validator(mode="after")

@@ -71,6 +71,7 @@ class VectorStoreFactory:
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
+        "supabase": "mem0.vector_stores.supabase.Supabase",
     }
 
     @classmethod

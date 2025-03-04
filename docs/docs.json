@@ -65,7 +65,7 @@
                 "pages": [
                   "open-source/quickstart",
                   "open-source/python-quickstart",
-                  "open-source-typescript/quickstart",
+                  "open-source/node-quickstart",
                   {
                     "group": "Features",
                     "icon": "wrench",
@@ -128,7 +128,8 @@
                           "components/vectordbs/dbs/azure_ai_search",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
-                          "components/vectordbs/dbs/opensearch"
+                          "components/vectordbs/dbs/opensearch",
+                          "components/vectordbs/dbs/supabase"
                         ]
                       }
                     ]
@@ -153,6 +154,14 @@
                       }
                     ]
                   }
+                ]
+              },
+              {
+                "group": "Contribution",
+                "icon": "handshake",
+                "pages": [
+                  "contributing/development",
+                  "contributing/documentation"
                 ]
               }
             ]
@@ -189,7 +198,8 @@
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
-                  "integrations/langchain-tools"
+                  "integrations/langchain-tools",
+                  "integrations/dify"
                 ]
               }
             ]
