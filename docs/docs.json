@@ -65,7 +65,7 @@
                 "pages": [
                   "open-source/quickstart",
                   "open-source/python-quickstart",
-                  "open-source-typescript/quickstart",
+                  "open-source/node-quickstart",
                   {
                     "group": "Features",
                     "icon": "wrench",
