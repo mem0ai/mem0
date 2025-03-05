@@ -71,6 +71,7 @@ class VectorStoreFactory:
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
         "supabase": "mem0.vector_stores.supabase.Supabase",
+        "tidb": "mem0.vector_stores.tidb.TiDB",
     }
 
     @classmethod

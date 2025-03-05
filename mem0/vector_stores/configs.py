@@ -20,6 +20,7 @@ class VectorStoreConfig(BaseModel):
         "elasticsearch": "ElasticsearchConfig",
         "opensearch": "OpenSearchConfig",
         "supabase": "SupabaseConfig",
+        "tidb": "TiDBConfig",
     }
 
     @model_validator(mode="after")
