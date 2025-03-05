@@ -24,23 +24,22 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: |
-          cd embedchain
-          poetry install
+        run: make install
 
-      - name: Build a binary wheel and a source tarball
-        run: |
-          cd embedchain
-          poetry build
+      - name: Clean previous builds
+        run: make clean
+
+      - name: Build package
+        run: make build
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository_url: https://test.pypi.org/legacy/
-          packages_dir: embedchain/dist/
+          packages_dir: dist/
 
       - name: Publish distribution 📦 to PyPI
         if: startsWith(github.ref, 'refs/tags')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages_dir: embedchain/dist/
+          packages_dir: dist/
