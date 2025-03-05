@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   ActionBarPrimitive,
@@ -42,14 +42,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Link from "next/link";
+import ThemeAwareLogo from "./theme-aware-logo";
 
 interface ThreadProps {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
   onResetUserId?: () => void;
+  isDarkMode: boolean;
 }
 
-export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, onResetUserId }) => {
+export const Thread: FC<ThreadProps> = ({
+  sidebarOpen,
+  setSidebarOpen,
+  onResetUserId,
+  isDarkMode,
+}) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   return (
@@ -61,23 +69,28 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, onResetUs
     >
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/40 z-30 md:hidden"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
 
       {/* Mobile sidebar drawer */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-[85%] bg-white dark:bg-zinc-900 transform transition-transform duration-300 ease-in-out md:hidden",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-[85%] bg-white dark:bg-zinc-900 transform transition-transform duration-300 ease-in-out md:hidden",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
         <div className="h-full flex flex-col">
           <div className="flex items-center justify-between border-b dark:text-white border-[#e2e8f0] dark:border-zinc-800 p-4">
             <h2 className="font-medium">Recent Chats</h2>
             <div className="flex items-center gap-2">
               {onResetUserId && (
-                <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+                <AlertDialog
+                  open={resetDialogOpen}
+                  onOpenChange={setResetDialogOpen}
+                >
                   <AlertDialogTrigger asChild>
                     <TooltipIconButton
                       tooltip="Reset Memory"
@@ -89,13 +102,18 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, onResetUs
                   </AlertDialogTrigger>
                   <AlertDialogContent className="bg-white dark:bg-zinc-900 border-[#e2e8f0] dark:border-zinc-800">
                     <AlertDialogHeader>
-                      <AlertDialogTitle className="text-[#1e293b] dark:text-white">Reset Memory</AlertDialogTitle>
+                      <AlertDialogTitle className="text-[#1e293b] dark:text-white">
+                        Reset Memory
+                      </AlertDialogTitle>
                       <AlertDialogDescription className="text-[#475569] dark:text-zinc-300">
-                        This will permanently delete all your chat history and memories. This action cannot be undone.
+                        This will permanently delete all your chat history and
+                        memories. This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800">Cancel</AlertDialogCancel>
+                      <AlertDialogCancel className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800">
+                        Cancel
+                      </AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => {
                           onResetUserId();
@@ -109,9 +127,9 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, onResetUs
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setSidebarOpen(false)}
                 className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800 h-8 w-8 p-0"
               >
@@ -120,21 +138,40 @@ export const Thread: FC<ThreadProps> = ({ sidebarOpen, setSidebarOpen, onResetUs
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-3">
-            <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
-              <ThreadListPrimitive.New asChild>
-                <Button
-                  className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
-                  variant="default"
+            <div className="flex flex-col justify-between items-stretch gap-1.5 h-full dark:text-white">
+              <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
+                <ThreadListPrimitive.New asChild>
+                  <Button
+                    className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
+                    variant="default"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    New Thread
+                  </Button>
+                </ThreadListPrimitive.New>
+                <div className="mt-4 mb-2">
+                  <h2 className="text-sm font-medium text-[#475569] dark:text-zinc-300 px-2.5">
+                    Recent Chats
+                  </h2>
+                </div>
+                <ThreadListPrimitive.Items components={{ ThreadListItem }} />
+              </ThreadListPrimitive.Root>
+              <div>
+                <Link
+                  href="https://www.assistant-ui.com/"
+                  target="_blank"
+                  className="flex justify-center items-center gap-2"
                 >
-                  <PlusIcon className="w-4 h-4" />
-                  New Thread
-                </Button>
-              </ThreadListPrimitive.New>
-              <div className="mt-4 mb-2">
-                <h2 className="text-sm font-medium text-[#475569] dark:text-zinc-300 px-2.5">Recent Chats</h2>
+                  <h1 className="text-sm text-[#475569] dark:text-zinc-300 text-center">
+                    built using
+                  </h1>
+                  <ThemeAwareLogo width={24} height={24} isDarkMode={isDarkMode} />
+                  <p className="text-md font-bold dark:text-zinc-300">
+                    assistant-ui
+                  </p>
+                </Link>
               </div>
-              <ThreadListPrimitive.Items components={{ ThreadListItem }} />
-            </ThreadListPrimitive.Root>
+            </div>
           </div>
         </div>
       </div>
@@ -185,19 +222,20 @@ const ThreadWelcome: FC = () => {
       <div className="flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
         <div className="flex w-full flex-grow flex-col items-center justify-start h-[calc(100vh-23rem)] md:h-[calc(100vh-18rem)]">
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-5xl font-bold text-[#1e293b] dark:text-white mb-2">
-              Mem0 Demo
+            <div className="text-2xl md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2">
+              Mem0 - ChatGPT with memory
             </div>
             <p className="text-center text-sm text-[#1e293b] dark:text-white mb-2 w-3/4">
-            A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.
+              A personalized AI chat app powered by Mem0 that remembers your
+              preferences, facts, and memories.
             </p>
           </div>
         </div>
         <div className="flex flex-col items-center justify-center">
-        <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
+          <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
             How can I help you today?
           </p>
-        <ThreadWelcomeSuggestions />
+          <ThreadWelcomeSuggestions />
         </div>
       </div>
     </ThreadPrimitive.Empty>
@@ -212,21 +250,27 @@ const ThreadWelcomeSuggestions: FC = () => {
         prompt="I like to travel to "
         method="replace"
       >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">Travel</span>
+        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+          Travel
+        </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
         className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I like to eat "
         method="replace"
       >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">Food</span>
+        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+          Food
+        </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
         className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I am working on "
         method="replace"
       >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">Project details</span>
+        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+          Project details
+        </span>
       </ThreadPrimitive.Suggestion>
     </div>
   );
@@ -335,22 +379,22 @@ const EditComposer: FC = () => {
 const AssistantMessage: FC = () => {
   const content = useMessage((m) => m.content);
   const markdownText = React.useMemo(() => {
-    if (!content) return '';
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content) && content.length > 0 && 'text' in content[0]) {
-      return content[0].text || '';
+    if (!content) return "";
+    if (typeof content === "string") return content;
+    if (Array.isArray(content) && content.length > 0 && "text" in content[0]) {
+      return content[0].text || "";
     }
-    return '';
+    return "";
   }, [content]);
 
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <MemoryUI />
-        <MarkdownRenderer 
+        <MarkdownRenderer
           markdownText={markdownText}
           showCopyButton={true}
-          isDarkMode={document.documentElement.classList.contains('dark')}
+          isDarkMode={document.documentElement.classList.contains("dark")}
         />
       </div>
 
@@ -400,7 +444,10 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
   return (
     <BranchPickerPrimitive.Root
       hideWhenSingleBranch
-      className={cn("text-[#475569] dark:text-zinc-300 inline-flex items-center text-xs", className)}
+      className={cn(
+        "text-[#475569] dark:text-zinc-300 inline-flex items-center text-xs",
+        className
+      )}
       {...rest}
     >
       <BranchPickerPrimitive.Previous asChild>
@@ -428,7 +475,13 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
 
 const CircleStopIcon = () => {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      width="16"
+      height="16"
+    >
       <rect width="10" height="10" x="3" y="3" rx="2" />
     </svg>
   );

@@ -19,55 +19,73 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
+import ThemeAwareLogo from "@/components/assistant-ui/theme-aware-logo";
+import Link from "next/link";
 interface ThreadListProps {
   onResetUserId?: () => void;
+  isDarkMode: boolean;
 }
 
-export const ThreadList: FC<ThreadListProps> = ({ onResetUserId }) => {
+export const ThreadList: FC<ThreadListProps> = ({ onResetUserId, isDarkMode }) => {
   const [open, setOpen] = useState(false);
   
   return (
     <div className="flex-col h-full border-r border-[#e2e8f0] bg-white dark:bg-zinc-900 dark:border-zinc-800 p-3 overflow-y-auto hidden md:flex">
-      <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5">
-        <ThreadListNew />
-        <div className="mt-4 mb-2 flex justify-between items-center px-2.5">
-          <h2 className="text-sm font-medium text-[#475569] dark:text-zinc-300">Recent Chats</h2>
-          {onResetUserId && (
-            <AlertDialog open={open} onOpenChange={setOpen}>
-              <AlertDialogTrigger asChild>
-                <TooltipIconButton
-                  tooltip="Reset Memory"
-                  className="hover:text-[#4f46e5] text-[#475569] dark:text-zinc-300 dark:hover:text-[#6366f1] size-4 p-0"
-                  variant="ghost"
-                >
-                  <RefreshCwIcon className="w-4 h-4" />
-                </TooltipIconButton>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="bg-white dark:bg-zinc-900 border-[#e2e8f0] dark:border-zinc-800">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="text-[#1e293b] dark:text-white">Reset Memory</AlertDialogTitle>
-                  <AlertDialogDescription className="text-[#475569] dark:text-zinc-300">
-                    This will permanently delete all your chat history and memories. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800">Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => {
-                      onResetUserId();
-                      setOpen(false);
-                    }}
-                    className="bg-[#4f46e5] hover:bg-[#4338ca] dark:bg-[#6366f1] dark:hover:bg-[#4f46e5] text-white"
+      <ThreadListPrimitive.Root className="flex flex-col justify-between h-full items-stretch gap-1.5">
+        <div className="flex flex-col h-full items-stretch gap-1.5">
+          <ThreadListNew />
+          <div className="mt-4 mb-2 flex justify-between items-center px-2.5">
+            <h2 className="text-sm font-medium text-[#475569] dark:text-zinc-300">
+              Recent Chats
+            </h2>
+            {onResetUserId && (
+              <AlertDialog open={open} onOpenChange={setOpen}>
+                <AlertDialogTrigger asChild>
+                  <TooltipIconButton
+                    tooltip="Reset Memory"
+                    className="hover:text-[#4f46e5] text-[#475569] dark:text-zinc-300 dark:hover:text-[#6366f1] size-4 p-0"
+                    variant="ghost"
                   >
-                    Reset
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+                    <RefreshCwIcon className="w-4 h-4" />
+                  </TooltipIconButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-white dark:bg-zinc-900 border-[#e2e8f0] dark:border-zinc-800">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-[#1e293b] dark:text-white">
+                      Reset Memory
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-[#475569] dark:text-zinc-300">
+                      This will permanently delete all your chat history and
+                      memories. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800">
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        onResetUserId();
+                        setOpen(false);
+                      }}
+                      className="bg-[#4f46e5] hover:bg-[#4338ca] dark:bg-[#6366f1] dark:hover:bg-[#4f46e5] text-white"
+                    >
+                      Reset
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+          <ThreadListItems />
         </div>
-        <ThreadListItems />
+        <div>
+          <Link href="https://www.assistant-ui.com/" target="_blank" className="flex justify-center items-center gap-2">
+          <h1 className="text-sm text-[#475569] dark:text-zinc-300 text-center">built using</h1>
+            <ThemeAwareLogo width={24} height={24} isDarkMode={isDarkMode} />
+            <p className="text-md font-bold dark:text-zinc-300">assistant-ui</p>
+          </Link>
+        </div>
       </ThreadListPrimitive.Root>
     </div>
   );

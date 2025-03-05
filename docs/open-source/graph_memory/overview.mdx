@@ -52,10 +52,6 @@ Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](htt
 
 <Note>If you are using Neo4j locally, then you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
 
-<Note>
-If you are using NodeSDK, you need to pass `enableGraph` as `true` in the `config` object.
-</Note>
-
 User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
 
 1. **Main Configuration**: If `llm` is set in the main config, it will be used for all graph operations.
@@ -162,6 +158,10 @@ const config = {
 const memory = new Memory(config);
 ```
 </CodeGroup>
+
+<Note>
+If you are using NodeSDK, you need to pass `enableGraph` as `true` in the `config` object.
+</Note>
 
 ## Graph Operations
 The Mem0's graph supports the following operations:

@@ -74,14 +74,14 @@ const messages = [
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 
-await memory.add(messages, { userId: "user123", metadata: { category: "movie_recommendations" } });
+await memory.add(messages, { userId: "alice", metadata: { category: "movie_recommendations" } });
 ```
 
 ```json Output
 {
   "results": [
     {
-      "id": "c03c9045-df76-4949-bbc5-d5dc1932aa5c",
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
       "memory": "User is planning to watch a movie tonight.",
       "metadata": {
         "category": "movie_recommendations"
@@ -111,7 +111,7 @@ await memory.add(messages, { userId: "user123", metadata: { category: "movie_rec
 <CodeGroup>
 ```typescript Code
 // Get all memories
-const allMemories = await memory.getAll({ userId: "user123" });
+const allMemories = await memory.getAll({ userId: "alice" });
 console.log(allMemories)
 ```
 
@@ -127,7 +127,7 @@ console.log(allMemories)
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "user123"
+      "userId": "alice"
     },
     {
       "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
@@ -138,7 +138,7 @@ console.log(allMemories)
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "user123"
+      "userId": "alice"
     },
     {
       "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
@@ -149,7 +149,7 @@ console.log(allMemories)
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "user123"
+      "userId": "alice"
     }
   ]
 }
@@ -176,7 +176,7 @@ console.log(singleMemory);
   "metadata": {
     "category": "movie_recommendations"
   },
-  "userId": "user123"
+  "userId": "alice"
 }
 ```
 </CodeGroup>
@@ -185,7 +185,7 @@ console.log(singleMemory);
 
 <CodeGroup>
 ```typescript Code
-const result = await memory.search('What do you know about me?', { userId: "user123" });
+const result = await memory.search('What do you know about me?', { userId: "alice" });
 console.log(result);
 ```
 
@@ -202,7 +202,7 @@ console.log(result);
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "user123"
+      "userId": "alice"
     },
     {
       "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
@@ -214,7 +214,7 @@ console.log(result);
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "user123"
+      "userId": "alice"
     },
     {
       "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
@@ -226,7 +226,7 @@ console.log(result);
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "user123"
+      "userId": "alice"
     }
   ]
 }
@@ -263,23 +263,23 @@ console.log(history);
 [
   {
     "id": 39,
-    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
-    "previous_value": "User is planning to watch a movie tonight.",
-    "new_value": "I love India, it is my favorite country.",
+    "memoryId": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previousValue": "User is planning to watch a movie tonight.",
+    "newValue": "I love India, it is my favorite country.",
     "action": "UPDATE",
-    "created_at": "2025-02-27T16:33:20.557Z",
-    "updated_at": "2025-02-27T16:33:27.051Z",
-    "is_deleted": 0
+    "createdAt": "2025-02-27T16:33:20.557Z",
+    "updatedAt": "2025-02-27T16:33:27.051Z",
+    "isDeleted": 0
   },
   {
     "id": 37,
-    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
-    "previous_value": null,
-    "new_value": "User is planning to watch a movie tonight.",
+    "memoryId": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previousValue": null,
+    "newValue": "User is planning to watch a movie tonight.",
     "action": "ADD",
-    "created_at": "2025-02-27T16:33:20.557Z",
-    "updated_at": null,
-    "is_deleted": 0
+    "createdAt": "2025-02-27T16:33:20.557Z",
+    "updatedAt": null,
+    "isDeleted": 0
   }
 ]
 ```
@@ -292,7 +292,7 @@ console.log(history);
 await memory.delete('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
 
 // Delete all memories for a user
-await memory.deleteAll({ userId: "user123" });
+await memory.deleteAll({ userId: "alice" });
 ```
 
 ### Reset Memory
@@ -325,6 +325,15 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | `topP`               | Probability threshold for nucleus sampling    | All              |
 | `topK`               | Number of highest probability tokens to keep  | All              |
 | `openaiBaseUrl`     | Base URL for OpenAI API                      | OpenAI           |
+</Accordion>
+
+<Accordion title="Graph Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Graph store provider (e.g., "neo4j") | "neo4j"    |
+| `url`        | Connection URL                  | env.NEO4J_URL        |
+| `username`   | Authentication username         | env.NEO4J_USERNAME        |
+| `password`   | Authentication password         | env.NEO4J_PASSWORD        |
 </Accordion>
 
 <Accordion title="Embedder Configuration">

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mem0-Demo",
-  description: "Mem0-Demo: By Mem0",
+  title: "Mem0 - ChatGPT with Memory",
+  description: "Mem0 - ChatGPT with Memory is a personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.",
 };
 
 export default function RootLayout({

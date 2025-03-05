@@ -92,8 +92,8 @@ export const Assistant = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
-          <ThreadList onResetUserId={resetUserId} />
-          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} />
+          <ThreadList onResetUserId={resetUserId} isDarkMode={isDarkMode} />
+          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} isDarkMode={isDarkMode} />
         </div>
       </div>
     </AssistantRuntimeProvider>
