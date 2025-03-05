@@ -25,6 +25,13 @@ sqlalchemy = "^2.0.31"
 langchain-community = "^0.3.1"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
+vertexai = "^1.71.1"
+groq = "^0.18.0"
+litellm = "^1.62.1"
+chromadb = "^0.6.3"
+vecs = "^0.4.5"
+opensearch-py = "^2.8.0"
+elasticsearch = "^8.17.2"
 
 [tool.poetry.extras]
 graph = ["langchain-community", "neo4j", "rank-bm25"]
