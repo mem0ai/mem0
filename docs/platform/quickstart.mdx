@@ -353,11 +353,10 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </Note>
 
 #### Long-term memory for both users and agents
-When you provide both `user_id` and `agent_id`, Mem0 will store memories separately for each:
-- User messages are stored under the specified `user_id`
-- Assistant messages are stored under the specified `agent_id`
-
-This allows both the user and agent to maintain their own consistent memory across sessions.
+When you provide both `user_id` and `agent_id`, Mem0 will store memories with both identifiers attached:
+- Each memory will be tagged with both the specified `user_id` and `agent_id`
+- During retrieval, you'll need to provide both IDs to access the memories
+- This enables tracking the full context of conversations between specific users and agents
 
 <CodeGroup>
 
