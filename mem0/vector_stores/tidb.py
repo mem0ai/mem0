@@ -34,6 +34,7 @@ class TiDB(VectorStoreBase):
         password,
         host,
         port,
+        enable_ssl,
         index_method,
         distance_metric,
     ):
@@ -48,13 +49,25 @@ class TiDB(VectorStoreBase):
             password (str): Database password
             host (str, optional): Database host
             port (int, optional): Database port
+            enable_ssl (bool, optional): Enable SSL connection
             index_method (IndexMethod, optional): Index method to use. Defaults to HNSW.
             distance_metric (DistanceMetric, optional): Index measure to use. Defaults to COSINE.
         """
         self.collection_name = collection_name
         self.index_method = index_method or IndexMethod.HNSW
         self.distance_metric = distance_metric or DistanceMetric.COSINE
-        self.conn = pymysql.connect(database=database, user=user, password=password, host=host, port=port)
+        ssl_config = {
+            "ssl_verify_cert": True,
+            "ssl_verify_identity": True,
+        }
+        self.conn = pymysql.connect(
+            database=database,
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            **(ssl_config if enable_ssl else {}),
+        )
         self.cur = self.conn.cursor()
 
         collections = self.list_cols()
