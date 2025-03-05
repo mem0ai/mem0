@@ -135,6 +135,8 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 [Mem0 - ChatGPT with Memory](https://github.com/user-attachments/assets/cebc4f8e-bdb9-4837-868d-13c5ab7bb433)
 
+Try live [demo](https://mem0.dev/demo/)
+
 <br/><br/>
 
 - AI Companion: Experience personalized conversations with an AI that remembers your preferences and past interactions
