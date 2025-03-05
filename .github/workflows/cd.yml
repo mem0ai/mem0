@@ -37,10 +37,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository_url: https://test.pypi.org/legacy/
-          packages_dir: mem0/dist/
+          packages_dir: ./mem0/dist/
 
       - name: Publish distribution 📦 to PyPI
         if: startsWith(github.ref, 'refs/tags')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages_dir: mem0/dist/
+          packages_dir: ./mem0/dist/
