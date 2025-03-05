@@ -17,12 +17,23 @@ export interface VectorStoreConfig {
 }
 
 export interface LLMConfig {
-  apiKey: string;
+  provider?: string;
+  config?: Record<string, any>;
+  apiKey?: string;
   model?: string;
 }
 
+export interface Neo4jConfig {
+  url: string;
+  username: string;
+  password: string;
+}
+
 export interface GraphStoreConfig {
-  config?: any;
+  provider: string;
+  config: Neo4jConfig;
+  llm?: LLMConfig;
+  customPrompt?: string;
 }
 
 export interface MemoryConfig {
@@ -42,6 +53,7 @@ export interface MemoryConfig {
   historyDbPath?: string;
   customPrompt?: string;
   graphStore?: GraphStoreConfig;
+  enableGraph?: boolean;
 }
 
 export interface MemoryItem {
@@ -99,9 +111,22 @@ export const MemoryConfigSchema = z.object({
   }),
   historyDbPath: z.string().optional(),
   customPrompt: z.string().optional(),
+  enableGraph: z.boolean().optional(),
   graphStore: z
     .object({
-      config: z.any().optional(),
+      provider: z.string(),
+      config: z.object({
+        url: z.string(),
+        username: z.string(),
+        password: z.string(),
+      }),
+      llm: z
+        .object({
+          provider: z.string(),
+          config: z.record(z.string(), z.any()),
+        })
+        .optional(),
+      customPrompt: z.string().optional(),
     })
     .optional(),
 });

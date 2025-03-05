@@ -84,6 +84,29 @@ iconType: "solid"
         - Include specific examples or cases rather than general definitions
     </Accordion>
 
+    <Accordion title="How do I configure Mem0 for AWS Lambda?">
+        When deploying Mem0 on AWS Lambda, you'll need to modify the storage directory configuration due to Lambda's file system restrictions. By default, Lambda only allows writing to the `/tmp` directory.
+
+        To configure Mem0 for AWS Lambda, set the `MEM0_DIR` environment variable to point to a writable directory in `/tmp`:
+
+        ```bash
+        MEM0_DIR=/tmp/.mem0
+        ```
+
+        If you're not using environment variables, you'll need to modify the storage path in your code:
+
+        ```python
+        # Change from
+        home_dir = os.path.expanduser("~")
+        mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
+
+        # To
+        mem0_dir = os.environ.get("MEM0_DIR", "/tmp/.mem0")
+        ```
+
+        Note that the `/tmp` directory in Lambda has a size limit of 512MB and its contents are not persistent between function invocations.
+    </Accordion>
+
 </AccordionGroup>
 
 
