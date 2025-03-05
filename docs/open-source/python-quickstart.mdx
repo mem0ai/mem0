@@ -85,20 +85,43 @@ m = Memory.from_config(config_dict=config)
 
 <CodeGroup>
 ```python Code
-# For a user
-result = m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
 
-# messages = [
-#    {"role": "user", "content": "Hi, I'm Alex. I like to play cricket on weekends."},
-#    {"role": "assistant", "content": "Hello Alex! It's great to know that you enjoy playing cricket on weekends. I'll remember that for future reference."}
-# ]
-# client.add(messages, user_id="alice")
+result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
 ```
 
 ```json Output
 {
     "results": [
-        {"id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", "memory": "Likes to play cricket on weekends", "event": "ADD"}
+        {
+            "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+            "memory": "User is planning to watch a movie tonight.",
+            "metadata": {
+                "category": "movie_recommendations"
+            },
+            "event": "ADD"
+        },
+        {
+            "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+            "memory": "User is not a big fan of thriller movies.",
+            "metadata": {
+                "category": "movie_recommendations"
+            },
+            "event": "ADD"
+        },
+        {
+            "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+            "memory": "User loves sci-fi movies.",
+            "metadata": {
+                "category": "movie_recommendations"
+            },
+            "event": "ADD"
+        }
     ]
 }
 ```
@@ -115,14 +138,38 @@ all_memories = m.get_all(user_id="alice")
 ```json Output
 {
     "results": [
+            {
+        "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+        "memory": "User is planning to watch a movie tonight.",
+        "hash": "1a271c007316c94377175ee80e746a19",
+        "created_at": "2025-02-27T16:33:20.557Z",
+        "updated_at": "2025-02-27T16:33:27.051Z",
+        "metadata": {
+            "category": "movie_recommendations"
+        },
+        "user_id": "alice"
+        },
         {
-            "id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
-            "memory": "Likes to play cricket on weekends", 
-            "hash": "285d07801ae42054732314853e9eadd7", 
-            "metadata": {"category": "hobbies"}, 
-            "created_at": "2024-10-28T12:32:07.744891-07:00", 
-            "updated_at": None, 
-            "user_id": "alice"
+        "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+        "memory": "User loves sci-fi movies.",
+        "hash": "285d07801ae42054732314853e9eadd7",
+        "created_at": "2025-02-27T16:33:20.560Z",
+        "updated_at": None,
+        "metadata": {
+            "category": "movie_recommendations"
+        },
+        "user_id": "alice"
+        },
+        {
+        "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+        "memory": "User is not a big fan of thriller movies.",
+        "hash": "285d07801ae42054732314853e9eadd7",
+        "created_at": "2025-02-27T16:33:20.560Z",
+        "updated_at": None,
+        "metadata": {
+            "category": "movie_recommendations"
+        },
+        "user_id": "alice"
         }
     ]
 }
@@ -135,18 +182,20 @@ all_memories = m.get_all(user_id="alice")
 <CodeGroup>
 ```python Code
 # Get a single memory by ID
-specific_memory = m.get("bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
+specific_memory = m.get("892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
 ```
 
 ```json Output
 {
-    "id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
-    "memory": "Likes to play cricket on weekends", 
-    "hash": "285d07801ae42054732314853e9eadd7", 
-    "metadata": {"category": "hobbies"}, 
-    "created_at": "2024-10-28T12:32:07.744891-07:00", 
-    "updated_at": None, 
-    "user_id": "alice"
+  "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+  "memory": "User is planning to watch a movie tonight.",
+  "hash": "1a271c007316c94377175ee80e746a19",
+  "created_at": "2025-02-27T16:33:20.557Z",
+  "updated_at": None,
+  "metadata": {
+    "category": "movie_recommendations"
+  },
+  "user_id": "alice"
 }
 ```
 </CodeGroup>
@@ -155,23 +204,49 @@ specific_memory = m.get("bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
 
 <CodeGroup>
 ```python Code
-related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
+related_memories = m.search(query="What do you know about me?", user_id="alice")
 ```
 
 ```json Output
 {
-    "results": [
-        {
-            "id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
-            "memory": "Likes to play cricket on weekends", 
-            "hash": "285d07801ae42054732314853e9eadd7", 
-            "metadata": {"category": "hobbies"}, 
-            "score": 0.30808347, 
-            "created_at": "2024-10-28T12:32:07.744891-07:00", 
-            "updated_at": None, 
-            "user_id": "alice"
-        }
-    ]
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "hash": "1a271c007316c94377175ee80e746a19",
+      "created_at": "2025-02-27T16:33:20.557Z",
+      "updated_at": None,
+      "score": 0.38920719231944799,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "user_id": "alice"
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "created_at": "2025-02-27T16:33:20.560Z",
+      "updated_at": None,
+      "score": 0.36869761478135689,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "user_id": "alice"
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "created_at": "2025-02-27T16:33:20.560Z",
+      "updated_at": None,
+      "score": 0.33855272141248272,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "user_id": "alice"
+    }
+  ]
 }
 ```
 </CodeGroup>
@@ -180,7 +255,7 @@ related_memories = m.search(query="What are Alice's hobbies?", user_id="alice")
 
 <CodeGroup>
 ```python Code
-result = m.update(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", data="Likes to play tennis on weekends")
+result = m.update(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e", data="I love India, it is my favorite country.")
 ```
 
 ```json Output
@@ -192,29 +267,31 @@ result = m.update(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", data="Likes 
 
 <CodeGroup>
 ```python Code
-history = m.history(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
+history = m.history(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
 ```
 
 ```json Output
 [
-    {
-        "id": "96d2821d-e551-4089-aa57-9398c421d450", 
-        "memory_id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
-        "old_memory": None, 
-        "new_memory": "Likes to play cricket on weekends", 
-        "event": "ADD", 
-        "created_at": "2024-10-28T12:32:07.744891-07:00", 
-        "updated_at": None
-    }, 
-    {
-        "id": "3db4cb58-c0f1-4dd0-b62a-8123068ebfe7", 
-        "memory_id": "bf4d4092-cf91-4181-bfeb-b6fa2ed3061b", 
-        "old_memory": "Likes to play cricket on weekends", 
-        "new_memory": "Likes to play tennis on weekends", 
-        "event": "UPDATE", 
-        "created_at": "2024-10-28T12:32:07.744891-07:00", 
-        "updated_at": "2024-10-28T13:05:46.987978-07:00"
-    }
+  {
+    "id": 39,
+    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previous_value": "User is planning to watch a movie tonight.",
+    "new_value": "I love India, it is my favorite country.",
+    "action": "UPDATE",
+    "created_at": "2025-02-27T16:33:20.557Z",
+    "updated_at": "2025-02-27T16:33:27.051Z",
+    "is_deleted": 0
+  },
+  {
+    "id": 37,
+    "memory_id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previous_value": null,
+    "new_value": "User is planning to watch a movie tonight.",
+    "action": "ADD",
+    "created_at": "2025-02-27T16:33:20.557Z",
+    "updated_at": null,
+    "is_deleted": 0
+  }
 ]
 ```
 </CodeGroup>
@@ -223,7 +300,7 @@ history = m.history(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
 
 ```python
 # Delete a memory by id
-m.delete(memory_id="bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
+m.delete(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
 # Delete all memories for a user
 m.delete_all(user_id="alice")
 ```
