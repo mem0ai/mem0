@@ -24,19 +24,23 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: make install
+        run: |
+          cd mem0
+          poetry install
 
-      - name: Clean previous builds
-        run: make clean
+      - name: Build a binary wheel and a source tarball
+        run: |
+          cd mem0
+          poetry build
 
-      - name: Build package
-        run: make build
-
-      # - name: Publish distribution 📦 to Test PyPI
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     repository_url: https://test.pypi.org/legacy/
-      #     packages_dir: dist/
+      - name: Publish distribution 📦 to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository_url: https://test.pypi.org/legacy/
+          packages_dir: mem0/dist/
 
       - name: Publish distribution 📦 to PyPI
-        run: make publish
+        if: startsWith(github.ref, 'refs/tags')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages_dir: mem0/dist/
