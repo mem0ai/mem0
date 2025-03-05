@@ -12,7 +12,7 @@ def mock_openai_client():
         yield mock_client
 
 
-def test_embed_default_model(mock_openai_client): #
+def test_embed_default_model(mock_openai_client):
     config = BaseEmbedderConfig()
     embedder = OpenAIEmbedding(config)
     mock_response = Mock()
@@ -25,7 +25,7 @@ def test_embed_default_model(mock_openai_client): #
     assert result == [0.1, 0.2, 0.3]
 
 
-def test_embed_custom_model(mock_openai_client): #
+def test_embed_custom_model(mock_openai_client):
     config = BaseEmbedderConfig(model="text-embedding-2-medium", embedding_dims=1024)
     embedder = OpenAIEmbedding(config)
     mock_response = Mock()
@@ -40,7 +40,7 @@ def test_embed_custom_model(mock_openai_client): #
     assert result == [0.4, 0.5, 0.6]
 
 
-def test_embed_removes_newlines(mock_openai_client): #
+def test_embed_removes_newlines(mock_openai_client):
     config = BaseEmbedderConfig()
     embedder = OpenAIEmbedding(config)
     mock_response = Mock()
@@ -53,7 +53,7 @@ def test_embed_removes_newlines(mock_openai_client): #
     assert result == [0.7, 0.8, 0.9]
 
 
-def test_embed_without_api_key_env_var(mock_openai_client): #
+def test_embed_without_api_key_env_var(mock_openai_client):
     config = BaseEmbedderConfig(api_key="test_key")
     embedder = OpenAIEmbedding(config)
     mock_response = Mock()
@@ -68,7 +68,7 @@ def test_embed_without_api_key_env_var(mock_openai_client): #
     assert result == [1.0, 1.1, 1.2]
 
 
-def test_embed_uses_environment_api_key(mock_openai_client, monkeypatch): #
+def test_embed_uses_environment_api_key(mock_openai_client, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "env_key")
     config = BaseEmbedderConfig()
     embedder = OpenAIEmbedding(config)
