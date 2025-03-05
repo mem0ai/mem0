@@ -1,0 +1,4 @@
+!lib/
+.next/
+node_modules/
+.env

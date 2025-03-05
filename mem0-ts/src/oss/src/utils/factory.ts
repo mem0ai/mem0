@@ -24,7 +24,7 @@ export class EmbedderFactory {
 
 export class LLMFactory {
   static create(provider: string, config: LLMConfig): LLM {
-    switch (provider.toLowerCase()) {
+    switch (provider) {
       case "openai":
         return new OpenAILLM(config);
       case "openai_structured":

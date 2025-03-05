@@ -156,6 +156,14 @@
                     ]
                   }
                 ]
+              },
+              {
+                "group": "Contribution",
+                "icon": "handshake",
+                "pages": [
+                  "contributing/development",
+                  "contributing/documentation"
+                ]
               }
             ]
           },
@@ -167,6 +175,7 @@
                 "icon": "lightbulb",
                 "pages": [
                   "examples/overview",
+                  "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
@@ -191,7 +200,8 @@
                   "integrations/langchain",
                   "integrations/langgraph",
                   "integrations/llama-index",
-                  "integrations/langchain-tools"
+                  "integrations/langchain-tools",
+                  "integrations/dify"
                 ]
               }
             ]
@@ -265,6 +275,11 @@
         "anchor": "Your Dashboard",
         "href": "https://app.mem0.ai",
         "icon": "chart-simple"
+      },
+      {
+        "anchor": "Demo",
+        "href": "https://mem0.dev/demo",
+        "icon": "play"
       },
       {
         "anchor": "Discord",

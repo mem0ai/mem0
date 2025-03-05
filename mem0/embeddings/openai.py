@@ -29,4 +29,4 @@ class OpenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
+        return self.client.embeddings.create(input=[text], model=self.config.model, dimensions = self.config.embedding_dims).data[0].embedding
