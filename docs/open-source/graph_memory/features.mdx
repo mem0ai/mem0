@@ -16,23 +16,43 @@ Users can add a customized prompt that will be used to extract specific entities
 This allows for more targeted and relevant information extraction based on the user's needs. 
 Here's an example of how to add a customized prompt:
 
-```python
-from mem0 import Memory
+<CodeGroup>
+    ```python Python
+    from mem0 import Memory
 
-config = {
-    "graph_store": {
-        "provider": "neo4j",
-        "config": {
-            "url": "neo4j+s://xxx",
-            "username": "neo4j",
-            "password": "xxx"
-        },
-        "custom_prompt": "Please only extract entities containing sports related relationships and nothing else.",
+    config = {
+        "graph_store": {
+            "provider": "neo4j",
+            "config": {
+                "url": "neo4j+s://xxx",
+                "username": "neo4j",
+                "password": "xxx"
+            },
+            "custom_prompt": "Please only extract entities containing sports related relationships and nothing else.",
+        }
     }
-}
 
-m = Memory.from_config(config_dict=config)
-```
+    m = Memory.from_config(config_dict=config)
+    ```
+
+    ```typescript TypeScript
+    import { Memory } from "mem0ai/oss";
+
+    const config = {
+        graphStore: {
+            provider: "neo4j",
+            config: {
+                url: "neo4j+s://xxx",
+                username: "neo4j",
+                password: "xxx",
+            },
+            customPrompt: "Please only extract entities containing sports related relationships and nothing else.",
+        }
+    }
+
+    const memory = new Memory(config);
+    ```
+</CodeGroup>
 
 If you want to use a managed version of Mem0, please check out [Mem0](https://mem0.dev/pd). If you have any questions, please feel free to reach out to us using one of the following methods:
 

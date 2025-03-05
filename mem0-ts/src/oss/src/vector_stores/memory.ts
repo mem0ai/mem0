@@ -1,5 +1,7 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import sqlite3 from "sqlite3";
+import path from "path";
 
 interface MemoryVector {
   id: string;
@@ -8,12 +10,55 @@ interface MemoryVector {
 }
 
 export class MemoryVectorStore implements VectorStore {
-  private vectors: Map<string, MemoryVector>;
+  private db: sqlite3.Database;
   private dimension: number;
+  private dbPath: string;
 
   constructor(config: VectorStoreConfig) {
-    this.vectors = new Map();
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
+    this.dbPath = path.join(process.cwd(), "vector_store.db");
+    if (config.dbPath) {
+      this.dbPath = config.dbPath;
+    }
+    this.db = new sqlite3.Database(this.dbPath);
+    this.init().catch(console.error);
+  }
+
+  private async init() {
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS vectors (
+        id TEXT PRIMARY KEY,
+        vector BLOB NOT NULL,
+        payload TEXT NOT NULL
+      )
+    `);
+  }
+
+  private async run(sql: string, params: any[] = []): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  private async all(sql: string, params: any[] = []): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  }
+
+  private async getOne(sql: string, params: any[] = []): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
@@ -46,11 +91,11 @@ export class MemoryVectorStore implements VectorStore {
           `Vector dimension mismatch. Expected ${this.dimension}, got ${vectors[i].length}`,
         );
       }
-      this.vectors.set(ids[i], {
-        id: ids[i],
-        vector: vectors[i],
-        payload: payloads[i],
-      });
+      const vectorBuffer = Buffer.from(new Float32Array(vectors[i]).buffer);
+      await this.run(
+        `INSERT OR REPLACE INTO vectors (id, vector, payload) VALUES (?, ?, ?)`,
+        [ids[i], vectorBuffer, JSON.stringify(payloads[i])],
+      );
     }
   }
 
@@ -65,13 +110,23 @@ export class MemoryVectorStore implements VectorStore {
       );
     }
 
+    const rows = await this.all(`SELECT * FROM vectors`);
     const results: VectorStoreResult[] = [];
-    for (const vector of this.vectors.values()) {
-      if (this.filterVector(vector, filters)) {
-        const score = this.cosineSimilarity(query, vector.vector);
+
+    for (const row of rows) {
+      const vector = new Float32Array(row.vector.buffer);
+      const payload = JSON.parse(row.payload);
+      const memoryVector: MemoryVector = {
+        id: row.id,
+        vector: Array.from(vector),
+        payload,
+      };
+
+      if (this.filterVector(memoryVector, filters)) {
+        const score = this.cosineSimilarity(query, Array.from(vector));
         results.push({
-          id: vector.id,
-          payload: vector.payload,
+          id: memoryVector.id,
+          payload: memoryVector.payload,
           score,
         });
       }
@@ -82,11 +137,15 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
-    const vector = this.vectors.get(vectorId);
-    if (!vector) return null;
+    const row = await this.getOne(`SELECT * FROM vectors WHERE id = ?`, [
+      vectorId,
+    ]);
+    if (!row) return null;
+
+    const payload = JSON.parse(row.payload);
     return {
-      id: vector.id,
-      payload: vector.payload,
+      id: row.id,
+      payload,
     };
   }
 
@@ -100,36 +159,46 @@ export class MemoryVectorStore implements VectorStore {
         `Vector dimension mismatch. Expected ${this.dimension}, got ${vector.length}`,
       );
     }
-    const existing = this.vectors.get(vectorId);
-    if (!existing) throw new Error(`Vector with ID ${vectorId} not found`);
-    this.vectors.set(vectorId, {
-      id: vectorId,
-      vector,
-      payload,
-    });
+    const vectorBuffer = Buffer.from(new Float32Array(vector).buffer);
+    await this.run(`UPDATE vectors SET vector = ?, payload = ? WHERE id = ?`, [
+      vectorBuffer,
+      JSON.stringify(payload),
+      vectorId,
+    ]);
   }
 
   async delete(vectorId: string): Promise<void> {
-    this.vectors.delete(vectorId);
+    await this.run(`DELETE FROM vectors WHERE id = ?`, [vectorId]);
   }
 
   async deleteCol(): Promise<void> {
-    this.vectors.clear();
+    await this.run(`DROP TABLE IF EXISTS vectors`);
+    await this.init();
   }
 
   async list(
     filters?: SearchFilters,
     limit: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    const rows = await this.all(`SELECT * FROM vectors`);
     const results: VectorStoreResult[] = [];
-    for (const vector of this.vectors.values()) {
-      if (this.filterVector(vector, filters)) {
+
+    for (const row of rows) {
+      const payload = JSON.parse(row.payload);
+      const memoryVector: MemoryVector = {
+        id: row.id,
+        vector: Array.from(new Float32Array(row.vector.buffer)),
+        payload,
+      };
+
+      if (this.filterVector(memoryVector, filters)) {
         results.push({
-          id: vector.id,
-          payload: vector.payload,
+          id: memoryVector.id,
+          payload: memoryVector.payload,
         });
       }
     }
+
     return [results.slice(0, limit), results.length];
   }
 }

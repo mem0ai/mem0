@@ -47,7 +47,11 @@ export class ConfigManager {
       historyDbPath:
         userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
       customPrompt: userConfig.customPrompt,
-      graphStore: userConfig.graphStore,
+      graphStore: {
+        ...DEFAULT_MEMORY_CONFIG.graphStore,
+        ...userConfig.graphStore,
+      },
+      enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
     };
 
     // Validate the merged config

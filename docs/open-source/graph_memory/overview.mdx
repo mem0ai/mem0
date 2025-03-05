@@ -9,13 +9,23 @@ Mem0 now supports **Graph Memory**.
 With Graph Memory, users can now create and utilize complex relationships between pieces of information, allowing for more nuanced and context-aware responses. 
 This integration enables users to leverage the strengths of both vector-based and graph-based approaches, resulting in more accurate and comprehensive information retrieval and generation.
 
+<Note>
+NodeSDK now supports Graph Memory. 🎉
+</Note>
+
 ## Installation
 
 To use Mem0 with Graph Memory support, install it using pip:
 
-```bash
+<CodeGroup>
+```bash Python
 pip install "mem0ai[graph]"
 ```
+
+```bash TypeScript
+npm install mem0ai
+```
+</CodeGroup>
 
 This command installs Mem0 along with the necessary dependencies for graph functionality.
 
@@ -42,6 +52,9 @@ Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](htt
 
 <Note>If you are using Neo4j locally, then you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
 
+<Note>
+If you are using NodeSDK, you need to pass `enableGraph` as `true` in the `config` object.
+</Note>
 
 User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
 
@@ -53,7 +66,7 @@ Here's how you can do it:
 
 
 <CodeGroup>
-```python Basic
+```python Python
 from mem0 import Memory
 
 config = {
@@ -70,9 +83,25 @@ config = {
 m = Memory.from_config(config_dict=config)
 ```
 
-```python Advanced (Custom LLM)
-from mem0 import Memory
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
 
+const config = {
+    enableGraph: true,
+    graphStore: {
+        provider: "neo4j",
+        config: {
+            url: "neo4j+s://xxx",
+            username: "neo4j",
+            password: "xxx",
+        }
+    }
+}
+
+const memory = new Memory(config);
+```
+
+```python Python (Advanced)
 config = {
     "llm": {
         "provider": "openai",
@@ -101,6 +130,37 @@ config = {
 
 m = Memory.from_config(config_dict=config)
 ```
+
+```typescript TypeScript (Advanced)
+const config = {
+    llm: {
+        provider: "openai",
+        config: {
+            model: "gpt-4o",
+            temperature: 0.2,
+            max_tokens: 2000,
+        }
+    },
+    enableGraph: true,
+    graphStore: {
+        provider: "neo4j",
+        config: {
+            url: "neo4j+s://xxx",
+            username: "neo4j",
+            password: "xxx",
+        },
+        llm: {
+            provider: "openai",
+            config: {
+                model: "gpt-4o-mini",
+                temperature: 0.0,
+            }
+        }
+    }
+}
+
+const memory = new Memory(config);
+```
 </CodeGroup>
 
 ## Graph Operations
@@ -109,12 +169,16 @@ The Mem0's graph supports the following operations:
 ### Add Memories
 
 <Note>
-If you are using Mem0 with Graph Memory, it is recommended to pass `user_id`. The default value of `user_id` (in case of graph memory) is `user`.
+If you are using Mem0 with Graph Memory, it is recommended to pass `user_id`. Use `userId` in NodeSDK.
 </Note>
 
 <CodeGroup>
-```python Code
+```python Python
 m.add("I like pizza", user_id="alice")
+```
+
+```typescript TypeScript
+memory.add("I like pizza", { userId: "alice" });
 ```
 
 ```json Output
@@ -126,8 +190,12 @@ m.add("I like pizza", user_id="alice")
 ### Get all memories
 
 <CodeGroup>
-```python Code
+```python Python
 m.get_all(user_id="alice")
+```
+
+```typescript TypeScript
+memory.getAll({ userId: "alice" });
 ```
 
 ```json Output
@@ -157,8 +225,12 @@ m.get_all(user_id="alice")
 ### Search Memories
 
 <CodeGroup>
-```python Code
+```python Python
 m.search("tell me my name.", user_id="alice")
+```
+
+```typescript TypeScript
+memory.search("tell me my name.", { userId: "alice" });
 ```
 
 ```json Output
@@ -187,10 +259,16 @@ m.search("tell me my name.", user_id="alice")
 
 
 ### Delete all Memories
-```python
+
+<CodeGroup>
+```python Python
 m.delete_all(user_id="alice")
 ```
 
+```typescript TypeScript
+memory.deleteAll({ userId: "alice" });
+```
+</CodeGroup>
 
 # Example Usage
 Here's an example of how to use Mem0's graph operations:
@@ -206,63 +284,109 @@ Below are the steps to add memories and visualize the graph:
 <Steps>
   <Step title="Add memory 'I like going to hikes'">
 
-```python
+<CodeGroup>
+```python Python
 m.add("I like going to hikes", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("I like going to hikes", { userId: "alice123" });
+```
+</CodeGroup>
 ![Graph Memory Visualization](/images/graph_memory/graph_example1.png)
 
 </Step>
 <Step title="Add memory 'I love to play badminton'">
 
-
-```python
+<CodeGroup>
+```python Python
 m.add("I love to play badminton", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("I love to play badminton", { userId: "alice123" });
+```
+</CodeGroup>
+
 ![Graph Memory Visualization](/images/graph_memory/graph_example2.png)
 
 </Step>
 
 <Step title="Add memory 'I hate playing badminton'">
 
-```python
+<CodeGroup>
+```python Python
 m.add("I hate playing badminton", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("I hate playing badminton", { userId: "alice123" });
+```
+</CodeGroup>
+
 ![Graph Memory Visualization](/images/graph_memory/graph_example3.png)
 
 </Step>
 
 <Step title="Add memory 'My friend name is john and john has a dog named tommy'">
 
-```python
+<CodeGroup>
+```python Python
 m.add("My friend name is john and john has a dog named tommy", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("My friend name is john and john has a dog named tommy", { userId: "alice123" });
+```
+</CodeGroup>
+
 ![Graph Memory Visualization](/images/graph_memory/graph_example4.png)
 
 </Step>
 
 <Step title="Add memory 'My name is Alice'">
 
-```python
+<CodeGroup>
+```python Python
 m.add("My name is Alice", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("My name is Alice", { userId: "alice123" });
+```
+</CodeGroup>
+
 ![Graph Memory Visualization](/images/graph_memory/graph_example5.png)
 
 </Step>
 
 <Step title="Add memory 'John loves to hike and Harry loves to hike as well'">
 
-```python
+<CodeGroup>
+```python Python
 m.add("John loves to hike and Harry loves to hike as well", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("John loves to hike and Harry loves to hike as well", { userId: "alice123" });
+```
+</CodeGroup>
+
 ![Graph Memory Visualization](/images/graph_memory/graph_example6.png)
 
 </Step>
 
 <Step title="Add memory 'My friend peter is the spiderman'">
 
-```python
+<CodeGroup>
+```python Python
 m.add("My friend peter is the spiderman", user_id="alice123")
 ```
+
+```typescript TypeScript
+memory.add("My friend peter is the spiderman", { userId: "alice123" });
+```
+</CodeGroup>
 
 ![Graph Memory Visualization](/images/graph_memory/graph_example7.png)
 
@@ -274,8 +398,12 @@ m.add("My friend peter is the spiderman", user_id="alice123")
 ### Search Memories
 
 <CodeGroup>
-```python Code
+```python Python
 m.search("What is my name?", user_id="alice123")
+```
+
+```typescript TypeScript
+memory.search("What is my name?", { userId: "alice123" });
 ```
 
 ```json Output
@@ -297,8 +425,12 @@ Below graph visualization shows what nodes and relationships are fetched from th
 ![Graph Memory Visualization](/images/graph_memory/graph_example8.png)
 
 <CodeGroup>
-```python Code
+```python Python
 m.search("Who is spiderman?", user_id="alice123")
+```
+
+```typescript TypeScript
+memory.search("Who is spiderman?", { userId: "alice123" });
 ```
 
 ```json Output
