@@ -33,14 +33,15 @@ jobs:
           cd mem0
           poetry build
 
-      - name: Publish distribution 📦 to Test PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository_url: https://test.pypi.org/legacy/
-          packages_dir: ./mem0/dist/
+      # TODO: Needs to setup mem0 repo on Test PyPI
+      # - name: Publish distribution 📦 to Test PyPI
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      #   with:
+      #     repository_url: https://test.pypi.org/legacy/
+      #     packages_dir: dist/
 
       - name: Publish distribution 📦 to PyPI
         if: startsWith(github.ref, 'refs/tags')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages_dir: ./mem0/dist/
+          packages_dir: dist/
