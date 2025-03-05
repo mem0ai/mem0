@@ -28,5 +28,5 @@ class GoogleGenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        response = genai.embed_content(model=self.config.model, content=text)
+        response = genai.embed_content(model=self.config.model, content=text, output_dimensionality=self.config.embedding_dims)
         return response["embedding"]
