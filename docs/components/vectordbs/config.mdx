@@ -8,8 +8,9 @@ iconType: "solid"
 
 The `config` is defined as an object with two main keys:
 - `vector_store`: Specifies the vector database provider and its configuration
-  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus", "azure_ai_search")
-  - `config`: A nested object containing provider-specific settings
+  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus","azure_ai_search", "vertex_ai_vector_search")
+  - `config`: A nested dictionary containing provider-specific settings
+
 
 ## How to Use Config
 
@@ -86,6 +87,12 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `url` | Full URL for the server |
 | `api_key` | API key for the server |
 | `on_disk` | Enable persistent storage |
+| `endpoint_id` | Endpoint ID (vertex_ai_vector_search) |
+| `index_id` | Index ID (vertex_ai_vector_search) |
+| `deployment_index_id` | Deployment index ID (vertex_ai_vector_search) |
+| `project_id` | Project ID (vertex_ai_vector_search) |
+| `project_number` | Project number (vertex_ai_vector_search) |
+| `vector_search_api_endpoint` | Vector search API endpoint (vertex_ai_vector_search) |
 | `connection_string` | PostgreSQL connection string (for Supabase/PGVector) |
 | `index_method` | Vector index method (for Supabase) |
 | `index_measure` | Distance measure for similarity search (for Supabase) |

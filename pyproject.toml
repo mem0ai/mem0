@@ -25,6 +25,7 @@ sqlalchemy = "^2.0.31"
 langchain-community = "^0.3.1"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
+psycopg2-binary = "^2.9.10"
 
 [tool.poetry.extras]
 graph = ["langchain-community", "neo4j", "rank-bm25"]
