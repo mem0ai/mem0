@@ -200,6 +200,13 @@ class Memory(MemoryBase):
         )
 
         new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
+        try:
+            sanitized_response = json.dumps(new_memories_with_actions)  # Safely escape special characters
+            new_memories_with_actions = json.loads(sanitized_response)
+        except (json.JSONDecodeError, TypeError) as e:
+            logging.error(f"Error processing new_memories_with_actions: {e}")
+            new_memories_with_actions = {}
+
         new_memories_with_actions = json.loads(new_memories_with_actions)
 
         returned_memories = []
