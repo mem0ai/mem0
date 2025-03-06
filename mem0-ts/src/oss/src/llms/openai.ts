@@ -8,7 +8,7 @@ export class OpenAILLM implements LLM {
 
   constructor(config: LLMConfig) {
     this.openai = new OpenAI({ apiKey: config.apiKey });
-    this.model = config.model || "gpt-4-turbo-preview";
+    this.model = config.model || "gpt-4o-mini";
   }
 
   async generateResponse(
@@ -17,10 +17,16 @@ export class OpenAILLM implements LLM {
     tools?: any[],
   ): Promise<string | LLMResponse> {
     const completion = await this.openai.chat.completions.create({
-      messages: messages.map((msg) => ({
-        role: msg.role as "system" | "user" | "assistant",
-        content: msg.content,
-      })),
+      messages: messages.map((msg) => {
+        const role = msg.role as "system" | "user" | "assistant";
+        return {
+          role,
+          content:
+            typeof msg.content === "string"
+              ? msg.content
+              : JSON.stringify(msg.content),
+        };
+      }),
       model: this.model,
       response_format: responseFormat as { type: "text" | "json_object" },
       ...(tools && { tools, tool_choice: "auto" }),
@@ -44,10 +50,16 @@ export class OpenAILLM implements LLM {
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     const completion = await this.openai.chat.completions.create({
-      messages: messages.map((msg) => ({
-        role: msg.role as "system" | "user" | "assistant",
-        content: msg.content,
-      })),
+      messages: messages.map((msg) => {
+        const role = msg.role as "system" | "user" | "assistant";
+        return {
+          role,
+          content:
+            typeof msg.content === "string"
+              ? msg.content
+              : JSON.stringify(msg.content),
+        };
+      }),
       model: this.model,
     });
     const response = completion.choices[0].message;
