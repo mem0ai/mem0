@@ -12,7 +12,7 @@ Mem0 extends its capabilities beyond text by supporting multimodal data, includi
 When a user submits an image, Mem0 processes it to extract textual information and other pertinent details. These details are then added to the user's memory, enhancing the system's ability to understand and recall visual inputs.
 
 <CodeGroup>
-```python Code
+```python Python
 import os
 from mem0 import MemoryClient
 
@@ -42,6 +42,34 @@ messages = [
 
 # Calling the add method to ingest messages into the memory system
 client.add(messages, user_id="alice")
+```
+
+```typescript TypeScript
+import MemoryClient from "mem0ai";
+
+const client = new MemoryClient();
+
+const messages = [
+    {
+        role: "user",
+        content: "Hi, my name is Alice."
+    },
+    {
+        role: "assistant",
+        content: "Nice to meet you, Alice! What do you like to eat?"
+    },
+    {
+        role: "user",
+        content: {
+            type: "image_url",
+            image_url: {
+                url: "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+            }
+        }
+    },
+]
+
+await client.add(messages, { user_id: "alice" })
 ```
 
 ```json Output
@@ -90,7 +118,9 @@ client.add([image_message], user_id="alice")
 ## 2. Using Base64 Image Encoding for Local Files
 
 For local images—or when embedding the image directly is preferable—you can use a Base64-encoded string.
-```python
+
+<CodeGroup>
+```python Python
 import base64
 
 # Path to the image file
@@ -113,6 +143,27 @@ image_message = {
 client.add([image_message], user_id="alice")
 ```
 
+```typescript TypeScript
+import MemoryClient from "mem0ai";
+import fs from 'fs';
+
+const imagePath = 'path/to/your/image.jpg';
+
+const base64Image = fs.readFileSync(imagePath, { encoding: 'base64' });
+
+const imageMessage = {
+    role: "user",
+    content: {
+        type: "image_url",
+        image_url: {
+            url: `data:image/jpeg;base64,${base64Image}`
+        }
+    }
+};
+
+await client.add([imageMessage], { user_id: "alice" })
+```
+</CodeGroup>
 Using these methods, you can seamlessly incorporate images into your interactions, further enhancing Mem0's multimodal capabilities.
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
