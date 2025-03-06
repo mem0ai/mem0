@@ -180,7 +180,8 @@
                   "examples/personal-ai-tutor",
                   "examples/customer-support-agent",
                   "examples/personal-travel-assistant",
-                  "examples/llama-index-mem0"
+                  "examples/llama-index-mem0",
+                  "examples/chrome-extension"
                 ]
               }
             ]
@@ -201,8 +202,7 @@
                   "integrations/llama-index",
                   "integrations/langchain-tools",
                   "integrations/dify",
-                  "integrations/mcp-server",
-                  "integrations/chrome-extension"
+                  "integrations/mcp-server"
                 ]
               }
             ]
