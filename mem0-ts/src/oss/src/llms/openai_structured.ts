@@ -19,7 +19,10 @@ export class OpenAIStructuredLLM implements LLM {
     const completion = await this.openai.chat.completions.create({
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
-        content: msg.content,
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content),
       })),
       model: this.model,
       ...(tools
@@ -63,7 +66,10 @@ export class OpenAIStructuredLLM implements LLM {
     const completion = await this.openai.chat.completions.create({
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
-        content: msg.content,
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content),
       })),
       model: this.model,
     });

@@ -28,9 +28,16 @@ export enum API_VERSION {
   V2 = "v2",
 }
 
+export interface MultiModalMessages {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+}
+
 export interface Messages {
   role: string;
-  content: string;
+  content: string | MultiModalMessages;
 }
 
 export interface Message extends Messages {}

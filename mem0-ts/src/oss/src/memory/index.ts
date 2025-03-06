@@ -31,6 +31,7 @@ import {
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
 } from "./memory.types";
+import { parse_vision_messages } from "../utils/memory";
 
 export class Memory {
   private config: MemoryConfig;
@@ -109,9 +110,11 @@ export class Memory {
       ? (messages as Message[])
       : [{ role: "user", content: messages }];
 
+    const final_parsedMessages = await parse_vision_messages(parsedMessages);
+
     // Add to vector store
     const vectorStoreResult = await this.addToVectorStore(
-      parsedMessages,
+      final_parsedMessages,
       metadata,
       filters,
     );
@@ -121,7 +124,7 @@ export class Memory {
     if (this.graphMemory) {
       try {
         graphResult = await this.graphMemory.add(
-          parsedMessages.map((m) => m.content).join("\n"),
+          final_parsedMessages.map((m) => m.content).join("\n"),
           filters,
         );
       } catch (error) {

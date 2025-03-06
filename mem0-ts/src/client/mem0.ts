@@ -11,6 +11,7 @@ import {
   SearchOptions,
   Webhook,
   WebhookPayload,
+  Message,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 
@@ -168,7 +169,7 @@ export default class MemoryClient {
   }
 
   _preparePayload(
-    messages: string | Array<{ role: string; content: string }>,
+    messages: string | Array<Message>,
     options: MemoryOptions,
   ): object {
     const payload: any = {};
@@ -187,7 +188,7 @@ export default class MemoryClient {
   }
 
   async add(
-    messages: string | Array<{ role: string; content: string }>,
+    messages: string | Array<Message>,
     options: MemoryOptions = {},
   ): Promise<Array<Memory>> {
     this._validateOrgProject();
