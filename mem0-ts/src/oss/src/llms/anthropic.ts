@@ -27,9 +27,15 @@ export class AnthropicLLM implements LLM {
       model: this.model,
       messages: otherMessages.map((msg) => ({
         role: msg.role as "user" | "assistant",
-        content: msg.content,
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : msg.content.image_url.url,
       })),
-      system: systemMessage?.content,
+      system:
+        typeof systemMessage?.content === "string"
+          ? systemMessage.content
+          : undefined,
       max_tokens: 4096,
     });
 
