@@ -200,7 +200,8 @@
                   "integrations/langgraph",
                   "integrations/llama-index",
                   "integrations/langchain-tools",
-                  "integrations/dify"
+                  "integrations/dify",
+                  "integrations/mcp-server"
                 ]
               }
             ]
