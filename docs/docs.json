@@ -201,7 +201,8 @@
                   "integrations/llama-index",
                   "integrations/langchain-tools",
                   "integrations/dify",
-                  "integrations/mcp-server"
+                  "integrations/mcp-server",
+                  "integrations/chrome-extension"
                 ]
               }
             ]
