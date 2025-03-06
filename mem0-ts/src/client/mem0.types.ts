@@ -32,7 +32,7 @@ export interface MultiModalMessages {
   type: "image_url";
   image_url: {
     url: string;
-  }
+  };
 }
 
 export interface Messages {

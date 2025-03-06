@@ -1,8 +1,15 @@
 import { z } from "zod";
 
+export interface MultiModalMessages {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+}
+
 export interface Message {
   role: string;
-  content: string;
+  content: string | MultiModalMessages;
 }
 
 export interface EmbeddingConfig {
