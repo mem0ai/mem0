@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { MemoryClient } from 'saket-test';
+import { MemoryClient, Memory as Mem0Memory } from 'mem0ai';
 import { OpenAI } from 'openai';
 import { Message, Memory } from '@/types';
-import { WELCOME_MESSAGE, INVALID_CONFIG_MESSAGE, ERROR_MESSAGE, AI_MODELS, Provider } from '@/constants/messages';
+import { WELCOME_MESSAGE, INVALID_CONFIG_MESSAGE, ERROR_MESSAGE, Provider } from '@/constants/messages';
 
 interface UseChatProps {
   user: string;
@@ -30,32 +30,28 @@ interface PromptMessage {
   content: MessageContent;
 }
 
-export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatProps): UseChatReturn => {
+export const useChat = ({ user, mem0ApiKey, openaiApiKey }: UseChatProps): UseChatReturn => {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
-  const [memories, setMemories] = useState<Memory[]>([]);
+  const [memories, setMemories] = useState<Memory[]>();
   const [thinking, setThinking] = useState(false);
 
-  const openai = new OpenAI({ apiKey: openaiApiKey});
-  const memoryClient = new MemoryClient({ apiKey: mem0ApiKey });
-
+  const openai = new OpenAI({ apiKey: openaiApiKey, dangerouslyAllowBrowser: true});
+  
   const updateMemories = async (messages: PromptMessage[]) => {
-    console.log(messages);
+    const memoryClient = new MemoryClient({ apiKey: mem0ApiKey || '' });
     try {
       await memoryClient.add(messages, {
         user_id: user,
-        output_format: "v1.1",
       });
 
       const response = await memoryClient.getAll({
         user_id: user,
-        page: 1,
-        page_size: 50,
       });
 
-      const newMemories = response.results.map((memory: any) => ({
-        id: memory.id,
-        content: memory.memory,
-        timestamp: memory.updated_at,
+      const newMemories = response.map((memory: Mem0Memory) => ({
+        id: memory.id || '',
+        content: memory.memory || '',
+        timestamp: String(memory.updated_at) || '',
         tags: memory.categories || [],
       }));
       setMemories(newMemories);
@@ -87,6 +83,8 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
 
   const sendMessage = async (content: string, fileData?: { type: string; data: string | Buffer }) => {
     if (!content.trim() && !fileData) return;
+
+    const memoryClient = new MemoryClient({ apiKey: mem0ApiKey || '' });
 
     if (!user) {
       const newMessage: Message = {
@@ -127,37 +125,36 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
       // Check if any message has image content
       const hasImage = messagesForLLM.some(msg => {
         if (typeof msg.content === 'object' && msg.content !== null) {
-          const content = msg.content as any;
-          return content.type === 'image_url';
+          const content = msg.content as MessageContent;
+          return typeof content === 'object' && content !== null && 'type' in content && content.type === 'image_url';
         }
         return false;
       });
 
       // For image messages, only use the text content
       if (hasImage) {
-        messagesForLLM = [{
-          role: 'user',
-          content: userMessage.content
-        }];
+        messagesForLLM = [
+          ...messagesForLLM,
+          {
+            role: 'user',
+            content: userMessage.content
+          }
+        ];
       }
 
       // Fetch relevant memories if there's an image
       let relevantMemories = '';
-      if (hasImage) {
         try {
           const searchResponse = await memoryClient.getAll({
-            user_id: user,
-            page: 1,
-            page_size: 10,
+            user_id: user
           });
 
-          relevantMemories = searchResponse.results
-            .map((memory: any) => `Previous context: ${memory.memory}`)
+          relevantMemories = searchResponse
+            .map((memory: Mem0Memory) => `Previous context: ${memory.memory}`)
             .join('\n');
         } catch (error) {
           console.error('Error fetching memories:', error);
         }
-      }
 
       // Add a system message with memories context if there are memories and image
       if (relevantMemories.length > 0 && hasImage) {
@@ -170,12 +167,18 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
         ];
       }
 
-      console.log('Messages for LLM:', messagesForLLM);
+      const generateRandomId = () => {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      }
+
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
         messages: messagesForLLM.map(msg => ({
-          role: msg.role,
-          content: msg.content
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: typeof msg.content === 'object' && msg.content !== null ? [msg.content] : msg.content,
+          name: generateRandomId(),
         })),
         stream: true,
       });
@@ -213,7 +216,7 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
 
   return {
     messages,
-    memories,
+    memories: memories || [],
     thinking,
     sendMessage,
   };
