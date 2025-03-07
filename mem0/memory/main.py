@@ -194,13 +194,21 @@ class Memory(MemoryBase):
 
         function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
 
-        new_memories_with_actions = self.llm.generate_response(
-            messages=[{"role": "user", "content": function_calling_prompt}],
-            response_format={"type": "json_object"},
-        )
+        try:
+            new_memories_with_actions = self.llm.generate_response(
+                messages=[{"role": "user", "content": function_calling_prompt}],
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:
+            logging.error(f"Error in new_memories_with_actions: {e}")
+            new_memories_with_actions = []
 
-        new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
-        new_memories_with_actions = json.loads(new_memories_with_actions)
+        try:
+            new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
+            new_memories_with_actions = json.loads(new_memories_with_actions)
+        except Exception as e:
+            logging.error(f"Invalid JSON response: {e}")
+            new_memories_with_actions = []
 
         returned_memories = []
         try:
