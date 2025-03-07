@@ -41,7 +41,10 @@ class Memory(MemoryBase):
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
         self.db = SQLiteManager(self.config.history_db_path)
-        self.collection_name = self.config.vector_store.config.collection_name
+        if self.config.vector_store.provider == "lance":
+            self.collection_name = self.config.vector_store.config.table_name
+        else:
+            self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
         self.enable_graph = False

@@ -1,0 +1,41 @@
+[LanceDB](https://lancedb.com/) is a high-performance open-source vector database designed for fast, efficient similarity search and embedding storage. It is optimized for AI applications, offering a simple interface for managing and querying vector embeddings.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "lance",
+        "config": {
+            "table_name": "test",
+            "uri": "db",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring LanceDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `table_name` | The name of the table | `mem0` |
+| `uri` | Path to the LanceDB database directory | **Required** |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+
+LanceDB is optimized for high-speed similarity search and works well with AI applications that require embedding storage and retrieval.
