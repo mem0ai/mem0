@@ -182,6 +182,7 @@
                   "examples/personal-travel-assistant",
                   "examples/llama-index-mem0",
                   "examples/chrome-extension",
+                  "examples/document-writing",
                   "examples/multimodality"
                 ]
               }

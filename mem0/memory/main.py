@@ -215,42 +215,45 @@ class Memory(MemoryBase):
             for resp in new_memories_with_actions.get("memory", []):
                 logging.info(resp)
                 try:
-                    if resp.get("event", "") == "ADD":
+                    if not resp.get("text"):
+                        logging.info("Skipping memory entry because of empty `text` field.")
+                        continue
+                    elif resp.get("event") == "ADD":
                         memory_id = self._create_memory(
-                            data=resp.get("text", ""), existing_embeddings=new_message_embeddings, metadata=metadata
+                            data=resp.get("text"), existing_embeddings=new_message_embeddings, metadata=metadata
                         )
                         returned_memories.append(
                             {
                                 "id": memory_id,
-                                "memory": resp.get("text", ""),
-                                "event": resp.get("event", ""),
+                                "memory": resp.get("text"),
+                                "event": resp.get("event"),
                             }
                         )
-                    elif resp.get("event", "") == "UPDATE":
+                    elif resp.get("event") == "UPDATE":
                         self._update_memory(
                             memory_id=temp_uuid_mapping[resp["id"]],
-                            data=resp.get("text", ""),
+                            data=resp.get("text"),
                             existing_embeddings=new_message_embeddings,
                             metadata=metadata,
                         )
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id", "")],
-                                "memory": resp.get("text", ""),
-                                "event": resp.get("event", ""),
-                                "previous_memory": resp.get("old_memory", ""),
+                                "id": temp_uuid_mapping[resp.get("id")],
+                                "memory": resp.get("text"),
+                                "event": resp.get("event"),
+                                "previous_memory": resp.get("old_memory"),
                             }
                         )
-                    elif resp.get("event", "") == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id", "")])
+                    elif resp.get("event") == "DELETE":
+                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id", "")],
-                                "memory": resp.get("text", ""),
-                                "event": resp.get("event", ""),
+                                "id": temp_uuid_mapping[resp.get("id")],
+                                "memory": resp.get("text"),
+                                "event": resp.get("event"),
                             }
                         )
-                    elif resp.get("event", "") == "NONE":
+                    elif resp.get("event") == "NONE":
                         logging.info("NOOP for Memory.")
                 except Exception as e:
                     logging.error(f"Error in new_memories_with_actions: {e}")
