@@ -107,9 +107,25 @@ iconType: "solid"
         Note that the `/tmp` directory in Lambda has a size limit of 512MB and its contents are not persistent between function invocations.
     </Accordion>
 
+    <Accordion title="How can I use metadata with Mem0?">
+        Metadata is the recommended approach for incorporating additional information with Mem0. You can store any type of structured data as metadata during the `add` method, such as location, timestamp, weather conditions, user state, or application context. This enriches your memories with valuable contextual information that can be used for more precise retrieval and filtering.
+
+        During retrieval, you have two main approaches for using metadata:
+
+        1. **Pre-filtering**: Include metadata parameters in your initial search query to narrow down the memory pool
+        2. **Post-processing**: Retrieve a broader set of memories based on query, then apply metadata filters to refine the results
+
+        Examples of useful metadata you might store:
+
+        - **Contextual information**: Location, time, device type, application state
+        - **User attributes**: Preferences, skill levels, demographic information
+        - **Interaction details**: Conversation topics, sentiment, urgency levels
+        - **Custom tags**: Any domain-specific categorization relevant to your application
+
+        This flexibility allows you to create highly contextually aware AI applications that can adapt to specific user needs and situations. Metadata provides an additional dimension for memory retrieval, enabling more precise and relevant responses.
+    </Accordion>
+
 </AccordionGroup>
-
-
 
 
 

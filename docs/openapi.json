@@ -4743,7 +4743,7 @@
 						"nullable": true
 					},
 					"metadata": {
-						"description": "Additional metadata associated with the memory, which can be used to store any additional information or context about the memory.",
+						"description": "Additional metadata associated with the memory, which can be used to store any additional information or context about the memory. Best practice for incorporating additional information is through metadata (e.g. location, time, ids, etc.). During retrieval, you can either use these metadata alongside the query to fetch relevant memories or retrieve memories based on the query first and then refine the results using metadata during post-processing.",
 						"title": "Metadata",
 						"type": "object",
 						"properties": {

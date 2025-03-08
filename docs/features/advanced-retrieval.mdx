@@ -14,23 +14,77 @@ Mem0's **Advanced Retrieval** feature delivers superior search results by levera
    client.search(query, keyword_search=True, user_id='alex')
    ```
 
+   **Example:**
+   ```python
+   # Search for memories about food preferences with keyword search enabled
+   query = "What are my food preferences?"
+   results = client.search(query, keyword_search=True, user_id='alex')
+
+   # Output might include:
+   # - "Vegetarian. Allergic to nuts." (highly relevant)
+   # - "Prefers spicy food and enjoys Thai cuisine" (relevant)
+   # - "Mentioned disliking sea food during restaurant discussion" (keyword match)
+
+   # Without keyword_search=True, only the most relevant memories would be returned:
+   # - "Vegetarian. Allergic to nuts." (highly relevant)
+   # - "Prefers spicy food and enjoys Thai cuisine" (relevant)
+   # The keyword-based match about "sea food" would be excluded
+   ```
+
 2. **Reranking**
 
-   Reranking allows you to reorder the memories returned by the default search based on relevance. This parameter is set to `false` by default. When enabled, it reorders the memories based on the relevance score.
+   Normal retrieval gives you memories sorted in order of their relevancy, but the order may not be perfect. Reranking uses a deep neural network to correct this order, ensuring the most relevant memories appear first. If you are concerned about the order of memories, or want that the best results always comes at top then use reranking. This parameter is set to `false` by default. When enabled, it reorders the memories based on a more accurate relevance score.
 
    ```python
    client.search(query, rerank=True, user_id='alex')
    ```
 
+   **Example:**
+   ```python
+   # Search for travel plans with reranking enabled
+   query = "What are my travel plans?"
+   results = client.search(query, rerank=True, user_id='alex')
+
+   # Without reranking, results might be ordered like:
+   # 1. "Traveled to France last year" (less relevant to current plans)
+   # 2. "Planning a trip to Japan next month" (more relevant to current plans)
+   # 3. "Interested in visiting Tokyo restaurants" (relevant to current plans)
+
+   # With reranking enabled, results would be reordered:
+   # 1. "Planning a trip to Japan next month" (most relevant to current plans)
+   # 2. "Interested in visiting Tokyo restaurants" (highly relevant to current plans)
+   # 3. "Traveled to France last year" (less relevant to current plans)
+   ```
+
 3. **Filtering**
 
-   Filtering enables you to narrow down the search results by applying specific criteria. This parameter is set to `false` by default. Activating it enhances search precision, potentially reducing recall by a small margin.
+   Filtering allows you to narrow down search results by applying specific criterias. This parameter is set to `false` by default. When activated, it significantly enhances search precision by removing irrelevant memories, though it may slightly reduce recall. Filtering is particularly useful when you need highly specific information.
 
    ```python
    client.search(query, filter_memories=True, user_id='alex')
    ```
 
-**Note:** You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs.
+   **Example:**
+   ```python
+   # Search for dietary restrictions with filtering enabled
+   query = "What are my dietary restrictions?"
+   results = client.search(query, filter_memories=True, user_id='alex')
+
+   # Without filtering, results might include:
+   # - "Vegetarian. Allergic to nuts." (directly relevant)
+   # - "I enjoy cooking Italian food on weekends" (somewhat related to food)
+   # - "Mentioned disliking seafood during restaurant discussion" (food-related)
+   # - "Prefers to eat dinner at 7pm" (tangentially food-related)
+
+   # With filtering enabled, results would be focused:
+   # - "Vegetarian. Allergic to nuts." (directly relevant)
+   # - "Mentioned disliking seafood during restaurant discussion" (relevant restriction)
+   #
+   # The filtering process removes memories that are about food preferences
+   # but not specifically about dietary restrictions
+   ```
+
+<Note> You can enable or disable these search modes by passing the respective parameters to the `search` method. There is no required sequence for these modes, and any combination can be used based on your needs. </Note>
 
 
 ### Latency Numbers

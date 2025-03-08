@@ -173,6 +173,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
     Messages passed along with `user_id`, `run_id`, or `app_id` are stored as user memories, while messages from the assistant are excluded from memory. To store messages for the assistant, use `agent_id` exclusively and avoid including other IDs, such as user_id, alongside it. This ensures the memory is properly attributed to the assistant.
 </Note>
 
+<Note>Metadata allows you to store structured information (location, timestamp, user state) with memories. Add it during creation to enable precise filtering and retrieval during searches.</Note>
+
 
 #### Short-term memory for a user session
 
@@ -489,6 +491,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
 </CodeGroup>
 
 Use category and metadata filters:
+
 <CodeGroup>
 
 ```python Python
