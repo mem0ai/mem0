@@ -299,6 +299,7 @@ class Memory(MemoryBase):
             "data",
             "created_at",
             "updated_at",
+            "id"
         }
         additional_metadata = {k: v for k, v in memory.payload.items() if k not in excluded_keys}
         if additional_metadata:
@@ -362,6 +363,7 @@ class Memory(MemoryBase):
             "data",
             "created_at",
             "updated_at",
+            "id",
         }
         all_memories = [
             {
@@ -455,6 +457,7 @@ class Memory(MemoryBase):
             "data",
             "created_at",
             "updated_at",
+            "id",
         }
 
         original_memories = [
