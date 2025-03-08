@@ -129,8 +129,7 @@
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
-                          "components/vectordbs/dbs/supabase",
-                          "components/vectordbs/dbs/weaviate"
+                          "components/vectordbs/dbs/supabase"
                         ]
                       }
                     ]
@@ -182,7 +181,10 @@
                   "examples/customer-support-agent",
                   "examples/personal-travel-assistant",
                   "examples/llama-index-mem0",
-                  "examples/chrome-extension"
+                  "examples/chrome-extension",
+                  "examples/document-writing",
+                  "examples/multimodality",
+                  "examples/personalized-deep-research"
                 ]
               }
             ]
