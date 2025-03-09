@@ -1,5 +1,6 @@
 "use client";
-
+import darkAssistantUi from "@/images/assistant-ui-dark.svg";
+import assistantUi from "@/images/assistant-ui.svg";
 import React from "react";
 import Image from "next/image";
 
@@ -27,7 +28,7 @@ export default function ThemeAwareLogo({
   }
   
   // For default variant, use the full logo image
-  const logoSrc = isDarkMode ? "/images/assistant-ui-dark.svg" : "/images/assistant-ui.svg";
+  const logoSrc = isDarkMode ? darkAssistantUi : assistantUi;
   
   return (
     <Image
