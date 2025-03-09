@@ -45,7 +45,7 @@ const useUserId = () => {
 export const Assistant = () => {
   const { userId, resetUserId } = useUserId();
   const runtime = useChatRuntime({
-    api: "/api/chat",
+    api: "https://demo.mem0.ai/api/chat",
     body: { userId },
   });
 
