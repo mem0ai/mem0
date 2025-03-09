@@ -8,7 +8,6 @@ pip install weaviate weaviate-client
 
 ### Usage
 
-<CodeGroup>
 ```python Python
 import os
 from mem0 import Memory
@@ -35,28 +34,14 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
-</CodeGroup>
 
 ### Config
 
 Let's see the available parameters for the `weaviate` config:
 
-<Tabs>
-<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection to store the vectors | `mem0` |
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `cluster_url` | URL for the Weaviate server | `None` |
 | `auth_client_secret` | API key for Weaviate authentication | `None` |
-</Tab>
-
-<Tab title="TypeScript">
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `collectionName` | The name of the collection to store the vectors | `mem0` |
-| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
-| `clusterUrl` | URL for the Weaviate server | `None` |
-| `authClientSecret` | API key for Weaviate authentication | `None` |
-</Tab>
-</Tabs>
