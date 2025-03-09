@@ -1,18 +1,13 @@
 import logging
 import uuid
-from typing import List, Dict, Any, Optional, Union, Mapping
+from typing import List, Dict, Optional, Mapping
 from pydantic import BaseModel
 
 import weaviate
-from weaviate import WeaviateClient
 from weaviate.classes.init import Auth
 from weaviate.util import get_valid_uuid
 import weaviate.classes.config as wvcc
-from weaviate import WeaviateClient
-import weaviate.classes as wvc
 from weaviate.classes.query import MetadataQuery, Filter
-# from weaviate.exceptions import WeaviateQueryException
-from weaviate.classes.config import Property, DataType
 
 from mem0.vector_stores.base import VectorStoreBase
 

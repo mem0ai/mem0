@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -16,8 +16,7 @@ class WeaviateConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_connection_params(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        client, cluster_url = values.get("client"), values.get("cluster_url")
-        auth_client_secret = values.get("auth_client_secret")
+        cluster_url = values.get("cluster_url")
         
         if not cluster_url:
             raise ValueError("'cluster_url' must be provided.")
