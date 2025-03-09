@@ -3,7 +3,13 @@ import uuid
 from typing import List, Dict, Optional, Mapping
 from pydantic import BaseModel
 
-import weaviate
+try:
+    import weaviate
+except ImportError:
+    raise ImportError(
+        "The 'weaviate' library is required. Please install it using 'pip install weaviate-client weaviate'."
+    )
+
 from weaviate.classes.init import Auth
 from weaviate.util import get_valid_uuid
 import weaviate.classes.config as wvcc
@@ -13,10 +19,12 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+
 class OutputData(BaseModel):
     id: str
     score: float
     payload: Dict
+
 
 class Weaviate(VectorStoreBase):
     def __init__(
@@ -42,14 +50,13 @@ class Weaviate(VectorStoreBase):
             self.client = weaviate.connect_to_local(headers=additional_headers)
         else:
             self.client = weaviate.connect_to_wcs(
-                    cluster_url=cluster_url, 
-                    auth_credentials=Auth.api_key(auth_client_secret),
-                    headers=additional_headers,
-                )
+                cluster_url=cluster_url,
+                auth_credentials=Auth.api_key(auth_client_secret),
+                headers=additional_headers,
+            )
 
         self.collection_name = collection_name
         self.create_col(embedding_model_dims)
-
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
@@ -83,7 +90,6 @@ class Weaviate(VectorStoreBase):
             result.append(entry)
 
         return result
-
 
     def create_col(self, vector_size, distance="cosine"):
         """
@@ -121,7 +127,7 @@ class Weaviate(VectorStoreBase):
             self.collection_name,
             vectorizer_config=vectorizer_config,
             vector_index_config=vector_index_config,
-            properties=properties
+            properties=properties,
         )
 
     def insert(self, vectors, payloads=None, ids=None):
@@ -142,15 +148,10 @@ class Weaviate(VectorStoreBase):
                 data_object = payloads[idx] if payloads and idx < len(payloads) else {}
 
                 # Ensure 'id' is not included in properties (it's used as the Weaviate object ID)
-                if 'ids' in data_object:
-                    del data_object['ids']
+                if "ids" in data_object:
+                    del data_object["ids"]
 
-                batch.add_object(
-                    collection=self.collection_name,
-                    properties=data_object,
-                    uuid=object_id,
-                    vector=vector
-                )
+                batch.add_object(collection=self.collection_name, properties=data_object, uuid=object_id, vector=vector)
 
     def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
@@ -160,7 +161,7 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ['user_id', 'agent_id', 'run_id']:
+                if value and key in ["user_id", "agent_id", "run_id"]:
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.hybrid(
@@ -169,19 +170,22 @@ class Weaviate(VectorStoreBase):
             limit=limit,
             filters=combined_filter,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
-            return_metadata=MetadataQuery(score=True)
+            return_metadata=MetadataQuery(score=True),
         )
         results = []
         for obj in response.objects:
             payload = obj.properties.copy()
-            payload['id'] = str(obj.uuid).split("'")[0]  # Include the id in the payload
-            results.append(OutputData(
-                id=str(obj.uuid),
-                score= 1 if obj.metadata.distance is None else 1 - obj.metadata.distance,  # Convert distance to score
-                payload=payload
-            ))
+            payload["id"] = str(obj.uuid).split("'")[0]  # Include the id in the payload
+            results.append(
+                OutputData(
+                    id=str(obj.uuid),
+                    score=1
+                    if obj.metadata.distance is None
+                    else 1 - obj.metadata.distance,  # Convert distance to score
+                    payload=payload,
+                )
+            )
         return results
-
 
     def delete(self, vector_id):
         """
@@ -203,13 +207,10 @@ class Weaviate(VectorStoreBase):
             payload (dict, optional): Updated payload. Defaults to None.
         """
         collection = self.client.collections.get(str(self.collection_name))
-        
+
         if payload:
-            collection.data.update(
-                uuid=vector_id,
-                properties=payload
-            )
-        
+            collection.data.update(uuid=vector_id, properties=payload)
+
         if vector:
             existing_data = self.get(vector_id)
             if existing_data:
@@ -217,11 +218,7 @@ class Weaviate(VectorStoreBase):
                 if "id" in existing_data:
                     del existing_data["id"]
                 existing_payload: Mapping[str, str] = existing_data
-                collection.data.update(
-                    uuid=vector_id,
-                    properties=existing_payload,
-                    vector=vector
-                )
+                collection.data.update(uuid=vector_id, properties=existing_payload, vector=vector)
 
     def get(self, vector_id):
         """
@@ -235,7 +232,7 @@ class Weaviate(VectorStoreBase):
         """
         vector_id = get_valid_uuid(vector_id)
         collection = self.client.collections.get(str(self.collection_name))
-        
+
         response = collection.query.fetch_object_by_id(
             uuid=vector_id,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
@@ -244,14 +241,13 @@ class Weaviate(VectorStoreBase):
         # print("reponse",response)
         # for obj in response.objects:
         payload = response.properties.copy()
-        payload['id'] = str(response.uuid).split("'")[0]
-        results= OutputData(
+        payload["id"] = str(response.uuid).split("'")[0]
+        results = OutputData(
             id=str(response.uuid).split("'")[0],
             score=1.0,
             payload=payload,
         )
         return results
-
 
     def list_cols(self):
         """
@@ -280,7 +276,6 @@ class Weaviate(VectorStoreBase):
         if schema:
             return schema
         return None
-    
 
     def list(self, filters=None, limit=100) -> List[OutputData]:
         """
@@ -290,7 +285,7 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ['user_id', 'agent_id', 'run_id']:
+                if value and key in ["user_id", "agent_id", "run_id"]:
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.fetch_objects(
@@ -301,10 +296,6 @@ class Weaviate(VectorStoreBase):
         results = []
         for obj in response.objects:
             payload = obj.properties.copy()
-            payload['id'] = str(obj.uuid).split("'")[0]
-            results.append(OutputData(
-                id=str(obj.uuid).split("'")[0],
-                score=1.0,
-                payload=payload
-            ))
+            payload["id"] = str(obj.uuid).split("'")[0]
+            results.append(OutputData(id=str(obj.uuid).split("'")[0], score=1.0, payload=payload))
         return [results]
