@@ -1,5 +1,7 @@
 "use client";
 
+import darkLogo from "@/images/dark.svg";
+import lightLogo from "@/images/light.svg";
 import React from "react";
 import Image from "next/image";
 
@@ -27,7 +29,7 @@ export default function ThemeAwareLogo({
   }
   
   // For default variant, use the full logo image
-  const logoSrc = isDarkMode ? "/images/dark.svg" : "/images/light.svg";
+  const logoSrc = isDarkMode ? darkLogo : lightLogo;
   
   return (
     <Image
