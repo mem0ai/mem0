@@ -1,4 +1,5 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
+import { OllamaEmbedder } from "../embeddings/ollama";
 import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
@@ -10,12 +11,14 @@ import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
 import { RedisDB } from "../vector_stores/redis";
-
+import { OllamaLLM } from "../llms/ollama";
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
     switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAIEmbedder(config);
+      case "ollama":
+        return new OllamaEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
@@ -33,6 +36,8 @@ export class LLMFactory {
         return new AnthropicLLM(config);
       case "groq":
         return new GroqLLM(config);
+      case "ollama":
+        return new OllamaLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
