@@ -57,7 +57,7 @@ def get_image_description(image_obj, llm, vision_details):
                 "content": [
                     {
                         "type": "text",
-                        "text": "Provide a description of the image and do not include any additional text.",
+                        "text": "A user is providing an image. Provide a high level description of the image and do not include any additional text.",
                     },
                     {"type": "image_url", "image_url": {"url": image_obj, "detail": vision_details}},
                 ],

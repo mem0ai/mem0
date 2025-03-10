@@ -23,7 +23,10 @@ export class GroqLLM implements LLM {
       model: this.model,
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
-        content: msg.content,
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content),
       })),
       response_format: responseFormat as { type: "text" | "json_object" },
     });
@@ -36,7 +39,10 @@ export class GroqLLM implements LLM {
       model: this.model,
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
-        content: msg.content,
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content),
       })),
     });
 

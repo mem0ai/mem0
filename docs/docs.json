@@ -129,7 +129,8 @@
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
-                          "components/vectordbs/dbs/supabase"
+                          "components/vectordbs/dbs/supabase",
+                          "components/vectordbs/dbs/vertex_ai_vector_search"
                         ]
                       }
                     ]
@@ -174,12 +175,17 @@
                 "icon": "lightbulb",
                 "pages": [
                   "examples/overview",
+                  "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
                   "examples/customer-support-agent",
                   "examples/personal-travel-assistant",
-                  "examples/llama-index-mem0"
+                  "examples/llama-index-mem0",
+                  "examples/chrome-extension",
+                  "examples/document-writing",
+                  "examples/multimodal-demo",
+                  "examples/personalized-deep-research"
                 ]
               }
             ]
@@ -199,7 +205,8 @@
                   "integrations/langgraph",
                   "integrations/llama-index",
                   "integrations/langchain-tools",
-                  "integrations/dify"
+                  "integrations/dify",
+                  "integrations/mcp-server"
                 ]
               }
             ]
@@ -273,6 +280,11 @@
         "anchor": "Your Dashboard",
         "href": "https://app.mem0.ai",
         "icon": "chart-simple"
+      },
+      {
+        "anchor": "Demo",
+        "href": "https://mem0.dev/demo",
+        "icon": "play"
       },
       {
         "anchor": "Discord",
