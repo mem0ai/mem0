@@ -16,6 +16,8 @@
     <a href="https://mem0.ai">Learn more</a>
     ·
     <a href="https://mem0.dev/DiG">Join Discord</a>
+    ·
+    <a href="https://mem0.dev/demo">Demo</a>
   </p>
 </p>
 
@@ -79,7 +81,7 @@ npm install mem0ai
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4o` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/llms).
+Mem0 requires an LLM to function, with `gpt-4o-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/llms).
 
 First step is to instantiate the memory:
 
@@ -93,7 +95,7 @@ memory = Memory()
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Retrieve relevant memories
     relevant_memories = memory.search(query=message, user_id=user_id, limit=3)
-    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories)
+    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
     
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
@@ -129,15 +131,17 @@ For more advanced usage and API documentation, visit our [documentation](https:/
 
 ## Demos
 
-- AI Companion: Experience personalized conversations with an AI that remembers your preferences and past interactions
+- Mem0 - ChatGPT with Memory: A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.
 
-[AI Companion Demo](https://github.com/user-attachments/assets/3fc72023-a72c-4593-8be0-3cee3ba744da)
+[Mem0 - ChatGPT with Memory](https://github.com/user-attachments/assets/cebc4f8e-bdb9-4837-868d-13c5ab7bb433)
+
+Try live [demo](https://mem0.dev/demo/)
 
 <br/><br/>
 
-- Mem0 Demo: A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.
+- AI Companion: Experience personalized conversations with an AI that remembers your preferences and past interactions
 
-[Mem0 Demo](https://github.com/user-attachments/assets/cebc4f8e-bdb9-4837-868d-13c5ab7bb433)
+[AI Companion Demo](https://github.com/user-attachments/assets/3fc72023-a72c-4593-8be0-3cee3ba744da)
 
 <br/><br/>
 

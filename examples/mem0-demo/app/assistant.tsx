@@ -45,7 +45,7 @@ const useUserId = () => {
 export const Assistant = () => {
   const { userId, resetUserId } = useUserId();
   const runtime = useChatRuntime({
-    api: "/api/chat",
+    api: "https://demo.mem0.ai/api/chat",
     body: { userId },
   });
 
@@ -92,8 +92,8 @@ export const Assistant = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
-          <ThreadList onResetUserId={resetUserId} />
-          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} />
+          <ThreadList onResetUserId={resetUserId} isDarkMode={isDarkMode} />
+          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} isDarkMode={isDarkMode} />
         </div>
       </div>
     </AssistantRuntimeProvider>

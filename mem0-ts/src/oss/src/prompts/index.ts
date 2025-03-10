@@ -34,7 +34,7 @@ export function getFactRetrievalMessages(
   Input: Me favourite movies are Inception and Interstellar.
   Output: {"facts" : ["Favourite movies are Inception and Interstellar"]}
   
-  Return the facts and preferences in a json format as shown above.
+  Return the facts and preferences in a JSON format as shown above. You MUST return a valid JSON object with a 'facts' key containing an array of strings.
   
   Remember the following:
   - Today's date is ${new Date().toISOString().split("T")[0]}.
@@ -43,17 +43,17 @@ export function getFactRetrievalMessages(
   - If the user asks where you fetched my information, answer that you found from publicly available sources on internet.
   - If you do not find anything relevant in the below conversation, you can return an empty list corresponding to the "facts" key.
   - Create the facts based on the user and assistant messages only. Do not pick anything from the system messages.
-  - Make sure to return the response in the format mentioned in the examples. The response should be in json with a key as "facts" and corresponding value will be a list of strings.
+  - Make sure to return the response in the JSON format mentioned in the examples. The response should be in JSON with a key as "facts" and corresponding value will be a list of strings.
   - DO NOT RETURN ANYTHING ELSE OTHER THAN THE JSON FORMAT.
-  - DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALUD SUCH AS "\`\`\`json" OR "\`\`\`".
+  - DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALID SUCH AS "\`\`\`json" OR "\`\`\`".
   - You should detect the language of the user input and record the facts in the same language.
   - For basic factual statements, break them down into individual facts if they contain multiple pieces of information.
   
-  Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the user, if any, from the conversation and return them in the json format as shown above.
+  Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the user, if any, from the conversation and return them in the JSON format as shown above.
   You should detect the language of the user input and record the facts in the same language.
   `;
 
-  const userPrompt = `Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the user, if any, from the conversation and return them in the json format as shown above.\n\nInput:\n${parsedMessages}`;
+  const userPrompt = `Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the user, if any, from the conversation and return them in the JSON format as shown above.\n\nInput:\n${parsedMessages}`;
 
   return [systemPrompt, userPrompt];
 }
@@ -218,14 +218,14 @@ export function getUpdateMemoryMessages(
   ${JSON.stringify(newRetrievedFacts, null, 2)}
   
   Follow the instruction mentioned below:
-  - Do not return anything from the custom few shot prompts provided above.
+  - Do not return anything from the custom few shot example prompts provided above.
   - If the current memory is empty, then you have to add the new retrieved facts to the memory.
   - You should return the updated memory in only JSON format as shown below. The memory key should be the same if no changes are made.
   - If there is an addition, generate a new key and add the new memory corresponding to it.
   - If there is a deletion, the memory key-value pair should be removed from the memory.
   - If there is an update, the ID key should remain the same and only the value needs to be updated.
   - DO NOT RETURN ANYTHING ELSE OTHER THAN THE JSON FORMAT.
-  - DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALUD SUCH AS "\`\`\`json" OR "\`\`\`".
+  - DO NOT ADD ANY ADDITIONAL TEXT OR CODEBLOCK IN THE JSON FIELDS WHICH MAKE IT INVALID SUCH AS "\`\`\`json" OR "\`\`\`".
   
   Do not return anything except the JSON format.`;
 }
