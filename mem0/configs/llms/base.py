@@ -19,6 +19,8 @@ class BaseLlmConfig(ABC):
         max_tokens: int = 2000,
         top_p: float = 0.1,
         top_k: int = 1,
+        enable_vision: bool = False,
+        vision_details: Optional[str] = "auto",
         # Openrouter specific
         models: Optional[list[str]] = None,
         route: Optional[str] = "fallback",
@@ -55,6 +57,10 @@ class BaseLlmConfig(ABC):
         :type top_p: float, optional
         :param top_k: Controls the diversity of words. Higher values make word selection more diverse, defaults to 0
         :type top_k: int, optional
+        :param enable_vision: Enable vision for the LLM, defaults to False
+        :type enable_vision: bool, optional
+        :param vision_details: Details of the vision to be used [low, high, auto], defaults to "auto"
+        :type vision_details: Optional[str], optional
         :param models: Openrouter models to use, defaults to None
         :type models: Optional[list[str]], optional
         :param route: Openrouter route to be used, defaults to "fallback"
@@ -85,6 +91,8 @@ class BaseLlmConfig(ABC):
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.top_k = top_k
+        self.enable_vision = enable_vision
+        self.vision_details = vision_details
 
         # AzureOpenAI specific
         self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
