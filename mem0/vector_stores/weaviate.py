@@ -175,6 +175,11 @@ class Weaviate(VectorStoreBase):
         results = []
         for obj in response.objects:
             payload = obj.properties.copy()
+
+            for id_field in ["run_id", "agent_id", "user_id"]:
+                if id_field in payload and payload[id_field] is None:
+                    del payload[id_field]
+
             payload["id"] = str(obj.uuid).split("'")[0]  # Include the id in the payload
             results.append(
                 OutputData(
