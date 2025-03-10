@@ -13,7 +13,6 @@ def pinecone_pod_config():
         pod_config={"environment": "test_environment", "metadata_config": {"indexed": ["*"]}},
     )
 
-
 @pytest.fixture
 def pinecone_serverless_config():
     return PineconeDBConfig(
@@ -26,7 +25,6 @@ def pinecone_serverless_config():
         },
     )
 
-
 def test_pinecone_init_without_config(monkeypatch):
     monkeypatch.setenv("PINECONE_API_KEY", "test_api_key")
     monkeypatch.setattr("embedchain.vectordb.pinecone.PineconeDB._setup_pinecone_index", lambda x: x)
@@ -37,7 +35,6 @@ def test_pinecone_init_without_config(monkeypatch):
     assert isinstance(pinecone_db.config, PineconeDBConfig)
     assert pinecone_db.config.pod_config == {"environment": "gcp-starter", "metadata_config": {"indexed": ["*"]}}
     monkeypatch.delenv("PINECONE_API_KEY")
-
 
 def test_pinecone_init_with_config(pinecone_pod_config, monkeypatch):
     monkeypatch.setattr("embedchain.vectordb.pinecone.PineconeDB._setup_pinecone_index", lambda x: x)
@@ -56,11 +53,13 @@ def test_pinecone_init_with_config(pinecone_pod_config, monkeypatch):
 
     assert pinecone_db.config.serverless_config == pinecone_pod_config.serverless_config
 
-
 class MockListIndexes:
     def names(self):
         return ["test_collection"]
 
+class MockFetchResponse:
+    def __init__(self, vectors):
+        self.vectors = vectors
 
 class MockPineconeIndex:
     db = []
@@ -95,25 +94,18 @@ class MockPineconeIndex:
             ]
         }
 
-    def fetch(self, *args, **kwargs):
-        return {
-            "vectors": {
-                "key_1": {
-                    "metadata": {
-                        "source": "1",
-                    }
-                },
-                "key_2": {
-                    "metadata": {
-                        "source": "2",
-                    }
-                },
-            }
+    def fetch(self, ids, **kwargs):
+        vectors = {
+            id: {
+                "metadata": {
+                    "source": id,
+                }
+            } for id in ids
         }
+        return MockFetchResponse(vectors)
 
     def describe_index_stats(self, *args, **kwargs):
         return {"total_vector_count": len(self.db)}
-
 
 class MockPineconeClient:
     def __init__(*args, **kwargs):
@@ -131,7 +123,6 @@ class MockPineconeClient:
     def delete_index(self, *args, **kwargs):
         pass
 
-
 class MockPinecone:
     def __init__(*args, **kwargs):
         pass
@@ -145,11 +136,9 @@ class MockPinecone:
     def ServerlessSpec(*args, **kwargs):
         pass
 
-
 class MockEmbedder:
     def embedding_fn(self, documents):
         return [[1, 1, 1] for d in documents]
-
 
 def test_setup_pinecone_index(pinecone_pod_config, pinecone_serverless_config, monkeypatch):
     monkeypatch.setattr("embedchain.vectordb.pinecone.pinecone", MockPinecone)
@@ -170,7 +159,6 @@ def test_setup_pinecone_index(pinecone_pod_config, pinecone_serverless_config, m
     assert pinecone_db.client.list_indexes().names() == ["test_collection"]
     assert pinecone_db.pinecone_index is not None
 
-
 def test_get(monkeypatch):
     def mock_pinecone_db():
         monkeypatch.setenv("PINECONE_API_KEY", "test_api_key")
@@ -182,8 +170,7 @@ def test_get(monkeypatch):
 
     pinecone_db = mock_pinecone_db()
     ids = pinecone_db.get(["key_1", "key_2"])
-    assert ids == {"ids": ["key_1", "key_2"], "metadatas": [{"source": "1"}, {"source": "2"}]}
-
+    assert ids == {"ids": ["key_1", "key_2"], "metadatas": [{"source": "key_1"}, {"source": "key_2"}]}
 
 def test_add(monkeypatch):
     def mock_pinecone_db():
@@ -201,7 +188,6 @@ def test_add(monkeypatch):
 
     pinecone_db.add(["text_3", "text_4"], [{"key_3": "value_3"}, {"key_4": "value_4"}], ["key_3", "key_4"])
     assert pinecone_db.count() == 4
-
 
 def test_query(monkeypatch):
     def mock_pinecone_db():
