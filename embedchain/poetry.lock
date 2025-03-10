@@ -6661,6 +6661,7 @@ mistralai = ["langchain-mistralai"]
 mysql = ["mysql-connector-python"]
 opensearch = ["opensearch-py"]
 opensource = ["gpt4all", "sentence-transformers", "torch"]
+pinecone = []
 postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
 qdrant = ["qdrant-client"]
 together = ["together"]
@@ -6670,4 +6671,4 @@ weaviate = ["weaviate-client"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "d7b43f88a863fa5f6835deebeaa1f454a423439e8c9b4b3e923c4d0a2a96e4c6"
+content-hash = "dbd8de6800a271fcd636a1909a1d64f5c8607f3ec6891e97f0750b858eec0247"

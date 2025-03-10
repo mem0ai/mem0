@@ -158,6 +158,7 @@ pytest-asyncio = "^0.21.1"
 [tool.poetry.extras]
 opensource = ["sentence-transformers", "torch", "gpt4all"]
 lancedb = ["lancedb"]
+pinecone = ["pinecone"]
 elasticsearch = ["elasticsearch"]
 opensearch = ["opensearch-py"]
 weaviate = ["weaviate-client"]
