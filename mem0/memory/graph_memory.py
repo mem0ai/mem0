@@ -3,23 +3,20 @@ import logging
 from mem0.memory.utils import format_entities
 
 try:
-    from langchain_community.graphs import Neo4jGraph
+    from langchain_neo4j import Neo4jGraph
 except ImportError:
-    raise ImportError("langchain_community is not installed. Please install it using pip install langchain-community")
+    raise ImportError("langchain_neo4j is not installed. Please install it using pip install langchain-neo4j")
 
 try:
     from rank_bm25 import BM25Okapi
 except ImportError:
     raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
 
-from mem0.graphs.tools import (
-    DELETE_MEMORY_STRUCT_TOOL_GRAPH,
-    DELETE_MEMORY_TOOL_GRAPH,
-    EXTRACT_ENTITIES_STRUCT_TOOL,
-    EXTRACT_ENTITIES_TOOL,
-    RELATIONS_STRUCT_TOOL,
-    RELATIONS_TOOL,
-)
+from mem0.graphs.tools import (DELETE_MEMORY_STRUCT_TOOL_GRAPH,
+                               DELETE_MEMORY_TOOL_GRAPH,
+                               EXTRACT_ENTITIES_STRUCT_TOOL,
+                               EXTRACT_ENTITIES_TOOL, RELATIONS_STRUCT_TOOL,
+                               RELATIONS_TOOL)
 from mem0.graphs.utils import EXTRACT_RELATIONS_PROMPT, get_delete_messages
 from mem0.utils.factory import EmbedderFactory, LlmFactory
 
