@@ -3,7 +3,7 @@ import logging
 from mem0.memory.utils import format_entities
 
 try:
-    from langchain_community.graphs import Neo4jGraph
+    from langchain_neo4j import Neo4jGraph
 except ImportError:
     raise ImportError("langchain_community is not installed. Please install it using pip install langchain-community")
 
