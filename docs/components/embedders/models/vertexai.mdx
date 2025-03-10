@@ -16,15 +16,31 @@ config = {
     "embedder": {
         "provider": "vertexai",
         "config": {
-            "model": "text-embedding-004"
+            "model": "text-embedding-004",
+            "memory_add_embedding_type": "RETRIEVAL_DOCUMENT",
+            "memory_update_embedding_type": "RETRIEVAL_DOCUMENT",
+            "memory_search_embedding_type": "RETRIEVAL_QUERY"
         }
     }
 }
 
 m = Memory.from_config(config)
-m.add("I'm visiting Paris", user_id="john")
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
 ```
-
+The embedding types can be one of the following:
+- SEMANTIC_SIMILARITY
+- CLASSIFICATION
+- CLUSTERING
+- RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, QUESTION_ANSWERING, FACT_VERIFICATION
+- CODE_RETRIEVAL_QUERY  
+Check out the [Vertex AI documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/task-types#supported_task_types) for more information.  
+  
 ### Config
 
 Here are the parameters available for configuring the Vertex AI embedder:
@@ -34,3 +50,6 @@ Here are the parameters available for configuring the Vertex AI embedder:
 | `model`                   | The name of the Vertex AI embedding model to use | `text-embedding-004` |
 | `vertex_credentials_json` | Path to the Google Cloud credentials JSON file   | `None`               |
 | `embedding_dims`          | Dimensions of the embedding model                | `256`                |
+| `memory_add_embedding_type` | The type of embedding to use for the add memory action | `RETRIEVAL_DOCUMENT` |
+| `memory_update_embedding_type` | The type of embedding to use for the update memory action | `RETRIEVAL_DOCUMENT` |
+| `memory_search_embedding_type` | The type of embedding to use for the search memory action | `RETRIEVAL_QUERY` |

@@ -24,6 +24,7 @@ class LlmFactory:
         "azure_openai_structured": "mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM",
         "gemini": "mem0.llms.gemini.GeminiLLM",
         "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
+        "xai": "mem0.llms.xai.XAILLM",
     }
 
     @classmethod
@@ -68,7 +69,9 @@ class VectorStoreFactory:
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "redis": "mem0.vector_stores.redis.RedisDB",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
+        "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
+        "supabase": "mem0.vector_stores.supabase.Supabase",
     }
 
     @classmethod

@@ -1091,6 +1091,7 @@
 								"created_at": {"type": "string", "format": "date-time"},
 								"updated_at": {"type": "string", "format": "date-time"},
 								"categories": {"type": "array", "items": {"type": "string"}},
+								"metadata": {"type": "object"},
 								"keywords": {"type": "string"}
 							},
 							"additionalProperties": {
@@ -1110,6 +1111,15 @@
 						"description": "Filters to apply to the memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at, categories, keywords. Supports logical operators (AND, OR) and comparison operators (in, gte, lte, gt, lt, ne, contains, icontains)",
 						"style": "deepObject",
 						"explode": true
+					},
+					{
+						"name": "fields",
+						"in": "query",
+						"schema": {
+							"type": "array",
+							"items": {"type": "string"}
+						},
+						"description": "A list of field names to include in the response. If not provided, all fields will be returned."
 					},
 					{
 						"name": "org_id",
@@ -4733,7 +4743,7 @@
 						"nullable": true
 					},
 					"metadata": {
-						"description": "Additional metadata associated with the memory, which can be used to store any additional information or context about the memory.",
+						"description": "Additional metadata associated with the memory, which can be used to store any additional information or context about the memory. Best practice for incorporating additional information is through metadata (e.g. location, time, ids, etc.). During retrieval, you can either use these metadata alongside the query to fetch relevant memories or retrieve memories based on the query first and then refine the results using metadata during post-processing.",
 						"title": "Metadata",
 						"type": "object",
 						"properties": {

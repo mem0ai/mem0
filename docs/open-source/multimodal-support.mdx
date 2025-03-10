@@ -40,6 +40,34 @@ messages = [
 client.add(messages, user_id="alice")
 ```
 
+```typescript TypeScript
+import { Memory, Message } from "mem0ai/oss";
+
+const client = new Memory();
+
+const messages: Message[] = [
+    {
+        role: "user",
+        content: "Hi, my name is Alice."
+    },
+    {
+        role: "assistant",
+        content: "Nice to meet you, Alice! What do you like to eat?"
+    },
+    {
+        role: "user",
+        content: {
+            type: "image_url",
+            image_url: {
+                url: "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+            }
+        }
+    },
+]
+
+await client.add(messages, { userId: "alice" })
+```
+
 ```json Output
 {
   "results": [
@@ -66,6 +94,7 @@ Mem0 allows you to add images to user interactions through two primary methods: 
 
 You can include an image by passing its direct URL. This method is simple and efficient for online images.
 
+<CodeGroup>
 ```python
 # Define the image URL
 image_url = "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
@@ -82,11 +111,33 @@ image_message = {
 }
 ```
 
+```typescript TypeScript
+import { Memory, Message } from "mem0ai/oss";
+
+const client = new Memory();
+
+const imageUrl = "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg";
+
+const imageMessage: Message = {
+    role: "user",
+    content: {
+        type: "image_url",
+        image_url: {
+            url: imageUrl
+        }
+    }
+}
+
+await client.add([imageMessage], { userId: "alice" })
+```
+</CodeGroup>
+
 ## 2. Using Base64 Image Encoding for Local Files
 
 For local images or scenarios where embedding the image directly is preferable, you can use a Base64-encoded string.
 
-```python
+<CodeGroup>
+```python Python
 import base64
 
 # Path to the image file
@@ -107,6 +158,29 @@ image_message = {
     }
 }
 ```
+
+```typescript TypeScript
+import { Memory, Message } from "mem0ai/oss";
+
+const client = new Memory();
+
+const imagePath = "path/to/your/image.jpg";
+
+const base64Image = fs.readFileSync(imagePath, { encoding: 'base64' });
+
+const imageMessage: Message = {
+    role: "user",
+    content: {
+        type: "image_url",
+        image_url: {
+            url: `data:image/jpeg;base64,${base64Image}`
+        }
+    }
+}
+
+await client.add([imageMessage], { userId: "alice" })
+```
+</CodeGroup>
 
 By utilizing these methods, you can effectively incorporate images into user interactions, enhancing the multimodal capabilities of your Mem0 instance.
 
