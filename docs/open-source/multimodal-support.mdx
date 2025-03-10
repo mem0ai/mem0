@@ -122,6 +122,41 @@ image_message = {
 }
 ```
 
+## 3. OpenAI-Compatible Message Format
+
+You can also use the OpenAI-compatible format to combine text and images in a single message:
+
+```python
+import base64
+
+# Path to the image file
+image_path = "path/to/your/image.jpg"
+
+# Encode the image in Base64
+with open(image_path, "rb") as image_file:
+    base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+# Create the message using OpenAI-compatible format
+message = {
+    "role": "user",
+    "content": [
+        {
+            "type": "text",
+            "text": "What is in this image?",
+        },
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+        },
+    ],
+}
+
+# Add the message to memory
+client.add([message], user_id="alice")
+```
+
+This format allows you to combine text and images in a single message, making it easier to provide context along with visual content.
+
 By utilizing these methods, you can effectively incorporate images into user interactions, enhancing the multimodal capabilities of your Mem0 instance.
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
