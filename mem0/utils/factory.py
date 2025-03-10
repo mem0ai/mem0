@@ -72,6 +72,7 @@ class VectorStoreFactory:
         "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
         "supabase": "mem0.vector_stores.supabase.Supabase",
+        "weaviate": "mem0.vector_stores.weaviate.Weaviate",
     }
 
     @classmethod
