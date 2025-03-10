@@ -82,11 +82,11 @@ class PersonalTravelAssistant:
 
     def get_memories(self, user_id):
         memories = self.memory.get_all(user_id=user_id)
-        return [m['memory'] for m in memories['memories']]
+        return [m['memory'] for m in memories['results']]
 
     def search_memories(self, query, user_id):
         memories = self.memory.search(query, user_id=user_id)
-        return [m['memory'] for m in memories['memories']]
+        return [m['memory'] for m in memories['results']]
 
 # Usage example
 user_id = "traveler_123"
