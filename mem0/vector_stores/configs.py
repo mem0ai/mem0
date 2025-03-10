@@ -21,6 +21,7 @@ class VectorStoreConfig(BaseModel):
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",
         "supabase": "SupabaseConfig",
+        "tidb": "TiDBConfig",
     }
 
     @model_validator(mode="after")
