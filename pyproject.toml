@@ -25,11 +25,8 @@ sqlalchemy = "^2.0.31"
 langchain-community = "^0.3.1"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
-<<<<<<< HEAD
 azure-search-documents = "11.5.2"
-=======
 psycopg2-binary = "^2.9.10"
->>>>>>> 192c33f19029432bc096c4df2557e36476127f6b
 
 [tool.poetry.extras]
 graph = ["langchain-community", "neo4j", "rank-bm25"]
