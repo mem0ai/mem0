@@ -22,7 +22,7 @@ async function run() {
 }
 
 // OpenAI Response Schema
-const Query = z.object({
+const CarSchema = z.object({
   car_name: z.string(),
   car_price: z.string(),
   car_url: z.string(),
@@ -31,7 +31,7 @@ const Query = z.object({
 });
 
 const Cars = z.object({
-  cars: z.array(Query),
+  cars: z.array(CarSchema),
 });
 
 async function main(memory = false) {
@@ -40,7 +40,7 @@ async function main(memory = false) {
 
   const input = "Suggest me some cars that I can buy today.";
 
-  const tool = zodResponsesFunction({ name: "query", parameters: Cars });
+  const tool = zodResponsesFunction({ name: "carRecommendations", parameters: Cars });
 
   // First, let's store the user's memories from user input if any
   await mem0Client.add([{
