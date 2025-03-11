@@ -187,7 +187,8 @@
                   "examples/document-writing",
                   "examples/multimodal-demo",
                   "examples/personalized-deep-research",
-                  "examples/mem0-agentic-tool"
+                  "examples/mem0-agentic-tool",
+                  "examples/openai-inbuilt-tools"
                 ]
               }
             ]

@@ -1,0 +1,230 @@
+---
+title: OpenAI Inbuilt Tools
+---
+
+Integrate Mem0’s memory capabilities with OpenAI’s Inbuilt Tools to create AI agents with persistent memory.
+
+## Installation
+
+```bash
+npm install mem0ai openai zod
+```
+
+## Environment Setup
+
+Save your Mem0 and OpenAI API keys in a `.env` file:
+
+```
+MEM0_API_KEY=your_mem0_api_key
+OPENAI_API_KEY=your_openai_api_key
+```
+
+Get your Mem0 API key from the [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys).
+
+## Getting Started
+
+### Installation
+
+```bash
+npm install mem0ai openai zod
+```
+
+### Configuration
+
+```javascript
+const mem0Config = {
+    apiKey: process.env.MEM0_API_KEY,
+    user_id: "sample-user",
+};
+
+const openAIClient = new OpenAI();
+const mem0Client = new MemoryClient(mem0Config);
+```
+
+### Adding Memories
+
+Store user preferences, past interactions, or any relevant information:
+
+```javascript
+async function addUserPreferences() {
+    const mem0Client = new MemoryClient(mem0Config);
+    
+    const userPreferences = "I Love BMW, Audi and Porsche. I Hate Mercedes. I love Red cars and Maroon cars. I have a budget of 120K to 150K USD. I like Audi the most.";
+    
+    await mem0Client.add([{
+        role: "user",
+        content: userPreferences,
+    }], mem0Config);
+}
+
+await addUserPreferences();
+```
+
+### Retrieving Memories
+
+Search for relevant memories based on the current user input:
+
+```javascript
+const relevantMemories = await mem0Client.search(userInput, mem0Config);
+```
+
+### Structured Responses with Zod
+
+Define structured response schemas to get consistent output formats:
+
+```javascript
+// Define the schema for a car recommendation
+const CarSchema = z.object({
+  car_name: z.string(),
+  car_price: z.string(),
+  car_url: z.string(),
+  car_image: z.string(),
+  car_description: z.string(),
+});
+
+// Schema for a list of car recommendations
+const CarsSchema = z.object({
+  cars: z.array(CarSchema),
+});
+
+// Create a function tool based on the schema
+const carRecommendationTool = zodResponsesFunction({ 
+    name: "carRecommendations", 
+    parameters: CarsSchema 
+});
+
+// Use the tool in your OpenAI request
+const response = await openAIClient.responses.create({
+    model: "gpt-4o",
+    tools: [{ type: "web_search_preview" }, carRecommendationTool],
+    input: `${getMemoryString(relevantMemories)}\n${userInput}`,
+});
+```
+
+### Using Web Search
+
+Combine memory with web search for up-to-date recommendations:
+
+```javascript
+const response = await openAIClient.responses.create({
+    model: "gpt-4o",
+    tools: [{ type: "web_search_preview" }, carRecommendationTool],
+    input: `${getMemoryString(relevantMemories)}\n${userInput}`,
+});
+```
+
+## Examples
+
+### Complete Car Recommendation System
+
+```javascript
+import MemoryClient from "mem0ai";
+import { OpenAI } from "openai";
+import { zodResponsesFunction } from "openai/helpers/zod";
+import { z } from "zod";
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const mem0Config = {
+    apiKey: process.env.MEM0_API_KEY,
+    user_id: "sample-user",
+};
+
+async function run() {
+    // Responses without memories
+    console.log("\n\nRESPONSES WITHOUT MEMORIES\n\n");
+    await main();
+
+    // Adding sample memories
+    await addSampleMemories();
+
+    // Responses with memories
+    console.log("\n\nRESPONSES WITH MEMORIES\n\n");
+    await main(true);
+}
+
+// OpenAI Response Schema
+const CarSchema = z.object({
+  car_name: z.string(),
+  car_price: z.string(),
+  car_url: z.string(),
+  car_image: z.string(),
+  car_description: z.string(),
+});
+
+const Cars = z.object({
+  cars: z.array(CarSchema),
+});
+
+async function main(memory = false) {
+  const openAIClient = new OpenAI();
+  const mem0Client = new MemoryClient(mem0Config);
+
+  const input = "Suggest me some cars that I can buy today.";
+
+  const tool = zodResponsesFunction({ name: "carRecommendations", parameters: Cars });
+
+  // Store the user input as a memory
+  await mem0Client.add([{
+    role: "user",
+    content: input,
+  }], mem0Config);
+
+  // Search for relevant memories
+  let relevantMemories = []
+  if (memory) {
+    relevantMemories = await mem0Client.search(input, mem0Config);
+  }
+
+  const response = await openAIClient.responses.create({
+    model: "gpt-4o",
+    tools: [{ type: "web_search_preview" }, tool],
+    input: `${getMemoryString(relevantMemories)}\n${input}`,
+  });
+
+  console.log(response.output);
+}
+
+async function addSampleMemories() {
+  const mem0Client = new MemoryClient(mem0Config);
+
+  const myInterests = "I Love BMW, Audi and Porsche. I Hate Mercedes. I love Red cars and Maroon cars. I have a budget of 120K to 150K USD. I like Audi the most.";
+  
+  await mem0Client.add([{
+    role: "user",
+    content: myInterests,
+  }], mem0Config);
+}
+
+const getMemoryString = (memories) => {
+    const MEMORY_STRING_PREFIX = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The MEMORIES of the USER are: \n\n";
+    const memoryString = memories.map((mem) => `${mem.memory}`).join("\n") ?? "";
+    return memoryString.length > 0 ? `${MEMORY_STRING_PREFIX}${memoryString}` : "";
+};
+
+run().catch(console.error);
+```
+
+### Expected Output
+
+Without memories:
+```
+I'd be happy to suggest some cars you might consider purchasing today. Here are several options across different price ranges and styles:
+
+[Generic car recommendations without personalization]
+```
+
+With memories:
+```
+Based on your preferences, I'll suggest some cars that align with your interests. Since you love BMW, Audi, and Porsche (with a particular preference for Audi), and you're looking for red or maroon cars with a budget of $120K-150K, here are some recommendations:
+
+[Personalized recommendations for Audi, BMW, and Porsche models in red/maroon within the $120K-150K budget range]
+```
+
+## Resources
+
+- [Mem0 Documentation](https://docs.mem0.ai)
+- [Mem0 Dashboard](https://app.mem0.ai/dashboard)
+- [API Reference](https://docs.mem0.ai/api-reference)
+- [OpenAI Documentation](https://platform.openai.com/docs)
