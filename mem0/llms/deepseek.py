@@ -54,4 +54,4 @@ class DeepSeekLLM(LLMBase):
             "top_p": self.config.top_p,
         }
         response = self.client.chat.completions.create(**params)
-        return  response.choices[0].message.content
+        return response.choices[0].message.content

@@ -37,8 +37,6 @@ class OpenAIStructuredLLM(LLMBase):
         self,
         messages: List[Dict[str, str]],
         response_format: Optional[str] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: str = "auto",
     ) -> str:
         """
         Generates a response using OpenAI based on the provided messages.
@@ -46,8 +44,7 @@ class OpenAIStructuredLLM(LLMBase):
         Args:
             messages (List[Dict[str, str]]): A list of dictionaries, each containing a 'role' and 'content' key.
             response_format (Optional[str]): The desired format of the response. Defaults to None.
-            tools (Optional[List[Dict]]): A list of tools that the model can call. Defaults to None.
-            tool_choice (str): The method for selecting tools. Defaults to "auto".
+
 
         Returns:
             str: The generated response from the model.

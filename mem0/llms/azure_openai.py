@@ -26,10 +26,18 @@ class AzureOpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-4o"
 
-        api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
-        azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
-        azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("LLM_AZURE_ENDPOINT")
-        api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
+        api_key = self.config.azure_kwargs.api_key or os.getenv(
+            "LLM_AZURE_OPENAI_API_KEY"
+        )
+        azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv(
+            "LLM_AZURE_DEPLOYMENT"
+        )
+        azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv(
+            "LLM_AZURE_ENDPOINT"
+        )
+        api_version = self.config.azure_kwargs.api_version or os.getenv(
+            "LLM_AZURE_API_VERSION"
+        )
         default_headers = self.config.azure_kwargs.default_headers
 
         self.client = AzureOpenAI(
@@ -67,4 +75,4 @@ class AzureOpenAILLM(LLMBase):
         if response_format:
             params["response_format"] = response_format
         response = self.client.chat.completions.create(**params)
-        return  response.choices[0].message.content
+        return response.choices[0].message.content
