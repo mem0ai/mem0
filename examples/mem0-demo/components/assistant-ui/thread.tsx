@@ -42,8 +42,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import Link from "next/link";
-import ThemeAwareLogo from "./theme-aware-logo";
 
 interface ThreadProps {
   sidebarOpen: boolean;
@@ -55,8 +53,7 @@ interface ThreadProps {
 export const Thread: FC<ThreadProps> = ({
   sidebarOpen,
   setSidebarOpen,
-  onResetUserId,
-  isDarkMode,
+  onResetUserId
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
@@ -156,21 +153,6 @@ export const Thread: FC<ThreadProps> = ({
                 </div>
                 <ThreadListPrimitive.Items components={{ ThreadListItem }} />
               </ThreadListPrimitive.Root>
-              <div>
-                <Link
-                  href="https://www.assistant-ui.com/"
-                  target="_blank"
-                  className="flex justify-center items-center gap-2"
-                >
-                  <h1 className="text-sm text-[#475569] dark:text-zinc-300 text-center">
-                    built using
-                  </h1>
-                  <ThemeAwareLogo width={24} height={24} isDarkMode={isDarkMode} />
-                  <p className="text-md font-bold dark:text-zinc-300">
-                    assistant-ui
-                  </p>
-                </Link>
-              </div>
             </div>
           </div>
         </div>
