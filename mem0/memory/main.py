@@ -35,6 +35,7 @@ class Memory(MemoryBase):
         self.config = config
 
         self.custom_prompt = self.config.custom_prompt
+        self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
@@ -221,7 +222,7 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts, self.custom_update_memory_prompt)
 
         try:
             new_memories_with_actions = self.llm.generate_response(
