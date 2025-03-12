@@ -25,6 +25,7 @@ sqlalchemy = "^2.0.31"
 langchain-neo4j = "^0.4.0"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
+azure-search-documents = "^11.5.0"
 psycopg2-binary = "^2.9.10"
 
 [tool.poetry.extras]
