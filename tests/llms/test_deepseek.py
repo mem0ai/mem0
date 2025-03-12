@@ -51,3 +51,31 @@ def test_deepseek_llm_base_url():
     )
     llm = DeepSeekLLM(config)
     assert str(llm.client.base_url) == config_base_url
+
+
+def test_generate_response(mock_deepseek_client):
+    config = BaseLlmConfig(
+        model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0
+    )
+    llm = DeepSeekLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [
+        Mock(message=Mock(content="I'm doing well, thank you for asking!"))
+    ]
+    mock_deepseek_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    mock_deepseek_client.chat.completions.create.assert_called_once_with(
+        model="deepseek-chat",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+    )
+    assert response == "I'm doing well, thank you for asking!"
