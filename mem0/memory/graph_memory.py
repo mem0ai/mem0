@@ -12,11 +12,14 @@ try:
 except ImportError:
     raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
 
-from mem0.graphs.tools import (DELETE_MEMORY_STRUCT_TOOL_GRAPH,
-                               DELETE_MEMORY_TOOL_GRAPH,
-                               EXTRACT_ENTITIES_STRUCT_TOOL,
-                               EXTRACT_ENTITIES_TOOL, RELATIONS_STRUCT_TOOL,
-                               RELATIONS_TOOL)
+from mem0.graphs.tools import (
+    DELETE_MEMORY_STRUCT_TOOL_GRAPH,
+    DELETE_MEMORY_TOOL_GRAPH,
+    EXTRACT_ENTITIES_STRUCT_TOOL,
+    EXTRACT_ENTITIES_TOOL,
+    RELATIONS_STRUCT_TOOL,
+    RELATIONS_TOOL,
+)
 from mem0.graphs.utils import EXTRACT_RELATIONS_PROMPT, get_delete_messages
 from mem0.utils.factory import EmbedderFactory, LlmFactory
 
@@ -205,7 +208,7 @@ class MemoryGraph:
         else:
             extracted_entities = []
 
-        extracted_entities = self._remove_spaces_from_entities(extracted_entities)
+        extracted_entities = self._remove_invalid_chars_from_entities(extracted_entities)
         logger.debug(f"Extracted entities: {extracted_entities}")
         return extracted_entities
 
@@ -273,7 +276,7 @@ class MemoryGraph:
             if item["name"] == "delete_graph_memory":
                 to_be_deleted.append(item["arguments"])
         # in case if it is not in the correct format
-        to_be_deleted = self._remove_spaces_from_entities(to_be_deleted)
+        to_be_deleted = self._remove_invalid_chars_from_entities(to_be_deleted)
         logger.debug(f"Deleted relationships: {to_be_deleted}")
         return to_be_deleted
 
@@ -423,11 +426,12 @@ class MemoryGraph:
                 results.append(resp)
         return results
 
-    def _remove_spaces_from_entities(self, entity_list):
+    def _remove_invalid_chars_from_entities(self, entity_list):
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
             item["relationship"] = item["relationship"].lower().replace(" ", "_")
             item["destination"] = item["destination"].lower().replace(" ", "_")
+            item["destination"] = item["destination"].lower().replace("/", ":")
         return entity_list
 
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
