@@ -134,7 +134,7 @@ class MilvusDB(VectorStoreBase):
 
         return memory
 
-    def search(self, query: list, limit: int = 5, filters: dict = None) -> list:
+    def search(self, query: list, limit: int = 5, filters: dict = None, query_dict: dict = None) -> list:
         """
         Search for similar vectors.
 
@@ -142,6 +142,7 @@ class MilvusDB(VectorStoreBase):
             query (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
+            query_dict (Dict, optional): Query dictionary to search for. Defaults to None.
 
         Returns:
             list: Search results.

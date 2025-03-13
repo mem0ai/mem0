@@ -154,7 +154,7 @@ class Weaviate(VectorStoreBase):
 
                 batch.add_object(collection=self.collection_name, properties=data_object, uuid=object_id, vector=vector)
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None, query_dict: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors.
         """

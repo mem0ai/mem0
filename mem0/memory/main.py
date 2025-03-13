@@ -399,7 +399,7 @@ class Memory(MemoryBase):
         ]
         return all_memories
 
-    def search(self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None):
+    def search(self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None, query_dict=None):
         """
         Search for memories.
 
@@ -410,6 +410,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
+            query_dict (dict, optional): Query dictionary to search for. Defaults to None.
 
         Returns:
             list: List of search results.
@@ -432,7 +433,7 @@ class Memory(MemoryBase):
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, filters, limit)
+            future_memories = executor.submit(self._search_vector_store, query, filters, limit, query_dict)
             future_graph_entities = (
                 executor.submit(self.graph.search, query, filters, limit) if self.enable_graph else None
             )
@@ -459,9 +460,9 @@ class Memory(MemoryBase):
         else:
             return {"results": original_memories}
 
-    def _search_vector_store(self, query, filters, limit):
+    def _search_vector_store(self, query, filters, limit, query_dict):
         embeddings = self.embedding_model.embed(query, "search")
-        memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
+        memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters, query_dict=query_dict)
 
         excluded_keys = {
             "user_id",

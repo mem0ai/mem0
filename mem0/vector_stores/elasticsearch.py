@@ -116,7 +116,7 @@ class ElasticsearchDB(VectorStoreBase):
             )
         return results
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None, query_dict: Optional[Dict] = None) -> List[OutputData]:
         """Search for similar vectors using KNN search with pre-filtering."""
         if not filters:
             # If no filters, just do KNN search
