@@ -3,19 +3,23 @@ title: Custom Update Memory Prompt
 icon: "pencil"
 iconType: "solid"
 ---
-Custom update memory prompt determines the action to be performed on the memory.  
+Update memory prompt is a prompt used to determine the action to be performed on the memory. 
+By customizing this prompt, you can control how the memory is updated.  
+  
 
-
-## Custom Update Memory Prompt
-
-Custom update memory prompt is a prompt that is used to update the memory of a user.
-The prompt compares the newly retrieved facts with the existing memory and determines the action to be performed on the memory.
-The prompt can perform the following operations:
-- ADD
-- UPDATE
-- DELETE
-- NO CHANGE
-
+## Introduction  
+Mem0 memory system compares the newly retrieved facts with the existing memory and determines the action to be performed on the memory.  
+The kinds of actions are:
+- Add
+    - Add the newly retrieved facts to the memory.
+- Update
+    - Update the existing memory with the newly retrieved facts.
+- Delete
+    - Delete the existing memory.
+- No Change
+    - Do not make any changes to the memory.
+  
+### Example
 Example of a custom update memory prompt:
 
 <CodeGroup>
@@ -170,4 +174,66 @@ Please note to return the IDs in the output from the input IDs only and do not g
         }
 """
 ```
+</CodeGroup>  
+
+## Output format
+The prompt needs to guide the output to follow the structure as shown below:
+<CodeGroup>
+```json Add
+{
+    "memory": [
+        {
+            "id" : "0",
+            "text" : "This information is new",
+            "event" : "ADD"
+        }
+    ]
+}
+```
+
+```json Update
+{
+    "memory": [
+        {
+            "id" : "0",
+            "text" : "This information replaces the old information",
+            "event" : "UPDATE",
+            "old_memory" : "Old information"
+        }
+    ]
+}
+```
+
+```json Delete
+{
+    "memory": [
+        {
+            "id" : "0",
+            "text" : "This information will be deleted",
+            "event" : "DELETE"
+        }
+    ]
+}
+```
+
+```json No Change
+{
+    "memory": [
+        {
+            "id" : "0",
+            "text" : "No changes for this information",
+            "event" : "NONE"
+        }
+    ]
+}
+```
 </CodeGroup>
+  
+  
+## custom update memory prompt vs custom prompt
+
+| Feature | `custom_update_memory_prompt` | `custom_prompt` |
+|---------|-------------------------------|-----------------|
+| Use case | Determine the action to be performed on the memory | Extract the facts from messages |
+| Reference | Retrieved facts from messages and old memory | Messages |
+| Output | Action to be performed on the memory | Extracted facts |
