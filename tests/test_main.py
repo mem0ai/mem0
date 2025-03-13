@@ -239,3 +239,38 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
         memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
     else:
         memory_instance.graph.get_all.assert_not_called()
+        
+
+def test_custom_prompts(memory_instance):
+    messages = [{"role": "user", "content": "Test message"}]
+    custom_prompt = "custom prompt extracting memory"
+    custom_update_memory_prompt = "custom prompt determining memory update"
+    
+    memory_instance.llm.generate_response = Mock()
+    memory_instance.custom_update_memory_prompt = custom_update_memory_prompt
+    memory_instance.custom_prompt = custom_prompt
+    
+    with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
+        with patch("mem0.memory.main.get_update_memory_messages", return_value="custom update memory prompt") as mock_get_update_memory_messages:
+            memory_instance.add(messages=messages, user_id="test_user")
+            
+            ## custom prompt
+            ##
+            mock_parse_messages.assert_called_once_with(messages)
+            
+            memory_instance.llm.generate_response.assert_any_call(
+                messages=[
+                    {"role": "system", "content": custom_prompt},
+                    {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
+                ],
+                response_format={"type": "json_object"},
+            )
+            
+            ## custom update memory prompt
+            ##
+            mock_get_update_memory_messages.assert_called_once_with([],[],custom_update_memory_prompt)
+            
+            memory_instance.llm.generate_response.assert_any_call(
+                messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
+                response_format={"type": "json_object"},
+            )
