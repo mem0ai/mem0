@@ -169,7 +169,12 @@ class MemoryGraph:
         except Exception as e:
             logger.error(f"Error in search tool: {e}")
 
-        entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
+        entity_type_map = {
+            k.lower().replace(" ", "_").replace("/", ":"):
+            v.lower().replace(" ", "_").replace("/", ":")
+            for k, v in entity_type_map.items()
+        }
+
         logger.debug(f"Entity type map: {entity_type_map}")
         return entity_type_map
 
@@ -431,6 +436,8 @@ class MemoryGraph:
             item["source"] = item["source"].lower().replace(" ", "_")
             item["relationship"] = item["relationship"].lower().replace(" ", "_")
             item["destination"] = item["destination"].lower().replace(" ", "_")
+            item["source"] = item["source"].lower().replace("/", ":")
+            item["relationship"] = item["relationship"].lower().replace("/", ":")
             item["destination"] = item["destination"].lower().replace("/", ":")
         return entity_list
 
