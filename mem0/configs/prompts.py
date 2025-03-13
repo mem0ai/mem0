@@ -213,8 +213,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
         
-    return f"""
-    {custom_prompt}
+    return f"""{custom_prompt}
     
     Below is the current content of my memory which I have collected till now. You have to update it in the following format only:
 
