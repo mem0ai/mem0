@@ -73,6 +73,7 @@
                     "pages": [
                       "features/openai_compatibility",
                       "features/custom-prompts",
+                      "features/custom-update-memory-prompt",
                       "open-source/multimodal-support",
                       "open-source/features/rest-api"
                     ]
