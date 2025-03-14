@@ -4,14 +4,26 @@ from typing import Dict, List, Optional
 try:
     import anthropic
 except ImportError:
-    raise ImportError("The 'anthropic' library is required. Please install it using 'pip install anthropic'.")
+    raise ImportError(
+        "The 'anthropic' library is required. Please install it using 'pip install anthropic'."
+    )
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
 
 class AnthropicLLM(LLMBase):
+    """
+    A class for interacting with Anthropic's Claude models using the specified configuration.
+    """
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
+        """
+        Initializes the AnthropicLLM instance with the given configuration.
+
+        Args:
+            config (Optional[BaseLlmConfig]): Configuration settings for the language model.
+        """
         super().__init__(config)
 
         if not self.config.model:
@@ -23,23 +35,17 @@ class AnthropicLLM(LLMBase):
     def generate_response(
         self,
         messages: List[Dict[str, str]],
-        response_format=None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: str = "auto",
-    ):
+    ) -> str:
         """
-        Generate a response based on the given messages using Anthropic.
+        Generates a response using Anthropic's Claude model based on the provided messages.
 
         Args:
-            messages (list): List of message dicts containing 'role' and 'content'.
-            response_format (str or object, optional): Format of the response. Defaults to "text".
-            tools (list, optional): List of tools that the model can call. Defaults to None.
-            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            messages (List[Dict[str, str]]): A list of dictionaries, each containing a 'role' and 'content' key.
 
         Returns:
-            str: The generated response.
+            str: The generated response from the model.
         """
-        # Separate system message from other messages
+        # Extract system message separately
         system_message = ""
         filtered_messages = []
         for message in messages:
@@ -56,9 +62,6 @@ class AnthropicLLM(LLMBase):
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
 
         response = self.client.messages.create(**params)
         return response.content[0].text
