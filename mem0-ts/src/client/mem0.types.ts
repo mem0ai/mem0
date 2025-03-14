@@ -17,6 +17,7 @@ export interface MemoryOptions {
   enable_graph?: boolean;
   start_date?: string;
   end_date?: string;
+  custom_categories?: custom_categories[];
 }
 
 export interface ProjectOptions {

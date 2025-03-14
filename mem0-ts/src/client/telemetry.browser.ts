@@ -4,7 +4,7 @@ import type { TelemetryClient } from "./telemetry.types";
 
 let version = "1.0.20";
 
-const MEM0_TELEMETRY = process.env.MEM0_TELEMETRY !== "false";
+const MEM0_TELEMETRY = "false";
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
