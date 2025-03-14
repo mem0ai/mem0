@@ -87,10 +87,10 @@ messages = [
 ]
 
 # The default output_format is v1.0
-client.add(messages, user_id="alex", output_format="v1.0")
+client.add(messages, user_id="alex", output_format="v1.0", version="v2")
 
 # To use the latest output_format, set the output_format parameter to "v1.1"
-client.add(messages, user_id="alex", output_format="v1.1", metadata={"food": "vegan"})
+client.add(messages, user_id="alex", output_format="v1.1", metadata={"food": "vegan"}, version="v2")
 ```
 
 ```javascript JavaScript
@@ -98,7 +98,7 @@ const messages = [
     {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
     {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions."}
 ];
-client.add(messages, { user_id: "alex", output_format: "v1.1", metadata: { food: "vegan" } })
+client.add(messages, { user_id: "alex", output_format: "v1.1", metadata: { food: "vegan" }, version: "v2" })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -116,7 +116,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          "output_format": "v1.1",
          "metadata": {
              "food": "vegan"
-         }
+         },
+         "version": "v2"
      }'
 ```
 
@@ -191,10 +192,10 @@ messages = [
 ]
 
 # The default output_format is v1.0
-client.add(messages, user_id="alex", run_id="trip-planning-2024", output_format="v1.0")
+client.add(messages, user_id="alex", run_id="trip-planning-2024", output_format="v1.0", version="v2")
 
 # To use the latest output_format, set the output_format parameter to "v1.1"
-client.add(messages, user_id="alex", run_id="trip-planning-2024", output_format="v1.1")
+client.add(messages, user_id="alex", run_id="trip-planning-2024", output_format="v1.1", version="v2")
 ```
 
 ```javascript JavaScript
@@ -204,7 +205,7 @@ const messages = [
     {"role": "user", "content": "Yes, please! Especially in Tokyo."},
     {"role": "assistant", "content": "Great! I'll remember that you're interested in vegetarian restaurants in Tokyo for your upcoming trip. I'll prepare a list for you in our next interaction."}
 ];
-client.add(messages, { user_id: "alex", run_id: "trip-planning-2024", output_format: "v1.1" })
+client.add(messages, { user_id: "alex", run_id: "trip-planning-2024", output_format: "v1.1", version: "v2" })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -222,7 +223,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          ],
          "user_id": "alex",
          "run_id": "trip-planning-2024",
-         "output_format": "v1.1"
+         "output_format": "v1.1",
+         "version": "v2"
      }'
 ```
 
@@ -274,10 +276,10 @@ messages = [
 ]
 
 # The default output_format is v1.0
-client.add(messages, agent_id="ai-tutor", output_format="v1.0")
+client.add(messages, agent_id="ai-tutor", output_format="v1.0", version="v2")
 
 # To use the latest output_format, set the output_format parameter to "v1.1"
-client.add(messages, agent_id="ai-tutor", output_format="v1.1")
+client.add(messages, agent_id="ai-tutor", output_format="v1.1", version="v2")
 ```
 
 ```javascript JavaScript
@@ -285,7 +287,7 @@ const messages = [
     {"role": "system", "content": "You are an AI tutor with a personality. Give yourself a name for the user."},
     {"role": "assistant", "content": "Understood. I'm an AI tutor with a personality. My name is Alice."}
 ];
-client.add(messages, { agent_id: "ai-tutor", output_format: "v1.1" })
+client.add(messages, { agent_id: "ai-tutor", output_format: "v1.1", version: "v2" })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -300,7 +302,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
              {"role": "assistant", "content": "Understood. I'm an AI tutor with a personality. My name is Alice."}
          ],
          "agent_id": "ai-tutor",
-         "output_format": "v1.1"
+         "output_format": "v1.1",
+         "version": "v2"
      }'
 ```
 
@@ -368,7 +371,7 @@ messages = [
     {"role": "assistant", "content": "That's great! I'm going to Dubai next month."},
 ]
 
-client.add(messages=messages, user_id="user1", agent_id="agent1")
+client.add(messages=messages, user_id="user1", agent_id="agent1", version="v2")
 ```
 
 ```javascript JavaScript
@@ -377,7 +380,7 @@ const messages = [
     {"role": "assistant", "content": "That's great! I'm going to Dubai next month."},
 ]
 
-client.add(messages, { user_id: "user1", agent_id: "agent1" })
+client.add(messages, { user_id: "user1", agent_id: "agent1", version: "v2" })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -392,7 +395,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
              {"role": "assistant", "content": "That's great! I'm going to Dubai next month."},
          ],
          "user_id": "user1",
-         "agent_id": "agent1"
+         "agent_id": "agent1",
+         "version": "v2"
      }'
 ```
 
