@@ -6,10 +6,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from mem0.memory.setup import get_user_id, setup_config
+from mem0.memory.setup import setup_config, get_user_id
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
+
+warnings.filterwarnings("default", category=DeprecationWarning)
 
 # Setup user config
 setup_config()
@@ -48,8 +50,6 @@ class MemoryClient:
         api_key (str): The API key for authenticating with the Mem0 API.
         host (str): The base URL for the Mem0 API.
         client (httpx.Client): The HTTP client used for making API requests.
-        organization (str, optional): (Deprecated) Organization name.
-        project (str, optional): (Deprecated) Project name.
         org_id (str, optional): Organization ID.
         project_id (str, optional): Project ID.
         user_id (str): Unique identifier for the user.
@@ -59,8 +59,6 @@ class MemoryClient:
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        organization: Optional[str] = None,
-        project: Optional[str] = None,
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
     ):
@@ -70,8 +68,6 @@ class MemoryClient:
             api_key: The API key for authenticating with the Mem0 API. If not provided,
                      it will attempt to use the MEM0_API_KEY environment variable.
             host: The base URL for the Mem0 API. Defaults to "https://api.mem0.ai".
-            organization: (Deprecated) The name of the organization. Use org_id instead.
-            project: (Deprecated) The name of the project. Use project_id instead.
             org_id: The ID of the organization.
             project_id: The ID of the project.
 
@@ -80,8 +76,6 @@ class MemoryClient:
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
         self.host = host or "https://api.mem0.ai"
-        self.organization = organization
-        self.project = project
         self.org_id = org_id
         self.project_id = project_id
         self.user_id = get_user_id()
@@ -89,20 +83,12 @@ class MemoryClient:
         if not self.api_key:
             raise ValueError("Mem0 API Key not provided. Please provide an API Key.")
 
-        if organization or project:
-            warnings.warn(
-                "Using 'organization' and 'project' parameters is deprecated and will be removed in version 0.1.40. "
-                "Please use 'org_id' and 'project_id' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
         self.client = httpx.Client(
             base_url=self.host,
             headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
-            timeout=60,
+            timeout=300,
         )
-        self._validate_api_key()
+        self.user_email = self._validate_api_key()
         capture_client_event("client.init", self)
 
     def _validate_api_key(self):
@@ -110,16 +96,23 @@ class MemoryClient:
         try:
             params = self._prepare_params()
             response = self.client.get("/v1/ping/", params=params)
+            data = response.json()
+
             response.raise_for_status()
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("org_id") and data.get("project_id"):
-                    self.org_id = data.get("org_id")
-                    self.project_id = data.get("project_id")
+            if data.get("org_id") and data.get("project_id"):
+                self.org_id = data.get("org_id")
+                self.project_id = data.get("project_id")
 
-        except httpx.HTTPStatusError:
-            raise ValueError("Invalid API Key. Please get a valid API Key from https://app.mem0.ai")
+            return data.get("user_email")
+
+        except httpx.HTTPStatusError as e:
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get("detail", str(e))
+            except:
+                error_message = str(e)
+            raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
     def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
@@ -136,6 +129,14 @@ class MemoryClient:
             APIError: If the API request fails.
         """
         kwargs = self._prepare_params(kwargs)
+        if kwargs.get("output_format") != "v1.1":
+            warnings.warn(
+                "Using default output format 'v1.0' is deprecated and will be removed in version 0.1.70. "
+                "Please use output_format='v1.1' for enhanced memory details. "
+                "Check out the docs for more information: https://docs.mem0.ai/platform/quickstart#4-1-create-memories",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -169,7 +170,7 @@ class MemoryClient:
 
         Args:
             version: The API version to use for the search endpoint.
-            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, limit).
+            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id, top_k).
 
         Returns:
             A list of dictionaries containing memories.
@@ -203,7 +204,7 @@ class MemoryClient:
         Args:
             query: The search query string.
             version: The API version to use for the search endpoint.
-            **kwargs: Additional parameters such as user_id, agent_id, app_id, limit, filters.
+            **kwargs: Additional parameters such as user_id, agent_id, app_id, top_k, filters.
 
         Returns:
             A list of dictionaries containing search results.
@@ -525,6 +526,97 @@ class MemoryClient:
         """
         raise NotImplementedError("Chat is not implemented yet")
 
+    @api_error_handler
+    def get_webhooks(self, project_id: str) -> Dict[str, Any]:
+        """Get webhooks configuration for the project.
+
+        Args:
+            project_id: The ID of the project to get webhooks for.
+
+        Returns:
+            Dictionary containing webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If project_id is not set.
+        """
+
+        response = self.client.get(f"api/v1/webhooks/projects/{project_id}/")
+        response.raise_for_status()
+        capture_client_event("client.get_webhook", self)
+        return response.json()
+
+    @api_error_handler
+    def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
+        """Create a webhook for the current project.
+
+        Args:
+            url: The URL to send the webhook to.
+            name: The name of the webhook.
+            event_types: List of event types to trigger the webhook for.
+
+        Returns:
+            Dictionary containing the created webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If project_id is not set.
+        """
+
+        payload = {"url": url, "name": name, "event_types": event_types}
+        response = self.client.post(f"api/v1/webhooks/projects/{project_id}/", json=payload)
+        response.raise_for_status()
+        capture_client_event("client.create_webhook", self)
+        return response.json()
+
+    @api_error_handler
+    def update_webhook(
+        self,
+        webhook_id: int,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        event_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Update a webhook configuration.
+
+        Args:
+            webhook_id: ID of the webhook to update
+            name: Optional new name for the webhook
+            url: Optional new URL for the webhook
+            event_types: Optional list of event types to trigger the webhook for.
+
+        Returns:
+            Dictionary containing the updated webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+
+        payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
+        response = self.client.put(f"api/v1/webhooks/{webhook_id}/", json=payload)
+        response.raise_for_status()
+        capture_client_event("client.update_webhook", self, {"webhook_id": webhook_id})
+        return response.json()
+
+    @api_error_handler
+    def delete_webhook(self, webhook_id: int) -> Dict[str, str]:
+        """Delete a webhook configuration.
+
+        Args:
+            webhook_id: ID of the webhook to delete
+
+        Returns:
+            Dictionary containing success message.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+
+        response = self.client.delete(f"api/v1/webhooks/{webhook_id}/")
+        response.raise_for_status()
+        capture_client_event("client.delete_webhook", self, {"webhook_id": webhook_id})
+        return response.json()
+
     def _prepare_payload(
         self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -556,20 +648,11 @@ class MemoryClient:
             A dictionary containing the prepared parameters.
 
         Raises:
-            ValueError: If both org_id/project_id and org_name/project_name are provided.
+            ValueError: If either org_id or project_id is provided but not both.
         """
 
         if kwargs is None:
             kwargs = {}
-
-        has_new = bool(self.org_id or self.project_id)
-        has_old = bool(self.organization or self.project)
-
-        if has_new and has_old:
-            raise ValueError(
-                "Please use either org_id/project_id or org_name/project_name, not both. "
-                "Note that org_name/project_name are deprecated."
-            )
 
         # Add org_id and project_id if both are available
         if self.org_id and self.project_id:
@@ -577,13 +660,6 @@ class MemoryClient:
             kwargs["project_id"] = self.project_id
         elif self.org_id or self.project_id:
             raise ValueError("Please provide both org_id and project_id")
-
-        # Add deprecated org_name and project_name if both are available
-        if self.organization and self.project:
-            kwargs["org_name"] = self.organization
-            kwargs["project_name"] = self.project
-        elif self.organization or self.project:
-            raise ValueError("Please provide both org_name and project_name")
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
@@ -603,16 +679,14 @@ class AsyncMemoryClient:
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        organization: Optional[str] = None,
-        project: Optional[str] = None,
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
     ):
-        self.sync_client = MemoryClient(api_key, host, organization, project, org_id, project_id)
+        self.sync_client = MemoryClient(api_key, host, org_id, project_id)
         self.async_client = httpx.AsyncClient(
             base_url=self.sync_client.host,
             headers=self.sync_client.client.headers,
-            timeout=60,
+            timeout=300,
         )
 
     async def __aenter__(self):
@@ -886,3 +960,41 @@ class AsyncMemoryClient:
 
     async def chat(self):
         raise NotImplementedError("Chat is not implemented yet")
+
+    @api_error_handler
+    async def get_webhooks(self, project_id: str) -> Dict[str, Any]:
+        response = await self.async_client.get(
+            f"api/v1/webhooks/projects/{project_id}/",
+        )
+        response.raise_for_status()
+        capture_client_event("async_client.get_webhook", self.sync_client)
+        return response.json()
+
+    @api_error_handler
+    async def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
+        payload = {"url": url, "name": name, "event_types": event_types}
+        response = await self.async_client.post(f"api/v1/webhooks/projects/{project_id}/", json=payload)
+        response.raise_for_status()
+        capture_client_event("async_client.create_webhook", self.sync_client)
+        return response.json()
+
+    @api_error_handler
+    async def update_webhook(
+        self,
+        webhook_id: int,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        event_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
+        response = await self.async_client.put(f"api/v1/webhooks/{webhook_id}/", json=payload)
+        response.raise_for_status()
+        capture_client_event("async_client.update_webhook", self.sync_client, {"webhook_id": webhook_id})
+        return response.json()
+
+    @api_error_handler
+    async def delete_webhook(self, webhook_id: int) -> Dict[str, str]:
+        response = await self.async_client.delete(f"api/v1/webhooks/{webhook_id}/")
+        response.raise_for_status()
+        capture_client_event("async_client.delete_webhook", self.sync_client, {"webhook_id": webhook_id})
+        return response.json()

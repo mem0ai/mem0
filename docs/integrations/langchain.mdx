@@ -37,7 +37,7 @@ os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 # Initialize LangChain and Mem0
 llm = ChatOpenAI(model="gpt-4o-mini")
-mem0 = MemoryClient(api_key=os.environ["MEM0_API_KEY"])
+mem0 = MemoryClient()
 ```
 
 ## Create Prompt Template

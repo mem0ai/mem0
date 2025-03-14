@@ -114,9 +114,6 @@ class AzureAISearch(VectorStoreBase):
             ]
         # If no compression is desired, compression_configurations remains empty.
         
-        # Note regarding hybrid search:
-        # FEEDBACK (Discussion): We could store an additional "text" field for hybrid search (keeping the original text searchable)
-        # but that would change the index design. This is not implemented here to avoid breaking changes.
         
         fields = [
             SimpleField(name="id", type=SearchFieldDataType.String, key=True),
@@ -217,7 +214,7 @@ class AzureAISearch(VectorStoreBase):
             vector_queries=[vector_query],
             filter=filter_expression,
             top=limit,
-            vector_filter_mode=vector_filter_mode,  # FEEDBACK 3: New parameter for filter mode.
+            vector_filter_mode=vector_filter_mode,  
         )
 
         results = []
@@ -228,7 +225,6 @@ class AzureAISearch(VectorStoreBase):
                     id=result["id"], score=result["@search.score"], payload=payload
                 )
             )
-        # FEEDBACK 5/6: Return the list of results directly.
         return results
 
     def delete(self, vector_id):
@@ -239,7 +235,6 @@ class AzureAISearch(VectorStoreBase):
             vector_id (str): ID of the vector to delete.
         """
         response = self.search_client.delete_documents(documents=[{"id": vector_id}])
-        # FEEDBACK 6: Check delete response; throw an exception if any deletion failed.
         for doc in response:
             if not doc.get("status", False):
                 raise Exception(f"Delete failed for document {vector_id}: {doc}")

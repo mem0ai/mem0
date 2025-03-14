@@ -25,9 +25,11 @@ from langchain_core.tools import StructuredTool
 from mem0 import MemoryClient
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
+import os
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
 
 client = MemoryClient(
-    api_key=your_api_key,
     org_id=your_org_id,
     project_id=your_project_id
 )
@@ -326,3 +328,9 @@ All tools are implemented as Langchain `StructuredTool` instances, making them c
 3. The agent can now use these tools to manage memories through natural language interactions
 
 Each tool provides structured input validation through Pydantic models and returns consistent responses that can be processed by your agent.
+
+## Help
+
+In case of any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

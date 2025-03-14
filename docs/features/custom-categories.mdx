@@ -1,6 +1,8 @@
 ---
 title: Custom Categories
 description: 'Enhance your product experience by adding custom categories tailored to your needs'
+icon: "tags"
+iconType: "solid"
 ---
 
 ## How to set custom categories?
@@ -17,9 +19,12 @@ Here's how to set custom categories:
 
 <CodeGroup>
 ```python Code
+import os
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="<your_mem0_api_key>")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 
 # Update custom categories
 new_categories = [
@@ -28,7 +33,7 @@ new_categories = [
     {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
 ]
 
-response = client.update_custom_instructions_and_categories({"custom_categories": new_categories})
+response = client.update_project(custom_categories = new_categories)
 print(response)
 ```
 
@@ -51,7 +56,7 @@ messages = [
 ]
 
 # Add memories with custom categories
-client.add(messages, user_id="alice"))
+client.add(messages, user_id="alice")
 ```
 
 ```python Memories with categories
@@ -93,7 +98,10 @@ You can also set custom categories during the `add` API call. This will override
 
 <CodeGroup>
 ```python Code
+import os
 from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
 
 client = MemoryClient(api_key="<your_mem0_api_key>")
 
@@ -146,9 +154,12 @@ Here is the list of **default categories**. If you don't specify any custom cate
 
 <CodeGroup>
 ```python Code
+import os
 from mem0 import MemoryClient
 
-client = MemoryClient(api_key="<your_mem0_api_key>")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 
 messages = [
     {"role": "user", "content": "Hi, my name is Alice."},
@@ -172,11 +183,11 @@ Name is Alice (personal_details)
 ```
 </CodeGroup>
 
-You can check whether default categories are being used by calling `get_custom_instructions_and_categories()`. If `custom_categories` returns `None`, it means the default categories are being used.
+You can check whether default categories are being used by calling `get_project()`. If `custom_categories` returns `None`, it means the default categories are being used.
 
 <CodeGroup>
 ```python Code
-client.get_custom_instructions_and_categories(["custom_categories"])
+client.get_project(["custom_categories"])
 ```
 
 ```json Output

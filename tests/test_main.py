@@ -41,10 +41,14 @@ def test_add(memory_instance, version, enable_graph):
 
     result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
 
-    assert "results" in result
-    assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
-    assert "relations" in result
-    assert result["relations"] == []
+    if enable_graph:
+        assert "results" in result
+        assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
+        assert "relations" in result
+        assert result["relations"] == []
+    else:
+        assert "results" in result
+        assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
         [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}
@@ -119,7 +123,7 @@ def test_search(memory_instance, version, enable_graph):
     memory_instance.vector_store.search.assert_called_once_with(
         query=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
     )
-    memory_instance.embedding_model.embed.assert_called_once_with("test query")
+    memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
 
     if enable_graph:
         memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
