@@ -4811,7 +4811,7 @@
 						"nullable": true
 					},
 					"version": {
-						"description": "The version of the memory to use. The default version is v1, which will be deprecated in future. We recommend using v2 for new applications.",
+						"description": "The version of the memory to use. The default version is v1, which is deprecated. We recommend using v2 for new applications.",
 						"title": "Version", 
 						"type": "string",
 						"nullable": true
