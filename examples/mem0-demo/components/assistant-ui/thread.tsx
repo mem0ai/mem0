@@ -22,9 +22,12 @@ import {
   SendHorizontalIcon,
   ArchiveIcon,
   PlusIcon,
+  Sun,
+  Moon,
+  SaveIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -42,24 +45,29 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
+import GithubButton from "../mem0/github-button";
+import Link from "next/link";
 interface ThreadProps {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
   onResetUserId?: () => void;
   isDarkMode: boolean;
+  toggleDarkMode: () => void;
 }
 
 export const Thread: FC<ThreadProps> = ({
   sidebarOpen,
   setSidebarOpen,
-  onResetUserId
+  onResetUserId,
+  isDarkMode,
+  toggleDarkMode
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <ThreadPrimitive.Root
-      className="bg-[#f8fafc] dark:bg-zinc-900 box-border h-full flex flex-col overflow-hidden relative"
+      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col overflow-hidden relative h-[calc(100dvh-4rem)] pb-4 md:h-full"
       style={{
         ["--thread-max-width" as string]: "42rem",
       }}
@@ -75,13 +83,13 @@ export const Thread: FC<ThreadProps> = ({
       {/* Mobile sidebar drawer */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[85%] bg-white dark:bg-zinc-900 transform transition-transform duration-300 ease-in-out md:hidden",
+          "fixed inset-y-0 left-0 z-40 w-[75%] bg-white shadow-lg rounded-r-lg dark:bg-zinc-900 transform transition-transform duration-300 ease-in-out md:hidden",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="h-full flex flex-col">
           <div className="flex items-center justify-between border-b dark:text-white border-[#e2e8f0] dark:border-zinc-800 p-4">
-            <h2 className="font-medium">Recent Chats</h2>
+            <h2 className="font-medium">Settings</h2>
             <div className="flex items-center gap-2">
               {onResetUserId && (
                 <AlertDialog
@@ -138,13 +146,44 @@ export const Thread: FC<ThreadProps> = ({
             <div className="flex flex-col justify-between items-stretch gap-1.5 h-full dark:text-white">
               <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
                 <ThreadListPrimitive.New asChild>
+                  <div className="flex items-center flex-col gap-2 w-full">
                   <Button
-                    className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
+                    className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
                     variant="default"
                   >
                     <PlusIcon className="w-4 h-4" />
                     New Thread
                   </Button>
+                    <Button
+                      className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-700 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-zinc-800 text-white"
+                      onClick={toggleDarkMode}
+                      aria-label="Toggle theme"
+                    >
+                      {isDarkMode ? (
+                        <div className="flex items-center gap-2">
+                          <Sun className="w-6 h-6" /> 
+                          <span>Toggle Light Mode</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Moon className="w-6 h-6" />
+                          <span>Toggle Dark Mode</span>
+                        </div>
+                      )}
+                    </Button>
+                    <GithubButton url="https://github.com/mem0ai/mem0/tree/main/examples" className="w-full rounded-lg h-9 pl-2 text-sm font-semibold bg-zinc-800 dark:border-zinc-800 dark:text-white text-white hover:bg-zinc-900" text="View on Github" />
+
+                    <Link
+                      href={"https://app.mem0.ai/"}
+                      target="_blank"
+                      className="py-2 px-4 w-full rounded-lg h-9 pl-3 text-sm font-semibold dark:bg-zinc-800 dark:hover:bg-zinc-700 bg-zinc-800 text-white hover:bg-zinc-900 dark:text-white"
+                    >
+                      <span className="flex items-center gap-2">
+                        <SaveIcon className="w-4 h-4" />
+                        Save Memories
+                      </span>
+                    </Link>
+                  </div>
                 </ThreadListPrimitive.New>
                 <div className="mt-4 mb-2">
                   <h2 className="text-sm font-medium text-[#475569] dark:text-zinc-300 px-2.5">
@@ -158,9 +197,13 @@ export const Thread: FC<ThreadProps> = ({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="flex h-full flex-col items-center px-4 pt-8 justify-end">
-          <ThreadWelcome />
+      <ScrollArea className="flex-1 w-full">
+        <div className="flex h-full flex-col w-full items-center px-4 pt-8 justify-end">
+          <ThreadWelcome
+            composerInputRef={
+              composerInputRef as React.RefObject<HTMLTextAreaElement>
+            }
+          />
 
           <ThreadPrimitive.Messages
             components={{
@@ -176,9 +219,13 @@ export const Thread: FC<ThreadProps> = ({
         </div>
       </ScrollArea>
 
-      <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 pb-4 mx-auto">
+      <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
         <ThreadScrollToBottom />
-        <Composer />
+        <Composer
+          composerInputRef={
+            composerInputRef as React.RefObject<HTMLTextAreaElement>
+          }
+        />
       </div>
     </ThreadPrimitive.Root>
   );
@@ -198,57 +245,74 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC = () => {
+interface ThreadWelcomeProps {
+  composerInputRef: React.RefObject<HTMLTextAreaElement>;
+}
+
+const ThreadWelcome: FC<ThreadWelcomeProps> = ({ composerInputRef }) => {
   return (
     <ThreadPrimitive.Empty>
-      <div className="flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
-        <div className="flex w-full flex-grow flex-col items-center justify-start h-[calc(100vh-23rem)] md:h-[calc(100vh-18rem)]">
+      <div className="flex w-full flex-grow flex-col mt-8 md:h-[calc(100vh-15rem)]">
+        <div className="flex w-full flex-grow flex-col items-center justify-start">
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-2xl md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2">
+            <div className="text-[2rem] leading-[1] tracking-[-0.02em] md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2 text-center md:w-full w-5/6">
               Mem0 - ChatGPT with memory
             </div>
-            <p className="text-center text-sm text-[#1e293b] dark:text-white mb-2 w-3/4">
+            <p className="text-center text-md text-[#1e293b] dark:text-white mb-2 md:w-3/4 w-5/6">
               A personalized AI chat app powered by Mem0 that remembers your
               preferences, facts, and memories.
             </p>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center justify-center mt-16">
           <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
             How can I help you today?
           </p>
-          <ThreadWelcomeSuggestions />
+          <ThreadWelcomeSuggestions composerInputRef={composerInputRef} />
         </div>
       </div>
     </ThreadPrimitive.Empty>
   );
 };
 
-const ThreadWelcomeSuggestions: FC = () => {
+interface ThreadWelcomeSuggestionsProps {
+  composerInputRef: React.RefObject<HTMLTextAreaElement>;
+}
+
+const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({ composerInputRef }) => {
   return (
-    <div className="mt-3 flex w-full items-stretch justify-center gap-4 dark:text-white">
+    <div className="mt-3 flex flex-col md:flex-row w-full md:items-stretch justify-center gap-4 dark:text-white items-center">
       <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+        className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I like to travel to "
         method="replace"
+        onClick={() => {
+          composerInputRef.current?.focus();
+        }}
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
           Travel
         </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+        className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I like to eat "
         method="replace"
+        onClick={() => {
+          composerInputRef.current?.focus();
+        }}
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
           Food
         </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+        className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
         prompt="I am working on "
         method="replace"
+        onClick={() => {
+          composerInputRef.current?.focus();
+        }}
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
           Project details
@@ -258,7 +322,11 @@ const ThreadWelcomeSuggestions: FC = () => {
   );
 };
 
-const Composer: FC = () => {
+interface ComposerProps {
+  composerInputRef: React.RefObject<HTMLTextAreaElement>;
+}
+
+const Composer: FC<ComposerProps> = ({ composerInputRef }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
       <ComposerPrimitive.Input
@@ -266,6 +334,7 @@ const Composer: FC = () => {
         autoFocus
         placeholder="Message to Mem0..."
         className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
+        ref={composerInputRef}
       />
       <ComposerAction />
     </ComposerPrimitive.Root>

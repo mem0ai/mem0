@@ -1,4 +1,6 @@
 export interface MemoryOptions {
+  api_version?: API_VERSION | string;
+  version?: API_VERSION | string;
   user_id?: string;
   agent_id?: string;
   app_id?: string;
