@@ -14,6 +14,7 @@ class OpenSearchConfig(BaseModel):
     verify_certs: bool = Field(False, description="Verify SSL certificates (default False for OpenSearch)")
     use_ssl: bool = Field(False, description="Use SSL for connection (default False for OpenSearch)")
     auto_create_index: bool = Field(True, description="Automatically create index during initialization")
+    http_auth: Optional[object] = Field(None, description="HTTP authentication method / AWS SigV4")
 
     @model_validator(mode="before")
     @classmethod
@@ -23,7 +24,7 @@ class OpenSearchConfig(BaseModel):
             raise ValueError("Host must be provided for OpenSearch")
 
         # Authentication: Either API key or user/password must be provided
-        if not any([values.get("api_key"), (values.get("user") and values.get("password"))]):
+        if not any([values.get("api_key"), (values.get("user") and values.get("password")), values.get("http_auth")]):
             raise ValueError("Either api_key or user/password must be provided for OpenSearch authentication")
 
         return values

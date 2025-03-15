@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 try:
-    from opensearchpy import OpenSearch
+    from opensearchpy import OpenSearch, RequestsHttpConnection
     from opensearchpy.helpers import bulk
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
@@ -28,9 +28,10 @@ class OpenSearchDB(VectorStoreBase):
         # Initialize OpenSearch client
         self.client = OpenSearch(
             hosts=[{"host": config.host, "port": config.port or 9200}],
-            http_auth=(config.user, config.password) if (config.user and config.password) else None,
+            http_auth=config.http_auth if config.http_auth else ((config.user, config.password) if (config.user and config.password) else None),
             use_ssl=config.use_ssl,
             verify_certs=config.verify_certs,
+            connection_class=RequestsHttpConnection
         )
 
         self.collection_name = config.collection_name
