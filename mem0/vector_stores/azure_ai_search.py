@@ -189,7 +189,7 @@ class AzureAISearch(VectorStoreBase):
         filter_expression = " and ".join(filter_conditions)
         return filter_expression
 
-    def search(self, query, limit=5, filters=None, vector_filter_mode="preFilter"):
+    def search(self, query, limit=5, filters=None, vector_filter_mode="preFilter", query_dict=None):
         """
         Search for similar vectors.
 
@@ -199,6 +199,7 @@ class AzureAISearch(VectorStoreBase):
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
             vector_filter_mode (str): Determines whether filters are applied before or after the vector search.
                 Known values: "preFilter" (default) and "postFilter".
+            query_dict (dict, optional): Query dictionary to search for. Defaults to None.
 
         Returns:
             List[OutputData]: Search results.

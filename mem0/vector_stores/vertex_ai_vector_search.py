@@ -213,13 +213,14 @@ class GoogleMatchingEngine(VectorStoreBase):
             raise
 
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None, query_dict: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors.
         Args:
             query (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
+            query_dict (Dict, optional): Query dictionary to search for. Defaults to None.
         Returns:
             List[OutputData]: Search results (unwrapped)
         """

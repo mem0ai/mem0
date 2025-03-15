@@ -111,7 +111,7 @@ class OpenSearchDB(VectorStoreBase):
             results.append(OutputData(id=id_, score=1.0, payload=payloads[i]))
         return results
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None, query_dict: Optional[Dict] = None) -> List[OutputData]:
         """Search for similar vectors using OpenSearch k-NN search with pre-filtering."""
         search_query = {
             "size": limit,

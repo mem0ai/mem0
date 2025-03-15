@@ -120,7 +120,7 @@ class PGVector(VectorStoreBase):
         )
         self.conn.commit()
 
-    def search(self, query, limit=5, filters=None):
+    def search(self, query, limit=5, filters=None, query_dict=None):
         """
         Search for similar vectors.
 
@@ -128,6 +128,7 @@ class PGVector(VectorStoreBase):
             query (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
+            query_dict (Dict, optional): Query dictionary to search for. Defaults to None.
 
         Returns:
             list: Search results.

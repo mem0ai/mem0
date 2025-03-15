@@ -101,7 +101,7 @@ class RedisDB(VectorStoreBase):
             data.append(entry)
         self.index.load(data, id_field="memory_id")
 
-    def search(self, query: list, limit: int = 5, filters: dict = None):
+    def search(self, query: list, limit: int = 5, filters: dict = None, query_dict: dict = None):
         conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
         filter = reduce(lambda x, y: x & y, conditions)
 

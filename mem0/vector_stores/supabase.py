@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("The 'vecs' library is required. Please install it using 'pip install vecs'.")
 
+from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
 from mem0.vector_stores.base import VectorStoreBase
-from mem0.configs.vector_stores.supabase import IndexMethod, IndexMeasure
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ class Supabase(VectorStoreBase):
 
         self.collection.upsert(records)
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[dict] = None) -> List[OutputData]:
+    def search(self, query: List[float], limit: int = 5, filters: Optional[dict] = None, query_dict: Optional[dict] = None) -> List[OutputData]:
         """
         Search for similar vectors.
 
@@ -124,6 +124,7 @@ class Supabase(VectorStoreBase):
             query (List[float]): Query vector
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
+            query_dict (Dict, optional): Query dictionary to search for. Defaults to None.
 
         Returns:
             List[OutputData]: Search results
