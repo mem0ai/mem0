@@ -6,7 +6,7 @@ import { Thread } from "@/components/assistant-ui/thread";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Sun, Moon, MessageSquare } from "lucide-react";
+import { Sun, Moon, AlignJustify } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
 import Link from "next/link";
@@ -63,7 +63,7 @@ export const Assistant = () => {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div className={`h-dvh bg-[#f8fafc] dark:bg-zinc-900 text-[#1e293b] ${isDarkMode ? "dark" : ""}`}>
+      <div className={`bg-[#f8fafc] dark:bg-zinc-900 text-[#1e293b] ${isDarkMode ? "dark" : ""}`}>
         <header className="h-16 border-b border-[#e2e8f0] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <div className="flex items-center">
           <Link href="/" className="flex items-center">
@@ -71,15 +71,17 @@ export const Assistant = () => {
           </Link>
           </div>
 
-          <div className="flex items-center">
-            <Button 
+          <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => setSidebarOpen(true)}
               className="text-[#475569] dark:text-zinc-300 md:hidden"
             >
-              <MessageSquare className="w-10 h-10" />
-            </Button>
+              <AlignJustify size={24} className="md:hidden" />
+          </Button>
+
+
+          <div className="md:flex items-center hidden">
             <button
               className="p-2 rounded-full hover:bg-[#eef2ff] dark:hover:bg-zinc-800 text-[#475569] dark:text-zinc-300"
               onClick={toggleDarkMode}
@@ -94,10 +96,9 @@ export const Assistant = () => {
             </Link>
           </div>
         </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100dvh-4rem)]">
           <ThreadList onResetUserId={resetUserId} isDarkMode={isDarkMode} />
-          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} isDarkMode={isDarkMode} />
+          <Thread sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onResetUserId={resetUserId} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
         </div>
       </div>
     </AssistantRuntimeProvider>

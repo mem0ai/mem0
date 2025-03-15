@@ -205,6 +205,10 @@ export default class MemoryClient {
       if (options.project_name) delete options.project_name;
     }
 
+    if (options.api_version) {
+      options.version = options.api_version.toString();
+    }
+
     const payload = this._preparePayload(messages, options);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/`,
