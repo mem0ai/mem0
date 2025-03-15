@@ -57,7 +57,7 @@ describe.each(testConfig.providers)('TEXT/STREAM PROPERTIES: Tests with model %s
       text, // combined text
       usage, // combined usage of all steps
     } = await generateText({
-      model: mem0(provider.activeModel), // Ensure the model name is correct
+      model: mem0.completion(provider.activeModel), // Ensure the model name is correct
       maxSteps: 5, // Enable multi-step calls
       experimental_continueSteps: true,
       prompt:
