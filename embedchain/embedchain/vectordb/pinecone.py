@@ -105,7 +105,8 @@ class PineconeDB(BaseVectorDB):
         if ids is not None:
             for i in range(0, len(ids), self.batch_size):
                 result = self.pinecone_index.fetch(ids=ids[i : i + self.batch_size])
-                vectors = result.get("vectors")
+                print(type(result))
+                vectors = result.vectors
                 batch_existing_ids = list(vectors.keys())
                 existing_ids.extend(batch_existing_ids)
                 metadatas.extend([vectors.get(ids).get("metadata") for ids in batch_existing_ids])
