@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { generateObject } from "ai";
-import { testConfig } from "../config/test-config";
+import { testConfig } from "../../config/test-config";
 import { z } from "zod";
 
 interface Provider {
