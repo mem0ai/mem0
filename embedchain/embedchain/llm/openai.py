@@ -58,7 +58,11 @@ class OpenAILlm(BaseLlm):
             "model_kwargs": config.model_kwargs or {},
         }
         api_key = config.api_key or os.environ["OPENAI_API_KEY"]
-        base_url = config.base_url or os.environ.get("OPENAI_API_BASE", None)
+        base_url = (
+            config.base_url
+            or os.getenv("OPENAI_API_BASE")
+            or os.getenv("OPENAI_BASE_URL")
+        )
         if config.top_p:
             kwargs["top_p"] = config.top_p
         if config.default_headers:
