@@ -62,6 +62,7 @@ class OpenAILlm(BaseLlm):
             config.base_url
             or os.getenv("OPENAI_API_BASE")
             or os.getenv("OPENAI_BASE_URL")
+            or "https://api.openai.com/v1"
         )
         if config.top_p:
             kwargs["top_p"] = config.top_p
