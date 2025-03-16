@@ -20,6 +20,7 @@ class OpenAIEmbedder(BaseEmbedder):
            self.config.api_base
            or os.environ.get("OPENAI_API_BASE")
            or os.getenv("OPENAI_BASE_URL")
+           or "https://api.openai.com/v1"
         )
 
         if api_key is None and os.getenv("OPENAI_ORGANIZATION") is None:
