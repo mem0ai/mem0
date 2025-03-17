@@ -95,7 +95,7 @@ add_input = {
         {"role": "user", "content": "Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts."},
         {"role": "assistant", "content": "Hello Alex! I've noted that you're a vegetarian and have a nut allergy."}
     ],
-    "user_id": "alex123",
+    "user_id": "alex",
     "output_format": "v1.1",
     "metadata": {"food": "vegan"}
 }
@@ -173,7 +173,7 @@ search_input = {
     "filters": {
         "AND": [
             {"created_at": {"gte": "2024-07-20", "lte": "2024-12-10"}},
-            {"user_id": "alex123"}
+            {"user_id": "alex"}
         ]
     },
     "version": "v2"
@@ -186,7 +186,7 @@ result = search_tool.invoke(search_input)
   {
     "id": "1a75e827-7eca-45ea-8c5c-cfd43299f061",
     "memory": "Name is Alex",
-    "user_id": "alex123", 
+    "user_id": "alex", 
     "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
     "metadata": {
       "food": "vegan"
@@ -255,7 +255,7 @@ get_all_input = {
     "version": "v2",
     "filters": {
         "AND": [
-            {"user_id": "alex123"},
+            {"user_id": "alex"},
             {"created_at": {"gte": "2024-07-01", "lte": "2024-12-31"}}
         ]
     },
@@ -274,7 +274,7 @@ get_all_result = get_all_tool.invoke(get_all_input)
     {
       "id": "1a75e827-7eca-45ea-8c5c-cfd43299f061",
       "memory": "Name is Alex",
-      "user_id": "alex123", 
+      "user_id": "alex", 
       "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
       "metadata": {
         "food": "vegan"
@@ -288,7 +288,7 @@ get_all_result = get_all_tool.invoke(get_all_input)
     {
       "id": "91509588-0b39-408a-8df3-84b3bce8c521",
       "memory": "Is a vegetarian",
-      "user_id": "alex123",
+      "user_id": "alex",
       "hash": "ce6b1c84586772ab9995a9477032df99", 
       "metadata": {
         "food": "vegan"
@@ -303,7 +303,7 @@ get_all_result = get_all_tool.invoke(get_all_input)
     {
       "id": "8d74f7a0-6107-4589-bd6f-210f6bf4fbbb",
       "memory": "Is allergic to nuts",
-      "user_id": "alex123",
+      "user_id": "alex",
       "hash": "7873cd0e5a29c513253d9fad038e758b",
       "metadata": {
         "food": "vegan"
