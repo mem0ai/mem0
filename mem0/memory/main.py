@@ -16,12 +16,8 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import (
-    get_fact_retrieval_messages,
-    parse_messages,
-    parse_vision_messages,
-    remove_code_blocks,
-)
+from mem0.memory.utils import (get_fact_retrieval_messages, parse_messages,
+                               parse_vision_messages, remove_code_blocks)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -57,11 +53,26 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
+            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
+
+    @staticmethod
+    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
+        if "graph_store" in config_dict:
+            if "vector_store" not in config_dict and "embedder" in config_dict:
+                config_dict["vector_store"] = {}
+                config_dict["vector_store"]["config"] = {}
+                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"]["embedding_dims"]
+        try:
+            return config_dict
+        except ValidationError as e:
+            logger.error(f"Configuration validation error: {e}")
+            raise
+        
 
     def add(
         self,
@@ -305,16 +316,7 @@ class Memory(MemoryBase):
         ).model_dump(exclude={"score"})
 
         # Add metadata if there are additional keys
-        excluded_keys = {
-            "user_id",
-            "agent_id",
-            "run_id",
-            "hash",
-            "data",
-            "created_at",
-            "updated_at",
-            "id"
-        }
+        excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at", "id"}
         additional_metadata = {k: v for k, v in memory.payload.items() if k not in excluded_keys}
         if additional_metadata:
             memory_item["metadata"] = additional_metadata
