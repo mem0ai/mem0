@@ -336,6 +336,9 @@
     "posthog": {
       "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
       "apiHost": "https://mango.mem0.ai"
+    },
+    "intercom": {
+      "appId": "jjv2r0tt"
     }
   }
 }
