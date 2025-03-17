@@ -1,18 +1,18 @@
+import { cn } from "@/lib/utils";
 
-
-const GithubButton = ({ url }: { url: string }) => {
+const GithubButton = ({ url, className, text }: { url: string, className?: string, text?: string }) => {
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition border border-gray-700"
+      className={cn("flex items-center bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition border border-gray-700", className)}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
         fill="white"
-        className="w-6 h-6"
+        className="w-5 h-5 md:w-6 md:h-6"
       >
         <path
           fillRule="evenodd"
@@ -20,6 +20,7 @@ const GithubButton = ({ url }: { url: string }) => {
           clipRule="evenodd"
         />
       </svg>
+      {text && <span className="ml-2">{text}</span>}
     </a>
   );
 };
