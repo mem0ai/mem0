@@ -99,7 +99,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
-            infer (bool, optional): Whether to infer the memory. Defaults to True.
+            infer (bool, optional): Whether to infer the memories. Defaults to True.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
