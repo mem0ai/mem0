@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from mem0.memory.setup import setup_config, get_user_id
+from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ class MemoryClient:
             try:
                 error_data = e.response.json()
                 error_message = error_data.get("detail", str(e))
-            except:
+            except Exception:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
 
