@@ -1,4 +1,6 @@
 export interface MemoryOptions {
+  api_version?: API_VERSION | string;
+  version?: API_VERSION | string;
   user_id?: string;
   agent_id?: string;
   app_id?: string;
@@ -17,6 +19,7 @@ export interface MemoryOptions {
   enable_graph?: boolean;
   start_date?: string;
   end_date?: string;
+  custom_categories?: custom_categories[];
 }
 
 export interface ProjectOptions {
