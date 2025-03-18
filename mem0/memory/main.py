@@ -16,8 +16,12 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import (get_fact_retrieval_messages, parse_messages,
-                               parse_vision_messages, remove_code_blocks)
+from mem0.memory.utils import (
+    get_fact_retrieval_messages,
+    parse_messages,
+    parse_vision_messages,
+    remove_code_blocks,
+)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -30,7 +34,8 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_prompt = self.config.custom_prompt
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
@@ -82,6 +87,7 @@ class Memory(MemoryBase):
         run_id=None,
         metadata=None,
         filters=None,
+        infer=True,
         prompt=None,
     ):
         """
@@ -94,6 +100,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
+            infer (bool, optional): Whether to infer the memories. Defaults to True.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
@@ -132,7 +139,7 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters, infer)
             future2 = executor.submit(self._add_to_graph, messages, filters)
 
             concurrent.futures.wait([future1, future2])
@@ -158,11 +165,20 @@ class Memory(MemoryBase):
 
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+    def _add_to_vector_store(self, messages, metadata, filters, infer):
+        if not infer:
+            returned_memories = []
+            for message in messages:
+                if message["role"] != "system":
+                    message_embeddings = self.embedding_model.embed(message["content"], "add")
+                    memory_id = self._create_memory(message["content"], message_embeddings, metadata)
+                    returned_memories.append({"id": memory_id, "memory": message["content"], "event": "ADD"})
+            return returned_memories
+
         parsed_messages = parse_messages(messages)
 
-        if self.custom_prompt:
-            system_prompt = self.custom_prompt
+        if self.custom_fact_extraction_prompt:
+            system_prompt = self.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
@@ -206,7 +222,7 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts, self.custom_update_memory_prompt)
 
         try:
             new_memories_with_actions = self.llm.generate_response(

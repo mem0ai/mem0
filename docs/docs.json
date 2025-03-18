@@ -47,6 +47,7 @@
                     "pages": [
                       "features/platform-overview",
                       "features/advanced-retrieval",
+                      "features/contextual-add",
                       "features/multimodal-support",
                       "features/selective-memory",
                       "features/custom-categories",
@@ -71,7 +72,8 @@
                     "icon": "wrench",
                     "pages": [
                       "features/openai_compatibility",
-                      "features/custom-prompts",
+                      "features/custom-fact-extraction-prompt",
+                      "features/custom-update-memory-prompt",
                       "open-source/multimodal-support",
                       "open-source/features/rest-api"
                     ]
@@ -337,6 +339,9 @@
     "posthog": {
       "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
       "apiHost": "https://mango.mem0.ai"
+    },
+    "intercom": {
+      "appId": "jjv2r0tt"
     }
   }
 }
