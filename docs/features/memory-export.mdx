@@ -79,7 +79,7 @@ You can optionally provide additional instructions to guide how memories are pro
 # Basic export request
 response = client.create_memory_export(
     schema=json_schema,
-    user_id="user123"
+    user_id="alice"
 )
 
 # Export with custom instructions
@@ -93,7 +93,7 @@ export_instructions = """
 
 response = client.create_memory_export(
     schema=json_schema,
-    user_id="user123",
+    user_id="alice",
     export_instructions=export_instructions
 )
 
@@ -106,7 +106,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/export/" \
      -H "Content-Type: application/json" \
      -d '{
          "schema": {json_schema},
-         "user_id": "user123",
+         "user_id": "alice",
          "export_instructions": "1. Create a comprehensive profile with detailed information\n2. Only mark fields as \"None\" when absolutely no relevant information exists"
      }'
 ```
@@ -127,12 +127,12 @@ Once the export job is complete, you can retrieve the structured data:
 <CodeGroup>
 
 ```python Python
-response = client.get_memory_export(user_id="user123")
+response = client.get_memory_export(user_id="alice")
 print(response)
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/export/?user_id=user123" \
+curl -X GET "https://api.mem0.ai/v1/memories/export/?user_id=alice" \
      -H "Authorization: Token your-api-key"
 ```
 
