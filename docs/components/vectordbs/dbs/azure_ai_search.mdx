@@ -33,17 +33,6 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
-## Advanced Usage
-
-```python
-# Search with specific filter mode
-result = m.search(
-    "sci-fi movies", 
-    filters={"user_id": "alice"}, 
-    limit=5,
-    vector_filter_mode="preFilter"  # Apply filters before vector search
-)
-
 # Using binary compression for large vector collections
 config = {
     "vector_store": {
@@ -77,10 +66,6 @@ config = {
   - `none`: No compression, uses full vector precision
   - `scalar`: Scalar quantization with reasonable balance of speed and accuracy
   - `binary`: Binary quantization for maximum compression with some accuracy trade-off
-
-- **vector_filter_mode**:
-  - `preFilter`: Applies filters before vector search (faster)
-  - `postFilter`: Applies filters after vector search (may provide better relevance)
 
 - **use_float16**: Using half precision (float16) reduces storage requirements but may slightly impact accuracy. Useful for very large vector collections.
 
