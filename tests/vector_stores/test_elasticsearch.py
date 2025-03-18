@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import dotenv
 
@@ -219,6 +219,23 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
+
+    def test_custom_search_query(self):
+        # Mock custom search query
+        self.es_db.custom_search_query = Mock()
+        self.es_db.custom_search_query.return_value = {"custom_key": "custom_value"}
+
+        # Perform search
+        query_vector = [0.1] * 1536
+        limit = 5
+        filters = {"key1": "value1"}
+        self.es_db.search(query=query_vector, limit=limit, filters=filters)
+
+        # Verify custom search query function was called
+        self.es_db.custom_search_query.assert_called_once_with(query_vector, limit, filters)
+
+        # Verify custom search query was used
+        self.client_mock.search.assert_called_once_with(index=self.es_db.collection_name, body={"custom_key": "custom_value"})
 
     def test_get(self):
         # Mock get response with correct structure
