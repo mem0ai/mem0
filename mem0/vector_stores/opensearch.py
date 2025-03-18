@@ -44,14 +44,17 @@ class OpenSearchDB(VectorStoreBase):
     def create_index(self) -> None:
         """Create OpenSearch index with proper mappings if it doesn't exist."""
         index_settings = {
-            # ToDo change replicas to 1
             "settings": {
                 "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s", "knn": True}
             },
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {"type": "knn_vector", "dimension": self.vector_dim},
+                    "vector": {
+                        "type": "knn_vector",
+                        "dimension": self.vector_dim,
+                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                    },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
             },
