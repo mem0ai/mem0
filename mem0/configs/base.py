@@ -48,8 +48,12 @@ class MemoryConfig(BaseModel):
         description="The version of the API",
         default="v1.1",
     )
-    custom_prompt: Optional[str] = Field(
-        description="Custom prompt for the memory",
+    custom_fact_extraction_prompt: Optional[str] = Field(
+        description="Custom prompt for the fact extraction",
+        default=None,
+    )
+    custom_update_memory_prompt: Optional[str] = Field(
+        description="Custom prompt for the update memory",
         default=None,
     )
 

@@ -1,25 +1,25 @@
 ---
-title: Custom Prompts
-description: 'Enhance your product experience by adding custom prompts tailored to your needs'
+title: Custom Fact Extraction Prompt
+description: 'Enhance your product experience by adding custom fact extraction prompt tailored to your needs'
 icon: "pencil"
 iconType: "solid"
 ---
 
-## Introduction to Custom Prompts
+## Introduction to Custom Fact Extraction Prompt
 
-Custom prompts allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. 
-By defining a custom prompt, you can control how information is extracted, processed, and stored in your memory system.
+Custom fact extraction prompt allow you to tailor the behavior of your Mem0 instance to specific use cases or domains. 
+By defining it, you can control how information is extracted from the user's message.
 
-To create an effective custom prompt:
+To create an effective custom fact extraction prompt:
 1. Be specific about the information to extract.
 2. Provide few-shot examples to guide the LLM.
 3. Ensure examples follow the format shown below.
 
-Example of a custom prompt:
+Example of a custom fact extraction prompt:
 
 <CodeGroup>
 ```python Python
-custom_prompt = """
+custom_fact_extraction_prompt = """
 Please only extract entities containing customer support information, order details, and user information. 
 Here are some few shot examples:
 
@@ -67,7 +67,7 @@ Return the facts and customer information in a json format as shown above.
 ```
 </CodeGroup>
 
-Here we initialize the custom prompt in the config:
+Here we initialize the custom fact extraction prompt in the config:
 
 <CodeGroup>
 ```python Python
@@ -82,7 +82,7 @@ config = {
             "max_tokens": 2000,
         }
     },
-    "custom_prompt": custom_prompt,
+    "custom_fact_extraction_prompt": custom_fact_extraction_prompt,
     "version": "v1.1"
 }
 
@@ -166,4 +166,4 @@ await memory.add('I like going to hikes', { userId: "user123" });
 ```
 </CodeGroup>
 
-The custom prompt will process both the user and assistant messages to extract relevant information according to the defined format.
+The custom fact extraction prompt will process both the user and assistant messages to extract relevant information according to the defined format.
