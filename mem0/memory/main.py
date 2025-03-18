@@ -34,7 +34,7 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_prompt = self.config.custom_prompt
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         self.vector_store = VectorStoreFactory.create(
@@ -177,8 +177,8 @@ class Memory(MemoryBase):
 
         parsed_messages = parse_messages(messages)
 
-        if self.custom_prompt:
-            system_prompt = self.custom_prompt
+        if self.custom_fact_extraction_prompt:
+            system_prompt = self.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
