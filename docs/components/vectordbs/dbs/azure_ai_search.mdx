@@ -32,7 +32,9 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
-# Using binary compression for large vector collections
+## Using binary compression for large vector collections
+
+```python
 config = {
     "vector_store": {
         "provider": "azure_ai_search",
