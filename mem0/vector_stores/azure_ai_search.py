@@ -169,7 +169,7 @@ class AzureAISearch(VectorStoreBase):
         ]
         response = self.search_client.upload_documents(documents)
         for doc in response:
-            if not doc.get("status", False):
+            if not hasattr(doc, "status_code") and doc.get("status_code") != 201:
                 raise Exception(f"Insert failed for document {doc.get('id')}: {doc}")
         return response
 
