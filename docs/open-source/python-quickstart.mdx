@@ -372,7 +372,8 @@ Mem0 offers extensive configuration options to customize its behavior according 
 |------------------|--------------------------------------|----------------------------|
 | `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
 | `version`         | API version                          | "v1.1"                     |
-| `custom_prompt`   | Custom prompt for memory processing  | None                       |
+| `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
+| `custom_update_memory_prompt` | Custom prompt for update memory | None                |
 </Accordion>
 
 <Accordion title="Complete Configuration Example">
@@ -409,7 +410,8 @@ config = {
     },
     "history_db_path": "/path/to/history.db",
     "version": "v1.1",
-    "custom_prompt": "Optional custom prompt for memory processing"
+    "custom_fact_extraction_prompt": "Optional custom prompt for fact extraction for memory",
+    "custom_update_memory_prompt": "Optional custom prompt for update memory"
 }
 ```
 </Accordion>

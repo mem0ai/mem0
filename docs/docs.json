@@ -72,7 +72,8 @@
                     "icon": "wrench",
                     "pages": [
                       "features/openai_compatibility",
-                      "features/custom-prompts",
+                      "features/custom-fact-extraction-prompt",
+                      "features/custom-update-memory-prompt",
                       "open-source/multimodal-support",
                       "open-source/features/rest-api"
                     ]
