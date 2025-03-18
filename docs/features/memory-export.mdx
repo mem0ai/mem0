@@ -71,13 +71,32 @@ Here's an example schema for extracting professional profile information:
 
 ### Submit Export Job
 
+You can optionally provide additional instructions to guide how memories are processed and structured during export using the `export_instructions` parameter.
+
 <CodeGroup>
 
 ```python Python
+# Basic export request
 response = client.create_memory_export(
     schema=json_schema,
-    user_id="user123"
+    user_id="alice"
 )
+
+# Export with custom instructions
+export_instructions = """
+1. Create a comprehensive profile with detailed information in each category
+2. Only mark fields as "None" when absolutely no relevant information exists
+3. Base all information directly on the user's memories
+4. When contradictions exist, prioritize the most recent information
+5. Clearly distinguish between factual statements and inferences
+"""
+
+response = client.create_memory_export(
+    schema=json_schema,
+    user_id="alice",
+    export_instructions=export_instructions
+)
+
 print(response)
 ```
 
@@ -87,7 +106,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/export/" \
      -H "Content-Type: application/json" \
      -d '{
          "schema": {json_schema},
-         "user_id": "user123"
+         "user_id": "alice",
+         "export_instructions": "1. Create a comprehensive profile with detailed information\n2. Only mark fields as \"None\" when absolutely no relevant information exists"
      }'
 ```
 
@@ -107,12 +127,12 @@ Once the export job is complete, you can retrieve the structured data:
 <CodeGroup>
 
 ```python Python
-response = client.get_memory_export(user_id="user123")
+response = client.get_memory_export(user_id="alice")
 print(response)
 ```
 
 ```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/export/?user_id=user123" \
+curl -X GET "https://api.mem0.ai/v1/memories/export/?user_id=alice" \
      -H "Authorization: Token your-api-key"
 ```
 
