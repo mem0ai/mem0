@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
-from mem0.vector_stores.pinecone import PineconeDB, OutputData
+
+from mem0.vector_stores.pinecone import PineconeDB
+
 
 @pytest.fixture
 def mock_pinecone_client():
