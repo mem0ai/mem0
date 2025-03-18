@@ -169,7 +169,7 @@ class AzureAISearch(VectorStoreBase):
         ]
         response = self.search_client.upload_documents(documents)
         for doc in response:
-            if not doc.get("status", False):
+            if not hasattr(doc, "status_code") and doc.get("status_code") != 201:
                 raise Exception(f"Insert failed for document {doc.get('id')}: {doc}")
         return response
 
@@ -189,7 +189,7 @@ class AzureAISearch(VectorStoreBase):
         filter_expression = " and ".join(filter_conditions)
         return filter_expression
 
-    def search(self, query, limit=5, filters=None, vector_filter_mode="preFilter"):
+    def search(self, query, limit=5, filters=None):
         """
         Search for similar vectors.
 
@@ -197,8 +197,6 @@ class AzureAISearch(VectorStoreBase):
             query (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
-            vector_filter_mode (str): Determines whether filters are applied before or after the vector search.
-                Known values: "preFilter" (default) and "postFilter".
 
         Returns:
             List[OutputData]: Search results.
@@ -213,8 +211,7 @@ class AzureAISearch(VectorStoreBase):
         search_results = self.search_client.search(
             vector_queries=[vector_query],
             filter=filter_expression,
-            top=limit,
-            vector_filter_mode=vector_filter_mode,  
+            top=limit
         )
 
         results = []
@@ -236,7 +233,7 @@ class AzureAISearch(VectorStoreBase):
         """
         response = self.search_client.delete_documents(documents=[{"id": vector_id}])
         for doc in response:
-            if not doc.get("status", False):
+            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
                 raise Exception(f"Delete failed for document {vector_id}: {doc}")
         logger.info(f"Deleted document with ID '{vector_id}' from index '{self.index_name}'.")
         return response
@@ -260,7 +257,7 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload.get(field)
         response = self.search_client.merge_or_upload_documents(documents=[document])
         for doc in response:
-            if not doc.get("status", False):
+            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
                 raise Exception(f"Update failed for document {vector_id}: {doc}")
         return response
 
@@ -335,7 +332,7 @@ class AzureAISearch(VectorStoreBase):
                     id=result["id"], score=result["@search.score"], payload=payload
                 )
             )
-        return results
+        return [results]
 
     def __del__(self):
         """Close the search client when the object is deleted."""
