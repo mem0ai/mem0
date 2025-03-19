@@ -31,6 +31,12 @@ export enum API_VERSION {
   V2 = "v2",
 }
 
+export enum Feedback {
+  POSITIVE = "POSITIVE",
+  NEGATIVE = "NEGATIVE",
+  VERY_NEGATIVE = "VERY_NEGATIVE",
+}
+
 export interface MultiModalMessages {
   type: "image_url";
   image_url: {
@@ -163,4 +169,10 @@ export interface WebhookPayload {
   webhookId: string;
   name: string;
   url: string;
+}
+
+export interface FeedbackPayload {
+  memory_id: string;
+  feedback?: Feedback | null;
+  feedback_reason?: string | null;
 }

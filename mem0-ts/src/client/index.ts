@@ -23,6 +23,8 @@ export type {
   Message,
   AllUsers,
   User,
+  FeedbackPayload,
+  Feedback,
 } from "./mem0.types";
 
 // Export telemetry types
