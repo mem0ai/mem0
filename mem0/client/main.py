@@ -1002,7 +1002,7 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def feedback(self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None) -> Dict[str, str]:
-        VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_POSTIVE"}
+        VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_NEGATIVE"}
 
         feedback = feedback.upper() if feedback else None
         if feedback is not None and feedback not in VALID_FEEDBACK_VALUES:

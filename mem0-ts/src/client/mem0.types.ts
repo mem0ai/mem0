@@ -34,7 +34,7 @@ export enum API_VERSION {
 export enum Feedback {
   POSITIVE = "POSITIVE",
   NEGATIVE = "NEGATIVE",
-  VERY_POSTIVE = "VERY_POSTIVE",
+  VERY_NEGATIVE = "VERY_NEGATIVE",
 }
 
 export interface MultiModalMessages {
