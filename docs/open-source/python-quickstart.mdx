@@ -22,7 +22,11 @@ pip install mem0ai
 <Tabs>
   <Tab title="Basic">
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
 m = Memory()
 ```
   </Tab>
@@ -42,7 +46,10 @@ docker run -p 6333:6333 -p 6334:6334 \
 Then, instantiate memory with qdrant server:
 
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 config = {
     "vector_store": {
@@ -61,7 +68,10 @@ m = Memory.from_config(config)
 <Tab title="Advanced (Graph Memory)">
 
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 config = {
     "graph_store": {
