@@ -50,10 +50,40 @@ class AzureOpenAIStructuredLLM(LLMBase):
             default_headers=default_headers,
         )
 
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(tool_call.function.arguments),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
         response_format: Optional[str] = None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
     ) -> str:
         """
         Generates a response using Azure OpenAI based on the provided messages.
@@ -61,6 +91,8 @@ class AzureOpenAIStructuredLLM(LLMBase):
         Args:
             messages (List[Dict[str, str]]): A list of dictionaries, each containing a 'role' and 'content' key.
             response_format (Optional[str]): The desired format of the response. Defaults to None.
+            tools (Optional[List[Dict]]): A list of dictionaries, each containing a 'name' and 'arguments' key.
+            tool_choice (str): The choice of tool to use. Defaults to "auto".
 
         Returns:
             str: The generated response from the model.
@@ -76,5 +108,9 @@ class AzureOpenAIStructuredLLM(LLMBase):
         if response_format:
             params["response_format"] = response_format
 
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
         response = self.client.chat.completions.create(**params)
-        return response.choices[0].message.content
+        return self._parse_response(response, tools)
