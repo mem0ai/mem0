@@ -73,6 +73,7 @@ class VectorStoreFactory:
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
         "supabase": "mem0.vector_stores.supabase.Supabase",
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
+        "tidb": "mem0.vector_stores.tidb.TiDB",
     }
 
     @classmethod
