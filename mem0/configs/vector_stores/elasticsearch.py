@@ -1,4 +1,5 @@
-from typing import Any, Dict, Optional
+from collections.abc import Callable
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -15,6 +16,10 @@ class ElasticsearchConfig(BaseModel):
     verify_certs: bool = Field(True, description="Verify SSL certificates")
     use_ssl: bool = Field(True, description="Use SSL for connection")
     auto_create_index: bool = Field(True, description="Automatically create index during initialization")
+    custom_search_query: Optional[Callable[[List[float], int, Optional[Dict]], Dict]] = Field(
+        None,
+        description="Custom search query function. Parameters: (query, limit, filters) -> Dict"
+    )
 
     @model_validator(mode="before")
     @classmethod
