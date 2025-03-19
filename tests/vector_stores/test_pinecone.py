@@ -19,6 +19,13 @@ def pinecone_db(mock_pinecone_client):
         embedding_model_dims=128,
         client=mock_pinecone_client,
         api_key="fake_api_key",
+        environment="us-west1-gcp",
+        serverless_config=None,
+        pod_config=None,
+        hybrid_search=False,
+        metric="cosine",
+        batch_size=100,
+        extra_params=None
     )
 
 def test_create_col_existing_index(mock_pinecone_client):
@@ -30,6 +37,13 @@ def test_create_col_existing_index(mock_pinecone_client):
         embedding_model_dims=128,
         client=mock_pinecone_client,
         api_key="fake_api_key",
+        environment="us-west1-gcp",
+        serverless_config=None,
+        pod_config=None,
+        hybrid_search=False,
+        metric="cosine",
+        batch_size=100,
+        extra_params=None
     )
     
     # Reset the mock to verify it wasn't called during the test

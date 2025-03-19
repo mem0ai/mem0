@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -8,7 +8,7 @@ try:
     from pinecone import Pinecone, PodSpec, ServerlessSpec
     from pinecone.data.dataclasses.vector import Vector
 except ImportError:
-    raise ImportError("Pinecone requires extra dependencies. Install with `pip install pinecone`") from None
+    raise ImportError("Pinecone requires extra dependencies. Install with `pip install pinecone pinecone-text`") from None
 
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -24,17 +24,17 @@ class OutputData(BaseModel):
 class PineconeDB(VectorStoreBase):
     def __init__(
         self,
-        collection_name: str,
-        embedding_model_dims: int,
-        client: Optional["Pinecone"] = None,
-        api_key: Optional[str] = None,
-        environment: Optional[str] = None,
-        serverless_config: Optional[Dict[str, Any]] = None,
-        pod_config: Optional[Dict[str, Any]] = None,
-        hybrid_search: bool = False,
-        metric: str = "cosine",
-        batch_size: int = 100,
-        extra_params: Optional[Dict[str, Any]] = None,
+        collection_name,
+        embedding_model_dims,
+        client,
+        api_key,
+        environment,
+        serverless_config,
+        pod_config,
+        hybrid_search,
+        metric,
+        batch_size,
+        extra_params
     ):
         """
         Initialize the Pinecone vector store.
@@ -55,12 +55,11 @@ class PineconeDB(VectorStoreBase):
         if client:
             self.client = client
         else:
+            api_key = api_key or os.environ.get("PINECONE_API_KEY")
             if not api_key:
-                api_key = os.environ.get("PINECONE_API_KEY")
-                if not api_key:
-                    raise ValueError(
-                        "Pinecone API key must be provided either as a parameter or as an environment variable"
-                    )
+                raise ValueError(
+                    "Pinecone API key must be provided either as a parameter or as an environment variable"
+                )
 
             params = extra_params or {}
             self.client = Pinecone(api_key=api_key, **params)
