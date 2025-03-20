@@ -3,10 +3,11 @@ import os
 import warnings
 from functools import wraps
 from typing import Any, Dict, List, Optional, Union
+from enum import Enum
 
 import httpx
 
-from mem0.memory.setup import setup_config, get_user_id
+from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
 
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ class MemoryClient:
             try:
                 error_data = e.response.json()
                 error_message = error_data.get("detail", str(e))
-            except:
+            except Exception:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
 
@@ -997,4 +998,23 @@ class AsyncMemoryClient:
         response = await self.async_client.delete(f"api/v1/webhooks/{webhook_id}/")
         response.raise_for_status()
         capture_client_event("async_client.delete_webhook", self.sync_client, {"webhook_id": webhook_id})
+        return response.json()
+
+    @api_error_handler
+    async def feedback(self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None) -> Dict[str, str]:
+        VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_NEGATIVE"}
+
+        feedback = feedback.upper() if feedback else None
+        if feedback is not None and feedback not in VALID_FEEDBACK_VALUES:
+            raise ValueError(f'feedback must be one of {", ".join(VALID_FEEDBACK_VALUES)} or None')
+            
+        data = {
+            "memory_id": memory_id,
+            "feedback": feedback,
+            "feedback_reason": feedback_reason
+        }
+
+        response = await self.async_client.post("/v1/feedback/", json=data)
+        response.raise_for_status()
+        capture_client_event("async_client.feedback", self.sync_client, data)
         return response.json()

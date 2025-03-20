@@ -47,6 +47,7 @@
                     "pages": [
                       "features/platform-overview",
                       "features/advanced-retrieval",
+                      "features/contextual-add",
                       "features/multimodal-support",
                       "features/selective-memory",
                       "features/custom-categories",
@@ -54,7 +55,9 @@
                       "features/direct-import",
                       "features/async-client",
                       "features/memory-export",
-                      "features/webhooks"
+                      "features/webhooks",
+                      "features/graph-memory",
+                      "features/feedback-mechanism"
                     ]
                   }
                 ]
@@ -71,7 +74,8 @@
                     "icon": "wrench",
                     "pages": [
                       "features/openai_compatibility",
-                      "features/custom-prompts",
+                      "features/custom-fact-extraction-prompt",
+                      "features/custom-update-memory-prompt",
                       "open-source/multimodal-support",
                       "open-source/features/rest-api"
                     ]
@@ -125,6 +129,7 @@
                           "components/vectordbs/dbs/chroma",
                           "components/vectordbs/dbs/pgvector",
                           "components/vectordbs/dbs/milvus",
+                          "components/vectordbs/dbs/pinecone",
                           "components/vectordbs/dbs/azure_ai_search",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
@@ -336,6 +341,9 @@
     "posthog": {
       "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
       "apiHost": "https://mango.mem0.ai"
+    },
+    "intercom": {
+      "appId": "jjv2r0tt"
     }
   }
 }

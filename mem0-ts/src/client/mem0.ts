@@ -12,6 +12,7 @@ import {
   Webhook,
   WebhookPayload,
   Message,
+  FeedbackPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 
@@ -556,6 +557,18 @@ export default class MemoryClient {
       {
         method: "DELETE",
         headers: this.headers,
+      },
+    );
+    return response;
+  }
+
+  async feedback(data: FeedbackPayload): Promise<{ message: string }> {
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v1/feedback/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(data),
       },
     );
     return response;
