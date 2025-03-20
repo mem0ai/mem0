@@ -119,7 +119,6 @@ class PineconeDB(VectorStoreBase):
 
     def insert(
         self,
-        query: str,
         vectors: List[List[float]],
         payloads: Optional[List[Dict]] = None,
         ids: Optional[List[Union[str, int]]] = None,
@@ -128,7 +127,6 @@ class PineconeDB(VectorStoreBase):
         Insert vectors into an index.
 
         Args:
-            query (str): Query to insert.
             vectors (list): List of vectors to insert.
             payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
@@ -201,12 +199,13 @@ class PineconeDB(VectorStoreBase):
 
         return pinecone_filter
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors.
 
         Args:
-            query (list): Query vector.
+            query (str): Query.
+            vectors (list): List of vectors to search.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -216,7 +215,7 @@ class PineconeDB(VectorStoreBase):
         filter_dict = self._create_filter(filters) if filters else None
 
         query_params = {
-            "vector": query,
+            "vector": vectors,
             "top_k": limit,
             "include_metadata": True,
             "include_values": False,
