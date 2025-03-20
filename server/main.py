@@ -67,8 +67,6 @@ DEFAULT_CONFIG = {
     "history_db_path": HISTORY_DB_PATH,
 }
 
-# Log
-logging.info(f"Using config: {DEFAULT_CONFIG}")
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
 
