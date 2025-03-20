@@ -71,7 +71,7 @@ class AzureAISearch(VectorStoreBase):
         # If compression_type is None, treat it as "none".
         self.compression_type = (compression_type or "none").lower()
         self.use_float16 = use_float16
-        self.use_hybrid_search = use_hybrid_search
+        self.hybrid_search = hybrid_search
         self.vector_filter_mode = vector_filter_mode
 
         self.search_client = SearchClient(
