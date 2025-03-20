@@ -19,9 +19,9 @@ config = {
         "provider": "pinecone",
         "config": {
             "collection_name": "testing",
-            "embedding_model_dims": 1536,  # Matches OpenAI's text-embedding-ada-002
+            "embedding_model_dims": 1536,  # Matches OpenAI's text-embedding-3-small
             "serverless_config": {
-                "cloud": "aws",  # Choose between 'aws' or 'gcp'
+                "cloud": "aws",  # Choose between 'aws' or 'gcp' or 'azure'
                 "region": "us-east-1"
             },
             "metric": "cosine"
@@ -50,7 +50,7 @@ Here are the parameters available for configuring Pinecone:
 | `client` | Existing Pinecone client instance | `None` |
 | `api_key` | API key for Pinecone | Environment variable: `PINECONE_API_KEY` |
 | `environment` | Pinecone environment | `None` |
-| `serverless_config` | Configuration for serverless deployment (AWS or GCP) | `None` |
+| `serverless_config` | Configuration for serverless deployment (AWS or GCP or Azure) | `None` |
 | `pod_config` | Configuration for pod-based deployment | `None` |
 | `hybrid_search` | Whether to enable hybrid search | `False` |
 | `metric` | Distance metric for vector similarity | `"cosine"` |
@@ -65,9 +65,9 @@ config = {
         "provider": "pinecone",
         "config": {
             "collection_name": "memory_index",
-            "embedding_model_dims": 1536,  # For OpenAI's text-embedding-ada-002
+            "embedding_model_dims": 1536,  # For OpenAI's text-embedding-3-small
             "serverless_config": {
-                "cloud": "aws",  # or "gcp"
+                "cloud": "aws",  # or "gcp" or "azure"
                 "region": "us-east-1"  # Choose appropriate region
             }
         }
