@@ -23,7 +23,7 @@ POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories"
 
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "olivahealth")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
@@ -67,8 +67,6 @@ DEFAULT_CONFIG = {
     "history_db_path": HISTORY_DB_PATH,
 }
 
-# Log
-logging.info(f"Using config: {DEFAULT_CONFIG}")
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
 

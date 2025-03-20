@@ -13,7 +13,7 @@ install:
 install_all:
 	poetry install
 	poetry run pip install groq together boto3 litellm ollama chromadb weaviate weaviate-client sentence_transformers vertexai \
-	                        google-generativeai elasticsearch opensearch-py vecs
+	                        google-generativeai elasticsearch opensearch-py vecs pinecone pinecone-text
 
 # Format code with ruff
 format:
