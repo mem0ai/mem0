@@ -267,8 +267,6 @@ class MemoryGraph:
             ],
             tools=_tools,
         )
-
-        logger.debug(f"Memory updates: memory_updates={memory_updates}, search_output={search_output}, search_output_string={search_output_string}, user_prompt={user_prompt}")
         to_be_deleted = []
         for item in memory_updates["tool_calls"]:
             if item["name"] == "delete_graph_memory":
