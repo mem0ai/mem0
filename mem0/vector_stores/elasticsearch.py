@@ -135,7 +135,7 @@ class ElasticsearchDB(VectorStoreBase):
                 filter_conditions = []
                 for key, value in filters.items():
                     filter_conditions.append({"term": {f"metadata.{key}": value}})
-                search_query["filter"] = {"bool": {"must": filter_conditions}}
+                search_query["knn"]["filter"] = {"bool": {"must": filter_conditions}}
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
