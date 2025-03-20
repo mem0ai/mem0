@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Any
 
 from openai import OpenAI
 
@@ -29,32 +29,34 @@ class OpenAILLM(LLMBase):
             self.client = OpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
                 base_url=self.config.openrouter_base_url
-                or os.getenv("OPENROUTER_API_BASE")
-                or "https://openrouter.ai/api/v1",
+                         or os.getenv("OPENROUTER_API_BASE")
+                         or "https://openrouter.ai/api/v1",
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = (
-                self.config.openai_base_url
-                or os.getenv("OPENAI_API_BASE")
-                or "https://api.openai.com/v1"
+                    self.config.openai_base_url
+                    or os.getenv("OPENAI_API_BASE")
+                    or "https://api.openai.com/v1"
             )
             self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def generate_response(
-        self,
-        messages: List[Dict[str, str]],
-        response_format: Optional[str] = None,
-    ) -> str:
+            self,
+            messages: List[Dict[str, str]],
+            response_format: Optional[str] = None,
+            tools: Optional[List[Dict]] = None,
+    ) -> Union[str, Dict[str, Any]]:
         """
         Generates a response based on the provided messages using OpenAI or OpenRouter.
 
         Args:
             messages (List[Dict[str, str]]): A list of message dictionaries containing 'role' and 'content'.
             response_format (Optional[str]): The format of the response. Defaults to None.
+            tools (Optional[List[Dict]]): List of tools/functions to use. Defaults to None.
 
         Returns:
-            str: The generated response from the model.
+            Union[str, Dict[str, Any]]: Either a string response or a dictionary containing tool calls
         """
         params = {
             "model": self.config.model,
@@ -83,5 +85,26 @@ class OpenAILLM(LLMBase):
         if response_format:
             params["response_format"] = response_format
 
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = "auto"
+
         response = self.client.chat.completions.create(**params)
-        return response.choices[0].message.content
+        message = response.choices[0].message
+
+        # Handle tool calls if present
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            return {
+                "content": message.content or "",
+                "role": message.role,
+                "tool_calls": [
+                    {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments
+                    }
+                    for tool_call in message.tool_calls
+                ]
+            }
+
+        # Return content for regular responses
+        return message.content or ""
