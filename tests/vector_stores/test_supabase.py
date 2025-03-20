@@ -77,12 +77,12 @@ def test_search_vectors(supabase_instance, mock_collection):
     ]
     mock_collection.query.return_value = mock_results
 
-    query = [0.1, 0.2, 0.3]
+    vectors = [[0.1, 0.2, 0.3]]
     filters = {"category": "test"}
-    results = supabase_instance.search(query=query, limit=2, filters=filters)
+    results = supabase_instance.search(query="", vectors=vectors, limit=2, filters=filters)
 
     mock_collection.query.assert_called_once_with(
-        data=query,
+        data=vectors,
         limit=2,
         filters={"category": {"$eq": "test"}},
         include_metadata=True,

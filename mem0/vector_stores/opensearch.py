@@ -28,10 +28,12 @@ class OpenSearchDB(VectorStoreBase):
         # Initialize OpenSearch client
         self.client = OpenSearch(
             hosts=[{"host": config.host, "port": config.port or 9200}],
-            http_auth=config.http_auth if config.http_auth else ((config.user, config.password) if (config.user and config.password) else None),
+            http_auth=config.http_auth
+            if config.http_auth
+            else ((config.user, config.password) if (config.user and config.password) else None),
             use_ssl=config.use_ssl,
             verify_certs=config.verify_certs,
-            connection_class=RequestsHttpConnection
+            connection_class=RequestsHttpConnection,
         )
 
         self.collection_name = config.collection_name
@@ -115,14 +117,16 @@ class OpenSearchDB(VectorStoreBase):
             results.append(OutputData(id=id_, score=1.0, payload=payloads[i]))
         return results
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(
+        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+    ) -> List[OutputData]:
         """Search for similar vectors using OpenSearch k-NN search with pre-filtering."""
         search_query = {
             "size": limit,
             "query": {
                 "knn": {
                     "vector": {
-                        "vector": query,
+                        "vector": vectors,
                         "k": limit,
                     }
                 }

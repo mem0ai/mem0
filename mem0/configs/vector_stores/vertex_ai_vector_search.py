@@ -14,9 +14,7 @@ class GoogleMatchingEngineConfig(BaseModel):
     credentials_path: Optional[str] = Field(None, description="Path to service account credentials file")
     vector_search_api_endpoint: Optional[str] = Field(None, description="Vector search API endpoint")
 
-    model_config = {
-        "extra": "forbid"
-    }
+    model_config = {"extra": "forbid"}
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

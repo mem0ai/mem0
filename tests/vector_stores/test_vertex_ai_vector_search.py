@@ -73,12 +73,12 @@ def test_insert_vectors(vector_store, mock_vertex_ai):
 
 def test_search_vectors(vector_store, mock_vertex_ai):
     """Test searching vectors with filters"""
-    query = [0.1, 0.2, 0.3]
+    vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "test_user"}
 
     mock_datapoint = Mock()
     mock_datapoint.datapoint_id = "test-id"
-    mock_datapoint.feature_vector = query
+    mock_datapoint.feature_vector = vectors
 
     mock_restrict = Mock()
     mock_restrict.namespace = "user_id"
@@ -96,11 +96,11 @@ def test_search_vectors(vector_store, mock_vertex_ai):
 
     mock_vertex_ai['endpoint'].find_neighbors.return_value = [[mock_neighbor]]
 
-    results = vector_store.search(query=query, filters=filters, limit=1)
+    results = vector_store.search(query="", vectors=vectors, filters=filters, limit=1)
 
     mock_vertex_ai['endpoint'].find_neighbors.assert_called_once_with(
         deployed_index_id=vector_store.deployment_index_id,
-        queries=[query],
+        queries=[vectors],
         num_neighbors=1,
         filter=[Namespace("user_id", ["test_user"], [])],
         return_full_datapoint=True
