@@ -14,7 +14,7 @@ class AzureAISearchConfig(BaseModel):
         False,
         description="Whether to store vectors in half precision (Edm.Half) instead of full precision (Edm.Single)",
     )
-    use_hybrid_search: bool = Field(
+    hybrid_search: bool = Field(
         False, description="Whether to use hybrid search. If True, vector_filter_mode must be 'preFilter'"
     )
     vector_filter_mode: Optional[str] = Field(

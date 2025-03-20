@@ -47,7 +47,7 @@ class AzureAISearch(VectorStoreBase):
         embedding_model_dims,
         compression_type: Optional[str] = None,
         use_float16: bool = False,
-        use_hybrid_search: bool = False,
+        hybrid_search: bool = False,
         vector_filter_mode: Optional[str] = None,
     ):
         """
@@ -62,7 +62,7 @@ class AzureAISearch(VectorStoreBase):
                 Allowed values are None (no quantization), "scalar", or "binary".
             use_float16 (bool): Whether to store vectors in half precision (Edm.Half) or full precision (Edm.Single).
                 (Note: This flag is preserved from the initial implementation per feedback.)
-            use_hybrid_search (bool): Whether to use hybrid search. Default is False.
+            hybrid_search (bool): Whether to use hybrid search. Default is False.
             vector_filter_mode (Optional[str]): Mode for vector filtering. Default is "preFilter".
         """
         self.index_name = collection_name
@@ -210,7 +210,7 @@ class AzureAISearch(VectorStoreBase):
             filter_expression = self._build_filter_expression(filters)
 
         vector_query = VectorizedQuery(vector=vectors, k_nearest_neighbors=limit, fields="vector")
-        if self.use_hybrid_search:
+        if self.hybrid_search:
             search_results = self.search_client.search(
                 search_text=query,
                 vector_queries=[vector_query],
