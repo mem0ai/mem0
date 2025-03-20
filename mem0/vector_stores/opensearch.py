@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 try:
-    from opensearchpy import OpenSearch
+    from opensearchpy import OpenSearch, RequestsHttpConnection
     from opensearchpy.helpers import bulk
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
@@ -28,9 +28,10 @@ class OpenSearchDB(VectorStoreBase):
         # Initialize OpenSearch client
         self.client = OpenSearch(
             hosts=[{"host": config.host, "port": config.port or 9200}],
-            http_auth=(config.user, config.password) if (config.user and config.password) else None,
+            http_auth=config.http_auth if config.http_auth else ((config.user, config.password) if (config.user and config.password) else None),
             use_ssl=config.use_ssl,
             verify_certs=config.verify_certs,
+            connection_class=RequestsHttpConnection
         )
 
         self.collection_name = config.collection_name
@@ -43,7 +44,6 @@ class OpenSearchDB(VectorStoreBase):
     def create_index(self) -> None:
         """Create OpenSearch index with proper mappings if it doesn't exist."""
         index_settings = {
-            # ToDo change replicas to 1
             "settings": {
                 "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s", "knn": True}
             },
@@ -52,7 +52,8 @@ class OpenSearchDB(VectorStoreBase):
                     "text": {"type": "text"},
                     "vector": {
                         "type": "knn_vector",
-                        "dimension": self.vector_dim
+                        "dimension": self.vector_dim,
+                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
@@ -73,7 +74,7 @@ class OpenSearchDB(VectorStoreBase):
                     "vector": {
                         "type": "knn_vector",
                         "dimension": vector_size,
-                        "method": { "engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
@@ -125,12 +126,12 @@ class OpenSearchDB(VectorStoreBase):
                         "k": limit,
                     }
                 }
-            }
+            },
         }
 
         if filters:
             filter_conditions = [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]
-            search_query["query"]["knn"]["vector"]["filter"] = { "bool": {"filter": filter_conditions} }
+            search_query["query"]["knn"]["vector"]["filter"] = {"bool": {"filter": filter_conditions}}
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
@@ -180,10 +181,17 @@ class OpenSearchDB(VectorStoreBase):
         query = {"query": {"match_all": {}}}
 
         if filters:
-            query["query"] = {"bool": {"must": [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]}}
+            query["query"] = {
+                "bool": {"must": [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]}
+            }
 
         if limit:
             query["size"] = limit
 
         response = self.client.search(index=self.collection_name, body=query)
-        return [[OutputData(id=hit["_id"], score=1.0, payload=hit["_source"].get("metadata", {})) for hit in response["hits"]["hits"]]]
+        return [
+            [
+                OutputData(id=hit["_id"], score=1.0, payload=hit["_source"].get("metadata", {}))
+                for hit in response["hits"]["hits"]
+            ]
+        ]

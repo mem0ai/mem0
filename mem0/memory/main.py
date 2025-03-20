@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 import pytz
 from pydantic import ValidationError
-from mem0.memory.utils import parse_vision_messages
+
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.prompts import get_update_memory_messages
 from mem0.memory.base import MemoryBase
@@ -19,6 +19,7 @@ from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     get_fact_retrieval_messages,
     parse_messages,
+    parse_vision_messages,
     remove_code_blocks,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
@@ -33,7 +34,8 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_prompt = self.config.custom_prompt
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
@@ -45,7 +47,7 @@ class Memory(MemoryBase):
 
         self.enable_graph = False
 
-        if self.api_version == "v1.1" and self.config.graph_store.config:
+        if self.config.graph_store.config:
             from mem0.memory.graph_memory import MemoryGraph
 
             self.graph = MemoryGraph(self.config)
@@ -56,11 +58,26 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
+            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
+
+    @staticmethod
+    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
+        if "graph_store" in config_dict:
+            if "vector_store" not in config_dict and "embedder" in config_dict:
+                config_dict["vector_store"] = {}
+                config_dict["vector_store"]["config"] = {}
+                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"]["embedding_dims"]
+        try:
+            return config_dict
+        except ValidationError as e:
+            logger.error(f"Configuration validation error: {e}")
+            raise
+        
 
     def add(
         self,
@@ -70,6 +87,7 @@ class Memory(MemoryBase):
         run_id=None,
         metadata=None,
         filters=None,
+        infer=True,
         prompt=None,
     ):
         """
@@ -82,6 +100,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
+            infer (bool, optional): Whether to infer the memories. Defaults to True.
             prompt (str, optional): Prompt to use for memory deduction. Defaults to None.
 
         Returns:
@@ -114,10 +133,13 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
-        messages = parse_vision_messages(messages)
+        if self.config.llm.config.get("enable_vision"):
+            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+        else:
+            messages = parse_vision_messages(messages)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters)
+            future1 = executor.submit(self._add_to_vector_store, messages, metadata, filters, infer)
             future2 = executor.submit(self._add_to_graph, messages, filters)
 
             concurrent.futures.wait([future1, future2])
@@ -125,12 +147,7 @@ class Memory(MemoryBase):
             vector_store_result = future1.result()
             graph_result = future2.result()
 
-        if self.api_version == "v1.1":
-            return {
-                "results": vector_store_result,
-                "relations": graph_result,
-            }
-        else:
+        if self.api_version == "v1.0":
             warnings.warn(
                 "The current add API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -140,11 +157,28 @@ class Memory(MemoryBase):
             )
             return vector_store_result
 
-    def _add_to_vector_store(self, messages, metadata, filters):
+        if self.enable_graph:
+            return {
+                "results": vector_store_result,
+                "relations": graph_result,
+            }
+
+        return {"results": vector_store_result}
+
+    def _add_to_vector_store(self, messages, metadata, filters, infer):
+        if not infer:
+            returned_memories = []
+            for message in messages:
+                if message["role"] != "system":
+                    message_embeddings = self.embedding_model.embed(message["content"], "add")
+                    memory_id = self._create_memory(message["content"], message_embeddings, metadata)
+                    returned_memories.append({"id": memory_id, "memory": message["content"], "event": "ADD"})
+            return returned_memories
+
         parsed_messages = parse_messages(messages)
 
-        if self.custom_prompt:
-            system_prompt = self.custom_prompt
+        if self.custom_fact_extraction_prompt:
+            system_prompt = self.custom_fact_extraction_prompt
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
@@ -167,7 +201,7 @@ class Memory(MemoryBase):
         retrieved_old_memory = []
         new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
-            messages_embeddings = self.embedding_model.embed(new_mem)
+            messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
                 query=messages_embeddings,
@@ -178,7 +212,7 @@ class Memory(MemoryBase):
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
         unique_data = {}
         for item in retrieved_old_memory:
-            unique_data[item['id']] = item
+            unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
@@ -188,57 +222,68 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts)
+        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts, self.custom_update_memory_prompt)
 
-        new_memories_with_actions = self.llm.generate_response(
-            messages=[{"role": "user", "content": function_calling_prompt}],
-            response_format={"type": "json_object"},
-        )
+        try:
+            new_memories_with_actions = self.llm.generate_response(
+                messages=[{"role": "user", "content": function_calling_prompt}],
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:
+            logging.error(f"Error in new_memories_with_actions: {e}")
+            new_memories_with_actions = []
 
-        new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
-        new_memories_with_actions = json.loads(new_memories_with_actions)
+        try:
+            new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
+            new_memories_with_actions = json.loads(new_memories_with_actions)
+        except Exception as e:
+            logging.error(f"Invalid JSON response: {e}")
+            new_memories_with_actions = []
 
         returned_memories = []
         try:
-            for resp in new_memories_with_actions["memory"]:
+            for resp in new_memories_with_actions.get("memory", []):
                 logging.info(resp)
                 try:
-                    if resp["event"] == "ADD":
+                    if not resp.get("text"):
+                        logging.info("Skipping memory entry because of empty `text` field.")
+                        continue
+                    elif resp.get("event") == "ADD":
                         memory_id = self._create_memory(
-                            data=resp["text"], existing_embeddings=new_message_embeddings, metadata=metadata
+                            data=resp.get("text"), existing_embeddings=new_message_embeddings, metadata=metadata
                         )
                         returned_memories.append(
                             {
                                 "id": memory_id,
-                                "memory": resp["text"],
-                                "event": resp["event"],
+                                "memory": resp.get("text"),
+                                "event": resp.get("event"),
                             }
                         )
-                    elif resp["event"] == "UPDATE":
+                    elif resp.get("event") == "UPDATE":
                         self._update_memory(
                             memory_id=temp_uuid_mapping[resp["id"]],
-                            data=resp["text"],
+                            data=resp.get("text"),
                             existing_embeddings=new_message_embeddings,
                             metadata=metadata,
                         )
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp["id"]],
-                                "memory": resp["text"],
-                                "event": resp["event"],
-                                "previous_memory": resp["old_memory"],
+                                "id": temp_uuid_mapping[resp.get("id")],
+                                "memory": resp.get("text"),
+                                "event": resp.get("event"),
+                                "previous_memory": resp.get("old_memory"),
                             }
                         )
-                    elif resp["event"] == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp["id"]])
+                    elif resp.get("event") == "DELETE":
+                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp["id"]],
-                                "memory": resp["text"],
-                                "event": resp["event"],
+                                "id": temp_uuid_mapping[resp.get("id")],
+                                "memory": resp.get("text"),
+                                "event": resp.get("event"),
                             }
                         )
-                    elif resp["event"] == "NONE":
+                    elif resp.get("event") == "NONE":
                         logging.info("NOOP for Memory.")
                 except Exception as e:
                     logging.error(f"Error in new_memories_with_actions: {e}")
@@ -251,7 +296,7 @@ class Memory(MemoryBase):
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
-        if self.api_version == "v1.1" and self.enable_graph:
+        if self.enable_graph:
             if filters.get("user_id") is None:
                 filters["user_id"] = "user"
 
@@ -287,15 +332,7 @@ class Memory(MemoryBase):
         ).model_dump(exclude={"score"})
 
         # Add metadata if there are additional keys
-        excluded_keys = {
-            "user_id",
-            "agent_id",
-            "run_id",
-            "hash",
-            "data",
-            "created_at",
-            "updated_at",
-        }
+        excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at", "id"}
         additional_metadata = {k: v for k, v in memory.payload.items() if k not in excluded_keys}
         if additional_metadata:
             memory_item["metadata"] = additional_metadata
@@ -323,11 +360,7 @@ class Memory(MemoryBase):
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, filters, limit)
-                if self.api_version == "v1.1" and self.enable_graph
-                else None
-            )
+            future_graph_entities = executor.submit(self.graph.get_all, filters, limit) if self.enable_graph else None
 
             concurrent.futures.wait(
                 [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
@@ -336,12 +369,10 @@ class Memory(MemoryBase):
             all_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
-        if self.api_version == "v1.1":
-            if self.enable_graph:
-                return {"results": all_memories, "relations": graph_entities}
-            else:
-                return {"results": all_memories}
-        else:
+        if self.enable_graph:
+            return {"results": all_memories, "relations": graph_entities}
+
+        if self.api_version == "v1.0":
             warnings.warn(
                 "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -350,6 +381,8 @@ class Memory(MemoryBase):
                 stacklevel=2,
             )
             return all_memories
+        else:
+            return {"results": all_memories}
 
     def _get_all_from_vector_store(self, filters, limit):
         memories = self.vector_store.list(filters=filters, limit=limit)
@@ -362,6 +395,7 @@ class Memory(MemoryBase):
             "data",
             "created_at",
             "updated_at",
+            "id",
         }
         all_memories = [
             {
@@ -418,9 +452,7 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, filters, limit)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, filters, limit)
-                if self.api_version == "v1.1" and self.enable_graph
-                else None
+                executor.submit(self.graph.search, query, filters, limit) if self.enable_graph else None
             )
 
             concurrent.futures.wait(
@@ -430,23 +462,23 @@ class Memory(MemoryBase):
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
 
-        if self.api_version == "v1.1":
-            if self.enable_graph:
-                return {"results": original_memories, "relations": graph_entities}
-            else:
-                return {"results": original_memories}
-        else:
+        if self.enable_graph:
+            return {"results": original_memories, "relations": graph_entities}
+
+        if self.api_version == "v1.0":
             warnings.warn(
-                "The current search API output format is deprecated. "
+                "The current get_all API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
                 "The current format will be removed in mem0ai 1.1.0 and later versions.",
                 category=DeprecationWarning,
                 stacklevel=2,
             )
             return original_memories
+        else:
+            return {"results": original_memories}
 
     def _search_vector_store(self, query, filters, limit):
-        embeddings = self.embedding_model.embed(query)
+        embeddings = self.embedding_model.embed(query, "search")
         memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
 
         excluded_keys = {
@@ -457,6 +489,7 @@ class Memory(MemoryBase):
             "data",
             "created_at",
             "updated_at",
+            "id",
         }
 
         original_memories = [
@@ -494,7 +527,7 @@ class Memory(MemoryBase):
         """
         capture_event("mem0.update", self, {"memory_id": memory_id})
 
-        existing_embeddings = {data: self.embedding_model.embed(data)}
+        existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
         self._update_memory(memory_id, data, existing_embeddings)
         return {"message": "Memory updated successfully!"}
@@ -539,7 +572,7 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
-        if self.api_version == "v1.1" and self.enable_graph:
+        if self.enable_graph:
             self.graph.delete_all(filters)
 
         return {"message": "Memories deleted successfully!"}
@@ -562,7 +595,7 @@ class Memory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = self.embedding_model.embed(data)
+            embeddings = self.embedding_model.embed(data, "add")
         memory_id = str(uuid.uuid4())
         metadata = metadata or {}
         metadata["data"] = data
@@ -603,7 +636,7 @@ class Memory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = self.embedding_model.embed(data)
+            embeddings = self.embedding_model.embed(data, "update")
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,

@@ -14,13 +14,17 @@ To use the async client, you first need to initialize it:
 <CodeGroup>
 
 ```python Python
+import os
 from mem0 import AsyncMemoryClient
-client = AsyncMemoryClient(api_key="your-api-key")
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = AsyncMemoryClient()
 ```
 
 ```javascript JavaScript
 const { MemoryClient } = require('mem0ai');
-const client = new MemoryClient('your-api-key');
+const client = new MemoryClient({ apiKey: 'your-api-key'});
 ```
 
 </CodeGroup>
@@ -60,7 +64,7 @@ Search for memories based on a query asynchronously.
 <CodeGroup>
 
 ```python Python
-await client.search(query="What is Alice's favorite sport?", user_id="alice")
+await client.search("What is Alice's favorite sport?", user_id="alice")
 ```
 
 ```javascript JavaScript

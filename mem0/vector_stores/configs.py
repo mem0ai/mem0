@@ -14,12 +14,16 @@ class VectorStoreConfig(BaseModel):
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
+        "pinecone": "PineconeConfig",
         "milvus": "MilvusDBConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
         "couchbase": "CouchbaseConfig",
         "elasticsearch": "ElasticsearchConfig",
+        "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",
+        "supabase": "SupabaseConfig",
+        "weaviate": "WeaviateConfig",
     }
 
     @model_validator(mode="after")

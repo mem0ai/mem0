@@ -29,9 +29,12 @@ Users can define specific kinds of memories to store. This feature enhances memo
 Here’s how you can do it:
 
 ```python
+import os
 from mem0 import MemoryClient
 
-m = MemoryClient(api_key="xxx")
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+m = MemoryClient()
 
 # Define what to include
 includes = "sports related things"

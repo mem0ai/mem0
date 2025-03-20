@@ -30,9 +30,10 @@ USER_ID = "customer_service_bot"
 
 # Set up OpenAI API key
 os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
+os.environ['MEM0_API_KEY'] = MEM0_API_KEY
 
 # Initialize Mem0 and AutoGen agents
-memory_client = MemoryClient(api_key=MEM0_API_KEY)
+memory_client = MemoryClient()
 agent = ConversableAgent(
     "chatbot",
     llm_config={"config_list": [{"model": "gpt-4", "api_key": OPENAI_API_KEY}]},
