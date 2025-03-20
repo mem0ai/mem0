@@ -129,6 +129,7 @@
                           "components/vectordbs/dbs/chroma",
                           "components/vectordbs/dbs/pgvector",
                           "components/vectordbs/dbs/milvus",
+                          "components/vectordbs/dbs/pinecone",
                           "components/vectordbs/dbs/azure_ai_search",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
