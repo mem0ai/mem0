@@ -147,8 +147,8 @@ class TestWeaviateDB(unittest.TestCase):
         self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
         mock_hybrid.return_value = mock_response
         
-        query_vector = [0.1] * 1536
-        results = self.weaviate_db.search(query=query_vector, limit=5)
+        vectors = [[0.1] * 1536]
+        results = self.weaviate_db.search(query="", vectors=vectors, limit=5)
         
         mock_hybrid.assert_called_once()
         

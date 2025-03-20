@@ -112,16 +112,18 @@ class Supabase(VectorStoreBase):
             payloads = [{} for _ in vectors]
 
         records = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, payloads)]
-        print(records)
 
         self.collection.upsert(records)
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[dict] = None) -> List[OutputData]:
+    def search(
+        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[dict] = None
+    ) -> List[OutputData]:
         """
         Search for similar vectors.
 
         Args:
-            query (List[float]): Query vector
+            query (str): Query.
+            vectors (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -129,11 +131,9 @@ class Supabase(VectorStoreBase):
             List[OutputData]: Search results
         """
         filters = self._preprocess_filters(filters)
-        print(filters)
         results = self.collection.query(
-            data=query, limit=limit, filters=filters, include_metadata=True, include_value=True
+            data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
-        print(results)
 
         return [OutputData(id=str(result[0]), score=float(result[1]), payload=result[2]) for result in results]
 

@@ -127,12 +127,13 @@ class Qdrant(VectorStoreBase):
                 conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         return Filter(must=conditions) if conditions else None
 
-    def search(self, query: list, limit: int = 5, filters: dict = None) -> list:
+    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
         Search for similar vectors.
 
         Args:
-            query (list): Query vector.
+            query (str): Query.
+            vectors (list): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -142,7 +143,7 @@ class Qdrant(VectorStoreBase):
         query_filter = self._create_filter(filters) if filters else None
         hits = self.client.query_points(
             collection_name=self.collection_name,
-            query=query,
+            query=vectors,
             query_filter=query_filter,
             limit=limit,
         )
