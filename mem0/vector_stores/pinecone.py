@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -24,17 +24,17 @@ class OutputData(BaseModel):
 class PineconeDB(VectorStoreBase):
     def __init__(
         self,
-        collection_name,
-        embedding_model_dims,
-        client,
-        api_key,
-        environment,
-        serverless_config,
-        pod_config,
-        hybrid_search,
-        metric,
-        batch_size,
-        extra_params
+        collection_name: str,
+        embedding_model_dims: int,
+        client: Optional["Pinecone"],
+        api_key: Optional[str],
+        environment: Optional[str],
+        serverless_config: Optional[Dict[str, Any]],
+        pod_config: Optional[Dict[str, Any]],
+        hybrid_search: bool,
+        metric: str,
+        batch_size: int,
+        extra_params: Optional[Dict[str, Any]]
     ):
         """
         Initialize the Pinecone vector store.
