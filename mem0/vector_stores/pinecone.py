@@ -119,6 +119,7 @@ class PineconeDB(VectorStoreBase):
 
     def insert(
         self,
+        query: str,
         vectors: List[List[float]],
         payloads: Optional[List[Dict]] = None,
         ids: Optional[List[Union[str, int]]] = None,
@@ -127,6 +128,7 @@ class PineconeDB(VectorStoreBase):
         Insert vectors into an index.
 
         Args:
+            query (str): Query to insert.
             vectors (list): List of vectors to insert.
             payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
