@@ -126,15 +126,15 @@ class TestOpenSearchDB(unittest.TestCase):
     def test_search(self):
         mock_response = {"hits": {"hits": [{"_id": "id1", "_score": 0.8, "_source": {"vector": [0.1] * 1536, "metadata": {"key1": "value1"}}}]}}
         self.client_mock.search.return_value = mock_response
-        query_vector = [0.1] * 1536
-        results = self.os_db.search(query=query_vector, limit=5)
+        vectors = [[0.1] * 1536]
+        results = self.os_db.search(query="", vectors=vectors, limit=5)
         self.client_mock.search.assert_called_once()
         search_args = self.client_mock.search.call_args[1]
         self.assertEqual(search_args["index"], "test_collection")
         body = search_args["body"]
         self.assertIn("knn", body["query"])
         self.assertIn("vector", body["query"]["knn"])
-        self.assertEqual(body["query"]["knn"]["vector"]["vector"], query_vector)
+        self.assertEqual(body["query"]["knn"]["vector"]["vector"], vectors)
         self.assertEqual(body["query"]["knn"]["vector"]["k"], 5)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, "id1")

@@ -71,13 +71,14 @@ class Memory(MemoryBase):
             if "vector_store" not in config_dict and "embedder" in config_dict:
                 config_dict["vector_store"] = {}
                 config_dict["vector_store"]["config"] = {}
-                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"]["embedding_dims"]
+                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
+                    "embedding_dims"
+                ]
         try:
             return config_dict
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
-        
 
     def add(
         self,
@@ -204,7 +205,8 @@ class Memory(MemoryBase):
             messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
-                query=messages_embeddings,
+                query=new_mem,
+                vectors=messages_embeddings,
                 limit=5,
                 filters=filters,
             )
@@ -222,7 +224,9 @@ class Memory(MemoryBase):
             temp_uuid_mapping[str(idx)] = item["id"]
             retrieved_old_memory[idx]["id"] = str(idx)
 
-        function_calling_prompt = get_update_memory_messages(retrieved_old_memory, new_retrieved_facts, self.custom_update_memory_prompt)
+        function_calling_prompt = get_update_memory_messages(
+            retrieved_old_memory, new_retrieved_facts, self.custom_update_memory_prompt
+        )
 
         try:
             new_memories_with_actions = self.llm.generate_response(
@@ -479,7 +483,7 @@ class Memory(MemoryBase):
 
     def _search_vector_store(self, query, filters, limit):
         embeddings = self.embedding_model.embed(query, "search")
-        memories = self.vector_store.search(query=embeddings, limit=limit, filters=filters)
+        memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
 
         excluded_keys = {
             "user_id",
