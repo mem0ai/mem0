@@ -1,5 +1,4 @@
 import logging
-import json
 
 from mem0.memory.utils import format_entities
 
