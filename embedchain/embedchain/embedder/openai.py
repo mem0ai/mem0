@@ -25,7 +25,7 @@ class OpenAIEmbedder(BaseEmbedder):
         )
         if os.environ.get("OPENAI_API_BASE"):
             warnings.warn(
-                "The environment variable 'OPENAI_API_BASE' is deprecated and will be removed in the 0.1.132. "
+                "The environment variable 'OPENAI_API_BASE' is deprecated and will be removed in the 0.1.140. "
                 "Please use 'OPENAI_BASE_URL' instead.",
                 DeprecationWarning
             )
