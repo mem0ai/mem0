@@ -148,7 +148,7 @@ export interface Mem0MemoryInput extends BaseChatMemoryInput {
  * ```
  */
 export class Mem0Memory extends BaseChatMemory implements Mem0MemoryInput {
-  memoryKey = "chat_history";
+  memoryKey = "history";
 
   apiKey: string;
 
