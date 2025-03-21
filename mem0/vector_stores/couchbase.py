@@ -3,13 +3,19 @@ import logging
 import time
 from typing import Dict, Optional
 
-import couchbase.search as search
-from couchbase.auth import PasswordAuthenticator
-from couchbase.cluster import Cluster
-from couchbase.exceptions import DocumentNotFoundException
-from couchbase.management.search import SearchIndex
-from couchbase.options import ClusterOptions, SearchOptions
-from couchbase.vector_search import VectorQuery, VectorSearch
+try:
+    import couchbase.search as search
+    from couchbase.auth import PasswordAuthenticator
+    from couchbase.cluster import Cluster
+    from couchbase.exceptions import DocumentNotFoundException
+    from couchbase.management.search import SearchIndex
+    from couchbase.options import ClusterOptions, SearchOptions
+    from couchbase.vector_search import VectorQuery, VectorSearch
+except ImportError:
+    raise ImportError(
+        "The 'couchbase' library (>=4.3.0) is required. Please install it using 'pip install couchbase'."
+    )
+
 from pydantic import BaseModel
 
 from mem0.vector_stores.base import VectorStoreBase
