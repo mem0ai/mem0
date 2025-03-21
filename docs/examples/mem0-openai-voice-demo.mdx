@@ -73,81 +73,50 @@ This section handles:
 
 The `@function_tool` decorator transforms Python functions into callable tools for the OpenAI agent. Here are the key memory tools:
 
-#### Storing User Preferences
+#### Storing User Memories
 
 ```python
-@function_tool
-async def remember_preference(
-    preference_type: str,
-    preference_value: str
-) -> str:
-    """
-    Store a user preference in memory.
-    Args:
-        preference_type: Type of preference (e.g., food, color, etc.)
-        preference_value: The specific preference value
-    """
-    print(f"Remembering {preference_type}: {preference_value} for user {USER_ID}")
+import logging
 
+# Set up logging at the top of your file
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True
+)
+logger = logging.getLogger("memory_voice_agent")
+
+# Then use logger in your function tools
+@function_tool
+async def save_memories(
+    memory: str
+) -> str:
+    """Store a user memory in memory."""
+    # This will be visible in your console
+    logger.debug(f"Saving memory: {memory} for user {USER_ID}")
+    
     # Store the preference in Mem0
-    memory_content = f"User preference - {preference_type}: {preference_value}"
+    memory_content = f"User memory - {memory}"
     await mem0_client.add(
         memory_content,
         user_id=USER_ID,
-        metadata={"type": "preference", "category": preference_type}
     )
 
-    return f"I've remembered your {preference_type} preference: {preference_value}"
+    return f"I've saved your memory: {memory}"
 ```
 
 This function:
-- Takes a preference type (e.g., "food") and value (e.g., "pizza")
+- Takes a memory string
 - Creates a formatted memory string
 - Stores it in Mem0 using the `add()` method
 - Includes metadata to categorize the memory for easier retrieval
 - Returns a confirmation message that the agent will speak
 
-#### Recalling Preferences
-
-```python
-@function_tool
-async def recall_preferences(
-    preference_type: Optional[str] = None
-) -> str:
-    # Search for preferences in Mem0
-    if preference_type:
-        query = f"What are the user's {preference_type} preferences?"
-        filters = {"metadata": {"type": "preference", "category": preference_type}}
-    else:
-        query = "What are the user's preferences?"
-        filters = {"metadata": {"type": "preference"}}
-    
-    results = await mem0_client.search(
-        query, 
-        user_id=USER_ID, 
-        filters=filters,
-        output_format="v1.1"
-    )
-    
-    # Format and return the results
-    if not results.get('results', []):
-        return "I don't have any saved preferences for you yet."
-    
-    preferences = [result["memory"] for result in results.get('results', [])]
-    return "Here are your saved preferences:\n" + "\n".join(preferences)
-```
-
-This function:
-- Optionally takes a specific preference type to recall
-- Builds an appropriate search query and filters
-- Uses Mem0's `search()` method to find relevant preferences
-- Returns a formatted response with the found preferences or a default message
-
 #### Finding Relevant Memories
 
 ```python
 @function_tool
-async def find_relevant_memories(
+async def search_memories(
     query: str
 ) -> str:
     """
@@ -189,14 +158,12 @@ def create_memory_voice_agent():
             """You're speaking to a human, so be polite and concise.
             Always respond in clear, natural English.
             You have the ability to remember information about the user.
-            Use the remember_preference tool when the user expresses a preference.
-            Use the recall_preferences tool when the user asks about their saved preferences.
-            Use the find_relevant_memories tool when you need context from past conversations.
-            Use the save_conversation tool at the end of important conversations.
+            Use the save_memories tool when the user shares an important information worth remembering.
+            Use the search_memories tool when you need context from past conversations or user asks you to recall something.
             """,
         ),
         model="gpt-4o",
-        tools=[remember_preference, recall_preferences, save_conversation, find_relevant_memories],
+        tools=[save_memories, search_memories],
     )
     
     return agent
@@ -338,7 +305,6 @@ os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 # Define a global user ID for simplicity
-# In a production app, you would manage user IDs properly
 USER_ID = "voice_user"
 
 # Initialize Mem0 client
@@ -346,82 +312,27 @@ mem0_client = AsyncMemoryClient()
 
 # Create tools that utilize Mem0's memory
 @function_tool
-async def remember_preference(
-    preference_type: str,
-    preference_value: str
+async def save_memories(
+    memory: str
 ) -> str:
     """
-    Store a user preference in memory.
+    Store a user memory in memory.
     Args:
-        preference_type: Type of preference (e.g., food, color, etc.)
-        preference_value: The specific preference value
+        memory: The memory to save
     """
-    print(f"Remembering {preference_type}: {preference_value} for user {USER_ID}")
+    print(f"Saving memory: {memory} for user {USER_ID}")
 
     # Store the preference in Mem0
-    memory_content = f"User preference - {preference_type}: {preference_value}"
+    memory_content = f"User memory - {memory}"
     await mem0_client.add(
         memory_content,
         user_id=USER_ID,
-        metadata={"type": "preference", "category": preference_type}
     )
 
-    return f"I've remembered your {preference_type} preference: {preference_value}"
+    return f"I've saved your memory: {memory}"
 
 @function_tool
-async def recall_preferences(
-    preference_type: Optional[str] = None
-) -> str:
-    """
-    Recall user preferences from memory.
-    Args:
-        preference_type: Optional type of preference to recall (e.g., food, color)
-    """
-    print(f"Recalling preferences for user {USER_ID}")
-    
-    # Search for preferences in Mem0
-    if preference_type:
-        query = f"What are the user's {preference_type} preferences?"
-        filters = {"metadata": {"type": "preference", "category": preference_type}}
-    else:
-        query = "What are the user's preferences?"
-        filters = {"metadata": {"type": "preference"}}
-    
-    results = await mem0_client.search(
-        query, 
-        user_id=USER_ID, 
-        filters=filters,
-        output_format="v1.1"
-    )
-    
-    if not results.get('results', []):
-        return "I don't have any saved preferences for you yet."
-    
-    preferences = [result["memory"] for result in results.get('results', [])]
-    return "Here are your saved preferences:\n" + "\n".join(preferences)
-
-
-@function_tool
-async def save_conversation(
-    conversation: str
-) -> str:
-    """
-    Save the current conversation to memory.
-    Args:
-        conversation: The conversation text to save
-    """
-    print(f"Saving conversation for user {USER_ID}")
-    
-    await mem0_client.add(
-        conversation,
-        user_id=USER_ID,
-        metadata={"type": "conversation_history"}
-    )
-    
-    return "I've saved our conversation for future reference."
-
-@function_tool
-async def find_relevant_memories(
+async def search_memories(
     query: str
 ) -> str:
     """
@@ -438,6 +349,7 @@ async def find_relevant_memories(
         output_format="v1.1"
     )
     
+    # Format and return the results
     if not results.get('results', []):
         return "I don't have any relevant memories about this topic."
     
@@ -453,14 +365,12 @@ def create_memory_voice_agent():
             """You're speaking to a human, so be polite and concise.
             Always respond in clear, natural English.
             You have the ability to remember information about the user.
-            Use the remember_preference tool when the user expresses a preference.
-            Use the recall_preferences tool when the user asks about their saved preferences.
-            Use the find_relevant_memories tool when you need context from past conversations.
-            Use the save_conversation tool at the end of important conversations.
+            Use the save_memories tool when the user shares an important information worth remembering.
+            Use the search_memories tool when you need context from past conversations or user asks you to recall something.
             """,
         ),
         model="gpt-4o",
-        tools=[remember_preference, recall_preferences, save_conversation, find_relevant_memories],
+        tools=[save_memories, search_memories],
     )
     
     return agent
@@ -495,18 +405,19 @@ async def main():
         workflow=SingleAgentVoiceWorkflow(agent)
     )
     
-    # Configure TTS settings for English voice
+    # Configure TTS settings
     pipeline.config.tts_settings.voice = "alloy"
     pipeline.config.tts_settings.speed = 1.0
     
     try:
         while True:
+            # Get user input
             print("\nPress Enter to start recording (or 'q' to quit)...")
             user_input = input()
             if user_input.lower() == 'q':
                 break
             
-            # Record audio from the microphone
+            # Record and process audio
             audio_data = await record_from_microphone(duration=5)
             audio_input = AudioInput(buffer=audio_data)
             
@@ -564,10 +475,8 @@ This implementation offers several key features:
 3. **Interactive Voice Loop**: Implements a continuous interaction loop, allowing for multiple back-and-forth exchanges.
 
 4. **Memory Management Tools**:
-   - `remember_preference`: Stores user preferences in Mem0
-   - `recall_preferences`: Retrieves stored preferences 
-   - `save_conversation`: Saves conversation history
-   - `find_relevant_memories`: Searches for relevant past information
+   - `save_memories`: Stores user memories in Mem0
+   - `search_memories`: Searches for relevant past information
 
 5. **Voice Configuration**: Demonstrates how to configure TTS settings for the voice response.
 
@@ -618,14 +527,12 @@ logger = logging.getLogger("memory_voice_agent")
 
 # Then use logger in your function tools
 @function_tool
-async def remember_preference(
-    context: RunContextWrapper[Mem0Context],
-    preference_type: str, 
-    preference_value: str
+async def save_memories(
+    memory: str
 ) -> str:
-    """Store a user preference in memory."""
+    """Store a user memory in memory."""
     # This will be visible in your console
-    logger.debug(f"Remembering {preference_type}: {preference_value} for user {context.context.user_id}")
+    logger.debug(f"Saving memory: {memory} for user {USER_ID}")
     
     # Rest of your function...
 ```
