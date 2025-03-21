@@ -1,5 +1,6 @@
 import json
 import os
+import warnings
 from typing import Any, Callable, Dict, Optional, Type, Union
 
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
@@ -64,6 +65,13 @@ class OpenAILlm(BaseLlm):
             or os.getenv("OPENAI_BASE_URL")
             or "https://api.openai.com/v1"
         )
+        if os.environ.get("OPENAI_API_BASE"):
+            warnings.warn(
+                "The environment variable 'OPENAI_API_BASE' is deprecated and will be removed in the 0.1.132. "
+                "Please use 'OPENAI_BASE_URL' instead.",
+                DeprecationWarning
+            )
+
         if config.top_p:
             kwargs["top_p"] = config.top_p
         if config.default_headers:
