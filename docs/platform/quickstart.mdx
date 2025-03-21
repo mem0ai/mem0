@@ -416,6 +416,89 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 </CodeGroup>
 
+#### Setting Memory Expiration Date
+
+You can set an expiration date for memories, after which they will no longer be retrieved in searches. This is useful for creating temporary memories or memories that are only relevant for a specific time period.
+
+<CodeGroup>
+
+```python Python
+import datetime
+
+messages = [
+    {
+        "role": "user", 
+        "content": "I'll be in San Francisco until August 31st."
+    }
+]
+
+# Set an expiration date for this memory
+client.add(messages=messages, user_id="alex", expiration_date=str(datetime.datetime.now().date() + datetime.timedelta(days=30)))
+
+# You can also use an explicit date string
+client.add(messages=messages, user_id="alex", expiration_date="2023-08-31")
+```
+
+```javascript JavaScript
+const messages = [
+    {
+        "role": "user", 
+        "content": "I'll be in San Francisco until August 31st."
+    }
+];
+
+// Set an expiration date 30 days from now
+const expirationDate = new Date();
+expirationDate.setDate(expirationDate.getDate() + 30);
+client.add(messages, { 
+    user_id: "alex", 
+    expiration_date: expirationDate.toISOString().split('T')[0] 
+})
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+
+// You can also use an explicit date string
+client.add(messages, { 
+    user_id: "alex", 
+    expiration_date: "2023-08-31" 
+})
+    .then(response => console.log(response))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [
+             {
+                "role": "user", 
+                "content": "I'll be in San Francisco until August 31st."
+            }
+         ],
+         "user_id": "alex",
+         "expiration_date": "2023-08-31"
+     }'
+```
+
+```json Output
+[
+  {
+    "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+    "data": {
+      "memory": "In San Francisco until August 31st"
+    },
+    "event": "ADD"
+  }
+]
+```
+
+</CodeGroup>
+
+<Note>
+Once a memory reaches its expiration date, it won't be included in search or get results.
+</Note>
 
 #### Monitor Memories
 
@@ -470,6 +553,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
         "immutable": false,
+        "expiration_date": null,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -486,6 +570,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/" \
             "metadata": {"food": "vegan"},
             "categories": ["food_preferences"],
             "immutable": false,
+            "expiration_date": null,
             "created_at": "2024-07-20T01:30:36.275141-07:00",
             "updated_at": "2024-07-20T01:30:36.275172-07:00"
         }
@@ -531,6 +616,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
         "immutable": false,
+        "expiration_date": null,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -621,6 +707,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "metadata": null,
         "categories": ["food_preferences"],
         "immutable": false,
+        "expiration_date": null,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -686,6 +773,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "metadata": null,
         "categories": ["food_preferences"],
         "immutable": false,
+        "expiration_date": null,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -760,6 +848,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
         "metadata": {"food": "vegan"},
         "categories": ["food_preferences"],
         "immutable": false,
+        "expiration_date": null,
         "created_at": "2024-07-20T01:30:36.275141-07:00",
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
@@ -860,6 +949,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":None,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories":None
@@ -871,6 +961,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
             "hash":"35a305373d639b0bffc6c2a3e2eb4244",
             "metadata":"None",
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-26T00:31:03.543759-07:00",
             "updated_at":"2024-07-26T00:31:03.543778-07:00",
             "categories":None
@@ -894,6 +985,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
                 "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
                 "metadata":None,
                 "immutable": false,
+                "expiration_date": null,
                 "created_at":"2024-07-25T23:57:00.108347-07:00",
                 "updated_at":"2024-07-25T23:57:00.108367-07:00",
                 "categories":None
@@ -905,6 +997,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&page=1&page_size=50" 
                 "hash":"35a305373d639b0bffc6c2a3e2eb4244",
                 "metadata":"None",
                 "immutable": false,
+                "expiration_date": null,
                 "created_at":"2024-07-26T00:31:03.543759-07:00",
                 "updated_at":"2024-07-26T00:31:03.543778-07:00",
                 "categories":None
@@ -949,6 +1042,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":None,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories":None
@@ -960,6 +1054,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
             "hash":"35a305373d639b0bffc6c2a3e2eb4244",
             "metadata":None,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-26T00:31:03.543759-07:00",
             "updated_at":"2024-07-26T00:31:03.543778-07:00",
             "categories":None
@@ -983,6 +1078,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
                 "hash": "62bc074f56d1f909f1b4c2b639f56f6a",
                 "metadata":None,
                 "immutable": false,
+                "expiration_date": null,
                 "created_at": "2024-07-25T23:57:00.108347-07:00",
                 "updated_at": "2024-07-25T23:57:00.108367-07:00"
             },
@@ -993,6 +1089,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?agent_id=ai-tutor&page=1&page_size
                 "hash": "35a305373d639b0bffc6c2a3e2eb4244",
                 "metadata":None,
                 "immutable": false,
+                "expiration_date": null,
                 "created_at": "2024-07-26T00:31:03.543759-07:00",
                 "updated_at": "2024-07-26T00:31:03.543778-07:00"
             }
@@ -1035,6 +1132,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&run_id=trip-planning-
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-26T00:25:16.566471-07:00",
             "updated_at":"2024-07-26T00:25:16.566492-07:00",
             "categories":None
@@ -1046,6 +1144,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&run_id=trip-planning-
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-26T00:33:20.350542-07:00",
             "updated_at":"2024-07-26T00:33:20.350560-07:00",
             "categories":None
@@ -1057,6 +1156,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&run_id=trip-planning-
             "hash":"d2088c936e259f2f5d2d75543d31401c",
             "metadata":None,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-26T00:51:09.642275-07:00",
             "updated_at":"2024-07-26T00:51:09.642295-07:00",
             "categories":None
@@ -1080,6 +1180,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&run_id=trip-planning-
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
                 "immutable": false,
+                "expiration_date": null,
                 "created_at": "2024-07-26T00:25:16.566471-07:00",
                 "updated_at": "2024-07-26T00:25:16.566492-07:00",
                 "categories": ["food_preferences"]
@@ -1091,6 +1192,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&run_id=trip-planning-
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
                 "immutable": false,
+                "expiration_date": null,
                 "created_at": "2024-07-26T00:33:20.350542-07:00",
                 "updated_at": "2024-07-26T00:33:20.350560-07:00",
                 "categories": ["food_preferences"]
@@ -1102,6 +1204,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&run_id=trip-planning-
                 "hash": "d2088c936e259f2f5d2d75543d31401c",
                 "metadata":None,
                 "immutable": false,
+                "expiration_date": null,
                 "created_at": "2024-07-26T00:51:09.642275-07:00",
                 "updated_at": "2024-07-26T00:51:09.642295-07:00",
                 "categories": None
@@ -1141,6 +1244,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/582bbe6d-506b-48c6-a4c6-5df3b1e6342
    "hash":"d2088c936e259f2f5d2d75543d31401c",
    "metadata":"None",
    "immutable": false,
+   "expiration_date": null,
    "created_at":"2024-07-26T00:25:16.566471-07:00",
    "updated_at":"2024-07-26T00:25:16.566492-07:00",
    "categories": ["travel"]
@@ -1221,6 +1325,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&keywords=to play&page
             "hash": "d2088c936e259f2f5d2d75543d31401c",
             "metadata": null,
             "immutable": false,
+            "expiration_date": null,
             "created_at": "2024-07-26T00:25:16.566471-07:00",
             "updated_at": "2024-07-26T00:25:16.566492-07:00",
             "categories": ["likes", "food_preferences"]
@@ -1232,6 +1337,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?user_id=alex&keywords=to play&page
             "hash": "d2088c936e259f2f5d2d75543d31401c",
             "metadata": null,
             "immutable": false,
+            "expiration_date": null,
             "created_at": "2024-07-26T00:33:20.350542-07:00",
             "updated_at": "2024-07-26T00:33:20.350560-07:00",
             "categories": ["likes"]
@@ -1359,6 +1465,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
       "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
       "metadata":null,
       "immutable": false,
+      "expiration_date": null,
       "created_at":"2024-07-25T23:57:00.108347-07:00",
       "updated_at":"2024-07-25T23:57:00.108367-07:00",
       "categories": ["food_preferences"]
@@ -1379,6 +1486,7 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
             "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
             "metadata":null,
             "immutable": false,
+            "expiration_date": null,
             "created_at":"2024-07-25T23:57:00.108347-07:00",
             "updated_at":"2024-07-25T23:57:00.108367-07:00",
             "categories": ["food_preferences"]
@@ -1468,44 +1576,24 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
      }'
 ```
 
-```json Output (Default)
+```json Output
 [
-   {
-      "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
-      "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
-      "user_id":"alex",
-      "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
-      "metadata":{"food":"vegan"},
-      "immutable": false,
-      "created_at":"2024-07-25T23:57:00.108347-07:00",
-      "updated_at":"2024-07-25T23:57:00.108367-07:00",
-      "categories": ["food_preferences"]
-   }
+    {
+        "id": "654fee-b411-4afe-b7e5-35789b72c4a5",
+        "memory": "Name: Alex. Vegetarian. Allergic to nuts.",
+        "user_id": "alex",
+        "metadata": {"food": "vegan"},
+        "categories": ["food_preferences"],
+        "immutable": false,
+        "expiration_date": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
 ]
 ```
 
-```json Output (Paginated)
-{
-    "count": 1,
-    "next": null,
-    "previous": null,
-    "results": [
-        {
-            "id":"f38b689d-6b24-45b7-bced-17fbb4d8bac7",
-            "memory":"Name: Alex. Vegetarian. Allergic to nuts.",
-            "user_id":"alex",
-            "hash":"62bc074f56d1f909f1b4c2b639f56f6a",
-            "metadata":{"food":"vegan"},
-            "immutable": false,
-            "created_at":"2024-07-25T23:57:00.108347-07:00",
-            "updated_at":"2024-07-25T23:57:00.108367-07:00",
-            "categories": ["food_preferences"]
-        }
-    ]
-}
-```
-
 </CodeGroup>
+
 
 ### 4.5 Memory History
 
@@ -1819,8 +1907,7 @@ response = client.batch_update(update_memories)
 print(response)
 ```
 ```javascript JavaScript
-const updateMemories = [
-    {"memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496",
+const updateMemories = [{"memory_id": "285ed74b-6e05-4043-b16b-3abd5b533496",
         text: "Watches football"
     },
     {"memory_id": "2c9bd859-d1b7-4d33-a6b8-94e0147c4f07",
