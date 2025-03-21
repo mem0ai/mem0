@@ -5,10 +5,10 @@ from typing import Dict, Optional
 
 import couchbase.search as search
 from couchbase.auth import PasswordAuthenticator
-from couchbase.cluster import Cluster, ClusterOptions
+from couchbase.cluster import Cluster
 from couchbase.exceptions import DocumentNotFoundException
 from couchbase.management.search import SearchIndex
-from couchbase.options import SearchOptions
+from couchbase.options import ClusterOptions, SearchOptions
 from couchbase.vector_search import VectorQuery, VectorSearch
 from pydantic import BaseModel
 
@@ -45,7 +45,7 @@ class Couchbase(VectorStoreBase):
             password (str): Password for Couchbase authentication.  
             collection_name (str, optional): Name of the collection. Defaults to "_default".  
         """  
-        self.cluster = Cluster(connection_str, ClusterOptions(PasswordAuthenticator(username, password)))  
+        self.cluster = Cluster.connect(connection_str, ClusterOptions(PasswordAuthenticator(username, password)))  
         self.bucket = self.cluster.bucket(bucket_name)
         self.scope = self.bucket.scope(scope_name)
         self.collection = self.scope.collection(collection_name)  
