@@ -783,6 +783,13 @@
 												"title": "Immutable",
 												"default": false
 											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. The default expiration date is 30 days from the date of creation. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true
+											},
 											"organization": {
 												"type": "string"
 											},
@@ -1183,6 +1190,13 @@
 												"title": "Immutable",
 												"default": false
 											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. The default expiration date is 30 days from the date of creation. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true
+											},
 											"organization": {
 												"type": "string"
 											},
@@ -1324,6 +1338,13 @@
 												"title": "Immutable",
 												"default": false
 											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. The default expiration date is 30 days from the date of creation. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true
+											},
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
@@ -1450,6 +1471,13 @@
 												"description": "Whether the memory is immutable.",
 												"title": "Immutable",
 												"default": false
+											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. The default expiration date is 30 days from the date of creation. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true
 											},
 											"created_at": {
 												"type": "string",
@@ -4797,6 +4825,12 @@
 						"title": "Immutable",
 						"type": "boolean",
 						"default": false
+					},
+					"expiration_date": {
+						"description": "The date and time when the memory will expire. The default expiration date is 30 days from the date of creation. Format: YYYY-MM-DD",
+						"title": "Expiration date",
+						"type": "string",
+						"nullable": true
 					},
 					"org_id": {
 						"description": "The unique identifier of the organization associated with this memory.",
