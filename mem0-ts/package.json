@@ -56,7 +56,13 @@
     "sourcemap": true,
     "clean": true,
     "treeshake": true,
-    "minify": false
+    "minify": false,
+    "external": [
+      "@mem0/community"
+    ],
+    "noExternal": [
+      "!src/community/**"
+    ]
   },
   "keywords": [
     "mem0",
