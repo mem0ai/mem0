@@ -80,7 +80,6 @@ class AzureOpenAILLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        # mem0/llms/azure_openai.py
 
         def _get_params(self, messages):
             common_params = {
