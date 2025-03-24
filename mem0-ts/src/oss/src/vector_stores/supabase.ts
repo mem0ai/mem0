@@ -97,6 +97,11 @@ export class SupabaseDB implements VectorStore {
     try {
       // Verify table exists and vector operations work by attempting a test insert
       const testVector = Array(1536).fill(0);
+      try {
+        await this.client.from(this.tableName).delete().eq("id", "test_vector");
+      } catch (error) {
+        console.warn("No test vector to delete, safe to ignore.");
+      }
       const { error: testError } = await this.client
         .from(this.tableName)
         .insert({

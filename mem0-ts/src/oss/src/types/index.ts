@@ -62,6 +62,7 @@ export interface MemoryConfig {
   customPrompt?: string;
   graphStore?: GraphStoreConfig;
   enableGraph?: boolean;
+  storeHistory?: boolean;
 }
 
 export interface MemoryItem {

@@ -20,6 +20,7 @@ import {
   removeCodeBlocks,
 } from "../prompts";
 import { SQLiteManager } from "../storage";
+import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
@@ -39,7 +40,7 @@ export class Memory {
   private embedder: Embedder;
   private vectorStore: VectorStore;
   private llm: LLM;
-  private db: SQLiteManager;
+  private db: SQLiteManager | DummyHistoryManager;
   private collectionName: string;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
@@ -62,7 +63,11 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
-    this.db = new SQLiteManager(this.config.historyDbPath || ":memory:");
+    if (this.config.storeHistory === false) {
+      this.db = new SQLiteManager(this.config.historyDbPath || ":memory:");
+    } else {
+      this.db = new DummyHistoryManager();
+    }
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
     this.enableGraph = this.config.enableGraph || false;
