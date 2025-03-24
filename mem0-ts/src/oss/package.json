@@ -7,8 +7,8 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "start": "ts-node examples/basic.ts",
-    "example": "ts-node examples/basic.ts",
+    "start": "pnpm run example memory",
+    "example": "ts-node examples/vector-stores/index.ts",
     "clean": "rimraf dist",
     "prepare": "npm run build"
   },

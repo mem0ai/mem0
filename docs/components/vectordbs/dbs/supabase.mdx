@@ -4,7 +4,8 @@ Create a [Supabase](https://supabase.com/dashboard/projects) account and project
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -32,10 +33,90 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript Typescript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+    vectorStore: {
+      provider: "supabase",
+      config: {
+        collectionName: "memories",
+        embeddingModelDims: 1536,
+        supabaseUrl: process.env.SUPABASE_URL || "",
+        supabaseKey: process.env.SUPABASE_KEY || "",
+        tableName: "memories",
+      },
+    },
+}
+
+const memory = new Memory(config);
+
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+### SQL Migrations for TypeScript Implementation
+
+The following SQL migrations are required to enable the vector extension and create the memories table:
+
+```sql
+-- Enable the vector extension
+create extension if not exists vector;
+
+-- Create the memories table
+create table if not exists memories (
+  id text primary key,
+  embedding vector(1536),
+  metadata jsonb,
+  created_at timestamp with time zone default timezone('utc', now()),
+  updated_at timestamp with time zone default timezone('utc', now())
+);
+
+-- Create the vector similarity search function
+create or replace function match_vectors(
+  query_embedding vector(1536),
+  match_count int,
+  filter jsonb default '{}'::jsonb
+)
+returns table (
+  id text,
+  similarity float,
+  metadata jsonb
+)
+language plpgsql
+as $$
+begin
+  return query
+    select
+      id,
+      similarity,
+      metadata
+    from memories
+    where case
+      when filter::text = '{}'::text then true
+      else metadata @> filter
+    end
+    order by embedding <=> query_embedding
+    limit match_count;
+end;
+$$;
+```
+
+Goto [Supabase](https://supabase.com/dashboard/projects) and run the above SQL migrations inside the SQL Editor.
+
 ### Config
 
 Here are the parameters available for configuring Supabase:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `connection_string` | PostgreSQL connection string (required) | None |
@@ -43,6 +124,17 @@ Here are the parameters available for configuring Supabase:
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `index_method` | Vector index method to use | `auto` |
 | `index_measure` | Distance measure for similarity search | `cosine_distance` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | Name for the vector collection | `mem0` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `supabaseUrl` | Supabase URL | None |
+| `supabaseKey` | Supabase key | None |
+| `tableName` | Name for the vector table | `memories` |
+</Tab>
+</Tabs>
 
 ### Index Methods
 

@@ -57,7 +57,7 @@ export class OllamaLLM implements LLM {
           arguments: JSON.stringify(call.function.arguments),
         })),
       };
-      }
+    }
 
     return response.content || "";
   }
