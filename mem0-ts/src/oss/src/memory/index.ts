@@ -12,6 +12,7 @@ import {
   EmbedderFactory,
   LLMFactory,
   VectorStoreFactory,
+  HistoryManagerFactory,
 } from "../utils/factory";
 import {
   getFactRetrievalMessages,
@@ -19,7 +20,7 @@ import {
   parseMessages,
   removeCodeBlocks,
 } from "../prompts";
-import { SQLiteManager } from "../storage";
+import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
@@ -32,14 +33,14 @@ import {
   GetAllMemoryOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
-
+import { HistoryManager } from "../storage/base";
 export class Memory {
   private config: MemoryConfig;
   private customPrompt: string | undefined;
   private embedder: Embedder;
   private vectorStore: VectorStore;
   private llm: LLM;
-  private db: SQLiteManager;
+  private db: HistoryManager;
   private collectionName: string;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
@@ -62,7 +63,25 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
-    this.db = new SQLiteManager(this.config.historyDbPath || ":memory:");
+    if (this.config.disableHistory) {
+      this.db = new DummyHistoryManager();
+    } else {
+      const defaultConfig = {
+        provider: "sqlite",
+        config: {
+          historyDbPath: this.config.historyDbPath || ":memory:",
+        },
+      };
+
+      this.db =
+        this.config.historyStore && !this.config.disableHistory
+          ? HistoryManagerFactory.create(
+              this.config.historyStore.provider,
+              this.config.historyStore,
+            )
+          : HistoryManagerFactory.create("sqlite", defaultConfig);
+    }
+
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
     this.enableGraph = this.config.enableGraph || false;
