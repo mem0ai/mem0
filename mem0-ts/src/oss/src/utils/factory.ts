@@ -12,6 +12,8 @@ import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
 import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
+import { SupabaseDB } from "../vector_stores/supabase";
+
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
     switch (provider.toLowerCase()) {
@@ -53,6 +55,8 @@ export class VectorStoreFactory {
         return new Qdrant(config as any); // Type assertion needed as config is extended
       case "redis":
         return new RedisDB(config as any); // Type assertion needed as config is extended
+      case "supabase":
+        return new SupabaseDB(config as any); // Type assertion needed as config is extended
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
