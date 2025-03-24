@@ -69,7 +69,7 @@ export interface MemoryConfig {
     config: LLMConfig;
   };
   historyStore?: HistoryStoreConfig;
-  storeHistory?: boolean;
+  disableHistory?: boolean;
   historyDbPath?: string;
   customPrompt?: string;
   graphStore?: GraphStoreConfig;
@@ -155,5 +155,5 @@ export const MemoryConfigSchema = z.object({
       config: z.record(z.string(), z.any()),
     })
     .optional(),
-  storeHistory: z.boolean().optional(),
+  disableHistory: z.boolean().optional(),
 });

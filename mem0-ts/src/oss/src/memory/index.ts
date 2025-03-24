@@ -63,27 +63,24 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
-    if (this.config.storeHistory === true && !this.config.historyStore) {
-      console.log("Creating SQLite history manager");
-      this.db = HistoryManagerFactory.create("sqlite", {
+    if (this.config.disableHistory) {
+      this.db = new DummyHistoryManager();
+    } else {
+      const defaultConfig = {
         provider: "sqlite",
         config: {
           historyDbPath: this.config.historyDbPath || ":memory:",
         },
-      });
-    } else if (this.config.historyStore && this.config.storeHistory === true) {
-      console.log("Creating history manager", this.config.historyStore);
-      this.db = HistoryManagerFactory.create(
-        this.config.historyStore.provider,
-        this.config.historyStore,
-      );
-    } else {
-      console.log("Creating dummy history manager");
-      this.db = new DummyHistoryManager();
+      };
+
+      this.db =
+        this.config.historyStore && !this.config.disableHistory
+          ? HistoryManagerFactory.create(
+              this.config.historyStore.provider,
+              this.config.historyStore,
+            )
+          : HistoryManagerFactory.create("sqlite", defaultConfig);
     }
-    console.log("History Store", this.config.historyStore);
-    console.log("Store History", this.config.storeHistory);
-    console.log("History DB Path", this.config.historyDbPath);
 
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";

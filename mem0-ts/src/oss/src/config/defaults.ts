@@ -1,7 +1,7 @@
 import { MemoryConfig } from "../types";
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
-  storeHistory: true,
+  disableHistory: false,
   version: "v1.1",
   embedder: {
     provider: "openai",
