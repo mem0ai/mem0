@@ -86,7 +86,6 @@ class AzureOpenAILLM(LLMBase):
             common_params = {
                 "model": self.config.model,
                 "messages": messages,
-                "temperature": self.config.temperature,
             }
 
             if self.config.model in {"o3-mini", "o1-preview", "o1"}:
@@ -94,6 +93,7 @@ class AzureOpenAILLM(LLMBase):
 
             return {
                 **common_params,
+                "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
                 "top_p": self.config.top_p,
             }
