@@ -13,7 +13,7 @@ class EmbedderConfig(BaseModel):
     @field_validator("config")
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
-        if provider in ["openai", "ollama", "huggingface", "azure_openai", "gemini", "vertexai", "together"]:
+        if provider in ["openai", "ollama", "huggingface", "azure_openai", "gemini", "vertexai", "together", "lmstudio"]:
             return v
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")

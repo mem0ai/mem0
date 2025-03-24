@@ -24,6 +24,7 @@ class LlmConfig(BaseModel):
             "gemini",
             "deepseek",
             "xai",
+            "lmstudio",
         ):
             return v
         else:
