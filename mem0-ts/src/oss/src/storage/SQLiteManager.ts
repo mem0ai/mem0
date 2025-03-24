@@ -1,7 +1,7 @@
 import sqlite3 from "sqlite3";
-import { promisify } from "util";
+import { HistoryManager } from "./base";
 
-export class SQLiteManager {
+export class SQLiteManager implements HistoryManager {
   private db: sqlite3.Database;
 
   constructor(dbPath: string) {

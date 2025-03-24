@@ -97,6 +97,11 @@ export class SupabaseDB implements VectorStore {
     try {
       // Verify table exists and vector operations work by attempting a test insert
       const testVector = Array(1536).fill(0);
+      try {
+        await this.client.from(this.tableName).delete().eq("id", "test_vector");
+      } catch (error) {
+        console.warn("No test vector to delete, safe to ignore.");
+      }
       const { error: testError } = await this.client
         .from(this.tableName)
         .insert({
@@ -113,6 +118,50 @@ export class SupabaseDB implements VectorStore {
 1. The vector extension is enabled
 2. The table "${this.tableName}" exists with correct schema
 3. The match_vectors function is created
+
+RUN THE FOLLOWING SQL IN YOUR SUPABASE SQL EDITOR:
+
+-- Enable the vector extension
+create extension if not exists vector;
+
+-- Create the memories table
+create table if not exists memories (
+  id text primary key,
+  embedding vector(1536),
+  metadata jsonb,
+  created_at timestamp with time zone default timezone('utc', now()),
+  updated_at timestamp with time zone default timezone('utc', now())
+);
+
+-- Create the vector similarity search function
+create or replace function match_vectors(
+  query_embedding vector(1536),
+  match_count int,
+  filter jsonb default '{}'::jsonb
+)
+returns table (
+  id text,
+  similarity float,
+  metadata jsonb
+)
+language plpgsql
+as $$
+begin
+  return query
+    select
+      id,
+      similarity,
+      metadata
+    from memories
+    where case
+      when filter::text = '{}'::text then true
+      else metadata @> filter
+    end
+    order by embedding <=> query_embedding
+    limit match_count;
+end;
+$$;
+
 See the SQL migration instructions in the code comments.`,
         );
       }

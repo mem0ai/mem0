@@ -51,6 +51,12 @@ export class ConfigManager {
         ...DEFAULT_MEMORY_CONFIG.graphStore,
         ...userConfig.graphStore,
       },
+      historyStore: {
+        ...DEFAULT_MEMORY_CONFIG.historyStore,
+        ...userConfig.historyStore,
+      },
+      disableHistory:
+        userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
       enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
     };
 

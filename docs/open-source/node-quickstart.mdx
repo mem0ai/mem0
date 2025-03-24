@@ -301,6 +301,56 @@ await memory.deleteAll({ userId: "alice" });
 await memory.reset(); // Reset all memories
 ```
 
+### History Store
+
+Mem0 TypeScript SDK support history stores to run on a serverless environment:
+
+We recommend using `Supabase` as a history store for serverless environments or disable history store to run on a serverless environment.
+
+<CodeGroup>
+```typescript Supabase
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+  historyStore: {
+    provider: 'supabase',
+    config: {
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseKey: process.env.SUPABASE_KEY || '',
+      tableName: 'memory_history',
+    },
+  },
+});
+```
+
+```typescript Disable History
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+  disableHistory: true,
+});
+```
+</CodeGroup>
+
+Mem0 uses SQLite as a default history store.
+
+#### Create Memory History Table in Supabase
+
+You may need to create a memory history table in Supabase to store the history of memories. Use the following SQL command in `SQL Editor` on the Supabase project dashboard to create a memory history table:
+
+```sql
+create table memory_history (
+  id text primary key,
+  memory_id text not null,
+  previous_value text,
+  new_value text,
+  action text not null,
+  created_at timestamp with time zone default timezone('utc', now()),
+  updated_at timestamp with time zone,
+  is_deleted integer default 0
+);
+```
+
 ## Configuration Parameters
 
 Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
@@ -352,6 +402,14 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | `customPrompt`   | Custom prompt for memory processing  | None                       |
 </Accordion>
 
+<Accordion title="History Table Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `provider`       | History store provider               | "sqlite"                   |
+| `config`         | History store configuration         | None (Defaults to SQLite)                      |
+| `disableHistory` | Disable history store               | false                      |
+</Accordion>
+
 <Accordion title="Complete Configuration Example">
 ```typescript
 const config = {
@@ -377,7 +435,15 @@ const config = {
           model: 'gpt-4-turbo-preview',
         },
       },
-      historyDbPath: 'memory.db',
+      historyStore: {
+        provider: 'supabase',
+        config: {
+          supabaseUrl: process.env.SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_KEY || '',
+          tableName: 'memories',
+        },
+      },
+      disableHistory: false, // This is false by default
       customPrompt: "I'm a virtual assistant. I'm here to help you with your queries.",
     }
 ```
