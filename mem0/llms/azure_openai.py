@@ -81,22 +81,20 @@ class AzureOpenAILLM(LLMBase):
             str: The generated response.
         """
 
-        def _get_params(self, messages):
-            common_params = {
-                "model": self.config.model,
-                "messages": messages,
-            }
+        common_params = {
+            "model": self.config.model,
+            "messages": messages,
+        }
 
-            if self.config.model in {"o3-mini", "o1-preview", "o1"}:
-                return common_params
-
-            return {
+        if self.config.model in {"o3-mini", "o1-preview", "o1"}:
+            params = common_params
+        else:
+            params = {
                 **common_params,
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
                 "top_p": self.config.top_p,
             }
-        params = _get_params(self, messages)
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
