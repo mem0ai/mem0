@@ -24,6 +24,16 @@ export interface VectorStoreConfig {
   [key: string]: any;
 }
 
+export interface HistoryStoreConfig {
+  provider: string;
+  config: {
+    historyDbPath?: string;
+    supabaseUrl?: string;
+    supabaseKey?: string;
+    tableName?: string;
+  };
+}
+
 export interface LLMConfig {
   provider?: string;
   config?: Record<string, any>;
@@ -58,11 +68,12 @@ export interface MemoryConfig {
     provider: string;
     config: LLMConfig;
   };
+  historyStore?: HistoryStoreConfig;
+  storeHistory?: boolean;
   historyDbPath?: string;
   customPrompt?: string;
   graphStore?: GraphStoreConfig;
   enableGraph?: boolean;
-  storeHistory?: boolean;
 }
 
 export interface MemoryItem {
@@ -138,4 +149,11 @@ export const MemoryConfigSchema = z.object({
       customPrompt: z.string().optional(),
     })
     .optional(),
+  historyStore: z
+    .object({
+      provider: z.string(),
+      config: z.record(z.string(), z.any()),
+    })
+    .optional(),
+  storeHistory: z.boolean().optional(),
 });

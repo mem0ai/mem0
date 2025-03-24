@@ -12,6 +12,7 @@ import {
   EmbedderFactory,
   LLMFactory,
   VectorStoreFactory,
+  HistoryManagerFactory,
 } from "../utils/factory";
 import {
   getFactRetrievalMessages,
@@ -19,7 +20,6 @@ import {
   parseMessages,
   removeCodeBlocks,
 } from "../prompts";
-import { SQLiteManager } from "../storage";
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
@@ -33,14 +33,14 @@ import {
   GetAllMemoryOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
-
+import { HistoryManager } from "../storage/base";
 export class Memory {
   private config: MemoryConfig;
   private customPrompt: string | undefined;
   private embedder: Embedder;
   private vectorStore: VectorStore;
   private llm: LLM;
-  private db: SQLiteManager | DummyHistoryManager;
+  private db: HistoryManager;
   private collectionName: string;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
@@ -63,11 +63,28 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
-    if (this.config.storeHistory === false) {
-      this.db = new SQLiteManager(this.config.historyDbPath || ":memory:");
+    if (this.config.storeHistory === true && !this.config.historyStore) {
+      console.log("Creating SQLite history manager");
+      this.db = HistoryManagerFactory.create("sqlite", {
+        provider: "sqlite",
+        config: {
+          historyDbPath: this.config.historyDbPath || ":memory:",
+        },
+      });
+    } else if (this.config.historyStore && this.config.storeHistory === true) {
+      console.log("Creating history manager", this.config.historyStore);
+      this.db = HistoryManagerFactory.create(
+        this.config.historyStore.provider,
+        this.config.historyStore,
+      );
     } else {
+      console.log("Creating dummy history manager");
       this.db = new DummyHistoryManager();
     }
+    console.log("History Store", this.config.historyStore);
+    console.log("Store History", this.config.storeHistory);
+    console.log("History DB Path", this.config.historyDbPath);
+
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
     this.enableGraph = this.config.enableGraph || false;
