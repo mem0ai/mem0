@@ -67,7 +67,7 @@ def test_insert_vectors(pinecone_db):
 
 def test_search_vectors(pinecone_db):
     pinecone_db.index.query.return_value.matches = [{"id": "id1", "score": 0.9, "metadata": {"name": "vector1"}}]
-    results = pinecone_db.search([0.1] * 128, limit=1)
+    results = pinecone_db.search("test query",[0.1] * 128, limit=1)
     assert len(results) == 1
     assert results[0].id == "id1"
     assert results[0].score == 0.9
