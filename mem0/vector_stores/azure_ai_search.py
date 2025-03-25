@@ -87,7 +87,9 @@ class AzureAISearch(VectorStoreBase):
         self.search_client._client._config.user_agent_policy.add_user_agent("mem0")
         self.index_client._client._config.user_agent_policy.add_user_agent("mem0")
 
-        self.create_col()  # create the collection / index
+        collections = self.list_cols()
+        if collection_name not in collections:
+            self.create_col()
 
     def create_col(self):
         """Create a new index in Azure AI Search."""
