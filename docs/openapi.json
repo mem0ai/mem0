@@ -509,33 +509,33 @@
 				]
 			},
 			"post": {
-			"tags": [
+				"tags": [
 			"exports"
-			],
+				],
 			"summary": "Create an export job with schema",
 			"description": "Create a structured export of memories based on a provided schema.",
 			"operationId": "exports_create",
-			"requestBody": {
-			"content": {
-				"application/json": {
-				"schema": {
-					"type": "object",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
 					"required": ["schema"],
-					"properties": {
+								"properties": {
 					"schema": {
 						"type": "object",
 						"description": "Schema definition for the export"
 					},
 					"user_id": {
-						"type": "string",
+										"type": "string",
 						"description": "Filter exports by user ID"
-					},
+									},
 					"run_id": {
-						"type": "string",
+										"type": "string",
 						"description": "Filter exports by run ID"
-					},
+									},
 					"session_id": {
-						"type": "string",
+										"type": "string",
 						"description": "Filter exports by session ID"
 					},
 					"app_id": {
@@ -549,28 +549,28 @@
 					"project_id": {
 						"type": "string",
 						"description": "Filter exports by project ID"
-					}
-					}
-				}
-				}
-			},
-			"required": true
-			},
-			"responses": {
+									}
+								}
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
 			"201": {
 				"description": "Export created successfully",
-				"content": {
-				"application/json": {
-					"schema": {
-					"type": "object",
-					"properties": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
 						"message": {
 						"type": "string",
 						"example": "Memory export request received. The export will be ready in a few seconds."
 						},
-						"id": {
-						"type": "string",
-						"format": "uuid",
+										"id": {
+											"type": "string",
+											"format": "uuid",
 						"example": "550e8400-e29b-41d4-a716-446655440000"
 						}
 					},
@@ -587,15 +587,15 @@
 					"type": "object",
 					"properties": {
 						"message": {
-						"type": "string",
+											"type": "string",
 						"example": "Schema is required and must be a valid object"
 						}
-					}
-					}
-				}
-				}
-			}
-			},
+										}
+									}
+								}
+							}
+						}
+					},
 			"x-code-samples": [
 				{
 					"lang": "Python",
@@ -622,7 +622,7 @@
 					"source": "import com.mashape.unirest.http.HttpResponse;\nimport com.mashape.unirest.http.JsonNode;\nimport com.mashape.unirest.http.Unirest;\nimport org.json.JSONObject;\n\nJSONObject data = new JSONObject()\n    .put(\"schema\", new JSONObject()) // Your schema here\n    .put(\"user_id\", \"your_user_id\");\n\nHttpResponse<JsonNode> response = Unirest.post(\"https://api.mem0.ai/v1/exports/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(data.toString())\n  .asJson();"
 				}
 			]
-		}
+			}
 		},
 		"/v1/memories/": {
 			"get": {
@@ -2102,6 +2102,95 @@
 				"x-codegen-request-body-name": "data"
 			}
 		},
+		"/v1/feedback/": {
+			"post": {
+				"tags": [
+					"feedback"
+				],
+				"description": "Submit feedback for a memory.",
+				"operationId": "submit_feedback",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"required": [
+									"memory_id"
+								],
+								"type": "object",
+								"properties": {
+									"memory_id": {
+										"type": "string",
+										"description": "ID of the memory to provide feedback for"
+									},
+									"feedback": {
+										"type": "string",
+										"enum": ["POSITIVE", "NEGATIVE", "VERY_NEGATIVE"],
+										"nullable": true,
+										"description": "Type of feedback"
+									},
+									"feedback_reason": {
+										"type": "string",
+										"nullable": true,
+										"description": "Reason for the feedback"
+									}
+								}
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "Successful operation",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "Feedback ID"
+										},
+										"feedback": {
+											"type": "string",
+											"enum": ["POSITIVE", "NEGATIVE", "VERY_NEGATIVE"],
+											"nullable": true,
+											"description": "Type of feedback"
+										},
+										"feedback_reason": {
+											"type": "string",
+											"nullable": true,
+											"description": "Reason for the feedback"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request"
+					},
+					"401": {
+						"description": "Unauthorized"
+					}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Submit feedback for a memory\nfeedback = client.feedback(memory_id=\"memory_id\", feedback=\"POSITIVE\")\nprint(feedback)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "// To use the JavaScript SDK, install the package:\n// npm install mem0ai\n\nimport MemoryClient from 'mem0ai';\n\nconst client = new MemoryClient({ apiKey: 'your-api-key'});\n\nclient.feedback({\n    memory_id: \"your-memory-id\", \n    feedback: \"NEGATIVE\", \n    feedback_reason: \"I don't like this memory because it is not relevant.\"\n})"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/feedback/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\"memory_id\": \"memory_id\", \"feedback\": \"POSITIVE\"}'"
+				}
+				]
+			}
+		},
 		"/api/v1/orgs/organizations/": {
 			"get": {
 				"tags": [
@@ -3140,7 +3229,7 @@
 									"type": "object",
 									"properties": {
 										"message": {
-											"type": "string",
+												"type": "string",
 											"example": "Unauthorized to create projects in this organization."
 										}
 									}
@@ -3506,7 +3595,7 @@
 						"description": "Unauthorized to modify this project",
 						"content": {
 							"application/json": {
-								"schema": {
+						"schema": {
 									"type": "object",
 									"properties": {
 										"message": {

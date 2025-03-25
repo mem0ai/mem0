@@ -246,7 +246,8 @@
                       "api-reference/memory/batch-delete",
                       "api-reference/memory/delete-memories",
                       "api-reference/memory/create-memory-export",
-                      "api-reference/memory/get-memory-export"
+                      "api-reference/memory/get-memory-export",
+                      "api-reference/memory/feedback"
                     ]
                   },
                   {
