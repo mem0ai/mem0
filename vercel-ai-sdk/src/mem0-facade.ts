@@ -1,13 +1,12 @@
 import { withoutTrailingSlash } from '@ai-sdk/provider-utils'
 
-import { Mem0ChatLanguageModel } from './mem0-chat-language-model'
-import { Mem0ChatModelId, Mem0ChatSettings } from './mem0-chat-settings'
+import { Mem0GenericLanguageModel } from './mem0-generic-language-model'
+import { Mem0ChatModelId, Mem0ChatSettings } from './mem0-types'
 import { Mem0ProviderSettings } from './mem0-provider'
 
 export class Mem0 {
   readonly baseURL: string
-
-  readonly headers?: Record<string, string>
+  readonly headers?: any
 
   constructor(options: Mem0ProviderSettings = {
     provider: 'openai',
@@ -21,15 +20,22 @@ export class Mem0 {
   private get baseConfig() {
     return {
       baseURL: this.baseURL,
-      headers: () => ({
-        ...this.headers,
-      }),
+      headers: this.headers,
     }
   }
 
   chat(modelId: Mem0ChatModelId, settings: Mem0ChatSettings = {}) {
-    return new Mem0ChatLanguageModel(modelId, settings, {
+    return new Mem0GenericLanguageModel(modelId, settings, {
       provider: 'openai',
+      modelType: 'chat',
+      ...this.baseConfig,
+    })
+  }
+
+  completion(modelId: Mem0ChatModelId, settings: Mem0ChatSettings = {}) {
+    return new Mem0GenericLanguageModel(modelId, settings, {
+      provider: 'openai',
+      modelType: 'completion',
       ...this.baseConfig,
     })
   }
