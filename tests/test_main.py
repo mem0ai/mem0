@@ -140,7 +140,7 @@ def test_search(memory_instance, version, enable_graph):
         assert result["results"][0]["score"] == 0.9
 
     memory_instance.vector_store.search.assert_called_once_with(
-        query=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
     )
     memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
 
