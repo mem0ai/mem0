@@ -8,6 +8,11 @@ exclude = [
     "configs",
     "notebooks",
     "embedchain",
+    "evaluation",
+    "mem0-ts",
+    "examples",
+    "vercel-ai-sdk",
+    "docs",
 ]
 packages = [
     { include = "mem0" },
