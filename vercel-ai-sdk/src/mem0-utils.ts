@@ -1,16 +1,6 @@
 import { LanguageModelV1Prompt } from 'ai';
-import { Mem0Config } from './mem0-chat-settings';
-if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
-    // Dynamically import dotenv only in non-production environments
-    import('dotenv').then((dotenv) => dotenv.config());
-}
-
-const tokenIsPresent = (config?: Mem0Config)=>{
-    if(!config && !config!.mem0ApiKey && (typeof process !== 'undefined' && process.env && !process.env.MEM0_API_KEY)){
-        throw Error("MEM0_API_KEY is not present. Please set env MEM0_API_KEY as the value of your API KEY.");
-    }
-}
-
+import { Mem0ConfigSettings } from './mem0-types';
+import { loadApiKey } from '@ai-sdk/provider-utils';
 interface Message {
     role: string;
     content: string | Array<{type: string, text: string}>;
@@ -50,36 +40,7 @@ const convertToMem0Format = (messages: LanguageModelV1Prompt) => {
     }
 })};
 
-function convertMessagesToMem0Format(messages: LanguageModelV1Prompt) {
-  return messages.map((message) => {
-    // If the content is a string, return it as is
-    if (typeof message.content === "string") {
-      return message;
-    }
-
-    // Flatten the content array into a single string
-    if (Array.isArray(message.content)) {
-      message.content = message.content
-        .map((contentItem) => {
-          if ("text" in contentItem) {
-            return contentItem.text;
-          }
-          return "";
-        })
-        .join(" ");
-    }
-
-    const contentText = message.content;
-
-    return {
-      role: message.role,
-      content: contentText,
-    };
-  });
-}
-
-const searchInternalMemories = async (query: string, config?: Mem0Config, top_k: number = 5)=> {
-    tokenIsPresent(config);
+const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 5)=> {
     const filters = {
       OR: [
         {
@@ -104,16 +65,20 @@ const searchInternalMemories = async (query: string, config?: Mem0Config, top_k:
     }
     const options = {
         method: 'POST',
-        headers: {Authorization: `Token ${(config&&config.mem0ApiKey) || (typeof process !== 'undefined' && process.env && process.env.MEM0_API_KEY) || ""}`, 'Content-Type': 'application/json'}, 
-        body: JSON.stringify({query, filters, top_k, version: "v2", ...org_project_filters}),
+        // headers: {Authorization: `Token ${(config&&config.mem0ApiKey) || (typeof process !== 'undefined' && process.env && process.env.MEM0_API_KEY) || ""}`, 'Content-Type': 'application/json'}, 
+        headers: {Authorization: `Token ${loadApiKey({
+            apiKey: (config&&config.mem0ApiKey),
+            environmentVariableName: "MEM0_API_KEY",
+            description: "Mem0",
+        })}`, 'Content-Type': 'application/json'}, 
+        body: JSON.stringify({query, filters, top_k: config&&config.top_k || top_k, version: "v2", ...org_project_filters}),
     };
     const response  = await fetch('https://api.mem0.ai/v2/memories/search/', options);
     const data =  await response.json();
     return data;
 }
 
-const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0Config)=>{
-    tokenIsPresent(config);
+const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0ConfigSettings)=>{
     let finalMessages: Array<Message> = [];
     if (typeof messages === "string") {
         finalMessages = [{ role: "user", content: messages }];
@@ -124,11 +89,14 @@ const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0Config)
     return response;
 }
 
-const updateMemories = async (messages: Array<Message>, config?: Mem0Config)=>{
-    tokenIsPresent(config);
+const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSettings)=>{
     const options = {
         method: 'POST',
-        headers: {Authorization: `Token ${(config&&config.mem0ApiKey) || (typeof process !== 'undefined' && process.env && process.env.MEM0_API_KEY) || ""}`, 'Content-Type': 'application/json'},
+        headers: {Authorization: `Token ${loadApiKey({
+            apiKey: (config&&config.mem0ApiKey),
+            environmentVariableName: "MEM0_API_KEY",
+            description: "Mem0",
+        })}`, 'Content-Type': 'application/json'},
         body: JSON.stringify({messages, ...config}),
     };
 
@@ -137,8 +105,7 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0Config)=>{
     return data;
 }
 
-const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0Config)=>{
-    tokenIsPresent(config);
+const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings)=>{
     const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
     const systemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
     const memories = await searchInternalMemories(message, config);
@@ -158,8 +125,7 @@ const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?:
     return `System Message: ${systemPrompt} ${memoriesText}`;
 }
 
-const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0Config)=>{
-    tokenIsPresent(config);
+const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings)=>{
     const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
     let memories = [];
     try{
@@ -172,8 +138,7 @@ const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0
     return memories;
 }
 
-const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0Config)=>{
-    tokenIsPresent(config);
+const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings)=>{
     const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
     let memories = [];
     try{
@@ -186,4 +151,4 @@ const searchMemories = async (prompt: LanguageModelV1Prompt | string, config?: M
     return memories;
 }
 
-export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories, convertMessagesToMem0Format, getMemories};
+export {addMemories, updateMemories, retrieveMemories, flattenPrompt, searchMemories, getMemories};
