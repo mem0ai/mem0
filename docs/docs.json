@@ -194,7 +194,8 @@
                   "examples/personalized-deep-research",
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
-                  "examples/mem0-openai-voice-demo"
+                  "examples/mem0-openai-voice-demo",
+                  "examples/mem0-livekit-voice-agent"
                 ]
               }
             ]
