@@ -1,4 +1,5 @@
 import os
+import warnings
 from typing import Literal, Optional
 
 from openai import OpenAI
@@ -15,7 +16,19 @@ class OpenAIEmbedding(EmbeddingBase):
         self.config.embedding_dims = self.config.embedding_dims or 1536
 
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
-        base_url = self.config.openai_base_url or os.getenv("OPENAI_API_BASE")
+        base_url = (
+                self.config.openai_base_url
+                or os.getenv("OPENAI_API_BASE")
+                or os.getenv("OPENAI_BASE_URL")
+                or "https://api.openai.com/v1"
+        )
+        if os.environ.get("OPENAI_API_BASE"):
+            warnings.warn(
+                "The environment variable 'OPENAI_API_BASE' is deprecated and will be removed in the 0.1.80. "
+                "Please use 'OPENAI_BASE_URL' instead.",
+                DeprecationWarning
+            )
+
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
