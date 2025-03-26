@@ -148,17 +148,17 @@ language plpgsql
 as $$
 begin
   return query
-    select
-      id,
-      similarity,
-      metadata
-    from memories
-    where case
-      when filter::text = '{}'::text then true
-      else metadata @> filter
-    end
-    order by embedding <=> query_embedding
-    limit match_count;
+  select
+    t.id::text,
+    1 - (t.embedding <=> query_embedding) as similarity,
+    t.metadata
+  from memories t
+  where case
+    when filter::text = '{}'::text then true
+    else t.metadata @> filter
+  end
+  order by t.embedding <=> query_embedding
+  limit match_count;
 end;
 $$;
 
