@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Dict, List, Optional
 
@@ -36,6 +35,8 @@ class AzureOpenAIStructuredLLM(LLMBase):
         self,
         messages: List[Dict[str, str]],
         response_format: Optional[str] = None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
     ) -> str:
         """
         Generate a response based on the given messages using Azure OpenAI.

@@ -10,7 +10,10 @@ class LMStudioLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-IQ2_M.gguf"
+        self.config.model = (
+            self.config.model
+            or "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-IQ2_M.gguf"
+        )
         self.config.api_key = self.config.api_key or "lm-studio"
 
         self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)
@@ -20,7 +23,7 @@ class LMStudioLLM(LLMBase):
         messages: List[Dict[str, str]],
         response_format: dict = {"type": "json_object"},
         tools: Optional[List[Dict]] = None,
-        tool_choice: str = "auto"
+        tool_choice: str = "auto",
     ):
         """
         Generate a response based on the given messages using LM Studio.
@@ -39,7 +42,7 @@ class LMStudioLLM(LLMBase):
             "messages": messages,
             "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p
+            "top_p": self.config.top_p,
         }
         if response_format:
             params["response_format"] = response_format
