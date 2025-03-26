@@ -216,7 +216,9 @@
                   "integrations/llama-index",
                   "integrations/langchain-tools",
                   "integrations/dify",
-                  "integrations/mcp-server"
+                  "integrations/mcp-server",
+                  "integrations/livekit",
+                  "integrations/elevenlabs"
                 ]
               }
             ]
@@ -269,6 +271,18 @@
                       "api-reference/organization/get-org-members",
                       "api-reference/organization/add-org-member",
                       "api-reference/organization/delete-org"
+                    ]
+                  },
+                  {
+                    "group": "Project APIs",
+                    "icon": "folder",
+                    "pages": [
+                      "api-reference/project/create-project",
+                      "api-reference/project/get-projects",
+                      "api-reference/project/get-project",
+                      "api-reference/project/get-project-members",
+                      "api-reference/project/add-project-member",
+                      "api-reference/project/delete-project"
                     ]
                   },
                   {
