@@ -18,13 +18,21 @@ class XAILLM(LLMBase):
         base_url = self.config.xai_base_url or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    def generate_response(self, messages: List[Dict[str, str]], response_format=None):
+    def generate_response(
+        self,
+        messages: List[Dict[str, str]],
+        response_format=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+    ):
         """
         Generate a response based on the given messages using XAI.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
             response_format (str or object, optional): Format of the response. Defaults to "text".
+            tools (list, optional): List of tools that the model can call. Defaults to None.
+            tool_choice (str, optional): Tool choice method. Defaults to "auto".
 
         Returns:
             str: The generated response.

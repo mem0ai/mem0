@@ -618,18 +618,16 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def feedback(self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None) -> Dict[str, str]:
+    def feedback(
+        self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None
+    ) -> Dict[str, str]:
         VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_NEGATIVE"}
 
         feedback = feedback.upper() if feedback else None
         if feedback is not None and feedback not in VALID_FEEDBACK_VALUES:
             raise ValueError(f'feedback must be one of {", ".join(VALID_FEEDBACK_VALUES)} or None')
 
-        data = {
-            "memory_id": memory_id,
-            "feedback": feedback,
-            "feedback_reason": feedback_reason
-        }
+        data = {"memory_id": memory_id, "feedback": feedback, "feedback_reason": feedback_reason}
 
         response = self.client.post("/v1/feedback/", json=data)
         response.raise_for_status()
@@ -1019,18 +1017,16 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def feedback(self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None) -> Dict[str, str]:
+    async def feedback(
+        self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None
+    ) -> Dict[str, str]:
         VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_NEGATIVE"}
 
         feedback = feedback.upper() if feedback else None
         if feedback is not None and feedback not in VALID_FEEDBACK_VALUES:
             raise ValueError(f'feedback must be one of {", ".join(VALID_FEEDBACK_VALUES)} or None')
 
-        data = {
-            "memory_id": memory_id,
-            "feedback": feedback,
-            "feedback_reason": feedback_reason
-        }
+        data = {"memory_id": memory_id, "feedback": feedback, "feedback_reason": feedback_reason}
 
         response = await self.async_client.post("/v1/feedback/", json=data)
         response.raise_for_status()
