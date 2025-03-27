@@ -112,7 +112,7 @@ export class Memory {
       runId,
       metadata = {},
       filters = {},
-      prompt,
+      infer = true,
     } = config;
 
     if (userId) filters.userId = metadata.userId = userId;
@@ -136,6 +136,7 @@ export class Memory {
       final_parsedMessages,
       metadata,
       filters,
+      infer,
     );
 
     // Add to graph store if available
@@ -161,7 +162,27 @@ export class Memory {
     messages: Message[],
     metadata: Record<string, any>,
     filters: SearchFilters,
+    infer: boolean,
   ): Promise<MemoryItem[]> {
+    if (!infer) {
+      const returnedMemories: MemoryItem[] = [];
+      for (const message of messages) {
+        if (message.content === "system") {
+          continue;
+        }
+        const memoryId = await this.createMemory(
+          message.content as string,
+          {},
+          metadata,
+        );
+        returnedMemories.push({
+          id: memoryId,
+          memory: message.content as string,
+          metadata: { event: "ADD" },
+        });
+      }
+      return returnedMemories;
+    }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
     // Get prompts
