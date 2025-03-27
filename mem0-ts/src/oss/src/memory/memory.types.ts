@@ -10,7 +10,7 @@ export interface Entity {
 export interface AddMemoryOptions extends Entity {
   metadata?: Record<string, any>;
   filters?: SearchFilters;
-  prompt?: string;
+  infer?: boolean;
 }
 
 export interface SearchMemoryOptions extends Entity {
