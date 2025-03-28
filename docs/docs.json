@@ -298,6 +298,19 @@
                 ]
               }
             ]
+          },
+          {
+            "tab": "Changelog",
+            "icon": "clock",
+            "groups": [
+              {
+                "group": "Product Updates",
+                "icon": "rocket",
+                "pages": [
+                  "changelog/overview"
+                ]
+              }
+            ]
           }
         ]
       },
