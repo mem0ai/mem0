@@ -195,7 +195,8 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
-                  "examples/mem0-livekit-voice-agent"
+                  "examples/mem0-livekit-voice-agent",
+                  "examples/email_processing"
                 ]
               }
             ]
