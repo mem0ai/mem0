@@ -55,8 +55,6 @@ class PGVector(VectorStoreBase):
         self.conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         self.cur = self.conn.cursor()
 
-        self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
-
         collections = self.list_cols()
         if collection_name not in collections:
             self.create_col(embedding_model_dims)
@@ -69,6 +67,7 @@ class PGVector(VectorStoreBase):
         Args:
             embedding_model_dims (int): Dimension of the embedding vector.
         """
+        self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self.cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {self.collection_name} (
