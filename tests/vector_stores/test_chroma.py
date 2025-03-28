@@ -35,12 +35,11 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
     }
     chromadb_instance.collection.query.return_value = mock_result
 
-    query = [[0.1, 0.2, 0.3]]
-    results = chromadb_instance.search(query=query, limit=2)
+    vectors = [[0.1, 0.2, 0.3]]
+    results = chromadb_instance.search(query="", vectors=vectors, limit=2)
 
-    chromadb_instance.collection.query.assert_called_once_with(query_embeddings=query, where=None, n_results=2)
+    chromadb_instance.collection.query.assert_called_once_with(query_embeddings=vectors, where=None, n_results=2)
 
-    print(results, type(results))
     assert len(results) == 2
     assert results[0].id == "id1"
     assert results[0].score == 0.1

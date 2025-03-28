@@ -17,8 +17,7 @@ class ElasticsearchConfig(BaseModel):
     use_ssl: bool = Field(True, description="Use SSL for connection")
     auto_create_index: bool = Field(True, description="Automatically create index during initialization")
     custom_search_query: Optional[Callable[[List[float], int, Optional[Dict]], Dict]] = Field(
-        None,
-        description="Custom search query function. Parameters: (query, limit, filters) -> Dict"
+        None, description="Custom search query function. Parameters: (query, limit, filters) -> Dict"
     )
 
     @model_validator(mode="before")

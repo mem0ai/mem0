@@ -29,7 +29,7 @@ iconType: "solid"
 Config values are applied in the following order of precedence (from highest to lowest):
 
 1. Values explicitly set in the `config` object/dictionary
-2. Environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_API_BASE`)
+2. Environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_BASE_URL`)
 3. Default values defined in the LLM implementation
 
 This means that values specified in the `config` will override corresponding environment variables, which in turn override default values.
@@ -108,6 +108,7 @@ Here's a comprehensive list of all parameters that can be used across different 
     | `azure_kwargs`       | Azure LLM args for initialization             | AzureOpenAI       |
     | `deepseek_base_url`  | Base URL for DeepSeek API                     | DeepSeek          |
     | `xai_base_url`       | Base URL for XAI API                          | XAI               |
+    | `lmstudio_base_url`  | Base URL for LM Studio API                    | LM Studio         |
   </Tab>
   <Tab title="TypeScript">
     | Parameter            | Description                                   | Provider          |

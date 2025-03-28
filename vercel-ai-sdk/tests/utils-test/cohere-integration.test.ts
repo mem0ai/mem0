@@ -1,24 +1,23 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { retrieveMemories } from "../src";
+import { retrieveMemories } from "../../src";
 import { generateText, LanguageModelV1Prompt } from "ai";
-import { testConfig } from "../config/test-config";
-import { createAnthropic } from "@ai-sdk/anthropic";
+import { testConfig } from "../../config/test-config";
+import { createCohere } from "@ai-sdk/cohere";
 
-describe("ANTHROPIC Functions", () => {
+describe("COHERE Integration Tests", () => {
   const { userId } = testConfig;
   jest.setTimeout(30000);
-
-  let anthropic: any;
+  let cohere: any;
 
   beforeEach(() => {
-    anthropic = createAnthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    cohere = createCohere({
+      apiKey: process.env.COHERE_API_KEY,
     });
   });
 
-  it("should retrieve memories and generate text using ANTHROPIC provider", async () => {
+  it("should retrieve memories and generate text using COHERE provider", async () => {
     const messages: LanguageModelV1Prompt = [
       {
         role: "user",
@@ -34,7 +33,7 @@ describe("ANTHROPIC Functions", () => {
     
     const { text } = await generateText({
       // @ts-ignore
-      model: anthropic("claude-3-haiku-20240307"),
+      model: cohere("command-r-plus"),
       messages: messages,
       system: memories,
     });
@@ -44,13 +43,13 @@ describe("ANTHROPIC Functions", () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  it("should generate text using ANTHROPIC provider with memories", async () => {
+  it("should generate text using COHERE provider with memories", async () => {
     const prompt = "Suggest me a good car to buy.";
     const memories = await retrieveMemories(prompt, { user_id: userId });
 
     const { text } = await generateText({
       // @ts-ignore
-      model: anthropic("claude-3-haiku-20240307"),
+      model: cohere("command-r-plus"),
       prompt: prompt,
       system: memories
     });

@@ -30,6 +30,8 @@ class BaseEmbedderConfig(ABC):
         memory_add_embedding_type: Optional[str] = None,
         memory_update_embedding_type: Optional[str] = None,
         memory_search_embedding_type: Optional[str] = None,
+        # LM Studio specific
+        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -58,6 +60,8 @@ class BaseEmbedderConfig(ABC):
         :type memory_update_embedding_type: Optional[str], optional
         :param memory_search_embedding_type: The type of embedding to use for the search memory action, defaults to None
         :type memory_search_embedding_type: Optional[str], optional
+        :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
+        :type lmstudio_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -82,3 +86,6 @@ class BaseEmbedderConfig(ABC):
         self.memory_add_embedding_type = memory_add_embedding_type
         self.memory_update_embedding_type = memory_update_embedding_type
         self.memory_search_embedding_type = memory_search_embedding_type
+
+        # LM Studio specific
+        self.lmstudio_base_url = lmstudio_base_url

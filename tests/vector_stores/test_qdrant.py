@@ -50,15 +50,15 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(points[0].payload, payloads[0])
 
     def test_search(self):
-        query_vector = [0.1, 0.2]
+        vectors = [[0.1, 0.2]]
         mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})
         self.client_mock.query_points.return_value = MagicMock(points=[mock_point])
 
-        results = self.qdrant.search(query=query_vector, limit=1)
+        results = self.qdrant.search(query="", vectors=vectors, limit=1)
 
         self.client_mock.query_points.assert_called_once_with(
             collection_name="test_collection",
-            query=query_vector,
+            query=vectors,
             query_filter=None,
             limit=1,
         )
