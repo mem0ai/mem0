@@ -136,7 +136,8 @@
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
                           "components/vectordbs/dbs/vertex_ai_vector_search",
-                          "components/vectordbs/dbs/weaviate"
+                          "components/vectordbs/dbs/weaviate",
+                          "components/vectordbs/dbs/faiss"
                         ]
                       }
                     ]
