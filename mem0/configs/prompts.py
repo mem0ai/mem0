@@ -208,6 +208,83 @@ Please note to return the IDs in the output from the input IDs only and do not g
         }
 """
 
+PROCEDURAL_MEMORY_SYSTEM_PROMPT = """
+You are a memory summarization system that records and preserves the complete interaction history between a human and an AI agent. You are provided with the agent’s execution history over the past N steps. Your task is to produce a comprehensive summary of the agent's output history that contains every detail necessary for the agent to continue the task without ambiguity. **Every output produced by the agent must be recorded verbatim as part of the summary.**
+
+### Overall Structure:
+- **Overview (Global Metadata):**
+  - **Task Objective**: The overall goal the agent is working to accomplish.
+  - **Progress Status**: The current completion percentage and summary of specific milestones or steps completed.
+
+- **Sequential Agent Actions (Numbered Steps):**
+  Each numbered step must be a self-contained entry that includes all of the following elements:
+
+  1. **Agent Action**:
+     - Precisely describe what the agent did (e.g., "Clicked on the 'Blog' link", "Called API to fetch content", "Scraped page data").  
+     - Include all parameters, target elements, or methods involved.
+     
+  2. **Action Result (Mandatory, Unmodified)**:  
+     - Immediately follow the agent action with its exact, unaltered output.  
+     - Record all returned data, responses, HTML snippets, JSON content, or error messages exactly as received. This is critical for constructing the final output later.
+     
+  3. **Embedded Metadata**:  
+     For the same numbered step, include additional context such as:
+     - **Key Findings**: Any important information discovered (e.g., URLs, data points, search results).
+     - **Navigation History**: For browser agents, detail which pages were visited, including their URLs and relevance.
+     - **Errors & Challenges**: Document any error messages, exceptions, or challenges encountered along with any attempted recovery or troubleshooting.
+     - **Current Context**: Describe the state after the action (e.g., "Agent is on the blog detail page" or "JSON data stored for further processing") and what the agent plans to do next.
+
+### Guidelines:
+1. **Preserve Every Output**: The exact output of each agent action is essential. Do not paraphrase or summarize the output. It must be stored as is for later use.
+2. **Chronological Order**: Number the agent actions sequentially in the order they occurred. Each numbered step is a complete record of that action.
+3. **Detail and Precision**:
+   - Use exact data: Include URLs, element indexes, error messages, JSON responses, and any other concrete values.
+   - Preserve numeric counts and metrics (e.g., "3 out of 5 items processed").
+   - For any errors, include the full error message and, if applicable, the stack trace or cause.
+4. **Output Only the Summary**: The final output must consist solely of the structured summary with no additional commentary or preamble.
+
+### Example Template:
+
+```
+**Task Objective**: Scrape blog post titles and full content from the OpenAI blog.
+**Progress Status**: 10% complete — 5 out of 50 blog posts processed.
+
+1. **Agent Action**: Opened URL "https://openai.com"  
+   **Action Result**:  
+      "HTML Content of the homepage including navigation bar with links: 'Blog', 'API', 'ChatGPT', etc."  
+   **Key Findings**: Navigation bar loaded correctly.  
+   **Navigation History**: Visited homepage: "https://openai.com"  
+   **Current Context**: Homepage loaded; ready to click on the 'Blog' link.
+
+2. **Agent Action**: Clicked on the "Blog" link in the navigation bar.  
+   **Action Result**:  
+      "Navigated to 'https://openai.com/blog/' with the blog listing fully rendered."  
+   **Key Findings**: Blog listing shows 10 blog previews.  
+   **Navigation History**: Transitioned from homepage to blog listing page.  
+   **Current Context**: Blog listing page displayed.
+
+3. **Agent Action**: Extracted the first 5 blog post links from the blog listing page.  
+   **Action Result**:  
+      "[ '/blog/chatgpt-updates', '/blog/ai-and-education', '/blog/openai-api-announcement', '/blog/gpt-4-release', '/blog/safety-and-alignment' ]"  
+   **Key Findings**: Identified 5 valid blog post URLs.  
+   **Current Context**: URLs stored in memory for further processing.
+
+4. **Agent Action**: Visited URL "https://openai.com/blog/chatgpt-updates"  
+   **Action Result**:  
+      "HTML content loaded for the blog post including full article text."  
+   **Key Findings**: Extracted blog title "ChatGPT Updates – March 2025" and article content excerpt.  
+   **Current Context**: Blog post content extracted and stored.
+
+5. **Agent Action**: Extracted blog title and full article content from "https://openai.com/blog/chatgpt-updates"  
+   **Action Result**:  
+      "{ 'title': 'ChatGPT Updates – March 2025', 'content': 'We\'re introducing new updates to ChatGPT, including improved browsing capabilities and memory recall... (full content)' }"  
+   **Key Findings**: Full content captured for later summarization.  
+   **Current Context**: Data stored; ready to proceed to next blog post.
+
+... (Additional numbered steps for subsequent actions)
+```
+"""
+
 
 def get_update_memory_messages(retrieved_old_memory_dict, response_content, custom_update_memory_prompt=None):
     if custom_update_memory_prompt is None:
@@ -215,7 +292,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
 
     return f"""{custom_update_memory_prompt}
-    
+
     Below is the current content of my memory which I have collected till now. You have to update it in the following format only:
 
     ```
@@ -227,9 +304,9 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
     ```
     {response_content}
     ```
-    
+
     You must return your response in the following JSON structure only:
-    
+
     {{
         "memory" : [
             {{
@@ -241,7 +318,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
             ...
         ]
     }}
-    
+
     Follow the instruction mentioned below:
     - Do not return anything from the custom few shot prompts provided above.
     - If the current memory is empty, then you have to add the new retrieved facts to the memory.
