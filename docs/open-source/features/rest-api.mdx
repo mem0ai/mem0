@@ -7,7 +7,7 @@ iconType: "solid"
 Mem0 provides a REST API server (written using FastAPI). Users can perform all operations through REST endpoints. The API also includes OpenAPI documentation, accessible at `/docs` when the server is running.
 
 <Frame caption="APIs supported by Mem0 REST API Server">
-  <img src="/images/rest-api-server.png" />
+    <img src="/images/rest-api-server.png"/>
 </Frame>
 
 ## Features
@@ -23,67 +23,90 @@ Mem0 provides a REST API server (written using FastAPI). Users can perform all o
 ## Running Locally
 
 <Tabs>
-<Tab title="With Docker">
+    <Tab title="With Docker Compose">
+        The Development Docker Compose comes pre-configured with postgres pgvector, neo4j and a `server/history/history.db` volume for the history database.
 
-1. Create a `.env` file in the current directory and set your environment variables. For example:
+        The only required environment variable to run the server is `OPENAI_API_KEY`.
 
-```txt
-OPENAI_API_KEY=your-openai-api-key
-```
+        1. Create a `.env` file in the `server/` directory and set your environment variables. For example:
 
-2. Either pull the docker image from docker hub or build the docker image locally.
+        ```txt
+        OPENAI_API_KEY=your-openai-api-key
+        ```
 
-<Tabs>
-  <Tab title="Pull from Docker Hub">
+        2. Run the Docker container using Docker Compose:
 
-```bash
-docker pull mem0/mem0-api-server
-```
+        ```bash
+        cd server
+        docker compose up
+        ```
 
-  </Tab>
+        3. Access the API at http://localhost:8888.
 
-  <Tab title="Build Locally">
+        4. Making changes to the server code or the library code will automatically reload the server.
+    </Tab>
 
-```bash
-docker build -t mem0-api-server .
-```
+    <Tab title="With Docker">
 
-  </Tab>
-</Tabs>
+        1. Create a `.env` file in the current directory and set your environment variables. For example:
 
-3. Run the Docker container:
+        ```txt
+        OPENAI_API_KEY=your-openai-api-key
+        ```
 
-``` bash
-docker run -p 8000:8000 mem0-api-server --env-file .env
-```
+        2. Either pull the docker image from docker hub or build the docker image locally.
 
-4. Access the API at http://localhost:8000.
+        <Tabs>
+            <Tab title="Pull from Docker Hub">
 
-</Tab>
+                ```bash
+                docker pull mem0/mem0-api-server
+                ```
 
-<Tab title="Without Docker">
+            </Tab>
 
-1. Create a `.env` file in the current directory and set your environment variables. For example:
+            <Tab title="Build Locally">
 
-```txt
-OPENAI_API_KEY=your-openai-api-key
-```
+                ```bash
+                docker build -t mem0-api-server .
+                ```
 
-2. Install dependencies:
+            </Tab>
+        </Tabs>
 
-```bash
-pip install -r requirements.txt
-```
+        3. Run the Docker container:
 
-3. Start the FastAPI server:
+        ``` bash
+        docker run -p 8000:8000 mem0-api-server --env-file .env
+        ```
 
-```bash
-uvicorn main:app --reload
-```
+        4. Access the API at http://localhost:8000.
 
-4. Access the API at http://localhost:8000.
+    </Tab>
 
-</Tab>
+    <Tab title="Without Docker">
+
+        1. Create a `.env` file in the current directory and set your environment variables. For example:
+
+        ```txt
+        OPENAI_API_KEY=your-openai-api-key
+        ```
+
+        2. Install dependencies:
+
+        ```bash
+        pip install -r requirements.txt
+        ```
+
+        3. Start the FastAPI server:
+
+        ```bash
+        uvicorn main:app --reload
+        ```
+
+        4. Access the API at http://localhost:8000.
+
+    </Tab>
 </Tabs>
 
 ## Usage
