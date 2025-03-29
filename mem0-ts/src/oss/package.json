@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.18.0",
+    "@google/genai": "^0.7.0",
     "@qdrant/js-client-rest": "^1.13.0",
     "@types/node": "^20.11.19",
     "@types/pg": "^8.11.0",
