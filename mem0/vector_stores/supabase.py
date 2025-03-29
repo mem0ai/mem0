@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("The 'vecs' library is required. Please install it using 'pip install vecs'.")
 
+from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
 from mem0.vector_stores.base import VectorStoreBase
-from mem0.configs.vector_stores.supabase import IndexMethod, IndexMeasure
 
 logger = logging.getLogger(__name__)
 
