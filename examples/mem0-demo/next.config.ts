@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === "production";
+
 const nextConfig: NextConfig = {
   /* config options here */
-  assetPrefix: "https://demo.mem0.ai",
+  assetPrefix: isProd ? "https://demo.mem0.ai" : undefined,
   images: {
-    path: "https://demo.mem0.ai",
+    path: isProd ? "https://demo.mem0.ai" : undefined,
   },
   async headers() {
     return [
