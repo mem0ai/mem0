@@ -1,0 +1,72 @@
+[FAISS](https://github.com/facebookresearch/faiss) is a library for efficient similarity search and clustering of dense vectors. It is designed to work with large-scale datasets and provides a high-performance search engine for vector data. FAISS is optimized for memory usage and search speed, making it an excellent choice for production environments.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "faiss",
+        "config": {
+            "collection_name": "test",
+            "path": "/tmp/faiss_memories",
+            "distance_strategy": "euclidean"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Installation
+
+To use FAISS in your mem0 project, you need to install the appropriate FAISS package for your environment:
+
+```bash
+# For CPU version
+pip install faiss-cpu
+
+# For GPU version (requires CUDA)
+pip install faiss-gpu
+```
+
+### Config
+
+Here are the parameters available for configuring FAISS:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection | `mem0` |
+| `path` | Path to store FAISS index and metadata | `/tmp/faiss/<collection_name>` |
+| `distance_strategy` | Distance metric strategy to use (options: 'euclidean', 'inner_product', 'cosine') | `euclidean` |
+| `normalize_L2` | Whether to normalize L2 vectors (only applicable for euclidean distance) | `False` |
+
+### Performance Considerations
+
+FAISS offers several advantages for vector search:
+
+1. **Efficiency**: FAISS is optimized for memory usage and speed, making it suitable for large-scale applications.
+2. **Offline Support**: FAISS works entirely locally, with no need for external servers or API calls.
+3. **Storage Options**: Vectors can be stored in-memory for maximum speed or persisted to disk.
+4. **Multiple Index Types**: FAISS supports different index types optimized for various use cases (though mem0 currently uses the basic flat index).
+
+### Distance Strategies
+
+FAISS in mem0 supports three distance strategies:
+
+- **euclidean**: L2 distance, suitable for most embedding models
+- **inner_product**: Dot product similarity, useful for some specialized embeddings
+- **cosine**: Cosine similarity, best for comparing semantic similarity regardless of vector magnitude
+
+When using `cosine` or `inner_product` with normalized vectors, you may want to set `normalize_L2=True` for better results.

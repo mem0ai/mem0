@@ -136,7 +136,8 @@
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
                           "components/vectordbs/dbs/vertex_ai_vector_search",
-                          "components/vectordbs/dbs/weaviate"
+                          "components/vectordbs/dbs/weaviate",
+                          "components/vectordbs/dbs/faiss"
                         ]
                       }
                     ]
@@ -195,7 +196,8 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
-                  "examples/mem0-livekit-voice-agent"
+                  "examples/mem0-livekit-voice-agent",
+                  "examples/email_processing"
                 ]
               }
             ]
@@ -295,6 +297,19 @@
                       "api-reference/webhook/delete-webhook"
                     ]
                   }
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Changelog",
+            "icon": "clock",
+            "groups": [
+              {
+                "group": "Product Updates",
+                "icon": "rocket",
+                "pages": [
+                  "changelog/overview"
                 ]
               }
             ]
