@@ -5,12 +5,16 @@ from mem0.memory.utils import format_entities
 try:
     from langchain_neo4j import Neo4jGraph
 except ImportError:
-    raise ImportError("langchain_neo4j is not installed. Please install it using pip install langchain-neo4j")
+    raise ImportError(
+        "langchain_neo4j is not installed. Please install it using pip install langchain-neo4j"
+    )
 
 try:
     from rank_bm25 import BM25Okapi
 except ImportError:
-    raise ImportError("rank_bm25 is not installed. Please install it using pip install rank-bm25")
+    raise ImportError(
+        "rank_bm25 is not installed. Please install it using pip install rank-bm25"
+    )
 
 from mem0.graphs.tools import (
     DELETE_MEMORY_STRUCT_TOOL_GRAPH,
@@ -34,7 +38,9 @@ class MemoryGraph:
             self.config.graph_store.config.username,
             self.config.graph_store.config.password,
         )
-        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
+        self.embedding_model = EmbedderFactory.create(
+            self.config.embedder.provider, self.config.embedder.config
+        )
 
         self.llm_provider = "openai_structured"
         if self.config.llm.provider:
@@ -55,14 +61,22 @@ class MemoryGraph:
             filters (dict): A dictionary containing filters to be applied during the addition.
         """
         entity_type_map = self._retrieve_nodes_from_data(data, filters)
-        to_be_added = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
-        search_output = self._search_graph_db(node_list=list(entity_type_map.keys()), filters=filters)
-        to_be_deleted = self._get_delete_entities_from_search_output(search_output, data, filters)
+        to_be_added = self._establish_nodes_relations_from_data(
+            data, filters, entity_type_map
+        )
+        search_output = self._search_graph_db(
+            node_list=list(entity_type_map.keys()), filters=filters
+        )
+        to_be_deleted = self._get_delete_entities_from_search_output(
+            search_output, data, filters
+        )
 
         # TODO: Batch queries with APOC plugin
         # TODO: Add more filter support
         deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
-        added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
+        added_entities = self._add_entities(
+            to_be_added, filters["user_id"], entity_type_map
+        )
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
@@ -81,13 +95,16 @@ class MemoryGraph:
                 - "entities": List of related graph data based on the query.
         """
         entity_type_map = self._retrieve_nodes_from_data(query, filters)
-        search_output = self._search_graph_db(node_list=list(entity_type_map.keys()), filters=filters)
+        search_output = self._search_graph_db(
+            node_list=list(entity_type_map.keys()), filters=filters
+        )
 
         if not search_output:
             return []
 
         search_outputs_sequence = [
-            [item["source"], item["relatationship"], item["destination"]] for item in search_output
+            [item["source"], item["relatationship"], item["destination"]]
+            for item in search_output
         ]
         bm25 = BM25Okapi(search_outputs_sequence)
 
@@ -96,7 +113,41 @@ class MemoryGraph:
 
         search_results = []
         for item in reranked_results:
-            search_results.append({"source": item[0], "relationship": item[1], "destination": item[2]})
+            # Find the original item to retrieve all properties
+            for orig_item in search_output:
+                if (
+                    orig_item["source"] == item[0]
+                    and orig_item["relatationship"] == item[1]
+                    and orig_item["destination"] == item[2]
+                ):
+
+                    result_dict = {
+                        "source": item[0],
+                        "relationship": item[1],
+                        "destination": item[2],
+                    }
+
+                    # Add optional parameters if they exist
+                    if orig_item.get("weight") is not None:
+                        result_dict["weight"] = orig_item["weight"]
+                    if orig_item.get("is_uncertain") is not None:
+                        result_dict["is_uncertain"] = orig_item["is_uncertain"]
+                    if orig_item.get("status") is not None:
+                        result_dict["status"] = orig_item["status"]
+                    if orig_item.get("start_date") is not None:
+                        result_dict["start_date"] = orig_item["start_date"]
+                    if orig_item.get("end_date") is not None:
+                        result_dict["end_date"] = orig_item["end_date"]
+                    if orig_item.get("emotion") is not None:
+                        result_dict["emotion"] = orig_item["emotion"]
+
+                    search_results.append(result_dict)
+                    break
+            else:
+                # Fallback if original item not found
+                search_results.append(
+                    {"source": item[0], "relationship": item[1], "destination": item[2]}
+                )
 
         logger.info(f"Returned {len(search_results)} search results")
 
@@ -126,20 +177,45 @@ class MemoryGraph:
         # return all nodes and relationships
         query = """
         MATCH (n {user_id: $user_id})-[r]->(m {user_id: $user_id})
-        RETURN n.name AS source, type(r) AS relationship, m.name AS target
+        RETURN 
+            n.name AS source, 
+            type(r) AS relationship, 
+            m.name AS target,
+            r.weight AS weight,
+            r.is_uncertain AS is_uncertain,
+            r.status AS status,
+            r.start_date AS start_date,
+            r.end_date AS end_date,
+            r.emotion AS emotion
         LIMIT $limit
         """
-        results = self.graph.query(query, params={"user_id": filters["user_id"], "limit": limit})
+        results = self.graph.query(
+            query, params={"user_id": filters["user_id"], "limit": limit}
+        )
 
         final_results = []
         for result in results:
-            final_results.append(
-                {
-                    "source": result["source"],
-                    "relationship": result["relationship"],
-                    "target": result["target"],
-                }
-            )
+            result_dict = {
+                "source": result["source"],
+                "relationship": result["relationship"],
+                "target": result["target"],
+            }
+
+            # Add optional parameters if they exist in the result
+            if result.get("weight") is not None:
+                result_dict["weight"] = result["weight"]
+            if result.get("is_uncertain") is not None:
+                result_dict["is_uncertain"] = result["is_uncertain"]
+            if result.get("status") is not None:
+                result_dict["status"] = result["status"]
+            if result.get("start_date") is not None:
+                result_dict["start_date"] = result["start_date"]
+            if result.get("end_date") is not None:
+                result_dict["end_date"] = result["end_date"]
+            if result.get("emotion") is not None:
+                result_dict["emotion"] = result["emotion"]
+
+            final_results.append(result_dict)
 
         logger.info(f"Retrieved {len(final_results)} relationships")
 
@@ -169,7 +245,10 @@ class MemoryGraph:
         except Exception as e:
             logger.error(f"Error in search tool: {e}")
 
-        entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
+        entity_type_map = {
+            k.lower().replace(" ", "_"): v.lower().replace(" ", "_")
+            for k, v in entity_type_map.items()
+        }
         logger.debug(f"Entity type map: {entity_type_map}")
         return entity_type_map
 
@@ -179,7 +258,9 @@ class MemoryGraph:
             messages = [
                 {
                     "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]).replace(
+                    "content": EXTRACT_RELATIONS_PROMPT.replace(
+                        "USER_ID", filters["user_id"]
+                    ).replace(
                         "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
                     ),
                 },
@@ -189,9 +270,14 @@ class MemoryGraph:
             messages = [
                 {
                     "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]),
+                    "content": EXTRACT_RELATIONS_PROMPT.replace(
+                        "USER_ID", filters["user_id"]
+                    ),
                 },
-                {"role": "user", "content": f"List of entities: {list(entity_type_map.keys())}. \n\nText: {data}"},
+                {
+                    "role": "user",
+                    "content": f"List of entities: {list(entity_type_map.keys())}. \n\nText: {data}",
+                },
             ]
 
         _tools = [RELATIONS_TOOL]
@@ -204,7 +290,9 @@ class MemoryGraph:
         )
 
         if extracted_entities["tool_calls"]:
-            extracted_entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+            extracted_entities = extracted_entities["tool_calls"][0]["arguments"][
+                "entities"
+            ]
         else:
             extracted_entities = []
 
@@ -228,7 +316,20 @@ class MemoryGraph:
                 sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
             WHERE similarity >= $threshold
             MATCH (n)-[r]->(m)
-            RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relatationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
+            RETURN 
+                n.name AS source, 
+                elementId(n) AS source_id, 
+                type(r) AS relatationship, 
+                elementId(r) AS relation_id, 
+                m.name AS destination, 
+                elementId(m) AS destination_id, 
+                similarity,
+                r.weight AS weight,
+                r.is_uncertain AS is_uncertain,
+                r.status AS status,
+                r.start_date AS start_date,
+                r.end_date AS end_date,
+                r.emotion AS emotion
             UNION
             MATCH (n)
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
@@ -238,7 +339,20 @@ class MemoryGraph:
                 sqrt(reduce(l2 = 0.0, i IN range(0, size($n_embedding)-1) | l2 + $n_embedding[i] * $n_embedding[i]))), 4) AS similarity
             WHERE similarity >= $threshold
             MATCH (m)-[r]->(n)
-            RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relatationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id, similarity
+            RETURN 
+                m.name AS source, 
+                elementId(m) AS source_id, 
+                type(r) AS relatationship, 
+                elementId(r) AS relation_id, 
+                n.name AS destination, 
+                elementId(n) AS destination_id, 
+                similarity,
+                r.weight AS weight,
+                r.is_uncertain AS is_uncertain,
+                r.status AS status,
+                r.start_date AS start_date,
+                r.end_date AS end_date,
+                r.emotion AS emotion
             ORDER BY similarity DESC
             LIMIT $limit
             """
@@ -256,7 +370,9 @@ class MemoryGraph:
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """Get the entities to be deleted from the search output."""
         search_output_string = format_entities(search_output)
-        system_prompt, user_prompt = get_delete_messages(search_output_string, data, filters["user_id"])
+        system_prompt, user_prompt = get_delete_messages(
+            search_output_string, data, filters["user_id"]
+        )
 
         _tools = [DELETE_MEMORY_TOOL_GRAPH]
         if self.llm_provider in ["azure_openai_structured", "openai_structured"]:
@@ -286,26 +402,83 @@ class MemoryGraph:
         for item in to_be_deleted:
             source = item["source"]
             destination = item["destination"]
-            relatationship = item["relationship"]
+            relationship_type = item["relationship"]
 
-            # Delete the specific relationship between nodes
-            cypher = f"""
-            MATCH (n {{name: $source_name, user_id: $user_id}})
-            -[r:{relatationship}]->
-            (m {{name: $dest_name, user_id: $user_id}})
-            DELETE r
+            # Check if the relationship exists first
+            check_cypher = """
+            MATCH (n {name: $source_name, user_id: $user_id})
+            MATCH (m {name: $dest_name, user_id: $user_id})
+            WITH n, m
+            OPTIONAL MATCH (n)-[r]->(m)
+            WHERE type(r) = $relationship_type
             RETURN 
                 n.name AS source,
                 m.name AS target,
-                type(r) AS relationship
+                type(r) AS relationship,
+                r.weight AS weight,
+                r.is_uncertain AS is_uncertain,
+                r.status AS status,
+                r.start_date AS start_date,
+                r.end_date AS end_date,
+                r.emotion AS emotion
+            LIMIT 1
             """
             params = {
                 "source_name": source,
                 "dest_name": destination,
                 "user_id": user_id,
+                "relationship_type": relationship_type,
             }
-            result = self.graph.query(cypher, params=params)
-            results.append(result)
+
+            # First fetch the relationship data
+            result_data = self.graph.query(check_cypher, params=params)
+
+            # Only delete if relationship exists
+            if result_data and result_data[0]["relationship"] is not None:
+                # Now delete the relationship
+                delete_cypher = """
+                MATCH (n {name: $source_name, user_id: $user_id})
+                -[r]->(m {name: $dest_name, user_id: $user_id})
+                WHERE type(r) = $relationship_type
+                DELETE r
+                """
+                self.graph.query(delete_cypher, params=params)
+
+                # Process the result data to include optional parameters
+                result_dict = {
+                    "source": result_data[0]["source"],
+                    "relationship": result_data[0]["relationship"],
+                    "target": result_data[0]["target"],
+                }
+
+                # Add optional parameters if they exist
+                if result_data[0].get("weight") is not None:
+                    result_dict["weight"] = result_data[0]["weight"]
+                if result_data[0].get("is_uncertain") is not None:
+                    result_dict["is_uncertain"] = result_data[0]["is_uncertain"]
+                if result_data[0].get("status") is not None:
+                    result_dict["status"] = result_data[0]["status"]
+                if result_data[0].get("start_date") is not None:
+                    result_dict["start_date"] = result_data[0]["start_date"]
+                if result_data[0].get("end_date") is not None:
+                    result_dict["end_date"] = result_data[0]["end_date"]
+                if result_data[0].get("emotion") is not None:
+                    result_dict["emotion"] = result_data[0]["emotion"]
+
+                results.append(result_dict)
+            else:
+                # Relationship wasn't found, so just return info that we tried to delete it
+                logger.debug(
+                    f"Relationship {relationship_type} between {source} and {destination} not found"
+                )
+                results.append(
+                    {
+                        "source": source,
+                        "relationship": relationship_type,
+                        "target": destination,
+                        "status": "not_found",  # Add a status to indicate relationship wasn't found
+                    }
+                )
         return results
 
     def _add_entities(self, to_be_added, user_id, entity_type_map):
@@ -325,9 +498,21 @@ class MemoryGraph:
             source_embedding = self.embedding_model.embed(source)
             dest_embedding = self.embedding_model.embed(destination)
 
+            # additional parameters
+            weight = item.get("weight")
+            is_uncertain = item.get("is_uncertain")
+            status = item.get("status")
+            start_date = item.get("start_date")
+            end_date = item.get("end_date")
+            emotion = item.get("emotion")
+
             # search for the nodes with the closest embeddings
-            source_node_search_result = self._search_source_node(source_embedding, user_id, threshold=0.9)
-            destination_node_search_result = self._search_destination_node(dest_embedding, user_id, threshold=0.9)
+            source_node_search_result = self._search_source_node(
+                source_embedding, user_id, threshold=0.9
+            )
+            destination_node_search_result = self._search_destination_node(
+                dest_embedding, user_id, threshold=0.9
+            )
 
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
@@ -341,17 +526,40 @@ class MemoryGraph:
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp()
+                        {", r.weight = $weight" if weight is not None else ""}
+                        {", r.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
+                        {", r.status = $status" if status is not None else ""}
+                        {", r.start_date = $start_date" if start_date is not None else ""}
+                        {", r.end_date = $end_date" if end_date is not None else ""}
+                        {", r.emotion = $emotion" if emotion is not None else ""}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
                 params = {
-                    "source_id": source_node_search_result[0]["elementId(source_candidate)"],
+                    "source_id": source_node_search_result[0][
+                        "elementId(source_candidate)"
+                    ],
                     "destination_name": destination,
                     "relationship": relationship,
                     "destination_type": destination_type,
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
                 }
+
+                # Add additional parameters to params if they exist
+                if weight is not None:
+                    params["weight"] = weight
+                if is_uncertain is not None:
+                    params["is_uncertain"] = is_uncertain
+                if status is not None:
+                    params["status"] = status
+                if start_date is not None:
+                    params["start_date"] = start_date
+                if end_date is not None:
+                    params["end_date"] = end_date
+                if emotion is not None:
+                    params["emotion"] = emotion
+
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
 
@@ -366,17 +574,40 @@ class MemoryGraph:
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp()
+                        {", r.weight = $weight" if weight is not None else ""}
+                        {", r.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
+                        {", r.status = $status" if status is not None else ""}
+                        {", r.start_date = $start_date" if start_date is not None else ""}
+                        {", r.end_date = $end_date" if end_date is not None else ""}
+                        {", r.emotion = $emotion" if emotion is not None else ""}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
                 params = {
-                    "destination_id": destination_node_search_result[0]["elementId(destination_candidate)"],
+                    "destination_id": destination_node_search_result[0][
+                        "elementId(destination_candidate)"
+                    ],
                     "source_name": source,
                     "relationship": relationship,
                     "source_type": source_type,
                     "source_embedding": source_embedding,
                     "user_id": user_id,
                 }
+
+                # Add additional parameters to params if they exist
+                if weight is not None:
+                    params["weight"] = weight
+                if is_uncertain is not None:
+                    params["is_uncertain"] = is_uncertain
+                if status is not None:
+                    params["status"] = status
+                if start_date is not None:
+                    params["start_date"] = start_date
+                if end_date is not None:
+                    params["end_date"] = end_date
+                if emotion is not None:
+                    params["emotion"] = emotion
+
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
 
@@ -390,14 +621,39 @@ class MemoryGraph:
                     ON CREATE SET 
                         r.created_at = timestamp(),
                         r.updated_at = timestamp()
+                        {", r.weight = $weight" if weight is not None else ""}
+                        {", r.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
+                        {", r.status = $status" if status is not None else ""}
+                        {", r.start_date = $start_date" if start_date is not None else ""}
+                        {", r.end_date = $end_date" if end_date is not None else ""}
+                        {", r.emotion = $emotion" if emotion is not None else ""}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
-                    "source_id": source_node_search_result[0]["elementId(source_candidate)"],
-                    "destination_id": destination_node_search_result[0]["elementId(destination_candidate)"],
+                    "source_id": source_node_search_result[0][
+                        "elementId(source_candidate)"
+                    ],
+                    "destination_id": destination_node_search_result[0][
+                        "elementId(destination_candidate)"
+                    ],
                     "user_id": user_id,
                     "relationship": relationship,
                 }
+
+                # Add additional parameters to params if they exist
+                if weight is not None:
+                    params["weight"] = weight
+                if is_uncertain is not None:
+                    params["is_uncertain"] = is_uncertain
+                if status is not None:
+                    params["status"] = status
+                if start_date is not None:
+                    params["start_date"] = start_date
+                if end_date is not None:
+                    params["end_date"] = end_date
+                if emotion is not None:
+                    params["emotion"] = emotion
+
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
 
@@ -411,6 +667,12 @@ class MemoryGraph:
                     ON MATCH SET m.embedding = $dest_embedding
                     MERGE (n)-[rel:{relationship}]->(m)
                     ON CREATE SET rel.created = timestamp()
+                        {", rel.weight = $weight" if weight is not None else ""}
+                        {", rel.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
+                        {", rel.status = $status" if status is not None else ""}
+                        {", rel.start_date = $start_date" if start_date is not None else ""}
+                        {", rel.end_date = $end_date" if end_date is not None else ""}
+                        {", rel.emotion = $emotion" if emotion is not None else ""}
                     RETURN n.name AS source, type(rel) AS relationship, m.name AS target
                     """
                 params = {
@@ -422,15 +684,52 @@ class MemoryGraph:
                     "dest_embedding": dest_embedding,
                     "user_id": user_id,
                 }
+
+                # Add additional parameters to params if they exist
+                if weight is not None:
+                    params["weight"] = weight
+                if is_uncertain is not None:
+                    params["is_uncertain"] = is_uncertain
+                if status is not None:
+                    params["status"] = status
+                if start_date is not None:
+                    params["start_date"] = start_date
+                if end_date is not None:
+                    params["end_date"] = end_date
+                if emotion is not None:
+                    params["emotion"] = emotion
+
                 resp = self.graph.query(cypher, params=params)
                 results.append(resp)
         return results
 
     def _remove_spaces_from_entities(self, entity_list):
+        """
+        Process entities by:
+        1. Converting entity names to lowercase and replacing spaces with underscores
+        2. Ensuring all required parameters are present with default values if missing
+        """
         for item in entity_list:
             item["source"] = item["source"].lower().replace(" ", "_")
             item["relationship"] = item["relationship"].lower().replace(" ", "_")
             item["destination"] = item["destination"].lower().replace(" ", "_")
+
+            # Ensure all required parameters are present with default values if missing
+            if "weight" not in item or item["weight"] is None:
+                item["weight"] = 0.5  # Default medium strength
+
+            if "is_uncertain" not in item or item["is_uncertain"] is None:
+                item["is_uncertain"] = False  # Default to certain
+
+            if "status" not in item or item["status"] is None:
+                item["status"] = "active"  # Default to active status
+
+            if "emotion" not in item or item["emotion"] is None:
+                item["emotion"] = "neutral"  # Default to neutral emotion
+
+            # Optional date parameters - no defaults for these
+            # start_date and end_date can remain null
+
         return entity_list
 
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
@@ -497,3 +796,75 @@ class MemoryGraph:
 
         result = self.graph.query(cypher, params=params)
         return result
+
+    def update_relationship(
+        self, source, relationship, destination, user_id, **properties
+    ):
+        """
+        Update a relationship with new properties.
+
+        Args:
+            source (str): Source node name
+            relationship (str): Relationship type
+            destination (str): Destination node name
+            user_id (str): User ID
+            **properties: Additional properties to update (weight, is_uncertain, status, start_date, end_date, emotion)
+
+        Returns:
+            dict: Updated relationship data
+        """
+        # Build the SET clause dynamically based on provided properties
+        set_clauses = ["r.updated_at = timestamp()"]
+        params = {"source_name": source, "dest_name": destination, "user_id": user_id}
+
+        # Add each property to the SET clause if provided
+        for key, value in properties.items():
+            if value is not None:
+                set_clauses.append(f"r.{key} = ${key}")
+                params[key] = value
+
+        # Create the query with the dynamic SET clause
+        set_clause = ", ".join(set_clauses)
+        cypher = f"""
+        MATCH (n {{name: $source_name, user_id: $user_id}})
+        -[r:{relationship}]->
+        (m {{name: $dest_name, user_id: $user_id}})
+        SET {set_clause}
+        RETURN 
+            n.name AS source,
+            m.name AS target,
+            type(r) AS relationship,
+            r.weight AS weight,
+            r.is_uncertain AS is_uncertain,
+            r.status AS status,
+            r.start_date AS start_date,
+            r.end_date AS end_date,
+            r.emotion AS emotion
+        """
+
+        result = self.graph.query(cypher, params=params)
+
+        if result:
+            result_dict = {
+                "source": result[0]["source"],
+                "relationship": result[0]["relationship"],
+                "target": result[0]["target"],
+            }
+
+            # Add optional parameters if they exist in the result
+            if result[0].get("weight") is not None:
+                result_dict["weight"] = result[0]["weight"]
+            if result[0].get("is_uncertain") is not None:
+                result_dict["is_uncertain"] = result[0]["is_uncertain"]
+            if result[0].get("status") is not None:
+                result_dict["status"] = result[0]["status"]
+            if result[0].get("start_date") is not None:
+                result_dict["start_date"] = result[0]["start_date"]
+            if result[0].get("end_date") is not None:
+                result_dict["end_date"] = result[0]["end_date"]
+            if result[0].get("emotion") is not None:
+                result_dict["emotion"] = result[0]["emotion"]
+
+            return result_dict
+
+        return {"source": source, "relationship": relationship, "target": destination}

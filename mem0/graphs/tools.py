@@ -18,6 +18,30 @@ UPDATE_MEMORY_TOOL_GRAPH = {
                     "type": "string",
                     "description": "The new or updated relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.",
                 },
+                "weight": {
+                    "type": "number",
+                    "description": "A numeric value indicating the strength or importance of the relationship (0.0 to 1.0).",
+                },
+                "is_uncertain": {
+                    "type": "boolean",
+                    "description": "Indicates whether this relationship is uncertain or speculative.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The current status of the relationship (e.g., 'active', 'inactive', 'pending').",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "The date when this relationship started, in ISO format (YYYY-MM-DD).",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "The date when this relationship ended (if applicable), in ISO format (YYYY-MM-DD).",
+                },
+                "emotion": {
+                    "type": "string",
+                    "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
+                },
             },
             "required": ["source", "destination", "relationship"],
             "additionalProperties": False,
@@ -52,6 +76,30 @@ ADD_MEMORY_TOOL_GRAPH = {
                 "destination_type": {
                     "type": "string",
                     "description": "The type or category of the destination node. This helps in classifying and organizing nodes in the graph.",
+                },
+                "weight": {
+                    "type": "number",
+                    "description": "A numeric value indicating the strength or importance of the relationship (0.0 to 1.0).",
+                },
+                "is_uncertain": {
+                    "type": "boolean",
+                    "description": "Indicates whether this relationship is uncertain or speculative.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The current status of the relationship (e.g., 'active', 'inactive', 'pending').",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "The date when this relationship started, in ISO format (YYYY-MM-DD).",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "The date when this relationship ended (if applicable), in ISO format (YYYY-MM-DD).",
+                },
+                "emotion": {
+                    "type": "string",
+                    "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
                 },
             },
             "required": [
@@ -95,7 +143,10 @@ RELATIONS_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "source": {"type": "string", "description": "The source entity of the relationship."},
+                            "source": {
+                                "type": "string",
+                                "description": "The source entity of the relationship.",
+                            },
                             "relationship": {
                                 "type": "string",
                                 "description": "The relationship between the source and destination entities.",
@@ -103,6 +154,30 @@ RELATIONS_TOOL = {
                             "destination": {
                                 "type": "string",
                                 "description": "The destination entity of the relationship.",
+                            },
+                            "weight": {
+                                "type": "number",
+                                "description": "A numeric value indicating the strength or importance of the relationship (0.0 to 1.0).",
+                            },
+                            "is_uncertain": {
+                                "type": "boolean",
+                                "description": "Indicates whether this relationship is uncertain or speculative.",
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "The current status of the relationship (e.g., 'active', 'inactive', 'pending').",
+                            },
+                            "start_date": {
+                                "type": "string",
+                                "description": "The date when this relationship started, in ISO format (YYYY-MM-DD).",
+                            },
+                            "end_date": {
+                                "type": "string",
+                                "description": "The date when this relationship ended (if applicable), in ISO format (YYYY-MM-DD).",
+                            },
+                            "emotion": {
+                                "type": "string",
+                                "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
                             },
                         },
                         "required": [
@@ -134,8 +209,14 @@ EXTRACT_ENTITIES_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "entity": {"type": "string", "description": "The name or identifier of the entity."},
-                            "entity_type": {"type": "string", "description": "The type or category of the entity."},
+                            "entity": {
+                                "type": "string",
+                                "description": "The name or identifier of the entity.",
+                            },
+                            "entity_type": {
+                                "type": "string",
+                                "description": "The type or category of the entity.",
+                            },
                         },
                         "required": ["entity", "entity_type"],
                         "additionalProperties": False,
@@ -169,6 +250,30 @@ UPDATE_MEMORY_STRUCT_TOOL_GRAPH = {
                 "relationship": {
                     "type": "string",
                     "description": "The new or updated relationship between the source and destination nodes. This should be a concise, clear description of how the two nodes are connected.",
+                },
+                "weight": {
+                    "type": "number",
+                    "description": "A numeric value indicating the strength or importance of the relationship (0.0 to 1.0).",
+                },
+                "is_uncertain": {
+                    "type": "boolean",
+                    "description": "Indicates whether this relationship is uncertain or speculative.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The current status of the relationship (e.g., 'active', 'inactive', 'pending').",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "The date when this relationship started, in ISO format (YYYY-MM-DD).",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "The date when this relationship ended (if applicable), in ISO format (YYYY-MM-DD).",
+                },
+                "emotion": {
+                    "type": "string",
+                    "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
                 },
             },
             "required": ["source", "destination", "relationship"],
@@ -205,6 +310,30 @@ ADD_MEMORY_STRUCT_TOOL_GRAPH = {
                 "destination_type": {
                     "type": "string",
                     "description": "The type or category of the destination node. This helps in classifying and organizing nodes in the graph.",
+                },
+                "weight": {
+                    "type": "number",
+                    "description": "A numeric value indicating the strength or importance of the relationship (0.0 to 1.0).",
+                },
+                "is_uncertain": {
+                    "type": "boolean",
+                    "description": "Indicates whether this relationship is uncertain or speculative.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The current status of the relationship (e.g., 'active', 'inactive', 'pending').",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "The date when this relationship started, in ISO format (YYYY-MM-DD).",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "The date when this relationship ended (if applicable), in ISO format (YYYY-MM-DD).",
+                },
+                "emotion": {
+                    "type": "string",
+                    "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
                 },
             },
             "required": [
@@ -261,6 +390,30 @@ RELATIONS_STRUCT_TOOL = {
                                 "type": "string",
                                 "description": "The destination entity of the relationship.",
                             },
+                            "weight": {
+                                "type": "number",
+                                "description": "A numeric value indicating the strength or importance of the relationship (0.0 to 1.0).",
+                            },
+                            "is_uncertain": {
+                                "type": "boolean",
+                                "description": "Indicates whether this relationship is uncertain or speculative.",
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "The current status of the relationship (e.g., 'active', 'inactive', 'pending').",
+                            },
+                            "start_date": {
+                                "type": "string",
+                                "description": "The date when this relationship started, in ISO format (YYYY-MM-DD).",
+                            },
+                            "end_date": {
+                                "type": "string",
+                                "description": "The date when this relationship ended (if applicable), in ISO format (YYYY-MM-DD).",
+                            },
+                            "emotion": {
+                                "type": "string",
+                                "description": "The emotion associated with this relationship (e.g., 'positive', 'negative', 'neutral').",
+                            },
                         },
                         "required": [
                             "source_entity",
@@ -292,8 +445,14 @@ EXTRACT_ENTITIES_STRUCT_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "entity": {"type": "string", "description": "The name or identifier of the entity."},
-                            "entity_type": {"type": "string", "description": "The type or category of the entity."},
+                            "entity": {
+                                "type": "string",
+                                "description": "The name or identifier of the entity.",
+                            },
+                            "entity_type": {
+                                "type": "string",
+                                "description": "The type or category of the entity.",
+                            },
                         },
                         "required": ["entity", "entity_type"],
                         "additionalProperties": False,
