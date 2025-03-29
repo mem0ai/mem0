@@ -24,7 +24,7 @@ export class GoogleEmbedder implements Embedder {
     const response = await this.google.models.embedContent({
       model: this.model,
       contents: texts,
-      config: { outputDimensionality: 1536 },
+      config: { outputDimensionality: 768 },
     });
     return response.embeddings!.map((item) => item.values!);
   }
