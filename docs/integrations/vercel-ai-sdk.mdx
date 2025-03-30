@@ -10,7 +10,6 @@ The [**Mem0 AI SDK Provider**](https://www.npmjs.com/package/@mem0/vercel-ai-pro
 
 ## Overview
 
-In this guide, we'll create a Travel Agent AI that:
 1. 🧠 Offers persistent memory storage for conversational AI
 2. 🔄 Enables smooth integration with the Vercel AI SDK
 3. 🚀 Ensures compatibility with multiple LLM providers
@@ -190,6 +189,20 @@ npm install @mem0/vercel-ai-provider
 
     console.log(result);
     ```
+
+### 5. Get sources from memory
+
+```typescript
+const { text, sources } = await generateText({
+    model: mem0("gpt-4-turbo"),
+    prompt: "Suggest me a good car to buy!",
+});
+
+console.log(sources);
+```
+
+The same can be done for `streamText` as well.
+
 
 ## Key Features
 
