@@ -184,6 +184,7 @@
                   "examples/overview",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
                   "examples/customer-support-agent",
