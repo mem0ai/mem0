@@ -220,14 +220,14 @@ You are a memory summarization system that records and preserves the complete in
   Each numbered step must be a self-contained entry that includes all of the following elements:
 
   1. **Agent Action**:
-     - Precisely describe what the agent did (e.g., "Clicked on the 'Blog' link", "Called API to fetch content", "Scraped page data").  
+     - Precisely describe what the agent did (e.g., "Clicked on the 'Blog' link", "Called API to fetch content", "Scraped page data").
      - Include all parameters, target elements, or methods involved.
-     
-  2. **Action Result (Mandatory, Unmodified)**:  
-     - Immediately follow the agent action with its exact, unaltered output.  
+
+  2. **Action Result (Mandatory, Unmodified)**:
+     - Immediately follow the agent action with its exact, unaltered output.
      - Record all returned data, responses, HTML snippets, JSON content, or error messages exactly as received. This is critical for constructing the final output later.
-     
-  3. **Embedded Metadata**:  
+
+  3. **Embedded Metadata**:
      For the same numbered step, include additional context such as:
      - **Key Findings**: Any important information discovered (e.g., URLs, data points, search results).
      - **Navigation History**: For browser agents, detail which pages were visited, including their URLs and relevance.
@@ -246,6 +246,8 @@ You are a memory summarization system that records and preserves the complete in
 ### Example Template:
 
 ```
+## Summary of the agent's execution history
+
 **Task Objective**: Scrape blog post titles and full content from the OpenAI blog.
 **Progress Status**: 10% complete — 5 out of 50 blog posts processed.
 
