@@ -89,6 +89,7 @@ class Memory(MemoryBase):
         infer=True,
         memory_type=None,
         prompt=None,
+        llm=None,
     ):
         """
         Create a new memory.
@@ -103,6 +104,7 @@ class Memory(MemoryBase):
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
             result: dict of affected events with each dict has the following key:
@@ -139,7 +141,7 @@ class Memory(MemoryBase):
             messages = [{"role": "user", "content": messages}]
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
-            results = self._create_procedural_memory(messages, metadata, prompt)
+            results = self._create_procedural_memory(messages, metadata=metadata, llm=llm, prompt=prompt)
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -623,9 +625,15 @@ class Memory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id})
         return memory_id
 
-    def _create_procedural_memory(self, messages, metadata, llm=None, prompt=None):
+    def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
         """
         Create a procedural memory
+
+        Args:
+            messages (list): List of messages to create a procedural memory from.
+            metadata (dict): Metadata to create a procedural memory from.
+            llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+            prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
         try:
             from langchain_core.messages.utils import convert_to_messages  # type: ignore
@@ -644,7 +652,7 @@ class Memory(MemoryBase):
         try:
             if llm is not None:
                 parsed_messages = convert_to_messages(parsed_messages)
-                response = llm.invoke(messages=parsed_messages)
+                response = llm.invoke(input=parsed_messages)
                 procedural_memory = response.content
             else:
                 procedural_memory = self.llm.generate_response(messages=parsed_messages)

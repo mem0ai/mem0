@@ -101,7 +101,6 @@ class FAISS(VectorStoreBase):
             faiss.write_index(self.index, index_path)
             with open(docstore_path, "wb") as f:
                 pickle.dump((self.docstore, self.index_to_id), f)
-            logger.info(f"Saved FAISS index to {index_path} with {self.index.ntotal} vectors")
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
 
