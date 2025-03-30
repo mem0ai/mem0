@@ -71,7 +71,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             environmentVariableName: "MEM0_API_KEY",
             description: "Mem0",
         })}`, 'Content-Type': 'application/json'}, 
-        body: JSON.stringify({query, filters, top_k: config&&config.top_k || top_k, version: "v2", ...org_project_filters}),
+        body: JSON.stringify({query, filters, ...config, top_k: config&&config.top_k || top_k, version: "v2", ...org_project_filters}),
     };
     const response  = await fetch('https://api.mem0.ai/v2/memories/search/', options);
     const data =  await response.json();

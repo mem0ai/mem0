@@ -26,6 +26,8 @@ export interface Mem0ConfigSettings {
   page_size?: number;
   mem0ApiKey?: string;
   top_k?: number;
+  threshold?: number;
+  rerank?: boolean;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}

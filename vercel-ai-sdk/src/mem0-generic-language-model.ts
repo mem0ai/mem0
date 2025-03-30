@@ -31,9 +31,14 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
   provider: string;
 
   private async processMemories(messagesPrompts: LanguageModelV1Message[], mem0Config: Mem0ConfigSettings) {
-    const memories = await getMemories(messagesPrompts, mem0Config);
     // Add New Memories
-    await addMemories(messagesPrompts, mem0Config);
+    addMemories(messagesPrompts, mem0Config).then((res) => {
+      return res;
+    });
+
+    // Get Memories
+    const memories = await getMemories(messagesPrompts, mem0Config);
+
     const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
   
     let memoriesText = "";
