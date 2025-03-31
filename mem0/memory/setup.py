@@ -33,24 +33,26 @@ def get_user_id():
 
 
 def store_and_get_user_id_from_vector_store(vector_store):
-    """Store user_id in mem0_migrations collection."""
+    """Store user_id in vector store and return it."""
     user_id = get_user_id()
+
+    # Try to get existing user_id from vector store
     try:
-        try:
-            existing = vector_store.get(vector_id=VECTOR_ID)
+        existing = vector_store.get(vector_id=VECTOR_ID)
+        if existing and hasattr(existing, "payload") and existing.payload and "user_id" in existing.payload:
+            return existing.payload["user_id"]
+    except:
+        pass
 
-            if existing and hasattr(existing, "payload") and existing.payload and "user_id" in existing.payload:
-                return existing.payload["user_id"]
-        except Exception as e:
-            pass
-
-        dims = 1
-        if hasattr(vector_store, "embedding_model_dims"):
-            dims = vector_store.embedding_model_dims
-
+    # If we get here, we need to insert the user_id
+    try:
+        dims = getattr(vector_store, "embedding_model_dims", 1)
         vector_store.insert(
-            vectors=[[0.0] * dims], payloads=[{"user_id": user_id, "type": "user_identity"}], ids=[VECTOR_ID]
+            vectors=[[0.0] * dims],
+            payloads=[{"user_id": user_id, "type": "user_identity"}],
+            ids=[VECTOR_ID]
         )
-        return user_id
-    except Exception as e:
-        return user_id
+    except:
+        pass
+
+    return user_id
