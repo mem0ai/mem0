@@ -1,0 +1,228 @@
+---
+title: Arize Phoenix
+icon: "list"
+iconType: "solid"
+---
+
+Arize Phoenix is an open-source observability tool designed for experimentation, evaluation, and troubleshooting of AI and LLM applications. 
+
+Tracing tracks the sequence of operations a request goes through in an application. It captures key steps like data retrieval, embedding creation, model invocation, and response generation, offering a detailed timeline of the process. This information helps with debugging, cost analysis, latency measurement, and overall performance optimization.
+
+<img src="https://storage.googleapis.com/arize-phoenix-assets/assets/gifs/mem0_docs.gif" alt="Mem0 traces in Phoenix" />
+
+### Usage
+
+General example of how to set up tracing with Arize Phoenix
+
+#### Install Required Packages
+<CodeGroup>
+```python Python
+pip install arize-phoenix openai openinference-instrumentation-openai
+```
+
+```typescript TypeScript
+npm install @arizeai/phoenix openai openinference-instrumentation-openai
+```
+</CodeGroup>
+
+#### Connect to Phoenix
+<CodeGroup>
+```python Python
+import os
+from getpass import getpass
+
+os.environ["PHOENIX_COLLECTOR_ENDPOINT"] = "https://app.phoenix.arize.com"
+os.environ["PHOENIX_API_KEY"] = #Enter Your Phoenix API Key
+```
+
+```typescript TypeScript
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+process.env.PHOENIX_COLLECTOR_ENDPOINT = "https://app.phoenix.arize.com";
+// Store API keys in the .env file and load them like this
+process.env.PHOENIX_API_KEY = process.env.PHOENIX_API_KEY || '';
+```
+</CodeGroup>
+
+<Note>
+  You can obtain a Phoenix API Key <a href="https://app.phoenix.arize.com/login/">here</a>. This will connect you to a Phoenix cloud instance. You can also choose different <a href="https://docs.arize.com/phoenix/environments">environments</a> to run Phoenix.
+</Note>
+
+#### Instrument Your Application 
+<CodeGroup>
+```python Python
+from phoenix.otel import register
+
+tracer_provider = register(
+  project_name="mem0-traces",
+  auto_instrument=True # Auto-instrument your app based on installed dependencies
+)
+tracer = tracer_provider.get_tracer(__name__)
+```
+```typescript TypeScript
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import {
+  ConsoleSpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { Resource } from "@opentelemetry/resources";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+
+const provider = new NodeTracerProvider({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: "openai-service",
+  }),
+});
+
+provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
+provider.addSpanProcessor(
+  new SimpleSpanProcessor(
+    new OTLPTraceExporter({
+      url: "http://localhost:6006/v1/traces",
+    }),
+  ),
+);
+provider.register();
+```
+</CodeGroup>
+More details for instrumentation setup in TypeScript can be found [here](https://docs.arize.com/phoenix/tracing/how-to-tracing/setup-tracing/javascript).
+
+#### Trace Your Application
+You are now ready to run your application and collect traces.
+
+Phoenix simplifies the tracing process by natively supporting a variety of frameworks and SDKs across Python and JavaScript through OpenTelemetry auto-instrumentation. These auto-instrumentors automatically capture and trace requests made to their respective packages. 
+
+To enable auto-instrumentation, install the appropriate OpenInference package. For example, if you're using OpenAI, you can install the OpenAI-specific package. See a full list of integrations <a href="https://docs.arize.com/phoenix/tracing/integrations-tracing">here</a>.
+<CodeGroup>
+``` python Python
+pip install openinference-instrumentation-openai
+```
+``` typescript TypeScript
+npm install @arizeai/openinference-instrumentation-openai
+```
+</CodeGroup> 
+
+You can also add context to your traces with <a href="https://docs.arize.com/phoenix/tracing/how-to-tracing/add-metadata/customize-spans">attributes and metadata</a>. For further customization, check out <a href="https://docs.arize.com/phoenix/tracing/how-to-tracing#manual-instrumentation">manual instrumentation</a> to create and customize spans for your use-case.
+
+
+### Example
+In the following example, we use OpenAI auto-instrumentation and tracing techniques from <a href="https://docs.arize.com/phoenix/tracing/how-to-tracing/setup-tracing/instrument-python#using-your-tracer">manual instrumentation</a>. For more information on all tracing capabilities, check out this <a href="https://docs.arize.com/phoenix/tracing/how-to-tracing">documentation</a>. 
+
+<CodeGroup>
+``` python Python
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+from openinference.semconv.trace import SpanAttributes
+
+class PersonalTravelAssistant:
+    def __init__(self):
+        self.client = OpenAI()
+        self.memory = Memory.from_config(config)
+        self.messages = [{"role": "system", "content": "You are a personal AI Assistant."}]
+
+    def ask_question(self, question, user_id):
+      # Create a parent span for the entire query
+      with tracer.start_as_current_span(
+          name="query",  
+          attributes={SpanAttributes.OPENINFERENCE_SPAN_KIND: "AGENT"}
+      ) as parent_span:
+          parent_span.set_status(StatusCode.OK)
+          parent_span.set_attribute(SpanAttributes.INPUT_VALUE, question)
+
+          try:
+              # Call search_memories within the parent span
+              previous_memories = self.search_memories(question, user_id)
+
+              prompt = question
+              if previous_memories:
+                  prompt = f"User input: {question}\nPrevious memories: {previous_memories}"
+
+              self.messages.append({"role": "user", "content": prompt})
+
+              # Create a child span for generating response
+              with tracer.start_as_current_span(
+                  name="generate-response", 
+                  attributes={SpanAttributes.OPENINFERENCE_SPAN_KIND: "LLM"}
+              ) as response_span:
+                  with trace.use_span(response_span, end_on_exit=False):
+                      response = self.client.chat.completions.create(
+                          model="gpt-4o",
+                          messages=self.messages
+                      )
+                      answer = response.choices[0].message.content
+                      self.messages.append({"role": "assistant", "content": answer})
+
+                      response_span.set_attribute(SpanAttributes.OUTPUT_VALUE, answer)
+
+              # Create a child span for adding memory
+              with tracer.start_as_current_span(
+                  name="add-memory",
+                  attributes={SpanAttributes.OPENINFERENCE_SPAN_KIND: "EMBEDDING"}
+              ) as embedding_span:
+                  embedding_span.set_attribute(SpanAttributes.INPUT_VALUE, question)
+                  added_memories = self.memory.add(question, user_id)
+                  embedding_span.set_attribute(SpanAttributes.OUTPUT_VALUE, added_memories)
+
+              # Output memories
+              memories = self.get_memories(user_id=user_id)
+              print("Memories:")
+              for memory in memories:
+                  print(f"- {memory}")
+              print("-----")
+
+              # Set the final output in the parent span
+              parent_span.set_attribute(SpanAttributes.OUTPUT_VALUE, answer)
+          except Exception as e:
+              # If any error occurs, set the status to ERROR and add the error message
+              parent_span.set_status(StatusCode.ERROR, str(e))
+              raise  
+
+          return answer
+  
+    # using tracer object as a with clause
+    def get_memories(self, user_id):
+        with tracer.start_as_current_span(
+            name="get-memories",
+            attributes={SpanAttributes.OPENINFERENCE_SPAN_KIND: "RETRIEVER"}
+        ) as current_span:
+            current_span.set_attribute(SpanAttributes.INPUT_VALUE, user_id)
+            memories = self.memory.get_all(user_id=user_id)
+            list_memories = [m['memory'] for m in memories['results']]
+            current_span.set_attribute(SpanAttributes.OUTPUT_VALUE, " ".join(list_memories))
+            return list_memories
+
+    # using tracer object as a with clause
+    def search_memories(self, query, user_id):
+        with tracer.start_as_current_span(
+            name="search-memories",
+            attributes={SpanAttributes.OPENINFERENCE_SPAN_KIND: "RETRIEVER"}
+        ) as current_span:
+            current_span.set_attribute(SpanAttributes.INPUT_VALUE, query)
+            memories = self.memory.search(query, user_id=user_id)
+            list_memories = [m['memory'] for m in memories['results']]
+            current_span.set_attribute(SpanAttributes.OUTPUT_VALUE, " ".join(list_memories))
+            return list_memories
+
+# Usage example
+user_id = "traveler_1234"
+ai_assistant = PersonalTravelAssistant()
+
+def main():
+    while True:
+        question = input("Question: ")
+        if question.lower() in ['q', 'exit']:
+            print("Exiting...")
+            break
+        answer = ai_assistant.ask_question(question, user_id=user_id)
+        print(f"Answer: {answer}")
+
+if __name__ == "__main__":
+    main()
+```
+</CodeGroup> 
+
+#### View Traces in Phoenix
+
+To view your traces, go to the Projects tab in Phoenix. 

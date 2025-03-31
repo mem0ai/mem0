@@ -161,6 +161,14 @@
                         ]
                       }
                     ]
+                  },
+                  {
+                    "group": "Observability",
+                    "icon": "magnifying-glass",
+                    "pages": [
+                      "components/observability/overview",
+                      "components/observability/arize_phoenix"
+                    ]
                   }
                 ]
               },
