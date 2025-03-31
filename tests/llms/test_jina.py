@@ -46,7 +46,7 @@ def test_jina_llm_init():
         assert llm.headers == {"Content-Type": "application/json", "Authorization": "Bearer test-api-key"}
 
     # Test with environment variable API key
-    with patch.dict(os.environ, {"JINA_API_KEY": "env-api-key"}, clear=True):
+    with patch.dict(os.environ, {"JINACHAT_API_KEY": "env-api-key"}, clear=True):
         config = BaseLlmConfig(model="jina-chat-v1", temperature=0.7, max_tokens=100, top_p=1.0)
         llm = JinaLLM(config)
         assert llm.api_key == "env-api-key"
@@ -64,7 +64,7 @@ def test_jina_llm_init():
     assert llm.base_url == "https://custom.jina.ai/v1"
 
     # Test with environment variable base URL
-    with patch.dict(os.environ, {"JINA_API_BASE": "https://env.jina.ai/v1"}, clear=True):
+    with patch.dict(os.environ, {"JINACHAT_API_BASE": "https://env.jina.ai/v1"}, clear=True):
         config = BaseLlmConfig(model="jina-chat-v1", temperature=0.7, max_tokens=100, top_p=1.0, api_key="test-api-key")
         llm = JinaLLM(config)
         assert llm.base_url == "https://env.jina.ai/v1"

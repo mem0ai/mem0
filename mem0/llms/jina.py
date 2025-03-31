@@ -15,11 +15,11 @@ class JinaLLM(LLMBase):
         if not self.config.model:
             self.config.model = "jina-chat-v1"  # Default model if not specified
 
-        self.api_key = self.config.api_key or os.getenv("JINA_API_KEY")
+        self.api_key = self.config.api_key or os.getenv("JINACHAT_API_KEY")
         if not self.api_key:
-            raise ValueError("Jina AI API key is required. Set it in the config or as JINA_API_KEY environment variable.")
+            raise ValueError("Jina Chat API key is required. Set it in the config or as JINACHAT_API_KEY environment variable.")
         
-        self.base_url = self.config.jina_base_url or os.getenv("JINA_API_BASE") or "https://api.chat.jina.ai/v1/chat"
+        self.base_url = self.config.jina_base_url or os.getenv("JINACHAT_API_BASE") or "https://api.chat.jina.ai/v1/chat"
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"

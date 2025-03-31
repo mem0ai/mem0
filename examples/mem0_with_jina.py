@@ -1,12 +1,14 @@
 import os
 from mem0 import Memory
 
-# Set your Jina API key
-# You can get one from https://chat.jina.ai/api
-api_key = os.environ.get("JINA_API_KEY")
+# Set your Jina Chat API key
+# IMPORTANT: This must be a Jina Chat API key from https://chat.jina.ai/api
+# This is NOT the same as Jina's Reader/Search API key or other Jina services
+api_key = os.environ.get("JINACHAT_API_KEY")
 if not api_key:
-    print("Please set your JINA_API_KEY environment variable")
+    print("Please set your JINACHAT_API_KEY environment variable")
     print("You can get one from https://chat.jina.ai/api")
+    print("Note: This must be a Chat API key, not a Reader/Search API key")
     exit(1)
 
 # Define the configuration

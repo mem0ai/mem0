@@ -7,9 +7,16 @@ description: Guide to use Mem0 with Jina AI Chat
 
 Jina AI provides a powerful chat API with capabilities similar to other major LLM providers. The Jina AI Chat API allows for text generation, function/tool calling, and image input.
 
+## Important API Key Distinction
+
+**Note:** Jina AI offers multiple API services including Chat API, Reader API, Search API, Embeddings API, etc. 
+- The **Jina Chat API** (used in this integration) requires its own specific API key from [chat.jina.ai/api](https://chat.jina.ai/api) 
+- This key is different from keys used for Jina's Reader API, Search API, or other Jina services
+- For this integration, you must set the `JINACHAT_API_KEY` environment variable or provide the key in the config
+
 ## Getting Started
 
-To get started, you need to obtain an API key from Jina AI. You can get one from [chat.jina.ai/api](https://chat.jina.ai/api).
+To get started, you need to obtain a Chat API key from Jina AI. You can get one from [chat.jina.ai/api](https://chat.jina.ai/api).
 
 ### Installation
 
@@ -29,7 +36,7 @@ config = {
             "model": "jina-chat-v1",  # Default model
             "temperature": 0.1,
             "max_tokens": 2000,
-            "api_key": "your-jina-api-key",  # Replace with your API key or set JINA_API_KEY env variable
+            "api_key": "your-jina-chat-api-key",  # Replace with your API key or set JINACHAT_API_KEY env variable
         }
     },
     "embedder": {
@@ -51,10 +58,10 @@ config = {
 memory = Memory.from_config(config)
 ```
 
-Alternatively, you can set the `JINA_API_KEY` environment variable instead of passing it in the config:
+Alternatively, you can set the `JINACHAT_API_KEY` environment variable instead of passing it in the config:
 
 ```bash
-export JINA_API_KEY="your-jina-api-key"
+export JINACHAT_API_KEY="your-jina-chat-api-key"
 ```
 
 ## Configuration Options
@@ -67,8 +74,8 @@ The Jina LLM provider supports the following configuration options:
 | `temperature` | `float` | Controls the randomness of the output. Lower values make output more deterministic. Default is `0.1`. |
 | `max_tokens` | `int` | The maximum number of tokens to generate. Default is `2000`. |
 | `top_p` | `float` | An alternative to temperature sampling. Default is `0.1`. |
-| `api_key` | `str` | Your Jina AI API key. If not provided, it will try to use the `JINA_API_KEY` environment variable. |
-| `jina_base_url` | `str` | The base URL for the Jina AI API. Default is `https://api.chat.jina.ai/v1/chat`. |
+| `api_key` | `str` | Your Jina Chat API key. If not provided, it will try to use the `JINACHAT_API_KEY` environment variable. |
+| `jina_base_url` | `str` | The base URL for the Jina Chat API. Default is `https://api.chat.jina.ai/v1/chat`. |
 
 ## Example Usage
 
@@ -78,10 +85,10 @@ Here's a complete example of using Mem0 with Jina AI:
 import os
 from mem0 import Memory
 
-# Set your Jina API key
-api_key = os.environ.get("JINA_API_KEY")
+# Set your Jina Chat API key
+api_key = os.environ.get("JINACHAT_API_KEY")
 if not api_key:
-    print("Please set your JINA_API_KEY environment variable")
+    print("Please set your JINACHAT_API_KEY environment variable")
     exit(1)
 
 # Define the configuration
@@ -149,7 +156,7 @@ config = {
             "model": "jina-chat-v1",
             "enable_vision": True,
             "vision_details": "auto",  # Options: "low", "high", "auto"
-            "api_key": "your-jina-api-key",
+            "api_key": "your-jina-chat-api-key",
         }
     },
     # ... other config options
@@ -160,6 +167,7 @@ config = {
 
 If you encounter issues with the Jina AI integration, here are some common solutions:
 
+- **API Key Confusion**: Make sure you're using a Jina Chat API key specifically (not a key for Reader API or other Jina services). The "Invalid token" error often occurs when using the wrong type of Jina API key.
 - Make sure your API key is valid and correctly set.
 - Check if you're using the correct base URL if you've customized it.
 - Ensure you have an active internet connection to reach the Jina AI API.
