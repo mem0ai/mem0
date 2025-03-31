@@ -1,23 +1,27 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { retrieveMemories } from "../src";
+import { createMem0, retrieveMemories } from "../../src";
 import { generateText, LanguageModelV1Prompt } from "ai";
-import { testConfig } from "../config/test-config";
-import { createOpenAI } from "@ai-sdk/openai";
+import { testConfig } from "../../config/test-config";
+import { createCohere } from "@ai-sdk/cohere";
 
-describe("OPENAI Functions", () => {
+describe("COHERE MEM0 Tests", () => {
   const { userId } = testConfig;
   jest.setTimeout(30000);
-  let openai: any;
+  let mem0: any;
 
   beforeEach(() => {
-    openai = createOpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    mem0 = createMem0({
+      provider: "cohere",
+      apiKey: process.env.COHERE_API_KEY,
+      mem0Config: {
+        user_id: userId
+      }
     });
   });
 
-  it("should retrieve memories and generate text using OpenAI provider", async () => {
+  it("should retrieve memories and generate text using COHERE provider", async () => {
     const messages: LanguageModelV1Prompt = [
       {
         role: "user",
@@ -28,13 +32,11 @@ describe("OPENAI Functions", () => {
       },
     ];
 
-    // Retrieve memories based on previous messages
-    const memories = await retrieveMemories(messages, { user_id: userId });
     
     const { text } = await generateText({
-      model: openai("gpt-4-turbo"),
-      messages: messages,
-      system: memories,
+      // @ts-ignore
+      model: mem0("command-r-plus"),
+      messages: messages
     });
 
     // Expect text to be a string
@@ -42,14 +44,13 @@ describe("OPENAI Functions", () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  it("should generate text using openai provider with memories", async () => {
+  it("should generate text using COHERE provider with memories", async () => {
     const prompt = "Suggest me a good car to buy.";
-    const memories = await retrieveMemories(prompt, { user_id: userId });
 
     const { text } = await generateText({
-      model: openai("gpt-4-turbo"),
-      prompt: prompt,
-      system: memories
+      // @ts-ignore
+      model: mem0("command-r-plus"),
+      prompt: prompt
     });
 
     expect(typeof text).toBe('string');

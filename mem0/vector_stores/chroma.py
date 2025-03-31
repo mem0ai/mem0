@@ -127,19 +127,22 @@ class ChromaDB(VectorStoreBase):
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
-    def search(self, query: List[list], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(
+        self, query: str, vectors: List[list], limit: int = 5, filters: Optional[Dict] = None
+    ) -> List[OutputData]:
         """
         Search for similar vectors.
 
         Args:
-            query (List[list]): Query vector.
+            query (str): Query.
+            vectors (List[list]): List of vectors to search.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
 
         Returns:
             List[OutputData]: Search results.
         """
-        results = self.collection.query(query_embeddings=query, where=filters, n_results=limit)
+        results = self.collection.query(query_embeddings=vectors, where=filters, n_results=limit)
         final_results = self._parse_output(results)
         return final_results
 

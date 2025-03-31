@@ -1,6 +1,6 @@
 {
   "name": "@mem0/vercel-ai-provider",
-  "version": "0.0.10",
+  "version": "0.0.14",
   "description": "Vercel AI Provider for providing memory to LLMs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -26,16 +26,16 @@
   "author": "Saket Aryan <saketaryan2002@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
-    "@ai-sdk/anthropic": "^0.0.54",
-    "@ai-sdk/cohere": "^0.0.28",
-    "@ai-sdk/groq": "^0.0.3",
-    "@ai-sdk/openai": "^0.0.71",
-    "@ai-sdk/provider": "^0.0.26",
-    "@ai-sdk/provider-utils": "^1.0.22",
-    "ai": "^3.4.31",
+    "@ai-sdk/anthropic": "1.1.12",
+    "@ai-sdk/cohere": "1.1.12",
+    "@ai-sdk/groq": "1.1.11",
+    "@ai-sdk/openai": "1.1.15",
+    "@ai-sdk/provider": "1.0.9",
+    "@ai-sdk/provider-utils": "2.1.10",
+    "ai": "4.1.46",
     "dotenv": "^16.4.5",
+    "mem0ai": "^1.0.29",
     "partial-json": "0.1.7",
-    "ts-node": "^10.9.2",
     "zod": "^3.0.0"
   },
   "devDependencies": {
@@ -45,8 +45,9 @@
     "jest": "^29.7.0",
     "nodemon": "^3.1.7",
     "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
     "tsup": "^8.3.0",
-    "typescript": "5.5.4"
+    "typescript": "^5.5.4"
   },
   "peerDependencies": {
     "zod": "^3.0.0"

@@ -17,9 +17,9 @@ You can give feedback on a memory by calling the `feedback` method on the Mem0 c
 <CodeGroup>
 
 ```python Python
-from mem0 import Mem0
+from mem0 import MemoryClient
 
-client = Mem0(api_key="your_api_key")
+client = MemoryClient(api_key="your_api_key")
 
 client.feedback(memory_id="your-memory-id", feedback="NEGATIVE", feedback_reason="I don't like this memory because it is not relevant.")
 ```

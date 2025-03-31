@@ -8,7 +8,9 @@ try:
     from pinecone import Pinecone, PodSpec, ServerlessSpec
     from pinecone.data.dataclasses.vector import Vector
 except ImportError:
-    raise ImportError("Pinecone requires extra dependencies. Install with `pip install pinecone pinecone-text`") from None
+    raise ImportError(
+        "Pinecone requires extra dependencies. Install with `pip install pinecone pinecone-text`"
+    ) from None
 
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -34,7 +36,7 @@ class PineconeDB(VectorStoreBase):
         hybrid_search: bool,
         metric: str,
         batch_size: int,
-        extra_params: Optional[Dict[str, Any]]
+        extra_params: Optional[Dict[str, Any]],
     ):
         """
         Initialize the Pinecone vector store.
@@ -199,12 +201,15 @@ class PineconeDB(VectorStoreBase):
 
         return pinecone_filter
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(
+        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+    ) -> List[OutputData]:
         """
         Search for similar vectors.
 
         Args:
-            query (list): Query vector.
+            query (str): Query.
+            vectors (list): List of vectors to search.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -214,7 +219,7 @@ class PineconeDB(VectorStoreBase):
         filter_dict = self._create_filter(filters) if filters else None
 
         query_params = {
-            "vector": query,
+            "vector": vectors,
             "top_k": limit,
             "include_metadata": True,
             "include_values": False,

@@ -101,12 +101,12 @@ class RedisDB(VectorStoreBase):
             data.append(entry)
         self.index.load(data, id_field="memory_id")
 
-    def search(self, query: list, limit: int = 5, filters: dict = None):
+    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None):
         conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
         filter = reduce(lambda x, y: x & y, conditions)
 
         v = VectorQuery(
-            vector=np.array(query, dtype=np.float32).tobytes(),
+            vector=np.array(vectors, dtype=np.float32).tobytes(),
             vector_field_name="embedding",
             return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
             filter_expression=filter,

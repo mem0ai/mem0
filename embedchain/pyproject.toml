@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "embedchain"
-version = "0.1.127"
+version = "0.1.128"
 description = "Simplest open source retrieval (RAG) framework"
 authors = [
     "Taranjeet Singh <taranjeet@embedchain.ai>",
@@ -91,7 +91,7 @@ exclude = '''
 color = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<=3.13"
+python = ">=3.9,<=3.13.2"
 python-dotenv = "^1.0.0"
 langchain = "^0.3.1"
 requests = "^2.31.0"
@@ -139,7 +139,7 @@ alembic = "^1.13.1"
 langchain-cohere = "^0.3.0"
 langchain-community = "^0.3.1"
 langchain-aws = {version = "^0.2.1", optional = true}
-langsmith = "^0.1.17"
+langsmith = "^0.3.18"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
