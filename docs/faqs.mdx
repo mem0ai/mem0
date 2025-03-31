@@ -125,6 +125,23 @@ iconType: "solid"
         This flexibility allows you to create highly contextually aware AI applications that can adapt to specific user needs and situations. Metadata provides an additional dimension for memory retrieval, enabling more precise and relevant responses.
     </Accordion>
 
+    <Accordion title="How do I disable telemetry in Mem0?">
+        To disable telemetry in Mem0, you can set the `MEM0_TELEMETRY` environment variable to `False`:
+
+        ```bash
+        MEM0_TELEMETRY=False
+        ```
+
+        You can also disable telemetry programmatically in your code:
+
+        ```python
+        import os
+        os.environ["MEM0_TELEMETRY"] = "False"
+        ```
+
+        Setting this environment variable will prevent Mem0 from collecting and sending any usage data, ensuring complete privacy for your application.
+    </Accordion>
+
 </AccordionGroup>
 
 
