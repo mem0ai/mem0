@@ -110,7 +110,8 @@
                           "components/llms/models/aws_bedrock",
                           "components/llms/models/gemini",
                           "components/llms/models/deepseek",
-                          "components/llms/models/xAI"
+                          "components/llms/models/xAI",
+                          "components/llms/models/lmstudio"
                         ]
                       }
                     ]
