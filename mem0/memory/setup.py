@@ -3,7 +3,7 @@ import os
 import uuid
 
 # Set up the directory path
-VECTOR_ID = "fd411bd3-99a2-42d6-acd7-9fca8ad09580"
+VECTOR_ID = str(uuid.uuid4())
 home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
 os.makedirs(mem0_dir, exist_ok=True)
