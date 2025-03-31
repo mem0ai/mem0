@@ -1,6 +1,6 @@
 import sqlite3
-import uuid
 import threading
+import uuid
 
 
 class SQLiteManager:
