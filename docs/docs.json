@@ -136,7 +136,8 @@
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
                           "components/vectordbs/dbs/vertex_ai_vector_search",
-                          "components/vectordbs/dbs/weaviate"
+                          "components/vectordbs/dbs/weaviate",
+                          "components/vectordbs/dbs/faiss"
                         ]
                       }
                     ]
@@ -183,6 +184,7 @@
                   "examples/overview",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
                   "examples/customer-support-agent",
@@ -195,7 +197,8 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
-                  "examples/mem0-livekit-voice-agent"
+                  "examples/mem0-livekit-voice-agent",
+                  "examples/email_processing"
                 ]
               }
             ]
