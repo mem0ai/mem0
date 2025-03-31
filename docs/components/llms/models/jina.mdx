@@ -1,0 +1,174 @@
+---
+title: Jina AI
+description: Guide to use Mem0 with Jina AI Chat
+---
+
+# Jina AI
+
+Jina AI provides a powerful chat API with capabilities similar to other major LLM providers. The Jina AI Chat API allows for text generation, function/tool calling, and image input.
+
+## Getting Started
+
+To get started, you need to obtain an API key from Jina AI. You can get one from [chat.jina.ai/api](https://chat.jina.ai/api).
+
+### Installation
+
+Mem0 already includes the necessary dependencies to use Jina AI Chat. No additional installation is required.
+
+### Configuration
+
+Here's an example of how to configure Mem0 to use Jina AI:
+
+```python
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "jina",
+        "config": {
+            "model": "jina-chat-v1",  # Default model
+            "temperature": 0.1,
+            "max_tokens": 2000,
+            "api_key": "your-jina-api-key",  # Replace with your API key or set JINA_API_KEY env variable
+        }
+    },
+    "embedder": {
+        "provider": "openai",  # You can use any supported embedding provider
+        "config": {
+            "model": "text-embedding-3-small"
+        }
+    },
+    "vector_store": {
+        "provider": "qdrant",  # You can use any supported vector store
+        "config": {
+            "collection_name": "mem0_jina_example",
+            "embedding_model_dims": 1536,
+        }
+    },
+    "version": "v1.1"
+}
+
+memory = Memory.from_config(config)
+```
+
+Alternatively, you can set the `JINA_API_KEY` environment variable instead of passing it in the config:
+
+```bash
+export JINA_API_KEY="your-jina-api-key"
+```
+
+## Configuration Options
+
+The Jina LLM provider supports the following configuration options:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `model` | `str` | The model to use. Default is `jina-chat-v1`. |
+| `temperature` | `float` | Controls the randomness of the output. Lower values make output more deterministic. Default is `0.1`. |
+| `max_tokens` | `int` | The maximum number of tokens to generate. Default is `2000`. |
+| `top_p` | `float` | An alternative to temperature sampling. Default is `0.1`. |
+| `api_key` | `str` | Your Jina AI API key. If not provided, it will try to use the `JINA_API_KEY` environment variable. |
+| `jina_base_url` | `str` | The base URL for the Jina AI API. Default is `https://api.chat.jina.ai/v1/chat`. |
+
+## Example Usage
+
+Here's a complete example of using Mem0 with Jina AI:
+
+```python
+import os
+from mem0 import Memory
+
+# Set your Jina API key
+api_key = os.environ.get("JINA_API_KEY")
+if not api_key:
+    print("Please set your JINA_API_KEY environment variable")
+    exit(1)
+
+# Define the configuration
+config = {
+    "llm": {
+        "provider": "jina",
+        "config": {
+            "model": "jina-chat-v1",
+            "temperature": 0.1,
+            "max_tokens": 2000,
+            "api_key": api_key,
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small"
+        }
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "mem0_jina_example",
+            "embedding_model_dims": 1536,
+        }
+    },
+    "version": "v1.1"
+}
+
+# Initialize Memory with the configuration
+memory = Memory.from_config(config)
+
+# Add a memory
+user_id = "test-user-1"
+memory.add(
+    "Jina AI is a powerful LLM with a developer-friendly API.",
+    user_id=user_id,
+)
+
+# Search for a memory
+results = memory.search("What is Jina AI?", user_id=user_id)
+for result in results:
+    print(result.payload['data'])
+
+# Chat using the LLM
+response = memory.chat("Tell me about Jina AI and its features.")
+print(response)
+```
+
+## Advanced Features
+
+### Using Function/Tool Calling
+
+Jina AI supports function/tool calling, similar to other LLM providers. When using memory.add() with procedural memory types, Mem0 will automatically utilize this capability when appropriate.
+
+### Using Vision Features
+
+Jina AI supports vision features, allowing you to send images along with text prompts. You can enable this by setting `enable_vision` to `True` in your config:
+
+```python
+config = {
+    "llm": {
+        "provider": "jina",
+        "config": {
+            "model": "jina-chat-v1",
+            "enable_vision": True,
+            "vision_details": "auto",  # Options: "low", "high", "auto"
+            "api_key": "your-jina-api-key",
+        }
+    },
+    # ... other config options
+}
+```
+
+## Troubleshooting
+
+If you encounter issues with the Jina AI integration, here are some common solutions:
+
+- Make sure your API key is valid and correctly set.
+- Check if you're using the correct base URL if you've customized it.
+- Ensure you have an active internet connection to reach the Jina AI API.
+- If you encounter rate limits, consider adjusting your request frequency.
+
+For more information on the Jina AI Chat API, visit [chat.jina.ai/api](https://chat.jina.ai/api).
+
+## Further Resources
+
+- [Jina AI Documentation](https://jina.ai/docs/)
+- [Jina AI Chat](https://chat.jina.ai/)
+- [Mem0 Documentation](/) 
