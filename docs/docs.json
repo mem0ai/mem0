@@ -130,12 +130,12 @@
                           "components/vectordbs/dbs/pgvector",
                           "components/vectordbs/dbs/milvus",
                           "components/vectordbs/dbs/pinecone",
-                          "components/vectordbs/dbs/azure_ai_search",
+                          "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
-                          "components/vectordbs/dbs/vertex_ai_vector_search",
+                          "components/vectordbs/dbs/vertex_ai",
                           "components/vectordbs/dbs/weaviate",
                           "components/vectordbs/dbs/faiss"
                         ]
