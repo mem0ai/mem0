@@ -67,6 +67,7 @@ class PGVector(VectorStoreBase):
         Args:
             embedding_model_dims (int): Dimension of the embedding vector.
         """
+        self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self.cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {self.collection_name} (
