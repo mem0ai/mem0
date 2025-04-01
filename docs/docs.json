@@ -213,6 +213,7 @@
                 "pages": [
                   "integrations/overview",
                   "integrations/vercel-ai-sdk",
+                  "integrations/flowise",
                   "integrations/crewai",
                   "integrations/autogen",
                   "integrations/langchain",
