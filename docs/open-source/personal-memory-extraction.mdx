@@ -1,0 +1,610 @@
+---
+title: Personal Memory Extraction
+description: 'Extracting, organizing, and retrieving personal facts with mem0'
+icon: "user"
+iconType: "solid"
+---
+
+# Personal Memory Extraction
+
+This guide explains how to extract, organize, and retrieve personal facts about users in mem0, making it ideal for building personalized AI assistants, tutors, or agents. While mem0 doesn't have specialized functionality specifically for personal facts, its general memory system can be configured for effective personal information management.
+
+## Understanding Personal Memory Extraction
+
+Mem0's general fact extraction system can be used to store and retrieve information about people, including their:
+
+- Preferences and interests
+- Demographic information
+- Skills and background
+- Relationships
+- Goals and aspirations
+- Past interactions and history
+
+These personal facts provide essential context for AI systems to deliver personalized experiences. The default fact extraction prompt is already oriented toward personal information, as it mentions preferences, personal details, plans, health information, and professional information.
+
+## Extracting Personal Facts
+
+### Basic Fact Extraction
+
+By default, mem0 uses its configured LLM to extract facts from conversations:
+
+```python
+from mem0 import Memory, MemoryConfig
+
+memory = Memory()
+
+# Add a conversation containing personal information
+conversation = [
+    {"role": "user", "content": "Hi, my name is Alexa. I'm 28 years old and I work as a data scientist in Chicago."},
+    {"role": "assistant", "content": "Nice to meet you, Alexa! I'd be happy to help with anything related to data science or Chicago living."},
+    {"role": "user", "content": "I love hiking on weekends and I'm allergic to shellfish."}
+]
+
+# Add to memory with user_id for future reference
+memory.add(
+    conversation,
+    user_id="alexa-user-123"
+)
+```
+
+The default fact extraction will identify and store key pieces of information like:
+- Name: Alexa
+- Age: 28
+- Occupation: Data Scientist
+- Location: Chicago
+- Interest: Hiking
+- Health: Shellfish allergy
+
+### Custom Fact Extraction Prompt
+
+For more focused personal fact extraction, you can customize the extraction prompt:
+
+```python
+# Create a memory instance with custom fact extraction prompt
+personal_facts_config = MemoryConfig(
+    custom_fact_extraction_prompt="""
+    You are an expert at extracting personal facts about individuals.
+    Your task is to identify and extract specific details about a person from the given text.
+    Focus on extracting the following types of information:
+    
+    1. Personal identity (name, age, gender, location)
+    2. Professional details (job, company, field, education)
+    3. Preferences and interests (hobbies, likes/dislikes, favorites)
+    4. Health information (allergies, dietary restrictions, medical conditions)
+    5. Relationships (family, friends, significant others)
+    6. Goals and aspirations
+    7. Schedule and routines
+    
+    Extract each fact as a separate, concise statement in the format:
+    "User [has/likes/wants/is] [fact]"
+    
+    Ensure each fact is specific, accurate, and clearly stated.
+    """
+)
+
+personal_memory = Memory(personal_facts_config)
+
+# Add personal information with custom extraction
+personal_memory.add(
+    "I'm Raj, a 32-year-old software engineer at Google. I have two kids (ages 4 and 6) and my wife is a doctor. I'm learning to play guitar and try to practice daily. I'm hoping to run a half-marathon next year.",
+    user_id="raj-user-456"
+)
+```
+
+## Organizing Personal Memories with Metadata
+
+Metadata is crucial for organizing and retrieving personal information effectively.
+
+### Categorizing Personal Facts
+
+Add metadata categories to personal memories:
+
+```python
+# Define common categories for personal information
+PERSONAL_CATEGORIES = {
+    "identity": ["name", "age", "gender", "nationality", "location"],
+    "professional": ["job", "employer", "education", "skills", "career"],
+    "interests": ["hobbies", "sports", "entertainment", "food", "travel"],
+    "health": ["allergies", "diet", "conditions", "medications"],
+    "relationships": ["family", "friends", "partners", "pets"],
+    "preferences": ["likes", "dislikes", "preferences", "favorites"],
+    "goals": ["aspirations", "plans", "objectives"],
+    "schedule": ["routines", "availability", "commitments"]
+}
+
+# Function to add personal information with appropriate metadata
+def add_personal_fact(memory_instance, fact, user_id, subcategory=None):
+    """Add a personal fact with appropriate metadata categorization
+    
+    Args:
+        memory_instance: Memory instance
+        fact: The personal fact to add
+        user_id: User identifier
+        subcategory: Specific subcategory (optional, will be auto-detected if not provided)
+    """
+    # Auto-detect category and subcategory if not provided
+    if subcategory is None:
+        subcategory = determine_subcategory(fact, PERSONAL_CATEGORIES)
+    
+    # Determine main category from subcategory
+    main_category = next(
+        (cat for cat, subcats in PERSONAL_CATEGORIES.items() if subcategory in subcats),
+        "general"
+    )
+    
+    # Add with appropriate metadata
+    result = memory_instance.add(
+        fact,
+        user_id=user_id,
+        metadata={
+            "fact_type": "personal",
+            "category": main_category,
+            "subcategory": subcategory,
+            "source": "explicit_statement"
+        }
+    )
+    
+    return result
+
+# Helper function to determine subcategory based on content
+def determine_subcategory(fact, categories_dict):
+    """Determine the most likely subcategory for a personal fact"""
+    # Simple keyword matching (in a real app, you might use NLP or the LLM)
+    fact_lower = fact.lower()
+    
+    # Check each subcategory's keywords
+    for category, subcategories in categories_dict.items():
+        for subcategory in subcategories:
+            if subcategory in fact_lower:
+                return subcategory
+    
+    # Default to "general" if no match found
+    return "general"
+
+# Example usage
+add_personal_fact(
+    memory,
+    "User is allergic to peanuts and tree nuts",
+    "user-123",
+    subcategory="allergies"
+)
+
+add_personal_fact(
+    memory,
+    "User enjoys watching science fiction movies on weekends",
+    "user-123"
+)
+```
+
+### Confidence and Source Tracking
+
+Track the confidence and source of personal facts:
+
+```python
+def add_verified_personal_fact(memory_instance, fact, user_id, confidence=1.0, source=None):
+    """Add a personal fact with confidence and source tracking
+    
+    Args:
+        memory_instance: Memory instance
+        fact: The personal fact
+        user_id: User identifier
+        confidence: Confidence score (0.0-1.0)
+        source: Source of information
+    """
+    # Determine category automatically
+    subcategory = determine_subcategory(fact, PERSONAL_CATEGORIES)
+    
+    # Source classification
+    if source is None:
+        if "mentioned" in fact.lower() or "stated" in fact.lower():
+            source = "explicit_statement"
+        elif "seems to" in fact.lower() or "probably" in fact.lower():
+            source = "inference" 
+            confidence = min(confidence, 0.8)  # Cap confidence for inferences
+        else:
+            source = "unspecified"
+    
+    # Add fact with detailed metadata
+    result = memory_instance.add(
+        fact,
+        user_id=user_id,
+        metadata={
+            "fact_type": "personal",
+            "subcategory": subcategory,
+            "confidence": confidence,
+            "source": source,
+            "verified": confidence > 0.9,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+    
+    return result
+
+# Example usage - explicit statements (high confidence)
+add_verified_personal_fact(
+    memory,
+    "User stated they are lactose intolerant",
+    "user-123",
+    confidence=0.98,
+    source="explicit_statement"
+)
+
+# Example usage - inference (lower confidence)
+add_verified_personal_fact(
+    memory,
+    "User seems to prefer texting over phone calls",
+    "user-123",
+    confidence=0.7,
+    source="inference"
+)
+```
+
+## Retrieving Personal Facts
+
+### Basic Personal Fact Retrieval
+
+To retrieve specific personal information:
+
+```python
+# Search for specific personal information
+allergies = memory.search(
+    "What allergies does the user have?",
+    user_id="user-123",
+    filters={
+        "metadata.subcategory": "allergies"
+    }
+)
+
+# Get all personal preferences
+preferences = memory.search(
+    "What are the user's preferences?",
+    user_id="user-123",
+    filters={
+        "metadata.category": "preferences"
+    }
+)
+
+# Filter by confidence level (only high-confidence facts)
+verified_facts = memory.search(
+    "What do we know for certain about the user?",
+    user_id="user-123",
+    filters={
+        "metadata.confidence": {"$gte": 0.9}
+    }
+)
+```
+
+### Creating Personal Profiles
+
+Combine personal facts into a comprehensive profile:
+
+```python
+def generate_user_profile(memory_instance, user_id):
+    """Generate a comprehensive profile of a user from stored memories
+    
+    Args:
+        memory_instance: Memory instance
+        user_id: User identifier
+        
+    Returns:
+        Dict containing organized personal information
+    """
+    # Initialize profile structure
+    profile = {
+        "identity": {},
+        "professional": {},
+        "interests": [],
+        "health": [],
+        "relationships": [],
+        "preferences": [],
+        "goals": [],
+        "schedule": []
+    }
+    
+    # Get all facts about this user
+    all_facts = memory_instance.get_all(user_id=user_id)
+    
+    # Classify and organize facts
+    for fact in all_facts["results"]:
+        # Skip if not personal fact type
+        if not fact.get("metadata") or fact["metadata"].get("fact_type") != "personal":
+            continue
+            
+        category = fact["metadata"].get("category", "general")
+        content = fact["memory"]
+        confidence = fact["metadata"].get("confidence", 0.5)
+        
+        # Handle identity and professional as key-value pairs
+        if category in ["identity", "professional"]:
+            subcategory = fact["metadata"].get("subcategory")
+            if subcategory:
+                profile[category][subcategory] = {
+                    "value": content,
+                    "confidence": confidence
+                }
+        # Handle other categories as lists
+        elif category in profile:
+            profile[category].append({
+                "fact": content,
+                "confidence": confidence,
+                "subcategory": fact["metadata"].get("subcategory")
+            })
+    
+    return profile
+
+# Generate and use a user profile
+user_profile = generate_user_profile(memory, "user-123")
+print(f"User identity: {user_profile['identity']}")
+print(f"User interests: {user_profile['interests']}")
+```
+
+### Temporal Personal Facts
+
+Track how personal facts change over time:
+
+```python
+def track_personal_fact_changes(memory_instance, user_id, fact_type):
+    """Track changes to a specific type of personal fact over time
+    
+    Args:
+        memory_instance: Memory instance
+        user_id: User identifier
+        fact_type: Type of fact to track (e.g., "location", "job")
+        
+    Returns:
+        List of changes to this fact type, sorted by date
+    """
+    # Get facts of this type
+    facts = memory_instance.search(
+        f"User {fact_type}",
+        user_id=user_id,
+        filters={
+            "metadata.subcategory": fact_type
+        }
+    )
+    
+    changes = []
+    
+    # Examine each fact and its history
+    for fact in facts["results"]:
+        memory_id = fact["id"]
+        history = memory_instance.history(memory_id)
+        
+        # Extract changes from history
+        for entry in history:
+            changes.append({
+                "date": entry["created_at"] or entry["updated_at"],
+                "type": entry["action"],
+                "previous": entry["previous_value"],
+                "new": entry["new_value"],
+                "fact_type": fact_type
+            })
+    
+    # Sort by date
+    changes.sort(key=lambda x: x["date"])
+    
+    return changes
+
+# Example: Track how a user's location has changed
+location_changes = track_personal_fact_changes(memory, "user-123", "location")
+```
+
+## Advanced Personal Fact Operations
+
+### Resolving Contradictory Information
+
+Handle conflicting personal information:
+
+```python
+def resolve_contradictory_facts(memory_instance, user_id, subcategory):
+    """Identify and resolve contradictory facts about a person
+    
+    Args:
+        memory_instance: Memory instance
+        user_id: User identifier
+        subcategory: Specific subcategory to check
+        
+    Returns:
+        Resolved fact (highest confidence or most recent)
+    """
+    # Get all facts in this subcategory
+    facts = memory_instance.search(
+        f"User {subcategory}",
+        user_id=user_id,
+        filters={
+            "metadata.subcategory": subcategory
+        }
+    )
+    
+    if not facts["results"]:
+        return None
+        
+    # If only one fact, no contradiction
+    if len(facts["results"]) == 1:
+        return facts["results"][0]
+    
+    # Multiple facts - potential contradiction
+    # Sort by confidence (highest first)
+    sorted_by_confidence = sorted(
+        facts["results"], 
+        key=lambda x: x.get("metadata", {}).get("confidence", 0),
+        reverse=True
+    )
+    
+    # Sort by recency (most recent first)
+    sorted_by_recency = sorted(
+        facts["results"],
+        key=lambda x: x.get("created_at") or x.get("updated_at") or "",
+        reverse=True
+    )
+    
+    # Choose most confident fact that is also reasonably recent
+    # (within 90 days of most recent fact)
+    most_recent_date = sorted_by_recency[0].get("created_at") or sorted_by_recency[0].get("updated_at")
+    
+    from datetime import datetime, timedelta
+    from dateutil import parser
+    
+    if most_recent_date:
+        most_recent = parser.parse(most_recent_date)
+        recency_threshold = most_recent - timedelta(days=90)
+        
+        # Filter by recency
+        recent_facts = [
+            f for f in sorted_by_confidence
+            if parser.parse(f.get("created_at") or f.get("updated_at") or most_recent_date) >= recency_threshold
+        ]
+        
+        if recent_facts:
+            return recent_facts[0]  # Most confident among recent facts
+    
+    # Default to most confident if dates can't be parsed
+    return sorted_by_confidence[0]
+
+# Example: Resolve potentially contradictory location information
+current_location = resolve_contradictory_facts(memory, "user-123", "location")
+```
+
+### Using Personal Facts with Graph Memory
+
+Leverage graph memory to track relationships between personal facts:
+
+```python
+from mem0 import Memory, MemoryConfig
+
+# Configure with graph memory
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "personal_facts",
+            "embedding_model_dims": 1536
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "neo4j",
+            "password": "password"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small"
+        }
+    },
+    "version": "v1.1"
+}
+
+memory = Memory.from_config(config)
+
+# Add information that will create graph relationships
+memory.add(
+    "Jane is married to Michael. They have two children named Emma and Liam. Jane works at Microsoft as a Product Manager.",
+    user_id="jane-user-789"
+)
+
+# The graph will automatically capture relationships like:
+# - Jane (Person) is married to (relationship) Michael (Person)
+# - Jane (Person) has children (relationship) Emma, Liam (Person)
+# - Jane (Person) works at (relationship) Microsoft (Organization)
+# - Jane (Person) has role (relationship) Product Manager (Role)
+
+# Retrieve relationship information
+family_info = memory.search(
+    "Who is in Jane's family?",
+    user_id="jane-user-789"
+)
+
+# Access graph relationships directly
+relationships = memory.graph.search(
+    "Jane",
+    {"user_id": "jane-user-789"}
+)
+```
+
+## Best Practices for Personal Fact Extraction
+
+1. **Obtain consent**: Always inform users that personal information will be stored
+
+2. **Categorize systematically**: Use consistent categorization for personal facts
+
+3. **Track confidence and source**: Distinguish between explicit statements and inferences
+
+4. **Focus on relevance**: Only extract personal facts that are relevant to your application
+
+5. **Update regularly**: Personal facts can change over time
+
+6. **Handle contradictions**: Implement strategies to resolve conflicting information
+
+7. **Respect privacy**: Be cautious with sensitive personal information
+
+8. **Document your schema**: Maintain clear documentation of your personal fact schema
+
+## Example: Personal Assistant Application
+
+Here's how to use personal fact extraction in a personal assistant application:
+
+```python
+from mem0 import Memory
+import os
+
+# Initialize memory
+memory = Memory()
+
+# Function to provide personalized responses
+def personalized_assistant(user_id, query):
+    """
+    Respond to user queries with personalization based on memory
+    
+    Args:
+        user_id: User identifier
+        query: User's question or request
+        
+    Returns:
+        Personalized response based on memory
+    """
+    # Retrieve relevant memories for this user
+    relevant_memories = memory.search(query, user_id=user_id)
+    
+    # Format memories for context
+    memory_context = ""
+    if relevant_memories["results"]:
+        memory_context = "Information about the user:\n" + "\n".join(
+            [f"- {mem['memory']}" for mem in relevant_memories["results"]]
+        )
+    
+    # Generate response using memories
+    messages = [
+        {"role": "system", "content": f"You are a personal assistant for this user. {memory_context}"},
+        {"role": "user", "content": query}
+    ]
+    
+    response = memory.llm.generate_response(messages=messages)
+    
+    # Store this interaction
+    memory.add(
+        [
+            {"role": "user", "content": query},
+            {"role": "assistant", "content": response}
+        ],
+        user_id=user_id
+    )
+    
+    return response
+
+# Example usage
+response = personalized_assistant(
+    "user-123",
+    "What should I eat for dinner tonight?"
+)
+print(response)  # Will consider allergies, preferences, etc. from memory
+```
+
+## Conclusion
+
+Effective personal fact extraction and management is essential for building truly personalized AI applications. By following the approaches outlined in this guide, you can create systems that understand and remember important details about users, enabling more natural and contextually appropriate interactions.
+
+For more information on advanced memory operations, see [Advanced Memory Operations](/open-source/advanced-memory-operations) or explore [Working with Metadata](/open-source/working-with-metadata).

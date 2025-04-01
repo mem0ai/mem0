@@ -1,0 +1,428 @@
+---
+title: Working with Metadata
+description: 'Managing memory metadata, timestamps, and filtering in mem0'
+icon: "tag"
+iconType: "solid"
+---
+
+# Working with Metadata and Timestamps
+
+This guide explains how to effectively work with memory metadata and timestamps in mem0, enabling more powerful organization, filtering, and retrieval of memories.
+
+## Memory Metadata Overview
+
+In mem0, each memory can have associated metadata that provides additional context and enables sophisticated filtering and organization. Metadata can include:
+
+- Custom categories or tags
+- Confidence scores
+- Source information
+- Context details
+- Any arbitrary structured data
+
+## Basic Metadata Usage
+
+### Adding Memories with Metadata
+
+You can attach metadata when creating memories:
+
+```python
+from mem0 import Memory
+
+memory = Memory()
+
+# Add a memory with custom metadata
+memory.add(
+    "I prefer tea over coffee in the morning.",
+    user_id="user-123",
+    metadata={
+        "category": "preferences",
+        "topic": "beverages",
+        "confidence": 0.9,
+        "source": "explicit_statement"
+    }
+)
+```
+
+### Retrieving Memories with Metadata
+
+When you retrieve memories, metadata is included in the response:
+
+```python
+# Get a specific memory
+memory_id = "memory-uuid-here"
+result = memory.get(memory_id)
+
+# Access the metadata
+print(f"Memory: {result['memory']}")
+print(f"Category: {result['metadata'].get('category')}")
+print(f"Confidence: {result['metadata'].get('confidence')}")
+
+# Get all memories with metadata
+all_memories = memory.get_all(user_id="user-123")
+for mem in all_memories['results']:
+    print(f"Memory: {mem['memory']}")
+    print(f"Metadata: {mem.get('metadata', {})}")
+    print("---")
+```
+
+### Searching with Metadata Filters
+
+You can use metadata for more targeted memory retrieval:
+
+```python
+# Search with metadata filters
+beverage_preferences = memory.search(
+    "What beverages does the user like?",
+    user_id="user-123",
+    filters={
+        "metadata.category": "preferences",
+        "metadata.topic": "beverages"
+    }
+)
+
+# High-confidence memories only
+confident_memories = memory.search(
+    "What are the user's strong preferences?",
+    user_id="user-123",
+    filters={
+        "metadata.confidence": {"$gte": 0.8}  # Greater than or equal to 0.8
+    }
+)
+```
+
+## Advanced Metadata Techniques
+
+### Structured Metadata
+
+For complex applications, you can use structured metadata objects:
+
+```python
+# Add structured metadata
+memory.add(
+    "I visited Paris in June 2024 and stayed at Hotel De Ville.",
+    user_id="traveler-456",
+    metadata={
+        "category": "travel_history",
+        "details": {
+            "location": {
+                "city": "Paris",
+                "country": "France",
+                "coordinates": {
+                    "latitude": 48.8566,
+                    "longitude": 2.3522
+                }
+            },
+            "dates": {
+                "start": "2024-06-10",
+                "end": "2024-06-17"
+            },
+            "accommodations": [
+                {
+                    "name": "Hotel De Ville",
+                    "rating": 4.5,
+                    "address": "17 Place du Panthéon, 75005 Paris"
+                }
+            ]
+        },
+        "source": "user_statement",
+        "confidence": 0.95
+    }
+)
+```
+
+### Filtering with Complex Metadata
+
+Access nested metadata fields with dot notation:
+
+```python
+# Search for memories about Paris
+paris_memories = memory.search(
+    "What do I know about Paris?",
+    user_id="traveler-456",
+    filters={
+        "metadata.details.location.city": "Paris"
+    }
+)
+
+# Memories with high-rated accommodations
+nice_hotels = memory.search(
+    "Where did I stay that was nice?",
+    user_id="traveler-456",
+    filters={
+        "metadata.details.accommodations.rating": {"$gte": 4.0}
+    }
+)
+```
+
+## Working with Timestamps
+
+All memories in mem0 automatically include `created_at` and `updated_at` timestamps. These timestamps use ISO 8601 format with timezone information.
+
+### Basic Timestamp Information
+
+```python
+# Add a memory
+result = memory.add("I live in Seattle.", user_id="user-123")
+memory_id = result["results"][0]["id"]
+
+# Retrieve with timestamps
+mem = memory.get(memory_id)
+print(f"Memory: {mem['memory']}")
+print(f"Created at: {mem['created_at']}")
+print(f"Updated at: {mem.get('updated_at') or 'Never updated'}")
+```
+
+### Filtering by Time Ranges
+
+You can use timestamps for time-based filtering:
+
+```python
+from datetime import datetime, timedelta
+import pytz
+
+# Get current time in UTC
+now = datetime.now(pytz.UTC).isoformat()
+
+# Calculate timestamp for 7 days ago
+week_ago = (datetime.now(pytz.UTC) - timedelta(days=7)).isoformat()
+
+# Find memories created within the last week
+recent_memories = memory.search(
+    "What have I learned recently?",
+    user_id="user-123",
+    filters={
+        "created_at": {"$gte": week_ago, "$lte": now}
+    }
+)
+
+# Find memories that have never been updated
+original_memories = memory.search(
+    "What are my unchanged memories?",
+    user_id="user-123",
+    filters={
+        "updated_at": None
+    }
+)
+```
+
+### Processing Timestamp Data
+
+Working with timestamp data in your application:
+
+```python
+def analyze_memory_age(memory_instance, user_id):
+    """Analyze the age of memories for a specific user"""
+    memories = memory_instance.get_all(user_id=user_id)
+    
+    # Group memories by age
+    age_groups = {
+        "today": [],
+        "this_week": [],
+        "this_month": [],
+        "older": []
+    }
+    
+    now = datetime.now(pytz.UTC)
+    
+    for mem in memories['results']:
+        created_at_str = mem.get('created_at')
+        if not created_at_str:
+            continue
+            
+        try:
+            created_at = datetime.fromisoformat(created_at_str)
+            age = now - created_at
+            
+            if age.days < 1:
+                age_groups["today"].append(mem)
+            elif age.days < 7:
+                age_groups["this_week"].append(mem)
+            elif age.days < 30:
+                age_groups["this_month"].append(mem)
+            else:
+                age_groups["older"].append(mem)
+                
+        except ValueError as e:
+            print(f"Error parsing timestamp: {e}")
+    
+    # Print summary
+    print(f"Memory age distribution for user {user_id}:")
+    print(f"- Created today: {len(age_groups['today'])}")
+    print(f"- Created this week: {len(age_groups['this_week'])}")
+    print(f"- Created this month: {len(age_groups['this_month'])}")
+    print(f"- Created earlier: {len(age_groups['older'])}")
+    
+    return age_groups
+```
+
+## Custom Categories and Tags
+
+### Using Categories in Metadata
+
+Categories can help organize memories by type:
+
+```python
+# Add memories with categories
+memory.add(
+    "I like thriller movies and documentaries.",
+    user_id="user-123",
+    metadata={"categories": ["preferences", "entertainment"]}
+)
+
+memory.add(
+    "I'm allergic to peanuts.",
+    user_id="user-123",
+    metadata={"categories": ["health", "allergies"]}
+)
+
+# Search by category
+health_info = memory.search(
+    "health information",
+    user_id="user-123",
+    filters={"metadata.categories": "health"}
+)
+```
+
+### Implementing a Tagging System
+
+For more flexible organization, implement a tagging system:
+
+```python
+def add_with_tags(memory_instance, content, user_id, tags=None):
+    """Add a memory with automatic tagging"""
+    # Default empty tags list
+    tags = tags or []
+    
+    # Add basic metadata with tags
+    result = memory_instance.add(
+        content,
+        user_id=user_id,
+        metadata={"tags": tags}
+    )
+    
+    # Extract memory IDs for reference
+    memory_ids = [item["id"] for item in result["results"]]
+    
+    # Optional: maintain a separate tag index for quick lookup
+    # (This would be handled in your application logic)
+    
+    return memory_ids
+
+# Example usage
+memory_ids = add_with_tags(
+    memory,
+    "Tokyo has amazing sushi restaurants, especially in the Tsukiji area.",
+    user_id="traveler-456",
+    tags=["japan", "food", "travel", "tokyo", "restaurants"]
+)
+
+# Search by tag
+japan_memories = memory.search(
+    "What do I know about Japan?",
+    user_id="traveler-456", 
+    filters={"metadata.tags": "japan"}
+)
+
+# Search by multiple tags (memories that have both tags)
+japan_food = memory.search(
+    "Japanese food information",
+    user_id="traveler-456",
+    filters={
+        "$and": [
+            {"metadata.tags": "japan"},
+            {"metadata.tags": "food"}
+        ]
+    }
+)
+```
+
+## Advanced Filtering Operations
+
+Mem0's vector store supports advanced filtering capabilities with some providers:
+
+### Logical Operations
+
+```python
+# AND condition
+vegetarian_in_tokyo = memory.search(
+    "Vegetarian food in Tokyo",
+    user_id="traveler-456",
+    filters={
+        "$and": [
+            {"metadata.tags": "vegetarian"},
+            {"metadata.tags": "tokyo"}
+        ]
+    }
+)
+
+# OR condition
+food_or_hotel = memory.search(
+    "Food or accommodations",
+    user_id="traveler-456",
+    filters={
+        "$or": [
+            {"metadata.category": "food"},
+            {"metadata.category": "accommodations"}
+        ]
+    }
+)
+
+# NOT condition
+not_allergies = memory.search(
+    "User preferences excluding allergies",
+    user_id="user-123",
+    filters={
+        "$and": [
+            {"metadata.categories": "preferences"},
+            {"$not": {"metadata.categories": "allergies"}}
+        ]
+    }
+)
+```
+
+### Numerical Comparisons
+
+```python
+# Range queries
+high_rated = memory.search(
+    "Highly rated places",
+    user_id="traveler-456",
+    filters={
+        "metadata.rating": {"$gte": 4.5}  # Greater than or equal to 4.5
+    }
+)
+
+# Between ranges
+moderate_priced = memory.search(
+    "Moderately priced options",
+    user_id="traveler-456",
+    filters={
+        "$and": [
+            {"metadata.price": {"$gte": 50}},
+            {"metadata.price": {"$lte": 150}}
+        ]
+    }
+)
+```
+
+## Metadata Best Practices
+
+1. **Consistent structure**: Maintain consistent metadata structure across similar memories
+   
+2. **Keep metadata searchable**: Design metadata fields with search in mind
+
+3. **Avoid overloading**: Don't store excessively large metadata objects
+
+4. **Use appropriate types**: Use proper data types for metadata values (strings, numbers, booleans, arrays)
+
+5. **Meaningful names**: Use descriptive, consistent names for metadata fields
+
+6. **Nested organization**: Use nested objects for related metadata properties
+
+7. **Document schema**: Maintain documentation of your metadata schema for reference
+
+## Conclusion
+
+Effective use of metadata and timestamps in mem0 enables powerful memory organization, filtering, and retrieval. By structuring your metadata thoughtfully, you can implement sophisticated memory systems that deliver the right information at the right time.
+
+For more advanced usage, see [Advanced Memory Operations](/open-source/advanced-memory-operations) or explore the [API Reference](/api-reference/overview).

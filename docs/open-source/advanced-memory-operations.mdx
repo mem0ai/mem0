@@ -1,0 +1,474 @@
+---
+title: Advanced Memory Operations
+description: 'Comprehensive guide to advanced mem0 Python API operations'
+icon: "brain"
+iconType: "solid"
+---
+
+# Advanced Memory Operations
+
+This guide covers advanced usage of the mem0 Python API, focusing on graph memory, metadata management, and sophisticated memory operations.
+
+## Memory System Architecture
+
+The mem0 memory system consists of two primary components:
+
+1. **Vector Memory Storage**: Stores memory content with embeddings for semantic search
+2. **Graph Memory Storage**: Tracks relationships between entities for contextual retrieval
+
+These components work together to provide a comprehensive memory system that can:
+- Store and retrieve facts semantically
+- Maintain relationships between entities
+- Track changes to memory over time
+- Manage metadata and categorization
+
+## Advanced Memory Configuration
+
+### Graph Memory Configuration
+
+Graph memory requires configuration of both vector store and graph store components:
+
+```python
+from mem0 import Memory, MemoryConfig
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "my_memories",
+            "embedding_model_dims": 1536
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "neo4j",
+            "password": "password"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o"
+        }
+    },
+    "version": "v1.1"  # Required for advanced features
+}
+
+memory = Memory.from_config(config)
+```
+
+### Custom Fact Extraction and Processing
+
+For advanced memory operations, you can customize how facts are extracted and processed:
+
+```python
+config = MemoryConfig(
+    custom_fact_extraction_prompt="You are extracting facts about a person. Focus on their preferences, background, and relationships. Extract detailed facts that would be useful for personalization.",
+    custom_update_memory_prompt="You are updating a knowledge base about a person. Focus on resolving conflicts between old and new information, prioritizing recent information when appropriate."
+)
+
+memory = Memory(config)
+```
+
+## Working with Graph Memory
+
+Graph memory automatically extracts entities and their relationships, creating a knowledge graph that enhances memory retrieval.
+
+### Adding Memories with Graph Analysis
+
+When adding memories with graph memory enabled, mem0 extracts entities and relationships:
+
+```python
+# Add a memory that will create graph relationships
+result = memory.add(
+    "John graduated from Stanford University in 2015 with a degree in Computer Science. He now works at Google as a Senior Software Engineer.",
+    user_id="john-doe",
+)
+
+# The result contains both vector memories and graph relationships
+print(f"Vector memories: {result['results']}")
+print(f"Graph relations: {result['relations']}")
+```
+
+The relations output will show connections like:
+- Person "John" → (graduated from) → Organization "Stanford University"
+- Person "John" → (has degree in) → Field "Computer Science"
+- Person "John" → (works at) → Organization "Google"
+- Person "John" → (has position) → Role "Senior Software Engineer"
+
+### Searching with Graph Context
+
+Graph memory enhances search by considering relationships between entities:
+
+```python
+# Search with consideration of graph relationships
+result = memory.search(
+    "Where did John study?", 
+    user_id="john-doe"
+)
+
+# Results will include both direct matches and context from relations
+print(result['results'])    # Vector memory matches
+print(result['relations'])  # Related graph connections
+```
+
+### Working with the Graph Memory API Directly
+
+For advanced operations, you can interact with the graph memory system directly:
+
+```python
+# Access the graph memory component
+graph = memory.graph
+
+# Get all graph entities and relationships
+entities_and_relations = graph.get_all({"user_id": "john-doe"})
+
+# Search for specific entities or relationships
+education_info = graph.search("education", {"user_id": "john-doe"})
+
+# Delete graph data
+graph.delete_all({"user_id": "john-doe"})
+```
+
+## Advanced Metadata Management
+
+Mem0 supports rich metadata attachments to memories, which can be used for filtering, categorization, and context.
+
+### Adding Custom Metadata
+
+Attach arbitrary metadata to memories for organization and filtering:
+
+```python
+memory.add(
+    "I prefer dark mode interfaces and use vim keybindings in my code editor.",
+    user_id="user-123",
+    metadata={
+        "category": "preferences",
+        "topics": ["ui", "tools", "development"],
+        "confidence": 0.95,
+        "source": "explicit_statement",
+        "context": {
+            "session_id": "abc-123",
+            "platform": "desktop",
+            "application": "code_editor_survey"
+        }
+    }
+)
+```
+
+### Filtering by Metadata
+
+Use metadata for targeted memory retrieval:
+
+```python
+# Search with metadata filters
+ui_preferences = memory.search(
+    "What UI preferences does the user have?",
+    user_id="user-123",
+    filters={
+        "metadata.category": "preferences",
+        "metadata.topics": "ui"
+    }
+)
+```
+
+### Working with Timestamps
+
+All memories automatically include created_at and updated_at timestamps, which you can use for time-based operations:
+
+```python
+# Retrieving memories and using timestamp information
+memories = memory.get_all(user_id="user-123")
+
+for mem in memories['results']:
+    created = mem.get('created_at')
+    updated = mem.get('updated_at')
+    print(f"Memory: {mem.get('memory')}")
+    print(f"Created: {created}")
+    print(f"Last updated: {updated or 'Never updated'}")
+    
+    # Calculate how old the memory is
+    if created:
+        from datetime import datetime
+        import pytz
+        
+        created_datetime = datetime.fromisoformat(created)
+        now = datetime.now(pytz.UTC)
+        age = now - created_datetime
+        print(f"Memory age: {age.days} days")
+```
+
+## Memory History and Change Tracking
+
+Mem0 automatically tracks the history of all memory changes, allowing you to see how information evolves over time.
+
+### Retrieving Memory History
+
+Track the evolution of specific memories:
+
+```python
+# Get a memory's complete history
+memory_id = "memory-uuid-here"
+history = memory.history(memory_id)
+
+# Display the evolution of this memory
+for change in history:
+    print(f"Action: {change['action']}")
+    print(f"Timestamp: {change['created_at']}")
+    print(f"Previous value: {change['previous_value'] or 'None (new memory)'}")
+    print(f"New value: {change['new_value']}")
+    print("---")
+```
+
+### Working with Memory Types
+
+Mem0 supports different memory types, including special handling for procedural memories (how-to knowledge):
+
+```python
+# Create a procedural memory from a conversation about a process
+conversation = [
+    {"role": "user", "content": "How do I make cold brew coffee?"},
+    {"role": "assistant", "content": "To make cold brew coffee:\n1. Coarsely grind coffee beans\n2. Mix 1 part coffee with 4 parts cold water\n3. Steep for 12-24 hours at room temperature\n4. Strain the grounds\n5. Dilute with water or milk to taste\n6. Serve over ice"}
+]
+
+procedural_memory = memory.add(
+    conversation,
+    user_id="coffee-lover",
+    agent_id="coffee-expert",  # Required for procedural memory
+    memory_type="procedural_memory"
+)
+```
+
+## Memory Batch Operations
+
+For efficient handling of multiple memories, mem0 provides batch operations:
+
+### Memory Export
+
+Export all memories for backup or analysis:
+
+```python
+# Get all memories for a user with complete metadata
+all_memories = memory.get_all(user_id="user-123")
+
+# Process memories for export
+import json
+with open("memory_export.json", "w") as f:
+    json.dump(all_memories, f, indent=2)
+```
+
+### Bulk Memory Management
+
+Reset or clear memories selectively:
+
+```python
+# Delete all memories for a specific user
+memory.delete_all(user_id="user-123")
+
+# Delete all memories for a specific agent
+memory.delete_all(agent_id="agent-456")
+
+# Reset the entire memory system (use with caution)
+memory.reset()
+```
+
+## Combining Vector and Graph Memory
+
+For complex applications, you can leverage both vector and graph memory together:
+
+```python
+def comprehensive_memory_retrieval(query, user_id):
+    """
+    Perform a comprehensive memory search using both vector and graph memory
+    
+    Args:
+        query: Search query string
+        user_id: User identifier
+        
+    Returns:
+        Dict containing combined and processed results
+    """
+    # Get semantic matches from vector storage
+    vector_results = memory.search(query, user_id=user_id)
+    
+    # Extract key entities from the results
+    entities = []
+    for result in vector_results['results']:
+        # Simple entity extraction for demonstration
+        entities.extend([word for word in result['memory'].split() if word[0].isupper()])
+    
+    # Use graph memory to find relationships for these entities
+    graph_results = []
+    if memory.enable_graph:
+        for entity in entities:
+            graph_results.extend(memory.graph.search(entity, {"user_id": user_id}))
+    
+    # Combine and process results
+    combined_results = {
+        "vector_matches": vector_results,
+        "related_entities": graph_results,
+        "query": query
+    }
+    
+    return combined_results
+```
+
+## Integrating with LLM Tools
+
+Mem0 can be used as a tool for language models, enabling them to read and write memories:
+
+```python
+from openai import OpenAI
+import json
+
+client = OpenAI()
+
+def memory_tool(user_id, action, **kwargs):
+    """
+    Function that allows an LLM to interact with memory
+    
+    Args:
+        user_id: User identifier
+        action: "add", "search", or "get"
+        **kwargs: Additional parameters for the action
+    """
+    if action == "add":
+        result = memory.add(kwargs.get("content"), user_id=user_id)
+        return f"Memory added successfully: {json.dumps(result)}"
+    
+    elif action == "search":
+        result = memory.search(kwargs.get("query"), user_id=user_id)
+        memories = [item['memory'] for item in result['results']]
+        return f"Found memories: {json.dumps(memories)}"
+    
+    elif action == "get":
+        result = memory.get_all(user_id=user_id)
+        memories = [item['memory'] for item in result['results']]
+        return f"All memories: {json.dumps(memories)}"
+    
+    return "Invalid action. Supported actions: add, search, get"
+
+# Define the tool for the LLM
+memory_tool_description = {
+    "type": "function",
+    "function": {
+        "name": "memory_tool",
+        "description": "Store or retrieve memories for a user",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "string",
+                    "description": "The user ID to store or retrieve memories for"
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "search", "get"],
+                    "description": "The action to perform: add, search, or get memories"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "For add action: The content to store in memory"
+                },
+                "query": {
+                    "type": "string", 
+                    "description": "For search action: The query to search for in memories"
+                }
+            },
+            "required": ["user_id", "action"]
+        }
+    }
+}
+
+# Use with an LLM
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": "You are an assistant with the ability to store and retrieve memories."},
+        {"role": "user", "content": "Remember that I have a dog named Max who's a Golden Retriever."}
+    ],
+    tools=[memory_tool_description]
+)
+```
+
+## Performance Optimization
+
+For high-performance applications, consider these optimization techniques:
+
+### Connection Pooling
+
+For production deployments with Neo4j graph storage:
+
+```python
+config = {
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "neo4j",
+            "password": "password",
+            "max_connection_pool_size": 50,  # Adjust based on expected load
+            "connection_acquisition_timeout": 60  # Seconds
+        }
+    }
+}
+```
+
+### Embedding Caching
+
+Implement caching for embeddings to reduce API calls:
+
+```python
+from functools import lru_cache
+
+class CachedEmbedder:
+    def __init__(self, embedder):
+        self.embedder = embedder
+        
+    @lru_cache(maxsize=1000)
+    def cached_embed(self, text, action):
+        return self.embedder.embed(text, action)
+        
+    def embed(self, text, action):
+        return self.cached_embed(text, action)
+
+# Apply the cache wrapper
+memory.embedding_model = CachedEmbedder(memory.embedding_model)
+```
+
+## Debugging Memory Operations
+
+For developing and debugging memory applications:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Test memory add/retrieval cycle
+test_message = "I prefer to work from 8am to 4pm and take a lunch break at noon."
+add_result = memory.add(test_message, user_id="test-user")
+print(f"Added memory IDs: {[m['id'] for m in add_result['results']]}")
+
+# Verify retrieval
+search_result = memory.search("work schedule", user_id="test-user")
+print(f"Retrieved memories: {[m['memory'] for m in search_result['results']]}")
+
+# Check history tracking is working
+for mem_id in [m['id'] for m in add_result['results']]:
+    history = memory.history(mem_id)
+    print(f"Memory {mem_id} history: {len(history)} entries")
+```
+
+## Conclusion
+
+The mem0 memory system provides a versatile foundation for building AI applications with persistent, contextual memory. By leveraging both vector and graph storage capabilities along with rich metadata, you can create sophisticated applications that maintain contextual awareness and personalization over time.
+
+For further information, see the [API Reference](/api-reference/overview) or check [examples](/examples/overview) of mem0 in action.
