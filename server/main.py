@@ -6,10 +6,69 @@ from typing import Optional, List, Any, Dict
 from mem0 import Memory
 from dotenv import load_dotenv
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 # Load environment variables
 load_dotenv()
 
-MEMORY_INSTANCE = Memory()
+
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
+POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
+POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
+
+NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
+NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+
+DEFAULT_CONFIG = {
+    "version": "v1.1",
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "host": POSTGRES_HOST,
+            "port": int(POSTGRES_PORT),
+            "dbname": POSTGRES_DB,
+            "user": POSTGRES_USER,
+            "password": POSTGRES_PASSWORD,
+            "collection_name": POSTGRES_COLLECTION_NAME,
+        }
+    },
+    "graph_store": {
+        "provider": "neo4j",
+        "config": {
+            "url": NEO4J_URI,
+            "username": NEO4J_USERNAME,
+            "password": NEO4J_PASSWORD
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "temperature": 0.2,
+            "model": "gpt-4o"
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "model": "text-embedding-3-small"
+        }
+    },
+    "history_db_path": HISTORY_DB_PATH,
+}
+
+
+MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
 
 app = FastAPI(
     title="Mem0 REST APIs",
@@ -36,6 +95,7 @@ class SearchRequest(BaseModel):
     user_id: Optional[str] = None
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None
 
 
 @app.post("/configure", summary="Configure Mem0")
@@ -59,6 +119,7 @@ def add_memory(memory_create: MemoryCreate):
         response = MEMORY_INSTANCE.add(messages=[m.model_dump() for m in memory_create.messages], **params)
         return JSONResponse(content=response)
     except Exception as e:
+        logging.exception("Error in add_memory:")  # This will log the full traceback
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -75,6 +136,7 @@ def get_all_memories(
         params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None}
         return MEMORY_INSTANCE.get_all(**params)
     except Exception as e:
+        logging.exception("Error in get_all_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -84,6 +146,7 @@ def get_memory(memory_id: str):
     try:
         return MEMORY_INSTANCE.get(memory_id)
     except Exception as e:
+        logging.exception("Error in get_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -94,6 +157,7 @@ def search_memories(search_req: SearchRequest):
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
         return MEMORY_INSTANCE.search(query=search_req.query, **params)
     except Exception as e:
+        logging.exception("Error in search_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -103,6 +167,7 @@ def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
     try:
         return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
     except Exception as e:
+        logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -112,6 +177,7 @@ def memory_history(memory_id: str):
     try:
         return MEMORY_INSTANCE.history(memory_id=memory_id)
     except Exception as e:
+        logging.exception("Error in memory_history:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -122,6 +188,7 @@ def delete_memory(memory_id: str):
         MEMORY_INSTANCE.delete(memory_id=memory_id)
         return {"message": "Memory deleted successfully"}
     except Exception as e:
+        logging.exception("Error in delete_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -139,6 +206,7 @@ def delete_all_memories(
         MEMORY_INSTANCE.delete_all(**params)
         return {"message": "All relevant memories deleted"}
     except Exception as e:
+        logging.exception("Error in delete_all_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -149,6 +217,7 @@ def reset_memory():
         MEMORY_INSTANCE.reset()
         return {"message": "All memories reset"}
     except Exception as e:
+        logging.exception("Error in reset_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
