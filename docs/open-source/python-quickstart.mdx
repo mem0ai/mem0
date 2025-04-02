@@ -1,8 +1,8 @@
 ---
 title: Python SDK
 description: 'Get started with Mem0 quickly!'
-icon: "python"
-iconType: "solid"
+icon: 'python'
+iconType: 'solid'
 ---
 
 > Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
@@ -28,7 +28,8 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 m = Memory()
-```
+
+````
   </Tab>
   <Tab title="Async">
 ```python
@@ -51,7 +52,7 @@ docker pull qdrant/qdrant
 docker run -p 6333:6333 -p 6334:6334 \
     -v $(pwd)/qdrant_storage:/qdrant/storage:z \
     qdrant/qdrant
-```
+````
 
 Then, instantiate memory with qdrant server:
 
@@ -73,6 +74,7 @@ config = {
 
 m = Memory.from_config(config)
 ```
+
   </Tab>
 
 <Tab title="Advanced (Graph Memory)">
@@ -100,7 +102,6 @@ m = Memory.from_config(config_dict=config)
 </Tab>
 </Tabs>
 
-
 ### Store a Memory
 
 <CodeGroup>
@@ -113,11 +114,14 @@ messages = [
 ]
 
 # Store inferred memories (default behavior)
+
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
 
 # Store raw messages without inference
+
 # result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
-```
+
+````
 
 ```json Output
 {
@@ -148,7 +152,8 @@ result = m.add(messages, user_id="alice", metadata={"category": "movie_recommend
         }
     ]
 }
-```
+````
+
 </CodeGroup>
 
 ### Retrieve Memories
@@ -198,8 +203,8 @@ all_memories = m.get_all(user_id="alice")
     ]
 }
 ```
-</CodeGroup>
 
+</CodeGroup>
 
 <br />
 
@@ -222,6 +227,7 @@ specific_memory = m.get("892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
   "user_id": "alice"
 }
 ```
+
 </CodeGroup>
 
 ### Search Memories
@@ -273,6 +279,7 @@ related_memories = m.search(query="What do you know about me?", user_id="alice")
   ]
 }
 ```
+
 </CodeGroup>
 
 ### Update a Memory
@@ -283,8 +290,9 @@ result = m.update(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e", data="I love
 ```
 
 ```json Output
-{'message': 'Memory updated successfully!'}
+{ "message": "Memory updated successfully!" }
 ```
+
 </CodeGroup>
 
 ### Memory History
@@ -318,6 +326,7 @@ history = m.history(memory_id="892db2ae-06d9-49e5-8b3e-585ef9b85b8e")
   }
 ]
 ```
+
 </CodeGroup>
 
 ### Delete Memory
@@ -349,48 +358,43 @@ Mem0 offers extensive configuration options to customize its behavior according 
 </Accordion>
 
 <Accordion title="LLM Configuration">
-| Parameter              | Description                                   | Provider          |
-|-----------------------|-----------------------------------------------|-------------------|
-| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
-| `model`               | Model to use                                  | All              |
-| `temperature`         | Temperature of the model                      | All              |
-| `api_key`             | API key to use                                | All              |
-| `max_tokens`          | Tokens to generate                            | All              |
-| `top_p`               | Probability threshold for nucleus sampling    | All              |
-| `top_k`               | Number of highest probability tokens to keep  | All              |
-| `http_client_proxies` | Allow proxy server settings                   | AzureOpenAI      |
-| `models`              | List of models                                | Openrouter       |
-| `route`               | Routing strategy                              | Openrouter       |
-| `openrouter_base_url` | Base URL for Openrouter API                  | Openrouter       |
-| `site_url`            | Site URL                                      | Openrouter       |
-| `app_name`            | Application name                              | Openrouter       |
-| `ollama_base_url`     | Base URL for Ollama API                      | Ollama           |
-| `openai_base_url`     | Base URL for OpenAI API                      | OpenAI           |
-| `azure_kwargs`        | Azure LLM args for initialization            | AzureOpenAI      |
-| `deepseek_base_url`   | Base URL for DeepSeek API                    | DeepSeek         |
+  | Parameter | Description | Provider |
+  |-----------------------|-----------------------------------------------|-------------------|
+  | `provider` | LLM provider (e.g., "openai", "anthropic") | All | | `model` |
+  Model to use | All | | `temperature` | Temperature of the model | All | |
+  `api_key` | API key to use | All | | `max_tokens` | Tokens to generate | All |
+  | `top_p` | Probability threshold for nucleus sampling | All | | `top_k` |
+  Number of highest probability tokens to keep | All | | `http_client_proxies` |
+  Allow proxy server settings | AzureOpenAI | | `models` | List of models |
+  Openrouter | | `route` | Routing strategy | Openrouter | |
+  `openrouter_base_url` | Base URL for Openrouter API | Openrouter | |
+  `site_url` | Site URL | Openrouter | | `app_name` | Application name |
+  Openrouter | | `ollama_base_url` | Base URL for Ollama API | Ollama | |
+  `openai_base_url` | Base URL for OpenAI API | OpenAI | | `azure_kwargs` |
+  Azure LLM args for initialization | AzureOpenAI | | `deepseek_base_url` | Base
+  URL for DeepSeek API | DeepSeek |
 </Accordion>
 
 <Accordion title="Embedder Configuration">
-| Parameter    | Description                     | Default                      |
-|-------------|---------------------------------|------------------------------|
-| `provider`   | Embedding provider              | "openai"                     |
-| `model`      | Embedding model to use          | "text-embedding-3-small"     |
-| `api_key`    | API key for embedding service   | None                        |
+  | Parameter | Description | Default |
+  |-------------|---------------------------------|------------------------------|
+  | `provider` | Embedding provider | "openai" | | `model` | Embedding model to
+  use | "text-embedding-3-small" | | `api_key` | API key for embedding service |
+  None |
 </Accordion>
 
 <Accordion title="Graph Store Configuration">
-| Parameter    | Description                     | Default     |
-|-------------|---------------------------------|-------------|
-| `provider`   | Graph store provider (e.g., "neo4j") | "neo4j"    |
-| `url`        | Connection URL                  | None        |
-| `username`   | Authentication username         | None        |
-| `password`   | Authentication password         | None        |
+  | Parameter | Description | Default |
+  |-------------|---------------------------------|-------------| | `provider` |
+  Graph store provider (e.g., "neo4j") | "neo4j" | | `url` | Connection URL |
+  None | | `username` | Authentication username | None | | `password` |
+  Authentication password | None |
 </Accordion>
 
 <Accordion title="General Configuration">
 | Parameter         | Description                          | Default                    |
 |------------------|--------------------------------------|----------------------------|
-| `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `history_db` | History database config         | `{"type": "sqlite", "url": "{mem0_dir}/history.db"}`    |
 | `version`         | API version                          | "v1.1"                     |
 | `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
 | `custom_update_memory_prompt` | Custom prompt for update memory | None                |
@@ -440,7 +444,6 @@ config = {
 ## Run Mem0 Locally
 
 Please refer to the example [Mem0 with Ollama](../examples/mem0-with-ollama) to run Mem0 locally.
-
 
 ## Chat Completion
 
@@ -544,7 +547,6 @@ history = client.history(memory_id="m1")
 print(history)
 ```
 
-
 ## Contributing
 
 We welcome contributions to Mem0! Here's how you can contribute:
@@ -576,7 +578,6 @@ We welcome contributions to Mem0! Here's how you can contribute:
 8. Open a pull request with a clear title and description.
 
 Please make sure your code follows our coding conventions and is well-documented. We appreciate your contributions to make Mem0 better!
-
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
