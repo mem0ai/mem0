@@ -225,7 +225,8 @@
                   "integrations/dify",
                   "integrations/mcp-server",
                   "integrations/livekit",
-                  "integrations/elevenlabs"
+                  "integrations/elevenlabs",
+                  "integrations/pipecat"
                 ]
               }
             ]
