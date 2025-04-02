@@ -14,7 +14,7 @@ export class GoogleLLM implements LLM {
   async generateResponse(
     messages: Message[],
     responseFormat?: { type: string },
-    tools?: any[]
+    tools?: any[],
   ): Promise<string | LLMResponse> {
     const completion = await this.google.models.generateContent({
       contents: messages.map((msg) => ({
@@ -35,7 +35,9 @@ export class GoogleLLM implements LLM {
       // },
     });
 
-    return completion.text || "";
+    const text = completion.text?.replace(/^```json\n/, "").replace(/\n```$/, "");
+
+    return text || "";
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
