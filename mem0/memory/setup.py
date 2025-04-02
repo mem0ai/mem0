@@ -32,7 +32,7 @@ def get_user_id():
         return "anonymous_user"
 
 
-def store_and_get_user_id_from_vector_store(vector_store):
+def get_or_create_user_id(vector_store):
     """Store user_id in vector store and return it."""
     user_id = get_user_id()
 

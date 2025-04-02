@@ -6,7 +6,7 @@ import sys
 from posthog import Posthog
 
 import mem0
-from mem0.memory.setup import store_and_get_user_id_from_vector_store
+from mem0.memory.setup import get_or_create_user_id
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
 
@@ -24,7 +24,7 @@ class AnonymousTelemetry:
     def __init__(self, project_api_key, host, vector_store=None):
         self.posthog = Posthog(project_api_key=project_api_key, host=host)
 
-        self.user_id = store_and_get_user_id_from_vector_store(vector_store)
+        self.user_id = get_or_create_user_id(vector_store)
 
         if not MEM0_TELEMETRY:
             self.posthog.disabled = True
@@ -54,17 +54,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
     global telemetry
 
     # For OSS, we use the telemetry vector store to store the user_id
-    if hasattr(memory_instance, "telemetry_vector_store"):
-        telemetry = AnonymousTelemetry(
-            project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-            host="https://us.i.posthog.com",
-            vector_store=memory_instance.telemetry_vector_store,
-        )
-    else:
-        telemetry = AnonymousTelemetry(
-            project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-            host="https://us.i.posthog.com",
-        )
+    telemetry = AnonymousTelemetry(project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX", host="https://us.i.posthog.com", vector_store=memory_instance.telemetry_vector_store if hasattr(memory_instance, "telemetry_vector_store") else None)
 
     event_data = {
         "collection": memory_instance.collection_name,
