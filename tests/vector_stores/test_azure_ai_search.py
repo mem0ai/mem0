@@ -38,7 +38,7 @@ def mock_clients():
         # Stub required methods on index_client.
         mock_index_client.create_or_update_index = Mock()
         mock_index_client.list_indexes = Mock()
-        mock_index_client.list_index_names = Mock(return_value=["test-index"])
+        mock_index_client.list_index_names = Mock(return_value=[])
         mock_index_client.delete_index = Mock()
         # For col_info() we assume get_index returns an object with name and fields attributes.
         fake_index = Mock()
