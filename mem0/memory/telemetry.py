@@ -21,32 +21,7 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 
 class AnonymousTelemetry:
-    """
-    Anonymous telemetry system for mem0 that collects usage statistics.
-
-    This class handles the collection and transmission of anonymous usage telemetry
-    to help improve mem0. The user_id is stored in a dedicated "mem0_migrations"
-    collection in the vector store, ensuring it's tied to the user's data store
-    rather than just the local machine.
-
-    If no vector store is available (e.g., during initial setup), it falls back to
-    using a local config file.
-
-    Attributes:
-        posthog: The Posthog instance for sending telemetry data
-        user_id: The unique identifier for the current user
-    """
-
     def __init__(self, project_api_key, host, vector_store=None):
-        """
-        Initialize the AnonymousTelemetry instance.
-
-        Args:
-            project_api_key (str): The Posthog project API key
-            host (str): The Posthog host URL
-            vector_store (VectorStore, optional): The vector store to use for storing user_id.
-                If None, falls back to using a local config file.
-        """
         self.posthog = Posthog(project_api_key=project_api_key, host=host)
 
         self.user_id = store_and_get_user_id_from_vector_store(vector_store)
