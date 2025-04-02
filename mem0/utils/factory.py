@@ -68,6 +68,7 @@ class VectorStoreFactory:
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
+        "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
