@@ -158,7 +158,9 @@
                           "components/embedders/models/ollama",
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
-                          "components/embedders/models/gemini"
+                          "components/embedders/models/gemini",
+                          "components/embedders/models/lmstudio",
+                          "components/embedders/models/together"
                         ]
                       }
                     ]
