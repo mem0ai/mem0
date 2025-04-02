@@ -21,7 +21,7 @@ from mem0.configs.prompts import (
 )
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config, mem0_dir
-from mem0.memory.storage import SQLiteManager
+from mem0.memory.storage import SQLDatabaseManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     get_fact_retrieval_messages,
@@ -52,7 +52,10 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = SQLDatabaseManager(
+            db_type=self.config.history_db.type, db_url=self.config.history_db.url
+        )
+        print([self.config.history_db.type, self.config.history_db.url])
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 
