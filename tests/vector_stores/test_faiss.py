@@ -39,14 +39,16 @@ def test_create_col(faiss_instance, mock_faiss_index):
     # Test creating a collection with euclidean distance
     with patch('faiss.IndexFlatL2', return_value=mock_faiss_index) as mock_index_flat_l2:
         with patch('faiss.write_index'):
-            faiss_instance.create_col(name="new_collection", vector_size=256)
-            mock_index_flat_l2.assert_called_once_with(256)
+            faiss_instance.create_col()
+            # Expect the call with vector_size (1536 by default)
+            mock_index_flat_l2.assert_called_once_with(faiss_instance.vector_size)
     
     # Test creating a collection with inner product distance
     with patch('faiss.IndexFlatIP', return_value=mock_faiss_index) as mock_index_flat_ip:
         with patch('faiss.write_index'):
-            faiss_instance.create_col(name="new_collection", vector_size=256, distance="inner_product")
-            mock_index_flat_ip.assert_called_once_with(256)
+            faiss_instance.distance_strategy = "inner_product"
+            faiss_instance.create_col()
+            mock_index_flat_ip.assert_called_once_with(faiss_instance.vector_size)
 
 
 def test_insert(faiss_instance, mock_faiss_index):
@@ -153,7 +155,7 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
         
         # Create a side_effect function that returns all results first (for _parse_output)
         # then returns filtered results (for the filters)
-        parse_output_mock = Mock(side_effect=[all_results, filtered_results])
+        Mock(side_effect=[all_results, filtered_results])
         
         # Replace the _apply_filters method to handle our test case
         with patch.object(faiss_instance, '_parse_output', return_value=all_results):
@@ -304,7 +306,7 @@ def test_normalize_L2(faiss_instance, mock_faiss_index):
     vectors = [[0.1, 0.2, 0.3]]
     
     # Mock numpy array conversion
-    with patch('numpy.array', return_value=np.array(vectors, dtype=np.float32)) as mock_np_array:
+    with patch('numpy.array', return_value=np.array(vectors, dtype=np.float32)):
         # Mock faiss.normalize_L2
         with patch('faiss.normalize_L2') as mock_normalize:
             # Call insert
