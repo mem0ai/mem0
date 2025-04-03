@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Assistant powered by Mem0</title>
+    <style>
+      :root {
+        --dark-bg: #1a1a1a;
+        --darker-bg: #121212;
+        --light-text: #f1f1f1;
+        --blue-accent: #3d84f7;
+        --blue-hover: #2d74e7;
+        --blue-light: rgba(61, 132, 247, 0.15);
+        --error-color: #ff4a4a;
+        --warning-color: #ffaa33;
+        --success-color: #4caf50;
+        --border-radius: 8px;
+        --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      body {
+        font-family: "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
+        width: 320px;
+        margin: 0;
+        padding: 0;
+        color: var(--light-text);
+        background-color: var(--dark-bg);
+      }
+
+      header {
+        background-color: var(--darker-bg);
+        color: var(--light-text);
+        padding: 16px;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      h1 {
+        font-size: 18px;
+        margin: 0 0 8px 0;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .logo-img {
+        height: 16px;
+        width: auto;
+        margin-left: 8px;
+        position: relative;
+        top: 1px;
+      }
+
+      .powered-by {
+        font-size: 12px;
+        font-weight: normal;
+        color: rgba(255, 255, 255, 0.6);
+        line-height: 1;
+      }
+
+      .branding-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 4px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .status {
+        padding: 12px;
+        border-radius: var(--border-radius);
+        margin-bottom: 16px;
+        font-size: 14px;
+        animation: fade-in 0.3s ease;
+      }
+
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .status.error {
+        background-color: rgba(255, 74, 74, 0.1);
+        color: var(--error-color);
+        border: 1px solid rgba(255, 74, 74, 0.2);
+      }
+
+      .status.success {
+        background-color: rgba(76, 175, 80, 0.1);
+        color: var(--success-color);
+        border: 1px solid rgba(76, 175, 80, 0.2);
+      }
+
+      .status.warning {
+        background-color: rgba(255, 170, 51, 0.1);
+        color: var(--warning-color);
+        border: 1px solid rgba(255, 170, 51, 0.2);
+      }
+
+      button {
+        background-color: var(--blue-accent);
+        color: white;
+        border: none;
+        padding: 12px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        width: 100%;
+        font-size: 14px;
+        font-weight: 500;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      button:hover {
+        background-color: var(--blue-hover);
+        transform: translateY(-1px);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: row;
+        gap: 12px;
+      }
+
+      .api-key-section {
+        margin-bottom: 20px;
+        position: relative;
+      }
+
+      .api-key-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .toggle-password {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        padding: 4px;
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.5);
+        width: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .toggle-password:hover {
+        color: rgba(255, 255, 255, 0.8);
+        background: none;
+        transform: translateY(-50%);
+      }
+
+      .toggle-password .icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 12px;
+        padding-right: 40px;
+        background-color: rgba(255, 255, 255, 0.05);
+        color: var(--light-text);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--border-radius);
+        margin-top: 6px;
+        box-sizing: border-box;
+        transition: var(--transition);
+        font-size: 14px;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus {
+        border-color: var(--blue-accent);
+        outline: none;
+        box-shadow: 0 0 0 1px rgba(61, 132, 247, 0.2);
+      }
+
+      input::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      label {
+        font-size: 14px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.9);
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .save-button {
+        margin-top: 10px;
+      }
+
+      .mem0-status {
+        margin-top: 20px;
+        padding: 12px;
+        background-color: rgba(255, 255, 255, 0.03);
+        border-radius: var(--border-radius);
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .mem0-status p {
+        margin: 0;
+      }
+
+      #mem0-status-text {
+        color: var(--blue-accent);
+        font-weight: 500;
+      }
+
+      /* Icons */
+      .icon {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+      }
+
+      .get-key-link {
+        color: var(--blue-accent);
+        text-decoration: none;
+        font-size: 13px;
+        transition: color 0.2s ease;
+      }
+
+      .get-key-link:hover {
+        color: var(--blue-accent-hover);
+        text-decoration: underline;
+      }
+
+      .get-key-link:visited {
+        color: var(--blue-accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>YouTube Assistant</h1>
+      <div class="branding-container">
+        <span class="powered-by">powered by</span>
+        <a href="https://mem0.ai" target="_blank">
+          <img src="../assets/dark.svg" alt="Mem0 Logo" class="logo-img">
+        </a>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- Status area -->
+      <div id="status-container"></div>
+
+      <!-- API key input, only shown if not set -->
+      <div id="api-key-section" class="api-key-section">
+        <label for="api-key">OpenAI API Key</label>
+        <div class="api-key-input-wrapper">
+          <input type="password" id="api-key" placeholder="sk-..." />
+          <button class="toggle-password" id="toggle-openai-key">
+            <svg
+              class="icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+        <button id="save-api-key" class="save-button">
+          <svg
+            class="icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+            ></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Save OpenAI Key
+        </button>
+      </div>
+
+      <!-- mem0 API key input -->
+      <div id="mem0-api-key-section" class="api-key-section">
+        <label for="mem0-api-key">Mem0 API Key</label>
+        <div class="api-key-input-wrapper">
+          <input
+            type="password"
+            id="mem0-api-key"
+            placeholder="Enter your mem0 API key"
+          />
+          <button class="toggle-password" id="toggle-mem0-key">
+            <svg
+              class="icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+        <div class="api-key-actions">
+          <p>Get your API key from <a href="https://mem0.ai" target="_blank" class="get-key-link">mem0.ai</a> to integrate memory features in the chat.</p>
+          <button id="save-mem0-api-key" class="save-button">
+            <svg
+              class="icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+              ></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save Mem0 Key
+          </button>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="actions">
+        <button id="toggle-chat">
+          <svg
+            class="icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            ></path>
+          </svg>
+          Chat
+        </button>
+        <button id="open-options">
+          <svg
+            class="icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+            ></path>
+          </svg>
+          Settings
+        </button>
+      </div>
+
+      <!-- Future mem0 integration status -->
+      <div class="mem0-status">
+        <p>
+          Mem0 integration:
+          <span id="mem0-status-text">Not configured</span>
+        </p>
+      </div>
+    </div>
+
+    <script src="../src/popup.js"></script>
+  </body>
+</html>
