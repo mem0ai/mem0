@@ -73,6 +73,7 @@
                     "group": "Features",
                     "icon": "wrench",
                     "pages": [
+                      "open-source/features/async-memory",
                       "features/openai_compatibility",
                       "features/custom-fact-extraction-prompt",
                       "features/custom-update-memory-prompt",

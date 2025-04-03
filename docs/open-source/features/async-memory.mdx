@@ -1,0 +1,180 @@
+---
+title: Async Memory
+description: 'Asynchronous memory for Mem0'
+icon: "bolt"
+iconType: "solid"
+---
+
+## AsyncMemory
+
+The `AsyncMemory` class is a direct asynchronous interface to Mem0's in-process memory operations. Unlike the memory, which interacts with an API, `AsyncMemory` works directly with the underlying storage systems. This makes it ideal for applications where you want to embed Mem0 directly into your codebase.
+
+### Initialization
+
+To use `AsyncMemory`, import it from the `mem0.memory` module:
+
+```python Python
+import asyncio
+from mem0.memory import AsyncMemory
+
+# Initialize with default configuration
+memory = AsyncMemory()
+
+# Or initialize with custom configuration
+from mem0.configs.base import MemoryConfig
+custom_config = MemoryConfig(
+    # Your custom configuration here
+)
+memory = AsyncMemory(config=custom_config)
+```
+
+### Key Features
+
+1. **Non-blocking Operations** - All memory operations use `asyncio` to avoid blocking the event loop
+2. **Concurrent Processing** - Parallel execution of vector store and graph operations
+3. **Efficient Resource Utilization** - Better handling of I/O bound operations
+4. **Compatible with Async Frameworks** - Seamless integration with FastAPI, aiohttp, and other async frameworks
+
+### Methods
+
+All methods in `AsyncMemory` have the same parameters as the synchronous `Memory` class but are designed to be used with `async/await`.
+
+#### Add
+
+Add a new memory asynchronously:
+
+```python Python
+await memory.add(
+    messages=[
+        {"role": "user", "content": "I'm travelling to SF"},
+        {"role": "assistant", "content": "That's great to hear!"}
+    ],
+    user_id="test_user"
+)
+```
+
+#### Search
+
+Search for specific memories:
+
+```python Python
+await memory.search(
+    query="Where am I travelling?",
+    user_id="test_user"
+)
+```
+
+#### Get All
+
+Retrieve all memories for a user:
+
+```python Python
+await memory.get_all(user_id="test_user")
+```
+
+#### Get
+
+Retrieve a specific memory by its ID:
+
+```python Python
+await memory.get(memory_id="memory-id-here")
+```
+
+#### Update
+
+Update an existing memory by ID:
+
+```python Python
+await memory.update(
+    memory_id="memory-id-here",
+    data="I'm travelling to Seattle"
+)
+```
+
+#### Delete
+
+Delete a specific memory by ID:
+
+```python Python
+await memory.delete(memory_id="memory-id-here")
+```
+
+#### Delete All
+
+Delete all memories for a specific user, agent, or run:
+
+```python Python
+await memory.delete_all(user_id="test_user")
+```
+
+Note: At least one filter (user_id, agent_id, or run_id) is required when using delete_all.
+
+#### Memory History
+
+Get the history of changes for a specific memory:
+
+```python Python
+await memory.history(memory_id="memory-id-here")
+```
+
+### Example: Concurrent Usage with Other APIs
+
+`AsyncMemory` can be effectively combined with other async operations. Here's an example showing how to use it alongside OpenAI API calls in separate threads:
+
+```python Python
+import asyncio
+import threading
+import openai
+from mem0.memory import AsyncMemory
+
+# Helper function to run async code in a thread
+def run_async_in_thread(async_func, *args, **kwargs):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(async_func(*args, **kwargs))
+    loop.close()
+    return result
+
+# Async function for memory operations
+async def add_and_retrieve_memory(content, user_id):
+    memory = AsyncMemory()
+    
+    # Add the memory
+    await memory.add(messages=content, user_id=user_id)
+    
+    # Wait briefly for processing
+    await asyncio.sleep(1)
+    
+    # Retrieve and return memories
+    return await memory.get_all(user_id=user_id)
+
+def main():
+    # Make OpenAI API call in main thread
+    openai.api_key = "your-api-key"
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "Write a short paragraph about AI"}]
+    )
+    content = response.choices[0].message.content
+    print(f"Generated content: {content}")
+    
+    # Start memory operations in a separate thread
+    memory_thread = threading.Thread(
+        target=run_async_in_thread,
+        args=(add_and_retrieve_memory, content, "test_user")
+    )
+    memory_thread.start()
+    
+    # Continue with other work in main thread...
+    
+    # Wait for memory operations to complete
+    memory_thread.join()
+    print("Memory operations completed")
+
+if __name__ == "__main__":
+    main()
+```
+
+If you have any questions or need further assistance, please don't hesitate to reach out:
+
+<Snippet file="get-help.mdx" />

@@ -30,6 +30,16 @@ os.environ["OPENAI_API_KEY"] = "your-api-key"
 m = Memory()
 ```
   </Tab>
+  <Tab title="Async">
+```python
+import os
+from mem0 import AsyncMemory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+m = AsyncMemory()
+```
+  </Tab>
   <Tab title="Advanced">
 If you want to run Mem0 in production, initialize using the following method:
 
