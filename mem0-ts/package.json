@@ -99,6 +99,7 @@
   "peerDependencies": {
     "@anthropic-ai/sdk": "0.18.0",
     "@qdrant/js-client-rest": "1.13.0",
+    "@mistralai/mistralai": "^1.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
