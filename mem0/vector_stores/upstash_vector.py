@@ -8,9 +8,7 @@ from mem0.vector_stores.base import VectorStoreBase
 try:
     from upstash_vector import Index
 except ImportError:
-    raise ImportError(
-        "The 'upstash_vector' library is required. Please install it using 'pip install upstash_vector'."
-    )
+    raise ImportError("The 'upstash_vector' library is required. Please install it using 'pip install upstash_vector'.")
 
 
 logger = logging.getLogger(__name__)
@@ -25,11 +23,11 @@ class OutputData(BaseModel):
 class UpstashVector(VectorStoreBase):
     def __init__(
         self,
+        collection_name: str,
         url: Optional[str] = None,
         token: Optional[str] = None,
         client: Optional[Index] = None,
         enable_embeddings: bool = False,
-        collection_name: Optional[str] = None,
     ):
         """
         Initialize the UpstashVector vector store.
@@ -47,7 +45,7 @@ class UpstashVector(VectorStoreBase):
         else:
             raise ValueError("Either a client or URL and token must be provided.")
 
-        self.collection_name = collection_name or ""
+        self.collection_name = collection_name
 
         self.enable_embeddings = enable_embeddings
 
@@ -65,17 +63,11 @@ class UpstashVector(VectorStoreBase):
             payloads (list, optional): List of payloads corresponding to vectors. These will be passed as metadatas to the Upstash Vector client. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
-        logger.info(
-            f"Inserting {len(vectors)} vectors into namespace {self.collection_name}"
-        )
+        logger.info(f"Inserting {len(vectors)} vectors into namespace {self.collection_name}")
 
         if self.enable_embeddings:
-            if not payloads or any(
-                "data" not in m or m["data"] is None for m in payloads
-            ):
-                raise ValueError(
-                    "When embeddings are enabled, all payloads must contain a 'data' field."
-                )
+            if not payloads or any("data" not in m or m["data"] is None for m in payloads):
+                raise ValueError("When embeddings are enabled, all payloads must contain a 'data' field.")
             processed_vectors = [
                 {
                     "id": ids[i] if ids else None,
@@ -121,11 +113,7 @@ class UpstashVector(VectorStoreBase):
             List[OutputData]: Search results.
         """
 
-        filters_str = (
-            " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
-            if filters
-            else None
-        )
+        filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
 
         response = []
 
@@ -217,9 +205,7 @@ class UpstashVector(VectorStoreBase):
             return None
         return OutputData(id=vector.id, score=None, payload=vector.metadata)
 
-    def list(
-        self, filters: Optional[Dict] = None, limit: int = 100
-    ) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[List[OutputData]]:
         """
         List all memories.
         Args:
@@ -228,15 +214,16 @@ class UpstashVector(VectorStoreBase):
         Returns:
             List[OutputData]: Search results.
         """
-        filters_str = (
-            " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
-            if filters
-            else None
-        )
+        filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
+
+        info = self.client.info()
+        ns_info = info.namespaces.get(self.collection_name)
+
+        if not ns_info or ns_info.vector_count == 0:
+            return [[]]
 
         random_vector = [1.0] * self.client.info().dimension
 
-        print("start", random_vector)
         results, query = self.client.resumable_query(
             vector=random_vector,
             filter=filters_str or "",
@@ -249,12 +236,10 @@ class UpstashVector(VectorStoreBase):
                 if len(results) >= limit:
                     break
                 res = query.fetch_next(100)
-                print(res)
                 if not res:
                     break
                 results.extend(res)
 
-        print(">RESULTS", results)
         parsed_result = [
             OutputData(
                 id=res.id,
