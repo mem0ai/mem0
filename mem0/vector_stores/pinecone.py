@@ -86,15 +86,11 @@ class PineconeDB(VectorStoreBase):
                 logger.warning("pinecone-text not installed. Hybrid search will be disabled.")
                 self.hybrid_search = False
 
-        self.create_col(embedding_model_dims, metric)
+        self.create_col()
 
-    def create_col(self, vector_size: int, metric: str = "cosine"):
+    def create_col(self):
         """
-        Create a new index/collection.
-
-        Args:
-            vector_size (int): Size of the vectors to be stored.
-            metric (str, optional): Distance metric for vector similarity. Defaults to "cosine".
+        Create a new index/collection using parameters from class initialization.
         """
         existing_indexes = self.list_cols().names()
 
@@ -112,8 +108,8 @@ class PineconeDB(VectorStoreBase):
 
         self.client.create_index(
             name=self.collection_name,
-            dimension=vector_size,
-            metric=metric,
+            dimension=self.embedding_model_dims,
+            metric=self.metric,
             spec=spec,
         )
 
@@ -370,4 +366,4 @@ class PineconeDB(VectorStoreBase):
         Reset the index by deleting and recreating it.
         """
         self.delete_col()
-        self.create_col(self.embedding_model_dims, self.metric)
+        self.create_col()

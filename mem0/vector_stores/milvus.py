@@ -44,25 +44,13 @@ class MilvusDB(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.metric_type = metric_type
         self.client = MilvusClient(uri=url, token=token)
-        self.create_col(
-            collection_name=self.collection_name,
-            vector_size=self.embedding_model_dims,
-            metric_type=self.metric_type,
-        )
+        self.create_col()
 
-    def create_col(
-        self,
-        collection_name: str,
-        vector_size: str,
-        metric_type: MetricType = MetricType.COSINE,
-    ) -> None:
-        """Create a new collection with index_type AUTOINDEX.
-
-        Args:
-            collection_name (str): Name of the collection (defaults to mem0).
-            vector_size (str): Dimensions of the embedding model (defaults to 1536).
-            metric_type (MetricType, optional): etric type for similarity search. Defaults to MetricType.COSINE.
-        """
+    def create_col(self) -> None:
+        """Create a new collection with index_type AUTOINDEX using parameters from __init__."""
+        collection_name = self.collection_name
+        vector_size = self.embedding_model_dims
+        metric_type = self.metric_type
 
         if self.client.has_collection(collection_name):
             logger.info(f"Collection {collection_name} already exists. Skipping creation.")
