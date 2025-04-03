@@ -1391,11 +1391,11 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.0\")\nprint(results)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.1\")\nprint(results)"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.0\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.1\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},				  
 				{
 				"lang": "cURL",
@@ -4893,10 +4893,11 @@
 						"default": true
 					},
 					"output_format": {
-						"description": "It two output formats: `v1.0` (default) and `v1.1`. To enable the latest format, which provides enhanced detail for each memory operation, set the output_format parameter to `v1.1`. Note that `v1.0` will be deprecated in version 0.1.35.",
+						"description": "It two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon.",
 						"title": "Output format",
 						"type": "string",
-						"nullable": true
+						"nullable": true,
+						"default": "v1.0"
 					},
 					"custom_categories": {
 						"description": "A list of categories with category name and it's description.",
@@ -5021,7 +5022,8 @@
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
-						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`."
+						"default": "v1.0",
+						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon."
 					},
 					"org_id": {
 						"title": "Organization id",
