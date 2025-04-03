@@ -41,6 +41,8 @@ class BaseLlmConfig(ABC):
         xai_base_url: Optional[str] = None,
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # Jina specific
+        jina_base_url: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -87,6 +89,8 @@ class BaseLlmConfig(ABC):
         :type xai_base_url: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param jina_base_url: Jina AI Chat base URL to be use, defaults to None
+        :type jina_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -123,3 +127,6 @@ class BaseLlmConfig(ABC):
 
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
+        
+        # Jina specific
+        self.jina_base_url = jina_base_url

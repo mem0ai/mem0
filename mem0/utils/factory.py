@@ -26,6 +26,7 @@ class LlmFactory:
         "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
         "xai": "mem0.llms.xai.XAILLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
+        "jina": "mem0.llms.jina.JinaLLM",
     }
 
     @classmethod
