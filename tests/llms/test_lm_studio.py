@@ -51,7 +51,7 @@ def test_generate_response_specifying_response_format(mock_lm_studio_client):
         temperature=0.7,
         max_tokens=100,
         top_p=1.0,
-        lmstduio_response_format={"type": "json_schema"},  # Specifying the response format in config
+        lmstudio_response_format={"type": "json_schema"},  # Specifying the response format in config
     )
     llm = LMStudioLLM(config)
     messages = [

@@ -41,7 +41,7 @@ class BaseLlmConfig(ABC):
         xai_base_url: Optional[str] = None,
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
-        lmstduio_response_format: dict = None,
+        lmstudio_response_format: dict = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -88,8 +88,8 @@ class BaseLlmConfig(ABC):
         :type xai_base_url: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
-        :param lmstduio_response_format: LM Studio response format to be use, defaults to None
-        :type mstduio_response_format: Optional[Dict], optional
+        :param lmstudio_response_format: LM Studio response format to be use, defaults to None
+        :type lmstudio_response_format: Optional[Dict], optional
         """
 
         self.model = model
@@ -126,4 +126,4 @@ class BaseLlmConfig(ABC):
 
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
-        self.lmstudio_response_format = lmstduio_response_format
+        self.lmstudio_response_format = lmstudio_response_format
