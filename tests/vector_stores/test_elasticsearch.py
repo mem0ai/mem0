@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import dotenv
 
@@ -196,8 +196,8 @@ class TestElasticsearchDB(unittest.TestCase):
         self.client_mock.search.return_value = mock_response
 
         # Perform search
-        query_vector = [0.1] * 1536
-        results = self.es_db.search(query=query_vector, limit=5)
+        vectors = [[0.1] * 1536]
+        results = self.es_db.search(query="", vectors=vectors, limit=5)
 
         # Verify search call
         self.client_mock.search.assert_called_once()
@@ -210,7 +210,7 @@ class TestElasticsearchDB(unittest.TestCase):
         # Verify KNN query structure
         self.assertIn("knn", body)
         self.assertEqual(body["knn"]["field"], "vector")
-        self.assertEqual(body["knn"]["query_vector"], query_vector)
+        self.assertEqual(body["knn"]["query_vector"], vectors)
         self.assertEqual(body["knn"]["k"], 5)
         self.assertEqual(body["knn"]["num_candidates"], 10)
 
@@ -219,6 +219,23 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
+
+    def test_custom_search_query(self):
+        # Mock custom search query
+        self.es_db.custom_search_query = Mock()
+        self.es_db.custom_search_query.return_value = {"custom_key": "custom_value"}
+
+        # Perform search
+        vectors = [[0.1] * 1536]
+        limit = 5
+        filters = {"key1": "value1"}
+        self.es_db.search(query="", vectors=vectors, limit=limit, filters=filters)
+
+        # Verify custom search query function was called
+        self.es_db.custom_search_query.assert_called_once_with(vectors, limit, filters)
+
+        # Verify custom search query was used
+        self.client_mock.search.assert_called_once_with(index=self.es_db.collection_name, body={"custom_key": "custom_value"})
 
     def test_get(self):
         # Mock get response with correct structure

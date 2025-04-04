@@ -22,7 +22,11 @@ pip install mem0ai
 <Tabs>
   <Tab title="Basic">
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
 m = Memory()
 ```
   </Tab>
@@ -42,7 +46,10 @@ docker run -p 6333:6333 -p 6334:6334 \
 Then, instantiate memory with qdrant server:
 
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 config = {
     "vector_store": {
@@ -61,7 +68,10 @@ m = Memory.from_config(config)
 <Tab title="Advanced (Graph Memory)">
 
 ```python
+import os
 from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 config = {
     "graph_store": {
@@ -85,14 +95,18 @@ m = Memory.from_config(config_dict=config)
 
 <CodeGroup>
 ```python Code
-const messages = [
+messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 
+# Store inferred memories (default behavior)
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
+
+# Store raw messages without inference
+# result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
 ```
 
 ```json Output
@@ -368,7 +382,8 @@ Mem0 offers extensive configuration options to customize its behavior according 
 |------------------|--------------------------------------|----------------------------|
 | `history_db_path` | Path to the history database         | "{mem0_dir}/history.db"    |
 | `version`         | API version                          | "v1.1"                     |
-| `custom_prompt`   | Custom prompt for memory processing  | None                       |
+| `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
+| `custom_update_memory_prompt` | Custom prompt for update memory | None                |
 </Accordion>
 
 <Accordion title="Complete Configuration Example">
@@ -405,7 +420,8 @@ config = {
     },
     "history_db_path": "/path/to/history.db",
     "version": "v1.1",
-    "custom_prompt": "Optional custom prompt for memory processing"
+    "custom_fact_extraction_prompt": "Optional custom prompt for fact extraction for memory",
+    "custom_update_memory_prompt": "Optional custom prompt for update memory"
 }
 ```
 </Accordion>

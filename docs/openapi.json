@@ -509,33 +509,33 @@
 				]
 			},
 			"post": {
-			"tags": [
+				"tags": [
 			"exports"
-			],
+				],
 			"summary": "Create an export job with schema",
 			"description": "Create a structured export of memories based on a provided schema.",
 			"operationId": "exports_create",
-			"requestBody": {
-			"content": {
-				"application/json": {
-				"schema": {
-					"type": "object",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
 					"required": ["schema"],
-					"properties": {
+								"properties": {
 					"schema": {
 						"type": "object",
 						"description": "Schema definition for the export"
 					},
 					"user_id": {
-						"type": "string",
+										"type": "string",
 						"description": "Filter exports by user ID"
-					},
+									},
 					"run_id": {
-						"type": "string",
+										"type": "string",
 						"description": "Filter exports by run ID"
-					},
+									},
 					"session_id": {
-						"type": "string",
+										"type": "string",
 						"description": "Filter exports by session ID"
 					},
 					"app_id": {
@@ -549,28 +549,28 @@
 					"project_id": {
 						"type": "string",
 						"description": "Filter exports by project ID"
-					}
-					}
-				}
-				}
-			},
-			"required": true
-			},
-			"responses": {
+									}
+								}
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
 			"201": {
 				"description": "Export created successfully",
-				"content": {
-				"application/json": {
-					"schema": {
-					"type": "object",
-					"properties": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
 						"message": {
 						"type": "string",
 						"example": "Memory export request received. The export will be ready in a few seconds."
 						},
-						"id": {
-						"type": "string",
-						"format": "uuid",
+										"id": {
+											"type": "string",
+											"format": "uuid",
 						"example": "550e8400-e29b-41d4-a716-446655440000"
 						}
 					},
@@ -587,15 +587,15 @@
 					"type": "object",
 					"properties": {
 						"message": {
-						"type": "string",
+											"type": "string",
 						"example": "Schema is required and must be a valid object"
 						}
-					}
-					}
-				}
-				}
-			}
-			},
+										}
+									}
+								}
+							}
+						}
+					},
 			"x-code-samples": [
 				{
 					"lang": "Python",
@@ -622,7 +622,7 @@
 					"source": "import com.mashape.unirest.http.HttpResponse;\nimport com.mashape.unirest.http.JsonNode;\nimport com.mashape.unirest.http.Unirest;\nimport org.json.JSONObject;\n\nJSONObject data = new JSONObject()\n    .put(\"schema\", new JSONObject()) // Your schema here\n    .put(\"user_id\", \"your_user_id\");\n\nHttpResponse<JsonNode> response = Unirest.post(\"https://api.mem0.ai/v1/exports/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(data.toString())\n  .asJson();"
 				}
 			]
-		}
+			}
 		},
 		"/v1/memories/": {
 			"get": {
@@ -783,6 +783,14 @@
 												"title": "Immutable",
 												"default": false
 											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true,
+												"default": null
+											},
 											"organization": {
 												"type": "string"
 											},
@@ -932,27 +940,27 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\")"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\", version=\"v2\")"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\", version: \"v2\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},				  
 				{
 				"lang": "cURL",
-				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"messages\": [\n    {}\n  ],\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"includes\": \"<string>\",\n  \"excludes\": \"<string>\",\n  \"infer\": true,\n  \"custom_categories\": {}, \n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\"\n}'"
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n  \"messages\": [\n    {}\n  ],\n  \"agent_id\": \"<string>\",\n  \"user_id\": \"<string>\",\n  \"app_id\": \"<string>\",\n  \"run_id\": \"<string>\",\n  \"metadata\": {},\n  \"includes\": \"<string>\",\n  \"excludes\": \"<string>\",\n  \"infer\": true,\n  \"custom_categories\": {}, \n  \"org_id\": \"<string>\",\n  \"project_id\": \"<string>\",\n  \"version\": \"v2\"\n}'"
 				},
 				{
 				"lang": "Go",
-				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+				"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/memories/\"\n\n\tpayload := strings.NewReader(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {},\n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\",\n  \\\"version\\\": \"v2\"\n}\")\n\n\treq, _ := http.NewRequest(\"POST\", url, payload)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 				},
 				{
 				"lang": "PHP",
-				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {}, \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/memories/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => \"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {}, \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\",\n  \\\"version\\\": \"v2\"\n}\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 				},
 				{
 				"lang": "Java",
-				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {}, \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\"\n}\")\n  .asString();"
+				"source": "HttpResponse<String> response = Unirest.post(\"https://api.mem0.ai/v1/memories/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(\"{\n  \\\"messages\\\": [\n    {}\n  ],\n  \\\"agent_id\\\": \\\"<string>\\\",\n  \\\"user_id\\\": \\\"<string>\\\",\n  \\\"app_id\\\": \\\"<string>\\\",\n  \\\"run_id\\\": \\\"<string>\\\",\n  \\\"metadata\\\": {},\n  \\\"includes\\\": \\\"<string>\\\",\n  \\\"excludes\\\": \\\"<string>\\\",\n  \\\"infer\\\": true,\n  \\\"custom_categories\\\": {}, \n  \\\"org_id\\\": \\\"<string>\\\",\n  \\\"project_id\\\": \\\"<string>\",\n  \\\"version\\\": \"v2\"\n}\")\n  .asString();"
 					}
 				],
 				"x-codegen-request-body-name": "data"
@@ -1183,6 +1191,14 @@
 												"title": "Immutable",
 												"default": false
 											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true,
+												"default": null
+											},
 											"organization": {
 												"type": "string"
 											},
@@ -1324,6 +1340,14 @@
 												"title": "Immutable",
 												"default": false
 											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true,
+												"default": null
+											},
 											"created_at": {
 												"type": "string",
 												"format": "date-time",
@@ -1367,11 +1391,11 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.0\")\nprint(results)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.1\")\nprint(results)"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.0\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.1\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},				  
 				{
 				"lang": "cURL",
@@ -1450,6 +1474,14 @@
 												"description": "Whether the memory is immutable.",
 												"title": "Immutable",
 												"default": false
+											},
+											"expiration_date": {
+												"type": "string",
+												"format": "date-time",
+												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+												"title": "Expiration date",
+												"nullable": true,
+												"default": null
 											},
 											"created_at": {
 												"type": "string",
@@ -1761,7 +1793,7 @@
 				},
 				{
 				"lang": "JavaScript",
-				"source": "const options = {\n  method: 'PUT',\n  headers: {\n    'Authorization': 'Token <api-key>',\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    text: 'Your updated memory text here'\n  })\n};\n\nfetch('https://api.mem0.ai/v1/memories/{memory_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Update a specific memory\nconst memory_id=<memory_id>\nconst message=\"Your updated memory message here\"\nclient.update(memory_id, message)\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},
 				{
 				"lang": "cURL",
@@ -2072,6 +2104,95 @@
 					}
 				},
 				"x-codegen-request-body-name": "data"
+			}
+		},
+		"/v1/feedback/": {
+			"post": {
+				"tags": [
+					"feedback"
+				],
+				"description": "Submit feedback for a memory.",
+				"operationId": "submit_feedback",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"required": [
+									"memory_id"
+								],
+								"type": "object",
+								"properties": {
+									"memory_id": {
+										"type": "string",
+										"description": "ID of the memory to provide feedback for"
+									},
+									"feedback": {
+										"type": "string",
+										"enum": ["POSITIVE", "NEGATIVE", "VERY_NEGATIVE"],
+										"nullable": true,
+										"description": "Type of feedback"
+									},
+									"feedback_reason": {
+										"type": "string",
+										"nullable": true,
+										"description": "Reason for the feedback"
+									}
+								}
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"description": "Successful operation",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "Feedback ID"
+										},
+										"feedback": {
+											"type": "string",
+											"enum": ["POSITIVE", "NEGATIVE", "VERY_NEGATIVE"],
+											"nullable": true,
+											"description": "Type of feedback"
+										},
+										"feedback_reason": {
+											"type": "string",
+											"nullable": true,
+											"description": "Reason for the feedback"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request"
+					},
+					"401": {
+						"description": "Unauthorized"
+					}
+				},
+				"x-code-samples": [
+				{
+				"lang": "Python",
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Submit feedback for a memory\nfeedback = client.feedback(memory_id=\"memory_id\", feedback=\"POSITIVE\")\nprint(feedback)"
+				},
+				{
+				"lang": "JavaScript",
+				"source": "// To use the JavaScript SDK, install the package:\n// npm install mem0ai\n\nimport MemoryClient from 'mem0ai';\n\nconst client = new MemoryClient({ apiKey: 'your-api-key'});\n\nclient.feedback({\n    memory_id: \"your-memory-id\", \n    feedback: \"NEGATIVE\", \n    feedback_reason: \"I don't like this memory because it is not relevant.\"\n})"
+				},
+				{
+				"lang": "cURL",
+				"source": "curl --request POST \\\n  --url https://api.mem0.ai/v1/feedback/ \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\"memory_id\": \"memory_id\", \"feedback\": \"POSITIVE\"}'"
+				}
+				]
 			}
 		},
 		"/api/v1/orgs/organizations/": {
@@ -3112,7 +3233,7 @@
 									"type": "object",
 									"properties": {
 										"message": {
-											"type": "string",
+												"type": "string",
 											"example": "Unauthorized to create projects in this organization."
 										}
 									}
@@ -3478,7 +3599,7 @@
 						"description": "Unauthorized to modify this project",
 						"content": {
 							"application/json": {
-								"schema": {
+						"schema": {
 									"type": "object",
 									"properties": {
 										"message": {
@@ -4772,10 +4893,11 @@
 						"default": true
 					},
 					"output_format": {
-						"description": "It two output formats: `v1.0` (default) and `v1.1`. To enable the latest format, which provides enhanced detail for each memory operation, set the output_format parameter to `v1.1`. Note that `v1.0` will be deprecated in version 0.1.35.",
+						"description": "It two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon.",
 						"title": "Output format",
 						"type": "string",
-						"nullable": true
+						"nullable": true,
+						"default": "v1.0"
 					},
 					"custom_categories": {
 						"description": "A list of categories with category name and it's description.",
@@ -4798,6 +4920,13 @@
 						"type": "boolean",
 						"default": false
 					},
+					"expiration_date": {
+						"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+						"title": "Expiration date",
+						"type": "string",
+						"nullable": true,
+						"default": null
+					},
 					"org_id": {
 						"description": "The unique identifier of the organization associated with this memory.",
 						"title": "Organization id",
@@ -4807,6 +4936,12 @@
 					"project_id": {
 						"description": "The unique identifier of the project associated with this memory.",
 						"title": "Project id",
+						"type": "string",
+						"nullable": true
+					},
+					"version": {
+						"description": "The version of the memory to use. The default version is v1, which is deprecated. We recommend using v2 for new applications.",
+						"title": "Version", 
 						"type": "string",
 						"nullable": true
 					}
@@ -4887,7 +5022,8 @@
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
-						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`."
+						"default": "v1.0",
+						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon."
 					},
 					"org_id": {
 						"title": "Organization id",

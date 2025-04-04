@@ -12,6 +12,7 @@ import {
   Webhook,
   WebhookPayload,
   Message,
+  FeedbackPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 
@@ -61,7 +62,7 @@ export default class MemoryClient {
       (this.organizationName !== null && this.projectName === null)
     ) {
       console.warn(
-        "Warning: Both organizationName and projectName must be provided together when using either. This will be removedfrom the version 1.0.40. Note that organizationName/projectName are being deprecated in favor of organizationId/projectId.",
+        "Warning: Both organizationName and projectName must be provided together when using either. This will be removed from version 1.0.40. Note that organizationName/projectName are being deprecated in favor of organizationId/projectId.",
       );
     }
 
@@ -71,7 +72,7 @@ export default class MemoryClient {
       (this.organizationId !== null && this.projectId === null)
     ) {
       console.warn(
-        "Warning: Both organizationId and projectId must be provided together when using either. This will be removedfrom the version 1.0.40.",
+        "Warning: Both organizationId and projectId must be provided together when using either. This will be removed from version 1.0.40.",
       );
     }
   }
@@ -96,7 +97,6 @@ export default class MemoryClient {
     });
 
     this._validateApiKey();
-    this._validateOrgProject();
 
     // Initialize with a temporary ID that will be updated
     this.telemetryId = "";
@@ -107,59 +107,50 @@ export default class MemoryClient {
 
   private async _initializeClient() {
     try {
-      // do this only in browser
-      if (typeof window !== "undefined") {
-        this.telemetryId = await generateHash(this.apiKey);
-        await captureClientEvent("init", this);
+      // Generate telemetry ID
+      await this.ping();
+
+      if (!this.telemetryId) {
+        this.telemetryId = generateHash(this.apiKey);
       }
 
-      // Wrap methods after initialization
-      this.add = this.wrapMethod("add", this.add);
-      this.get = this.wrapMethod("get", this.get);
-      this.getAll = this.wrapMethod("get_all", this.getAll);
-      this.search = this.wrapMethod("search", this.search);
-      this.delete = this.wrapMethod("delete", this.delete);
-      this.deleteAll = this.wrapMethod("delete_all", this.deleteAll);
-      this.history = this.wrapMethod("history", this.history);
-      this.users = this.wrapMethod("users", this.users);
-      this.deleteUser = this.wrapMethod("delete_user", this.deleteUser);
-      this.deleteUsers = this.wrapMethod("delete_users", this.deleteUsers);
-      this.batchUpdate = this.wrapMethod("batch_update", this.batchUpdate);
-      this.batchDelete = this.wrapMethod("batch_delete", this.batchDelete);
-      this.getProject = this.wrapMethod("get_project", this.getProject);
-      this.updateProject = this.wrapMethod(
-        "update_project",
-        this.updateProject,
-      );
-      this.getWebhooks = this.wrapMethod("get_webhook", this.getWebhooks);
-      this.createWebhook = this.wrapMethod(
-        "create_webhook",
-        this.createWebhook,
-      );
-      this.updateWebhook = this.wrapMethod(
-        "update_webhook",
-        this.updateWebhook,
-      );
-      this.deleteWebhook = this.wrapMethod(
-        "delete_webhook",
-        this.deleteWebhook,
-      );
-    } catch (error) {
+      this._validateOrgProject();
+
+      // Capture initialization event
+      captureClientEvent("init", this, {
+        api_version: "v1",
+        client_type: "MemoryClient",
+      }).catch((error: any) => {
+        console.error("Failed to capture event:", error);
+      });
+    } catch (error: any) {
       console.error("Failed to initialize client:", error);
+      await captureClientEvent("init_error", this, {
+        error: error?.message || "Unknown error",
+        stack: error?.stack || "No stack trace",
+      });
     }
   }
 
-  wrapMethod(methodName: any, method: any) {
-    return async function (...args: any) {
-      // @ts-ignore
-      await captureClientEvent(methodName, this);
-      // @ts-ignore
-      return method.apply(this, args);
-    }.bind(this);
+  private _captureEvent(methodName: string, args: any[]) {
+    captureClientEvent(methodName, this, {
+      success: true,
+      args_count: args.length,
+      keys: args.length > 0 ? args[0] : [],
+    }).catch((error: any) => {
+      console.error("Failed to capture event:", error);
+    });
   }
 
   async _fetchWithErrorHandling(url: string, options: any): Promise<any> {
-    const response = await fetch(url, options);
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Token ${this.apiKey}`,
+        "Mem0-User-ID": this.telemetryId,
+      },
+    });
     if (!response.ok) {
       const errorData = await response.text();
       throw new APIError(`API request failed: ${errorData}`);
@@ -187,10 +178,31 @@ export default class MemoryClient {
     );
   }
 
+  async ping(): Promise<void> {
+    const response = await fetch(`${this.host}/v1/ping/`, {
+      headers: {
+        Authorization: `Token ${this.apiKey}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (data.status !== "ok") {
+      throw new Error("API Key is invalid");
+    }
+
+    const { org_id, project_id, user_email } = data;
+
+    this.organizationId = org_id || null;
+    this.projectId = project_id || null;
+    this.telemetryId = user_email || "";
+  }
+
   async add(
     messages: string | Array<Message>,
     options: MemoryOptions = {},
   ): Promise<Array<Memory>> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
     if (this.organizationName != null && this.projectName != null) {
       options.org_name = this.organizationName;
@@ -205,7 +217,16 @@ export default class MemoryClient {
       if (options.project_name) delete options.project_name;
     }
 
+    if (options.api_version) {
+      options.version = options.api_version.toString();
+    }
+
     const payload = this._preparePayload(messages, options);
+
+    // get payload keys whose value is not null or undefined
+    const payloadKeys = Object.keys(payload);
+    this._captureEvent("add", [payloadKeys]);
+
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/`,
       {
@@ -218,10 +239,15 @@ export default class MemoryClient {
   }
 
   async update(memoryId: string, message: string): Promise<Array<Memory>> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
     const payload = {
       text: message,
     };
+
+    const payloadKeys = Object.keys(payload);
+    this._captureEvent("update", [payloadKeys]);
+
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${memoryId}/`,
       {
@@ -234,6 +260,8 @@ export default class MemoryClient {
   }
 
   async get(memoryId: string): Promise<Memory> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("get", []);
     return this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${memoryId}/`,
       {
@@ -243,7 +271,10 @@ export default class MemoryClient {
   }
 
   async getAll(options?: SearchOptions): Promise<Array<Memory>> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
+    const payloadKeys = Object.keys(options || {});
+    this._captureEvent("get_all", [payloadKeys]);
     const { api_version, page, page_size, ...otherOptions } = options!;
     if (this.organizationName != null && this.projectName != null) {
       otherOptions.org_name = this.organizationName;
@@ -288,7 +319,10 @@ export default class MemoryClient {
   }
 
   async search(query: string, options?: SearchOptions): Promise<Array<Memory>> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
+    const payloadKeys = Object.keys(options || {});
+    this._captureEvent("search", [payloadKeys]);
     const { api_version, ...otherOptions } = options!;
     const payload = { query, ...otherOptions };
     if (this.organizationName != null && this.projectName != null) {
@@ -317,6 +351,8 @@ export default class MemoryClient {
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("delete", []);
     return this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${memoryId}/`,
       {
@@ -327,7 +363,10 @@ export default class MemoryClient {
   }
 
   async deleteAll(options: MemoryOptions = {}): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
+    const payloadKeys = Object.keys(options || {});
+    this._captureEvent("delete_all", [payloadKeys]);
     if (this.organizationName != null && this.projectName != null) {
       options.org_name = this.organizationName;
       options.project_name = this.projectName;
@@ -353,6 +392,8 @@ export default class MemoryClient {
   }
 
   async history(memoryId: string): Promise<Array<MemoryHistory>> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("history", []);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${memoryId}/history/`,
       {
@@ -363,7 +404,9 @@ export default class MemoryClient {
   }
 
   async users(): Promise<AllUsers> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
+    this._captureEvent("users", []);
     const options: MemoryOptions = {};
     if (this.organizationName != null && this.projectName != null) {
       options.org_name = this.organizationName;
@@ -392,6 +435,8 @@ export default class MemoryClient {
     entityId: string,
     entity: { type: string } = { type: "user" },
   ): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("delete_user", []);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/entities/${entity.type}/${entityId}/`,
       {
@@ -403,7 +448,9 @@ export default class MemoryClient {
   }
 
   async deleteUsers(): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
+    this._captureEvent("delete_users", []);
     const entities = await this.users();
 
     for (const entity of entities.results) {
@@ -428,6 +475,8 @@ export default class MemoryClient {
   }
 
   async batchUpdate(memories: Array<MemoryUpdateBody>): Promise<string> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("batch_update", []);
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory.memoryId,
       text: memory.text,
@@ -444,6 +493,8 @@ export default class MemoryClient {
   }
 
   async batchDelete(memories: Array<string>): Promise<string> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("batch_delete", []);
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory,
     }));
@@ -459,8 +510,10 @@ export default class MemoryClient {
   }
 
   async getProject(options: ProjectOptions): Promise<ProjectResponse> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
-
+    const payloadKeys = Object.keys(options || {});
+    this._captureEvent("get_project", [payloadKeys]);
     const { fields } = options;
 
     if (!(this.organizationId && this.projectId)) {
@@ -484,8 +537,9 @@ export default class MemoryClient {
   async updateProject(
     prompts: PromptUpdatePayload,
   ): Promise<Record<string, any>> {
+    if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
-
+    this._captureEvent("update_project", []);
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
         "organizationId and projectId must be set to update instructions or categories",
@@ -505,6 +559,8 @@ export default class MemoryClient {
 
   // WebHooks
   async getWebhooks(data?: { projectId?: string }): Promise<Array<Webhook>> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("get_webhooks", []);
     const project_id = data?.projectId || this.projectId;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${project_id}/`,
@@ -516,6 +572,8 @@ export default class MemoryClient {
   }
 
   async createWebhook(webhook: WebhookPayload): Promise<Webhook> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("create_webhook", []);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${this.projectId}/`,
       {
@@ -528,6 +586,8 @@ export default class MemoryClient {
   }
 
   async updateWebhook(webhook: WebhookPayload): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("update_webhook", []);
     const project_id = webhook.projectId || this.projectId;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/${webhook.webhookId}/`,
@@ -546,12 +606,29 @@ export default class MemoryClient {
   async deleteWebhook(data: {
     webhookId: string;
   }): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
+    this._captureEvent("delete_webhook", []);
     const webhook_id = data.webhookId || data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/${webhook_id}/`,
       {
         method: "DELETE",
         headers: this.headers,
+      },
+    );
+    return response;
+  }
+
+  async feedback(data: FeedbackPayload): Promise<{ message: string }> {
+    if (this.telemetryId === "") await this.ping();
+    const payloadKeys = Object.keys(data || {});
+    this._captureEvent("feedback", [payloadKeys]);
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v1/feedback/`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(data),
       },
     );
     return response;

@@ -47,6 +47,7 @@
                     "pages": [
                       "features/platform-overview",
                       "features/advanced-retrieval",
+                      "features/contextual-add",
                       "features/multimodal-support",
                       "features/selective-memory",
                       "features/custom-categories",
@@ -54,7 +55,9 @@
                       "features/direct-import",
                       "features/async-client",
                       "features/memory-export",
-                      "features/webhooks"
+                      "features/webhooks",
+                      "features/graph-memory",
+                      "features/feedback-mechanism"
                     ]
                   }
                 ]
@@ -71,7 +74,8 @@
                     "icon": "wrench",
                     "pages": [
                       "features/openai_compatibility",
-                      "features/custom-prompts",
+                      "features/custom-fact-extraction-prompt",
+                      "features/custom-update-memory-prompt",
                       "open-source/multimodal-support",
                       "open-source/features/rest-api"
                     ]
@@ -106,7 +110,8 @@
                           "components/llms/models/aws_bedrock",
                           "components/llms/models/gemini",
                           "components/llms/models/deepseek",
-                          "components/llms/models/xAI"
+                          "components/llms/models/xAI",
+                          "components/llms/models/lmstudio"
                         ]
                       }
                     ]
@@ -125,13 +130,15 @@
                           "components/vectordbs/dbs/chroma",
                           "components/vectordbs/dbs/pgvector",
                           "components/vectordbs/dbs/milvus",
-                          "components/vectordbs/dbs/azure_ai_search",
+                          "components/vectordbs/dbs/pinecone",
+                          "components/vectordbs/dbs/azure",
                           "components/vectordbs/dbs/redis",
                           "components/vectordbs/dbs/elasticsearch",
                           "components/vectordbs/dbs/opensearch",
                           "components/vectordbs/dbs/supabase",
-                          "components/vectordbs/dbs/vertex_ai_vector_search",
-                          "components/vectordbs/dbs/weaviate"
+                          "components/vectordbs/dbs/vertex_ai",
+                          "components/vectordbs/dbs/weaviate",
+                          "components/vectordbs/dbs/faiss"
                         ]
                       }
                     ]
@@ -151,7 +158,9 @@
                           "components/embedders/models/ollama",
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
-                          "components/embedders/models/gemini"
+                          "components/embedders/models/gemini",
+                          "components/embedders/models/lmstudio",
+                          "components/embedders/models/together"
                         ]
                       }
                     ]
@@ -178,6 +187,7 @@
                   "examples/overview",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
                   "examples/customer-support-agent",
@@ -188,7 +198,10 @@
                   "examples/multimodal-demo",
                   "examples/personalized-deep-research",
                   "examples/mem0-agentic-tool",
-                  "examples/openai-inbuilt-tools"
+                  "examples/openai-inbuilt-tools",
+                  "examples/mem0-openai-voice-demo",
+                  "examples/mem0-livekit-voice-agent",
+                  "examples/email_processing"
                 ]
               }
             ]
@@ -202,6 +215,7 @@
                 "pages": [
                   "integrations/overview",
                   "integrations/vercel-ai-sdk",
+                  "integrations/flowise",
                   "integrations/crewai",
                   "integrations/autogen",
                   "integrations/langchain",
@@ -209,7 +223,10 @@
                   "integrations/llama-index",
                   "integrations/langchain-tools",
                   "integrations/dify",
-                  "integrations/mcp-server"
+                  "integrations/mcp-server",
+                  "integrations/livekit",
+                  "integrations/elevenlabs",
+                  "integrations/pipecat"
                 ]
               }
             ]
@@ -240,7 +257,8 @@
                       "api-reference/memory/batch-delete",
                       "api-reference/memory/delete-memories",
                       "api-reference/memory/create-memory-export",
-                      "api-reference/memory/get-memory-export"
+                      "api-reference/memory/get-memory-export",
+                      "api-reference/memory/feedback"
                     ]
                   },
                   {
@@ -264,6 +282,18 @@
                     ]
                   },
                   {
+                    "group": "Project APIs",
+                    "icon": "folder",
+                    "pages": [
+                      "api-reference/project/create-project",
+                      "api-reference/project/get-projects",
+                      "api-reference/project/get-project",
+                      "api-reference/project/get-project-members",
+                      "api-reference/project/add-project-member",
+                      "api-reference/project/delete-project"
+                    ]
+                  },
+                  {
                     "group": "Webhook APIs",
                     "icon": "webhook",
                     "pages": [
@@ -273,6 +303,19 @@
                       "api-reference/webhook/delete-webhook"
                     ]
                   }
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Changelog",
+            "icon": "clock",
+            "groups": [
+              {
+                "group": "Product Updates",
+                "icon": "rocket",
+                "pages": [
+                  "changelog/overview"
                 ]
               }
             ]
@@ -336,6 +379,9 @@
     "posthog": {
       "apiKey": "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
       "apiHost": "https://mango.mem0.ai"
+    },
+    "intercom": {
+      "appId": "jjv2r0tt"
     }
   }
 }

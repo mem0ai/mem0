@@ -7,13 +7,14 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "start": "ts-node examples/basic.ts",
-    "example": "ts-node examples/basic.ts",
+    "start": "pnpm run example memory",
+    "example": "ts-node examples/vector-stores/index.ts",
     "clean": "rimraf dist",
     "prepare": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.18.0",
+    "@google/genai": "^0.7.0",
     "@qdrant/js-client-rest": "^1.13.0",
     "@types/node": "^20.11.19",
     "@types/pg": "^8.11.0",

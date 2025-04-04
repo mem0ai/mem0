@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 try:
-    from opensearchpy import OpenSearch
+    from opensearchpy import OpenSearch, RequestsHttpConnection
     from opensearchpy.helpers import bulk
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
@@ -28,9 +28,12 @@ class OpenSearchDB(VectorStoreBase):
         # Initialize OpenSearch client
         self.client = OpenSearch(
             hosts=[{"host": config.host, "port": config.port or 9200}],
-            http_auth=(config.user, config.password) if (config.user and config.password) else None,
+            http_auth=config.http_auth
+            if config.http_auth
+            else ((config.user, config.password) if (config.user and config.password) else None),
             use_ssl=config.use_ssl,
             verify_certs=config.verify_certs,
+            connection_class=RequestsHttpConnection,
         )
 
         self.collection_name = config.collection_name
@@ -43,14 +46,17 @@ class OpenSearchDB(VectorStoreBase):
     def create_index(self) -> None:
         """Create OpenSearch index with proper mappings if it doesn't exist."""
         index_settings = {
-            # ToDo change replicas to 1
             "settings": {
                 "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s", "knn": True}
             },
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {"type": "knn_vector", "dimension": self.vector_dim},
+                    "vector": {
+                        "type": "knn_vector",
+                        "dimension": self.vector_dim,
+                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                    },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
             },
@@ -111,14 +117,16 @@ class OpenSearchDB(VectorStoreBase):
             results.append(OutputData(id=id_, score=1.0, payload=payloads[i]))
         return results
 
-    def search(self, query: List[float], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(
+        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+    ) -> List[OutputData]:
         """Search for similar vectors using OpenSearch k-NN search with pre-filtering."""
         search_query = {
             "size": limit,
             "query": {
                 "knn": {
                     "vector": {
-                        "vector": query,
+                        "vector": vectors,
                         "k": limit,
                     }
                 }

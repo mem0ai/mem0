@@ -25,6 +25,7 @@ class LlmFactory:
         "gemini": "mem0.llms.gemini.GeminiLLM",
         "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
         "xai": "mem0.llms.xai.XAILLM",
+        "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
     }
 
     @classmethod
@@ -47,6 +48,7 @@ class EmbedderFactory:
         "gemini": "mem0.embeddings.gemini.GoogleGenAIEmbedding",
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
         "together": "mem0.embeddings.together.TogetherEmbedding",
+        "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
     }
 
     @classmethod
@@ -67,12 +69,14 @@ class VectorStoreFactory:
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
+        "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
         "supabase": "mem0.vector_stores.supabase.Supabase",
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
+        "faiss": "mem0.vector_stores.faiss.FAISS",
     }
 
     @classmethod

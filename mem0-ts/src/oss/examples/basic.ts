@@ -116,6 +116,36 @@ async function runTests(memory: Memory) {
   }
 }
 
+async function demoLocalMemory() {
+  console.log("\n=== Testing In-Memory Vector Store with Ollama===\n");
+
+  const memory = new Memory({
+    version: "v1.1",
+    embedder: {
+      provider: "ollama",
+      config: {
+        model: "nomic-embed-text:latest",
+      },
+    },
+    vectorStore: {
+      provider: "memory",
+      config: {
+        collectionName: "memories",
+        dimension: 768, // 768 is the dimension of the nomic-embed-text model
+      },
+    },
+    llm: {
+      provider: "ollama",
+      config: {
+        model: "llama3.1:8b",
+      },
+    },
+    // historyDbPath: "memory.db",
+  });
+
+  await runTests(memory);
+}
+
 async function demoMemoryStore() {
   console.log("\n=== Testing In-Memory Vector Store ===\n");
 
@@ -346,6 +376,9 @@ async function main() {
   // Test in-memory store
   await demoMemoryStore();
 
+  // Test in-memory store with Ollama
+  await demoLocalMemory();
+
   // Test graph memory if Neo4j environment variables are set
   if (
     process.env.NEO4J_URL &&
@@ -384,4 +417,4 @@ async function main() {
   }
 }
 
-// main();
+main();

@@ -1,4 +1,6 @@
 export interface MemoryOptions {
+  api_version?: API_VERSION | string;
+  version?: API_VERSION | string;
   user_id?: string;
   agent_id?: string;
   app_id?: string;
@@ -17,6 +19,7 @@ export interface MemoryOptions {
   enable_graph?: boolean;
   start_date?: string;
   end_date?: string;
+  custom_categories?: custom_categories[];
 }
 
 export interface ProjectOptions {
@@ -26,6 +29,12 @@ export interface ProjectOptions {
 export enum API_VERSION {
   V1 = "v1",
   V2 = "v2",
+}
+
+export enum Feedback {
+  POSITIVE = "POSITIVE",
+  NEGATIVE = "NEGATIVE",
+  VERY_NEGATIVE = "VERY_NEGATIVE",
 }
 
 export interface MultiModalMessages {
@@ -160,4 +169,10 @@ export interface WebhookPayload {
   webhookId: string;
   name: string;
   url: string;
+}
+
+export interface FeedbackPayload {
+  memory_id: string;
+  feedback?: Feedback | null;
+  feedback_reason?: string | null;
 }

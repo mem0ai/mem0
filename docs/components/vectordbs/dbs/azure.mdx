@@ -1,0 +1,99 @@
+---
+title: Azure AI Search
+---
+
+[Azure AI Search](https://learn.microsoft.com/azure/search/search-what-is-azure-search/) (formerly known as "Azure Cognitive Search") provides secure information retrieval at scale over user-owned content in traditional and generative AI search applications.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"   # This key is used for embedding purpose
+
+config = {
+    "vector_store": {
+        "provider": "azure_ai_search",
+        "config": {
+            "service_name": "ai-search-test",
+            "api_key": "*****",
+            "collection_name": "mem0", 
+            "embedding_model_dims": 1536
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Using binary compression for large vector collections
+
+```python
+config = {
+    "vector_store": {
+        "provider": "azure_ai_search",
+        "config": {
+            "service_name": "ai-search-test",
+            "api_key": "*****",
+            "collection_name": "mem0", 
+            "embedding_model_dims": 1536,
+            "compression_type": "binary",
+            "use_float16": True  # Use half precision for storage efficiency
+        }
+    }
+}
+```
+
+## Using hybrid search
+
+```python
+config = {
+    "vector_store": {
+        "provider": "azure_ai_search",
+        "config": {
+            "service_name": "ai-search-test",
+            "api_key": "*****",
+            "collection_name": "mem0", 
+            "embedding_model_dims": 1536,
+            "hybrid_search": True,
+            "vector_filter_mode": "postFilter"
+        }
+    }
+}
+```
+
+## Configuration Parameters
+
+| Parameter | Description | Default Value | Options |
+| --- | --- | --- | --- |
+| `service_name` | Azure AI Search service name | Required | - |
+| `api_key` | API key of the Azure AI Search service | Required | - |
+| `collection_name` | The name of the collection/index to store vectors | `mem0` | Any valid index name |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` | Any integer value |
+| `compression_type` | Type of vector compression to use | `none` | `none`, `scalar`, `binary` |
+| `use_float16` | Store vectors in half precision (Edm.Half) | `False` | `True`, `False` |
+| `vector_filter_mode` | Vector filter mode to use | `preFilter` | `postFilter`, `preFilter` |
+| `hybrid_search` | Use hybrid search | `False` | `True`, `False` |
+
+## Notes on Configuration Options
+
+- **compression_type**: 
+  - `none`: No compression, uses full vector precision
+  - `scalar`: Scalar quantization with reasonable balance of speed and accuracy
+  - `binary`: Binary quantization for maximum compression with some accuracy trade-off
+
+- **vector_filter_mode**:
+  - `preFilter`: Applies filters before vector search (faster)
+  - `postFilter`: Applies filters after vector search (may provide better relevance)
+
+- **use_float16**: Using half precision (float16) reduces storage requirements but may slightly impact accuracy. Useful for very large vector collections.
+
+- **Filterable Fields**: The implementation automatically extracts `user_id`, `run_id`, and `agent_id` fields from payloads for filtering.

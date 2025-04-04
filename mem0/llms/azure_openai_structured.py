@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Dict, List, Optional
 
@@ -32,51 +31,19 @@ class AzureOpenAIStructuredLLM(LLMBase):
             default_headers=default_headers,
         )
 
-    def _parse_response(self, response, tools):
-        """
-        Process the response based on whether tools are used or not.
-
-        Args:
-            response: The raw response from API.
-            tools: The list of tools provided in the request.
-
-        Returns:
-            str or dict: The processed response.
-        """
-        if tools:
-            processed_response = {
-                "content": response.choices[0].message.content,
-                "tool_calls": [],
-            }
-
-            if response.choices[0].message.tool_calls:
-                for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append(
-                        {
-                            "name": tool_call.function.name,
-                            "arguments": json.loads(tool_call.function.arguments),
-                        }
-                    )
-
-            return processed_response
-        else:
-            return response.choices[0].message.content
-
     def generate_response(
         self,
         messages: List[Dict[str, str]],
-        response_format=None,
+        response_format: Optional[str] = None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
-    ):
+    ) -> str:
         """
         Generate a response based on the given messages using Azure OpenAI.
 
         Args:
-            messages (list): List of message dicts containing 'role' and 'content'.
-            response_format (str or object, optional): Format of the response. Defaults to "text".
-            tools (list, optional): List of tools that the model can call. Defaults to None.
-            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            messages (List[Dict[str, str]]): A list of dictionaries, each containing a 'role' and 'content' key.
+            response_format (Optional[str]): The desired format of the response. Defaults to None.
 
         Returns:
             str: The generated response.
@@ -90,6 +57,10 @@ class AzureOpenAIStructuredLLM(LLMBase):
         }
         if response_format:
             params["response_format"] = response_format
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice

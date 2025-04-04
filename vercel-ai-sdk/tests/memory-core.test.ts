@@ -4,7 +4,7 @@ import { testConfig } from "../config/test-config";
 
 describe("Memory Core Functions", () => {
   const { userId } = testConfig;
-  jest.setTimeout(10000);
+  jest.setTimeout(20000);
 
   describe("addMemories", () => {
     it("should successfully add memories and return correct format", async () => {

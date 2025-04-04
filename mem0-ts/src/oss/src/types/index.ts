@@ -13,14 +13,25 @@ export interface Message {
 }
 
 export interface EmbeddingConfig {
-  apiKey: string;
+  apiKey?: string;
   model?: string;
+  url?: string;
 }
 
 export interface VectorStoreConfig {
   collectionName: string;
   dimension?: number;
   [key: string]: any;
+}
+
+export interface HistoryStoreConfig {
+  provider: string;
+  config: {
+    historyDbPath?: string;
+    supabaseUrl?: string;
+    supabaseKey?: string;
+    tableName?: string;
+  };
 }
 
 export interface LLMConfig {
@@ -57,6 +68,8 @@ export interface MemoryConfig {
     provider: string;
     config: LLMConfig;
   };
+  historyStore?: HistoryStoreConfig;
+  disableHistory?: boolean;
   historyDbPath?: string;
   customPrompt?: string;
   graphStore?: GraphStoreConfig;
@@ -136,4 +149,11 @@ export const MemoryConfigSchema = z.object({
       customPrompt: z.string().optional(),
     })
     .optional(),
+  historyStore: z
+    .object({
+      provider: z.string(),
+      config: z.record(z.string(), z.any()),
+    })
+    .optional(),
+  disableHistory: z.boolean().optional(),
 });

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import dotenv
 
 try:
-    from opensearchpy import OpenSearch
+    from opensearchpy import OpenSearch, AWSV4SignerAuth
 except ImportError:
     raise ImportError(
         "OpenSearch requires extra dependencies. Install with `pip install opensearch-py`"
@@ -126,15 +126,15 @@ class TestOpenSearchDB(unittest.TestCase):
     def test_search(self):
         mock_response = {"hits": {"hits": [{"_id": "id1", "_score": 0.8, "_source": {"vector": [0.1] * 1536, "metadata": {"key1": "value1"}}}]}}
         self.client_mock.search.return_value = mock_response
-        query_vector = [0.1] * 1536
-        results = self.os_db.search(query=query_vector, limit=5)
+        vectors = [[0.1] * 1536]
+        results = self.os_db.search(query="", vectors=vectors, limit=5)
         self.client_mock.search.assert_called_once()
         search_args = self.client_mock.search.call_args[1]
         self.assertEqual(search_args["index"], "test_collection")
         body = search_args["body"]
         self.assertIn("knn", body["query"])
         self.assertIn("vector", body["query"]["knn"])
-        self.assertEqual(body["query"]["knn"]["vector"]["vector"], query_vector)
+        self.assertEqual(body["query"]["knn"]["vector"]["vector"], vectors)
         self.assertEqual(body["query"]["knn"]["vector"]["k"], 5)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, "id1")
@@ -148,3 +148,29 @@ class TestOpenSearchDB(unittest.TestCase):
     def test_delete_col(self):
         self.os_db.delete_col()
         self.client_mock.indices.delete.assert_called_once_with(index="test_collection")
+
+
+    def test_init_with_http_auth(self):
+        mock_credentials = MagicMock()
+        mock_signer = AWSV4SignerAuth(mock_credentials, "us-east-1", "es")
+
+        with patch('mem0.vector_stores.opensearch.OpenSearch') as mock_opensearch:
+            test_db = OpenSearchDB(
+                host="localhost",
+                port=9200,
+                collection_name="test_collection",
+                embedding_model_dims=1536,
+                http_auth=mock_signer,
+                verify_certs=True,
+                use_ssl=True,
+                auto_create_index=False
+            )
+
+            # Verify OpenSearch was initialized with correct params
+            mock_opensearch.assert_called_once_with(
+                hosts=[{"host": "localhost", "port": 9200}],
+                http_auth=mock_signer,
+                use_ssl=True,
+                verify_certs=True,
+                connection_class=unittest.mock.ANY
+            )
