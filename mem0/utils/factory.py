@@ -26,6 +26,7 @@ class LlmFactory:
         "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
         "xai": "mem0.llms.xai.XAILLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
+        "langchain": "mem0.llms.langchain.LangchainLLM",
     }
 
     @classmethod
@@ -49,6 +50,7 @@ class EmbedderFactory:
         "vertexai": "mem0.embeddings.vertexai.VertexAIEmbedding",
         "together": "mem0.embeddings.together.TogetherEmbedding",
         "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
+        "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
     }
 
     @classmethod
