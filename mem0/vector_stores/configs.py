@@ -18,6 +18,7 @@ class VectorStoreConfig(BaseModel):
         "milvus": "MilvusDBConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "redis": "RedisDBConfig",
+        "couchbase": "CouchbaseConfig",
         "elasticsearch": "ElasticsearchConfig",
         "vertex_ai_vector_search": "GoogleMatchingEngineConfig",
         "opensearch": "OpenSearchConfig",

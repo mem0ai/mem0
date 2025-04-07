@@ -73,6 +73,7 @@ class VectorStoreFactory:
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
+        "couchbase": "mem0.vector_stores.couchbase.Couchbase",
         "elasticsearch": "mem0.vector_stores.elasticsearch.ElasticsearchDB",
         "vertex_ai_vector_search": "mem0.vector_stores.vertex_ai_vector_search.GoogleMatchingEngine",
         "opensearch": "mem0.vector_stores.opensearch.OpenSearchDB",
