@@ -12,14 +12,12 @@ from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
-from mem0.configs.prompts import (PROCEDURAL_MEMORY_SYSTEM_PROMPT,
-                                  get_update_memory_messages)
+from mem0.configs.prompts import PROCEDURAL_MEMORY_SYSTEM_PROMPT, get_update_memory_messages
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import (get_fact_retrieval_messages, parse_messages,
-                               parse_vision_messages, remove_code_blocks)
+from mem0.memory.utils import get_fact_retrieval_messages, parse_messages, parse_vision_messages, remove_code_blocks
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -638,7 +636,9 @@ class Memory(MemoryBase):
         try:
             from langchain_core.messages.utils import convert_to_messages  # type: ignore
         except Exception:
-            logger.error("Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory.")
+            logger.error(
+                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
+            )
             raise
 
         logger.info("Creating procedural memory")

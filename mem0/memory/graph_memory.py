@@ -167,7 +167,9 @@ class MemoryGraph:
             for item in search_results["tool_calls"][0]["arguments"]["entities"]:
                 entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
-            logger.exception(f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}")
+            logger.exception(
+                f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}"
+            )
 
         entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
         logger.debug(f"Entity type map: {entity_type_map}")
