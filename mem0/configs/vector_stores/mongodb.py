@@ -1,11 +1,13 @@
-from typing import Any, Dict, Optional, Callable  
+from typing import Any, Dict, Optional, Callable, List
   
 from pydantic import BaseModel, Field, root_validator  
   
   
 class MongoVectorConfig(BaseModel):  
-    dbname: str = Field("mydatabase", description="Name of the MongoDB database")  
-    collection_name: str = Field("mycollection", description="Name of the MongoDB collection")  
+    """Configuration for MongoDB vector database."""
+
+    db_name: str = Field("mem0_db", description="Name of the MongoDB database")  
+    collection_name: str = Field("mem0_collection", description="Name of the MongoDB collection")  
     embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding vectors")  
     user: Optional[str] = Field(None, description="MongoDB user for authentication")  
     password: Optional[str] = Field(None, description="Password for the MongoDB user")  

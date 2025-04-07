@@ -25,7 +25,7 @@ class OutputData(BaseModel):
 class MongoVector(VectorStoreBase):  
     def __init__(  
         self,  
-        dbname: str,  
+        db_name: str,  
         collection_name: str,  
         embedding_model_dims: int,  
         get_embedding: Callable[[str], List[float]],  
@@ -38,7 +38,7 @@ class MongoVector(VectorStoreBase):
         Initialize the MongoDB vector store with vector search capabilities.  
   
         Args:  
-            dbname (str): Database name  
+            db_name (str): Database name  
             collection_name (str): Collection name  
             embedding_model_dims (int): Dimension of the embedding vector  
             get_embedding (callable): Function to compute embeddings  
@@ -49,7 +49,7 @@ class MongoVector(VectorStoreBase):
         """  
         self.collection_name = collection_name  
         self.embedding_model_dims = embedding_model_dims  
-        self.dbname = dbname  
+        self.db_name = db_name  
         self.get_embedding = get_embedding  
   
         if user and password:  
@@ -67,15 +67,15 @@ class MongoVector(VectorStoreBase):
                 get_embedding=get_embedding  
             )  
   
-        self.db = self.client[dbname]  
+        self.db = self.client[db_name]  
         self.collection = self.db[collection_name]  
   
         # Create collection and indexes if they don't exist  
-        self.client.create_if_not_exists(dbname, collection_name)  
+        self.client.create_if_not_exists(db_name, collection_name)  
         self.index_name = f"{collection_name}_vector_index"  
-        if not self.client.index_exists(dbname, collection_name, self.index_name):   
+        if not self.client.index_exists(db_name, collection_name, self.index_name):   
             self._create_search_index(
-                database_name=dbname,
+                database_name=db_name,
                 collection_name=collection_name,
                 index_name=self.index_name,
                 distance_metric="cosine",
@@ -120,7 +120,7 @@ class MongoVector(VectorStoreBase):
         """  
         results = []
         query_embedding = query_vector
-        if not self.client.index_exists(self.dbname, self.collection_name, self.index_name):
+        if not self.client.index_exists(self.db_name, self.collection_name, self.index_name):
             logger.error(f"Index '{index_name}' does not exist.")
             return []
         if query_embedding is None:
@@ -226,7 +226,7 @@ class MongoVector(VectorStoreBase):
         """  
         try:  
             collections = self.db.list_collection_names()  
-            logger.info(f"Listing collections in database '{self.dbname}': {collections}")  
+            logger.info(f"Listing collections in database '{self.db_name}': {collections}")  
             return collections  
         except PyMongoError as e:  
             logger.error(f"Error listing collections: {e}")  
