@@ -12,6 +12,7 @@ class FAISSConfig(BaseModel):
     normalize_L2: bool = Field(
         False, description="Whether to normalize L2 vectors (only applicable for euclidean distance)"
     )
+    embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
 
     @model_validator(mode="before")
     @classmethod
