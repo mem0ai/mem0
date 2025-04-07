@@ -4190,7 +4190,7 @@
 				},
 				{
 				"lang": "cURL",
-				"source": "curl -X PUT \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n                 \"text\": \"Watches football\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n                 \"text\": \"Likes to travel\"\n             }\n         ]\n     }'"
+				"source": "curl -X PUT \"https://api.mem0.ai/v1/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n                 \"text\": \"Watches football\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n                 \"text\": \"Likes to travel\"\n             }\n         ]\n     }'"
 				}
 				]
 			},
@@ -4267,7 +4267,7 @@
 				},
 				{
 				"lang": "cURL",
-				"source": "curl -X DELETE \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"delete_memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n             }\n         ]\n     }'"
+				"source": "curl -X DELETE \"https://api.mem0.ai/v1/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n             }\n         ]\n     }'"
 				}
 				]
 			}
