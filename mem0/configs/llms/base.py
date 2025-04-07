@@ -41,6 +41,8 @@ class BaseLlmConfig(ABC):
         xai_base_url: Optional[str] = None,
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # Langchain specific
+        langchain_provider: Optional[str] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -87,6 +89,8 @@ class BaseLlmConfig(ABC):
         :type xai_base_url: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param langchain_provider: Langchain provider to be use, defaults to None
+        :type langchain_provider: Optional[str], optional
         """
 
         self.model = model
@@ -123,3 +127,6 @@ class BaseLlmConfig(ABC):
 
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
+
+        # Langchain specific
+        self.langchain_provider = langchain_provider
