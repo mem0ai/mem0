@@ -87,7 +87,6 @@ class Memory(MemoryBase):
         infer=True,
         memory_type=None,
         prompt=None,
-        llm=None,
     ):
         """
         Create a new memory.
@@ -102,7 +101,6 @@ class Memory(MemoryBase):
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
-            llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
             result: dict of affected events with each dict has the following key:
@@ -139,7 +137,7 @@ class Memory(MemoryBase):
             messages = [{"role": "user", "content": messages}]
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
-            results = self._create_procedural_memory(messages, metadata=metadata, llm=llm, prompt=prompt)
+            results = self._create_procedural_memory(messages, metadata=metadata, prompt=prompt)
             return results
 
         if self.config.llm.config.get("enable_vision"):
