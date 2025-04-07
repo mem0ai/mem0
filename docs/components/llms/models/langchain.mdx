@@ -1,0 +1,72 @@
+---
+title: LangChain
+---
+
+Mem0 supports LangChain as a provider to access a wide range of LLM models. LangChain is a framework for developing applications powered by language models, making it easy to integrate various LLM providers through a consistent interface.
+
+For a complete list of available chat models supported by LangChain, refer to the [LangChain Chat Models documentation](https://python.langchain.com/docs/integrations/chat).
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+# Set necessary environment variables for your chosen LangChain provider
+# For example, if using OpenAI through LangChain:
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+config = {
+    "llm": {
+        "provider": "langchain",
+        "config": {
+            "langchain_provider": "OpenAI",
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+</CodeGroup>
+
+## Supported LangChain Providers
+
+LangChain supports a wide range of LLM providers, including:
+
+- OpenAI (`ChatOpenAI`)
+- Anthropic (`ChatAnthropic`)
+- Google (`ChatGoogleGenerativeAI`, `ChatGooglePalm`)
+- Mistral (`ChatMistralAI`)
+- Ollama (`ChatOllama`)
+- Azure OpenAI (`AzureChatOpenAI`)
+- HuggingFace (`HuggingFaceChatEndpoint`)
+- And many more
+
+You can specify any supported provider in the `langchain_provider` parameter. For a complete and up-to-date list of available providers, refer to the [LangChain Chat Models documentation](https://python.langchain.com/docs/integrations/chat).
+
+## Provider-Specific Configuration
+
+When using LangChain as a provider, you'll need to:
+
+1. Set the appropriate environment variables for your chosen LLM provider
+2. Specify the LangChain provider class name in the `langchain_provider` parameter
+3. Include any additional configuration parameters required by the specific provider
+
+<Note>
+  Make sure to install the necessary LangChain packages and any provider-specific dependencies.
+</Note>
+
+## Config
+
+All available parameters for the `langchain` config are present in [Master List of All Params in Config](../config).
