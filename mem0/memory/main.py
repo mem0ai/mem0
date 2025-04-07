@@ -623,14 +623,13 @@ class Memory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id})
         return memory_id
 
-    def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
+    def _create_procedural_memory(self, messages, metadata=None, prompt=None):
         """
         Create a procedural memory
 
         Args:
             messages (list): List of messages to create a procedural memory from.
             metadata (dict): Metadata to create a procedural memory from.
-            llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
         try:
@@ -650,12 +649,7 @@ class Memory(MemoryBase):
         ]
 
         try:
-            if llm is not None:
-                parsed_messages = convert_to_messages(parsed_messages)
-                response = llm.invoke(input=parsed_messages)
-                procedural_memory = response.content
-            else:
-                procedural_memory = self.llm.generate_response(messages=parsed_messages)
+            procedural_memory = self.llm.generate_response(messages=parsed_messages)
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
