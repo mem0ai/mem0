@@ -49,7 +49,7 @@ await memory.add(
         {"role": "user", "content": "I'm travelling to SF"},
         {"role": "assistant", "content": "That's great to hear!"}
     ],
-    user_id="test_user"
+    user_id="alice"
 )
 ```
 
@@ -60,7 +60,7 @@ Search for specific memories:
 ```python Python
 await memory.search(
     query="Where am I travelling?",
-    user_id="test_user"
+    user_id="alice"
 )
 ```
 
@@ -69,7 +69,7 @@ await memory.search(
 Retrieve all memories for a user:
 
 ```python Python
-await memory.get_all(user_id="test_user")
+await memory.get_all(user_id="alice")
 ```
 
 #### Get
@@ -104,7 +104,7 @@ await memory.delete(memory_id="memory-id-here")
 Delete all memories for a specific user, agent, or run:
 
 ```python Python
-await memory.delete_all(user_id="test_user")
+await memory.delete_all(user_id="alice")
 ```
 
 Note: At least one filter (user_id, agent_id, or run_id) is required when using delete_all.
@@ -161,7 +161,7 @@ def main():
     # Start memory operations in a separate thread
     memory_thread = threading.Thread(
         target=run_async_in_thread,
-        args=(add_and_retrieve_memory, content, "test_user")
+        args=(add_and_retrieve_memory, content, "alice")
     )
     memory_thread.start()
     
