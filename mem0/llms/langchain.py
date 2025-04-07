@@ -12,7 +12,7 @@ except ImportError:
 
 # Provider-specific package mapping
 PROVIDER_PACKAGES = {
-    # "Anthropic": "langchain_anthropic", # Special handling for Anthropic with Pydantic v2
+    "Anthropic": "langchain_anthropic",
     "MistralAI": "langchain_mistralai",
     "Fireworks": "langchain_fireworks",
     "AzureOpenAI": "langchain_openai",
@@ -135,18 +135,25 @@ class LangchainLLM(LLMBase):
         try:
             # Check if this provider needs a specialized package
             if provider in PROVIDER_PACKAGES:
-                package_name = PROVIDER_PACKAGES[provider]
-                try:
-                    # Import the model class directly from the package
-                    module_path = f"{package_name}"
-                    model_class = __import__(module_path, fromlist=[model_name])
-                    model_class = getattr(model_class, model_name)
-                except ImportError:
-                    raise ImportError(
-                        f"Package {package_name} not found. " f"Please install it with `pip install {package_name}`"
-                    )
-                except AttributeError:
-                    raise ImportError(f"Model {model_name} not found in {package_name}")
+                if provider == "Anthropic": # Special handling for Anthropic with Pydantic v2
+                    try:
+                        from langchain_anthropic import ChatAnthropic
+                        model_class = ChatAnthropic
+                    except ImportError:
+                        raise ImportError("langchain_anthropic not found. Please install it with `pip install langchain-anthropic`")
+                else:
+                    package_name = PROVIDER_PACKAGES[provider]
+                    try:
+                            # Import the model class directly from the package
+                        module_path = f"{package_name}"
+                        model_class = __import__(module_path, fromlist=[model_name])
+                        model_class = getattr(model_class, model_name)
+                    except ImportError:
+                        raise ImportError(
+                            f"Package {package_name} not found. " f"Please install it with `pip install {package_name}`"
+                        )
+                    except AttributeError:
+                        raise ImportError(f"Model {model_name} not found in {package_name}")
             else:
                 # Use the default langchain_community module
                 if not hasattr(chat_models, model_name):
@@ -158,8 +165,7 @@ class LangchainLLM(LLMBase):
             self.langchain_model = model_class(
                 model=self.config.model,
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                api_key=self.config.api_key,
+                max_tokens=self.config.max_tokens
             )
         except (ImportError, AttributeError, ValueError) as e:
             raise ImportError(f"Error setting up langchain model for provider {provider}: {str(e)}")
