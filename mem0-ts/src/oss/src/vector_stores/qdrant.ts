@@ -18,31 +18,6 @@ interface QdrantConfig extends VectorStoreConfig {
 
 type DistanceType = "Cosine" | "Euclid" | "Dot";
 
-interface QdrantPoint {
-  id: string | number;
-  vector: { name: string; vector: number[] };
-  payload?: Record<string, unknown> | { [key: string]: unknown } | null;
-  shard_key?: string;
-  version?: number;
-}
-
-interface QdrantScoredPoint extends QdrantPoint {
-  score: number;
-  version: number;
-}
-
-interface QdrantNamedVector {
-  name: string;
-  vector: number[];
-}
-
-interface QdrantSearchRequest {
-  vector: { name: string; vector: number[] };
-  limit?: number;
-  offset?: number;
-  filter?: QdrantFilter;
-}
-
 interface QdrantFilter {
   must?: QdrantCondition[];
   must_not?: QdrantCondition[];
@@ -110,7 +85,7 @@ export class Qdrant implements VectorStore {
 
     this.collectionName = config.collectionName;
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
-    this.createCol(config.embeddingModelDims, config.onDisk || false);
+    this.initialize().catch(console.error);
   }
 
   private async createCol(
@@ -140,19 +115,25 @@ export class Qdrant implements VectorStore {
           // Handle case where collection was created between our check and create
           if (error?.status === 409) {
             // Collection already exists - verify it has the correct configuration
-            const collectionInfo = (await this.client.getCollection(
-              this.collectionName,
-            )) as QdrantCollectionInfo;
-            const vectorConfig = collectionInfo.config?.params?.vectors;
-
-            if (!vectorConfig || vectorConfig.size !== vectorSize) {
-              throw new Error(
-                `Collection ${this.collectionName} exists but has wrong configuration. ` +
-                  `Expected vector size: ${vectorSize}, got: ${vectorConfig?.size}`,
+            try {
+              const collectionInfo = await this.client.getCollection(
+                this.collectionName,
               );
+              const vectorConfig = collectionInfo.config?.params?.vectors;
+
+              if (!vectorConfig || vectorConfig.size !== vectorSize) {
+                throw new Error(
+                  `Collection ${this.collectionName} exists but has wrong configuration. ` +
+                    `Expected vector size: ${vectorSize}, got: ${vectorConfig?.size}`,
+                );
+              }
+              // Collection exists with correct configuration - we can proceed
+              return;
+            } catch (getError) {
+              console.warn("Error getting collection info:", getError);
+              // If we can't get collection info, assume it's okay and proceed
+              return;
             }
-            // Collection exists with correct configuration - we can proceed
-            return;
           }
           throw error;
         }
@@ -164,13 +145,22 @@ export class Qdrant implements VectorStore {
       );
 
       if (!userCollectionExists) {
-        await this.client.createCollection("memory_user", {
-          vectors: {
-            size: 1,
-            distance: "Cosine",
-            on_disk: false,
-          },
-        });
+        try {
+          await this.client.createCollection("memory_user", {
+            vectors: {
+              size: 1,
+              distance: "Cosine",
+              on_disk: false,
+            },
+          });
+        } catch (error: any) {
+          // Handle case where collection was created between our check and create
+          if (error?.status === 409) {
+            // Collection already exists - we can proceed
+            return;
+          }
+          throw error;
+        }
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -312,8 +302,37 @@ export class Qdrant implements VectorStore {
     return [results, response.points.length];
   }
 
+  private generateUUID(): string {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      },
+    );
+  }
+
   async getUserId(): Promise<string> {
     try {
+      // First check if the collection exists
+      const collections = await this.client.getCollections();
+      const userCollectionExists = collections.collections.some(
+        (col: { name: string }) => col.name === "memory_user",
+      );
+
+      if (!userCollectionExists) {
+        // Create the collection if it doesn't exist
+        await this.client.createCollection("memory_user", {
+          vectors: {
+            size: 1,
+            distance: "Cosine",
+            on_disk: false,
+          },
+        });
+      }
+
+      // Now try to get the user ID
       const result = await this.client.scroll("memory_user", {
         limit: 1,
         with_payload: true,
@@ -331,7 +350,7 @@ export class Qdrant implements VectorStore {
       await this.client.upsert("memory_user", {
         points: [
           {
-            id: "1",
+            id: this.generateUUID(),
             vector: [0],
             payload: { user_id: randomUserId },
           },
@@ -347,14 +366,19 @@ export class Qdrant implements VectorStore {
 
   async setUserId(userId: string): Promise<void> {
     try {
-      await this.client.delete("memory_user", {
-        points: ["1"],
+      // Get existing point ID
+      const result = await this.client.scroll("memory_user", {
+        limit: 1,
+        with_payload: true,
       });
+
+      const pointId =
+        result.points.length > 0 ? result.points[0].id : this.generateUUID();
 
       await this.client.upsert("memory_user", {
         points: [
           {
-            id: "1",
+            id: pointId,
             vector: [0],
             payload: { user_id: userId },
           },
@@ -375,12 +399,33 @@ export class Qdrant implements VectorStore {
       );
 
       if (!exists) {
-        await this.client.createCollection(this.collectionName, {
-          vectors: {
-            size: this.dimension,
-            distance: "Cosine",
-          },
-        });
+        try {
+          await this.client.createCollection(this.collectionName, {
+            vectors: {
+              size: this.dimension,
+              distance: "Cosine",
+            },
+          });
+        } catch (error: any) {
+          // Handle case where collection was created between our check and create
+          if (error?.status === 409) {
+            // Collection already exists - verify it has the correct configuration
+            const collectionInfo = await this.client.getCollection(
+              this.collectionName,
+            );
+            const vectorConfig = collectionInfo.config?.params?.vectors;
+
+            if (!vectorConfig || vectorConfig.size !== this.dimension) {
+              throw new Error(
+                `Collection ${this.collectionName} exists but has wrong configuration. ` +
+                  `Expected vector size: ${this.dimension}, got: ${vectorConfig?.size}`,
+              );
+            }
+            // Collection exists with correct configuration - we can proceed
+          } else {
+            throw error;
+          }
+        }
       }
 
       // Create memory_user collection if it doesn't exist
@@ -389,12 +434,21 @@ export class Qdrant implements VectorStore {
       );
 
       if (!userExists) {
-        await this.client.createCollection("memory_user", {
-          vectors: {
-            size: 1, // Minimal size since we only store user_id
-            distance: "Cosine",
-          },
-        });
+        try {
+          await this.client.createCollection("memory_user", {
+            vectors: {
+              size: 1, // Minimal size since we only store user_id
+              distance: "Cosine",
+            },
+          });
+        } catch (error: any) {
+          // Handle case where collection was created between our check and create
+          if (error?.status === 409) {
+            // Collection already exists - we can proceed
+          } else {
+            throw error;
+          }
+        }
       }
     } catch (error) {
       console.error("Error initializing Qdrant:", error);
