@@ -13,6 +13,7 @@ interface QdrantConfig extends VectorStoreConfig {
   onDisk?: boolean;
   collectionName: string;
   embeddingModelDims: number;
+  dimension?: number;
 }
 
 type DistanceType = "Cosine" | "Euclid" | "Dot";
@@ -75,6 +76,7 @@ interface QdrantCollectionInfo {
 export class Qdrant implements VectorStore {
   private client: QdrantClient;
   private readonly collectionName: string;
+  private dimension: number;
 
   constructor(config: QdrantConfig) {
     if (config.client) {
@@ -107,6 +109,7 @@ export class Qdrant implements VectorStore {
     }
 
     this.collectionName = config.collectionName;
+    this.dimension = config.dimension || 1536; // Default OpenAI dimension
     this.createCol(config.embeddingModelDims, config.onDisk || false);
   }
 
@@ -153,6 +156,21 @@ export class Qdrant implements VectorStore {
           }
           throw error;
         }
+      }
+
+      // Create memory_user collection if it doesn't exist
+      const userCollectionExists = collections.collections.some(
+        (col: { name: string }) => col.name === "memory_user",
+      );
+
+      if (!userCollectionExists) {
+        await this.client.createCollection("memory_user", {
+          vectors: {
+            size: 1,
+            distance: "Cosine",
+            on_disk: false,
+          },
+        });
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -292,5 +310,95 @@ export class Qdrant implements VectorStore {
     }));
 
     return [results, response.points.length];
+  }
+
+  async getUserId(): Promise<string> {
+    try {
+      const result = await this.client.scroll("memory_user", {
+        limit: 1,
+        with_payload: true,
+      });
+
+      if (result.points.length > 0) {
+        return result.points[0].payload?.user_id as string;
+      }
+
+      // Generate a random user_id if none exists
+      const randomUserId =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+
+      await this.client.upsert("memory_user", {
+        points: [
+          {
+            id: "1",
+            vector: [0],
+            payload: { user_id: randomUserId },
+          },
+        ],
+      });
+
+      return randomUserId;
+    } catch (error) {
+      console.error("Error getting user ID:", error);
+      throw error;
+    }
+  }
+
+  async setUserId(userId: string): Promise<void> {
+    try {
+      await this.client.delete("memory_user", {
+        points: ["1"],
+      });
+
+      await this.client.upsert("memory_user", {
+        points: [
+          {
+            id: "1",
+            vector: [0],
+            payload: { user_id: userId },
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Error setting user ID:", error);
+      throw error;
+    }
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      // Create collection if it doesn't exist
+      const collections = await this.client.getCollections();
+      const exists = collections.collections.some(
+        (c) => c.name === this.collectionName,
+      );
+
+      if (!exists) {
+        await this.client.createCollection(this.collectionName, {
+          vectors: {
+            size: this.dimension,
+            distance: "Cosine",
+          },
+        });
+      }
+
+      // Create memory_user collection if it doesn't exist
+      const userExists = collections.collections.some(
+        (c) => c.name === "memory_user",
+      );
+
+      if (!userExists) {
+        await this.client.createCollection("memory_user", {
+          vectors: {
+            size: 1, // Minimal size since we only store user_id
+            distance: "Cosine",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error initializing Qdrant:", error);
+      throw error;
+    }
   }
 }

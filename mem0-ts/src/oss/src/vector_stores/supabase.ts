@@ -93,7 +93,7 @@ export class SupabaseDB implements VectorStore {
     });
   }
 
-  private async initialize(): Promise<void> {
+  async initialize(): Promise<void> {
     try {
       // Verify table exists and vector operations work by attempting a test insert
       const testVector = Array(1536).fill(0);
@@ -333,6 +333,54 @@ See the SQL migration instructions in the code comments.`,
       return [results, count || 0];
     } catch (error) {
       console.error("Error listing vectors:", error);
+      throw error;
+    }
+  }
+
+  async getUserId(): Promise<string> {
+    try {
+      const { data, error } = await this.client
+        .from("memory_user")
+        .select("user_id")
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      if (data) return data.user_id;
+
+      // Generate a random user_id if none exists
+      const randomUserId =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+
+      const { error: insertError } = await this.client
+        .from("memory_user")
+        .insert({ user_id: randomUserId });
+
+      if (insertError) throw insertError;
+      return randomUserId;
+    } catch (error) {
+      console.error("Error getting user ID:", error);
+      throw error;
+    }
+  }
+
+  async setUserId(userId: string): Promise<void> {
+    try {
+      const { error: deleteError } = await this.client
+        .from("memory_user")
+        .delete()
+        .neq("user_id", "");
+
+      if (deleteError) throw deleteError;
+
+      const { error: insertError } = await this.client
+        .from("memory_user")
+        .insert({ user_id: userId });
+
+      if (insertError) throw insertError;
+    } catch (error) {
+      console.error("Error setting user ID:", error);
       throw error;
     }
   }
