@@ -1391,11 +1391,11 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.0\")\nprint(results)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.1\")\nprint(results)"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.0\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.1\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},				  
 				{
 				"lang": "cURL",
@@ -4190,7 +4190,7 @@
 				},
 				{
 				"lang": "cURL",
-				"source": "curl -X PUT \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n                 \"text\": \"Watches football\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n                 \"text\": \"Likes to travel\"\n             }\n         ]\n     }'"
+				"source": "curl -X PUT \"https://api.mem0.ai/v1/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n                 \"text\": \"Watches football\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n                 \"text\": \"Likes to travel\"\n             }\n         ]\n     }'"
 				}
 				]
 			},
@@ -4267,7 +4267,7 @@
 				},
 				{
 				"lang": "cURL",
-				"source": "curl -X DELETE \"https://api.mem0.ai/v1/memories/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"delete_memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n             }\n         ]\n     }'"
+				"source": "curl -X DELETE \"https://api.mem0.ai/v1/batch/\" \\\n     -H \"Authorization: Token your-api-key\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"memories\": [\n             {\n                 \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"\n             },\n             {\n                 \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"\n             }\n         ]\n     }'"
 				}
 				]
 			}
@@ -4893,10 +4893,11 @@
 						"default": true
 					},
 					"output_format": {
-						"description": "It two output formats: `v1.0` (default) and `v1.1`. To enable the latest format, which provides enhanced detail for each memory operation, set the output_format parameter to `v1.1`. Note that `v1.0` will be deprecated in version 0.1.35.",
+						"description": "It two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon.",
 						"title": "Output format",
 						"type": "string",
-						"nullable": true
+						"nullable": true,
+						"default": "v1.0"
 					},
 					"custom_categories": {
 						"description": "A list of categories with category name and it's description.",
@@ -5021,7 +5022,8 @@
 						"title": "Output format",
 						"type": "string",
 						"nullable": true,
-						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`."
+						"default": "v1.0",
+						"description": "The search method supports two output formats: `v1.0` (default) and `v1.1`. We recommend using `v1.1` as `v1.0` will be deprecated soon."
 					},
 					"org_id": {
 						"title": "Organization id",
