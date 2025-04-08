@@ -4,14 +4,15 @@ from typing import List, Optional, Dict, Any, Callable
 from pydantic import BaseModel  
   
 try:  
-    from pymongo.errors import PyMongoError  
+    from pymongo import MongoClient
+    from pymongo.collection import Collection
+    from pymongo.operations import SearchIndexModel
+    from pymongo.errors import PyMongoError
 except ImportError:  
     raise ImportError("The 'pymongo' library is required. Please install it using 'pip install pymongo'.")  
   
 from mem0.vector_stores.base import VectorStoreBase  
-  
-from mdb_toolkit import CustomMongoClient  
-  
+    
 logger = logging.getLogger(__name__)  
 logging.basicConfig(level=logging.INFO)  
   
@@ -51,37 +52,72 @@ class MongoVector(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims  
         self.db_name = db_name  
         self.get_embedding = get_embedding  
-  
+    
         if user and password:  
-            self.client = CustomMongoClient(  
-                host=host,  
-                port=port,  
-                username=user,  
-                password=password,  
-                get_embedding=get_embedding  
-            )  
+            self.client = MongoClient(
+                host=host,
+                port=port,
+                username=user,
+                password=password,
+                get_embedding=get_embedding,
+            )
         else:  
-            self.client = CustomMongoClient(  
-                host=host,  
-                port=port,  
-                get_embedding=get_embedding  
-            )  
-  
-        self.db = self.client[db_name]  
-        self.collection = self.db[collection_name]  
-  
-        # Create collection and indexes if they don't exist  
-        self.client.create_if_not_exists(db_name, collection_name)  
-        self.index_name = f"{collection_name}_vector_index"  
-        if not self.client.index_exists(db_name, collection_name, self.index_name):   
-            self._create_search_index(
-                database_name=db_name,
-                collection_name=collection_name,
-                index_name=self.index_name,
-                distance_metric="cosine",
+            self.client = MongoClient(
+                host=host,
+                port=port,
+                get_embedding=get_embedding
             )
   
-    def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):  
+        self.db = self.client[db_name]
+        self.collection = self._create_collection_and_search_index()
+       
+    def _create_collection_and_search_index(self) -> Optional[Collection]:
+        """
+        Private method to create a MongoDB collection and vector search index 
+        if they don't already exist.
+        """
+        try:
+            database = self.client[self.db_name]
+            collection_names = database.list_collection_names()
+            if self.collection_name not in collection_names:
+                logger.info(f"Collection '{self.collection_name}' does not exist. Creating it now.")
+                collection = database[self.collection_name]
+                # Insert and remove a placeholder document to create the collection
+                collection.insert_one({"_id": 0, "placeholder": True})
+                collection.delete_one({"_id": 0})
+                logger.info(f"Collection '{self.collection_name}' created successfully.")
+            else:
+                collection = database[self.collection_name]
+
+            self.index_name = f"{self.collection_name}_vector_index"
+            found_indexes = list(collection.list_search_indexes(name=self.index_name))
+            if found_indexes:
+                logger.info(f"Search index '{self.index_name}' already exists in collection '{self.collection_name}'.")
+            else:
+                num_dimensions = len(self.get_embedding("sample text"))
+                search_index_model = SearchIndexModel(
+                    name=self.index_name,
+                    definition={
+                        "mappings": {
+                            "dynamic": False,
+                            "fields": {
+                                "embedding": {
+                                    "type": "knnVector",
+                                    "d": num_dimensions,
+                                    "similarity": "cosine"
+                                }
+                            }
+                        }
+                    }
+                )
+                collection.create_search_index(search_index_model)
+                logger.info(f"Search index '{self.index_name}' created successfully for collection '{self.collection_name}'.")
+            return collection
+        except PyMongoError as e:  
+            logger.error(f"Error creating collection and search index: {e}")  
+            return None  
+  
+    def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None) -> None:  
         """  
         Insert vectors into the collection.  
   
@@ -120,19 +156,18 @@ class MongoVector(VectorStoreBase):
         """  
         results = []
         query_embedding = query_vector
-        if not self.client.index_exists(self.db_name, self.collection_name, self.index_name):
-            logger.error(f"Index '{index_name}' does not exist.")
-            return []
-        if query_embedding is None:
-            logger.error(f"Failed to generate embedding for query: {query}")
+
+        found_indexes = list(self.collection.list_search_indexes(name=self.index_name))
+        if not found_indexes:
+            logger.error(f"Index '{self.index_name}' does not exist.")
             return []
 
         try:
-            collection = self[database_name][collection_name]
+            collection = self[self.db_name][self.collection_name]
             pipeline = [
                 {
                     "$vectorSearch": {
-                        "index": index_name,
+                        "index": self.index_name,
                         "limit": limit,
                         "numCandidates": limit,
                         "queryVector": query_embedding,
@@ -151,7 +186,7 @@ class MongoVector(VectorStoreBase):
         output = [OutputData(id=str(doc["_id"]), score=doc.get("score"), payload=doc.get("payload")) for doc in results]  
         return output  
   
-    def delete(self, vector_id: str):  
+    def delete(self, vector_id: str) -> None:  
         """  
         Delete a vector by ID.  
   
@@ -167,7 +202,7 @@ class MongoVector(VectorStoreBase):
         except PyMongoError as e:  
             logger.error(f"Error deleting document: {e}")  
   
-    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None):  
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:  
         """  
         Update a vector and its payload.  
   
@@ -232,7 +267,7 @@ class MongoVector(VectorStoreBase):
             logger.error(f"Error listing collections: {e}")  
             return []  
   
-    def delete_col(self):  
+    def delete_col(self) -> None:  
         """Delete the collection."""  
         try:  
             self.collection.drop()  
@@ -281,7 +316,7 @@ class MongoVector(VectorStoreBase):
             logger.error(f"Error listing documents: {e}")  
             return []  
   
-    def __del__(self):  
+    def __del__(self) -> None:  
         """Close the database connection when the object is deleted."""  
         if hasattr(self, "client"):  
             self.client.close()  
