@@ -16,8 +16,6 @@ interface QdrantConfig extends VectorStoreConfig {
   dimension?: number;
 }
 
-type DistanceType = "Cosine" | "Euclid" | "Dot";
-
 interface QdrantFilter {
   must?: QdrantCondition[];
   must_not?: QdrantCondition[];
@@ -28,24 +26,6 @@ interface QdrantCondition {
   key: string;
   match?: { value: any };
   range?: { gte?: number; gt?: number; lte?: number; lt?: number };
-}
-
-interface QdrantVectorParams {
-  size: number;
-  distance: "Cosine" | "Euclid" | "Dot" | "Manhattan";
-  on_disk?: boolean;
-}
-
-interface QdrantCollectionInfo {
-  config?: {
-    params?: {
-      vectors?: {
-        size: number;
-        distance: "Cosine" | "Euclid" | "Dot" | "Manhattan";
-        on_disk?: boolean;
-      };
-    };
-  };
 }
 
 export class Qdrant implements VectorStore {
@@ -86,90 +66,6 @@ export class Qdrant implements VectorStore {
     this.collectionName = config.collectionName;
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
     this.initialize().catch(console.error);
-  }
-
-  private async createCol(
-    vectorSize: number,
-    onDisk: boolean,
-    distance: DistanceType = "Cosine",
-  ): Promise<void> {
-    try {
-      // Check if collection exists
-      const collections = await this.client.getCollections();
-      const exists = collections.collections.some(
-        (col: { name: string }) => col.name === this.collectionName,
-      );
-
-      if (!exists) {
-        const vectorParams: QdrantVectorParams = {
-          size: vectorSize,
-          distance: distance as "Cosine" | "Euclid" | "Dot" | "Manhattan",
-          on_disk: onDisk,
-        };
-
-        try {
-          await this.client.createCollection(this.collectionName, {
-            vectors: vectorParams,
-          });
-        } catch (error: any) {
-          // Handle case where collection was created between our check and create
-          if (error?.status === 409) {
-            // Collection already exists - verify it has the correct configuration
-            try {
-              const collectionInfo = await this.client.getCollection(
-                this.collectionName,
-              );
-              const vectorConfig = collectionInfo.config?.params?.vectors;
-
-              if (!vectorConfig || vectorConfig.size !== vectorSize) {
-                throw new Error(
-                  `Collection ${this.collectionName} exists but has wrong configuration. ` +
-                    `Expected vector size: ${vectorSize}, got: ${vectorConfig?.size}`,
-                );
-              }
-              // Collection exists with correct configuration - we can proceed
-              return;
-            } catch (getError) {
-              console.warn("Error getting collection info:", getError);
-              // If we can't get collection info, assume it's okay and proceed
-              return;
-            }
-          }
-          throw error;
-        }
-      }
-
-      // Create memory_user collection if it doesn't exist
-      const userCollectionExists = collections.collections.some(
-        (col: { name: string }) => col.name === "memory_user",
-      );
-
-      if (!userCollectionExists) {
-        try {
-          await this.client.createCollection("memory_user", {
-            vectors: {
-              size: 1,
-              distance: "Cosine",
-              on_disk: false,
-            },
-          });
-        } catch (error: any) {
-          // Handle case where collection was created between our check and create
-          if (error?.status === 409) {
-            // Collection already exists - we can proceed
-            return;
-          }
-          throw error;
-        }
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Error creating/verifying collection:", error.message);
-      } else {
-        console.error("Error creating/verifying collection:", error);
-      }
-      throw error;
-    }
   }
 
   private createFilter(filters?: SearchFilters): QdrantFilter | undefined {
