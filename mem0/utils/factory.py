@@ -1,7 +1,9 @@
 import importlib
+from typing import Optional
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.embeddings.mock import MockEmbeddings
 
 
 def load_class(class_type):
@@ -54,7 +56,9 @@ class EmbedderFactory:
     }
 
     @classmethod
-    def create(cls, provider_name, config):
+    def create(cls, provider_name, config, vector_config: Optional[dict]):
+        if provider_name == "upstash_vector" and vector_config and vector_config.enable_embeddings:
+            return MockEmbeddings()
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             embedder_instance = load_class(class_type)
@@ -70,6 +74,7 @@ class VectorStoreFactory:
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
+        "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
