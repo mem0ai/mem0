@@ -657,14 +657,6 @@ class Memory(MemoryBase):
             metadata (dict): Metadata to create a procedural memory from.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            pass
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
         parsed_messages = [
@@ -758,9 +750,7 @@ class Memory(MemoryBase):
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-        print("before dbreset")
         self.db.reset()
-        print("after dbreset")
         capture_event("mem0.reset", self)
 
     def chat(self, query):
