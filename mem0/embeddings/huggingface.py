@@ -1,4 +1,9 @@
+import logging
 from typing import Literal, Optional
+
+logging.getLogger("transformers").setLevel(logging.WARNING)
+logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 
 from sentence_transformers import SentenceTransformer
 
