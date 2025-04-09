@@ -110,7 +110,9 @@
                           "components/llms/models/aws_bedrock",
                           "components/llms/models/gemini",
                           "components/llms/models/deepseek",
-                          "components/llms/models/xAI"
+                          "components/llms/models/xAI",
+                          "components/llms/models/lmstudio",
+                          "components/llms/models/langchain"
                         ]
                       }
                     ]
@@ -157,7 +159,10 @@
                           "components/embedders/models/ollama",
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
-                          "components/embedders/models/gemini"
+                          "components/embedders/models/gemini",
+                          "components/embedders/models/lmstudio",
+                          "components/embedders/models/together",
+                          "components/embedders/models/langchain"
                         ]
                       }
                     ]
@@ -212,6 +217,7 @@
                 "pages": [
                   "integrations/overview",
                   "integrations/vercel-ai-sdk",
+                  "integrations/flowise",
                   "integrations/crewai",
                   "integrations/autogen",
                   "integrations/langchain",
@@ -221,7 +227,8 @@
                   "integrations/dify",
                   "integrations/mcp-server",
                   "integrations/livekit",
-                  "integrations/elevenlabs"
+                  "integrations/elevenlabs",
+                  "integrations/pipecat"
                 ]
               }
             ]

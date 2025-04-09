@@ -22,6 +22,8 @@ import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
 import { SupabaseHistoryManager } from "../storage/SupabaseHistoryManager";
 import { HistoryManager } from "../storage/base";
+import { GoogleEmbedder } from "../embeddings/google";
+import { GoogleLLM } from "../llms/google";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -30,6 +32,8 @@ export class EmbedderFactory {
         return new OpenAIEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
+      case "google":
+        return new GoogleEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
@@ -49,6 +53,8 @@ export class LLMFactory {
         return new GroqLLM(config);
       case "ollama":
         return new OllamaLLM(config);
+      case "google":
+        return new GoogleLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }

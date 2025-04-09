@@ -22,6 +22,7 @@ class EmbedderConfig(BaseModel):
             "vertexai",
             "together",
             "lmstudio",
+            "langchain",
         ]:
             return v
         else:
