@@ -35,7 +35,9 @@ export class GoogleLLM implements LLM {
       // },
     });
 
-    const text = completion.text?.replace(/^```json\n/, "").replace(/\n```$/, "");
+    const text = completion.text
+      ?.replace(/^```json\n/, "")
+      .replace(/\n```$/, "");
 
     return text || "";
   }

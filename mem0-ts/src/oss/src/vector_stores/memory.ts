@@ -32,6 +32,13 @@ export class MemoryVectorStore implements VectorStore {
         payload TEXT NOT NULL
       )
     `);
+
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS memory_migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL UNIQUE
+      )
+    `);
   }
 
   private async run(sql: string, params: any[] = []): Promise<void> {
@@ -200,5 +207,34 @@ export class MemoryVectorStore implements VectorStore {
     }
 
     return [results.slice(0, limit), results.length];
+  }
+
+  async getUserId(): Promise<string> {
+    const row = await this.getOne(
+      `SELECT user_id FROM memory_migrations LIMIT 1`,
+    );
+    if (row) {
+      return row.user_id;
+    }
+
+    // Generate a random user_id if none exists
+    const randomUserId =
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15);
+    await this.run(`INSERT INTO memory_migrations (user_id) VALUES (?)`, [
+      randomUserId,
+    ]);
+    return randomUserId;
+  }
+
+  async setUserId(userId: string): Promise<void> {
+    await this.run(`DELETE FROM memory_migrations`);
+    await this.run(`INSERT INTO memory_migrations (user_id) VALUES (?)`, [
+      userId,
+    ]);
+  }
+
+  async initialize(): Promise<void> {
+    await this.init();
   }
 }
