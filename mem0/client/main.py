@@ -448,7 +448,7 @@ class MemoryClient:
         Returns:
             Dict containing the exported data
         """
-        response = self.client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response = self.client.post("/v1/exports/get/", json=self._prepare_params(kwargs))
         response.raise_for_status()
         capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
         return response.json()
@@ -930,7 +930,7 @@ class AsyncMemoryClient:
         Returns:
             Dict containing the exported data
         """
-        response = await self.async_client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response = await self.async_client.post("/v1/exports/get/", json=self._prepare_params(kwargs))
         response.raise_for_status()
         capture_client_event("async_client.get_memory_export", self.sync_client, {"keys": list(kwargs.keys())})
         return response.json()

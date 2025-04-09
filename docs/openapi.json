@@ -379,7 +379,118 @@
 			}
 		},
 		"/v1/exports/": {
-			"get": {
+			"post": {
+				"tags": [
+			"exports"
+				],
+			"summary": "Create an export job with schema",
+			"description": "Create a structured export of memories based on a provided schema.",
+			"operationId": "exports_create",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+					"required": ["schema"],
+								"properties": {
+					"schema": {
+						"type": "object",
+						"description": "Schema definition for the export"
+					},
+					"filters": {
+						"type": "object",
+						"properties": {
+							"user_id": {"type": "string"},
+							"agent_id": {"type": "string"},
+							"app_id": {"type": "string"},
+							"run_id": {"type": "string"}
+						},
+						"description": "Filters to apply while exporting memories. Available fields are: user_id, agent_id, app_id, run_id."
+					},
+					"org_id": {
+						"type": "string",
+						"description": "Filter exports by organization ID"
+					},
+					"project_id": {
+						"type": "string",
+						"description": "Filter exports by project ID"
+									}
+								}
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+			"201": {
+				"description": "Export created successfully",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+						"message": {
+						"type": "string",
+						"example": "Memory export request received. The export will be ready in a few seconds."
+						},
+										"id": {
+											"type": "string",
+											"format": "uuid",
+						"example": "550e8400-e29b-41d4-a716-446655440000"
+						}
+					},
+					"required": ["message", "id"]
+					}
+				}
+				}
+			},
+			"400": {
+				"description": "Bad Request", 
+				"content": {
+				"application/json": {
+					"schema": {
+					"type": "object",
+					"properties": {
+						"message": {
+											"type": "string",
+						"example": "Schema is required and must be a valid object"
+						}
+										}
+									}
+								}
+							}
+						}
+					},
+			"x-code-samples": [
+				{
+					"lang": "Python",
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\njson_schema = {pydantic_json_schema}\nfilters = {\n    \"AND\": [\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.create_memory_export(\n    schema=json_schema,\n    filters=filters\n)\nprint(response)"
+				},
+				{
+					"lang": "JavaScript", 
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst jsonSchema = {pydantic_json_schema};\nconst filters = {\n  AND: [\n    {user_id: 'alex'}\n  ]\n};\n\nclient.createMemoryExport({\n  schema: jsonSchema,\n  filters: filters\n})\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				},
+				{
+					"lang": "cURL",
+					"source": "curl --request POST \\\n  --url 'https://api.mem0.ai/v1/exports/' \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n    \"schema\": {pydantic_json_schema},\n    \"filters\": {\n      \"AND\": [\n        {\"user_id\": \"alex\"}\n      ]\n    }\n  }'"
+				},
+				{
+					"lang": "Go",
+					"source": "package main\n\nimport (\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\turl := \"https://api.mem0.ai/v1/exports/\"\n\n\tfilters := map[string]interface{}{\n\t\t\"AND\": []map[string]interface{}{\n\t\t\t{\"user_id\": \"alex\"},\n\t\t},\n\t}\n\n\tdata := map[string]interface{}{\n\t\t\"schema\": map[string]interface{}{}, // Your schema here\n\t\t\"filters\": filters,\n\t}\n\n\tjsonData, _ := json.Marshal(data)\n\n\treq, _ := http.NewRequest(\"POST\", url, bytes.NewBuffer(jsonData))\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
+				},
+				{
+					"lang": "PHP",
+					"source": "<?php\n\n$curl = curl_init();\n\n$filters = [\n  'AND' => [\n    ['user_id' => 'alex']\n  ]\n];\n\n$data = array(\n  \"schema\" => array(), // Your schema here\n  \"filters\" => $filters\n);\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/exports/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => json_encode($data),\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+				},
+				{
+					"lang": "Java",
+					"source": "import com.mashape.unirest.http.HttpResponse;\nimport com.mashape.unirest.http.JsonNode;\nimport com.mashape.unirest.http.Unirest;\nimport org.json.JSONObject;\nimport org.json.JSONArray;\n\nJSONObject filters = new JSONObject()\n    .put(\"AND\", new JSONArray()\n        .put(new JSONObject().put(\"user_id\", \"alex\")));\n\nJSONObject data = new JSONObject()\n    .put(\"schema\", new JSONObject()) // Your schema here\n    .put(\"filters\", filters);\n\nHttpResponse<JsonNode> response = Unirest.post(\"https://api.mem0.ai/v1/exports/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(data.toString())\n  .asJson();"
+				}
+			]
+			}
+		},
+		"/v1/exports/get": {
+			"post": {
 			"tags": [
 				"exports"
 			],
@@ -388,36 +499,20 @@
 			"operationId": "exports_list",
 			"parameters": [
 				{
-				"name": "user_id",
-				"in": "query",
-				"schema": {
-					"type": "string"
-				},
-				"description": "Filter exports by user ID"
-				},
-				{
-				"name": "run_id",
-				"in": "query",
-				"schema": {
-					"type": "string"
-				},
-				"description": "Filter exports by run ID"
-				},
-				{
-				"name": "session_id",
-				"in": "query",
-				"schema": {
-					"type": "string"
-				},
-				"description": "Filter exports by session ID"
-				},
-				{
-				"name": "app_id",
-				"in": "query",
-				"schema": {
-					"type": "string"
-				},
-				"description": "Filter exports by app ID"
+					"name": "filters",
+					"in": "query",
+					"schema": {
+						"type": "object",
+						"properties": {
+							"user_id": {"type": "string"},
+							"agent_id": {"type": "string"},
+							"app_id": {"type": "string"},
+							"run_id": {"type": "string"},
+							"created_at": {"type": "string"},
+							"updated_at": {"type": "string"}
+						},
+						"description": "Filters to apply while exporting memories. Available fields are: user_id, agent_id, app_id, run_id, created_at, updated_at."
+					}
 				},
 				{
 				"name": "org_id",
@@ -484,144 +579,29 @@
 				"x-code-samples": [
 				{
 					"lang": "Python",
-					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"project_id\")\n\nresponse = client.get_memory_export(user_id=\"your_user_id\")\nprint(response)"
+					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"project_id\")\n\nfilters = {\n    \"AND\": [\n        {\"created_at\": {\"gte\": \"2024-07-10\", \"lte\": \"2024-07-20\"}},\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.get_memory_export(filters=filters)\nprint(response)"
 				},
 				{
-					"lang": "JavaScript",
-					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Get memory export\nclient.getMemoryExport({ user_id: \"your_user_id\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+					"lang": "JavaScript", 
+					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    {created_at: {gte: \"2024-07-10\", lte: \"2024-07-20\"}},\n    {user_id: \"alex\"}\n  ]\n};\n\n// Get memory export\nclient.getMemoryExport({ filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},
 				{
 					"lang": "cURL",
-					"source": "curl --request GET \\\n  --url 'https://api.mem0.ai/v1/exports/?user_id=your_user_id' \\\n  --header 'Authorization: Token <api-key>'"
+					"source": "curl --request GET \\\n  --url 'https://api.mem0.ai/v1/exports/?filters={\"AND\":[{\"created_at\":{\"gte\":\"2024-07-10\",\"lte\":\"2024-07-20\"}},{\"user_id\":\"alex\"}]}' \\\n  --header 'Authorization: Token <api-key>'"
 				},
 				{
 					"lang": "Go",
-					"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\turl := \"https://api.mem0.ai/v1/exports/?user_id=your_user_id\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
+					"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\tfilters := `{\"AND\":[{\"created_at\":{\"gte\":\"2024-07-10\",\"lte\":\"2024-07-20\"}},{\"user_id\":\"alex\"}]}`\n\turl := fmt.Sprintf(\"https://api.mem0.ai/v1/exports/?filters=%s\", filters)\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
 				},
 				{
 					"lang": "PHP",
-					"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/exports/?user_id=your_user_id\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					"source": "<?php\n\n$curl = curl_init();\n\n$filters = urlencode('{\"AND\":[{\"created_at\":{\"gte\":\"2024-07-10\",\"lte\":\"2024-07-20\"}},{\"user_id\":\"alex\"}]}');\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/exports/?filters=\" . $filters,\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 				},
 				{
 					"lang": "Java",
-					"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/exports/?user_id=your_user_id\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					"source": "String filters = \"{\\\"AND\\\":[{\\\"created_at\\\":{\\\"gte\\\":\\\"2024-07-10\\\",\\\"lte\\\":\\\"2024-07-20\\\"}},{\\\"user_id\\\":\\\"alex\\\"}]}\";\n\nHttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/exports/?filters=\" + filters)\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
 				}
 				]
-			},
-			"post": {
-				"tags": [
-			"exports"
-				],
-			"summary": "Create an export job with schema",
-			"description": "Create a structured export of memories based on a provided schema.",
-			"operationId": "exports_create",
-				"requestBody": {
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-					"required": ["schema"],
-								"properties": {
-					"schema": {
-						"type": "object",
-						"description": "Schema definition for the export"
-					},
-					"user_id": {
-										"type": "string",
-						"description": "Filter exports by user ID"
-									},
-					"run_id": {
-										"type": "string",
-						"description": "Filter exports by run ID"
-									},
-					"session_id": {
-										"type": "string",
-						"description": "Filter exports by session ID"
-					},
-					"app_id": {
-						"type": "string",
-						"description": "Filter exports by app ID"
-					},
-					"org_id": {
-						"type": "string",
-						"description": "Filter exports by organization ID"
-					},
-					"project_id": {
-						"type": "string",
-						"description": "Filter exports by project ID"
-									}
-								}
-							}
-						}
-					},
-					"required": true
-				},
-				"responses": {
-			"201": {
-				"description": "Export created successfully",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-						"message": {
-						"type": "string",
-						"example": "Memory export request received. The export will be ready in a few seconds."
-						},
-										"id": {
-											"type": "string",
-											"format": "uuid",
-						"example": "550e8400-e29b-41d4-a716-446655440000"
-						}
-					},
-					"required": ["message", "id"]
-					}
-				}
-				}
-			},
-			"400": {
-				"description": "Bad Request", 
-				"content": {
-				"application/json": {
-					"schema": {
-					"type": "object",
-					"properties": {
-						"message": {
-											"type": "string",
-						"example": "Schema is required and must be a valid object"
-						}
-										}
-									}
-								}
-							}
-						}
-					},
-			"x-code-samples": [
-				{
-					"lang": "Python",
-					"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\njson_schema = {pydantic_json_schema}\n\nresponse = client.create_memory_export(\n    schema=json_schema,\n    user_id=\"your_user_id\"\n)\nprint(response)"
-				},
-				{
-					"lang": "JavaScript",
-					"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst jsonSchema = {pydantic_json_schema};\n\nclient.createMemoryExport({\n  schema: jsonSchema,\n  user_id: \"your_user_id\"\n})\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
-				},
-				{
-					"lang": "cURL",
-					"source": "curl --request POST \\\n  --url 'https://api.mem0.ai/v1/exports/' \\\n  --header 'Authorization: Token <api-key>' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\n    \"schema\": {pydantic_json_schema},\n    \"user_id\": \"your_user_id\"\n  }'"
-				},
-				{
-					"lang": "Go",
-					"source": "package main\n\nimport (\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\turl := \"https://api.mem0.ai/v1/exports/\"\n\n\tdata := map[string]interface{}{\n\t\t\"schema\": map[string]interface{}{}, // Your schema here\n\t\t\"user_id\": \"user123\",\n\t}\n\n\tjsonData, _ := json.Marshal(data)\n\n\treq, _ := http.NewRequest(\"POST\", url, bytes.NewBuffer(jsonData))\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\treq.Header.Add(\"Content-Type\", \"application/json\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(string(body))\n}"
-				},
-				{
-					"lang": "PHP",
-					"source": "<?php\n\n$curl = curl_init();\n\n$data = array(\n  \"schema\" => array(), // Your schema here\n  \"user_id\" => \"your_user_id\"\n);\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/exports/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"POST\",\n  CURLOPT_POSTFIELDS => json_encode($data),\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\",\n    \"Content-Type: application/json\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
-				},
-				{
-					"lang": "Java",
-					"source": "import com.mashape.unirest.http.HttpResponse;\nimport com.mashape.unirest.http.JsonNode;\nimport com.mashape.unirest.http.Unirest;\nimport org.json.JSONObject;\n\nJSONObject data = new JSONObject()\n    .put(\"schema\", new JSONObject()) // Your schema here\n    .put(\"user_id\", \"your_user_id\");\n\nHttpResponse<JsonNode> response = Unirest.post(\"https://api.mem0.ai/v1/exports/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .header(\"Content-Type\", \"application/json\")\n  .body(data.toString())\n  .asJson();"
-				}
-			]
 			}
 		},
 		"/v1/memories/": {
