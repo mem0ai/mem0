@@ -164,15 +164,18 @@ class MemoryGraph:
         entity_type_map = {}
 
         try:
-            for item in search_results["tool_calls"][0]["arguments"]["entities"]:
-                entity_type_map[item["entity"]] = item["entity_type"]
+            for tool_call in search_results["tool_calls"]:
+                if tool_call['name'] != "extract_entities":
+                    continue
+                for item in tool_call["arguments"]["entities"]:
+                    entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
                 f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}"
             )
 
         entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
-        logger.debug(f"Entity type map: {entity_type_map}")
+        logger.debug(f"Entity type map: {entity_type_map}\n search_results={search_results}")
         return entity_type_map
 
     def _establish_nodes_relations_from_data(self, data, filters, entity_type_map):
