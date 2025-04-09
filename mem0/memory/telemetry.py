@@ -54,7 +54,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
     global telemetry
 
     # For OSS, we use the telemetry vector store to store the user_id
-    telemetry = AnonymousTelemetry(project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX", host="https://us.i.posthog.com", vector_store=memory_instance.telemetry_vector_store if hasattr(memory_instance, "telemetry_vector_store") else None)
+    telemetry = AnonymousTelemetry(project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX", host="https://us.i.posthog.com", vector_store=memory_instance._telemetry_vector_store if hasattr(memory_instance, "_telemetry_vector_store") else None)
 
     event_data = {
         "collection": memory_instance.collection_name,

@@ -2,12 +2,11 @@ import concurrent
 import hashlib
 import json
 import logging
+import os
 import uuid
 import warnings
 from datetime import datetime
 from typing import Any, Dict
-import os
-from mem0.memory.setup import mem0_dir
 
 import pytz
 from pydantic import ValidationError
@@ -19,7 +18,7 @@ from mem0.configs.prompts import (
     get_update_memory_messages,
 )
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import setup_config
+from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
@@ -69,7 +68,7 @@ class Memory(MemoryBase):
             self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
             os.makedirs(self.config.vector_store.config.path, exist_ok=True)
 
-        self.telemetry_vector_store = VectorStoreFactory.create(
+        self._telemetry_vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.init", self)
