@@ -636,9 +636,10 @@ export class RedisDB implements VectorStore {
 
   async getUserId(): Promise<string> {
     try {
-      const result = await this.client.hGetAll("memory_user:1");
-      if (result && result.user_id) {
-        return result.user_id;
+      // Check if the user ID exists in Redis
+      const userId = await this.client.get("memory_migrations:1");
+      if (userId) {
+        return userId;
       }
 
       // Generate a random user_id if none exists
@@ -646,10 +647,8 @@ export class RedisDB implements VectorStore {
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15);
 
-      await this.client.hSet("memory_user:1", {
-        user_id: randomUserId,
-      });
-
+      // Store the user ID
+      await this.client.set("memory_migrations:1", randomUserId);
       return randomUserId;
     } catch (error) {
       console.error("Error getting user ID:", error);
@@ -659,9 +658,7 @@ export class RedisDB implements VectorStore {
 
   async setUserId(userId: string): Promise<void> {
     try {
-      await this.client.hSet("memory_user:1", {
-        user_id: userId,
-      });
+      await this.client.set("memory_migrations:1", userId);
     } catch (error) {
       console.error("Error setting user ID:", error);
       throw error;

@@ -45,6 +45,12 @@ create table if not exists memories (
   updated_at timestamp with time zone default timezone('utc', now())
 );
 
+-- Create the memory migrations table
+create table if not exists memory_migrations (
+  user_id text primary key,
+  created_at timestamp with time zone default timezone('utc', now())
+);
+
 -- Create the vector similarity search function
 create or replace function match_vectors(
   query_embedding vector(1536),
@@ -131,6 +137,12 @@ create table if not exists memories (
   metadata jsonb,
   created_at timestamp with time zone default timezone('utc', now()),
   updated_at timestamp with time zone default timezone('utc', now())
+);
+
+-- Create the memory migrations table
+create table if not exists memory_migrations (
+  user_id text primary key,
+  created_at timestamp with time zone default timezone('utc', now())
 );
 
 -- Create the vector similarity search function
@@ -339,49 +351,71 @@ See the SQL migration instructions in the code comments.`,
 
   async getUserId(): Promise<string> {
     try {
-      const { data, error } = await this.client
-        .from("memory_user")
+      // First check if the table exists
+      const { data: tableExists } = await this.client
+        .from("memory_migrations")
         .select("user_id")
-        .limit(1)
-        .single();
+        .limit(1);
+
+      if (!tableExists || tableExists.length === 0) {
+        // Generate a random user_id
+        const randomUserId =
+          Math.random().toString(36).substring(2, 15) +
+          Math.random().toString(36).substring(2, 15);
+
+        // Insert the new user_id
+        const { error: insertError } = await this.client
+          .from("memory_migrations")
+          .insert({ user_id: randomUserId });
+
+        if (insertError) throw insertError;
+        return randomUserId;
+      }
+
+      // Get the first user_id
+      const { data, error } = await this.client
+        .from("memory_migrations")
+        .select("user_id")
+        .limit(1);
 
       if (error) throw error;
-      if (data) return data.user_id;
+      if (!data || data.length === 0) {
+        // Generate a random user_id if no data found
+        const randomUserId =
+          Math.random().toString(36).substring(2, 15) +
+          Math.random().toString(36).substring(2, 15);
 
-      // Generate a random user_id if none exists
-      const randomUserId =
-        Math.random().toString(36).substring(2, 15) +
-        Math.random().toString(36).substring(2, 15);
+        const { error: insertError } = await this.client
+          .from("memory_migrations")
+          .insert({ user_id: randomUserId });
 
-      const { error: insertError } = await this.client
-        .from("memory_user")
-        .insert({ user_id: randomUserId });
+        if (insertError) throw insertError;
+        return randomUserId;
+      }
 
-      if (insertError) throw insertError;
-      return randomUserId;
+      return data[0].user_id;
     } catch (error) {
       console.error("Error getting user ID:", error);
-      throw error;
+      return "anonymous-supabase";
     }
   }
 
   async setUserId(userId: string): Promise<void> {
     try {
       const { error: deleteError } = await this.client
-        .from("memory_user")
+        .from("memory_migrations")
         .delete()
         .neq("user_id", "");
 
       if (deleteError) throw deleteError;
 
       const { error: insertError } = await this.client
-        .from("memory_user")
+        .from("memory_migrations")
         .insert({ user_id: userId });
 
       if (insertError) throw insertError;
     } catch (error) {
       console.error("Error setting user ID:", error);
-      throw error;
     }
   }
 }

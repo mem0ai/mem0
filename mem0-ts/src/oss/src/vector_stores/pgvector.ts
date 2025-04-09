@@ -63,9 +63,9 @@ export class PGVector implements VectorStore {
       // Create vector extension
       await this.client.query("CREATE EXTENSION IF NOT EXISTS vector");
 
-      // Create memory_user table
+      // Create memory_migrations table
       await this.client.query(`
-        CREATE TABLE IF NOT EXISTS memory_user (
+        CREATE TABLE IF NOT EXISTS memory_migrations (
           id SERIAL PRIMARY KEY,
           user_id TEXT NOT NULL UNIQUE
         )
@@ -304,7 +304,7 @@ export class PGVector implements VectorStore {
 
   async getUserId(): Promise<string> {
     const result = await this.client.query(
-      "SELECT user_id FROM memory_user LIMIT 1",
+      "SELECT user_id FROM memory_migrations LIMIT 1",
     );
 
     if (result.rows.length > 0) {
@@ -315,16 +315,18 @@ export class PGVector implements VectorStore {
     const randomUserId =
       Math.random().toString(36).substring(2, 15) +
       Math.random().toString(36).substring(2, 15);
-    await this.client.query("INSERT INTO memory_user (user_id) VALUES ($1)", [
-      randomUserId,
-    ]);
+    await this.client.query(
+      "INSERT INTO memory_migrations (user_id) VALUES ($1)",
+      [randomUserId],
+    );
     return randomUserId;
   }
 
   async setUserId(userId: string): Promise<void> {
-    await this.client.query("DELETE FROM memory_user");
-    await this.client.query("INSERT INTO memory_user (user_id) VALUES ($1)", [
-      userId,
-    ]);
+    await this.client.query("DELETE FROM memory_migrations");
+    await this.client.query(
+      "INSERT INTO memory_migrations (user_id) VALUES ($1)",
+      [userId],
+    );
   }
 }

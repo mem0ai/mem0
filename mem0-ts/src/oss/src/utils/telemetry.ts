@@ -27,7 +27,10 @@ class UnifiedTelemetry implements TelemetryClient {
       client_version: version,
       timestamp: new Date().toISOString(),
       ...properties,
-      $process_person_profile: false,
+      $process_person_profile:
+        distinctId === "anonymous" || distinctId === "anonymous-supabase"
+          ? false
+          : true,
       $lib: "posthog-node",
     };
 
@@ -84,7 +87,7 @@ async function captureClientEvent(
 
   await telemetry.captureEvent(
     instance.telemetryId,
-    `client.${eventName}`,
+    `mem0.${eventName}`,
     eventData,
   );
 }

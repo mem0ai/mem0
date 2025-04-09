@@ -101,8 +101,7 @@ export class Memory {
 
   private async _initializeTelemetry() {
     try {
-      // Get or create user_id from vector store
-      this.telemetryId = await this.vectorStore.getUserId();
+      await this._getTelemetryId();
 
       // Capture initialization event
       await captureClientEvent("init", this, {
@@ -114,8 +113,25 @@ export class Memory {
     } catch (error) {}
   }
 
+  private async _getTelemetryId() {
+    try {
+      if (
+        !this.telemetryId ||
+        this.telemetryId === "anonymous" ||
+        this.telemetryId === "anonymous-supabase"
+      ) {
+        this.telemetryId = await this.vectorStore.getUserId();
+      }
+      return this.telemetryId;
+    } catch (error) {
+      this.telemetryId = "anonymous";
+      return this.telemetryId;
+    }
+  }
+
   private async _captureEvent(methodName: string, additionalData = {}) {
     try {
+      await this._getTelemetryId();
       await captureClientEvent(methodName, this, {
         ...additionalData,
         api_version: this.apiVersion,

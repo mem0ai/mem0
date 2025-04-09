@@ -214,12 +214,12 @@ export class Qdrant implements VectorStore {
       // First check if the collection exists
       const collections = await this.client.getCollections();
       const userCollectionExists = collections.collections.some(
-        (col: { name: string }) => col.name === "memory_user",
+        (col: { name: string }) => col.name === "memory_migrations",
       );
 
       if (!userCollectionExists) {
         // Create the collection if it doesn't exist
-        await this.client.createCollection("memory_user", {
+        await this.client.createCollection("memory_migrations", {
           vectors: {
             size: 1,
             distance: "Cosine",
@@ -229,7 +229,7 @@ export class Qdrant implements VectorStore {
       }
 
       // Now try to get the user ID
-      const result = await this.client.scroll("memory_user", {
+      const result = await this.client.scroll("memory_migrations", {
         limit: 1,
         with_payload: true,
       });
@@ -243,7 +243,7 @@ export class Qdrant implements VectorStore {
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15);
 
-      await this.client.upsert("memory_user", {
+      await this.client.upsert("memory_migrations", {
         points: [
           {
             id: this.generateUUID(),
@@ -263,7 +263,7 @@ export class Qdrant implements VectorStore {
   async setUserId(userId: string): Promise<void> {
     try {
       // Get existing point ID
-      const result = await this.client.scroll("memory_user", {
+      const result = await this.client.scroll("memory_migrations", {
         limit: 1,
         with_payload: true,
       });
@@ -271,7 +271,7 @@ export class Qdrant implements VectorStore {
       const pointId =
         result.points.length > 0 ? result.points[0].id : this.generateUUID();
 
-      await this.client.upsert("memory_user", {
+      await this.client.upsert("memory_migrations", {
         points: [
           {
             id: pointId,
@@ -324,14 +324,14 @@ export class Qdrant implements VectorStore {
         }
       }
 
-      // Create memory_user collection if it doesn't exist
+      // Create memory_migrations collection if it doesn't exist
       const userExists = collections.collections.some(
-        (c) => c.name === "memory_user",
+        (c) => c.name === "memory_migrations",
       );
 
       if (!userExists) {
         try {
-          await this.client.createCollection("memory_user", {
+          await this.client.createCollection("memory_migrations", {
             vectors: {
               size: 1, // Minimal size since we only store user_id
               distance: "Cosine",
