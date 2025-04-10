@@ -130,13 +130,14 @@ class MemoryClient:
         """
         kwargs = self._prepare_params(kwargs)
         if kwargs.get("output_format") != "v1.1":
+            kwargs["output_format"] = "v1.1"
             warnings.warn(
-                "Using default output format 'v1.0' is deprecated and will be removed in version 0.1.70. "
-                "Please use output_format='v1.1' for enhanced memory details. "
+                "output_format='v1.0' is deprecated therefore setting it to 'v1.1' by default."
                 "Check out the docs for more information: https://docs.mem0.ai/platform/quickstart#4-1-create-memories",
                 DeprecationWarning,
                 stacklevel=2,
             )
+        kwargs["version"] = "v2"
         payload = self._prepare_payload(messages, kwargs)
         response = self.client.post("/v1/memories/", json=payload)
         response.raise_for_status()
@@ -447,7 +448,7 @@ class MemoryClient:
         Returns:
             Dict containing the exported data
         """
-        response = self.client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response = self.client.post("/v1/exports/get/", json=self._prepare_params(kwargs))
         response.raise_for_status()
         capture_client_event("client.get_memory_export", self, {"keys": list(kwargs.keys())})
         return response.json()
@@ -929,7 +930,7 @@ class AsyncMemoryClient:
         Returns:
             Dict containing the exported data
         """
-        response = await self.async_client.get("/v1/exports/", params=self._prepare_params(kwargs))
+        response = await self.async_client.post("/v1/exports/get/", json=self._prepare_params(kwargs))
         response.raise_for_status()
         capture_client_event("async_client.get_memory_export", self.sync_client, {"keys": list(kwargs.keys())})
         return response.json()

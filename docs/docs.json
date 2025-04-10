@@ -73,6 +73,7 @@
                     "group": "Features",
                     "icon": "wrench",
                     "pages": [
+                      "open-source/features/async-memory",
                       "features/openai_compatibility",
                       "features/custom-fact-extraction-prompt",
                       "features/custom-update-memory-prompt",
@@ -111,7 +112,8 @@
                           "components/llms/models/gemini",
                           "components/llms/models/deepseek",
                           "components/llms/models/xAI",
-                          "components/llms/models/lmstudio"
+                          "components/llms/models/lmstudio",
+                          "components/llms/models/langchain"
                         ]
                       }
                     ]
@@ -158,7 +160,10 @@
                           "components/embedders/models/ollama",
                           "components/embedders/models/huggingface",
                           "components/embedders/models/vertexai",
-                          "components/embedders/models/gemini"
+                          "components/embedders/models/gemini",
+                          "components/embedders/models/lmstudio",
+                          "components/embedders/models/together",
+                          "components/embedders/models/langchain"
                         ]
                       }
                     ]
@@ -198,7 +203,6 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
-                  "examples/mem0-livekit-voice-agent",
                   "examples/email_processing",
                   "examples/youtube-assistant"
                 ]
@@ -214,6 +218,7 @@
                 "pages": [
                   "integrations/overview",
                   "integrations/vercel-ai-sdk",
+                  "integrations/flowise",
                   "integrations/crewai",
                   "integrations/autogen",
                   "integrations/langchain",
@@ -223,7 +228,8 @@
                   "integrations/dify",
                   "integrations/mcp-server",
                   "integrations/livekit",
-                  "integrations/elevenlabs"
+                  "integrations/elevenlabs",
+                  "integrations/pipecat"
                 ]
               }
             ]

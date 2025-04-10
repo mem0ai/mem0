@@ -63,18 +63,23 @@ class PersonalTravelAssistant:
     def ask_question(self, question, user_id):
         # Fetch previous related memories
         previous_memories = self.search_memories(question, user_id=user_id)
-        prompt = question
-        if previous_memories:
-            prompt = f"User input: {question}\n Previous memories: {previous_memories}"
-        self.messages.append({"role": "user", "content": prompt})
 
-        # Generate response using GPT-4o
-        response = self.client.chat.completions.create(
+        # Build the prompt
+        system_message = "You are a personal AI Assistant."
+
+        if previous_memories:
+            prompt = f"{system_message}\n\nUser input: {question}\nPrevious memories: {', '.join(previous_memories)}"
+        else:
+            prompt = f"{system_message}\n\nUser input: {question}"
+
+        # Generate response using Responses API
+        response = self.client.responses.create(
             model="gpt-4o",
-            messages=self.messages
+            input=prompt
         )
-        answer = response.choices[0].message.content
-        self.messages.append({"role": "assistant", "content": answer})
+
+        # Extract answer from the response
+        answer = response.output[0].content[0].text
 
         # Store the question in memory
         self.memory.add(question, user_id=user_id)

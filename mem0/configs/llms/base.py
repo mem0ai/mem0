@@ -13,7 +13,7 @@ class BaseLlmConfig(ABC):
 
     def __init__(
         self,
-        model: Optional[str] = None,
+        model: Optional[Union[str, Dict]] = None,
         temperature: float = 0.1,
         api_key: Optional[str] = None,
         max_tokens: int = 2000,
