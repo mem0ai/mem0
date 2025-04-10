@@ -20,6 +20,7 @@ pip install openai mem0ai
 Below is the complete code to create and interact with a Personalized AI Tutor using Mem0:
 
 ```python
+import os 
 from openai import OpenAI
 from mem0 import Memory
 
@@ -54,22 +55,21 @@ class PersonalAITutor:
         :param question: The question to ask the AI.
         :param user_id: Optional user ID to associate with the memory.
         """
-        # Start a streaming chat completion request to the AI
-        stream = self.client.chat.completions.create(
-            model="gpt-4",
-            stream=True,
-            messages=[
-                {"role": "system", "content": "You are a personal AI Tutor."},
-                {"role": "user", "content": question}
-            ]
+        # Start a streaming response request to the AI
+        response = self.client.responses.create(
+            model="gpt-4o",
+            instructions="You are a personal AI Tutor.",
+            input=question,
+            stream=True
         )
+
         # Store the question in memory
         self.memory.add(question, user_id=user_id, metadata={"app_id": self.app_id})
 
         # Print the response from the AI in real-time
-        for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                print(chunk.choices[0].delta.content, end="")
+        for event in response:
+            if event.type == "response.output_text.delta":
+                print(event.delta, end="")
 
     def get_memories(self, user_id=None):
         """
