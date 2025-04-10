@@ -21,6 +21,6 @@
     "youtube-transcript": "^1.0.6"
   },
   "dependencies": {
-    "saket-test": "2.1.16"
+    "mem0ai": "2.1.15"
   }
 }

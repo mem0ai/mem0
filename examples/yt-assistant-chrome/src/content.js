@@ -1,6 +1,6 @@
 // Main content script that injects the AI chat into YouTube
 import { YoutubeTranscript } from "youtube-transcript";
-import { MemoryClient } from "saket-test";
+import { MemoryClient } from "mem0ai";
 
 // Configuration
 const config = {
@@ -29,6 +29,7 @@ async function initializeMem0AI() {
         mem0client = new MemoryClient({
           apiKey: items.mem0ApiKey,
           projectId: "youtube-assistant", // Add a project ID for organization
+          isExtension: true,
         });
 
         // Set up custom instructions for the YouTube educational assistant

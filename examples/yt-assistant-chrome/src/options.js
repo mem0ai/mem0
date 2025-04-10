@@ -1,5 +1,5 @@
 // Options page functionality for AI Chat Assistant
-import { MemoryClient } from "saket-test";
+import { MemoryClient } from "mem0ai";
 
 // Default configuration
 const defaultConfig = {
@@ -70,6 +70,7 @@ async function initializeMem0AI() {
     mem0client = new MemoryClient({
       apiKey: mem0ApiKey,
       projectId: "youtube-assistant",
+      isExtension: true,
     });
 
     return true;
@@ -410,8 +411,8 @@ async function addMemory() {
 
     // Show success message with number of memories added
     showMemoryResult(
-      `Added ${result.memories?.length || 0} new ${
-        result.memories?.length === 1 ? "memory" : "memories"
+      `Added ${result.length || 0} new ${
+        result.length === 1 ? "memory" : "memories"
       }`,
       "success"
     );
