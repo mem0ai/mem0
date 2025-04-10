@@ -228,7 +228,8 @@
                   "integrations/mcp-server",
                   "integrations/livekit",
                   "integrations/elevenlabs",
-                  "integrations/pipecat"
+                  "integrations/pipecat",
+                  "integrations/agno"
                 ]
               }
             ]
