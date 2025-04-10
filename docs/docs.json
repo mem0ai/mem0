@@ -203,7 +203,8 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
-                  "examples/email_processing"
+                  "examples/email_processing",
+                  "examples/youtube-assistant"
                 ]
               }
             ]
