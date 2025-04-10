@@ -21,6 +21,6 @@
     "youtube-transcript": "^1.0.6"
   },
   "dependencies": {
-    "mem0ai": "2.1.15"
+    "mem0ai": "^2.1.15"
   }
 }
