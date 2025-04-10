@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 try:
     from pymongo import MongoClient
-    from pymongo.collection import Collection
     from pymongo.operations import SearchIndexModel
     from pymongo.errors import PyMongoError
 except ImportError:
