@@ -13,12 +13,20 @@ from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
-from mem0.configs.prompts import PROCEDURAL_MEMORY_SYSTEM_PROMPT, get_update_memory_messages
+from mem0.configs.prompts import (
+    PROCEDURAL_MEMORY_SYSTEM_PROMPT,
+    get_update_memory_messages,
+)
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import get_fact_retrieval_messages, parse_messages, parse_vision_messages, remove_code_blocks
+from mem0.memory.utils import (
+    get_fact_retrieval_messages,
+    parse_messages,
+    parse_vision_messages,
+    remove_code_blocks,
+)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 # Setup user config
@@ -31,7 +39,13 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
+        self.embedding_model = EmbedderFactory.create(
+            self.config.embedder.provider,
+            self.config.embedder.config,
+            self.config.vector_store.config,
+        )
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -86,7 +100,6 @@ class Memory(MemoryBase):
         infer=True,
         memory_type=None,
         prompt=None,
-        llm=None,
     ):
         """
         Create a new memory.
@@ -101,7 +114,6 @@ class Memory(MemoryBase):
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
-            llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
             result: dict of affected events with each dict has the following key:
@@ -138,7 +150,7 @@ class Memory(MemoryBase):
             messages = [{"role": "user", "content": messages}]
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
-            results = self._create_procedural_memory(messages, metadata=metadata, llm=llm, prompt=prompt)
+            results = self._create_procedural_memory(messages, metadata=metadata, prompt=prompt)
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -261,7 +273,9 @@ class Memory(MemoryBase):
                         continue
                     elif resp.get("event") == "ADD":
                         memory_id = self._create_memory(
-                            data=resp.get("text"), existing_embeddings=new_message_embeddings, metadata=metadata
+                            data=resp.get("text"),
+                            existing_embeddings=new_message_embeddings,
+                            metadata=metadata,
                         )
                         returned_memories.append(
                             {
@@ -301,7 +315,11 @@ class Memory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_memories_with_actions: {e}")
 
-        capture_event("mem0.add", self, {"version": self.api_version, "keys": list(filters.keys())})
+        capture_event(
+            "mem0.add",
+            self,
+            {"version": self.api_version, "keys": list(filters.keys())},
+        )
 
         return returned_memories
 
@@ -343,7 +361,16 @@ class Memory(MemoryBase):
         ).model_dump(exclude={"score"})
 
         # Add metadata if there are additional keys
-        excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at", "id"}
+        excluded_keys = {
+            "user_id",
+            "agent_id",
+            "run_id",
+            "hash",
+            "data",
+            "created_at",
+            "updated_at",
+            "id",
+        }
         additional_metadata = {k: v for k, v in memory.payload.items() if k not in excluded_keys}
         if additional_metadata:
             memory_item["metadata"] = additional_metadata
@@ -631,22 +658,15 @@ class Memory(MemoryBase):
             metadata (dict): Metadata to create a procedural memory from.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
         parsed_messages = [
             {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
             *messages,
-            {"role": "user", "content": "Create procedural memory of the above conversation."},
+            {
+                "role": "user",
+                "content": "Create procedural memory of the above conversation.",
+            },
         ]
 
         try:

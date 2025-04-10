@@ -1,7 +1,10 @@
-// @ts-nocheck
-import type { TelemetryClient, TelemetryOptions } from "./telemetry.types";
+import type {
+  TelemetryClient,
+  TelemetryInstance,
+  TelemetryEventData,
+} from "./telemetry.types";
 
-let version = "2.1.12";
+let version = "2.1.15";
 
 // Safely check for process.env in different environments
 let MEM0_TELEMETRY = true;
@@ -10,14 +13,6 @@ try {
 } catch (error) {}
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
-
-// Simple hash function using random strings
-function generateHash(input: string): string {
-  const randomStr =
-    Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15);
-  return randomStr;
-}
 
 class UnifiedTelemetry implements TelemetryClient {
   private apiKey: string;
@@ -35,7 +30,10 @@ class UnifiedTelemetry implements TelemetryClient {
       client_version: version,
       timestamp: new Date().toISOString(),
       ...properties,
-      $process_person_profile: false,
+      $process_person_profile:
+        distinctId === "anonymous" || distinctId === "anonymous-supabase"
+          ? false
+          : true,
       $lib: "posthog-node",
     };
 
@@ -72,29 +70,29 @@ const telemetry = new UnifiedTelemetry(POSTHOG_API_KEY, POSTHOG_HOST);
 
 async function captureClientEvent(
   eventName: string,
-  instance: any,
-  additionalData = {},
+  instance: TelemetryInstance,
+  additionalData: Record<string, any> = {},
 ) {
   if (!instance.telemetryId) {
     console.warn("No telemetry ID found for instance");
     return;
   }
 
-  const eventData = {
+  const eventData: TelemetryEventData = {
     function: `${instance.constructor.name}`,
     method: eventName,
     api_host: instance.host,
     timestamp: new Date().toISOString(),
     client_version: version,
-    keys: additionalData?.keys || [],
+    client_source: "nodejs",
     ...additionalData,
   };
 
   await telemetry.captureEvent(
     instance.telemetryId,
-    `client.${eventName}`,
+    `mem0.${eventName}`,
     eventData,
   );
 }
 
-export { telemetry, captureClientEvent, generateHash };
+export { telemetry, captureClientEvent };
