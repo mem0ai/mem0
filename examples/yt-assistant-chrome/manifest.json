@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Assistant powered by Mem0",
+  "version": "1.0",
+  "description": "An AI-powered YouTube assistant with memory capabilities from Mem0",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.youtube.com/*",
+    "https://*.openai.com/*",
+    "https://*.mem0.ai/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'",
+    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self'"
+  },
+  "action": {
+    "default_popup": "public/popup.html"
+  },
+  "options_page": "public/options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://*.youtube.com/*"],
+      "js": ["dist/content.bundle.js"],
+      "css": ["styles/content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*",
+        "dist/*",
+        "styles/*",
+        "node_modules/mem0ai/dist/*"
+      ],
+      "matches": ["https://*.youtube.com/*"]
+    }
+  ]
+}

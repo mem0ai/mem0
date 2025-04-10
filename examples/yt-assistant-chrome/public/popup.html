@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Assistant powered by Mem0</title>
+    <link rel="stylesheet" href="../styles/popup.css">
+  </head>
+  <body>
+    <header>
+      <h1>YouTube Assistant</h1>
+      <div class="branding-container">
+        <span class="powered-by">powered by</span>
+        <a href="https://mem0.ai" target="_blank">
+          <img src="../assets/dark.svg" alt="Mem0 Logo" class="logo-img">
+        </a>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- Status area -->
+      <div id="status-container"></div>
+
+      <!-- API key input, only shown if not set -->
+      <div id="api-key-section" class="api-key-section">
+        <label for="api-key">OpenAI API Key</label>
+        <div class="api-key-input-wrapper">
+          <input type="password" id="api-key" placeholder="sk-..." />
+          <button class="toggle-password" id="toggle-openai-key">
+            <svg
+              class="icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+        <button id="save-api-key" class="save-button">
+          <svg
+            class="icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+            ></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Save OpenAI Key
+        </button>
+      </div>
+
+      <!-- mem0 API key input -->
+      <div id="mem0-api-key-section" class="api-key-section">
+        <label for="mem0-api-key">Mem0 API Key</label>
+        <div class="api-key-input-wrapper">
+          <input
+            type="password"
+            id="mem0-api-key"
+            placeholder="Enter your mem0 API key"
+          />
+          <button class="toggle-password" id="toggle-mem0-key">
+            <svg
+              class="icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+        <div class="api-key-actions">
+          <p>Get your API key from <a href="https://mem0.ai" target="_blank" class="get-key-link">mem0.ai</a> to integrate memory features in the chat.</p>
+          <button id="save-mem0-api-key" class="save-button">
+            <svg
+              class="icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+              ></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save Mem0 Key
+          </button>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="actions">
+        <button id="toggle-chat">
+          <svg
+            class="icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            ></path>
+          </svg>
+          Chat
+        </button>
+        <button id="open-options">
+          <svg
+            class="icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+            ></path>
+          </svg>
+          Settings
+        </button>
+      </div>
+
+      <!-- Future mem0 integration status -->
+      <div class="mem0-status">
+        <p>
+          Mem0 integration:
+          <span id="mem0-status-text">Not configured</span>
+        </p>
+      </div>
+    </div>
+
+    <script src="../src/popup.js"></script>
+  </body>
+</html>
