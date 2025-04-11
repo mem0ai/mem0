@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.1.15",
+  "version": "2.1.16",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -93,13 +93,13 @@
   "dependencies": {
     "axios": "1.7.7",
     "openai": "4.28.0",
-    "redis": "^4.6.13",
     "uuid": "9.0.1",
-    "zod": "3.22.4"
+    "zod": "^3.24.1"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "0.18.0",
     "@qdrant/js-client-rest": "1.13.0",
+    "@mistralai/mistralai": "^1.5.2",
     "@google/genai": "^0.7.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
@@ -109,7 +109,7 @@
     "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
-    "redis": "4.7.0",
+    "redis": "^4.6.13",
     "sqlite3": "5.1.7"
   },
   "engines": {
