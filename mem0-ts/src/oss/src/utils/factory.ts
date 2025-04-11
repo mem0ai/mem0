@@ -4,6 +4,7 @@ import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
 import { GroqLLM } from "../llms/groq";
+import { MistralLLM } from "../llms/mistral";
 import { MemoryVectorStore } from "../vector_stores/memory";
 import {
   EmbeddingConfig,
@@ -24,6 +25,7 @@ import { SupabaseHistoryManager } from "../storage/SupabaseHistoryManager";
 import { HistoryManager } from "../storage/base";
 import { GoogleEmbedder } from "../embeddings/google";
 import { GoogleLLM } from "../llms/google";
+import { AzureOpenAILLM } from "../llms/azure";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -55,6 +57,10 @@ export class LLMFactory {
         return new OllamaLLM(config);
       case "google":
         return new GoogleLLM(config);
+      case "azure_openai":
+        return new AzureOpenAILLM(config);
+      case "mistral":
+        return new MistralLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
