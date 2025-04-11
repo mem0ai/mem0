@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.1.16",
+  "version": "2.1.16-patch.1",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -92,7 +92,7 @@
   },
   "dependencies": {
     "axios": "1.7.7",
-    "openai": "4.28.0",
+    "openai": "^4.93.0",
     "uuid": "9.0.1",
     "zod": "^3.24.1"
   },
