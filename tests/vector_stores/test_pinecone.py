@@ -49,13 +49,13 @@ def test_create_col_existing_index(mock_pinecone_client):
     # Reset the mock to verify it wasn't called during the test
     mock_pinecone_client.create_index.reset_mock()
     
-    pinecone_db.create_col(128, "cosine")
+    pinecone_db.create_col()
     
     mock_pinecone_client.create_index.assert_not_called()
 
 def test_create_col_new_index(pinecone_db, mock_pinecone_client):
     mock_pinecone_client.list_indexes.return_value.names.return_value = []
-    pinecone_db.create_col(128, "cosine")
+    pinecone_db.create_col()
     mock_pinecone_client.create_index.assert_called()
 
 def test_insert_vectors(pinecone_db):
