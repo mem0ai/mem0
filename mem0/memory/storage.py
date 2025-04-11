@@ -2,7 +2,6 @@ import datetime
 import threading
 import uuid
 from contextlib import contextmanager
-from enum import Enum
 from typing import Any, Dict, Generator, List, Optional
 
 from pydantic import BaseModel, Field
@@ -29,19 +28,11 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.pool import QueuePool
 
 
-class DatabaseType(Enum):
-    """Supported database types"""
-
-    SQLITE = "sqlite"
-    POSTGRESQL = "postgresql"
-    MYSQL = "mysql"
-
-
 class HistoryDBConfig(BaseModel):
     """Configuration for the history database."""
 
-    type: DatabaseType = Field(
-        DatabaseType.SQLITE, description="Type of database (SQLite, PostgreSQL, MySQL)"
+    type: str = Field(
+        "sqlite", description="Type of database ('sqlite', 'postgresql', 'mysql')"
     )
     url: str = Field(
         "sqlite:///:memory:", description="Complete database connection URL or path"
@@ -56,7 +47,7 @@ class SQLDatabaseManager:
 
     def __init__(
         self,
-        db_type: DatabaseType = DatabaseType.SQLITE,
+        db_type: str = "sqlite",
         db_url: str = "sqlite:///:memory:",
         **kwargs,
     ):
@@ -71,7 +62,7 @@ class SQLDatabaseManager:
         self._lock = threading.Lock()
 
         # Process URLs for SQLite that might be direct file paths
-        if db_type == DatabaseType.SQLITE:
+        if db_type == "sqlite":
             if not db_url.startswith("sqlite:///") and not db_url.startswith(
                 "sqlite://"
             ):
@@ -82,7 +73,7 @@ class SQLDatabaseManager:
             kwargs.setdefault("connect_args", {"check_same_thread": False})
 
         # For PostgreSQL: create the database if it does not exist.
-        if db_type == DatabaseType.POSTGRESQL:
+        if db_type == "postgresql":
             url_obj = make_url(db_url)
             db_name = url_obj.database
             if not db_name:
@@ -179,7 +170,7 @@ class SQLDatabaseManager:
     def _migrate_history_table(self) -> None:
         """Migrate history table schema if needed."""
         with self._lock:
-            if self.db_type == DatabaseType.SQLITE:
+            if self.db_type == "sqlite":
                 with self._get_connection() as conn:
                     result = conn.execute(
                         text(
@@ -230,7 +221,7 @@ class SQLDatabaseManager:
     def _create_history_table(self) -> None:
         """Create history table if it doesn't exist."""
         with self._lock:
-            if self.db_type == DatabaseType.SQLITE:
+            if self.db_type == "sqlite":
                 with self._get_connection() as conn:
                     self._create_history_table_sqlalchemy(conn)
             else:
