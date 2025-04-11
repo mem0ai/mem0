@@ -66,8 +66,7 @@ class Langchain(VectorStoreBase):
 
         return result
 
-    def create_col(self, name, vector_size=None, distance=None):
-        self.collection_name = name
+    def create_col(self):
         return self.client
 
     def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
