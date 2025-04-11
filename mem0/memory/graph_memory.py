@@ -34,7 +34,11 @@ class MemoryGraph:
             self.config.graph_store.config.username,
             self.config.graph_store.config.password,
         )
-        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
+        self.embedding_model = EmbedderFactory.create(
+            self.config.embedder.provider, 
+            self.config.embedder.config, 
+            self.config.vector_store.config
+        )
 
         self.llm_provider = "openai_structured"
         if self.config.llm.provider:
