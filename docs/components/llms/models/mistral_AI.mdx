@@ -2,11 +2,12 @@
 title: Mistral AI
 ---
 
-To use mistral's models, please Obtain the Mistral AI api key from their [console](https://console.mistral.ai/). Set the `MISTRAL_API_KEY` environment variable to use the model as given below in the example.
+To use mistral's models, please obtain the Mistral AI api key from their [console](https://console.mistral.ai/). Set the `MISTRAL_API_KEY` environment variable to use the model as given below in the example.
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -33,6 +34,32 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'mistral',
+    config: {
+      apiKey: process.env.MISTRAL_API_KEY || '',
+      model: 'mistral-tiny-latest', // Or 'mistral-small-latest', 'mistral-medium-latest', etc.
+      temperature: 0.1,
+      maxTokens: 2000,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
 
 ## Config
 
