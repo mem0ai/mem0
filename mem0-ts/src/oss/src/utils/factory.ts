@@ -4,6 +4,7 @@ import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
 import { GroqLLM } from "../llms/groq";
+import { MistralLLM } from "../llms/mistral";
 import { MemoryVectorStore } from "../vector_stores/memory";
 import {
   EmbeddingConfig,
@@ -58,6 +59,8 @@ export class LLMFactory {
         return new GoogleLLM(config);
       case "azure_openai":
         return new AzureOpenAILLM(config);
+      case "mistral":
+        return new MistralLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }

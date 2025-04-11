@@ -13,6 +13,9 @@ importers:
       "@google/genai":
         specifier: ^0.7.0
         version: 0.7.0(encoding@0.1.13)
+      "@mistralai/mistralai":
+        specifier: ^1.5.2
+        version: 1.5.2(zod@3.24.2)
       "@qdrant/js-client-rest":
         specifier: 1.13.0
         version: 1.13.0(typescript@5.5.4)
@@ -41,8 +44,8 @@ importers:
         specifier: ^0.5.14
         version: 0.5.14
       openai:
-        specifier: ^4.93.0
-        version: 4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2)
+        specifier: 4.28.0
+        version: 4.28.0(encoding@0.1.13)
       pg:
         specifier: 8.11.3
         version: 8.11.3
@@ -56,7 +59,7 @@ importers:
         specifier: 9.0.1
         version: 9.0.1
       zod:
-        specifier: ^3.24.2
+        specifier: ^3.24.1
         version: 3.24.2
     devDependencies:
       "@types/node":
@@ -792,6 +795,14 @@ packages:
       {
         integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==,
       }
+
+  "@mistralai/mistralai@1.5.2":
+    resolution:
+      {
+        integrity: sha512-mBTIDQmuAX9RowMYteZFHJIYlEwDcHzzaxgXzrFtlvH9CkKXK7R1VnZ1sZSe+uLMg0dIXUVdPRUh1SwyFeSqXw==,
+      }
+    peerDependencies:
+      zod: ">= 3"
 
   "@nodelib/fs.scandir@2.1.5":
     resolution:
@@ -3444,20 +3455,12 @@ packages:
       }
     engines: { node: ">=6" }
 
-  openai@4.93.0:
+  openai@4.28.0:
     resolution:
       {
-        integrity: sha512-2kONcISbThKLfm7T9paVzg+QCE1FOZtNMMUfXyXckUAoXRRS/mTP89JSDHPMp8uM5s0bz28RISbvQjArD6mgUQ==,
+        integrity: sha512-JM8fhcpmpGN0vrUwGquYIzdcEQHtFuom6sRCbbCM6CfzZXNuRk33G7KfeRAIfnaCxSpzrP5iHtwJzIm6biUZ2Q==,
       }
     hasBin: true
-    peerDependencies:
-      ws: ^8.18.0
-      zod: ^3.23.8
-    peerDependenciesMeta:
-      ws:
-        optional: true
-      zod:
-        optional: true
 
   p-limit@2.3.0:
     resolution:
@@ -4725,6 +4728,14 @@ packages:
       }
     engines: { node: ">=10" }
 
+  zod-to-json-schema@3.24.5:
+    resolution:
+      {
+        integrity: sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==,
+      }
+    peerDependencies:
+      zod: ^3.24.1
+
   zod@3.24.2:
     resolution:
       {
@@ -5234,6 +5245,11 @@ snapshots:
     dependencies:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.0
+
+  "@mistralai/mistralai@1.5.2(zod@3.24.2)":
+    dependencies:
+      zod: 3.24.2
+      zod-to-json-schema: 3.24.5(zod@3.24.2)
 
   "@nodelib/fs.scandir@2.1.5":
     dependencies:
@@ -7003,18 +7019,17 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
-  openai@4.93.0(encoding@0.1.13)(ws@8.18.1)(zod@3.24.2):
+  openai@4.28.0(encoding@0.1.13):
     dependencies:
       "@types/node": 18.19.76
       "@types/node-fetch": 2.6.12
       abort-controller: 3.0.0
       agentkeepalive: 4.6.0
+      digest-fetch: 1.3.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
       node-fetch: 2.7.0(encoding@0.1.13)
-    optionalDependencies:
-      ws: 8.18.1
-      zod: 3.24.2
+      web-streams-polyfill: 3.3.3
     transitivePeerDependencies:
       - encoding
 
@@ -7756,5 +7771,9 @@ snapshots:
   yn@3.1.1: {}
 
   yocto-queue@0.1.0: {}
+
+  zod-to-json-schema@3.24.5(zod@3.24.2):
+    dependencies:
+      zod: 3.24.2
 
   zod@3.24.2: {}
