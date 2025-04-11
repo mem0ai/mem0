@@ -73,6 +73,7 @@
                     "group": "Features",
                     "icon": "wrench",
                     "pages": [
+                      "open-source/features/async-memory",
                       "features/openai_compatibility",
                       "features/custom-fact-extraction-prompt",
                       "features/custom-update-memory-prompt",
@@ -202,8 +203,8 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
-                  "examples/mem0-livekit-voice-agent",
-                  "examples/email_processing"
+                  "examples/email_processing",
+                  "examples/youtube-assistant"
                 ]
               }
             ]
@@ -228,7 +229,8 @@
                   "integrations/mcp-server",
                   "integrations/livekit",
                   "integrations/elevenlabs",
-                  "integrations/pipecat"
+                  "integrations/pipecat",
+                  "integrations/agno"
                 ]
               }
             ]

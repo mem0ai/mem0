@@ -91,10 +91,17 @@ export_instructions = """
 5. Clearly distinguish between factual statements and inferences
 """
 
+# For create operation, using only user_id filter as requested
+filters = {
+    "AND": [
+        {"user_id": "alex"}
+    ]
+}
+
 response = client.create_memory_export(
     schema=json_schema,
-    user_id="alice",
-    export_instructions=export_instructions
+    filters=filters,
+    export_instructions=export_instructions  # Optional
 )
 
 print(response)
@@ -127,7 +134,15 @@ Once the export job is complete, you can retrieve the structured data:
 <CodeGroup>
 
 ```python Python
-response = client.get_memory_export(user_id="alice")
+# Corrected date range (assuming you meant July 10 to July 20)
+filters = {
+    "AND": [
+        {"created_at": {"gte": "2024-07-10", "lte": "2024-07-20"}},
+        {"user_id": "alex"}
+    ]
+}
+
+response = client.get_memory_export(filters=filters)
 print(response)
 ```
 
@@ -157,6 +172,7 @@ You can apply various filters to customize which memories are included in the ex
 - `agent_id`: Filter memories by specific agent
 - `run_id`: Filter memories by specific run
 - `session_id`: Filter memories by specific session
+- `created_at`: Filter memories by date
 
 <Note>
 The export process may take some time to complete, especially when dealing with a large number of memories or complex schemas.

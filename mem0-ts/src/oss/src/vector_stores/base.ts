@@ -23,4 +23,7 @@ export interface VectorStore {
     filters?: SearchFilters,
     limit?: number,
   ): Promise<[VectorStoreResult[], number]>;
+  getUserId(): Promise<string>;
+  setUserId(userId: string): Promise<void>;
+  initialize(): Promise<void>;
 }
