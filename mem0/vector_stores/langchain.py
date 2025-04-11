@@ -83,7 +83,8 @@ class Langchain(VectorStoreBase):
                 ids=ids
             )
         else:
-            texts = [payload["data"] for payload in payloads]
+            # Fallback to add_texts method
+            texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
             self.client.add_texts(
                 texts=texts,
                 metadatas=payloads,
