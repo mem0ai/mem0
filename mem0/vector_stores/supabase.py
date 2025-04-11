@@ -48,7 +48,7 @@ class Supabase(VectorStoreBase):
 
         collections = self.list_cols()
         if collection_name not in collections:
-            self.create_col(embedding_model_dims)
+            self.create_col()
 
     def _preprocess_filters(self, filters: Optional[dict] = None) -> Optional[dict]:
         """
@@ -69,26 +69,23 @@ class Supabase(VectorStoreBase):
         # For multiple filters, use $and clause
         return {"$and": [{key: {"$eq": value}} for key, value in filters.items()]}
 
-    def create_col(self, embedding_model_dims: Optional[int] = None) -> None:
+    def create_col(self) -> None:
         """
         Create a new collection with vector support.
         Will also initialize vector search index.
-
-        Args:
-            embedding_model_dims (int, optional): Dimension of the embedding vector.
-                If not provided, uses the dimension specified in initialization.
         """
-        dims = embedding_model_dims or self.embedding_model_dims
-        if not dims:
-            raise ValueError(
-                "embedding_model_dims must be provided either during initialization or when creating collection"
-            )
+        if not self.embedding_model_dims:
+            raise ValueError("embedding_model_dims must be provided during initialization")
 
         logger.info(f"Creating new collection: {self.collection_name}")
         try:
-            self.collection = self.db.get_or_create_collection(name=self.collection_name, dimension=dims)
+            self.collection = self.db.get_or_create_collection(
+                name=self.collection_name, dimension=self.embedding_model_dims
+            )
             self.collection.create_index(method=self.index_method.value, measure=self.index_measure.value)
-            logger.info(f"Successfully created collection {self.collection_name} with dimension {dims}")
+            logger.info(
+                f"Successfully created collection {self.collection_name} with dimension {self.embedding_model_dims}"
+            )
         except Exception as e:
             logger.error(f"Failed to create collection: {str(e)}")
             raise

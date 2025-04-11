@@ -1,13 +1,10 @@
 import unittest
-from unittest.mock import MagicMock
 import uuid
+from unittest.mock import MagicMock
+
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    PointStruct,
-    VectorParams,
-    PointIdsList,
-)
+from qdrant_client.models import Distance, PointIdsList, PointStruct, VectorParams
+
 from mem0.vector_stores.qdrant import Qdrant
 
 
@@ -25,7 +22,7 @@ class TestQdrant(unittest.TestCase):
     def test_create_col(self):
         self.client_mock.get_collections.return_value = MagicMock(collections=[])
 
-        self.qdrant.create_col(vector_size=128, on_disk=True)
+        self.qdrant.create_col()
 
         expected_config = VectorParams(size=128, distance=Distance.COSINE, on_disk=True)
 

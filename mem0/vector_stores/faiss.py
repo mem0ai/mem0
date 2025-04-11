@@ -47,6 +47,7 @@ class FAISS(VectorStoreBase):
                 Defaults to "euclidean".
             normalize_L2 (bool, optional): Whether to normalize L2 vectors. Only applicable for euclidean distance.
                 Defaults to False.
+            vector_size (int, optional): Dimensionality of vectors. Defaults to 1536.
         """
         self.collection_name = collection_name
         self.path = path or f"/tmp/faiss/{collection_name}"
@@ -69,7 +70,7 @@ class FAISS(VectorStoreBase):
             if os.path.exists(index_path) and os.path.exists(docstore_path):
                 self._load(index_path, docstore_path)
             else:
-                self.create_col(collection_name)
+                self.create_col()
 
     def _load(self, index_path: str, docstore_path: str):
         """
@@ -147,7 +148,7 @@ class FAISS(VectorStoreBase):
 
         return results
 
-    def create_col(self, name: str, distance: str = None):
+    def create_col(self):
         """
         Create a new collection.
 
@@ -159,15 +160,12 @@ class FAISS(VectorStoreBase):
         Returns:
             self: The FAISS instance.
         """
-        distance_strategy = distance or self.distance_strategy
-
         # Create index based on distance strategy
-        if distance_strategy.lower() == "inner_product" or distance_strategy.lower() == "cosine":
+        if self.distance_strategy.lower() == "inner_product" or self.distance_strategy.lower() == "cosine":
             self.index = faiss.IndexFlatIP(self.embedding_model_dims)
         else:
             self.index = faiss.IndexFlatL2(self.embedding_model_dims)
 
-        self.collection_name = name
 
         self._save()
 
