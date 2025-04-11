@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Assistant powered by Mem0</title>
+    <link rel="stylesheet" href="../styles/options.css">
+  </head>
+  <body>
+    <div class="main-content">
+      <header>
+        <div class="title-container">
+          <h1>YouTube Assistant</h1>
+          <div class="branding-container">
+            <span class="powered-by">powered by</span>
+            <a href="https://mem0.ai" target="_blank">
+              <img src="../assets/dark.svg" alt="Mem0 Logo" class="logo-img">
+            </a>
+          </div>  
+        </div>
+        <div class="description">
+          Configure your YouTube Assistant preferences.
+        </div>
+      </header>
+
+      <div id="status-container"></div>
+
+      <div class="section">
+        <h2>Model Settings</h2>
+        <div class="form-group">
+          <label for="model">OpenAI Model</label>
+          <select id="model">
+            <option value="o3">o3</option>
+            <option value="o1">o1</option>
+            <option value="o1-mini">o1-mini</option>
+            <option value="o1-pro">o1-pro</option>
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4o-mini">GPT-4o mini</option>
+          </select>
+          <div class="description" style="margin-top: 8px; font-size: 13px">
+            Choose the OpenAI model to use depending on your needs.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="max-tokens">Maximum Response Length</label>
+          <input
+            type="number"
+            id="max-tokens"
+            min="50"
+            max="4000"
+            value="2000"
+          />
+          <div class="description" style="margin-top: 8px; font-size: 13px">
+            Maximum number of tokens in the AI's response. Higher values allow
+            for longer responses but may increase processing time.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="temperature">Response Creativity</label>
+          <input
+            type="range"
+            id="temperature"
+            min="0"
+            max="1"
+            step="0.1"
+            value="0.7"
+          />
+          <div
+            id="temperature-value"
+            style="display: inline-block; margin-left: 10px"
+          >
+            0.7
+          </div>
+          <div class="description" style="margin-top: 8px; font-size: 13px">
+            Controls response randomness. Lower values (0.1-0.3) are more
+            focused and deterministic, higher values (0.7-0.9) are more creative
+            and diverse.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Create Memories</h2>
+        <div class="description">
+          Add information about yourself that you want the AI to remember. This
+          information will be used to provide more personalized responses.
+        </div>
+
+        <div class="form-group">
+          <label for="memory-input">Your Information</label>
+          <textarea
+            id="memory-input"
+            class="memory-input"
+            placeholder="Enter information about yourself that you want the AI to remember..."
+          ></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="add-memory" class="primary">
+            <span class="button-text">Add Memory</span>
+          </button>
+        </div>
+
+        <div id="memory-result" class="memory-result"></div>
+      </div>
+
+      <div class="actions">
+        <button id="reset-defaults" class="secondary-button">
+          Reset to Defaults
+        </button>
+        <button id="save-options">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- Memories Sidebar -->
+    <div class="memories-sidebar" id="memories-sidebar">
+      <div class="memories-header">
+        <h2 class="memories-title">Your Memories</h2>
+        <div class="memories-actions">
+          <button
+            id="refresh-memories"
+            class="memory-action-btn"
+            title="Refresh Memories"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path
+                d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+              ></path>
+            </svg>
+          </button>
+          <button
+            id="delete-all-memories"
+            class="memory-action-btn delete"
+            title="Delete All Memories"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="memories-list" id="memories-list">
+        <!-- Memories will be populated here -->
+      </div>
+    </div>
+
+    <!-- Edit Memory Modal -->
+    <div class="edit-memory-modal" id="edit-memory-modal">
+      <div class="edit-memory-content">
+        <div class="edit-memory-header">
+          <h3 class="edit-memory-title">Edit Memory</h3>
+          <button class="edit-memory-close" id="close-edit-modal">
+            &times;
+          </button>
+        </div>
+        <textarea class="edit-memory-textarea" id="edit-memory-text"></textarea>
+        <div class="edit-memory-actions">
+          <button class="memory-action-btn delete" id="delete-memory">
+            Delete
+          </button>
+          <button class="memory-action-btn" id="save-memory">
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../dist/options.bundle.js"></script>
+  </body>
+</html>
