@@ -42,6 +42,9 @@ export class ConfigManager {
           model:
             userConfig.llm?.config?.model ||
             DEFAULT_MEMORY_CONFIG.llm.config.model,
+          modelProperties:
+            userConfig.llm?.config?.modelProperties ||
+            DEFAULT_MEMORY_CONFIG.llm.config.modelProperties,
         },
       },
       historyDbPath:

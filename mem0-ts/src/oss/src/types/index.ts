@@ -39,6 +39,7 @@ export interface LLMConfig {
   config?: Record<string, any>;
   apiKey?: string;
   model?: string;
+  modelProperties?: Record<string, any>;
 }
 
 export interface Neo4jConfig {
@@ -127,6 +128,7 @@ export const MemoryConfigSchema = z.object({
     config: z.object({
       apiKey: z.string(),
       model: z.string().optional(),
+      modelProperties: z.record(z.string(), z.any()).optional(),
     }),
   }),
   historyDbPath: z.string().optional(),
