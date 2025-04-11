@@ -7,7 +7,7 @@ from mem0.embeddings.configs import EmbedderConfig
 from mem0.graphs.configs import GraphStoreConfig
 from mem0.llms.configs import LlmConfig
 from mem0.memory.setup import mem0_dir
-from mem0.memory.storage import DatabaseType, HistoryDBConfig
+from mem0.memory.storage import HistoryDBConfig
 from mem0.vector_stores.configs import VectorStoreConfig
 
 # Set up the directory path
@@ -52,7 +52,7 @@ class MemoryConfig(BaseModel):
     history_db: HistoryDBConfig = Field(
         description="Configuration for the history database",
         default=HistoryDBConfig(
-            type=DatabaseType.SQLITE,
+            type="sqlite",
             url=os.path.join(mem0_dir, "history.db"),
         ),
     )

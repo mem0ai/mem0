@@ -387,13 +387,20 @@ Mem0 offers extensive configuration options to customize its behavior according 
 | `password`   | Authentication password         | None        |
 </Accordion>
 
+<Accordion title="History Database Configuration">
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `type`    | History database type ("sqlite", "postgresql", "mysql") | "sqlite" |
+| `url`     | Connection URL or file path for the history database | "{mem0_dir}/history.db" |
+</Accordion>
+
 <Accordion title="General Configuration">
 | Parameter         | Description                          | Default                    |
 |------------------|--------------------------------------|----------------------------|
-| `history_db` | History database config | `{"type": "sqlite", "url": "{mem0_dir}/history.db"}` |
-| `version`         | API version                          | "v1.1"                     |
-| `custom_fact_extraction_prompt`   | Custom prompt for memory processing  | None                       |
-| `custom_update_memory_prompt` | Custom prompt for update memory | None                |
+| `history_db`     | History database config              | `{"type": "sqlite", "url": "{mem0_dir}/history.db"}` |
+| `version`        | API version                          | "v1.1"                     |
+| `custom_fact_extraction_prompt` | Custom prompt for memory processing  | None         |
+| `custom_update_memory_prompt`   | Custom prompt for update memory        | None         |
 </Accordion>
 
 <Accordion title="Complete Configuration Example">
@@ -428,11 +435,13 @@ config = {
             "password": "password"
         }
     },
-    "history_db_path": "/path/to/history.db",
+    "history_db": {"type": "sqlite", "url": "{mem0_dir}/history.db"},
     "version": "v1.1",
     "custom_fact_extraction_prompt": "Optional custom prompt for fact extraction for memory",
     "custom_update_memory_prompt": "Optional custom prompt for update memory"
 }
+```
+</Accordion>
 ```
 </Accordion>
 </AccordionGroup>
