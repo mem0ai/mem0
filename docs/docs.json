@@ -140,7 +140,8 @@
                           "components/vectordbs/dbs/supabase",
                           "components/vectordbs/dbs/vertex_ai",
                           "components/vectordbs/dbs/weaviate",
-                          "components/vectordbs/dbs/faiss"
+                          "components/vectordbs/dbs/faiss",
+                          "components/vectordbs/dbs/langchain"
                         ]
                       }
                     ]

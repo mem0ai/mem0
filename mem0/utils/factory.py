@@ -84,6 +84,7 @@ class VectorStoreFactory:
         "supabase": "mem0.vector_stores.supabase.Supabase",
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
+        "langchain": "mem0.vector_stores.langchain.Langchain",
     }
 
     @classmethod

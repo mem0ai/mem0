@@ -39,14 +39,14 @@ def test_create_col(faiss_instance, mock_faiss_index):
     # Test creating a collection with euclidean distance
     with patch('faiss.IndexFlatL2', return_value=mock_faiss_index) as mock_index_flat_l2:
         with patch('faiss.write_index'):
-            faiss_instance.create_col(name="new_collection", vector_size=256)
-            mock_index_flat_l2.assert_called_once_with(256)
+            faiss_instance.create_col(name="new_collection")
+            mock_index_flat_l2.assert_called_once_with(faiss_instance.embedding_model_dims)
     
     # Test creating a collection with inner product distance
     with patch('faiss.IndexFlatIP', return_value=mock_faiss_index) as mock_index_flat_ip:
         with patch('faiss.write_index'):
-            faiss_instance.create_col(name="new_collection", vector_size=256, distance="inner_product")
-            mock_index_flat_ip.assert_called_once_with(256)
+            faiss_instance.create_col(name="new_collection", distance="inner_product")
+            mock_index_flat_ip.assert_called_once_with(faiss_instance.embedding_model_dims)
 
 
 def test_insert(faiss_instance, mock_faiss_index):
