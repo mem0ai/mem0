@@ -12,11 +12,11 @@ async function testMistral() {
   }
 
   console.log("Testing Mistral LLM implementation...");
-  
+
   // Initialize MistralLLM
   const mistral = new MistralLLM({
     apiKey: process.env.MISTRAL_API_KEY,
-    model: "mistral-tiny-latest" // You can change to other models like mistral-small-latest
+    model: "mistral-tiny-latest", // You can change to other models like mistral-small-latest
   });
 
   try {
@@ -24,9 +24,9 @@ async function testMistral() {
     console.log("Testing simple chat completion:");
     const chatResponse = await mistral.generateChat([
       { role: "system", content: "You are a helpful assistant." },
-      { role: "user", content: "What is the capital of France?" }
+      { role: "user", content: "What is the capital of France?" },
     ]);
-    
+
     console.log("Chat response:");
     console.log(`Role: ${chatResponse.role}`);
     console.log(`Content: ${chatResponse.content}\n`);
@@ -55,16 +55,16 @@ async function testMistral() {
             required: ["location"],
           },
         },
-      }
+      },
     ];
 
     const toolResponse = await mistral.generateResponse(
       [
         { role: "system", content: "You are a helpful assistant." },
-        { role: "user", content: "What's the weather like in Paris, France?" }
+        { role: "user", content: "What's the weather like in Paris, France?" },
       ],
       undefined,
-      tools
+      tools,
     );
 
     console.log("Tool response:", toolResponse);

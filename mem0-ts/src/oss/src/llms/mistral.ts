@@ -2,7 +2,6 @@ import { Mistral } from "@mistralai/mistralai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
 
-
 export class MistralLLM implements LLM {
   private client: Mistral;
   private model: string;
@@ -12,7 +11,7 @@ export class MistralLLM implements LLM {
       throw new Error("Mistral API key is required");
     }
     this.client = new Mistral({
-      apiKey: config.apiKey
+      apiKey: config.apiKey,
     });
     this.model = config.model || "mistral-tiny-latest";
   }
@@ -25,7 +24,7 @@ export class MistralLLM implements LLM {
     if (Array.isArray(content)) {
       // Handle ContentChunk array - extract text content
       return content
-        .map(chunk => {
+        .map((chunk) => {
           if (chunk.type === "text") {
             return chunk.text;
           } else {
@@ -46,18 +45,21 @@ export class MistralLLM implements LLM {
       model: this.model,
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
-        content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content),
       })),
       ...(tools && { tools }),
       ...(responseFormat && { response_format: responseFormat }),
     });
-    
+
     if (!response || !response.choices || response.choices.length === 0) {
       return "";
     }
-    
+
     const message = response.choices[0].message;
-    
+
     if (!message) {
       return "";
     }
@@ -68,9 +70,10 @@ export class MistralLLM implements LLM {
         role: message.role || "assistant",
         toolCalls: message.toolCalls.map((call) => ({
           name: call.function.name,
-          arguments: typeof call.function.arguments === "string" 
-            ? call.function.arguments 
-            : JSON.stringify(call.function.arguments),
+          arguments:
+            typeof call.function.arguments === "string"
+              ? call.function.arguments
+              : JSON.stringify(call.function.arguments),
         })),
       };
     }
@@ -81,26 +84,29 @@ export class MistralLLM implements LLM {
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     const formattedMessages = messages.map((msg) => ({
       role: msg.role as "system" | "user" | "assistant",
-      content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+      content:
+        typeof msg.content === "string"
+          ? msg.content
+          : JSON.stringify(msg.content),
     }));
 
     const response = await this.client.chat.complete({
       model: this.model,
       messages: formattedMessages,
     });
-    
+
     if (!response || !response.choices || response.choices.length === 0) {
       return {
         content: "",
         role: "assistant",
       };
     }
-    
+
     const message = response.choices[0].message;
-    
+
     return {
       content: this.contentToString(message.content),
       role: message.role || "assistant",
     };
   }
-} 
+}

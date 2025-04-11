@@ -13,6 +13,9 @@ importers:
       "@google/genai":
         specifier: ^0.7.0
         version: 0.7.0(encoding@0.1.13)
+      "@mistralai/mistralai":
+        specifier: ^1.5.2
+        version: 1.5.2(zod@3.24.2)
       "@qdrant/js-client-rest":
         specifier: 1.13.0
         version: 1.13.0(typescript@5.5.4)
@@ -47,7 +50,7 @@ importers:
         specifier: 8.11.3
         version: 8.11.3
       redis:
-        specifier: 4.7.0
+        specifier: ^4.6.13
         version: 4.7.0
       sqlite3:
         specifier: 5.1.7
@@ -56,8 +59,8 @@ importers:
         specifier: 9.0.1
         version: 9.0.1
       zod:
-        specifier: 3.22.4
-        version: 3.22.4
+        specifier: ^3.24.1
+        version: 3.24.2
     devDependencies:
       "@types/node":
         specifier: ^22.7.6
@@ -792,6 +795,14 @@ packages:
       {
         integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==,
       }
+
+  "@mistralai/mistralai@1.5.2":
+    resolution:
+      {
+        integrity: sha512-mBTIDQmuAX9RowMYteZFHJIYlEwDcHzzaxgXzrFtlvH9CkKXK7R1VnZ1sZSe+uLMg0dIXUVdPRUh1SwyFeSqXw==,
+      }
+    peerDependencies:
+      zod: ">= 3"
 
   "@nodelib/fs.scandir@2.1.5":
     resolution:
@@ -4717,10 +4728,18 @@ packages:
       }
     engines: { node: ">=10" }
 
-  zod@3.22.4:
+  zod-to-json-schema@3.24.5:
     resolution:
       {
-        integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==,
+        integrity: sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==,
+      }
+    peerDependencies:
+      zod: ^3.24.1
+
+  zod@3.24.2:
+    resolution:
+      {
+        integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==,
       }
 
 snapshots:
@@ -5226,6 +5245,11 @@ snapshots:
     dependencies:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.0
+
+  "@mistralai/mistralai@1.5.2(zod@3.24.2)":
+    dependencies:
+      zod: 3.24.2
+      zod-to-json-schema: 3.24.5(zod@3.24.2)
 
   "@nodelib/fs.scandir@2.1.5":
     dependencies:
@@ -7748,4 +7772,8 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod@3.22.4: {}
+  zod-to-json-schema@3.24.5(zod@3.24.2):
+    dependencies:
+      zod: 3.24.2
+
+  zod@3.24.2: {}
