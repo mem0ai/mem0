@@ -7,7 +7,7 @@ class AzureAISearchConfig(BaseModel):
     collection_name: str = Field("mem0", description="Name of the collection")
     service_name: str = Field(None, description="Azure AI Search service name")
     api_key: str = Field(None, description="API key for the Azure AI Search service")
-    embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
+    embedding_model_dims: int = Field(None, description="Dimension of the embedding vector")
     compression_type: Optional[str] = Field(
         None, description="Type of vector compression to use. Options: 'scalar', 'binary', or None"
     )
