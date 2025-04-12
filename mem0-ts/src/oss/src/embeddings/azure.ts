@@ -18,7 +18,7 @@ export class AzureOpenAIEmbedder implements Embedder {
       endpoint: endpoint as string,
       ...rest,
     });
-    this.model = config.model || "text-embedding-ada-002";
+    this.model = config.model || "text-embedding-3-small";
   }
 
   async embed(text: string): Promise<number[]> {
@@ -36,4 +36,4 @@ export class AzureOpenAIEmbedder implements Embedder {
     });
     return response.data.map((item) => item.embedding);
   }
-} 
+}

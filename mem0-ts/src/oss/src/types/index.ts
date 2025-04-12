@@ -113,6 +113,7 @@ export const MemoryConfigSchema = z.object({
     config: z.object({
       apiKey: z.string(),
       model: z.string().optional(),
+      modelProperties: z.record(z.string(), z.any()).optional(),
     }),
   }),
   vectorStore: z.object({

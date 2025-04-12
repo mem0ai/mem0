@@ -16,6 +16,9 @@ export class ConfigManager {
           model:
             userConfig.embedder?.config?.model ||
             DEFAULT_MEMORY_CONFIG.embedder.config.model,
+          modelProperties:
+            userConfig.embedder?.config?.modelProperties ||
+            DEFAULT_MEMORY_CONFIG.embedder.config.modelProperties,
         },
       },
       vectorStore: {
