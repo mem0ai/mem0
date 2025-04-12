@@ -3,7 +3,7 @@ Memory-Powered Movie Recommendation Assistant (Grok 3 + Mem0)
 This script builds a personalized movie recommender that remembers your preferences
 (e.g. dislikes horror, loves romcoms) using Mem0 as a memory layer and Grok 3 for responses.
 
-In order to run this file, you need to set up your Mem0 API at Mem0 platform and also need a XAI API key.
+In order to run this file, you need to set up your Mem0 API at Mem0 platform and also need an XAI API key.
 export XAI_API_KEY="your_xai_api_key"
 export MEM0_API_KEY="your_mem0_api_key"
 """
