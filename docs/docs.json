@@ -231,7 +231,8 @@
                   "integrations/livekit",
                   "integrations/elevenlabs",
                   "integrations/pipecat",
-                  "integrations/agno"
+                  "integrations/agno",
+                  "integrations/keywords"
                 ]
               }
             ]
