@@ -26,6 +26,7 @@ import { HistoryManager } from "../storage/base";
 import { GoogleEmbedder } from "../embeddings/google";
 import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
+import { AzureOpenAIEmbedder } from "../embeddings/azure";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -36,6 +37,8 @@ export class EmbedderFactory {
         return new OllamaEmbedder(config);
       case "google":
         return new GoogleEmbedder(config);
+      case "azure_openai":
+        return new AzureOpenAIEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }

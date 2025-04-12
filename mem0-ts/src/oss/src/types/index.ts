@@ -16,6 +16,7 @@ export interface EmbeddingConfig {
   apiKey?: string;
   model?: string;
   url?: string;
+  modelProperties?: Record<string, any>;
 }
 
 export interface VectorStoreConfig {
