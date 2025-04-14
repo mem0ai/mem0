@@ -1,6 +1,6 @@
 {
-  "name": "saket-test-2",
-  "version": "2.1.16-patch.3",
+  "name": "mem0ai",
+  "version": "2.1.16-patch.7",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
