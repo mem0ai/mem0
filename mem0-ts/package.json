@@ -91,7 +91,6 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "@langchain/core": "^0.3.44",
     "axios": "1.7.7",
     "openai": "^4.93.0",
     "uuid": "9.0.1",
@@ -107,6 +106,7 @@
     "@types/pg": "8.11.0",
     "@types/sqlite3": "3.1.11",
     "groq-sdk": "0.3.0",
+    "@langchain/core": "^0.3.44",
     "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
