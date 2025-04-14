@@ -1,4 +1,4 @@
-.PHONY: format sort lint
+.PHONY: format sort lint test test-cov test-htmlcov coverage-clean
 
 # Variables
 ISORT_OPTIONS = --profile black
@@ -41,4 +41,12 @@ clean:
 	poetry run rm -rf dist
 
 test:
-	poetry run pytest tests
+	poetry run pytest --cov=mem0 --cov-report=term-missing tests/
+
+test-htmlcov:
+	poetry run pytest --cov=mem0 --cov-report=html tests/
+	@echo "Open htmlcov/index.html to view the coverage report."
+
+# Clean coverage artifacts
+coverage-clean:
+	rm -rf .coverage htmlcov
