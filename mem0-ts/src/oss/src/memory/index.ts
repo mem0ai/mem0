@@ -241,12 +241,10 @@ export class Memory {
     }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
-    // Get prompts
     const [systemPrompt, userPrompt] = this.customPrompt
       ? [this.customPrompt, `Input:\n${parsedMessages}`]
       : getFactRetrievalMessages(parsedMessages);
 
-    // Extract facts using LLM
     const response = await this.llm.generateResponse(
       [
         { role: "system", content: systemPrompt },
@@ -255,8 +253,18 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanResponse = removeCodeBlocks(response);
-    const facts = JSON.parse(cleanResponse).facts || [];
+    const cleanResponse = removeCodeBlocks(response as string);
+    let facts: string[] = [];
+    try {
+      facts = JSON.parse(cleanResponse).facts || [];
+    } catch (e) {
+      console.error(
+        "Failed to parse facts from LLM response:",
+        cleanResponse,
+        e,
+      );
+      facts = [];
+    }
 
     // Get embeddings for new facts
     const newMessageEmbeddings: Record<string, number[]> = {};
@@ -292,13 +300,24 @@ export class Memory {
 
     // Get memory update decisions
     const updatePrompt = getUpdateMemoryMessages(uniqueOldMemories, facts);
+
     const updateResponse = await this.llm.generateResponse(
       [{ role: "user", content: updatePrompt }],
       { type: "json_object" },
     );
 
-    const cleanUpdateResponse = removeCodeBlocks(updateResponse);
-    const memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
+    const cleanUpdateResponse = removeCodeBlocks(updateResponse as string);
+    let memoryActions: any[] = [];
+    try {
+      memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
+    } catch (e) {
+      console.error(
+        "Failed to parse memory actions from LLM response:",
+        cleanUpdateResponse,
+        e,
+      );
+      memoryActions = [];
+    }
 
     // Process memory actions
     const results: MemoryItem[] = [];

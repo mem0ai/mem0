@@ -5,13 +5,20 @@ import {
   SystemMessage,
   BaseMessage,
 } from "@langchain/core/messages";
+import { z } from "zod";
 import { LLM, LLMResponse } from "./base";
-import { LLMConfig, Message } from "../types/index"; // Corrected import path
+import { LLMConfig, Message } from "../types/index";
+// Import the schemas directly into LangchainLLM
+import { FactRetrievalSchema, MemoryUpdateSchema } from "../prompts";
+// Import graph tool argument schemas
+import {
+  GraphExtractEntitiesArgsSchema,
+  GraphRelationsArgsSchema,
+  GraphSimpleRelationshipArgsSchema, // Used for delete tool
+} from "../graphs/tools";
 
-// Helper to convert mem0 messages to Langchain messages
 const convertToLangchainMessages = (messages: Message[]): BaseMessage[] => {
   return messages.map((msg) => {
-    // Langchain messages expect string content. Stringify complex content for now.
     const content =
       typeof msg.content === "string"
         ? msg.content
@@ -20,12 +27,11 @@ const convertToLangchainMessages = (messages: Message[]): BaseMessage[] => {
       case "system":
         return new SystemMessage(content);
       case "user":
-      case "human": // Allow 'human' role as well
+      case "human":
         return new HumanMessage(content);
       case "assistant":
-      case "ai": // Allow 'ai' role
+      case "ai":
         return new AIMessage(content);
-      // TODO: Add support for ToolMessage if needed
       default:
         console.warn(
           `Unsupported message role '${msg.role}' for Langchain. Treating as 'human'.`,
@@ -37,24 +43,20 @@ const convertToLangchainMessages = (messages: Message[]): BaseMessage[] => {
 
 export class LangchainLLM implements LLM {
   private llmInstance: BaseLanguageModel;
-  private modelName: string; // Store model name if available
+  private modelName: string;
 
   constructor(config: LLMConfig) {
-    // Check if config.model is provided and is an object (the instance)
     if (!config.model || typeof config.model !== "object") {
       throw new Error(
         "Langchain provider requires an initialized Langchain instance passed via the 'model' field in the LLM config.",
       );
     }
-    // Basic check for an invoke method to ensure it's likely a Langchain model
     if (typeof (config.model as any).invoke !== "function") {
       throw new Error(
         "Provided Langchain 'instance' in the 'model' field does not appear to be a valid Langchain language model (missing invoke method).",
       );
     }
     this.llmInstance = config.model as BaseLanguageModel;
-    // Attempt to get a model name identifier if available, otherwise use a placeholder
-    // If config.model is the instance, we might try to access an identifier on it, or use a default
     this.modelName =
       (this.llmInstance as any).modelId ||
       (this.llmInstance as any).model ||
@@ -63,113 +65,173 @@ export class LangchainLLM implements LLM {
 
   async generateResponse(
     messages: Message[],
-    responseFormat?: { type: string },
+    response_format?: { type: string },
     tools?: any[],
   ): Promise<string | LLMResponse> {
     const langchainMessages = convertToLangchainMessages(messages);
-    let runnable = this.llmInstance;
+    let runnable: any = this.llmInstance;
     const invokeOptions: Record<string, any> = {};
+    let isStructuredOutput = false;
+    let selectedSchema: z.ZodSchema<any> | null = null;
+    let isToolCallResponse = false;
 
-    // --- Handle responseFormat (Experimental) ---
-    // Langchain's approach varies. Some models accept 'response_format' in options,
-    // others require .withStructuredOutput(). This is a basic attempt.
-    if (responseFormat?.type === "json_object") {
-      // Try adding to options (works for some models like OpenAI via Langchain)
-      invokeOptions.response_format = { type: "json_object" };
-      // Note: For guaranteed JSON, .withStructuredOutput(schema) is often needed.
-      console.warn(
-        "Requesting JSON format with LangchainLLM. Success depends on the specific model's capabilities and how it's wrapped. Consider using `.withStructuredOutput` on the Langchain instance if this fails.",
-      );
+    // --- Internal Schema Selection Logic (runs regardless of response_format) ---
+    const systemPromptContent =
+      (messages.find((m) => m.role === "system")?.content as string) || "";
+    const userPromptContent =
+      (messages.find((m) => m.role === "user")?.content as string) || "";
+    const toolNames = tools?.map((t) => t.function.name) || [];
+
+    // Prioritize tool call argument schemas
+    if (toolNames.includes("extract_entities")) {
+      selectedSchema = GraphExtractEntitiesArgsSchema;
+      isToolCallResponse = true;
+    } else if (toolNames.includes("establish_relationships")) {
+      selectedSchema = GraphRelationsArgsSchema;
+      isToolCallResponse = true;
+    } else if (toolNames.includes("delete_graph_memory")) {
+      selectedSchema = GraphSimpleRelationshipArgsSchema;
+      isToolCallResponse = true;
+    }
+    // Check for memory prompts if no tool schema matched
+    else if (
+      systemPromptContent.includes("Personal Information Organizer") &&
+      systemPromptContent.includes("extract relevant pieces of information")
+    ) {
+      selectedSchema = FactRetrievalSchema;
+    } else if (
+      userPromptContent.includes("smart memory manager") &&
+      userPromptContent.includes("Compare newly retrieved facts")
+    ) {
+      selectedSchema = MemoryUpdateSchema;
     }
 
-    // --- Handle tools (Experimental) ---
-    // Langchain typically uses .bindTools() or equivalent attached to the model instance.
-    if (tools && tools.length > 0) {
-      if (typeof (runnable as any).bindTools === "function") {
-        // This assumes the 'tools' format is compatible with Langchain's bindTools
+    // --- Apply Structured Output if Schema Selected ---
+    if (
+      selectedSchema &&
+      typeof (this.llmInstance as any).withStructuredOutput === "function"
+    ) {
+      // Apply if a schema was selected (for memory or single tool calls)
+      if (
+        !isToolCallResponse ||
+        (isToolCallResponse && tools && tools.length === 1)
+      ) {
         try {
-          runnable = (runnable as any).bindTools(tools);
-        } catch (e) {
-          console.error(
-            "Failed to bind tools to Langchain instance. Ensure 'tools' format is compatible.",
-            e,
+          runnable = (this.llmInstance as any).withStructuredOutput(
+            selectedSchema,
+            { name: tools?.[0]?.function.name },
           );
-          // Decide whether to proceed without tools or throw
-          // Proceeding without tools for now
+          isStructuredOutput = true;
+        } catch (e) {
+          isStructuredOutput = false; // Ensure flag is false on error
+          // No fallback to response_format here unless explicitly passed
+          if (response_format?.type === "json_object") {
+            invokeOptions.response_format = { type: "json_object" };
+          }
         }
-      } else {
-        console.warn(
-          "The provided Langchain instance does not have a standard `.bindTools()` method. Tool calling may not function as expected.",
-        );
+      } else if (isToolCallResponse) {
+        // If multiple tools, don't apply structured output, handle via tool binding below
+      }
+    } else if (selectedSchema && response_format?.type === "json_object") {
+      // Schema selected, but no .withStructuredOutput. Try basic response_format only if explicitly requested.
+      if (
+        (this.llmInstance as any)._identifyingParams?.response_format ||
+        (this.llmInstance as any).response_format
+      ) {
+        invokeOptions.response_format = { type: "json_object" };
+      }
+    } else if (!selectedSchema && response_format?.type === "json_object") {
+      // Explicit JSON request, but no schema inferred. Try basic response_format.
+      if (
+        (this.llmInstance as any)._identifyingParams?.response_format ||
+        (this.llmInstance as any).response_format
+      ) {
+        invokeOptions.response_format = { type: "json_object" };
       }
     }
 
+    // --- Handle tool binding ---
+    if (tools && tools.length > 0) {
+      if (typeof (runnable as any).bindTools === "function") {
+        try {
+          runnable = (runnable as any).bindTools(tools);
+        } catch (e) {}
+      } else {
+      }
+    }
+
+    // --- Invoke and Process Response ---
     try {
-      // Use invoke with converted messages and any derived options
       const response = await runnable.invoke(langchainMessages, invokeOptions);
 
-      // Process Langchain response (typically a BaseMessage: AIMessage, etc.)
-      if (response && typeof response.content === "string") {
-        const responseContent = response.content;
-        // Check for tool calls (structure depends on model/Langchain version)
-        // Common patterns: response.tool_calls or response.additional_kwargs?.tool_calls
-        const toolCallsData =
-          (response as any).tool_calls ||
-          (response as any).additional_kwargs?.tool_calls;
-
-        if (
-          toolCallsData &&
-          Array.isArray(toolCallsData) &&
-          toolCallsData.length > 0
-        ) {
-          // Map Langchain tool calls to mem0 LLMResponse format
-          const mappedToolCalls = toolCallsData.map((call: any) => ({
-            name: call.name || call.id || "unknown_tool", // Adapt as needed
-            // Langchain tool 'args' can be object or string
+      if (isStructuredOutput && !isToolCallResponse) {
+        // Memory prompt with structured output
+        return JSON.stringify(response);
+      } else if (isStructuredOutput && isToolCallResponse) {
+        // Tool call with structured arguments
+        if (response?.tool_calls && Array.isArray(response.tool_calls)) {
+          const mappedToolCalls = response.tool_calls.map((call: any) => ({
+            name: call.name || tools?.[0]?.function.name || "unknown_tool",
             arguments:
               typeof call.args === "string"
                 ? call.args
                 : JSON.stringify(call.args),
           }));
-
           return {
-            content: responseContent, // May be empty if only tool calls exist
-            role: "assistant", // Langchain messages have 'type', map to role
+            content: response.content || "",
+            role: "assistant",
             toolCalls: mappedToolCalls,
           };
         } else {
-          // No tool calls detected, return plain content
-          return responseContent;
+          // Direct object response for tool args
+          return {
+            content: "",
+            role: "assistant",
+            toolCalls: [
+              {
+                name: tools?.[0]?.function.name || "unknown_tool",
+                arguments: JSON.stringify(response),
+              },
+            ],
+          };
         }
+      } else if (
+        response &&
+        response.tool_calls &&
+        Array.isArray(response.tool_calls)
+      ) {
+        // Standard tool call response (no structured output used/failed)
+        const mappedToolCalls = response.tool_calls.map((call: any) => ({
+          name: call.name || "unknown_tool",
+          arguments:
+            typeof call.args === "string"
+              ? call.args
+              : JSON.stringify(call.args),
+        }));
+        return {
+          content: response.content || "",
+          role: "assistant",
+          toolCalls: mappedToolCalls,
+        };
+      } else if (response && typeof response.content === "string") {
+        // Standard text response
+        return response.content;
       } else {
-        // Handle cases where response or response.content isn't as expected
-        console.warn(
-          "Unexpected response format from Langchain instance:",
-          response,
-        );
-        // Fallback: stringify the whole response object
+        // Fallback for unexpected formats
         return JSON.stringify(response);
       }
     } catch (error) {
-      console.error(
-        `Error invoking Langchain instance (${this.modelName}):`,
-        error,
-      );
-      throw error; // Re-throw the error after logging
+      throw error;
     }
   }
 
-  // generateChat is often simpler, focusing on conversational exchange
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     const langchainMessages = convertToLangchainMessages(messages);
     try {
-      // Invoke the core LLM instance without specific format/tool options
       const response = await this.llmInstance.invoke(langchainMessages);
-
       if (response && typeof response.content === "string") {
         return {
           content: response.content,
-          // Determine role from Langchain message type if possible, default to assistant
           role: (response as BaseMessage).lc_id ? "assistant" : "assistant",
         };
       } else {
@@ -178,7 +240,7 @@ export class LangchainLLM implements LLM {
           response,
         );
         return {
-          content: JSON.stringify(response), // Fallback
+          content: JSON.stringify(response),
           role: "assistant",
         };
       }
