@@ -19,12 +19,14 @@ export class PGVector implements VectorStore {
   private useDiskann: boolean;
   private useHnsw: boolean;
   private readonly dbName: string;
+  private config: PGVectorConfig;
 
   constructor(config: PGVectorConfig) {
     this.collectionName = config.collectionName;
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
     this.dbName = config.dbname || "vector_store";
+    this.config = config;
 
     this.client = new Client({
       database: "postgres", // Initially connect to default postgres database
@@ -33,14 +35,9 @@ export class PGVector implements VectorStore {
       host: config.host,
       port: config.port,
     });
-
-    this.initialize(config, config.embeddingModelDims);
   }
 
-  private async initialize(
-    config: PGVectorConfig,
-    embeddingModelDims: number,
-  ): Promise<void> {
+  async initialize(): Promise<void> {
     try {
       await this.client.connect();
 
@@ -56,20 +53,28 @@ export class PGVector implements VectorStore {
       // Connect to the target database
       this.client = new Client({
         database: this.dbName,
-        user: config.user,
-        password: config.password,
-        host: config.host,
-        port: config.port,
+        user: this.config.user,
+        password: this.config.password,
+        host: this.config.host,
+        port: this.config.port,
       });
       await this.client.connect();
 
       // Create vector extension
       await this.client.query("CREATE EXTENSION IF NOT EXISTS vector");
 
+      // Create memory_migrations table
+      await this.client.query(`
+        CREATE TABLE IF NOT EXISTS memory_migrations (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL UNIQUE
+        )
+      `);
+
       // Check if the collection exists
       const collections = await this.listCols();
       if (!collections.includes(this.collectionName)) {
-        await this.createCol(embeddingModelDims);
+        await this.createCol(this.config.embeddingModelDims);
       }
     } catch (error) {
       console.error("Error during initialization:", error);
@@ -295,5 +300,33 @@ export class PGVector implements VectorStore {
 
   async close(): Promise<void> {
     await this.client.end();
+  }
+
+  async getUserId(): Promise<string> {
+    const result = await this.client.query(
+      "SELECT user_id FROM memory_migrations LIMIT 1",
+    );
+
+    if (result.rows.length > 0) {
+      return result.rows[0].user_id;
+    }
+
+    // Generate a random user_id if none exists
+    const randomUserId =
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15);
+    await this.client.query(
+      "INSERT INTO memory_migrations (user_id) VALUES ($1)",
+      [randomUserId],
+    );
+    return randomUserId;
+  }
+
+  async setUserId(userId: string): Promise<void> {
+    await this.client.query("DELETE FROM memory_migrations");
+    await this.client.query(
+      "INSERT INTO memory_migrations (user_id) VALUES ($1)",
+      [userId],
+    );
   }
 }

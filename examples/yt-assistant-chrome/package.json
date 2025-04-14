@@ -1,0 +1,26 @@
+{
+  "name": "mem0-assistant",
+  "version": "1.0.0",
+  "description": "A Chrome extension that integrates AI chat functionality directly into YouTube and other sites. Get instant answers about video content without leaving the page.",
+  "main": "background.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "watch": "webpack --config webpack.config.js --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "babel-loader": "^9.1.2",
+    "css-loader": "^7.1.2",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.85.0",
+    "webpack-cli": "^5.1.1",
+    "youtube-transcript": "^1.0.6"
+  },
+  "dependencies": {
+    "mem0ai": "^2.1.15"
+  }
+}

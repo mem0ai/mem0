@@ -187,57 +187,6 @@ export class RedisDB implements VectorStore {
     });
   }
 
-  private async initialize(): Promise<void> {
-    try {
-      await this.client.connect();
-      console.log("Connected to Redis");
-
-      // Check if Redis Stack modules are loaded
-      const modulesResponse =
-        (await this.client.moduleList()) as unknown as any[];
-
-      // Parse module list to find search module
-      const hasSearch = modulesResponse.some((module: any[]) => {
-        const moduleMap = new Map();
-        for (let i = 0; i < module.length; i += 2) {
-          moduleMap.set(module[i], module[i + 1]);
-        }
-        return moduleMap.get("name")?.toLowerCase() === "search";
-      });
-
-      if (!hasSearch) {
-        throw new Error(
-          "RediSearch module is not loaded. Please ensure Redis Stack is properly installed and running.",
-        );
-      }
-
-      // Create index with retries
-      let retries = 0;
-      const maxRetries = 3;
-      while (retries < maxRetries) {
-        try {
-          await this.createIndex();
-          console.log("Redis index created successfully");
-          break;
-        } catch (error) {
-          console.error(
-            `Error creating index (attempt ${retries + 1}/${maxRetries}):`,
-            error,
-          );
-          retries++;
-          if (retries === maxRetries) {
-            throw error;
-          }
-          // Wait before retrying
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-    } catch (error) {
-      console.error("Error during Redis initialization:", error);
-      throw error;
-    }
-  }
-
   private async createIndex(): Promise<void> {
     try {
       // Drop existing index if it exists
@@ -286,6 +235,61 @@ export class RedisDB implements VectorStore {
       });
     } catch (error) {
       console.error("Error creating Redis index:", error);
+      throw error;
+    }
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      await this.client.connect();
+      console.log("Connected to Redis");
+
+      // Check if Redis Stack modules are loaded
+      const modulesResponse =
+        (await this.client.moduleList()) as unknown as any[];
+
+      // Parse module list to find search module
+      const hasSearch = modulesResponse.some((module: any[]) => {
+        const moduleMap = new Map();
+        for (let i = 0; i < module.length; i += 2) {
+          moduleMap.set(module[i], module[i + 1]);
+        }
+        return moduleMap.get("name")?.toLowerCase() === "search";
+      });
+
+      if (!hasSearch) {
+        throw new Error(
+          "RediSearch module is not loaded. Please ensure Redis Stack is properly installed and running.",
+        );
+      }
+
+      // Create index with retries
+      let retries = 0;
+      const maxRetries = 3;
+      while (retries < maxRetries) {
+        try {
+          await this.createIndex();
+          console.log("Redis index created successfully");
+          break;
+        } catch (error) {
+          console.error(
+            `Error creating index (attempt ${retries + 1}/${maxRetries}):`,
+            error,
+          );
+          retries++;
+          if (retries === maxRetries) {
+            throw error;
+          }
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Error initializing Redis:", error.message);
+      } else {
+        console.error("Error initializing Redis:", error);
+      }
       throw error;
     }
   }
@@ -628,5 +632,36 @@ export class RedisDB implements VectorStore {
 
   async close(): Promise<void> {
     await this.client.quit();
+  }
+
+  async getUserId(): Promise<string> {
+    try {
+      // Check if the user ID exists in Redis
+      const userId = await this.client.get("memory_migrations:1");
+      if (userId) {
+        return userId;
+      }
+
+      // Generate a random user_id if none exists
+      const randomUserId =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+
+      // Store the user ID
+      await this.client.set("memory_migrations:1", randomUserId);
+      return randomUserId;
+    } catch (error) {
+      console.error("Error getting user ID:", error);
+      throw error;
+    }
+  }
+
+  async setUserId(userId: string): Promise<void> {
+    try {
+      await this.client.set("memory_migrations:1", userId);
+    } catch (error) {
+      console.error("Error setting user ID:", error);
+      throw error;
+    }
   }
 }

@@ -1,0 +1,169 @@
+---
+title: Async Memory
+description: 'Asynchronous memory for Mem0'
+icon: "bolt"
+iconType: "solid"
+---
+
+## AsyncMemory
+
+The `AsyncMemory` class is a direct asynchronous interface to Mem0's in-process memory operations. Unlike the memory, which interacts with an API, `AsyncMemory` works directly with the underlying storage systems. This makes it ideal for applications where you want to embed Mem0 directly into your codebase.
+
+### Initialization
+
+To use `AsyncMemory`, import it from the `mem0.memory` module:
+
+```python Python
+import asyncio
+from mem0 import AsyncMemory
+
+# Initialize with default configuration
+memory = AsyncMemory()
+
+# Or initialize with custom configuration
+from mem0.configs.base import MemoryConfig
+custom_config = MemoryConfig(
+    # Your custom configuration here
+)
+memory = AsyncMemory(config=custom_config)
+```
+
+### Key Features
+
+1. **Non-blocking Operations** - All memory operations use `asyncio` to avoid blocking the event loop
+2. **Concurrent Processing** - Parallel execution of vector store and graph operations
+3. **Efficient Resource Utilization** - Better handling of I/O bound operations
+4. **Compatible with Async Frameworks** - Seamless integration with FastAPI, aiohttp, and other async frameworks
+
+### Methods
+
+All methods in `AsyncMemory` have the same parameters as the synchronous `Memory` class but are designed to be used with `async/await`.
+
+#### Create memories
+
+Add a new memory asynchronously:
+
+```python Python
+await memory.add(
+    messages=[
+        {"role": "user", "content": "I'm travelling to SF"},
+        {"role": "assistant", "content": "That's great to hear!"}
+    ],
+    user_id="alice"
+)
+```
+
+#### Retrieve memories
+
+Retrieve memories related to a query:
+
+```python Python
+await memory.search(
+    query="Where am I travelling?",
+    user_id="alice"
+)
+```
+
+#### List memories
+
+List all memories for a `user_id`, `agent_id`, or `run_id`:
+
+```python Python
+await memory.get_all(user_id="alice")
+```
+
+#### Get specific memory
+
+Retrieve a specific memory by its ID:
+
+```python Python
+await memory.get(memory_id="memory-id-here")
+```
+
+#### Update memory
+
+Update an existing memory by ID:
+
+```python Python
+await memory.update(
+    memory_id="memory-id-here",
+    data="I'm travelling to Seattle"
+)
+```
+
+#### Delete memory
+
+Delete a specific memory by ID:
+
+```python Python
+await memory.delete(memory_id="memory-id-here")
+```
+
+#### Delete all memories
+
+Delete all memories for a specific user, agent, or run:
+
+```python Python
+await memory.delete_all(user_id="alice")
+```
+
+Note: At least one filter (user_id, agent_id, or run_id) is required when using delete_all.
+
+#### Memory History
+
+Get the history of changes for a specific memory:
+
+```python Python
+await memory.history(memory_id="memory-id-here")
+```
+
+### Example: Concurrent Usage with Other APIs
+
+`AsyncMemory` can be effectively combined with other async operations. Here's an example showing how to use it alongside OpenAI API calls in separate threads:
+
+```python Python
+import asyncio
+from openai import AsyncOpenAI
+from mem0 import AsyncMemory
+
+async_openai_client = AsyncOpenAI()
+async_memory = AsyncMemory()
+
+async def chat_with_memories(message: str, user_id: str = "default_user") -> str:
+    # Retrieve relevant memories
+    search_result = await async_memory.search(query=message, user_id=user_id, limit=3)
+    relevant_memories = search_result["results"]
+    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories)
+    
+    # Generate Assistant response
+    system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
+    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
+    response = await async_openai_client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+    assistant_response = response.choices[0].message.content
+
+    # Create new memories from the conversation
+    messages.append({"role": "assistant", "content": assistant_response})
+    await async_memory.add(messages, user_id=user_id)
+
+    return assistant_response
+
+async def async_main():
+    print("Chat with AI (type 'exit' to quit)")
+    while True:
+        user_input = input("You: ").strip()
+        if user_input.lower() == 'exit':
+            print("Goodbye!")
+            break
+        response = await chat_with_memories(user_input)
+        print(f"AI: {response}")
+
+def main():
+    asyncio.run(async_main())
+
+if __name__ == "__main__":
+    main()
+```
+
+If you have any questions or need further assistance, please don't hesitate to reach out:
+
+<Snippet file="get-help.mdx" />

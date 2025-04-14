@@ -34,7 +34,11 @@ class MemoryGraph:
             self.config.graph_store.config.username,
             self.config.graph_store.config.password,
         )
-        self.embedding_model = EmbedderFactory.create(self.config.embedder.provider, self.config.embedder.config)
+        self.embedding_model = EmbedderFactory.create(
+            self.config.embedder.provider,
+            self.config.embedder.config,
+            self.config.vector_store.config
+        )
 
         self.llm_provider = "openai_structured"
         if self.config.llm.provider:
@@ -64,7 +68,7 @@ class MemoryGraph:
         deleted_entities = self._delete_entities(to_be_deleted, filters["user_id"])
         added_entities = self._add_entities(to_be_added, filters["user_id"], entity_type_map)
 
-        return {"deleted_entities": deleted_entities, "added_entities": added_entities, "relations": to_be_added}
+        return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
     def search(self, query, filters, limit=100):
         """
@@ -165,12 +169,14 @@ class MemoryGraph:
 
         try:
             for tool_call in search_results["tool_calls"]:
-                if tool_call['name'] != "extract_entities":
+                if tool_call["name"] != "extract_entities":
                     continue
                 for item in tool_call["arguments"]["entities"]:
                     entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
-            logger.exception(f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}")
+            logger.exception(
+                f"Error in search tool: {e}, llm_provider={self.llm_provider}, search_results={search_results}"
+            )
 
         entity_type_map = {k.lower().replace(" ", "_"): v.lower().replace(" ", "_") for k, v in entity_type_map.items()}
         logger.debug(f"Entity type map: {entity_type_map}\n search_results={search_results}")
