@@ -35,17 +35,32 @@ export class ConfigManager {
       llm: {
         provider:
           userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider,
-        config: {
-          apiKey:
-            userConfig.llm?.config?.apiKey ||
-            DEFAULT_MEMORY_CONFIG.llm.config.apiKey,
-          model:
-            userConfig.llm?.config?.model ||
-            DEFAULT_MEMORY_CONFIG.llm.config.model,
-          modelProperties:
-            userConfig.llm?.config?.modelProperties ||
-            DEFAULT_MEMORY_CONFIG.llm.config.modelProperties,
-        },
+        config: (() => {
+          const defaultConf = DEFAULT_MEMORY_CONFIG.llm.config;
+          const userConf = userConfig.llm?.config;
+          let finalModel: string | any = defaultConf.model;
+
+          // If user provides a model and it's an object, use it as the instance
+          if (userConf?.model && typeof userConf.model === "object") {
+            finalModel = userConf.model;
+          } else if (userConf?.model && typeof userConf.model === "string") {
+            // If user provides a string model name, use it
+            finalModel = userConf.model;
+          } // Otherwise, finalModel retains the default string name
+
+          return {
+            apiKey:
+              userConf?.apiKey !== undefined
+                ? userConf.apiKey
+                : defaultConf.apiKey,
+            model: finalModel,
+            modelProperties:
+              userConf?.modelProperties !== undefined
+                ? userConf.modelProperties
+                : defaultConf.modelProperties,
+            // Add other potential config fields here if needed in the future
+          };
+        })(),
       },
       historyDbPath:
         userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,

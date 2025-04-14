@@ -38,7 +38,7 @@ export interface LLMConfig {
   provider?: string;
   config?: Record<string, any>;
   apiKey?: string;
-  model?: string;
+  model?: string | any;
   modelProperties?: Record<string, any>;
 }
 
@@ -126,8 +126,8 @@ export const MemoryConfigSchema = z.object({
   llm: z.object({
     provider: z.string(),
     config: z.object({
-      apiKey: z.string(),
-      model: z.string().optional(),
+      apiKey: z.string().optional(),
+      model: z.union([z.string(), z.any()]).optional(),
       modelProperties: z.record(z.string(), z.any()).optional(),
     }),
   }),

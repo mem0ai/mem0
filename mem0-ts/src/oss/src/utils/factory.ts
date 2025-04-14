@@ -26,6 +26,7 @@ import { HistoryManager } from "../storage/base";
 import { GoogleEmbedder } from "../embeddings/google";
 import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
+import { LangchainLLM } from "../llms/langchain";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -44,7 +45,7 @@ export class EmbedderFactory {
 
 export class LLMFactory {
   static create(provider: string, config: LLMConfig): LLM {
-    switch (provider) {
+    switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAILLM(config);
       case "openai_structured":
@@ -61,6 +62,8 @@ export class LLMFactory {
         return new AzureOpenAILLM(config);
       case "mistral":
         return new MistralLLM(config);
+      case "langchain":
+        return new LangchainLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }

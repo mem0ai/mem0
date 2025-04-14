@@ -1,6 +1,6 @@
 {
-  "name": "mem0ai",
-  "version": "2.1.16-patch.1",
+  "name": "saket-test-2",
+  "version": "2.1.16-patch.3",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -91,6 +91,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.44",
     "axios": "1.7.7",
     "openai": "^4.93.0",
     "uuid": "9.0.1",
@@ -98,9 +99,9 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "0.18.0",
-    "@qdrant/js-client-rest": "1.13.0",
-    "@mistralai/mistralai": "^1.5.2",
     "@google/genai": "^0.7.0",
+    "@mistralai/mistralai": "^1.5.2",
+    "@qdrant/js-client-rest": "1.13.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
