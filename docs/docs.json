@@ -141,7 +141,8 @@
                           "components/vectordbs/dbs/vertex_ai",
                           "components/vectordbs/dbs/weaviate",
                           "components/vectordbs/dbs/faiss",
-                          "components/vectordbs/dbs/langchain"
+                          "components/vectordbs/dbs/langchain",
+                          "components/vectordbs/dbs/turbopuffer"
                         ]
                       }
                     ]
