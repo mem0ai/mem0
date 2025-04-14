@@ -27,6 +27,7 @@ import { GoogleEmbedder } from "../embeddings/google";
 import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
 import { LangchainLLM } from "../llms/langchain";
+import { LangchainEmbedder } from "../embeddings/langchain";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -37,6 +38,8 @@ export class EmbedderFactory {
         return new OllamaEmbedder(config);
       case "google":
         return new GoogleEmbedder(config);
+      case "langchain":
+        return new LangchainEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }

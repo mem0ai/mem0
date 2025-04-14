@@ -14,7 +14,7 @@ export interface Message {
 
 export interface EmbeddingConfig {
   apiKey?: string;
-  model?: string;
+  model?: string | any;
   url?: string;
 }
 
@@ -110,8 +110,8 @@ export const MemoryConfigSchema = z.object({
   embedder: z.object({
     provider: z.string(),
     config: z.object({
-      apiKey: z.string(),
-      model: z.string().optional(),
+      apiKey: z.string().optional(),
+      model: z.union([z.string(), z.any()]).optional(),
     }),
   }),
   vectorStore: z.object({

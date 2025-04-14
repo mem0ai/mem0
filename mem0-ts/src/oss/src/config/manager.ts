@@ -9,14 +9,29 @@ export class ConfigManager {
         provider:
           userConfig.embedder?.provider ||
           DEFAULT_MEMORY_CONFIG.embedder.provider,
-        config: {
-          apiKey:
-            userConfig.embedder?.config?.apiKey ||
-            DEFAULT_MEMORY_CONFIG.embedder.config.apiKey,
-          model:
-            userConfig.embedder?.config?.model ||
-            DEFAULT_MEMORY_CONFIG.embedder.config.model,
-        },
+        config: (() => {
+          const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
+          const userConf = userConfig.embedder?.config;
+          let finalModel: string | any = defaultConf.model;
+
+          // If user provides a model and it's an object, use it as the instance
+          if (userConf?.model && typeof userConf.model === "object") {
+            finalModel = userConf.model;
+          } else if (userConf?.model && typeof userConf.model === "string") {
+            // If user provides a string model name, use it
+            finalModel = userConf.model;
+          } // Otherwise, finalModel retains the default string name
+
+          return {
+            apiKey:
+              userConf?.apiKey !== undefined
+                ? userConf.apiKey
+                : defaultConf.apiKey,
+            model: finalModel,
+            // Add other potential config fields like url if needed
+            url: userConf?.url, // Example if url was part of config
+          };
+        })(),
       },
       vectorStore: {
         provider:
