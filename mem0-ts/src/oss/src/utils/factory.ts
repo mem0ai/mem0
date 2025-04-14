@@ -28,6 +28,7 @@ import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
+import { LangchainVectorStore } from "../vector_stores/langchain";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -79,11 +80,13 @@ export class VectorStoreFactory {
       case "memory":
         return new MemoryVectorStore(config);
       case "qdrant":
-        return new Qdrant(config as any); // Type assertion needed as config is extended
+        return new Qdrant(config as any);
       case "redis":
-        return new RedisDB(config as any); // Type assertion needed as config is extended
+        return new RedisDB(config as any);
       case "supabase":
-        return new SupabaseDB(config as any); // Type assertion needed as config is extended
+        return new SupabaseDB(config as any);
+      case "langchain":
+        return new LangchainVectorStore(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }

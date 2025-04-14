@@ -34,15 +34,32 @@ export class ConfigManager {
         provider:
           userConfig.vectorStore?.provider ||
           DEFAULT_MEMORY_CONFIG.vectorStore.provider,
-        config: {
-          collectionName:
-            userConfig.vectorStore?.config?.collectionName ||
-            DEFAULT_MEMORY_CONFIG.vectorStore.config.collectionName,
-          dimension:
-            userConfig.vectorStore?.config?.dimension ||
-            DEFAULT_MEMORY_CONFIG.vectorStore.config.dimension,
-          ...userConfig.vectorStore?.config,
-        },
+        config: (() => {
+          const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
+          const userConf = userConfig.vectorStore?.config;
+
+          // Prioritize user-provided client instance
+          if (userConf?.client && typeof userConf.client === "object") {
+            return {
+              client: userConf.client,
+              // Include other fields from userConf if necessary, or omit defaults
+              collectionName: userConf.collectionName, // Can be undefined
+              dimension: userConf.dimension || defaultConf.dimension, // Merge dimension
+              ...userConf, // Include any other passthrough fields from user
+            };
+          } else {
+            // If no client provided, merge standard fields
+            return {
+              collectionName:
+                userConf?.collectionName || defaultConf.collectionName,
+              dimension: userConf?.dimension || defaultConf.dimension,
+              // Ensure client is not carried over from defaults if not provided by user
+              client: undefined,
+              // Include other passthrough fields from userConf even if no client
+              ...userConf,
+            };
+          }
+        })(),
       },
       llm: {
         provider:

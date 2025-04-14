@@ -43,7 +43,7 @@ export class Memory {
   private vectorStore: VectorStore;
   private llm: LLM;
   private db: HistoryManager;
-  private collectionName: string;
+  private collectionName: string | undefined;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
   private enableGraph: boolean;
@@ -530,14 +530,47 @@ export class Memory {
   async reset(): Promise<void> {
     await this._captureEvent("reset");
     await this.db.reset();
-    await this.vectorStore.deleteCol();
-    if (this.graphMemory) {
-      await this.graphMemory.deleteAll({ userId: "default" });
+
+    // Check provider before attempting deleteCol
+    if (this.config.vectorStore.provider.toLowerCase() !== "langchain") {
+      try {
+        await this.vectorStore.deleteCol();
+      } catch (e) {
+        console.error(
+          `Failed to delete collection for provider '${this.config.vectorStore.provider}':`,
+          e,
+        );
+        // Decide if you want to re-throw or just log
+      }
+    } else {
+      console.warn(
+        "Memory.reset(): Skipping vector store collection deletion as 'langchain' provider is used. Underlying Langchain vector store data is not cleared by this operation.",
+      );
     }
+
+    if (this.graphMemory) {
+      await this.graphMemory.deleteAll({ userId: "default" }); // Assuming this is okay, or needs similar check?
+    }
+
+    // Re-initialize factories/clients based on the original config
+    this.embedder = EmbedderFactory.create(
+      this.config.embedder.provider,
+      this.config.embedder.config,
+    );
+    // Re-create vector store instance - crucial for Langchain to reset wrapper state if needed
     this.vectorStore = VectorStoreFactory.create(
       this.config.vectorStore.provider,
-      this.config.vectorStore.config,
+      this.config.vectorStore.config, // This will pass the original client instance back
     );
+    this.llm = LLMFactory.create(
+      this.config.llm.provider,
+      this.config.llm.config,
+    );
+    // Re-init DB if needed (though db.reset() likely handles its state)
+    // Re-init Graph if needed
+
+    // Re-initialize telemetry
+    this._initializeTelemetry();
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
