@@ -1,3 +1,37 @@
+import { z } from "zod";
+
+// Define Zod schema for fact retrieval output
+export const FactRetrievalSchema = z.object({
+  facts: z
+    .array(z.string())
+    .describe("An array of distinct facts extracted from the conversation."),
+});
+
+// Define Zod schema for memory update output
+export const MemoryUpdateSchema = z.object({
+  memory: z
+    .array(
+      z.object({
+        id: z.string().describe("The unique identifier of the memory item."),
+        text: z.string().describe("The content of the memory item."),
+        event: z
+          .enum(["ADD", "UPDATE", "DELETE", "NONE"])
+          .describe(
+            "The action taken for this memory item (ADD, UPDATE, DELETE, or NONE).",
+          ),
+        old_memory: z
+          .string()
+          .optional()
+          .describe(
+            "The previous content of the memory item if the event was UPDATE.",
+          ),
+      }),
+    )
+    .describe(
+      "An array representing the state of memory items after processing new facts.",
+    ),
+});
+
 export function getFactRetrievalMessages(
   parsedMessages: string,
 ): [string, string] {

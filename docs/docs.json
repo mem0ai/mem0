@@ -188,7 +188,7 @@
                 "group": "💡 Examples",
                 "icon": "lightbulb",
                 "pages": [
-                  "examples/overview",
+                  "examples",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/mem0-mastra",
@@ -217,7 +217,7 @@
                 "group": "Integrations",
                 "icon": "plug",
                 "pages": [
-                  "integrations/overview",
+                  "integrations",
                   "integrations/vercel-ai-sdk",
                   "integrations/flowise",
                   "integrations/crewai",
@@ -231,7 +231,8 @@
                   "integrations/livekit",
                   "integrations/elevenlabs",
                   "integrations/pipecat",
-                  "integrations/agno"
+                  "integrations/agno",
+                  "integrations/keywords"
                 ]
               }
             ]
@@ -244,7 +245,7 @@
                 "group": "API Reference",
                 "icon": "terminal",
                 "pages": [
-                  "api-reference/overview",
+                  "api-reference",
                   {
                     "group": "Memory APIs",
                     "icon": "microchip",
@@ -320,7 +321,7 @@
                 "group": "Product Updates",
                 "icon": "rocket",
                 "pages": [
-                  "changelog/overview"
+                  "changelog"
                 ]
               }
             ]
