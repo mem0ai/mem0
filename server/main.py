@@ -1,9 +1,10 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -64,18 +65,34 @@ DEFAULT_CONFIG = {
 }
 
 
-MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
+def create_memory_instance(config: Dict[str, Any] = DEFAULT_CONFIG) -> Memory:
+    """Initialize a Memory instance from the given configuration."""
+    return Memory.from_config(config)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize the global Memory instance during application startup."""
+    app.state.memory_instance = create_memory_instance()
+    yield
+
 
 app = FastAPI(
     title="Mem0 REST APIs",
-    description="A REST API for managing and searching memories for your AI Agents and Apps.",
+    description="A REST API for managing and searching memories for your AI agents and applications.",
     version="1.0.0",
+    lifespan=lifespan,
 )
+
+
+def get_memory_instance(request: Request) -> Memory:
+    """Dependency injection to retrieve the global Memory instance."""
+    return request.app.state.memory_instance
 
 
 class Message(BaseModel):
     role: str = Field(..., description="Role of the message (user or assistant).")
-    content: str = Field(..., description="Message content.")
+    content: str = Field(..., description="Content of the message.")
 
 
 class MemoryCreate(BaseModel):
@@ -94,28 +111,48 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
 
 
-@app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any]):
-    """Set memory configuration."""
-    global MEMORY_INSTANCE
-    MEMORY_INSTANCE = Memory.from_config(config)
+@app.post("/configure", summary="Configure Memory")
+def set_config(config: Dict[str, Any], request: Request):
+    """
+    Set memory configuration.
+
+    Updates the memory configuration and reinitializes the Memory instance.
+    """
+    try:
+        new_instance = create_memory_instance(config)
+    except Exception as e:
+        logging.exception("Error creating Memory instance:")
+        raise HTTPException(status_code=500, detail=str(e))
+    request.app.state.memory_instance = new_instance
     return {"message": "Configuration set successfully"}
 
 
 @app.post("/memories", summary="Create memories")
-def add_memory(memory_create: MemoryCreate):
-    """Store new memories."""
+def add_memory(
+    memory_create: MemoryCreate, memory_instance: Memory = Depends(get_memory_instance)
+):
+    """
+    Store new memories.
+
+    At least one identifier (user_id, agent_id, or run_id) is required.
+    """
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
         raise HTTPException(
-            status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required."
+            status_code=400,
+            detail="At least one identifier (user_id, agent_id, run_id) is required.",
         )
-
-    params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
+    params = {
+        k: v
+        for k, v in memory_create.model_dump().items()
+        if v is not None and k != "messages"
+    }
     try:
-        response = MEMORY_INSTANCE.add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        response = memory_instance.add(
+            messages=[m.model_dump() for m in memory_create.messages], **params
+        )
         return JSONResponse(content=response)
     except Exception as e:
-        logging.exception("Error in add_memory:")  # This will log the full traceback
+        logging.exception("Error in add_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -124,64 +161,103 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    memory_instance: Memory = Depends(get_memory_instance),
 ):
-    """Retrieve stored memories."""
+    """
+    Retrieve stored memories.
+
+    At least one identifier (user_id, run_id, or agent_id) is required.
+    """
     if not any([user_id, run_id, agent_id]):
-        raise HTTPException(status_code=400, detail="At least one identifier is required.")
+        raise HTTPException(
+            status_code=400, detail="At least one identifier is required."
+        )
     try:
-        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None}
-        return MEMORY_INSTANCE.get_all(**params)
+        params = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "run_id": run_id,
+                "agent_id": agent_id,
+            }.items()
+            if v is not None
+        }
+        return memory_instance.get_all(**params)
     except Exception as e:
         logging.exception("Error in get_all_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
-def get_memory(memory_id: str):
-    """Retrieve a specific memory by ID."""
+def get_memory(memory_id: str, memory_instance: Memory = Depends(get_memory_instance)):
+    """
+    Retrieve a specific memory by its ID.
+    """
     try:
-        return MEMORY_INSTANCE.get(memory_id)
+        return memory_instance.get(memory_id)
     except Exception as e:
         logging.exception("Error in get_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/search", summary="Search memories")
-def search_memories(search_req: SearchRequest):
-    """Search for memories based on a query."""
+def search_memories(
+    search_req: SearchRequest, memory_instance: Memory = Depends(get_memory_instance)
+):
+    """
+    Search for memories based on a query.
+    """
     try:
-        params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
-        return MEMORY_INSTANCE.search(query=search_req.query, **params)
+        params = {
+            k: v
+            for k, v in search_req.model_dump().items()
+            if v is not None and k != "query"
+        }
+        return memory_instance.search(query=search_req.query, **params)
     except Exception as e:
         logging.exception("Error in search_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
-def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
-    """Update an existing memory."""
+def update_memory(
+    memory_id: str,
+    updated_memory: Dict[str, Any],
+    memory_instance: Memory = Depends(get_memory_instance),
+):
+    """
+    Update an existing memory.
+    """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        return memory_instance.update(memory_id=memory_id, data=updated_memory)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
-def memory_history(memory_id: str):
-    """Retrieve memory history."""
+def memory_history(
+    memory_id: str, memory_instance: Memory = Depends(get_memory_instance)
+):
+    """
+    Retrieve the history of a specific memory.
+    """
     try:
-        return MEMORY_INSTANCE.history(memory_id=memory_id)
+        return memory_instance.history(memory_id=memory_id)
     except Exception as e:
         logging.exception("Error in memory_history:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory")
-def delete_memory(memory_id: str):
-    """Delete a specific memory by ID."""
+def delete_memory(
+    memory_id: str, memory_instance: Memory = Depends(get_memory_instance)
+):
+    """
+    Delete a specific memory by its ID.
+    """
     try:
-        MEMORY_INSTANCE.delete(memory_id=memory_id)
+        memory_instance.delete(memory_id=memory_id)
         return {"message": "Memory deleted successfully"}
     except Exception as e:
         logging.exception("Error in delete_memory:")
@@ -193,13 +269,26 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    memory_instance: Memory = Depends(get_memory_instance),
 ):
-    """Delete all memories for a given identifier."""
+    """
+    Delete all memories associated with the provided identifiers.
+    """
     if not any([user_id, run_id, agent_id]):
-        raise HTTPException(status_code=400, detail="At least one identifier is required.")
+        raise HTTPException(
+            status_code=400, detail="At least one identifier is required."
+        )
     try:
-        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None}
-        MEMORY_INSTANCE.delete_all(**params)
+        params = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "run_id": run_id,
+                "agent_id": agent_id,
+            }.items()
+            if v is not None
+        }
+        memory_instance.delete_all(**params)
         return {"message": "All relevant memories deleted"}
     except Exception as e:
         logging.exception("Error in delete_all_memories:")
@@ -207,10 +296,12 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory():
-    """Completely reset stored memories."""
+def reset_memory(memory_instance: Memory = Depends(get_memory_instance)):
+    """
+    Completely reset all stored memories.
+    """
     try:
-        MEMORY_INSTANCE.reset()
+        memory_instance.reset()
         return {"message": "All memories reset"}
     except Exception as e:
         logging.exception("Error in reset_memory:")
@@ -219,5 +310,7 @@ def reset_memory():
 
 @app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)
 def home():
-    """Redirect to the OpenAPI documentation."""
-    return RedirectResponse(url='/docs')
+    """
+    Redirect to the OpenAPI documentation.
+    """
+    return RedirectResponse(url="/docs")
