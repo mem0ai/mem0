@@ -103,12 +103,16 @@ export class SupabaseDB implements VectorStore {
     try {
       // Verify table exists and vector operations work by attempting a test insert
       const testVector = Array(1536).fill(0);
+
+      // First try to delete any existing test vector
       try {
         await this.client.from(this.tableName).delete().eq("id", "test_vector");
-      } catch (error) {
-        console.warn("No test vector to delete, safe to ignore.");
+      } catch {
+        // Ignore delete errors - table might not exist yet
       }
-      const { error: testError } = await this.client
+
+      // Try to insert the test vector
+      const { error: insertError } = await this.client
         .from(this.tableName)
         .insert({
           id: "test_vector",
@@ -117,8 +121,9 @@ export class SupabaseDB implements VectorStore {
         })
         .select();
 
-      if (testError) {
-        console.error("Test insert error:", testError);
+      // If we get a duplicate key error, that's actually fine - it means the table exists
+      if (insertError && insertError.code !== "23505") {
+        console.error("Test insert error:", insertError);
         throw new Error(
           `Vector operations failed. Please ensure:
 1. The vector extension is enabled
@@ -178,8 +183,12 @@ See the SQL migration instructions in the code comments.`,
         );
       }
 
-      // Clean up test vector
-      await this.client.from(this.tableName).delete().eq("id", "test_vector");
+      // Clean up test vector - ignore errors here too
+      try {
+        await this.client.from(this.tableName).delete().eq("id", "test_vector");
+      } catch {
+        // Ignore delete errors
+      }
 
       console.log("Connected to Supabase successfully");
     } catch (error) {
