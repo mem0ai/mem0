@@ -803,7 +803,7 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = SQLDatabaseManager(db_type=self.config.history_db.type, db_url=self.config.history_db.url)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
 

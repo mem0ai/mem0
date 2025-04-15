@@ -1,12 +1,13 @@
+import logging
 import os
-from fastapi import FastAPI, HTTPException, Query, Path
+from typing import Any, Dict, List, Optional
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List, Any, Dict
-from mem0 import Memory
-from dotenv import load_dotenv
 
-import logging
+from mem0 import Memory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -26,7 +27,9 @@ NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+
+HISTORY_DB_TYPE = os.environ.get("HISTORY_DB_TYPE", "sqlite")
+HISTORY_DB_URL = os.environ.get("HISTORY_DB_URL", "/app/history/history.db")
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -39,32 +42,25 @@ DEFAULT_CONFIG = {
             "user": POSTGRES_USER,
             "password": POSTGRES_PASSWORD,
             "collection_name": POSTGRES_COLLECTION_NAME,
-        }
+        },
     },
     "graph_store": {
         "provider": "neo4j",
         "config": {
             "url": NEO4J_URI,
             "username": NEO4J_USERNAME,
-            "password": NEO4J_PASSWORD
-        }
+            "password": NEO4J_PASSWORD,
+        },
     },
     "llm": {
         "provider": "openai",
-        "config": {
-            "api_key": OPENAI_API_KEY,
-            "temperature": 0.2,
-            "model": "gpt-4o"
-        }
+        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4o"},
     },
     "embedder": {
         "provider": "openai",
-        "config": {
-            "api_key": OPENAI_API_KEY,
-            "model": "text-embedding-3-small"
-        }
+        "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"},
     },
-    "history_db_path": HISTORY_DB_PATH,
+    "history_db": {"provider": HISTORY_DB_TYPE, "config": {"url": HISTORY_DB_URL}},
 }
 
 
