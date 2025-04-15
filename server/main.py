@@ -60,7 +60,7 @@ DEFAULT_CONFIG = {
         "provider": "openai",
         "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"},
     },
-    "history_db": {"provider": HISTORY_DB_TYPE, "config": {"url": HISTORY_DB_URL}},
+    "history_db": {"type": HISTORY_DB_TYPE, "url": HISTORY_DB_URL},
 }
 
 
