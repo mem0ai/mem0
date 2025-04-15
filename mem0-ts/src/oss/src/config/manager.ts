@@ -9,43 +9,84 @@ export class ConfigManager {
         provider:
           userConfig.embedder?.provider ||
           DEFAULT_MEMORY_CONFIG.embedder.provider,
-        config: {
-          apiKey:
-            userConfig.embedder?.config?.apiKey ||
-            DEFAULT_MEMORY_CONFIG.embedder.config.apiKey,
-          model:
-            userConfig.embedder?.config?.model ||
-            DEFAULT_MEMORY_CONFIG.embedder.config.model,
-        },
+        config: (() => {
+          const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
+          const userConf = userConfig.embedder?.config;
+          let finalModel: string | any = defaultConf.model;
+
+          if (userConf?.model && typeof userConf.model === "object") {
+            finalModel = userConf.model;
+          } else if (userConf?.model && typeof userConf.model === "string") {
+            finalModel = userConf.model;
+          }
+
+          return {
+            apiKey:
+              userConf?.apiKey !== undefined
+                ? userConf.apiKey
+                : defaultConf.apiKey,
+            model: finalModel,
+            url: userConf?.url,
+          };
+        })(),
       },
       vectorStore: {
         provider:
           userConfig.vectorStore?.provider ||
           DEFAULT_MEMORY_CONFIG.vectorStore.provider,
-        config: {
-          collectionName:
-            userConfig.vectorStore?.config?.collectionName ||
-            DEFAULT_MEMORY_CONFIG.vectorStore.config.collectionName,
-          dimension:
-            userConfig.vectorStore?.config?.dimension ||
-            DEFAULT_MEMORY_CONFIG.vectorStore.config.dimension,
-          ...userConfig.vectorStore?.config,
-        },
+        config: (() => {
+          const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
+          const userConf = userConfig.vectorStore?.config;
+
+          // Prioritize user-provided client instance
+          if (userConf?.client && typeof userConf.client === "object") {
+            return {
+              client: userConf.client,
+              // Include other fields from userConf if necessary, or omit defaults
+              collectionName: userConf.collectionName, // Can be undefined
+              dimension: userConf.dimension || defaultConf.dimension, // Merge dimension
+              ...userConf, // Include any other passthrough fields from user
+            };
+          } else {
+            // If no client provided, merge standard fields
+            return {
+              collectionName:
+                userConf?.collectionName || defaultConf.collectionName,
+              dimension: userConf?.dimension || defaultConf.dimension,
+              // Ensure client is not carried over from defaults if not provided by user
+              client: undefined,
+              // Include other passthrough fields from userConf even if no client
+              ...userConf,
+            };
+          }
+        })(),
       },
       llm: {
         provider:
           userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider,
-        config: {
-          apiKey:
-            userConfig.llm?.config?.apiKey ||
-            DEFAULT_MEMORY_CONFIG.llm.config.apiKey,
-          model:
-            userConfig.llm?.config?.model ||
-            DEFAULT_MEMORY_CONFIG.llm.config.model,
-          modelProperties:
-            userConfig.llm?.config?.modelProperties ||
-            DEFAULT_MEMORY_CONFIG.llm.config.modelProperties,
-        },
+        config: (() => {
+          const defaultConf = DEFAULT_MEMORY_CONFIG.llm.config;
+          const userConf = userConfig.llm?.config;
+          let finalModel: string | any = defaultConf.model;
+
+          if (userConf?.model && typeof userConf.model === "object") {
+            finalModel = userConf.model;
+          } else if (userConf?.model && typeof userConf.model === "string") {
+            finalModel = userConf.model;
+          }
+
+          return {
+            apiKey:
+              userConf?.apiKey !== undefined
+                ? userConf.apiKey
+                : defaultConf.apiKey,
+            model: finalModel,
+            modelProperties:
+              userConf?.modelProperties !== undefined
+                ? userConf.modelProperties
+                : defaultConf.modelProperties,
+          };
+        })(),
       },
       historyDbPath:
         userConfig.historyDbPath || DEFAULT_MEMORY_CONFIG.historyDbPath,
