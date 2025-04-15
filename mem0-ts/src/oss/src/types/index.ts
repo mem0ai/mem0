@@ -14,13 +14,15 @@ export interface Message {
 
 export interface EmbeddingConfig {
   apiKey?: string;
-  model?: string;
+  model?: string | any;
   url?: string;
 }
 
 export interface VectorStoreConfig {
-  collectionName: string;
+  collectionName?: string;
   dimension?: number;
+  client?: any;
+  instance?: any;
   [key: string]: any;
 }
 
@@ -38,7 +40,7 @@ export interface LLMConfig {
   provider?: string;
   config?: Record<string, any>;
   apiKey?: string;
-  model?: string;
+  model?: string | any;
   modelProperties?: Record<string, any>;
 }
 
@@ -110,24 +112,25 @@ export const MemoryConfigSchema = z.object({
   embedder: z.object({
     provider: z.string(),
     config: z.object({
-      apiKey: z.string(),
-      model: z.string().optional(),
+      apiKey: z.string().optional(),
+      model: z.union([z.string(), z.any()]).optional(),
     }),
   }),
   vectorStore: z.object({
     provider: z.string(),
     config: z
       .object({
-        collectionName: z.string(),
+        collectionName: z.string().optional(),
         dimension: z.number().optional(),
+        client: z.any().optional(),
       })
       .passthrough(),
   }),
   llm: z.object({
     provider: z.string(),
     config: z.object({
-      apiKey: z.string(),
-      model: z.string().optional(),
+      apiKey: z.string().optional(),
+      model: z.union([z.string(), z.any()]).optional(),
       modelProperties: z.record(z.string(), z.any()).optional(),
     }),
   }),

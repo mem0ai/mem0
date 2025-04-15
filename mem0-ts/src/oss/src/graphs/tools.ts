@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface GraphToolParameters {
   source: string;
   destination: string;
@@ -20,6 +22,58 @@ export interface GraphRelationsParameters {
     destination: string;
   }>;
 }
+
+// --- Zod Schemas for Tool Arguments ---
+
+// Schema for simple relationship arguments (Update, Delete)
+export const GraphSimpleRelationshipArgsSchema = z.object({
+  source: z
+    .string()
+    .describe("The identifier of the source node in the relationship."),
+  relationship: z
+    .string()
+    .describe("The relationship between the source and destination nodes."),
+  destination: z
+    .string()
+    .describe("The identifier of the destination node in the relationship."),
+});
+
+// Schema for adding a relationship (includes types)
+export const GraphAddRelationshipArgsSchema =
+  GraphSimpleRelationshipArgsSchema.extend({
+    source_type: z
+      .string()
+      .describe("The type or category of the source node."),
+    destination_type: z
+      .string()
+      .describe("The type or category of the destination node."),
+  });
+
+// Schema for extracting entities
+export const GraphExtractEntitiesArgsSchema = z.object({
+  entities: z
+    .array(
+      z.object({
+        entity: z.string().describe("The name or identifier of the entity."),
+        entity_type: z.string().describe("The type or category of the entity."),
+      }),
+    )
+    .describe("An array of entities with their types."),
+});
+
+// Schema for establishing relationships
+export const GraphRelationsArgsSchema = z.object({
+  entities: z
+    .array(GraphSimpleRelationshipArgsSchema)
+    .describe("An array of relationships (source, relationship, destination)."),
+});
+
+// --- Tool Definitions (using JSON schema, keep as is) ---
+
+// Note: The tool definitions themselves still use JSON schema format
+// as expected by the LLM APIs. The Zod schemas above are for internal
+// validation and potentially for use with Langchain's .withStructuredOutput
+// if we adapt it to handle tool calls via schema.
 
 export const UPDATE_MEMORY_TOOL_GRAPH = {
   type: "function",
