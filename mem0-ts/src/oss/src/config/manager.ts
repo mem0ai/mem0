@@ -30,7 +30,7 @@ export class ConfigManager {
             modelProperties:
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties
-                : defaultConf.modelProperties
+                : defaultConf.modelProperties,
           };
         })(),
       },
