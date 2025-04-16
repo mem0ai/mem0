@@ -1,5 +1,6 @@
 import asyncio
 import concurrent
+import gc
 import hashlib
 import json
 import logging
@@ -744,10 +745,27 @@ class Memory(MemoryBase):
 
     def reset(self):
         """
-        Reset the memory store.
+        Reset the memory store by:
+            Deletes the vector store collection
+            Resets the database
+            Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
         self.vector_store.delete_col()
+
+        gc.collect()
+
+        # Close the client if it has a close method
+        if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
+            self.vector_store.client.close()
+
+        # Close the old connection if possible
+        if hasattr(self.db, 'connection') and self.db.connection:
+                self.db.connection.close()
+
+        self.db = SQLiteManager(self.config.history_db_path)
+
+        # Create a new vector store with the same configuration
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -1512,6 +1530,17 @@ class AsyncMemory(MemoryBase):
         """
         logger.warning("Resetting all memories")
         await asyncio.to_thread(self.vector_store.delete_col)
+
+        gc.collect()
+
+        if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
+            await asyncio.to_thread(self.vector_store.client.close)
+
+        if hasattr(self.db, 'connection') and self.db.connection:
+            await asyncio.to_thread(self.db.connection.close)
+
+        # Create a new SQLiteManager instance and a new vector store
+        self.db = SQLiteManager(self.config.history_db_path)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
