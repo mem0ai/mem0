@@ -1,6 +1,7 @@
 import os
 import asyncio
 import concurrent
+import gc
 import hashlib
 import json
 import logging
@@ -755,14 +756,31 @@ class Memory(MemoryBase):
 
     def reset(self):
         """
-        Reset the memory store.
+        Reset the memory store by:
+            Deletes the vector store collection
+            Resets the database
+            Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
         self.vector_store.delete_col()
+
+        gc.collect()
+
+        # Close the client if it has a close method
+        if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
+            self.vector_store.client.close()
+
+        # Close the old connection if possible
+        if hasattr(self.db, 'connection') and self.db.connection:
+                self.db.connection.execute("DROP TABLE IF EXISTS history")
+                self.db.connection.close()
+
+        self.db = SQLiteManager(self.config.history_db_path)
+
+        # Create a new vector store with the same configuration
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-        self.db.reset()
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
     def chat(self, query):
@@ -1519,14 +1537,28 @@ class AsyncMemory(MemoryBase):
 
     async def reset(self):
         """
-        Reset the memory store asynchronously.
+        Reset the memory store asynchronously by:
+            Deletes the vector store collection
+            Resets the database
+            Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
         await asyncio.to_thread(self.vector_store.delete_col)
+
+        gc.collect()
+
+        if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
+            await asyncio.to_thread(self.vector_store.client.close)
+
+        if hasattr(self.db, 'connection') and self.db.connection:
+            await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
+            await asyncio.to_thread(self.db.connection.close)
+
+        self.db = SQLiteManager(self.config.history_db_path)
+
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-        await asyncio.to_thread(self.db.reset)
         capture_event("mem0.reset", self, {"sync_type": "async"})
 
     async def chat(self, query):
