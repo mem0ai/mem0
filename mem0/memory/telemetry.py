@@ -9,6 +9,8 @@ import mem0
 from mem0.memory.setup import get_or_create_user_id
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
+PROJECT_API_KEY="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
+HOST="https://us.i.posthog.com"
 
 if isinstance(MEM0_TELEMETRY, str):
     MEM0_TELEMETRY = MEM0_TELEMETRY.lower() in ("true", "1", "yes")
@@ -21,8 +23,8 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 
 class AnonymousTelemetry:
-    def __init__(self, project_api_key, host, vector_store=None):
-        self.posthog = Posthog(project_api_key=project_api_key, host=host)
+    def __init__(self, vector_store=None):
+        self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
 
         self.user_id = get_or_create_user_id(vector_store)
 
@@ -44,23 +46,17 @@ class AnonymousTelemetry:
             **properties,
         }
         distinct_id = self.user_id if user_email is None else user_email
-        print(f"Capturing event {event_name} with distinct_id {distinct_id}")
         self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
 
     def close(self):
         self.posthog.shutdown()
 
 
-client_telemetry = AnonymousTelemetry(
-    project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-    host="https://us.i.posthog.com",
-)
+client_telemetry = AnonymousTelemetry()
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
     oss_telemetry = AnonymousTelemetry(
-        project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-        host="https://us.i.posthog.com",
         vector_store=memory_instance._telemetry_vector_store
         if hasattr(memory_instance, "_telemetry_vector_store")
         else None,
