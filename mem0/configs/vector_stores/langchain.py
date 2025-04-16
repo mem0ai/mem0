@@ -7,7 +7,9 @@ class LangchainConfig(BaseModel):
     try:
         from langchain_community.vectorstores import VectorStore
     except ImportError:
-        raise ImportError("The 'langchain_community' library is required. Please install it using 'pip install langchain_community'.")
+        raise ImportError(
+            "The 'langchain_community' library is required. Please install it using 'pip install langchain_community'."
+        )
     VectorStore: ClassVar[type] = VectorStore
 
     client: VectorStore = Field(description="Existing VectorStore instance")
