@@ -1,8 +1,8 @@
 """
-Simple Fitness Memory Tracker that tracks your fitness progress and knows your heath priorities.
+Simple Fitness Memory Tracker that tracks your fitness progress and knows your health priorities.
 Uses Mem0 for memory and GPT-4o for image understanding.
 
-In order to run this file, you need to set up your Mem0 API at Mem0 platform and also need a OpenAI API key.
+In order to run this file, you need to set up your Mem0 API at Mem0 platform and also need an OpenAI API key.
 export OPENAI_API_KEY="your_openai_api_key"
 export MEM0_API_KEY="your_mem0_api_key"
 """
