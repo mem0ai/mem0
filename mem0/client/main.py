@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+import hashlib
 from functools import wraps
 from typing import Any, Dict, List, Optional, Union
 
@@ -82,6 +83,9 @@ class MemoryClient:
 
         if not self.api_key:
             raise ValueError("Mem0 API Key not provided. Please provide an API Key.")
+
+        # Create MD5 hash of API key for user_id
+        self.user_id = hashlib.md5(self.api_key.encode()).hexdigest()
 
         self.client = httpx.Client(
             base_url=self.host,
