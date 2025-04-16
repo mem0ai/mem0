@@ -9,6 +9,9 @@ import numpy as np
 from pydantic import BaseModel
 
 try:
+    logging.getLogger("faiss").setLevel(logging.WARNING)
+    logging.getLogger("faiss.loader").setLevel(logging.WARNING)
+
     import faiss
 except ImportError:
     raise ImportError(

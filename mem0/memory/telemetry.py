@@ -6,9 +6,11 @@ import sys
 from posthog import Posthog
 
 import mem0
-from mem0.memory.setup import get_user_id, setup_config
+from mem0.memory.setup import get_or_create_user_id
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
+PROJECT_API_KEY="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
+HOST="https://us.i.posthog.com"
 
 if isinstance(MEM0_TELEMETRY, str):
     MEM0_TELEMETRY = MEM0_TELEMETRY.lower() in ("true", "1", "yes")
@@ -21,11 +23,11 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 
 
 class AnonymousTelemetry:
-    def __init__(self, project_api_key, host):
-        self.posthog = Posthog(project_api_key=project_api_key, host=host)
-        # Call setup config to ensure that the user_id is generated
-        setup_config()
-        self.user_id = get_user_id()
+    def __init__(self, vector_store=None):
+        self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
+
+        self.user_id = get_or_create_user_id(vector_store)
+
         if not MEM0_TELEMETRY:
             self.posthog.disabled = True
 
@@ -50,14 +52,16 @@ class AnonymousTelemetry:
         self.posthog.shutdown()
 
 
-# Initialize AnonymousTelemetry
-telemetry = AnonymousTelemetry(
-    project_api_key="phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX",
-    host="https://us.i.posthog.com",
-)
+client_telemetry = AnonymousTelemetry()
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
+    oss_telemetry = AnonymousTelemetry(
+        vector_store=memory_instance._telemetry_vector_store
+        if hasattr(memory_instance, "_telemetry_vector_store")
+        else None,
+    )
+
     event_data = {
         "collection": memory_instance.collection_name,
         "vector_size": memory_instance.embedding_model.config.embedding_dims,
@@ -73,7 +77,7 @@ def capture_event(event_name, memory_instance, additional_data=None):
     if additional_data:
         event_data.update(additional_data)
 
-    telemetry.capture_event(event_name, event_data)
+    oss_telemetry.capture_event(event_name, event_data)
 
 
 def capture_client_event(event_name, instance, additional_data=None):
@@ -83,4 +87,4 @@ def capture_client_event(event_name, instance, additional_data=None):
     if additional_data:
         event_data.update(additional_data)
 
-    telemetry.capture_event(event_name, event_data, instance.user_email)
+    client_telemetry.capture_event(event_name, event_data, instance.user_email)
