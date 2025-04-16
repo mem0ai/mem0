@@ -481,7 +481,10 @@ class MemoryClient:
 
     @api_error_handler
     def update_project(
-        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[List[str]] = None,
+        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -499,13 +502,13 @@ class MemoryClient:
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if custom_instructions is None and custom_categories is None:
+        if custom_instructions is None and custom_categories is None and retrieval_criteria is None:
             raise ValueError(
-                "Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them"
+                "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
             )
 
         payload = self._prepare_params(
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria}
         )
         response = self.client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
@@ -515,7 +518,7 @@ class MemoryClient:
         capture_client_event(
             "client.update_project",
             self,
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories},
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria},
         )
         return response.json()
 
