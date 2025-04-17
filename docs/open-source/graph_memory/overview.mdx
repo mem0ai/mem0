@@ -212,13 +212,9 @@ m = Memory.from_config(config_dict=config)
 
 ```python Python (Advanced)
 config = {
-    "llm": {
+    "embedder": {
         "provider": "openai",
-        "config": {
-            "model": "gpt-4o",
-            "temperature": 0.2,
-            "max_tokens": 2000,
-        }
+        "config": {"model": "text-embedding-3-large", "embedding_dims": 1536},
     },
     "graph_store": {
         "provider": "memgraph",
@@ -226,13 +222,6 @@ config = {
             "url": "bolt://localhost:7687",
             "username": "memgraph",
             "password": "xxx"
-        },
-        "llm" : {
-            "provider": "openai",
-            "config": {
-                "model": "gpt-4o-mini",
-                "temperature": 0.0,
-            }
         }
     }
 }
