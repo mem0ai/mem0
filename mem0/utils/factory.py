@@ -29,6 +29,7 @@ class LlmFactory:
         "xai": "mem0.llms.xai.XAILLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
         "langchain": "mem0.llms.langchain.LangchainLLM",
+        "lancedb" : "mem0.vector_stores.lancedb.LanceDB"
     }
 
     @classmethod
