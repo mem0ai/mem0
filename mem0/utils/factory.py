@@ -29,7 +29,6 @@ class LlmFactory:
         "xai": "mem0.llms.xai.XAILLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
         "langchain": "mem0.llms.langchain.LangchainLLM",
-        "lancedb" : "mem0.vector_stores.lancedb.LanceDB"
     }
 
     @classmethod
@@ -86,6 +85,7 @@ class VectorStoreFactory:
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
+        "lancedb" : "mem0.vector_stores.lancedb.LanceDB",
     }
 
     @classmethod
