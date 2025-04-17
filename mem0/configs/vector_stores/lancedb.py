@@ -7,3 +7,4 @@ class LanceDbConfig(BaseModel):
     id_key: str = Field("id", description="Column name for unique IDs")
     vector_key: str = Field("vector", description="Column name for embeddings")
     distance_metric: str = Field("cosine", description="Distance metric: 'L2', 'cosine', or 'dot'")
+    embedding_model_dims: Optional[int]
