@@ -20,6 +20,7 @@ export interface MemoryOptions {
   start_date?: string;
   end_date?: string;
   custom_categories?: custom_categories[];
+  custom_instructions?: string;
 }
 
 export interface ProjectOptions {
