@@ -6,4 +6,4 @@ class LanceDbConfig(BaseModel):
     table_name: str = Field("vectorstore", description="Table name to store embeddings")
     id_key: str = Field("id", description="Column name for unique IDs")
     vector_key: str = Field("vector", description="Column name for embeddings")
-    distance_metric: str = Field("L2", description="Distance metric: 'L2', 'cosine', or 'dot'")
+    distance_metric: str = Field("cosine", description="Distance metric: 'L2', 'cosine', or 'dot'")
