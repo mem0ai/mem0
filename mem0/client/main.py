@@ -958,18 +958,19 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_project(
-        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None
+        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None,
+        retrieval_criteria: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         if not (self.sync_client.org_id and self.sync_client.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if custom_instructions is None and custom_categories is None:
+        if custom_instructions is None and custom_categories is None and retrieval_criteria is None:
             raise ValueError(
-                "Currently we only support updating custom_instructions or custom_categories, so you must provide at least one of them"
+                "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
             )
 
         payload = self.sync_client._prepare_params(
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories}
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria}
         )
         response = await self.async_client.patch(
             f"/api/v1/orgs/organizations/{self.sync_client.org_id}/projects/{self.sync_client.project_id}/",
@@ -979,7 +980,7 @@ class AsyncMemoryClient:
         capture_client_event(
             "client.update_project",
             self.sync_client,
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "sync_type": "async"},
+            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria, "sync_type": "async"},
         )
         return response.json()
 
