@@ -57,11 +57,13 @@ class MemoryGraph:
         # Setup Memgraph:
         # 1. Create vector index (created Entity label on all nodes)
         # 2. Create label property index for performance optimizations
-        # TODO: Parametrize dimension - not possible currently
-        create_vector_index = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': 1536, 'capacity': 1000, 'metric': 'cos'}};"
-        self.graph.query(create_vector_index, params={})
-        create_label_prop_index = f"CREATE INDEX ON :Entity(user_id);"
-        self.graph.query(create_label_prop_index, params={})
+        embedding_dims = self.config.embedder.config["embedding_dims"]
+        create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
+        self.graph.query(create_vector_index_query, params={})
+        create_label_prop_index_query = f"CREATE INDEX ON :Entity(user_id);"
+        self.graph.query(create_label_prop_index_query, params={})
+        create_label_index_query = f"CREATE INDEX ON :Entity;"
+        self.graph.query(create_label_index_query, params={})
 
     def add(self, data, filters):
         """
@@ -155,7 +157,7 @@ class MemoryGraph:
 
         # return all nodes and relationships
         query = """
-        MATCH (n {user_id: $user_id})-[r]->(m {user_id: $user_id})
+        MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity {user_id: $user_id})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -268,7 +270,7 @@ class MemoryGraph:
             n_embedding = self.embedding_model.embed(node)
 
             cypher_query = f"""
-            MATCH (n {{user_id: $user_id}})-[r]->(m)
+            MATCH (n:Entity {{user_id: $user_id}})-[r]->(m:Entity)
             WHERE n.embedding IS NOT NULL
             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
@@ -277,7 +279,7 @@ class MemoryGraph:
             WHERE similarity >= $threshold
             RETURN node1.user_id AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.user_id AS destination, id(node2) AS destination_id, similarity
             UNION
-            MATCH (n {{user_id: $user_id}})<-[r]-(m)
+            MATCH (n:Entity {{user_id: $user_id}})<-[r]-(m:Entity)
             WHERE n.embedding IS NOT NULL
             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
@@ -338,7 +340,7 @@ class MemoryGraph:
 
             # Delete the specific relationship between nodes
             cypher = f"""
-            MATCH (n {{name: $source_name, user_id: $user_id}})
+            MATCH (n:Entity {{name: $source_name, user_id: $user_id}})
             -[r:{relationship}]->
             (m {{name: $dest_name, user_id: $user_id}})
             DELETE r
@@ -387,9 +389,9 @@ class MemoryGraph:
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
                 cypher = f"""
-                    MATCH (source)
+                    MATCH (source:Entity)
                     WHERE id(source) = $source_id
-                    MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
+                    MERGE (destination:{destination_type}:Entity {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
                         destination.created = timestamp(),
                         destination.embedding = $destination_embedding,
@@ -408,9 +410,9 @@ class MemoryGraph:
                 }
             elif destination_node_search_result and not source_node_search_result:
                 cypher = f"""
-                    MATCH (destination)
+                    MATCH (destination:Entity)
                     WHERE id(destination) = $destination_id
-                    MERGE (source:{source_type} {{name: $source_name, user_id: $user_id}})
+                    MERGE (source:{source_type}:Entity {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
                         source.created = timestamp(),
                         source.embedding = $source_embedding,
@@ -431,9 +433,9 @@ class MemoryGraph:
                 }
             elif source_node_search_result and destination_node_search_result:
                 cypher = f"""
-                    MATCH (source)
+                    MATCH (source:Entity)
                     WHERE id(source) = $source_id
-                    MATCH (destination)
+                    MATCH (destination:Entity)
                     WHERE id(destination) = $destination_id
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
@@ -450,10 +452,10 @@ class MemoryGraph:
                 }
             else:
                 cypher = f"""
-                    MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
+                    MERGE (n:{source_type}:Entity {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding, n:Entity
                     ON MATCH SET n.embedding = $source_embedding
-                    MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
+                    MERGE (m:{destination_type}:Entity {{name: $dest_name, user_id: $user_id}})
                     ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding, m:Entity
                     ON MATCH SET m.embedding = $dest_embedding
                     MERGE (n)-[rel:{relationship}]->(m)
