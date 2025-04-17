@@ -39,6 +39,9 @@ DEFAULT_CONFIG = {
             "user": POSTGRES_USER,
             "password": POSTGRES_PASSWORD,
             "collection_name": POSTGRES_COLLECTION_NAME,
+            "use_pool": False,
+            "min_pool_size": 1,
+            "max_pool_size": 20,
         }
     },
     "graph_store": {
