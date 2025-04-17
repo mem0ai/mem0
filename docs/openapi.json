@@ -1229,7 +1229,7 @@
 				},				  
 				{
 				"lang": "cURL",
-				"source": "curl -X POST 'https://api.mem0.ai/v2/memories/' \\\n-H 'Authorization: Token your-api-key' \\\n-H 'Content-Type: application/json' \\\n-d '{\n  \"filters\": {\n    \"AND\": [\n      { \"user_id\": \"alex\" },\n      { \"created_at\": { \"gte\": \"2024-07-01\", \"lte\": \"2024-07-31\" } }\n    ]\n  }\n}'"
+				"source": "curl -X POST 'https://api.mem0.ai/v2/memories/' \\\n-H 'Authorization: Token your-api-key' \\\n-H 'Content-Type: application/json' \\\n-d '{\n  \"filters\": {\n    \"AND\": [\n      { \"user_id\": \"alex\" },\n      { \"created_at\": { \"gte\": \"2024-07-01\", \"lte\": \"2024-07-31\" } }\n    ]\n  },\n  \"org_id\": \"your-org-id\",\n  \"project_id\": \"your-project-id\"\n}'"
 				},
 				{
 				"lang": "Go",
