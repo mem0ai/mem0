@@ -22,4 +22,7 @@ RUN pip install -e .[graph]
 WORKDIR /app
 COPY server .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENV SERVER_WORKER_AMOUNT=-1
+
+# In development, live reloading is enabled so workers will not be applied.
+CMD ["sh", "-c", "if [ \"$SERVER_WORKER_AMOUNT\" != \"-1\" ]; then echo \"Warning: --workers option is ignored in reload mode\"; fi; exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload"]
