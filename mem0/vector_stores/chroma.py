@@ -28,6 +28,7 @@ class ChromaDB(VectorStoreBase):
         host: Optional[str] = None,
         port: Optional[int] = None,
         path: Optional[str] = None,
+        embedding_fn: Optional[callable] = None,
     ):
         """
         Initialize the Chromadb vector store.
@@ -38,6 +39,7 @@ class ChromaDB(VectorStoreBase):
             host (str, optional): Host address for chromadb server. Defaults to None.
             port (int, optional): Port for chromadb server. Defaults to None.
             path (str, optional): Path for local chromadb database. Defaults to None.
+            embedding_fn (Optional[callable]): Embedding function to use. Defaults to None.
         """
         if client:
             self.client = client
@@ -58,7 +60,8 @@ class ChromaDB(VectorStoreBase):
             self.client = chromadb.Client(self.settings)
 
         self.collection_name = collection_name
-        self.collection = self.create_col(collection_name)
+        self.embedding_fn = embedding_fn
+        self.collection = self.create_col()
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
@@ -93,20 +96,16 @@ class ChromaDB(VectorStoreBase):
 
         return result
 
-    def create_col(self, name: str, embedding_fn: Optional[callable] = None):
+    def create_col(self):
         """
-        Create a new collection.
-
-        Args:
-            name (str): Name of the collection.
-            embedding_fn (Optional[callable]): Embedding function to use. Defaults to None.
+        Create a new collection using parameters from class initialization.
 
         Returns:
             chromadb.Collection: The created or retrieved collection.
         """
         collection = self.client.get_or_create_collection(
-            name=name,
-            embedding_function=embedding_fn,
+            name=self.collection_name,
+            embedding_function=self.embedding_fn,
         )
         return collection
 
