@@ -1,12 +1,14 @@
 import json
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from contextlib import contextmanager
 
 from pydantic import BaseModel
 
 try:
     import psycopg2
     from psycopg2.extras import execute_values
+    from psycopg2.pool import SimpleConnectionPool
 except ImportError:
     raise ImportError("The 'psycopg2' library is required. Please install it using 'pip install psycopg2'.")
 
@@ -24,15 +26,18 @@ class OutputData(BaseModel):
 class PGVector(VectorStoreBase):
     def __init__(
         self,
-        dbname,
-        collection_name,
-        embedding_model_dims,
-        user,
-        password,
-        host,
-        port,
-        diskann,
-        hnsw,
+        dbname: str,
+        collection_name: str,
+        embedding_model_dims: int,
+        user: str,
+        password: str,
+        host: str,
+        port: int,
+        diskann: bool,
+        hnsw: bool,
+        use_pool: bool = False,
+        min_pool_size: int = 1,
+        max_pool_size: int = 20,
     ):
         """
         Initialize the PGVector database.
@@ -43,21 +48,71 @@ class PGVector(VectorStoreBase):
             embedding_model_dims (int): Dimension of the embedding vector
             user (str): Database user
             password (str): Database password
-            host (str, optional): Database host
-            port (int, optional): Database port
-            diskann (bool, optional): Use DiskANN for faster search
-            hnsw (bool, optional): Use HNSW for faster search
+            host (str): Database host
+            port (int): Database port
+            diskann (bool): Use DiskANN for faster search
+            hnsw (bool): Use HNSW for faster search
+            use_pool (bool): Use connection pooling
+            min_pool_size (int): Minimum number of connections in pool
+            max_pool_size (int): Maximum number of connections in pool
         """
         self.collection_name = collection_name
         self.use_diskann = diskann
         self.use_hnsw = hnsw
+        self.use_pool = use_pool
 
-        self.conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
+        # Store connection params for reconnection if needed
+        self.connection_params = {
+            "dbname": dbname,
+            "user": user,
+            "password": password,
+            "host": host,
+            "port": port,
+        }
+
+        if self.use_pool:
+            logger.info(f"Using connection pooling, min_pool_size={min_pool_size}, max_pool_size={max_pool_size}")
+            self.pool = SimpleConnectionPool(
+                min_pool_size,
+                max_pool_size,
+                **self.connection_params
+            )
+            # Get initial connection for setup
+            self.conn = self.pool.getconn()
+        else:
+            self.pool = None
+            self.conn = psycopg2.connect(**self.connection_params)
+
         self.cur = self.conn.cursor()
 
         collections = self.list_cols()
         if collection_name not in collections:
             self.create_col(embedding_model_dims)
+
+        # Return initial connection to pool if using pooling
+        if self.use_pool:
+            self.pool.putconn(self.conn)
+            self.conn = None
+            self.cur = None
+
+    @contextmanager
+    def get_connection(self):
+        """Context manager for handling connections from pool or direct connection."""
+        if self.use_pool:
+            conn = self.pool.getconn()
+            try:
+                yield conn
+            finally:
+                self.pool.putconn(conn)
+        else:
+            yield self.conn
+
+    @contextmanager
+    def get_cursor(self):
+        """Context manager for handling cursors."""
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                yield cur
 
     def create_col(self, embedding_model_dims):
         """
@@ -67,41 +122,41 @@ class PGVector(VectorStoreBase):
         Args:
             embedding_model_dims (int): Dimension of the embedding vector.
         """
-        self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        self.cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self.collection_name} (
-                id UUID PRIMARY KEY,
-                vector vector({embedding_model_dims}),
-                payload JSONB
-            );
-        """
-        )
-
-        if self.use_diskann and embedding_model_dims < 2000:
-            # Check if vectorscale extension is installed
-            self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
-            if self.cur.fetchone():
-                # Create DiskANN index if extension is installed for faster search
-                self.cur.execute(
-                    f"""
-                    CREATE INDEX IF NOT EXISTS {self.collection_name}_diskann_idx
-                    ON {self.collection_name}
-                    USING diskann (vector);
-                """
-                )
-        elif self.use_hnsw:
-            self.cur.execute(
+        with self.get_cursor() as cur:
+            cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            cur.execute(
                 f"""
-                CREATE INDEX IF NOT EXISTS {self.collection_name}_hnsw_idx
-                ON {self.collection_name}
-                USING hnsw (vector vector_cosine_ops)
-            """
+                CREATE TABLE IF NOT EXISTS {self.collection_name} (
+                    id UUID PRIMARY KEY,
+                    vector vector({embedding_model_dims}),
+                    payload JSONB
+                );
+                """
             )
 
-        self.conn.commit()
+            if self.use_diskann and embedding_model_dims < 2000:
+                cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
+                if cur.fetchone():
+                    cur.execute(
+                        f"""
+                        CREATE INDEX IF NOT EXISTS {self.collection_name}_diskann_idx
+                        ON {self.collection_name}
+                        USING diskann (vector);
+                        """
+                    )
+            elif self.use_hnsw:
+                cur.execute(
+                    f"""
+                    CREATE INDEX IF NOT EXISTS {self.collection_name}_hnsw_idx
+                    ON {self.collection_name}
+                    USING hnsw (vector vector_cosine_ops)
+                    """
+                )
 
-    def insert(self, vectors, payloads=None, ids=None):
+            conn = cur.connection
+            conn.commit()
+
+    def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
         """
         Insert vectors into a collection.
 
@@ -112,16 +167,17 @@ class PGVector(VectorStoreBase):
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
-
         data = [(id, vector, payload) for id, vector, payload in zip(ids, vectors, json_payloads)]
-        execute_values(
-            self.cur,
-            f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES %s",
-            data,
-        )
-        self.conn.commit()
 
-    def search(self, query, vectors, limit=5, filters=None):
+        with self.get_cursor() as cur:
+            execute_values(
+                cur,
+                f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES %s",
+                data,
+            )
+            cur.connection.commit()
+
+    def search(self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None):
         """
         Search for similar vectors.
 
@@ -144,31 +200,32 @@ class PGVector(VectorStoreBase):
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
-        self.cur.execute(
-            f"""
-            SELECT id, vector <=> %s::vector AS distance, payload
-            FROM {self.collection_name}
-            {filter_clause}
-            ORDER BY distance
-            LIMIT %s
-        """,
-            (vectors, *filter_params, limit),
-        )
+        with self.get_cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT id, vector <=> %s::vector AS distance, payload
+                FROM {self.collection_name}
+                {filter_clause}
+                ORDER BY distance
+                LIMIT %s
+                """,
+                (vectors, *filter_params, limit),
+            )
+            results = cur.fetchall()
+            return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
 
-        results = self.cur.fetchall()
-        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
-
-    def delete(self, vector_id):
+    def delete(self, vector_id: str):
         """
         Delete a vector by ID.
 
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.cur.execute(f"DELETE FROM {self.collection_name} WHERE id = %s", (vector_id,))
-        self.conn.commit()
+        with self.get_cursor() as cur:
+            cur.execute(f"DELETE FROM {self.collection_name} WHERE id = %s", (vector_id,))
+            cur.connection.commit()
 
-    def update(self, vector_id, vector=None, payload=None):
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None):
         """
         Update a vector and its payload.
 
@@ -177,19 +234,20 @@ class PGVector(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
-        if vector:
-            self.cur.execute(
-                f"UPDATE {self.collection_name} SET vector = %s WHERE id = %s",
-                (vector, vector_id),
-            )
-        if payload:
-            self.cur.execute(
-                f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
-                (psycopg2.extras.Json(payload), vector_id),
-            )
-        self.conn.commit()
+        with self.get_cursor() as cur:
+            if vector:
+                cur.execute(
+                    f"UPDATE {self.collection_name} SET vector = %s WHERE id = %s",
+                    (vector, vector_id),
+                )
+            if payload:
+                cur.execute(
+                    f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
+                    (psycopg2.extras.Json(payload), vector_id),
+                )
+            cur.connection.commit()
 
-    def get(self, vector_id) -> OutputData:
+    def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -199,14 +257,15 @@ class PGVector(VectorStoreBase):
         Returns:
             OutputData: Retrieved vector.
         """
-        self.cur.execute(
-            f"SELECT id, vector, payload FROM {self.collection_name} WHERE id = %s",
-            (vector_id,),
-        )
-        result = self.cur.fetchone()
-        if not result:
-            return None
-        return OutputData(id=str(result[0]), score=None, payload=result[2])
+        with self.get_cursor() as cur:
+            cur.execute(
+                f"SELECT id, vector, payload FROM {self.collection_name} WHERE id = %s",
+                (vector_id,),
+            )
+            result = cur.fetchone()
+            if not result:
+                return None
+            return OutputData(id=str(result[0]), score=None, payload=result[2])
 
     def list_cols(self) -> List[str]:
         """
@@ -215,34 +274,37 @@ class PGVector(VectorStoreBase):
         Returns:
             List[str]: List of collection names.
         """
-        self.cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-        return [row[0] for row in self.cur.fetchall()]
+        with self.get_cursor() as cur:
+            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            return [row[0] for row in cur.fetchall()]
 
     def delete_col(self):
         """Delete a collection."""
-        self.cur.execute(f"DROP TABLE IF EXISTS {self.collection_name}")
-        self.conn.commit()
+        with self.get_cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {self.collection_name}")
+            cur.connection.commit()
 
-    def col_info(self):
+    def col_info(self) -> Dict[str, Any]:
         """
         Get information about a collection.
 
         Returns:
             Dict[str, Any]: Collection information.
         """
-        self.cur.execute(
-            f"""
-            SELECT 
-                table_name, 
-                (SELECT COUNT(*) FROM {self.collection_name}) as row_count,
-                (SELECT pg_size_pretty(pg_total_relation_size('{self.collection_name}'))) as total_size
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' AND table_name = %s
-        """,
-            (self.collection_name,),
-        )
-        result = self.cur.fetchone()
-        return {"name": result[0], "count": result[1], "size": result[2]}
+        with self.get_cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT 
+                    table_name, 
+                    (SELECT COUNT(*) FROM {self.collection_name}) as row_count,
+                    (SELECT pg_size_pretty(pg_total_relation_size('{self.collection_name}'))) as total_size
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_name = %s
+                """,
+                (self.collection_name,),
+            )
+            result = cur.fetchone()
+            return {"name": result[0], "count": result[1], "size": result[2]}
 
     def list(self, filters=None, limit=100):
         """
@@ -277,11 +339,28 @@ class PGVector(VectorStoreBase):
         results = self.cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
 
+    def close(self):
+        """Explicitly close all connections."""
+        if self.use_pool:
+            if self.pool is not None:
+                self.pool.closeall()
+                self.pool = None
+        else:
+            if hasattr(self, "cur") and self.cur is not None:
+                self.cur.close()
+                self.cur = None
+            if hasattr(self, "conn") and self.conn is not None:
+                self.conn.close()
+                self.conn = None
+
     def __del__(self):
-        """
-        Close the database connection when the object is deleted.
-        """
-        if hasattr(self, "cur"):
-            self.cur.close()
-        if hasattr(self, "conn"):
-            self.conn.close()
+        """Ensure connections are closed on deletion."""
+        self.close()
+
+    def __enter__(self):
+        """Support for context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensure connections are closed when exiting context."""
+        self.close()

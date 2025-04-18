@@ -13,6 +13,9 @@ class PGVectorConfig(BaseModel):
     port: Optional[int] = Field(None, description="Database port. Default is 1536")
     diskann: Optional[bool] = Field(True, description="Use diskann for approximate nearest neighbors search")
     hnsw: Optional[bool] = Field(False, description="Use hnsw for faster search")
+    use_pool: Optional[bool] = Field(False, description="Use connection pooling")
+    min_pool_size: Optional[int] = Field(1, description="Minimum number of connections in pool")
+    max_pool_size: Optional[int] = Field(20, description="Maximum number of connections in pool")
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
@@ -22,6 +25,13 @@ class PGVectorConfig(BaseModel):
             raise ValueError("Both 'user' and 'password' must be provided.")
         if not host and not port:
             raise ValueError("Both 'host' and 'port' must be provided.")
+
+        # Validate pool settings
+        if values.get("use_pool"):
+            min_pool = values.get("min_pool_size", 1)
+            max_pool = values.get("max_pool_size", 20)
+            if min_pool > max_pool:
+                raise ValueError("min_pool_size cannot be greater than max_pool_size")
         return values
 
     @model_validator(mode="before")
