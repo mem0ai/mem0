@@ -40,7 +40,7 @@ class ElasticsearchDB(VectorStoreBase):
             )
 
         self.collection_name = config.collection_name
-        self.vector_dim = config.embedding_model_dims
+        self.embedding_model_dims = config.embedding_model_dims
 
         # Create index only if auto_create_index is True
         if config.auto_create_index:
@@ -58,7 +58,7 @@ class ElasticsearchDB(VectorStoreBase):
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {"type": "dense_vector", "dims": self.vector_dim, "index": True, "similarity": "cosine"},
+                    "vector": {"type": "dense_vector", "dims": self.embedding_model_dims, "index": True, "similarity": "cosine"},
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
             },
