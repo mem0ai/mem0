@@ -37,7 +37,7 @@ class OpenSearchDB(VectorStoreBase):
         )
 
         self.collection_name = config.collection_name
-        self.vector_dim = config.embedding_model_dims
+        self.embedding_model_dims = config.embedding_model_dims
 
         # Create index only if auto_create_index is True
         if config.auto_create_index:
@@ -54,7 +54,7 @@ class OpenSearchDB(VectorStoreBase):
                     "text": {"type": "text"},
                     "vector": {
                         "type": "knn_vector",
-                        "dimension": self.vector_dim,
+                        "dimension": self.embedding_model_dims,
                         "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},

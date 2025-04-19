@@ -51,6 +51,7 @@ class PGVector(VectorStoreBase):
         self.collection_name = collection_name
         self.use_diskann = diskann
         self.use_hnsw = hnsw
+        self.embedding_model_dims = embedding_model_dims
 
         self.conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         self.cur = self.conn.cursor()
