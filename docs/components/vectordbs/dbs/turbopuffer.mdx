@@ -1,0 +1,74 @@
+# [Turbopuffer](https://turbopuffer.com) is a fast, cost-effective vector database for AI applications. Get started by signing up for an [API key](https://turbopuffer.com/dashboard).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+# Set your API keys (Turbopuffer + optional OpenAI for embeddings)
+os.environ["TURBOPUFFER_API_KEY"] = "tpuf_xxxxxxxxxxxx"
+os.environ["OPENAI_API_KEY"] = "sk-xx"  # Only needed if using OpenAI embeddings
+
+config = {
+    "vector_store": {
+        "provider": "turbopuffer",
+        "config": {
+            "collection_name": "movie_preferences",
+            "api_key": "tpuf_xxxxxxxxxxxx",  # Can also be set via env var
+            "embedding_model_dims": 1536,    # Must match your embedding model
+            "distance_metric": "cosine_distance"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thrillers but I love sci-fi."},
+    {"role": "assistant", "content": "Got it! I'll suggest sci-fi movies instead."}
+]
+
+m.add(messages, 
+      user_id="alice", 
+      metadata={"category": "movies", "preference": "sci-fi"})
+
+# Search with metadata filtering
+results = m.search(
+    query="sci-fi recommendations", 
+    user_id="alice",
+    filters={"category": "movies"}
+)
+```
+
+### Config
+
+Here are the parameters available for configuring Turbopuffer:
+
+| Parameter | Description | Default Value | Required |
+|-----------|-------------|---------------|----------|
+| `collection_name` | Namespace for vectors | `mem0` | No |
+| `api_key` | Turbopuffer API key | `None` | Yes* |
+| `api_base_url` | Region endpoint | `"https://gcp-us-central1.turbopuffer.com"` | No |
+| `embedding_model_dims` | Dimension of embedding vectors | `1536` | Yes |
+| `distance_metric` | Similarity metric (`"cosine_distance"` or `"euclidean_distance"`) | `"cosine_distance"` | No |
+| `batch_size` | Bulk upsert chunk size | `100` | No |
+
+> *API key can also be set via `TURBOPUFFER_API_KEY` environment variable
+
+### Key Features
+
+1. **Serverless** - No infrastructure to manage
+2. **Low Cost** - ~10x cheaper than Pinecone for comparable workloads
+3. **Fast Queries** - Optimized for <50ms latency at scale
+4. **Metadata Filtering** - Combine vector search with attribute filters
+
+### Regions Available
+
+| Region Code | Location |
+|-------------|----------|
+| `gcp-us-central1` | Iowa, USA (Default) |
+| `aws-us-west-2` | Oregon, USA |
+| `eu-central-1` | Frankfurt, Germany |

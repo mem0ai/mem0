@@ -26,6 +26,7 @@ class VectorStoreConfig(BaseModel):
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
+        "turbopuffer": "TurbopufferConfig",
     }
 
     @model_validator(mode="after")
