@@ -341,3 +341,10 @@ class AzureAISearch(VectorStoreBase):
         """Close the search client when the object is deleted."""
         self.search_client.close()
         self.index_client.close()
+        
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.index_name}...")
+        self.delete_col()
+        self.create_col()
+        
