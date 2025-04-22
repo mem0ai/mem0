@@ -47,8 +47,14 @@ allowfullscreen
 
 ## Initialize Graph Memory
 
-To initialize Graph Memory you'll need to set up your configuration with graph store providers.
-Currently, we support Neo4j as a graph store provider. You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/).
+To initialize Graph Memory you'll need to set up your configuration with graph
+store providers. Currently, we support [Neo4j](#initialize-neo4j) and
+[Memgraph](#initialize-memgraph) as graph store providers. 
+
+
+### Initialize Neo4j
+
+You can setup [Neo4j](https://neo4j.com/) locally or use the hosted [Neo4j AuraDB](https://neo4j.com/product/auradb/).
 
 <Note>If you are using Neo4j locally, then you need to install [APOC plugins](https://neo4j.com/labs/apoc/4.1/installation/).</Note>
 
@@ -162,6 +168,67 @@ const memory = new Memory(config);
 <Note>
 If you are using NodeSDK, you need to pass `enableGraph` as `true` in the `config` object.
 </Note>
+
+### Initialize Memgraph
+
+Run Memgraph with Docker:
+
+```bash
+docker run -p 7687:7687 memgraph/memgraph-mage:latest --schema-info-enabled=True
+```
+
+The `--schema-info-enabled` flag is set to `True` for more performant schema
+generation.
+
+Additional information can be found on [Memgraph
+documentation](https://memgraph.com/docs). 
+
+User can also customize the LLM for Graph Memory from the [Supported LLM list](https://docs.mem0.ai/components/llms/overview) with three levels of configuration:
+
+1. **Main Configuration**: If `llm` is set in the main config, it will be used for all graph operations.
+2. **Graph Store Configuration**: If `llm` is set in the graph_store config, it will override the main config `llm` and be used specifically for graph operations.
+3. **Default Configuration**: If no custom LLM is set, the default LLM (`gpt-4o-2024-08-06`) will be used for all graph operations.
+
+Here's how you can do it:
+
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "memgraph",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "memgraph",
+            "password": "xxx",
+        },
+    },
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+```python Python (Advanced)
+config = {
+    "embedder": {
+        "provider": "openai",
+        "config": {"model": "text-embedding-3-large", "embedding_dims": 1536},
+    },
+    "graph_store": {
+        "provider": "memgraph",
+        "config": {
+            "url": "bolt://localhost:7687",
+            "username": "memgraph",
+            "password": "xxx"
+        }
+    }
+}
+
+m = Memory.from_config(config_dict=config)
+```
+</CodeGroup>
 
 ## Graph Operations
 The Mem0's graph supports the following operations:
