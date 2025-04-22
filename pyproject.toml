@@ -31,9 +31,10 @@ langchain-neo4j = "^0.4.0"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
 psycopg2-binary = "^2.9.10"
+langchain-memgraph = "^0.1.1"
 
 [tool.poetry.extras]
-graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
+graph = ["langchain-neo4j", "neo4j", "rank-bm25", "langchain-memgraph"]
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
