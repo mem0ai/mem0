@@ -30,7 +30,7 @@ client = MemoryClient(api_key="your-api-key")
 messages = [
     {
         "role": "user", 
-        "content": "I'll be in San Francisco until August 31st."
+        "content": "I'll be in San Francisco until end of this month."
     }
 ]
 
@@ -48,7 +48,7 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 const messages = [
     {
         "role": "user", 
-        "content": "I'll be in San Francisco until August 31st."
+        "content": "I'll be in San Francisco until end of this month."
     }
 ];
 
@@ -79,7 +79,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
          "messages": [
              {
                 "role": "user", 
-                "content": "I'll be in San Francisco until August 31st."
+                "content": "I'll be in San Francisco until end of this month."
             }
          ],
          "user_id": "alex",
@@ -93,7 +93,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
         {
             "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
             "data": {
-                "memory": "In San Francisco until August 31st"
+                "memory": "In San Francisco until end of this month"
             },
             "event": "ADD"
         }
