@@ -4900,6 +4900,13 @@
 						"type": "boolean",
 						"default": false
 					},
+					"timestamp": {
+						"description": "The timestamp of the memory. Format: Unix timestamp",
+						"title": "Timestamp",
+						"type": "integer",
+						"nullable": true,
+						"default": null
+					},
 					"expiration_date": {
 						"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
 						"title": "Expiration date",
