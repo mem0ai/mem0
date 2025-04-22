@@ -49,6 +49,7 @@
                       "features/advanced-retrieval",
                       "features/contextual-add",
                       "features/multimodal-support",
+                      "features/timestamp",
                       "features/selective-memory",
                       "features/custom-categories",
                       "features/custom-instructions",
@@ -57,7 +58,8 @@
                       "features/memory-export",
                       "features/webhooks",
                       "features/graph-memory",
-                      "features/feedback-mechanism"
+                      "features/feedback-mechanism",
+                      "features/expiration-date"
                     ]
                   }
                 ]
