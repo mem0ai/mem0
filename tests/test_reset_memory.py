@@ -12,25 +12,22 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
-vector_store = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings,
-    collection_name="mem0"  # Required collection name
-)
 
 # Pass the initialized vector store to the config
 config = {
     "llm": {
-        "provider": "gemini",
+        "provider": "gemini"
     },
     "embedder": {
-        "provider": "gemini",
+        "provider": "gemini"
     },
     "vector_store": {
-        "provider": "langchain",
+        "provider": "milvus",
         "config": {
-            "client": vector_store
+            "collection_name": "test",
+            "embedding_model_dims": "768",
+            # "url": "127.0.0.1",
+            # "token": "8e4b8ca8cf2c67",
         }
     }
 }
