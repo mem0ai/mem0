@@ -21,6 +21,7 @@ export interface MemoryOptions {
   end_date?: string;
   custom_categories?: custom_categories[];
   custom_instructions?: string;
+  timestamp?: number;
 }
 
 export interface ProjectOptions {
