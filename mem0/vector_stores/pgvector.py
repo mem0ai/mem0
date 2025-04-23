@@ -58,28 +58,25 @@ class PGVector(VectorStoreBase):
 
         collections = self.list_cols()
         if collection_name not in collections:
-            self.create_col(embedding_model_dims)
+            self.create_col()
 
-    def create_col(self, embedding_model_dims):
+    def create_col(self):
         """
         Create a new collection (table in PostgreSQL).
         Will also initialize vector search index if specified.
-
-        Args:
-            embedding_model_dims (int): Dimension of the embedding vector.
         """
         self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self.cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {self.collection_name} (
                 id UUID PRIMARY KEY,
-                vector vector({embedding_model_dims}),
+                vector vector({self.embedding_model_dims}),
                 payload JSONB
             );
         """
         )
 
-        if self.use_diskann and embedding_model_dims < 2000:
+        if self.use_diskann and self.embedding_model_dims < 2000:
             # Check if vectorscale extension is installed
             self.cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
             if self.cur.fetchone():

@@ -31,6 +31,7 @@ class Qdrant(VectorStoreBase):
         url: str = None,
         api_key: str = None,
         on_disk: bool = False,
+        distance: Distance = Distance.COSINE,
     ):
         """
         Initialize the Qdrant vector store.
@@ -45,6 +46,7 @@ class Qdrant(VectorStoreBase):
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Defaults to False.
+            distance (Distance, optional): Distance metric for vector similarity. Defaults to Distance.COSINE.
         """
         if client:
             self.client = client
@@ -67,16 +69,14 @@ class Qdrant(VectorStoreBase):
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
-        self.create_col(embedding_model_dims, on_disk)
+        self.on_disk = on_disk
+        self.distance = distance
+        self.create_col()
 
-    def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
+    def create_col(self):
         """
         Create a new collection.
-
-        Args:
-            vector_size (int): Size of the vectors to be stored.
-            on_disk (bool): Enables persistent storage.
-            distance (Distance, optional): Distance metric for vector similarity. Defaults to Distance.COSINE.
+        All necessary parameters are accessed from the instance attributes.
         """
         # Skip creating collection if already exists
         response = self.list_cols()
@@ -87,7 +87,7 @@ class Qdrant(VectorStoreBase):
 
         self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+            vectors_config=VectorParams(size=self.embedding_model_dims, distance=self.distance, on_disk=self.on_disk),
         )
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):

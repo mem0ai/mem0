@@ -41,6 +41,7 @@ class ElasticsearchDB(VectorStoreBase):
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
+        self.distance = "cosine"  # Default distance metric
 
         # Create index only if auto_create_index is True
         if config.auto_create_index:
@@ -70,21 +71,26 @@ class ElasticsearchDB(VectorStoreBase):
         else:
             logger.info(f"Index {self.collection_name} already exists")
 
-    def create_col(self, name: str, vector_size: int, distance: str = "cosine") -> None:
-        """Create a new collection (index in Elasticsearch)."""
+    def create_col(self) -> None:
+        """Create a new collection (index in Elasticsearch) using class attributes."""
         index_settings = {
             "mappings": {
                 "properties": {
-                    "vector": {"type": "dense_vector", "dims": vector_size, "index": True, "similarity": "cosine"},
+                    "vector": {
+                        "type": "dense_vector",
+                        "dims": self.vector_dim,
+                        "index": True,
+                        "similarity": self.distance,
+                    },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
                 }
             }
         }
 
-        if not self.client.indices.exists(index=name):
-            self.client.indices.create(index=name, body=index_settings)
-            logger.info(f"Created index {name}")
+        if not self.client.indices.exists(index=self.collection_name):
+            self.client.indices.create(index=self.collection_name, body=index_settings)
+            logger.info(f"Created index {self.collection_name}")
 
     def insert(
         self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
@@ -192,9 +198,10 @@ class ElasticsearchDB(VectorStoreBase):
         """Delete a collection (index)."""
         self.client.indices.delete(index=self.collection_name)
 
-    def col_info(self, name: str) -> Any:
+    def col_info(self, name: Optional[str] = None) -> Any:
         """Get information about a collection (index)."""
-        return self.client.indices.get(index=name)
+        index_name = name if name else self.collection_name
+        return self.client.indices.get(index=index_name)
 
     def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
         """List all memories."""

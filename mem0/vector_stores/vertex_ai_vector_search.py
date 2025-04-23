@@ -478,16 +478,11 @@ class GoogleMatchingEngine(VectorStoreBase):
             logger.error("Stack trace: %s", traceback.format_exc())
             raise
 
-    def create_col(self, name=None, vector_size=None, distance=None):
+    def create_col(self):
         """
         Create a new collection. For Google Matching Engine, collections (indexes)
         are created through the Google Cloud Console or API separately.
         This method is a no-op since indexes are pre-created.
-
-        Args:
-            name: Ignored for Google Matching Engine
-            vector_size: Ignored for Google Matching Engine
-            distance: Ignored for Google Matching Engine
         """
         # Google Matching Engine indexes are created through Google Cloud Console
         # This method is included only to satisfy the abstract base class

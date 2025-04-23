@@ -41,7 +41,7 @@ class OpenSearchDB(VectorStoreBase):
 
         # Create index only if auto_create_index is True
         if config.auto_create_index:
-            self.create_index()
+            self.create_col()
 
     def create_index(self) -> None:
         """Create OpenSearch index with proper mappings if it doesn't exist."""
@@ -68,8 +68,10 @@ class OpenSearchDB(VectorStoreBase):
         else:
             logger.info(f"Index {self.collection_name} already exists")
 
-    def create_col(self, name: str, vector_size: int) -> None:
+    def create_col(self) -> None:
         """Create a new collection (index in OpenSearch)."""
+        name = self.collection_name
+        vector_size = self.embedding_model_dims
         index_settings = {
             "mappings": {
                 "properties": {
@@ -105,7 +107,7 @@ class OpenSearchDB(VectorStoreBase):
                 "_id": id_,
                 "_source": {
                     "vector": vec,
-                    "metadata": payloads[i],  # Store metadata in the metadata field
+                    "metadata": payloads[i],
                 },
             }
             actions.append(action)
@@ -176,9 +178,9 @@ class OpenSearchDB(VectorStoreBase):
         """Delete a collection (index)."""
         self.client.indices.delete(index=self.collection_name)
 
-    def col_info(self, name: str) -> Any:
+    def col_info(self) -> Any:
         """Get information about a collection (index)."""
-        return self.client.indices.get(index=name)
+        return self.client.indices.get(index=self.collection_name)
 
     def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
         """List all memories."""

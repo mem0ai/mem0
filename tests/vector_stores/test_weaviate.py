@@ -1,15 +1,14 @@
 import os
-import uuid
-import httpx
 import unittest
+import uuid
 from unittest.mock import MagicMock, patch
 
 import dotenv
+import httpx
 import weaviate
-from weaviate.classes.query import MetadataQuery, Filter
 from weaviate.exceptions import UnexpectedStatusCodeException
 
-from mem0.vector_stores.weaviate import Weaviate, OutputData
+from mem0.vector_stores.weaviate import Weaviate
 
 
 class TestWeaviateDB(unittest.TestCase):
@@ -59,7 +58,7 @@ class TestWeaviateDB(unittest.TestCase):
 
     def test_create_col(self):
         self.client_mock.collections.exists.return_value = False
-        self.weaviate_db.create_col(vector_size=1536)
+        self.weaviate_db.create_col()
 
 
         self.client_mock.collections.create.assert_called_once()
@@ -68,7 +67,7 @@ class TestWeaviateDB(unittest.TestCase):
         self.client_mock.reset_mock()
 
         self.client_mock.collections.exists.return_value = True
-        self.weaviate_db.create_col(vector_size=1536)
+        self.weaviate_db.create_col()
 
         self.client_mock.collections.create.assert_not_called()
 
@@ -85,7 +84,7 @@ class TestWeaviateDB(unittest.TestCase):
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
         ids = [str(uuid.uuid4()), str(uuid.uuid4())]
         
-        results = self.weaviate_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+        self.weaviate_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
     def test_get(self):
         valid_uuid = str(uuid.uuid4())

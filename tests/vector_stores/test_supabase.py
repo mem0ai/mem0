@@ -44,7 +44,7 @@ def supabase_instance(mock_vecs_client, mock_collection):
 
 
 def test_create_col(supabase_instance, mock_vecs_client, mock_collection):
-    supabase_instance.create_col(1536)
+    supabase_instance.create_col()
 
     mock_vecs_client.return_value.get_or_create_collection.assert_called_with(
         name="test_collection",

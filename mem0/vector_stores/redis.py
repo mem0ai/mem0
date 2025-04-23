@@ -50,6 +50,9 @@ class RedisDB(VectorStoreBase):
         redis_url: str,
         collection_name: str,
         embedding_model_dims: int,
+        distance_metric: str = "cosine",
+        algorithm: str = "flat",
+        datatype: str = "float32",
     ):
         """
         Initialize the Redis vector store.
@@ -58,26 +61,51 @@ class RedisDB(VectorStoreBase):
             redis_url (str): Redis URL.
             collection_name (str): Collection name.
             embedding_model_dims (int): Embedding model dimensions.
+            distance_metric (str, optional): Distance metric for vector similarity. Defaults to "cosine".
+            algorithm (str, optional): Algorithm for vector search. Defaults to "flat".
+            datatype (str, optional): Data type for vector storage. Defaults to "float32".
         """
+        self.redis_url = redis_url
+        self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
+        self.distance_metric = distance_metric
+        self.algorithm = algorithm
+        self.datatype = datatype
+
+        # Initialize Redis client
+        self.client = redis.Redis.from_url(redis_url)
+
+        # Create collection with properly configured schema
+        self.create_col()
+
+    def create_col(self):
+        """
+        Create a new collection (index in Redis).
+        All necessary parameters are accessed from the instance attributes.
+        """
+        # Create index schema
         index_schema = {
-            "name": collection_name,
-            "prefix": f"mem0:{collection_name}",
+            "name": self.collection_name,
+            "prefix": f"mem0:{self.collection_name}",
         }
 
+        # Copy default fields and update embedding configuration
         fields = DEFAULT_FIELDS.copy()
-        fields[-1]["attrs"]["dims"] = embedding_model_dims
+        fields[-1]["attrs"].update(
+            {
+                "dims": self.embedding_model_dims,
+                "distance_metric": self.distance_metric,
+                "algorithm": self.algorithm,
+                "datatype": self.datatype,
+            }
+        )
 
         self.schema = {"index": index_schema, "fields": fields}
 
-        self.client = redis.Redis.from_url(redis_url)
+        # Create and configure the index
         self.index = SearchIndex.from_dict(self.schema)
         self.index.set_client(self.client)
         self.index.create(overwrite=True)
-
-    # TODO: Implement multiindex support.
-    def create_col(self, name, vector_size, distance):
-        raise NotImplementedError("Collection/Index creation not supported yet.")
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         data = []

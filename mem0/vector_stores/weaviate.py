@@ -58,7 +58,7 @@ class Weaviate(VectorStoreBase):
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
-        self.create_col(embedding_model_dims)
+        self.create_col()
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
@@ -93,13 +93,10 @@ class Weaviate(VectorStoreBase):
 
         return result
 
-    def create_col(self, vector_size, distance="cosine"):
+    def create_col(self):
         """
         Create a new collection with the specified schema.
-
-        Args:
-            vector_size (int): Size of the vectors to be stored.
-            distance (str, optional): Distance metric for vector similarity. Defaults to "cosine".
+        Uses vector size and collection name from instance initialization.
         """
         if self.client.collections.exists(self.collection_name):
             logging.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
