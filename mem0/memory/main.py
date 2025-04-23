@@ -762,13 +762,6 @@ class Memory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
-        # self.vector_store.delete_col()
-
-        gc.collect()
-
-        # Close the client if it has a close method
-        # if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
-            # self.vector_store.client.close()
 
         # Close the old connection if possible
         if hasattr(self.db, 'connection') and self.db.connection:
@@ -785,11 +778,6 @@ class Memory(MemoryBase):
             self.vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, self.config.vector_store.config
             )
-
-        # Create a new vector store with the same configuration
-        # self.vector_store = VectorStoreFactory.create(
-        #     self.config.vector_store.provider, self.config.vector_store.config
-        # )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
     def chat(self, query):

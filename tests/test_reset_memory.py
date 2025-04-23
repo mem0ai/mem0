@@ -1,13 +1,10 @@
 import logging
 from mem0.configs.base import MemoryConfig
 from mem0.configs.vector_stores.faiss import FAISSConfig
-from mem0.configs.vector_stores.langchain import LangchainConfig
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.llms.configs import LlmConfig
 from mem0.memory.main import Memory
 from mem0.vector_stores.configs import VectorStoreConfig
-from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -22,12 +19,10 @@ config = {
         "provider": "gemini"
     },
     "vector_store": {
-        "provider": "milvus",
+        "provider": "faiss",
         "config": {
-            "collection_name": "test",
-            "embedding_model_dims": "768",
-            # "url": "127.0.0.1",
-            # "token": "8e4b8ca8cf2c67",
+            "collection_name": "test_faiss_reset",
+            "embedding_model_dims": 768
         }
     }
 }
