@@ -32,6 +32,8 @@ MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 
+SAFE_DB_DIR = os.environ.get("SAFE_DB_DIR", "/app/history")
+
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
@@ -102,10 +104,34 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
 
 
+def validate_db_path(path):
+    """Validate that the database path is within the safe directory."""
+    if not path:
+        return HISTORY_DB_PATH
+    
+    # Convert both paths to absolute and resolved paths
+    path = os.path.abspath(path)
+    safe_dir = os.path.abspath(SAFE_DB_DIR)
+    
+    # Check if the path is within the safe directory
+    if not path.startswith(safe_dir):
+        logging.warning(f"Attempted to use unsafe database path: {path}. Using default path instead.")
+        return HISTORY_DB_PATH
+    
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    return path
+
+
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any]):
     """Set memory configuration."""
     global MEMORY_INSTANCE
+    
+    # Validate and sanitize history_db_path if present
+    if "history_db_path" in config:
+        config["history_db_path"] = validate_db_path(config["history_db_path"])
+    
     MEMORY_INSTANCE = Memory.from_config(config)
     return {"message": "Configuration set successfully"}
 
