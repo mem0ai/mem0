@@ -59,6 +59,7 @@ class RedisDB(VectorStoreBase):
             collection_name (str): Collection name.
             embedding_model_dims (int): Embedding model dimensions.
         """
+        self.embedding_model_dims = embedding_model_dims
         index_schema = {
             "name": collection_name,
             "prefix": f"mem0:{collection_name}",

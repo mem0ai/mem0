@@ -57,6 +57,7 @@ class Weaviate(VectorStoreBase):
             )
 
         self.collection_name = collection_name
+        self.embedding_model_dims = embedding_model_dims
         self.create_col(embedding_model_dims)
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
