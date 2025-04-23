@@ -250,7 +250,7 @@ class UpstashVector(VectorStoreBase):
         ]
         return [parsed_result]
 
-    def create_col(self, name, vector_size, distance):
+    def create_col(self):
         """
         Upstash Vector has namespaces instead of collections. A namespace is created when the first vector is inserted.
 
