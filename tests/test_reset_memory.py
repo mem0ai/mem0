@@ -1,26 +1,41 @@
 import logging
 from mem0.configs.base import MemoryConfig
+from mem0.configs.vector_stores.faiss import FAISSConfig
+from mem0.configs.vector_stores.langchain import LangchainConfig
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.llms.configs import LlmConfig
 from mem0.memory.main import Memory
 from mem0.vector_stores.configs import VectorStoreConfig
+from langchain_community.vectorstores import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-# Initialize Memory with configuration
-print("Creating Memory instance...")
-config = MemoryConfig(
-    embedder=EmbedderConfig(provider='gemini'),
-    llm=LlmConfig(provider='gemini'),
-    vector_store=VectorStoreConfig(
-        provider='chroma'
-    )
-        # config={
-        #     "embedding_model_dims": 768, # Qdrant requires this key for dimensionality
-        # })
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
+vector_store = Chroma(
+    persist_directory="./chroma_db",
+    embedding_function=embeddings,
+    collection_name="mem0"  # Required collection name
 )
-memory = Memory(config)
+
+# Pass the initialized vector store to the config
+config = {
+    "llm": {
+        "provider": "gemini",
+    },
+    "embedder": {
+        "provider": "gemini",
+    },
+    "vector_store": {
+        "provider": "langchain",
+        "config": {
+            "client": vector_store
+        }
+    }
+}
+
+memory = Memory.from_config(config)
 
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},

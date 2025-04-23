@@ -226,4 +226,4 @@ class ChromaDB(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.create_col(self.collection_name)
+        self.collection = self.create_col(self.collection_name)
