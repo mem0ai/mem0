@@ -67,6 +67,7 @@ class Qdrant(VectorStoreBase):
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
+        self.on_disk = on_disk
         self.create_col(embedding_model_dims, on_disk)
 
     def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
@@ -231,3 +232,9 @@ class Qdrant(VectorStoreBase):
             with_vectors=False,
         )
         return result
+    
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col(self.embedding_model_dims, self.on_disk)

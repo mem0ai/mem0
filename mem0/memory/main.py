@@ -1,10 +1,10 @@
-import os
 import asyncio
 import concurrent
 import gc
 import hashlib
 import json
 import logging
+import os
 import uuid
 import warnings
 from datetime import datetime
@@ -20,7 +20,7 @@ from mem0.configs.prompts import (
     get_update_memory_messages,
 )
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import setup_config, mem0_dir
+from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
@@ -67,7 +67,7 @@ class Memory(MemoryBase):
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
 
-        self.config.vector_store.config.collection_name = "mem0_migrations"
+        self.config.vector_store.config.collection_name = "mem0-migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
             self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
@@ -765,13 +765,6 @@ class Memory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
-        self.vector_store.delete_col()
-
-        gc.collect()
-
-        # Close the client if it has a close method
-        if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
-            self.vector_store.client.close()
 
         # Close the old connection if possible
         if hasattr(self.db, 'connection') and self.db.connection:
@@ -780,10 +773,14 @@ class Memory(MemoryBase):
 
         self.db = SQLiteManager(self.config.history_db_path)
 
-        # Create a new vector store with the same configuration
-        self.vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
-        )
+        if hasattr(self.vector_store, 'reset'):
+            self.vector_store = VectorStoreFactory.reset(self.vector_store)
+        else:
+            logger.warning("Vector store does not support reset. Skipping.")
+            self.vector_store.delete_col()
+            self.vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, self.config.vector_store.config
+            )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
     def chat(self, query):

@@ -65,6 +65,8 @@ class AzureAISearch(VectorStoreBase):
             hybrid_search (bool): Whether to use hybrid search. Default is False.
             vector_filter_mode (Optional[str]): Mode for vector filtering. Default is "preFilter".
         """
+        self.service_name = service_name
+        self.api_key = api_key
         self.index_name = collection_name
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
@@ -341,3 +343,38 @@ class AzureAISearch(VectorStoreBase):
         """Close the search client when the object is deleted."""
         self.search_client.close()
         self.index_client.close()
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.index_name}...")
+
+        try:
+            # Close the existing clients
+            self.search_client.close()
+            self.index_client.close()
+
+            # Delete the collection
+            self.delete_col()
+
+            # Reinitialize the clients
+            service_endpoint = f"https://{self.service_name}.search.windows.net"
+            self.search_client = SearchClient(
+                endpoint=service_endpoint,
+                index_name=self.index_name,
+                credential=AzureKeyCredential(self.api_key),
+            )
+            self.index_client = SearchIndexClient(
+                endpoint=service_endpoint,
+                credential=AzureKeyCredential(self.api_key),
+            )
+
+            # Add user agent
+            self.search_client._client._config.user_agent_policy.add_user_agent("mem0")
+            self.index_client._client._config.user_agent_policy.add_user_agent("mem0")
+
+            # Create the collection
+            self.create_col()
+        except Exception as e:
+            logger.error(f"Error resetting index {self.index_name}: {e}")
+            raise
+

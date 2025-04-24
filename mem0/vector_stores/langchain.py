@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -11,6 +12,7 @@ except ImportError:
 
 from mem0.vector_stores.base import VectorStoreBase
 
+logger = logging.getLogger(__name__)
 
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
@@ -135,7 +137,14 @@ class Langchain(VectorStoreBase):
         """
         Delete a collection.
         """
-        self.client.delete(ids=None)
+        logger.warning("Deleting collection")
+        if hasattr(self.client, "delete_collection"):
+            self.client.delete_collection()
+        elif hasattr(self.client, "reset_collection"):
+            self.client.reset_collection()
+        else:
+            # Fallback to the generic delete method
+            self.client.delete(ids=None)
 
     def col_info(self):
         """
@@ -147,5 +156,27 @@ class Langchain(VectorStoreBase):
         """
         List all vectors in a collection.
         """
-        # This would require implementation-specific access to the underlying store
-        raise NotImplementedError("Listing all vectors not directly supported by LangChain vectorstores")
+        try:
+            if hasattr(self.client, "_collection") and hasattr(self.client._collection, "get"):
+                # Convert mem0 filters to Chroma where clause if needed
+                where_clause = None
+                if filters and "user_id" in filters:
+                    where_clause = {"user_id": filters["user_id"]}
+
+                result = self.client._collection.get(
+                    where=where_clause,
+                    limit=limit
+                )
+
+                # Convert the result to the expected format
+                if result and isinstance(result, dict):
+                    return [self._parse_output(result)]
+                return []
+        except Exception as e:
+            logger.error(f"Error listing vectors from Chroma: {e}")
+            return []
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting collection: {self.collection_name}")
+        self.delete_col()

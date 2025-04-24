@@ -465,3 +465,9 @@ class FAISS(VectorStoreBase):
                 break
 
         return [results]
+    
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col(self.collection_name)

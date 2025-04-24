@@ -221,3 +221,9 @@ class ChromaDB(VectorStoreBase):
         """
         results = self.collection.get(where=filters, limit=limit)
         return [self._parse_output(results)]
+    
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.collection = self.create_col(self.collection_name)
