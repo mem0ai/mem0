@@ -99,7 +99,7 @@ class VectorStoreFactory:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
         
     @classmethod
-    def reset(cls, instence):
-        instence.reset()
-        return instence
+    def reset(cls, instance):
+        instance.reset()
+        return instance
         
