@@ -620,3 +620,10 @@ class GoogleMatchingEngine(VectorStoreBase):
         logger.debug("Starting similarity search")
         docs_and_scores = self.similarity_search_with_score(query, k, filter)
         return [doc for doc, _ in docs_and_scores]
+
+    def reset(self):
+        """
+        Reset the Google Matching Engine index.
+        """
+        logger.warning("Reset operation is not supported for Google Matching Engine")
+        pass
