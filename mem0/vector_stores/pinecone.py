@@ -369,5 +369,6 @@ class PineconeDB(VectorStoreBase):
         """
         Reset the index by deleting and recreating it.
         """
+        logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
         self.create_col(self.embedding_model_dims, self.metric)
