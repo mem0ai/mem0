@@ -80,32 +80,46 @@ class RedisDB(VectorStoreBase):
 
     def create_col(self):
         """
-        Create a new collection (index in Redis).
-        All necessary parameters are accessed from the instance attributes.
+        Create a new collection (index) in Redis.
+
+        Args:
+            name (str, optional): Name for the collection. Defaults to None, which uses the current collection_name.
+            vector_size (int, optional): Size of the vector embeddings. Defaults to None, which uses the current embedding_model_dims.
+            distance (str, optional): Distance metric to use. Defaults to None, which uses 'cosine'.
+
+        Returns:
+            The created index object.
         """
-        # Create index schema
+        # Use provided parameters or fall back to instance attributes
+        collection_name = self.collection_name or self.schema['index']['name']
+        embedding_dims = self.embedding_model_dims or self.embedding_model_dims
+        distance_metric = self.distance_metric or "cosine"
+
+        # Create a new schema with the specified parameters
         index_schema = {
-            "name": self.collection_name,
-            "prefix": f"mem0:{self.collection_name}",
+            "name": collection_name,
+            "prefix": f"mem0:{collection_name}",
         }
 
-        # Copy default fields and update embedding configuration
+        # Copy the default fields and update the vector field with the specified dimensions
         fields = DEFAULT_FIELDS.copy()
-        fields[-1]["attrs"].update(
-            {
-                "dims": self.embedding_model_dims,
-                "distance_metric": self.distance_metric,
-                "algorithm": self.algorithm,
-                "datatype": self.datatype,
-            }
-        )
+        fields[-1]["attrs"]["dims"] = embedding_dims
+        fields[-1]["attrs"]["distance_metric"] = distance_metric
 
-        self.schema = {"index": index_schema, "fields": fields}
+        # Create the schema
+        schema = {"index": index_schema, "fields": fields}
 
-        # Create and configure the index
-        self.index = SearchIndex.from_dict(self.schema)
-        self.index.set_client(self.client)
-        self.index.create(overwrite=True)
+        # Create the index
+        index = SearchIndex.from_dict(schema)
+        index.set_client(self.client)
+        index.create(overwrite=True)
+
+        # Update instance attributes if creating a new collection
+        if self.collection_name:
+            self.schema = schema
+            self.index = index
+
+        return index
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         data = []
@@ -221,6 +235,25 @@ class RedisDB(VectorStoreBase):
 
     def col_info(self, name):
         return self.index.info()
+
+    def reset(self):
+        """
+        Reset the index by deleting and recreating it.
+        """
+        collection_name = self.schema['index']['name']
+        logger.warning(f"Resetting index {collection_name}...")
+        self.delete_col()
+        
+        self.index = SearchIndex.from_dict(self.schema)
+        self.index.set_client(self.client)
+        self.index.create(overwrite=True)
+        
+        #or use 
+        #self.create_col(collection_name, self.embedding_model_dims)
+
+
+        # Recreate the index with the same parameters
+        self.create_col(self)
 
     def list(self, filters: dict = None, limit: int = None) -> list:
         """
