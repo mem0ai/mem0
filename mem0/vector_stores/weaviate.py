@@ -57,6 +57,7 @@ class Weaviate(VectorStoreBase):
             )
 
         self.collection_name = collection_name
+        self.embedding_model_dims = embedding_model_dims
         self.create_col(embedding_model_dims)
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
@@ -307,3 +308,9 @@ class Weaviate(VectorStoreBase):
             payload["id"] = str(obj.uuid).split("'")[0]
             results.append(OutputData(id=str(obj.uuid).split("'")[0], score=1.0, payload=payload))
         return [results]
+    
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col()

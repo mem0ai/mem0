@@ -142,9 +142,3 @@ class SQLiteManager:
                 }
                 for row in rows
             ]
-
-    def reset(self):
-        with self._lock:
-            with self.connection:
-                self.connection.execute("DROP TABLE IF EXISTS history")
-                self._create_history_table()

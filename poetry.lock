@@ -83,7 +83,7 @@ description = "Foreign Function Interface for Python calling C code."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"graph\" and platform_python_implementation == \"PyPy\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "platform_python_implementation == \"PyPy\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
 files = [
     {file = "cffi-1.17.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:df8b1c11f177bc2313ec4b2d46baec87a5f3e71fc8b45dab2ee7cae86d9aba14"},
     {file = "cffi-1.17.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:8f2cdc858323644ab277e9bb925ad72ae0e67f69e804f4898c070998d50b1a67"},
@@ -843,7 +843,7 @@ description = "Apply JSON-Patches (RFC 6902)"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "jsonpatch-1.33-py2.py3-none-any.whl", hash = "sha256:0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade"},
     {file = "jsonpatch-1.33.tar.gz", hash = "sha256:9fcd4009c41e6d12348b4a0ff2563ba56a2923a7dfee731d004e212e1ee5030c"},
@@ -859,7 +859,7 @@ description = "Identify specific nodes in a JSON document (RFC 6901)"
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "jsonpointer-3.0.0-py2.py3-none-any.whl", hash = "sha256:13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942"},
     {file = "jsonpointer-3.0.0.tar.gz", hash = "sha256:2b2d729f2091522d61c3b31f82e11870f60b68f43fbc705cb76bf4b832af59ef"},
@@ -913,7 +913,7 @@ description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "langchain_core-0.3.48-py3-none-any.whl", hash = "sha256:21e4fe84262b9c7ad8aefe7816439ede130893f8a64b8c965cd9695c2be91c73"},
     {file = "langchain_core-0.3.48.tar.gz", hash = "sha256:be4b2fe36d8a11fb4b6b13e0808b12aea9f25e345624ffafe1d606afb6059f21"},
@@ -930,6 +930,23 @@ pydantic = [
 PyYAML = ">=5.3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10.0.0"
 typing-extensions = ">=4.7"
+
+[[package]]
+name = "langchain-memgraph"
+version = "0.1.1"
+description = "An integration package connecting Memgraph and LangChain"
+optional = false
+python-versions = "<4.0,>=3.9"
+groups = ["main"]
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
+files = [
+    {file = "langchain_memgraph-0.1.1-py3-none-any.whl", hash = "sha256:656e272a317d596c01016210fe5adb7ca5a9485cf733bdfe65e23cb80c360b52"},
+    {file = "langchain_memgraph-0.1.1.tar.gz", hash = "sha256:64e8560720a4382db230bcbc45d9e5dcbd329da4ea1c192ab867dc0157724554"},
+]
+
+[package.dependencies]
+langchain-core = ">=0.3.15,<0.4.0"
+neo4j = ">=5.28.1,<6.0.0"
 
 [[package]]
 name = "langchain-neo4j"
@@ -973,7 +990,7 @@ description = "Client library to connect to the LangSmith LLM Tracing and Evalua
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "langsmith-0.3.18-py3-none-any.whl", hash = "sha256:7ad65ec26084312a039885ef625ae72a69ad089818b64bacf7ce6daff672353a"},
     {file = "langsmith-0.3.18.tar.gz", hash = "sha256:18ff2d8f2e77b375485e4fb3d0dbf7b30fabbd438c7347c3534470e9b7d187b8"},
@@ -1017,7 +1034,7 @@ description = "Neo4j Bolt driver for Python"
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "neo4j-5.28.1-py3-none-any.whl", hash = "sha256:6755ef9e5f4e14b403aef1138fb6315b120631a0075c138b5ddb2a06b87b09fd"},
     {file = "neo4j-5.28.1.tar.gz", hash = "sha256:ae8e37a1d895099062c75bc359b2cce62099baac7be768d0eba7180c1298e214"},
@@ -1224,7 +1241,7 @@ description = "Fast, correct Python JSON library supporting dataclasses, datetim
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"graph\" and platform_python_implementation != \"PyPy\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "platform_python_implementation != \"PyPy\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
 files = [
     {file = "orjson-3.10.16-cp310-cp310-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl", hash = "sha256:4cb473b8e79154fa778fb56d2d73763d977be3dcc140587e07dbc545bbfc38f8"},
     {file = "orjson-3.10.16-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:622a8e85eeec1948690409a19ca1c7d9fd8ff116f4861d261e6ae2094fe59a00"},
@@ -1303,11 +1320,11 @@ description = "Core utilities for Python packages"
 optional = false
 python-versions = ">=3.8"
 groups = ["main", "dev", "test"]
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "packaging-24.2-py3-none-any.whl", hash = "sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759"},
     {file = "packaging-24.2.tar.gz", hash = "sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f"},
 ]
-markers = {main = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")", dev = "python_version <= \"3.12\" or python_version >= \"3.13\"", test = "python_version <= \"3.12\" or python_version >= \"3.13\""}
 
 [[package]]
 name = "pluggy"
@@ -1482,7 +1499,7 @@ description = "C parser in Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"graph\" and platform_python_implementation == \"PyPy\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "platform_python_implementation == \"PyPy\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
 files = [
     {file = "pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc"},
     {file = "pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6"},
@@ -1816,7 +1833,7 @@ description = "YAML parser and emitter for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "PyYAML-6.0.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:0a9a2848a5b7feac301353437eb7d5957887edbf81d56e903999a75a3d743086"},
     {file = "PyYAML-6.0.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:29717114e51c84ddfba879543fb232a6ed60086602313ca38cce623c1d62cfbf"},
@@ -1953,7 +1970,7 @@ description = "A utility belt for advanced users of python-requests"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6"},
     {file = "requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06"},
@@ -2143,7 +2160,7 @@ description = "Retry code until it succeeds"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "tenacity-9.0.0-py3-none-any.whl", hash = "sha256:93de0c98785b27fcf659856aa9f54bfbd399e29969b0621bc7f762bd441b4539"},
     {file = "tenacity-9.0.0.tar.gz", hash = "sha256:807f37ca97d62aa361264d497b0e31e92b8027044942bfa756160d908320d73b"},
@@ -2271,7 +2288,7 @@ description = "Zstandard bindings for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"graph\" and (python_version <= \"3.12\" or python_version >= \"3.13\")"
+markers = "python_version <= \"3.12\" or python_version >= \"3.13\""
 files = [
     {file = "zstandard-0.23.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:bf0a05b6059c0528477fba9054d09179beb63744355cab9f38059548fedd46a9"},
     {file = "zstandard-0.23.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:fc9ca1c9718cb3b06634c7c8dec57d24e9438b2aa9a0f02b8bb36bf478538880"},
@@ -2379,9 +2396,9 @@ cffi = {version = ">=1.11", markers = "platform_python_implementation == \"PyPy\
 cffi = ["cffi (>=1.11)"]
 
 [extras]
-graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
+graph = ["langchain-memgraph", "langchain-neo4j", "neo4j", "rank-bm25"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "99907c9172286eaf166ee1f26f6bc7416a8499e3a6ce34e60a64fc24f2246491"
+content-hash = "2f2496320b637ae8b74ee70707a8ea3431b3cd0ed045af847bb9b660bca334ac"
