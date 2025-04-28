@@ -193,8 +193,8 @@ export default class MemoryClient {
 
     const { org_id, project_id, user_email } = data;
 
-    this.organizationId = org_id || null;
-    this.projectId = project_id || null;
+    this.organizationId = this.organizationId || org_id || null;
+    this.projectId = this.projectId || project_id || null;
     this.telemetryId = user_email || "";
   }
 
