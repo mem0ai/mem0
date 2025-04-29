@@ -10,6 +10,36 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# Update custom instructions
+custom_instructions ="""
+Generate personal memories that follow these guidelines:
+
+1. Each memory should be self-contained with complete context, including:
+   - The person's name, do not use "user" while creating memories
+   - Personal details (career aspirations, hobbies, life circumstances)
+   - Emotional states and reactions
+   - Ongoing journeys or future plans
+   - Specific dates when events occurred
+
+2. Include meaningful personal narratives focusing on:
+   - Identity and self-acceptance journeys
+   - Family planning and parenting
+   - Creative outlets and hobbies
+   - Mental health and self-care activities
+   - Career aspirations and education goals
+   - Important life events and milestones
+
+3. Make each memory rich with specific details rather than general statements
+   - Include timeframes (exact dates when possible)
+   - Name specific activities (e.g., "charity race for mental health" rather than just "exercise")
+   - Include emotional context and personal growth elements
+
+4. Extract memories only from user messages, not incorporating assistant responses
+
+5. Format each memory as a paragraph with a clear narrative structure that captures the person's experience, challenges, and aspirations
+"""
+
+
 class MemoryADD:
     def __init__(self, data_path=None, batch_size=2, is_graph=False):
         self.mem0_client = MemoryClient(
@@ -17,6 +47,8 @@ class MemoryADD:
             org_id=os.getenv("MEM0_ORGANIZATION_ID"),
             project_id=os.getenv("MEM0_PROJECT_ID")
         )
+
+        self.mem0_client.update_project(custom_instructions=custom_instructions)
         self.batch_size = batch_size
         self.data_path = data_path
         self.data = None
