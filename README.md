@@ -42,6 +42,22 @@
   </a>
 </p>
 
+<div align="center">
+  
+  # 📑 RESEARCH PAPER RELEASED!
+  
+  ## [Mem0: Building Production‑Ready AI Agents with Scalable Long‑Term Memory](https://mem0.ai/research)
+  
+  Our research paper is now available! Rigorous benchmarking shows Mem0 delivers:
+  
+  |   | **Performance Highlights** |   |
+  |:-------------:|:-------------:|:-------------:|
+  | **+26%** | **91%** | **90%** |
+  | Higher accuracy<br>vs OpenAI Memory | Lower latency<br>vs full-context methods | Token savings<br>more cost-effective at scale |
+  
+  [![Read the Paper](https://img.shields.io/badge/READ_THE_PAPER-mem0.ai%2Fresearch-blue?style=for-the-badge)](https://mem0.ai/research)
+  
+</div>
 
 # Introduction
 
