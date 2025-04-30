@@ -293,7 +293,7 @@
 						"in": "path",
 						"required": true,
 						"schema": {
-							"type": "string"
+							"type": "number"
 						},
 						"description": "The unique identifier of the entity"
 					}

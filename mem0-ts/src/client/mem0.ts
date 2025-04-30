@@ -432,7 +432,7 @@ export default class MemoryClient {
   }
 
   async deleteUser(
-    entityId: string,
+    entityId: number,
     entity: { type: string } = { type: "user" },
   ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
