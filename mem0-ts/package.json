@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.1.20",
+  "version": "2.1.21",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -97,7 +97,7 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "0.18.0",
+    "@anthropic-ai/sdk": "^0.40.1",
     "@google/genai": "^0.7.0",
     "@mistralai/mistralai": "^1.5.2",
     "@qdrant/js-client-rest": "1.13.0",
