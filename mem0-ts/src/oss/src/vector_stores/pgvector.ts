@@ -22,7 +22,7 @@ export class PGVector implements VectorStore {
   private config: PGVectorConfig;
 
   constructor(config: PGVectorConfig) {
-    this.collectionName = config.collectionName;
+    this.collectionName = config.collectionName || "memories";
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
     this.dbName = config.dbname || "vector_store";
