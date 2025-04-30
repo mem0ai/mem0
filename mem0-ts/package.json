@@ -97,7 +97,7 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "0.40.1",
+    "@anthropic-ai/sdk": "^0.40.1",
     "@google/genai": "^0.7.0",
     "@mistralai/mistralai": "^1.5.2",
     "@qdrant/js-client-rest": "1.13.0",
