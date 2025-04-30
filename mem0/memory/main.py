@@ -67,7 +67,7 @@ class Memory(MemoryBase):
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
 
-        self.config.vector_store.config.collection_name = "mem0-migrations"
+        self.config.vector_store.config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
             self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
