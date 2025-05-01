@@ -4904,15 +4904,13 @@
 						"description": "The timestamp of the memory. Format: Unix timestamp",
 						"title": "Timestamp",
 						"type": "integer",
-						"nullable": true,
-						"default": null
+						"nullable": true
 					},
 					"expiration_date": {
 						"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
 						"title": "Expiration date",
 						"type": "string",
-						"nullable": true,
-						"default": null
+						"nullable": true
 					},
 					"org_id": {
 						"description": "The unique identifier of the organization associated with this memory.",
