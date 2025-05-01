@@ -71,7 +71,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             environmentVariableName: "MEM0_API_KEY",
             description: "Mem0",
         })}`, 'Content-Type': 'application/json'}, 
-        body: JSON.stringify({query, filters, ...config, top_k: config&&config.top_k || top_k, version: "v2", ...org_project_filters}),
+        body: JSON.stringify({query, filters, ...config, top_k: config&&config.top_k || top_k, version: "v2", output_format: "v1.1", ...org_project_filters}),
     };
     const response  = await fetch('https://api.mem0.ai/v2/memories/search/', options);
     const data =  await response.json();
@@ -109,12 +109,24 @@ const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?:
     const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
     const systemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
     const memories = await searchInternalMemories(message, config);
-    let memoriesText = "";
+    let memoriesText1 = "";
+    let memoriesText2 = "";
+    let graphPrompt = "";
     try{
         // @ts-ignore
-        memoriesText = memories.map((memory: any)=>{
+        memoriesText1 = memories.results.map((memory: any)=>{
             return `Memory: ${memory.memory}\n\n`;
         }).join("\n\n");
+
+        if (config?.enable_graph) {
+            memoriesText2 = memories.relations.map((memory: any)=>{
+                return `Relation: ${memory.source} -> ${memory.relationship} -> ${memory.target} \n\n`;
+            }).join("\n\n");
+        }
+
+        if (config?.enable_graph) {
+            graphPrompt = `HERE ARE THE GRAPHS RELATIONS FOR THE PREFERENCES OF THE USER:\n\n ${memoriesText2}`;
+        }
     }catch(e){
         console.error("Error while parsing memories");
         // console.log(e);
@@ -122,7 +134,7 @@ const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?:
     if(memories.length === 0){
       return "";
     }
-    return `System Message: ${systemPrompt} ${memoriesText}`;
+    return `System Message: ${systemPrompt} ${memoriesText1} ${graphPrompt}`;
 }
 
 const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0ConfigSettings)=>{
@@ -131,6 +143,9 @@ const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0
     try{
         // @ts-ignore
         memories = await searchInternalMemories(message, config);
+        if (!config?.enable_graph) {
+            memories = memories.results;
+        }
     }
     catch(e){
         console.error("Error while searching memories");

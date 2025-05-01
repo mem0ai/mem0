@@ -28,6 +28,7 @@ export interface Mem0ConfigSettings {
   top_k?: number;
   threshold?: number;
   rerank?: boolean;
+  enable_graph?: boolean;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}
