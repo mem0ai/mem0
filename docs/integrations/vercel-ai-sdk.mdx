@@ -7,7 +7,7 @@ title: Vercel AI SDK
 The [**Mem0 AI SDK Provider**](https://www.npmjs.com/package/@mem0/vercel-ai-provider) is a library developed by **Mem0** to integrate with the Vercel AI SDK. This library brings enhanced AI interaction capabilities to your applications by introducing persistent memory functionality.
 
 <Note type="info">
-  🎉 Exciting news! Mem0 AI SDK now supports <strong>Tools Call</strong>.
+  🎉 Exciting news! Mem0 AI SDK now supports <strong>Graph Memory</strong>.
 </Note>
 
 ## Overview
@@ -80,6 +80,8 @@ npm install @mem0/vercel-ai-provider
      > For standalone features, such as `addMemories`, `retrieveMemories`, and `getMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
 
      > `getMemories` will return raw memories in the form of an array of objects, while `retrieveMemories` will return a response in string format with a system prompt ingested with the retrieved memories.
+
+     > `getMemories` is an object with two keys: `results` and `relations` if `enable_graph` is enabled. Otherwise, it will return an array of objects.
 
 ### 1. Basic Text Generation with Memory Context
 
@@ -204,6 +206,24 @@ console.log(sources);
 ```
 
 The same can be done for `streamText` as well.
+
+## Graph Memory
+
+Mem0 AI SDK now supports Graph Memory. You can enable it by setting `enable_graph` to `true` in the `mem0Config` object.
+
+```typescript
+const mem0 = createMem0({
+  mem0Config: { enable_graph: true },
+});
+```
+
+You can also pass `enable_graph` in the standalone functions. This includes `getMemories`, `retrieveMemories`, and `addMemories`.
+
+```typescript
+const memories = await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx", enable_graph: true });
+```
+
+The `getMemories` function will return an object with two keys: `results` and `relations`, if `enable_graph` is set to `true`. Otherwise, it will return an array of objects.
 
 
 ## Key Features

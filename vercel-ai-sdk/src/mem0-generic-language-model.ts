@@ -37,21 +37,39 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     });
 
     // Get Memories
-    const memories = await getMemories(messagesPrompts, mem0Config);
+    let memories = await getMemories(messagesPrompts, mem0Config);
 
     const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
+
+    const isGraphEnabled = mem0Config.enable_graph;
   
     let memoriesText = "";
+    let memoriesText2 = "";
     try {
       // @ts-ignore
-      memoriesText = memories.map((memory: any) => {
-        return `Memory: ${memory.memory}\n\n`;
-      }).join("\n\n");
+      if (isGraphEnabled) {
+        memoriesText = memories.results.map((memory: any) => {
+          return `Memory: ${memory.memory}\n\n`;
+        }).join("\n\n");
+
+        memoriesText2 = memories.relations.map((memory: any) => {
+          return `Relation: ${memory.source} -> ${memory.relationship} -> ${memory.target} \n\n`;
+        }).join("\n\n");
+      } else {
+        memoriesText = memories.map((memory: any) => {
+          return `Memory: ${memory.memory}\n\n`;
+        }).join("\n\n");
+      }
     } catch(e) {
       console.error("Error while parsing memories");
     }
-    
-    const memoriesPrompt = `System Message: ${mySystemPrompt} ${memoriesText}`;
+
+    let graphPrompt = "";
+    if (isGraphEnabled) {
+      graphPrompt = `HERE ARE THE GRAPHS RELATIONS FOR THE PREFERENCES OF THE USER:\n\n ${memoriesText2}`;
+    }
+
+    const memoriesPrompt = `System Message: ${mySystemPrompt} ${memoriesText} ${graphPrompt} `;
 
     // System Prompt - The memories go as a system prompt
     const systemPrompt: LanguageModelV1Message = {
@@ -62,6 +80,10 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     // Add the system prompt to the beginning of the messages if there are memories
     if (memories.length > 0) {
       messagesPrompts.unshift(systemPrompt);
+    }
+
+    if (isGraphEnabled) {
+      memories = memories.results;
     }
 
     return { memories, messagesPrompts };
