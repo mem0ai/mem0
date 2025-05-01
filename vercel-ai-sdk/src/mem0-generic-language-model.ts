@@ -37,7 +37,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     });
 
     // Get Memories
-    const memories = await getMemories(messagesPrompts, mem0Config);
+    let memories = await getMemories(messagesPrompts, mem0Config);
 
     const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
 
@@ -80,6 +80,10 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     // Add the system prompt to the beginning of the messages if there are memories
     if (memories.length > 0) {
       messagesPrompts.unshift(systemPrompt);
+    }
+
+    if (isGraphEnabled) {
+      memories = memories.results;
     }
 
     return { memories, messagesPrompts };
