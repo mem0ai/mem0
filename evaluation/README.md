@@ -1,6 +1,6 @@
 # Mem0: Building Production‑Ready AI Agents with Scalable Long‑Term Memory
 
-[![arXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b.svg)](https://arxiv.org/abs/XXXX.XXXXX)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b.svg)](https://arxiv.org/abs/2504.19413)
 [![Website](https://img.shields.io/badge/Website-Project-blue)](https://mem0.ai/research)
 
 This repository contains the code and dataset for our paper: **Mem0: Building Production‑Ready AI Agents with Scalable Long‑Term Memory**.
@@ -171,9 +171,9 @@ If you use this code or dataset in your research, please cite our paper:
 
 ```bibtex
 @article{mem0,
-  title={Mem0: Building Production‑Ready AI Agents with Scalable Long‑Term Memory},
-  author={---},
-  journal={arXiv preprint},
+  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
+  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
+  journal={arXiv preprint arXiv:2504.19413},
   year={2025}
 }
 ```

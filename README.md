@@ -149,6 +149,19 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 - Community: [Discord](https://mem0.dev/DiG) · [Twitter](https://x.com/mem0ai)
 - Contact: founders@mem0.ai
 
+## Citation
+
+We now have a paper you can cite:
+
+```bibtex
+@article{mem0,
+  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
+  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
+  journal={arXiv preprint arXiv:2504.19413},
+  year={2025}
+}
+```
+
 ## ⚖️ License
 
 Apache 2.0 — see the [LICENSE](LICENSE) file for details.
