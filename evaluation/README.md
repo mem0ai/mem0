@@ -20,7 +20,13 @@ We test these techniques on the LOCOMO dataset, which contains conversational da
 
 ## 🔍 Dataset
 
-The dataset is located in the `dataset/` directory:
+The LOCOMO dataset used in our experiments can be downloaded from our Google Drive repository:
+
+[Download LOCOMO Dataset](https://drive.google.com/drive/folders/1L-cTjTm0ohMsitsHg4dijSPJtqNflwX-?usp=drive_link)
+
+The dataset contains conversational data specifically designed to test memory recall and understanding across various question types and complexity levels.
+
+Place the dataset files in the `dataset/` directory:
 - `locomo10.json`: Original dataset
 - `locomo10_rag.json`: Dataset formatted for RAG experiments
 
