@@ -431,14 +431,17 @@ export default class MemoryClient {
     return response;
   }
 
-  async deleteUser(
-    entityId: string,
-    entity: { type: string } = { type: "user" },
-  ): Promise<{ message: string }> {
+  async deleteUser(data: {
+    entity_id: number;
+    entity_type: string;
+  }): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_user", []);
+    if (!data.entity_type) {
+      data.entity_type = "user";
+    }
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/entities/${entity.type}/${entityId}/`,
+      `${this.host}/v1/entities/${data.entity_type}/${data.entity_id}/`,
       {
         method: "DELETE",
         headers: this.headers,
