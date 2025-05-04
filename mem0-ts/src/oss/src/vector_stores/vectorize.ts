@@ -4,11 +4,10 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface VectorizeConfig extends VectorStoreConfig {
-  dimension?: number;
   apiKey?: string;
   indexName: string;
   accountId: string;
-  binding?: Vectorize; // TODO - Optional binding for Cloudflare Workers
+  // binding?: Vectorize; // TODO - Optional binding for Cloudflare Workers
 }
 
 interface CloudflareVector {
@@ -38,42 +37,50 @@ export class VectorizeDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[]
   ): Promise<void> {
-    const vectorObjects: CloudflareVector[] = vectors.map((vector, index) => ({
-      id: ids[index],
-      values: vector,
-      metadata: payloads[index] || {},
-    }));
-
-    const ndjsonBody = vectorObjects.map((v) => JSON.stringify(v)).join("\n");
-
-    // TODO - Optional binding for Cloudflare Workers
-    if (this.binding) {
-      //this.binding.insert();
-    }
-
-    // Error in Cloudflare ts package when inserting vectors
-    /*
-      const response = await this.client?.vectorize.indexes.insert(
-        this.indexName,
-        {
-          account_id: this.accountId,
-          body: JSON.stringify(test_data),
-          "unparsable-behavior": "error",
-        }
+    try {
+      const vectorObjects: CloudflareVector[] = vectors.map(
+        (vector, index) => ({
+          id: ids[index],
+          values: vector,
+          metadata: payloads[index] || {},
+        })
       );
+
+      const ndjsonPayload = vectorObjects
+        .map((v) => JSON.stringify(v))
+        .join("\n");
+
+      // TODO - Optional binding for Cloudflare Workers
+      /*
+      if (this.binding) {
+        //this.binding.insert();
+      }
       */
 
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/insert`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-ndjson",
-          Authorization: `Bearer ${this.client?.apiToken}`,
-        },
-        body: ndjsonBody,
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/insert`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-ndjson",
+            Authorization: `Bearer ${this.client?.apiToken}`,
+          },
+          body: ndjsonPayload,
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to insert vectors: ${response.status} ${errorText}`
+        );
       }
-    );
+    } catch (error) {
+      console.error("Error inserting vectors:", error);
+      throw new Error(
+        `Failed to insert vectors: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async search(
@@ -81,36 +88,55 @@ export class VectorizeDB implements VectorStore {
     limit: number = 5,
     filters?: SearchFilters
   ): Promise<VectorStoreResult[]> {
-    const result = await this.client?.vectorize.indexes.query(this.indexName, {
-      account_id: this.accountId,
-      vector: query,
-      filter: filters,
-      returnMetadata: "all",
-      topK: limit,
-    });
+    try {
+      const result = await this.client?.vectorize.indexes.query(
+        this.indexName,
+        {
+          account_id: this.accountId,
+          vector: query,
+          filter: filters,
+          returnMetadata: "all",
+          topK: limit,
+        }
+      );
 
-    return result?.matches?.map((match) => ({
-      id: match.id,
-      payload: match.metadata,
-      score: match.score,
-    })) as VectorStoreResult[];
+      return (
+        (result?.matches?.map((match) => ({
+          id: match.id,
+          payload: match.metadata,
+          score: match.score,
+        })) as VectorStoreResult[]) || []
+      ); // Return empty array if result or matches is null/undefined
+    } catch (error) {
+      console.error("Error searching vectors:", error);
+      throw new Error(
+        `Failed to search vectors: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
-    const result = (await this.client?.vectorize.indexes.getByIds(
-      this.indexName,
-      {
-        account_id: this.accountId,
-        ids: [vectorId],
-      }
-    )) as any;
+    try {
+      const result = (await this.client?.vectorize.indexes.getByIds(
+        this.indexName,
+        {
+          account_id: this.accountId,
+          ids: [vectorId],
+        }
+      )) as any;
 
-    if (!result?.length) return null;
+      if (!result?.length) return null;
 
-    return {
-      id: vectorId,
-      payload: result[0].metadata,
-    };
+      return {
+        id: vectorId,
+        payload: result[0].metadata,
+      };
+    } catch (error) {
+      console.error("Error getting vector:", error);
+      throw new Error(
+        `Failed to get vector: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async update(
@@ -118,58 +144,96 @@ export class VectorizeDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>
   ): Promise<void> {
-    const data: VectorizeVector = {
-      id: vectorId,
-      values: vector,
-      metadata: payload,
-    };
+    try {
+      const data: VectorizeVector = {
+        id: vectorId,
+        values: vector,
+        metadata: payload,
+      };
 
-    await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/upsert`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-ndjson",
-          Authorization: `Bearer ${this.client?.apiToken}`,
-        },
-        body: JSON.stringify(data) + "\n", // ndjson format
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/upsert`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-ndjson",
+            Authorization: `Bearer ${this.client?.apiToken}`,
+          },
+          body: JSON.stringify(data) + "\n", // ndjson format
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to update vector: ${response.status} ${errorText}`
+        );
       }
-    );
+    } catch (error) {
+      console.error("Error updating vector:", error);
+      throw new Error(
+        `Failed to update vector: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.client?.vectorize.indexes.deleteByIds(this.indexName, {
-      account_id: this.accountId,
-      ids: [vectorId],
-    });
+    try {
+      await this.client?.vectorize.indexes.deleteByIds(this.indexName, {
+        account_id: this.accountId,
+        ids: [vectorId],
+      });
+    } catch (error) {
+      console.error("Error deleting vector:", error);
+      throw new Error(
+        `Failed to delete vector: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async deleteCol(): Promise<void> {
-    await this.client?.vectorize.indexes.delete(this.indexName, {
-      account_id: this.accountId,
-    });
+    try {
+      await this.client?.vectorize.indexes.delete(this.indexName, {
+        account_id: this.accountId,
+      });
+    } catch (error) {
+      console.error("Error deleting collection:", error);
+      throw new Error(
+        `Failed to delete collection: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async list(
     filters?: SearchFilters,
     limit: number = 20
   ): Promise<[VectorStoreResult[], number]> {
-    const result = await this.client?.vectorize.indexes.query(this.indexName, {
-      account_id: this.accountId,
-      vector: Array(this.dimensions).fill(0), // Dummy vector for listing
-      filter: filters,
-      topK: limit,
-      returnMetadata: "all",
-    });
+    try {
+      const result = await this.client?.vectorize.indexes.query(
+        this.indexName,
+        {
+          account_id: this.accountId,
+          vector: Array(this.dimensions).fill(0), // Dummy vector for listing
+          filter: filters,
+          topK: limit,
+          returnMetadata: "all",
+        }
+      );
 
-    return [
-      result?.matches?.map((match) => ({
-        id: match.id,
-        payload: match.metadata,
-        score: match.score,
-      })) as VectorStoreResult[],
-      result?.matches?.length || 0,
-    ];
+      const matches =
+        (result?.matches?.map((match) => ({
+          id: match.id,
+          payload: match.metadata,
+          score: match.score,
+        })) as VectorStoreResult[]) || [];
+
+      return [matches, matches.length];
+    } catch (error) {
+      console.error("Error listing vectors:", error);
+      throw new Error(
+        `Failed to list vectors: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async getUserId(): Promise<string> {
