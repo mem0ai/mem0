@@ -253,7 +253,7 @@ RELATIONS_STRUCT_TOOL = {
                                 "type": "string",
                                 "description": "The source entity of the relationship.",
                             },
-                            "relatationship": {
+                            "relationship": {
                                 "type": "string",
                                 "description": "The relationship between the source and destination entities.",
                             },
@@ -264,7 +264,7 @@ RELATIONS_STRUCT_TOOL = {
                         },
                         "required": [
                             "source_entity",
-                            "relatationship",
+                            "relationship",
                             "destination_entity",
                         ],
                         "additionalProperties": False,
