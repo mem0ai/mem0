@@ -431,6 +431,9 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+   * @deprecated The method should not be used, use `deleteUsers` instead. This will be removed in version 2.2.0.
+   */
   async deleteUser(data: {
     entity_id: number;
     entity_type: string;
@@ -450,31 +453,86 @@ export default class MemoryClient {
     return response;
   }
 
-  async deleteUsers(): Promise<{ message: string }> {
+  async deleteUsers(
+    params: {
+      user_id?: string;
+      agent_id?: string;
+      app_id?: string;
+      run_id?: string;
+    } = {},
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._validateOrgProject();
-    this._captureEvent("delete_users", []);
-    const entities = await this.users();
 
-    for (const entity of entities.results) {
-      let options: MemoryOptions = {};
-      if (this.organizationName != null && this.projectName != null) {
-        options.org_name = this.organizationName;
-        options.project_name = this.projectName;
-      }
+    let to_delete: Array<{ type: string; name: string }> = [];
+    const { user_id, agent_id, app_id, run_id } = params;
 
-      if (this.organizationId != null && this.projectId != null) {
-        options.org_id = this.organizationId;
-        options.project_id = this.projectId;
-
-        if (options.org_name) delete options.org_name;
-        if (options.project_name) delete options.project_name;
-      }
-      await this.client.delete(`/v1/entities/${entity.type}/${entity.id}/`, {
-        params: options,
-      });
+    if (user_id) {
+      to_delete = [{ type: "user", name: user_id }];
+    } else if (agent_id) {
+      to_delete = [{ type: "agent", name: agent_id }];
+    } else if (app_id) {
+      to_delete = [{ type: "app", name: app_id }];
+    } else if (run_id) {
+      to_delete = [{ type: "run", name: run_id }];
+    } else {
+      const entities = await this.users();
+      to_delete = entities.results.map((entity) => ({
+        type: entity.type,
+        name: entity.name,
+      }));
     }
-    return { message: "All users, agents, and sessions deleted." };
+
+    if (to_delete.length === 0) {
+      throw new Error("No entities to delete");
+    }
+
+    const requestOptions: MemoryOptions = {};
+    if (this.organizationName != null && this.projectName != null) {
+      requestOptions.org_name = this.organizationName;
+      requestOptions.project_name = this.projectName;
+    }
+
+    if (this.organizationId != null && this.projectId != null) {
+      requestOptions.org_id = this.organizationId;
+      requestOptions.project_id = this.projectId;
+
+      if (requestOptions.org_name) delete requestOptions.org_name;
+      if (requestOptions.project_name) delete requestOptions.project_name;
+    }
+
+    // Delete each entity and handle errors
+    for (const entity of to_delete) {
+      try {
+        await this.client.delete(
+          `/v2/entities/${entity.type}/${entity.name}/`,
+          {
+            params: requestOptions,
+          },
+        );
+      } catch (error: any) {
+        throw new APIError(
+          `Failed to delete ${entity.type} ${entity.name}: ${error.message}`,
+        );
+      }
+    }
+
+    this._captureEvent("delete_users", [
+      {
+        user_id: user_id,
+        agent_id: agent_id,
+        app_id: app_id,
+        run_id: run_id,
+        sync_type: "sync",
+      },
+    ]);
+
+    return {
+      message:
+        user_id || agent_id || app_id || run_id
+          ? "Entity deleted successfully."
+          : "All users, agents, apps and runs deleted.",
+    };
   }
 
   async batchUpdate(memories: Array<MemoryUpdateBody>): Promise<string> {
