@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import Mock, patch
+
 import numpy as np
-from mem0.embeddings.huggingface import HuggingFaceEmbedding
+import pytest
+
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.huggingface import HuggingFaceEmbedding
 
 
 @pytest.fixture

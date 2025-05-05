@@ -1,12 +1,13 @@
-from openai import OpenAI
-import os
+import argparse
 import json
-from jinja2 import Template
-from tqdm import tqdm
+import os
 import time
 from collections import defaultdict
+
 from dotenv import load_dotenv
-import argparse
+from jinja2 import Template
+from openai import OpenAI
+from tqdm import tqdm
 
 load_dotenv()
 
