@@ -61,10 +61,8 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
-          sudo chown -R $USER:$USER mem0/
-          cd mem0 && mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
-          docker-compose build
-          docker-compose run --rm -T backend ruff check . --select F
+          mkdir -p mem0/.ruff_cache && chmod -R 777 mem0/.ruff_cache
+          cd mem0 && ruff check . --select F
       - name: Run tests and generate coverage report
         run: make test
 
@@ -98,10 +96,8 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
-          sudo chown -R $USER:$USER embedchain/
-          cd embedchain && mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
-          docker-compose build
-          docker-compose run --rm -T backend ruff check . --select F
+          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
+          cd embedchain && ruff check . --select F
       - name: Lint with ruff
         run: cd embedchain && make lint
       - name: Run tests and generate coverage report
