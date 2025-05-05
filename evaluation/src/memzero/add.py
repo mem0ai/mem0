@@ -1,11 +1,13 @@
-from mem0 import MemoryClient
 import json
-import time
 import os
 import threading
-from tqdm import tqdm
+import time
 from concurrent.futures import ThreadPoolExecutor
+
 from dotenv import load_dotenv
+from tqdm import tqdm
+
+from mem0 import MemoryClient
 
 load_dotenv()
 

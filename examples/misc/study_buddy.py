@@ -9,9 +9,9 @@ export MEM0_API_KEY="your_mem0_api_key"
 """
 import asyncio
 
-from mem0 import MemoryClient
 from agents import Agent, Runner
 
+from mem0 import MemoryClient
 
 client = MemoryClient()
 

@@ -1,11 +1,13 @@
 import json
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from azure.core.exceptions import ResourceNotFoundError, HttpResponseError
+from azure.core.exceptions import HttpResponseError
+
+from mem0.configs.vector_stores.azure_ai_search import AzureAISearchConfig
 
 # Import the AzureAISearch class and related models
-from mem0.vector_stores.azure_ai_search import AzureAISearch, OutputData
-from mem0.configs.vector_stores.azure_ai_search import AzureAISearchConfig
+from mem0.vector_stores.azure_ai_search import AzureAISearch
 
 
 # Fixture to patch SearchClient and SearchIndexClient and create an instance of AzureAISearch.
@@ -316,7 +318,7 @@ def test_create_col_scalar_compression(mock_clients):
     """Test creating a collection with scalar compression."""
     mock_search_client, mock_index_client, _ = mock_clients
     
-    instance = AzureAISearch(
+    AzureAISearch(
         service_name="test-service",
         collection_name="scalar-index",
         api_key="test-api-key",
@@ -341,7 +343,7 @@ def test_create_col_no_compression(mock_clients):
     """Test creating a collection with no compression."""
     mock_search_client, mock_index_client, _ = mock_clients
     
-    instance = AzureAISearch(
+    AzureAISearch(
         service_name="test-service",
         collection_name="no-compression-index",
         api_key="test-api-key",

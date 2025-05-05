@@ -8,9 +8,11 @@ export XAI_API_KEY="your_xai_api_key"
 export MEM0_API_KEY="your_mem0_api_key"
 """
 
-from mem0 import Memory
+import os
+
 from openai import OpenAI
 
+from mem0 import Memory
 
 # Configure Mem0 with Grok 3 and Qdrant
 config = {
@@ -41,7 +43,7 @@ memory = Memory.from_config(config)
 
 # Initialize Grok 3 client
 grok_client = OpenAI(
-    api_key=XAI_API_KEY,
+    api_key=os.getenv("XAI_API_KEY"),
     base_url="https://api.x.ai/v1",
 )
 
