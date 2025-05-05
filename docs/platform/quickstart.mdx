@@ -1513,7 +1513,7 @@ client.delete_users({ user_id: "alex" })
 ```
 
 ```bash cURL
-curl -X DELETE "https://api.mem0.ai/v1/entities/?user_id=alex" \
+curl -X DELETE "https://api.mem0.ai/v2/entities/user/alex" \
      -H "Authorization: Token your-api-key"
 ```
 
@@ -1529,12 +1529,6 @@ curl -X DELETE "https://api.mem0.ai/v1/entities/?user_id=alex" \
 
 ```python Python
 client.reset()
-```
-
-```javascript JavaScript
-client.reset()
-    .then(result => console.log(result))
-    .catch(error => console.error(error));
 ```
 
 ```json Output
