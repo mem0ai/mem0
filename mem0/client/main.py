@@ -332,20 +332,25 @@ class MemoryClient:
             ValueError: If specified entity not found
             APIError: If deletion fails
         """
-
-        if not (user_id or agent_id or app_id or run_id):
-            raise ValueError("Please provide at least either user_id, agent_id, app_id or run_id")
-
-        if user_id:
-            to_delete = [{"type": "user", "name": user_id}]
-        elif agent_id:
-            to_delete = [{"type": "agent", "name": agent_id}]
-        elif app_id:
-            to_delete = [{"type": "app", "name": app_id}]
-        elif run_id:
-            to_delete = [{"type": "run", "name": run_id}]
-
         params = self._prepare_params()
+        entities = self.users()
+
+        # Filter entities based on provided IDs using list comprehension
+        to_delete = [
+            entity
+            for entity in entities["results"]
+            if (user_id and entity["type"] == "user" and entity["name"] == user_id)
+            or (agent_id and entity["type"] == "agent" and entity["name"] == agent_id)
+            or (app_id and entity["type"] == "app" and entity["name"] == app_id)
+            or (run_id and entity["type"] == "run" and entity["name"] == run_id)
+        ]
+
+        # If filters provided but no matches found, raise error
+        if not to_delete and (user_id or agent_id or app_id or run_id):
+            raise ValueError("No entity found with the provided ID.")
+        # If no filters provided, delete all entities
+        elif not to_delete:
+            to_delete = entities["results"]
 
         # Delete entities and check response immediately
         for entity in to_delete:
@@ -835,24 +840,29 @@ class AsyncMemoryClient:
             ValueError: If specified entity not found
             APIError: If deletion fails
         """
+        params = self.sync_client._prepare_params()
+        entities = await self.users()
 
-        if not (user_id or agent_id or app_id or run_id):
-            raise ValueError("Please provide at least either user_id, agent_id, app_id or run_id")
+        # Filter entities based on provided IDs using list comprehension
+        to_delete = [
+            entity
+            for entity in entities["results"]
+            if (user_id and entity["type"] == "user" and entity["name"] == user_id)
+            or (agent_id and entity["type"] == "agent" and entity["name"] == agent_id)
+            or (app_id and entity["type"] == "app" and entity["name"] == app_id)
+            or (run_id and entity["type"] == "run" and entity["name"] == run_id)
+        ]
 
-        if user_id:
-            to_delete = [{"type": "user", "name": user_id}]
-        elif agent_id:
-            to_delete = [{"type": "agent", "name": agent_id}]
-        elif app_id:
-            to_delete = [{"type": "app", "name": app_id}]
-        elif run_id:
-            to_delete = [{"type": "run", "name": run_id}]
-
-        params = self._prepare_params()
+        # If filters provided but no matches found, raise error
+        if not to_delete and (user_id or agent_id or app_id or run_id):
+            raise ValueError("No entity found with the provided ID.")
+        # If no filters provided, delete all entities
+        elif not to_delete:
+            to_delete = entities["results"]
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = self.async_client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = await self.async_client.delete(f"/v1/entities/{entity['type']}/{entity['id']}/", params=params)
             response.raise_for_status()
 
         capture_client_event("client.delete_users", self.sync_client, {"sync_type": "async"})
