@@ -38,7 +38,7 @@ Place the dataset files in the `dataset/` directory:
 │   ├── mem0/             # Implementation of the Mem0 technique
 │   ├── openai/           # Implementation of the OpenAI memory
 │   ├── zep/              # Implementation of the Zep memory
-│   ├── memobase           # Implementation of the Memobase technique
+│   ├── memobase_client   # Implementation of the Memobase technique
 │   ├── rag.py            # Implementation of the RAG technique
 │   └── langmem.py        # Implementation of the Language-based memory
 ├── metrics/              # Code for evaluation metrics
