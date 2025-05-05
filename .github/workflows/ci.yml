@@ -62,7 +62,7 @@ jobs:
       - name: Run Formatting
         run: |
           mkdir -p mem0/.ruff_cache && chmod -R 777 mem0/.ruff_cache
-          cd mem0 && ruff check . --select F
+          cd mem0 && poetry run ruff check . --select F
       - name: Run tests and generate coverage report
         run: make test
 
@@ -97,7 +97,7 @@ jobs:
       - name: Run Formatting
         run: |
           mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
-          cd embedchain && ruff check . --select F
+          cd embedchain && poetry run ruff check . --select F
       - name: Lint with ruff
         run: cd embedchain && make lint
       - name: Run tests and generate coverage report
