@@ -333,6 +333,9 @@ class MemoryClient:
             APIError: If deletion fails
         """
 
+        if not (user_id or agent_id or app_id or run_id):
+            raise ValueError("Please provide at least either user_id, agent_id, app_id or run_id")
+
         if user_id:
             to_delete = [{"type": "user", "name": user_id}]
         elif agent_id:
@@ -341,18 +344,8 @@ class MemoryClient:
             to_delete = [{"type": "app", "name": app_id}]
         elif run_id:
             to_delete = [{"type": "run", "name": run_id}]
-        else:
-            entities = self.users()
-            # Filter entities based on provided IDs using list comprehension
-            to_delete = [
-                {"type": entity["type"], "name": entity["name"]}
-                for entity in entities["results"]
-            ]
 
         params = self._prepare_params()
-
-        if not to_delete:
-            raise ValueError("No entities to delete")
 
         # Delete entities and check response immediately
         for entity in to_delete:
@@ -382,7 +375,17 @@ class MemoryClient:
         """
         # Delete all users, agents, and sessions
         # This will also delete the memories
-        self.delete_users()
+        entities = self.users()
+
+        to_delete = [
+            {"type": entity["type"], "name": entity["name"]}
+            for entity in entities["results"]
+        ]
+        params = self._prepare_params()
+
+        for entity in to_delete:
+            response = self.client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response.raise_for_status()
 
         capture_client_event("client.reset", self, {"sync_type": "sync"})
         return {"message": "Client reset successful. All users and memories deleted."}
@@ -832,6 +835,10 @@ class AsyncMemoryClient:
             ValueError: If specified entity not found
             APIError: If deletion fails
         """
+
+        if not (user_id or agent_id or app_id or run_id):
+            raise ValueError("Please provide at least either user_id, agent_id, app_id or run_id")
+
         if user_id:
             to_delete = [{"type": "user", "name": user_id}]
         elif agent_id:
@@ -840,18 +847,8 @@ class AsyncMemoryClient:
             to_delete = [{"type": "app", "name": app_id}]
         elif run_id:
             to_delete = [{"type": "run", "name": run_id}]
-        else:
-            entities = self.users()
-            # Filter entities based on provided IDs using list comprehension
-            to_delete = [
-                {"type": entity["type"], "name": entity["name"]}
-                for entity in entities["results"]
-            ]
 
         params = self._prepare_params()
-
-        if not to_delete:
-            raise ValueError("No entities to delete")
 
         # Delete entities and check response immediately
         for entity in to_delete:
@@ -861,13 +858,22 @@ class AsyncMemoryClient:
         capture_client_event("client.delete_users", self.sync_client, {"sync_type": "async"})
         return {
             "message": "Entity deleted successfully."
-            if (user_id or agent_id or app_id or run_id)
-            else "All users, agents, apps and runs deleted."
         }
 
     @api_error_handler
     async def reset(self) -> Dict[str, str]:
-        await self.delete_users()
+        entities = await self.users()
+
+        to_delete = [
+            {"type": entity["type"], "name": entity["name"]}
+            for entity in entities["results"]
+        ]
+        params = self.sync_client._prepare_params()
+
+        for entity in to_delete:
+            response = self.async_client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response.raise_for_status()
+
         capture_client_event("client.reset", self.sync_client, {"sync_type": "async"})
         return {"message": "Client reset successful. All users and memories deleted."}
 
