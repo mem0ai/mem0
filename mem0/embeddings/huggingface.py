@@ -5,6 +5,7 @@ logging.getLogger("transformers").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
@@ -15,11 +16,14 @@ class HuggingFaceEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "multi-qa-MiniLM-L6-cos-v1"
+        if config.huggingface_base_url:
+            self.client = OpenAI(base_url=config.huggingface_base_url)
+        else:
+            self.config.model = self.config.model or "multi-qa-MiniLM-L6-cos-v1"
 
-        self.model = SentenceTransformer(self.config.model, **self.config.model_kwargs)
+            self.model = SentenceTransformer(self.config.model, **self.config.model_kwargs)
 
-        self.config.embedding_dims = self.config.embedding_dims or self.model.get_sentence_embedding_dimension()
+            self.config.embedding_dims = self.config.embedding_dims or self.model.get_sentence_embedding_dimension()
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
@@ -31,4 +35,7 @@ class HuggingFaceEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        return self.model.encode(text, convert_to_numpy=True).tolist()
+        if self.config.huggingface_base_url:
+            return self.client.embeddings.create(input=text, model="tei").data[0].embedding
+        else:
+            return self.model.encode(text, convert_to_numpy=True).tolist()

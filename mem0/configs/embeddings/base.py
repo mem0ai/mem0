@@ -22,6 +22,7 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        huggingface_base_url: Optional[str] = None,
         # AzureOpenAI specific
         azure_kwargs: Optional[AzureConfig] = {},
         http_client_proxies: Optional[Union[Dict, str]] = None,
@@ -46,6 +47,8 @@ class BaseEmbedderConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
+        :param huggingface_base_url: Huggingface base URL to be use, defaults to None
+        :type huggingface_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
         :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
@@ -77,7 +80,7 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
-
+        self.huggingface_base_url = huggingface_base_url
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
 
