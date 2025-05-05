@@ -263,20 +263,20 @@ class Memory(MemoryBase):
         )
 
         try:
-            new_memories_with_actions = self.llm.generate_response(
+            response: str = self.llm.generate_response(
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new_memories_with_actions: {e}")
-            new_memories_with_actions = []
+            logging.error(f"Error in new memory actions response: {e}")
+            response = ""
 
         try:
-            new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
-            new_memories_with_actions = json.loads(new_memories_with_actions)
+            response = remove_code_blocks(response)
+            new_memories_with_actions = json.loads(response)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = []
+            new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -1007,21 +1007,21 @@ class AsyncMemory(MemoryBase):
         )
 
         try:
-            new_memories_with_actions = await asyncio.to_thread(
+            response: str = await asyncio.to_thread(
                 self.llm.generate_response,
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new_memories_with_actions: {e}")
-            new_memories_with_actions = []
+            logging.error(f"Error in new memory actions response: {e}")
+            response = ""
 
         try:
-            new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
-            new_memories_with_actions = json.loads(new_memories_with_actions)
+            response = remove_code_blocks(response)
+            new_memories_with_actions = json.loads(response)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = []
+            new_memories_with_actions = {}
 
         returned_memories = []
         try:
