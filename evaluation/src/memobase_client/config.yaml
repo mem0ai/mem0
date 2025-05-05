@@ -1,0 +1,33 @@
+language: en
+
+overwrite_user_profiles:
+  - topic: "basic_info"
+    sub_topics:
+      - name: "gender"
+      - name: "name"
+      - name: "birth_date"
+      - name: "location"
+  - topic: "personal_narrative"
+    sub_topics:
+      - name: "identity_journey"
+      - name: "self_acceptance"
+      - name: "emotional_states"
+      - name: "life_milestones"
+  - topic: "life_circumstances"
+    sub_topics:
+      - name: "career"
+      - name: "education"
+      - name: "family_status"
+      - name: "living_situation"
+  - topic: "personal_growth"
+    sub_topics:
+      - name: "hobbies"
+      - name: "creative_pursuits"
+      - name: "mental_health"
+      - name: "self_care_activities"
+  - topic: "future_plans"
+    sub_topics:
+      - name: "career_goals"
+      - name: "personal_aspirations"
+      - name: "family_planning"
+      - name: "life_goals"
