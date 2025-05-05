@@ -5,11 +5,11 @@ logging.getLogger("transformers").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 
-from openai import OpenAI
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI  # noqa: E402
+from sentence_transformers import SentenceTransformer  # noqa: E402
 
-from mem0.configs.embeddings.base import BaseEmbedderConfig
-from mem0.embeddings.base import EmbeddingBase
+from mem0.configs.embeddings.base import BaseEmbedderConfig  # noqa: E402
+from mem0.embeddings.base import EmbeddingBase  # noqa: E402
 
 
 class HuggingFaceEmbedding(EmbeddingBase):

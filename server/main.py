@@ -1,12 +1,13 @@
+import logging
 import os
-from fastapi import FastAPI, HTTPException, Query, Path
+from typing import Any, Dict, List, Optional
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List, Any, Dict
-from mem0 import Memory
-from dotenv import load_dotenv
 
-import logging
+from mem0 import Memory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 

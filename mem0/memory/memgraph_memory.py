@@ -60,9 +60,9 @@ class MemoryGraph:
         embedding_dims = self.config.embedder.config["embedding_dims"]
         create_vector_index_query = f"CREATE VECTOR INDEX memzero ON :Entity(embedding) WITH CONFIG {{'dimension': {embedding_dims}, 'capacity': 1000, 'metric': 'cos'}};"
         self.graph.query(create_vector_index_query, params={})
-        create_label_prop_index_query = f"CREATE INDEX ON :Entity(user_id);"
+        create_label_prop_index_query = "CREATE INDEX ON :Entity(user_id);"
         self.graph.query(create_label_prop_index_query, params={})
-        create_label_index_query = f"CREATE INDEX ON :Entity;"
+        create_label_index_query = "CREATE INDEX ON :Entity;"
         self.graph.query(create_label_index_query, params={})
 
     def add(self, data, filters):
@@ -269,8 +269,8 @@ class MemoryGraph:
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
-            cypher_query = f"""
-            MATCH (n:Entity {{user_id: $user_id}})-[r]->(m:Entity)
+            cypher_query = """
+            MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity)
             WHERE n.embedding IS NOT NULL
             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
@@ -279,7 +279,7 @@ class MemoryGraph:
             WHERE similarity >= $threshold
             RETURN node1.user_id AS source, id(node1) AS source_id, type(r) AS relationship, id(r) AS relation_id, node2.user_id AS destination, id(node2) AS destination_id, similarity
             UNION
-            MATCH (n:Entity {{user_id: $user_id}})<-[r]-(m:Entity)
+            MATCH (n:Entity {user_id: $user_id})<-[r]-(m:Entity)
             WHERE n.embedding IS NOT NULL
             WITH collect(n) AS nodes1, collect(m) AS nodes2, r
             CALL node_similarity.cosine_pairwise("embedding", nodes1, nodes2)
@@ -481,7 +481,7 @@ class MemoryGraph:
         return entity_list
 
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
-        cypher = f"""
+        cypher = """
             CALL vector_search.search("memzero", 1, $source_embedding) 
             YIELD distance, node, similarity
             WITH node AS source_candidate, similarity
@@ -499,7 +499,7 @@ class MemoryGraph:
         return result
 
     def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
-        cypher = f"""
+        cypher = """
             CALL vector_search.search("memzero", 1, $destination_embedding) 
             YIELD distance, node, similarity
             WITH node AS destination_candidate, similarity

@@ -1,27 +1,24 @@
+import json
+import multiprocessing as mp
+import os
+import time
+from collections import defaultdict
+
+from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from langgraph.store.memory import InMemoryStore
 from langgraph.utils.config import get_store
-from langmem import (
-    create_manage_memory_tool,
-    create_search_memory_tool
-)
-import time
-import multiprocessing as mp
-import json
-from functools import partial
-import os
-from tqdm import tqdm
+from langmem import create_manage_memory_tool, create_search_memory_tool
 from openai import OpenAI
-from collections import defaultdict
-from dotenv import load_dotenv
 from prompts import ANSWER_PROMPT
+from tqdm import tqdm
 
 load_dotenv()
 
 client = OpenAI()
 
-from jinja2 import Template
+from jinja2 import Template  # noqa: E402
 
 ANSWER_PROMPT_TEMPLATE = Template(ANSWER_PROMPT)
 
@@ -32,14 +29,12 @@ def get_answer(question, speaker_1_user_id, speaker_1_memories, speaker_2_user_i
         speaker_1_user_id=speaker_1_user_id,
         speaker_1_memories=speaker_1_memories,
         speaker_2_user_id=speaker_2_user_id,
-        speaker_2_memories=speaker_2_memories
+        speaker_2_memories=speaker_2_memories,
     )
 
     t1 = time.time()
     response = client.chat.completions.create(
-        model=os.getenv("MODEL"),
-        messages=[{"role": "system", "content": prompt}],
-        temperature=0.0
+        model=os.getenv("MODEL"), messages=[{"role": "system", "content": prompt}], temperature=0.0
     )
     t2 = time.time()
     return response.choices[0].message.content, t2 - t1
@@ -63,7 +58,9 @@ def prompt(state):
 
 
 class LangMem:
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         self.store = InMemoryStore(
             index={
                 "dims": 1536,
@@ -84,18 +81,12 @@ class LangMem:
         )
 
     def add_memory(self, message, config):
-        return self.agent.invoke(
-            {"messages": [{"role": "user", "content": message}]},
-            config=config
-        )
+        return self.agent.invoke({"messages": [{"role": "user", "content": message}]}, config=config)
 
     def search_memory(self, query, config):
         try:
             t1 = time.time()
-            response = self.agent.invoke(
-                {"messages": [{"role": "user", "content": query}]},
-                config=config
-            )
+            response = self.agent.invoke({"messages": [{"role": "user", "content": query}]}, config=config)
             t2 = time.time()
             return response["messages"][-1].content, t2 - t1
         except Exception as e:
@@ -106,7 +97,7 @@ class LangMem:
 class LangMemManager:
     def __init__(self, dataset_path):
         self.dataset_path = dataset_path
-        with open(self.dataset_path, 'r') as f:
+        with open(self.dataset_path, "r") as f:
             self.data = json.load(f)
 
     def process_all_conversations(self, output_file_path):
@@ -127,7 +118,7 @@ class LangMemManager:
 
             # Identify speakers
             for conv in chat_history:
-                speakers.add(conv['speaker'])
+                speakers.add(conv["speaker"])
 
             if len(speakers) != 2:
                 raise ValueError(f"Expected 2 speakers, got {len(speakers)}")
@@ -138,50 +129,52 @@ class LangMemManager:
             # Add memories for each message
             for conv in tqdm(chat_history, desc=f"Processing messages {key}", leave=False):
                 message = f"{conv['timestamp']} | {conv['speaker']}: {conv['text']}"
-                if conv['speaker'] == speaker1:
+                if conv["speaker"] == speaker1:
                     agent1.add_memory(message, config)
-                elif conv['speaker'] == speaker2:
+                elif conv["speaker"] == speaker2:
                     agent2.add_memory(message, config)
                 else:
                     raise ValueError(f"Expected speaker1 or speaker2, got {conv['speaker']}")
 
             # Process questions
             for q in tqdm(questions, desc=f"Processing questions {key}", leave=False):
-                category = q['category']
+                category = q["category"]
 
                 if int(category) == 5:
                     continue
 
-                answer = q['answer']
-                question = q['question']
+                answer = q["answer"]
+                question = q["question"]
                 response1, speaker1_memory_time = agent1.search_memory(question, config)
                 response2, speaker2_memory_time = agent2.search_memory(question, config)
 
-                generated_answer, response_time = get_answer(
-                    question, speaker1, response1, speaker2, response2
-                )
+                generated_answer, response_time = get_answer(question, speaker1, response1, speaker2, response2)
 
-                result[key].append({
-                    "question": question,
-                    "answer": answer,
-                    "response1": response1,
-                    "response2": response2,
-                    "category": category,
-                    "speaker1_memory_time": speaker1_memory_time,
-                    "speaker2_memory_time": speaker2_memory_time,
-                    "response_time": response_time,
-                    'response': generated_answer
-                })
+                result[key].append(
+                    {
+                        "question": question,
+                        "answer": answer,
+                        "response1": response1,
+                        "response2": response2,
+                        "category": category,
+                        "speaker1_memory_time": speaker1_memory_time,
+                        "speaker2_memory_time": speaker2_memory_time,
+                        "response_time": response_time,
+                        "response": generated_answer,
+                    }
+                )
 
             return result
 
         # Use multiprocessing to process conversations in parallel
         with mp.Pool(processes=10) as pool:
-            results = list(tqdm(
-                pool.imap(process_conversation, list(self.data.items())),
-                total=len(self.data),
-                desc="Processing conversations"
-            ))
+            results = list(
+                tqdm(
+                    pool.imap(process_conversation, list(self.data.items())),
+                    total=len(self.data),
+                    desc="Processing conversations",
+                )
+            )
 
         # Combine results from all workers
         for result in results:
@@ -189,5 +182,5 @@ class LangMemManager:
                 OUTPUT[key].extend(items)
 
         # Save final results
-        with open(output_file_path, 'w') as f:
+        with open(output_file_path, "w") as f:
             json.dump(OUTPUT, f, indent=4)
