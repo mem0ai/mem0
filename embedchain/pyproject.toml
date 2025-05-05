@@ -22,10 +22,7 @@ build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core"]
 
 [tool.ruff]
-select = ["ASYNC", "E", "F"]
-ignore = []
-fixable = ["ALL"]
-unfixable = []
+line-length = 120
 exclude = [
     ".bzr",
     ".direnv",
@@ -49,16 +46,21 @@ exclude = [
     "node_modules",
     "venv"
 ]
-line-length = 120
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 target-version = "py38"
 
-[tool.ruff.mccabe]
-max-complexity = 10
+[tool.ruff.lint]
+select = ["ASYNC", "E", "F"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Ignore `E402` (import violations) in all `__init__.py` files, and in `path/to/file.py`.
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "embedchain/__init__.py" = ["E401"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.black]
 line-length = 120

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+
 from dotenv import load_dotenv
 from tqdm import tqdm
 from zep_cloud import Message

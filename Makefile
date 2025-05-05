@@ -12,7 +12,7 @@ install:
 
 install_all:
 	poetry install
-	poetry run pip install groq together boto3 litellm ollama chromadb weaviate weaviate-client sentence_transformers vertexai \
+	poetry run pip install ruff==0.6.9 groq together boto3 litellm ollama chromadb weaviate weaviate-client sentence_transformers vertexai \
 	                        google-generativeai elasticsearch opensearch-py vecs pinecone pinecone-text faiss-cpu langchain-community \
 							upstash-vector azure-search-documents langchain-memgraph
 

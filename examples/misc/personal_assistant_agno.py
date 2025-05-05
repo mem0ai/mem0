@@ -12,8 +12,8 @@ from pathlib import Path
 from agno.agent import Agent
 from agno.media import Image
 from agno.models.openai import OpenAIChat
-from mem0 import MemoryClient
 
+from mem0 import MemoryClient
 
 # Initialize the Mem0 client
 client = MemoryClient()

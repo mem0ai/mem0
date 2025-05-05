@@ -59,6 +59,10 @@ jobs:
       - name: Install dependencies
         run: make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      - name: Run Formatting
+        run: |
+          mkdir -p mem0/.ruff_cache && chmod -R 777 mem0/.ruff_cache
+          cd mem0 && poetry run ruff check . --select F
       - name: Run tests and generate coverage report
         run: make test
 
@@ -90,6 +94,10 @@ jobs:
       - name: Install dependencies
         run: cd embedchain && make install_all
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      - name: Run Formatting
+        run: |
+          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
+          cd embedchain && poetry run ruff check . --select F
       - name: Lint with ruff
         run: cd embedchain && make lint
       - name: Run tests and generate coverage report

@@ -1,4 +1,3 @@
-import os
 from typing import Literal, Optional
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig

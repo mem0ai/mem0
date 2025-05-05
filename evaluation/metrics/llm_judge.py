@@ -1,8 +1,9 @@
-from openai import OpenAI
+import argparse
 import json
 from collections import defaultdict
+
 import numpy as np
-import argparse
+from openai import OpenAI
 
 client = OpenAI()
 

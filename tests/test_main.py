@@ -5,7 +5,6 @@ import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.main import Memory
-from mem0.utils.factory import VectorStoreFactory
 
 
 @pytest.fixture(autouse=True)

@@ -148,13 +148,7 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
             OutputData(id="id1", score=0.9, payload={"name": "vector1", "category": "A"}),
             OutputData(id="id2", score=0.8, payload={"name": "vector2", "category": "B"})
         ]
-        
-        filtered_results = [all_results[0]]  # Just the "category": "A" result
-        
-        # Create a side_effect function that returns all results first (for _parse_output)
-        # then returns filtered results (for the filters)
-        parse_output_mock = Mock(side_effect=[all_results, filtered_results])
-        
+
         # Replace the _apply_filters method to handle our test case
         with patch.object(faiss_instance, '_parse_output', return_value=all_results):
             with patch.object(faiss_instance, '_apply_filters', side_effect=lambda p, f: p.get("category") == "A"):
@@ -304,7 +298,8 @@ def test_normalize_L2(faiss_instance, mock_faiss_index):
     vectors = [[0.1, 0.2, 0.3]]
     
     # Mock numpy array conversion
-    with patch('numpy.array', return_value=np.array(vectors, dtype=np.float32)) as mock_np_array:
+    # Mock numpy array conversion
+    with patch('numpy.array', return_value=np.array(vectors, dtype=np.float32)):
         # Mock faiss.normalize_L2
         with patch('faiss.normalize_L2') as mock_normalize:
             # Call insert

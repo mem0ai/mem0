@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0 import Memory, MemoryClient
-from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
 from mem0.proxy.main import Chat, Completions, Mem0
 
 

@@ -1,16 +1,16 @@
 import argparse
+import json
+import os
+import time
 from collections import defaultdict
+
 from dotenv import load_dotenv
 from jinja2 import Template
 from openai import OpenAI
+from prompts import ANSWER_PROMPT_ZEP
 from tqdm import tqdm
 from zep_cloud import EntityEdge, EntityNode
 from zep_cloud.client import Zep
-import json
-import os
-import pandas as pd
-import time
-from prompts import ANSWER_PROMPT_ZEP
 
 load_dotenv()
 
@@ -52,7 +52,6 @@ class ZepSearch:
         while retries < max_retries:
             try:
                 user_id = f"run_id_{run_id}_experiment_user_{idx}"
-                session_id = f"run_id_{run_id}_experiment_session_{idx}"
                 edges_results = (self.zep_client.graph.search(user_id=user_id, reranker='cross_encoder', query=query, scope='edges', limit=20)).edges
                 node_results = (self.zep_client.graph.search(user_id=user_id, reranker='rrf', query=query, scope='nodes', limit=20)).nodes
                 context = self.compose_search_context(edges_results, node_results)

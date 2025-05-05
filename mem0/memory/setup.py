@@ -41,7 +41,7 @@ def get_or_create_user_id(vector_store):
         existing = vector_store.get(vector_id=VECTOR_ID)
         if existing and hasattr(existing, "payload") and existing.payload and "user_id" in existing.payload:
             return existing.payload["user_id"]
-    except:
+    except Exception:
         pass
 
     # If we get here, we need to insert the user_id
@@ -50,7 +50,7 @@ def get_or_create_user_id(vector_store):
         vector_store.insert(
             vectors=[[0.0] * dims], payloads=[{"user_id": user_id, "type": "user_identity"}], ids=[VECTOR_ID]
         )
-    except:
+    except Exception:
         pass
 
     return user_id

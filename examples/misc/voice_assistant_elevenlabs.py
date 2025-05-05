@@ -21,11 +21,13 @@ You must also have:
 
 import tempfile
 import wave
+
 import pyaudio
-from elevenlabs.client import ElevenLabs
+from crewai import Agent, Crew, Process, Task
 from elevenlabs import play
-from crewai import Agent, Task, Crew, Process
+from elevenlabs.client import ElevenLabs
 from openai import OpenAI
+
 from mem0 import MemoryClient
 
 # ------------------ SETUP ------------------
