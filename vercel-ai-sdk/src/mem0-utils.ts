@@ -41,22 +41,29 @@ const convertToMem0Format = (messages: LanguageModelV1Prompt) => {
 })};
 
 const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 5)=> {
-    const filters = {
-      OR: [
-        {
-          user_id: config&&config.user_id,
-        },
-        {
-          app_id: config&&config.app_id,
-        },
-        {
-          agent_id: config&&config.agent_id,
-        },
-        {
-          run_id: config&&config.run_id,
-        },
-      ],
+    const filters: { AND: Array<{ [key: string]: string | undefined }> } = {
+      AND: [],
     };
+    if (config?.user_id) {
+      filters.AND.push({
+        user_id: config.user_id,
+      });
+    }
+    if (config?.app_id) {
+      filters.AND.push({
+        app_id: config.app_id,
+      });
+    }
+    if (config?.agent_id) {
+      filters.AND.push({
+        agent_id: config.agent_id,
+      });
+    }
+    if (config?.run_id) {
+      filters.AND.push({
+        run_id: config.run_id,
+      });
+    }
     const org_project_filters = {
       org_id: config&&config.org_id,
       project_id: config&&config.project_id,
