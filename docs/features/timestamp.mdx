@@ -39,8 +39,15 @@ When adding new memories, you can specify a custom timestamp to indicate when th
 <CodeGroup>
 
 ```python Python
+import os
 import time
 from datetime import datetime, timedelta
+
+from mem0 import MemoryClient
+
+os.environ["MEM0_API_KEY"] = "your-api-key"
+
+client = MemoryClient()
 
 # Get the current time
 current_time = datetime.now()
@@ -56,6 +63,9 @@ client.add("I'm travelling to SF", user_id="user1", timestamp=unix_timestamp)
 ```
 
 ```javascript JavaScript
+import MemoryClient from 'mem0ai';
+const client = new MemoryClient({ apiKey: 'your-api-key' });
+
 // Get the current time
 const currentTime = new Date();
 
