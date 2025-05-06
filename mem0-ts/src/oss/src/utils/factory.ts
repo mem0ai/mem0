@@ -1,5 +1,6 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
 import { OllamaEmbedder } from "../embeddings/ollama";
+import { MistralAIEmbedder } from "../embeddings/mistralai";
 import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
@@ -38,6 +39,8 @@ export class EmbedderFactory {
         return new OpenAIEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
+      case "mistralai":
+        return new MistralAIEmbedder(config);
       case "google":
         return new GoogleEmbedder(config);
       case "azure_openai":

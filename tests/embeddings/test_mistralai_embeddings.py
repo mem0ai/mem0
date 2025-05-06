@@ -8,9 +8,9 @@ from mem0.embeddings.mistralai import MistralAIEmbedding
 
 @pytest.fixture
 def mock_mistralai_client():
-    with patch("mem0.embeddings.mistralai.Mistral") as mock_openai:
+    with patch("mem0.embeddings.mistralai.Mistral") as mock_mistralai:
         mock_client = Mock()
-        mock_openai.return_value = mock_client
+        mock_mistralai.return_value = mock_client
         yield mock_client
 
 
