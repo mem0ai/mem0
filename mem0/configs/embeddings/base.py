@@ -20,6 +20,8 @@ class BaseEmbedderConfig(ABC):
         ollama_base_url: Optional[str] = None,
         # Openai specific
         openai_base_url: Optional[str] = None,
+        # MistralAI specific
+        mistralai_server_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
         huggingface_base_url: Optional[str] = None,
@@ -77,6 +79,9 @@ class BaseEmbedderConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # MistralAI specific
+        self.mistralai_server_url = mistralai_server_url
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
