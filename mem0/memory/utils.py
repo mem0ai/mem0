@@ -25,7 +25,7 @@ def format_entities(entities):
 
     formatted_lines = []
     for entity in entities:
-        simplified = f"{entity['source']} -- {entity['relatationship']} -- {entity['destination']}"
+        simplified = f"{entity['source']} -- {entity['relationship']} -- {entity['destination']}"
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
