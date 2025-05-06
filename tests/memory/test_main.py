@@ -1,43 +1,45 @@
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from mem0.memory.main import AsyncMemory, Memory
 
 
+def _setup_mocks(mocker):
+    """Helper to setup common mocks for both sync and async fixtures"""
+    mocker.patch('mem0.memory.telemetry.capture_event', return_value=None)
+    
+    mock_embedder = mocker.MagicMock()
+    mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
+    mocker.patch('mem0.utils.factory.EmbedderFactory.create', mock_embedder)
+    
+    mock_vector_store = mocker.MagicMock()
+    mock_vector_store.return_value.search.return_value = []
+    mocker.patch('mem0.utils.factory.VectorStoreFactory.create', 
+                side_effect=[mock_vector_store.return_value, mocker.MagicMock()])
+    
+    mock_llm = mocker.MagicMock()
+    mocker.patch('mem0.utils.factory.LlmFactory.create', mock_llm)
+    
+    mocker.patch('mem0.memory.storage.SQLiteManager', mocker.MagicMock())
+    
+    return mock_llm, mock_vector_store
+
+
 class TestAddToVectorStoreErrors:
     @pytest.fixture
-    def mock_memory(self):
-        """Fixture that returns a Memory instance with properly mocked dependencies"""
-        # Mock telemetry first
-        with patch('mem0.memory.telemetry.capture_event') as mock_capture:
-            mock_capture.return_value = None
-            # Mock all factories before instantiation
-            mock_embedder = MagicMock()
-            mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
-            with patch('mem0.utils.factory.EmbedderFactory.create', mock_embedder):
-                mock_vector_store = MagicMock()
-                mock_vector_store.return_value.search.return_value = []
-                with patch('mem0.utils.factory.VectorStoreFactory.create', mock_vector_store):
-                    mock_llm = MagicMock()
-                    with patch('mem0.utils.factory.LlmFactory.create', mock_llm):
-                        mock_db = MagicMock()
-                        with patch('mem0.memory.storage.SQLiteManager', mock_db):
-                            # Mock telemetry vector store separately
-                            with patch('mem0.utils.factory.VectorStoreFactory.create', 
-                                    return_value=MagicMock(), 
-                                    side_effect=[mock_vector_store.return_value, MagicMock()]):
-                                # Now instantiate Memory
-                                memory = Memory()
-                                
-                                # Configure mocks
-                                memory.config = MagicMock()
-                                memory.config.custom_fact_extraction_prompt = None
-                                memory.config.custom_update_memory_prompt = None
-                                memory.api_version = "v1.1"
-                                
-                                return memory
+    def mock_memory(self, mocker):
+        """Fixture that returns a Memory instance with mocker-based mocks"""
+        mock_llm, _ = _setup_mocks(mocker)
+        
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_update_memory_prompt = None
+        memory.api_version = "v1.1"
+        
+        return memory
 
     def test_empty_llm_response_fact_extraction(self, mock_memory, caplog):
         """Test empty response from LLM during fact extraction"""
@@ -85,36 +87,17 @@ class TestAddToVectorStoreErrors:
 @pytest.mark.asyncio
 class TestAsyncAddToVectorStoreErrors:
     @pytest.fixture
-    def mock_async_memory(self):
-        """Fixture for AsyncMemory with properly mocked dependencies"""
-        # Mock telemetry first
-        with patch('mem0.memory.telemetry.capture_event') as mock_capture:
-            mock_capture.return_value = None
-            # Mock all factories before instantiation
-            mock_embedder = MagicMock()
-            mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
-            with patch('mem0.utils.factory.EmbedderFactory.create', mock_embedder):
-                mock_vector_store = MagicMock()
-                mock_vector_store.return_value.search.return_value = []
-                with patch('mem0.utils.factory.VectorStoreFactory.create', mock_vector_store):
-                    mock_llm = MagicMock()
-                    with patch('mem0.utils.factory.LlmFactory.create', mock_llm):
-                        mock_db = MagicMock()
-                        with patch('mem0.memory.storage.SQLiteManager', mock_db):
-                            # Mock telemetry vector store separately
-                            with patch('mem0.utils.factory.VectorStoreFactory.create', 
-                                    return_value=MagicMock(), 
-                                    side_effect=[mock_vector_store.return_value, MagicMock()]):
-                                # Now instantiate AsyncMemory
-                                memory = AsyncMemory()
-                                
-                                # Configure mocks
-                                memory.config = MagicMock()
-                                memory.config.custom_fact_extraction_prompt = None
-                                memory.config.custom_update_memory_prompt = None
-                                memory.api_version = "v1.1"
-                                
-                                return memory
+    def mock_async_memory(self, mocker):
+        """Fixture for AsyncMemory with mocker-based mocks"""
+        mock_llm, _ = _setup_mocks(mocker)
+        
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_update_memory_prompt = None
+        memory.api_version = "v1.1"
+        
+        return memory
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_fact_extraction(self, mock_async_memory, caplog, mocker):
