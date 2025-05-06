@@ -61,8 +61,8 @@ import { MemoryClient } from "mem0";
 
 const client = new MemoryClient({
   apiKey: "your-api-key",
-  orgId: "your-org-id",
-  projectId: "your-project-id"
+  org_id: "your-org-id",
+  project_id: "your-project-id"
 });
 
 const messages = [
@@ -74,10 +74,10 @@ const messages = [
 // Enable graph memory when adding
 await client.add({
   messages,
-  userId: "joseph",
+  user_id: "joseph",
   version: "v1",
-  enableGraph: true,
-  outputFormat: "v1.1"
+  enable_graph: true,
+  output_format: "v1.1"
 });
 ```
 
@@ -142,9 +142,9 @@ print(results)
 // Search with graph memory enabled
 const results = await client.search({
   query: "what is my name?",
-  userId: "joseph",
-  enableGraph: true,
-  outputFormat: "v1.1"
+  user_id: "joseph",
+  enable_graph: true,
+  output_format: "v1.1"
 });
 
 console.log(results);
@@ -211,9 +211,9 @@ print(memories)
 ```javascript JavaScript
 // Get all memories with graph context
 const memories = await client.getAll({
-  userId: "joseph",
-  enableGraph: true,
-  outputFormat: "v1.1"
+  user_id: "joseph",
+  enable_graph: true,
+  output_format: "v1.1"
 });
 
 console.log(memories);

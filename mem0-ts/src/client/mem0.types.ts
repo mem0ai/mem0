@@ -22,10 +22,16 @@ export interface MemoryOptions {
   custom_categories?: custom_categories[];
   custom_instructions?: string;
   timestamp?: number;
+  output_format?: string | OutputFormat;
 }
 
 export interface ProjectOptions {
   fields?: string[];
+}
+
+export enum OutputFormat {
+  V1 = "v1.0",
+  V1_1 = "v1.1",
 }
 
 export enum API_VERSION {
