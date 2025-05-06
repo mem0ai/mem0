@@ -1,4 +1,5 @@
 import pytest
+
 from mem0.memory.utils import extract_json_string
 
 
@@ -21,11 +22,13 @@ from mem0.memory.utils import extract_json_string
             "<think>Analyzing...</think>\n```json\n{\n\"facts\": [\"Enjoys hiking\"]\n}\n```",
             "{\n\"facts\": [\"Enjoys hiking\"]\n}",
         ),
-        (
-            "No JSON here",
-            "No JSON here",
-        ),
     ],
 )
-def test_extract_json_string(input_text, expected):
+def test_extract_json_string_valid_cases(input_text, expected):
     assert extract_json_string(input_text) == expected
+
+
+def test_extract_json_string_with_no_json():
+    input_text = "<think>Only thoughts here...</think>\nNo JSON present."
+    with pytest.raises(ValueError, match="No JSON object found in the LLM response."):
+        extract_json_string(input_text)

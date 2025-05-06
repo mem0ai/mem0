@@ -112,7 +112,13 @@ def extract_json_string(content: str) -> str:
 
     Returns:
         str: A clean JSON string or the original content if no JSON object is found.
+
+    Raises:
+        ValueError: If the input content is empty or contains no JSON object.
     """
+    if not content or not content.strip():
+        raise ValueError("LLM response is empty or contains only whitespace.")
+
     content = remove_code_blocks(content.strip())
 
     # Remove reasoning tags like <think>...</think>
@@ -123,4 +129,5 @@ def extract_json_string(content: str) -> str:
     if match:
         return match.group(1).strip()
 
-    return content.strip()
+    raise ValueError("No JSON object found in the LLM response.")
+
