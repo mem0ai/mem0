@@ -28,6 +28,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "1.1.12",
     "@ai-sdk/cohere": "1.1.12",
+    "@ai-sdk/google": "^1.2.14",
     "@ai-sdk/groq": "1.1.11",
     "@ai-sdk/openai": "1.1.15",
     "@ai-sdk/provider": "1.0.9",

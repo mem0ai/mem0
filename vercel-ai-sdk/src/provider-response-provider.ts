@@ -4,9 +4,10 @@ import { createOpenAI, OpenAIProviderSettings } from "@ai-sdk/openai";
 import { CohereProviderSettings, createCohere } from "@ai-sdk/cohere";
 import { AnthropicProviderSettings, createAnthropic } from "@ai-sdk/anthropic";
 import { createGroq, GroqProviderSettings } from "@ai-sdk/groq";
+import { createGoogleGenerativeAI, GoogleGenerativeAIProviderSettings } from "@ai-sdk/google";
 
-export type Provider = ReturnType<typeof createOpenAI> | ReturnType<typeof createCohere> | ReturnType<typeof createAnthropic> | ReturnType<typeof createGroq> | any;
-export type ProviderSettings = OpenAIProviderSettings | CohereProviderSettings | AnthropicProviderSettings | GroqProviderSettings;
+export type Provider = ReturnType<typeof createOpenAI> | ReturnType<typeof createCohere> | ReturnType<typeof createAnthropic> | ReturnType<typeof createGroq> | ReturnType<typeof createGoogleGenerativeAI> | any;
+export type ProviderSettings = OpenAIProviderSettings | CohereProviderSettings | AnthropicProviderSettings | GroqProviderSettings | GoogleGenerativeAIProviderSettings;
 
 const convertMessagesToMem0Format = (messages: LanguageModelV1Prompt) => {
     return messages.map((message) => {
@@ -51,36 +52,49 @@ class Mem0AITextGenerator implements LanguageModelV1 {
             case "openai":
                 this.provider = createOpenAI({
                     apiKey: config?.apiKey,
-                    ...provider_config,
+                    headers: config?.headers as Record<string, string>,
+                    ...(provider_config as OpenAIProviderSettings),
                 }).languageModel;
                 if(config?.modelType === "completion"){
                     this.provider = createOpenAI({
                         apiKey: config?.apiKey,
-                        ...provider_config,
+                        headers: config?.headers as Record<string, string>,
+                        ...(provider_config as OpenAIProviderSettings),
                     }).completion;
                 }else if(config?.modelType === "chat"){
                     this.provider = createOpenAI({
                         apiKey: config?.apiKey,
-                        ...provider_config,
+                        headers: config?.headers as Record<string, string>,
+                        ...(provider_config as OpenAIProviderSettings),
                     }).chat;
                 }
                 break;
             case "cohere":
                 this.provider = createCohere({
                     apiKey: config?.apiKey,
-                    ...provider_config,
+                    headers: config?.headers as Record<string, string>,
+                    ...(provider_config as CohereProviderSettings),
                 });
                 break;
             case "anthropic":
                 this.provider = createAnthropic({
                     apiKey: config?.apiKey,
-                    ...provider_config,
+                    headers: config?.headers as Record<string, string>,
+                    ...(provider_config as AnthropicProviderSettings),
                 }).languageModel;
                 break;
             case "groq":
                 this.provider = createGroq({
                     apiKey: config?.apiKey,
-                    ...provider_config,
+                    headers: config?.headers as Record<string, string>,
+                    ...(provider_config as GroqProviderSettings),
+                });
+                break;
+            case "google":
+                this.provider = createGoogleGenerativeAI({
+                    apiKey: config?.apiKey,
+                    headers: config?.headers as Record<string, string>,
+                    ...(provider_config as GoogleGenerativeAIProviderSettings),
                 });
                 break;
             default:
