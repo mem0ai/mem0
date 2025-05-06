@@ -66,6 +66,8 @@ class Memory(MemoryBase):
 
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
+        else:
+            self.graph = None
 
         self.config.vector_store.config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
@@ -811,6 +813,8 @@ class AsyncMemory(MemoryBase):
 
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
+        else:
+            self.graph = None
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
