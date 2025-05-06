@@ -8,8 +8,6 @@ from mem0.memory.main import AsyncMemory, Memory
 
 def _setup_mocks(mocker):
     """Helper to setup common mocks for both sync and async fixtures"""
-    mocker.patch('mem0.memory.telemetry.capture_event', return_value=None)
-    
     mock_embedder = mocker.MagicMock()
     mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
     mocker.patch('mem0.utils.factory.EmbedderFactory.create', mock_embedder)
