@@ -33,6 +33,8 @@ class MemoryGraph:
             self.config.graph_store.config.url,
             self.config.graph_store.config.username,
             self.config.graph_store.config.password,
+            refresh_schema=False,
+            driver_config={"notifications_min_severity":"OFF"}
         )
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider, self.config.embedder.config, self.config.vector_store.config
