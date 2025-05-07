@@ -99,11 +99,7 @@ class TestAddToVectorStoreErrors:
 
         mock_memory.vector_store.get.side_effect = get_vector_store
         mock_memory.vector_store.search.return_value = [
-            get_vector_payload_record("5e6c2501-095c-49b4-8e59-348cf6745f1d"),
-            get_vector_payload_record("f179d243-6875-4a91-a278-5d153e2ca193"),
-            get_vector_payload_record("27b6bd28-2e23-4c2e-9715-1a46b00362cd"),
-            get_vector_payload_record("43d356c7-6833-4c27-abff-2876cc37b144"),
-            get_vector_payload_record("be6c8333-2e75-4177-a9b6-6a2a5d75dd32"),
+            get_vector_payload_record(key) for key in memory_payload_lookup.keys()
         ]
         # Mock the LLM response
         mock_memory.llm.generate_response.side_effect = [
@@ -235,11 +231,7 @@ class TestAsyncAddToVectorStoreErrors:
 
         mock_async_memory.vector_store.get.side_effect = get_vector_store
         mock_async_memory.vector_store.search.return_value = [
-            get_vector_payload_record("5e6c2501-095c-49b4-8e59-348cf6745f1d"),
-            get_vector_payload_record("f179d243-6875-4a91-a278-5d153e2ca193"),
-            get_vector_payload_record("27b6bd28-2e23-4c2e-9715-1a46b00362cd"),
-            get_vector_payload_record("43d356c7-6833-4c27-abff-2876cc37b144"),
-            get_vector_payload_record("be6c8333-2e75-4177-a9b6-6a2a5d75dd32"),
+            get_vector_payload_record(key) for key in memory_payload_lookup.keys()
         ]
         mock_async_memory.llm.generate_response.side_effect = [
             '{"facts": ["I like rice and beans and cheese", "I like tacos"]}',
