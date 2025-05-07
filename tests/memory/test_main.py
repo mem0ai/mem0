@@ -160,7 +160,7 @@ class TestAddToVectorStoreErrors:
 
         return memory
 
-    def test_valid_llm_response_fact_extraction(self, mock_memory, caplog, mocker, base_memory_scenario):
+    def test_valid_llm_response_fact_extraction(self, mock_memory, caplog, base_memory_scenario):
         """Test valid response from LLM during fact extraction"""
         memory_payload, llm_responses, id_mapping = base_memory_scenario
 
@@ -195,14 +195,23 @@ class TestAddToVectorStoreErrors:
             mock_memory.vector_store.update.call_args[1]["payload"]["hash"]
             == hashlib.md5("I like rice and beans and cheese".encode()).hexdigest()
         )
-        assert mock_memory.vector_store.insert.call_args[1]["payloads"][0]['data'] == "Likes tacos"
+        assert mock_memory.vector_store.insert.call_args[1]["payloads"][0]["data"] == "Likes tacos"
         assert (
             mock_memory.vector_store.insert.call_args[1]["payloads"][0]["hash"]
             == hashlib.md5("Likes tacos".encode()).hexdigest()
         )
 
-    def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
+    def test_empty_llm_response_memory_actions(self, mock_memory, caplog, base_memory_scenario):
         """Test empty response from LLM during memory actions"""
+        memory_payload, _, id_mapping = base_memory_scenario
+
+        from functools import partial
+
+        mock_get = partial(create_mock_record, memory_payload)
+        mock_search = partial(create_mock_scored_point, memory_payload)
+        mock_memory.vector_store.get.side_effect = mock_get
+        mock_memory.vector_store.search.return_value = [mock_search(key) for key in memory_payload.keys()]
+
         mock_memory.llm.generate_response.side_effect = ["", ""]
 
         with caplog.at_level(logging.ERROR):
@@ -212,6 +221,8 @@ class TestAddToVectorStoreErrors:
 
         assert result == []
         assert "Invalid JSON response" in caplog.text
+        assert mock_memory.vector_store.update.call_count == 0
+        assert mock_memory.vector_store.insert.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -278,8 +289,19 @@ class TestAsyncAddToVectorStoreErrors:
         assert mock_async_memory.vector_store.insert.call_args[1]["vectors"] == [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]]
 
     @pytest.mark.asyncio
-    async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
+    async def test_async_empty_llm_response_memory_actions(
+        self, mock_async_memory, caplog, mocker, base_memory_scenario
+    ):
         """Test empty response in AsyncMemory._add_to_vector_store"""
+        memory_payload, _, id_mapping = base_memory_scenario
+
+        from functools import partial
+
+        mock_get = partial(create_mock_record, memory_payload)
+        mock_search = partial(create_mock_scored_point, memory_payload)
+        mock_async_memory.vector_store.get.side_effect = mock_get
+        mock_async_memory.vector_store.search.return_value = [mock_search(key) for key in memory_payload.keys()]
+
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
         mock_async_memory.llm.generate_response.side_effect = ["", ""]
 
@@ -290,3 +312,5 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert "Invalid JSON response" in caplog.text
+        assert mock_async_memory.vector_store.update.call_count == 0
+        assert mock_async_memory.vector_store.insert.call_count == 0
