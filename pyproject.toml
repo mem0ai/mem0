@@ -36,6 +36,8 @@ graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
+pytest-mock = "^3.14.0"
+pytest-asyncio = "^0.23.7"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.5"
@@ -49,4 +51,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 120
 exclude = ["embedchain/"]
-
