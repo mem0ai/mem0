@@ -30,6 +30,27 @@ def _setup_mocks(mocker):
     return mock_llm, mock_vector_store
 
 
+def get_vector_payload(memory_payload, vector_id):
+    """Helper to get payload from memory_payload dict"""
+    return memory_payload.get(vector_id)
+
+
+def create_mock_record(memory_payload, vector_id):
+    """Create a mock Record object for vector_store.get"""
+    payload = get_vector_payload(memory_payload, vector_id)
+    if payload:
+        return Record(id=vector_id, payload=payload, vector=None, shard_key=None, order_value=None)
+    return None
+
+
+def create_mock_scored_point(memory_payload, vector_id):
+    """Create a mock ScoredPoint object for vector_store.search"""
+    payload = get_vector_payload(memory_payload, vector_id)
+    if payload:
+        return ScoredPoint(id=vector_id, version=57, score=0.9, payload=payload, vector=None, shard_key=None, order_value=None)
+    return None
+
+
 @pytest.fixture
 def base_memory_scenario():
     """Returns (memory_payload, llm_responses, id_mapping)"""
@@ -114,28 +135,17 @@ class TestAddToVectorStoreErrors:
 
         return memory
 
-    def test_valid_llm_response_fact_extraction(self, mock_memory, caplog, base_memory_scenario):
+    def test_valid_llm_response_fact_extraction(self, mock_memory, caplog, mocker, base_memory_scenario):
         """Test valid response from LLM during fact extraction"""
         memory_payload, llm_responses, id_mapping = base_memory_scenario
 
-        def get_vector_payload(vector_id):
-            return memory_payload.get(vector_id)
+        from functools import partial
+        mock_get = partial(create_mock_record, memory_payload)
+        mock_search = partial(create_mock_scored_point, memory_payload)
 
-        def get_vector_store(vector_id):
-            payload = get_vector_payload(vector_id)
-            if payload:
-                return Record(id=vector_id, payload=payload, vector=None, shard_key=None, order_value=None)
-            return None
-        
-        def get_vector_payload_record(vector_id):
-            payload = get_vector_payload(vector_id)
-            if payload:
-                return ScoredPoint(id=vector_id, version=57, score=0.9, payload=payload, vector=None, shard_key=None, order_value=None)
-            return None
-
-        mock_memory.vector_store.get.side_effect = get_vector_store
+        mock_memory.vector_store.get.side_effect = mock_get
         mock_memory.vector_store.search.return_value = [
-            get_vector_payload_record(key) for key in memory_payload.keys()
+            mock_search(key) for key in memory_payload.keys()
         ]
         
         mock_memory.llm.generate_response.side_effect = llm_responses
@@ -181,28 +191,17 @@ class TestAsyncAddToVectorStoreErrors:
         return memory
 
     @pytest.mark.asyncio
-    async def test_async_valid_llm_response_fact_extraction(self, mock_async_memory, caplog, base_memory_scenario):
+    async def test_async_valid_llm_response_fact_extraction(self, mock_async_memory, caplog, mocker, base_memory_scenario):
         """Test valid response in AsyncMemory._add_to_vector_store"""
         memory_payload, llm_responses, id_mapping = base_memory_scenario
 
-        def get_vector_payload(vector_id):
-            return memory_payload.get(vector_id)
+        from functools import partial
+        mock_get = partial(create_mock_record, memory_payload)
+        mock_search = partial(create_mock_scored_point, memory_payload)
 
-        def get_vector_store(vector_id):
-            payload = get_vector_payload(vector_id)
-            if payload:
-                return Record(id=vector_id, payload=payload, vector=None, shard_key=None, order_value=None)
-            return None
-        
-        def get_vector_payload_record(vector_id):
-            payload = get_vector_payload(vector_id)
-            if payload:
-                return ScoredPoint(id=vector_id, version=57, score=0.9, payload=payload, vector=None, shard_key=None, order_value=None)
-            return None
-
-        mock_async_memory.vector_store.get.side_effect = get_vector_store
+        mock_async_memory.vector_store.get.side_effect = mock_get
         mock_async_memory.vector_store.search.return_value = [
-            get_vector_payload_record(key) for key in memory_payload.keys()
+            mock_search(key) for key in memory_payload.keys()
         ]
         
         mock_async_memory.llm.generate_response.side_effect = llm_responses
