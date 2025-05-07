@@ -7,6 +7,7 @@ import logging
 import os
 import uuid
 import warnings
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict
 
@@ -292,7 +293,7 @@ class Memory(MemoryBase):
                         memory_id = self._create_memory(
                             data=resp.get("text"),
                             existing_embeddings=new_message_embeddings,
-                            metadata=metadata,
+                            metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
@@ -306,7 +307,7 @@ class Memory(MemoryBase):
                             memory_id=temp_uuid_mapping[resp["id"]],
                             data=resp.get("text"),
                             existing_embeddings=new_message_embeddings,
-                            metadata=metadata,
+                            metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
@@ -1039,7 +1040,9 @@ class AsyncMemory(MemoryBase):
                     elif resp.get("event") == "ADD":
                         task = asyncio.create_task(
                             self._create_memory(
-                                data=resp.get("text"), existing_embeddings=new_message_embeddings, metadata=metadata
+                                data=resp.get("text"),
+                                existing_embeddings=new_message_embeddings,
+                                metadata=deepcopy(metadata),
                             )
                         )
                         memory_tasks.append((task, resp, "ADD", None))
@@ -1049,7 +1052,7 @@ class AsyncMemory(MemoryBase):
                                 memory_id=temp_uuid_mapping[resp["id"]],
                                 data=resp.get("text"),
                                 existing_embeddings=new_message_embeddings,
-                                metadata=metadata,
+                                metadata=deepcopy(metadata),
                             )
                         )
                         memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
