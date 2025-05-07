@@ -96,7 +96,7 @@ class TestAddToVectorStoreErrors:
                 version=57,
                 payload={
                     "data": "I like rice and beans",
-                    "user_id": "user1",
+                    "user_id": "default_user",
                     "hash": hashlib.md5("I like rice and beans".encode()).hexdigest(),
                     "created_at": "2025-05-06T16:45:44.643822-07:00",
                 },
@@ -110,7 +110,7 @@ class TestAddToVectorStoreErrors:
                 version=57,
                 payload={
                     "data": "Likes rice",
-                    "user_id": "user1",
+                    "user_id": "default_user",
                     "hash": hashlib.md5("Likes rice".encode()).hexdigest(),
                     "created_at": "2025-05-06T16:45:44.643822-07:00",
                 },
@@ -124,7 +124,7 @@ class TestAddToVectorStoreErrors:
                 version=57,
                 payload={
                     "data": "I like basmati rice",
-                    "user_id": "user1",
+                    "user_id": "default_user",
                     "hash": hashlib.md5("I like basmati rice".encode()).hexdigest(),
                     "created_at": "2025-05-06T16:45:44.643822-07:00",
                 },
@@ -259,7 +259,7 @@ class TestAsyncAddToVectorStoreErrors:
                 version=57,
                 payload={
                     "data": "I like rice and beans",
-                    "user_id": "user1",
+                    "user_id": "default_user",
                     "hash": hashlib.md5("I like rice and beans".encode()).hexdigest(),
                     "created_at": "2025-05-06T16:45:44.643822-07:00",
                 },
@@ -273,7 +273,7 @@ class TestAsyncAddToVectorStoreErrors:
                 version=57,
                 payload={
                     "data": "Likes rice",
-                    "user_id": "user1",
+                    "user_id": "default_user",
                     "hash": hashlib.md5("Likes rice".encode()).hexdigest(),
                     "created_at": "2025-05-06T16:45:44.643822-07:00",
                 },
@@ -287,7 +287,7 @@ class TestAsyncAddToVectorStoreErrors:
                 version=57,
                 payload={
                     "data": "I like basmati rice",
-                    "user_id": "user1",
+                    "user_id": "default_user",
                     "hash": hashlib.md5("I like basmati rice".encode()).hexdigest(),
                     "created_at": "2025-05-06T16:45:44.643822-07:00",
                 },
