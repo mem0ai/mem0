@@ -7,6 +7,7 @@ import logging
 import os
 import uuid
 import warnings
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict
 
@@ -66,6 +67,8 @@ class Memory(MemoryBase):
 
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
+        else:
+            self.graph = None
 
         self.config.vector_store.config.collection_name = "mem0migrations"
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
@@ -263,20 +266,20 @@ class Memory(MemoryBase):
         )
 
         try:
-            new_memories_with_actions = self.llm.generate_response(
+            response: str = self.llm.generate_response(
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new_memories_with_actions: {e}")
-            new_memories_with_actions = []
+            logging.error(f"Error in new memory actions response: {e}")
+            response = ""
 
         try:
-            new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
-            new_memories_with_actions = json.loads(new_memories_with_actions)
+            response = remove_code_blocks(response)
+            new_memories_with_actions = json.loads(response)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = []
+            new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -290,7 +293,7 @@ class Memory(MemoryBase):
                         memory_id = self._create_memory(
                             data=resp.get("text"),
                             existing_embeddings=new_message_embeddings,
-                            metadata=metadata,
+                            metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
@@ -304,7 +307,7 @@ class Memory(MemoryBase):
                             memory_id=temp_uuid_mapping[resp["id"]],
                             data=resp.get("text"),
                             existing_embeddings=new_message_embeddings,
-                            metadata=metadata,
+                            metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
@@ -767,13 +770,13 @@ class Memory(MemoryBase):
         logger.warning("Resetting all memories")
 
         # Close the old connection if possible
-        if hasattr(self.db, 'connection') and self.db.connection:
-                self.db.connection.execute("DROP TABLE IF EXISTS history")
-                self.db.connection.close()
+        if hasattr(self.db, "connection") and self.db.connection:
+            self.db.connection.execute("DROP TABLE IF EXISTS history")
+            self.db.connection.close()
 
         self.db = SQLiteManager(self.config.history_db_path)
 
-        if hasattr(self.vector_store, 'reset'):
+        if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
         else:
             logger.warning("Vector store does not support reset. Skipping.")
@@ -811,6 +814,8 @@ class AsyncMemory(MemoryBase):
 
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
+        else:
+            self.graph = None
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
@@ -1007,21 +1012,21 @@ class AsyncMemory(MemoryBase):
         )
 
         try:
-            new_memories_with_actions = await asyncio.to_thread(
+            response: str = await asyncio.to_thread(
                 self.llm.generate_response,
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new_memories_with_actions: {e}")
-            new_memories_with_actions = []
+            logging.error(f"Error in new memory actions response: {e}")
+            response = ""
 
         try:
-            new_memories_with_actions = remove_code_blocks(new_memories_with_actions)
-            new_memories_with_actions = json.loads(new_memories_with_actions)
+            response = remove_code_blocks(response)
+            new_memories_with_actions = json.loads(response)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = []
+            new_memories_with_actions = {}
 
         returned_memories = []
         try:
@@ -1035,7 +1040,9 @@ class AsyncMemory(MemoryBase):
                     elif resp.get("event") == "ADD":
                         task = asyncio.create_task(
                             self._create_memory(
-                                data=resp.get("text"), existing_embeddings=new_message_embeddings, metadata=metadata
+                                data=resp.get("text"),
+                                existing_embeddings=new_message_embeddings,
+                                metadata=deepcopy(metadata),
                             )
                         )
                         memory_tasks.append((task, resp, "ADD", None))
@@ -1045,7 +1052,7 @@ class AsyncMemory(MemoryBase):
                                 memory_id=temp_uuid_mapping[resp["id"]],
                                 data=resp.get("text"),
                                 existing_embeddings=new_message_embeddings,
-                                metadata=metadata,
+                                metadata=deepcopy(metadata),
                             )
                         )
                         memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
@@ -1092,7 +1099,9 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logging.error(f"Error in new_memories_with_actions: {e}")
 
-        capture_event("mem0.add", self, {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "async"})
+        capture_event(
+            "mem0.add", self, {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "async"}
+        )
 
         return returned_memories
 
@@ -1547,10 +1556,10 @@ class AsyncMemory(MemoryBase):
 
         gc.collect()
 
-        if hasattr(self.vector_store, 'client') and hasattr(self.vector_store.client, 'close'):
+        if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
             await asyncio.to_thread(self.vector_store.client.close)
 
-        if hasattr(self.db, 'connection') and self.db.connection:
+        if hasattr(self.db, "connection") and self.db.connection:
             await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
             await asyncio.to_thread(self.db.connection.close)
 
