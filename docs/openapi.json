@@ -1490,11 +1490,11 @@
 				"x-code-samples": [
 				{
 				"lang": "Python",
-				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"AND\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, version=\"v2\", filters=filters)"
+				"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"OR\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, version=\"v2\", filters=filters)"
 				},
 				{
 				"lang": "JavaScript",
-				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  AND: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { api_version: \"v2\", filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+				"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  OR: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { api_version: \"v2\", filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 				},				  
 				{
 				"lang": "cURL",

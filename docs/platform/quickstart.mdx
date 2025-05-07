@@ -453,7 +453,7 @@ Example 1: Search using user_id and agent_id filters
 ```python Python
 query = "What do you know about me?"
 filters = {
-   "AND":[
+   "OR":[
       {
          "user_id":"alex"
       },
@@ -473,7 +473,7 @@ client.search(query, version="v2", filters=filters)
 ```javascript JavaScript
 const query = "What do you know about me?";
 const filters = {
-   "AND":[
+   "OR":[
       {
          "user_id":"alex"
       },
@@ -499,7 +499,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
      -d '{
          "query": "What do you know about me?",
          "filters": {
-             "AND": [
+             "OR": [
                  {
                      "user_id": "alex"
                  },
