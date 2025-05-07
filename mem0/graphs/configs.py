@@ -9,6 +9,7 @@ class Neo4jConfig(BaseModel):
     url: Optional[str] = Field(None, description="Host address for the graph database")
     username: Optional[str] = Field(None, description="Username for the graph database")
     password: Optional[str] = Field(None, description="Password for the graph database")
+    database: Optional[str] = Field(None, description="Database for the graph database")
 
     @model_validator(mode="before")
     def check_host_port_or_path(cls, values):
