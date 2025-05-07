@@ -82,57 +82,30 @@ class TestAddToVectorStoreErrors:
             },
         }
 
+        def get_vector_payload(vector_id):
+            return memory_payload_lookup.get(vector_id)
+
         def get_vector_store(vector_id):
-            payload = memory_payload_lookup.get(vector_id)
+            payload = get_vector_payload(vector_id)
             if payload:
                 return Record(id=vector_id, payload=payload, vector=None, shard_key=None, order_value=None)
+            return None
+        
+        def get_vector_payload_record(vector_id):
+            payload = get_vector_payload(vector_id)
+            if payload:
+                return ScoredPoint(id=vector_id, version=57, score=0.9, payload=payload, vector=None, shard_key=None, order_value=None)
             return None
 
         mock_memory.vector_store.get.side_effect = get_vector_store
         mock_memory.vector_store.search.return_value = [
-            ScoredPoint(
-                id="5e6c2501-095c-49b4-8e59-348cf6745f1d",
-                score=0.9,
-                version=57,
-                payload={
-                    "data": "I like rice and beans",
-                    "user_id": "default_user",
-                    "hash": hashlib.md5("I like rice and beans".encode()).hexdigest(),
-                    "created_at": "2025-05-06T16:45:44.643822-07:00",
-                },
-                vector=None,
-                shard_key=None,
-                order_value=None,
-            ),
-            ScoredPoint(
-                id="f179d243-6875-4a91-a278-5d153e2ca193",
-                score=0.8,
-                version=57,
-                payload={
-                    "data": "Likes rice",
-                    "user_id": "default_user",
-                    "hash": hashlib.md5("Likes rice".encode()).hexdigest(),
-                    "created_at": "2025-05-06T16:45:44.643822-07:00",
-                },
-                vector=None,
-                shard_key=None,
-                order_value=None,
-            ),
-            ScoredPoint(
-                id="27b6bd28-2e23-4c2e-9715-1a46b00362cd",
-                score=0.7,
-                version=57,
-                payload={
-                    "data": "I like basmati rice",
-                    "user_id": "default_user",
-                    "hash": hashlib.md5("I like basmati rice".encode()).hexdigest(),
-                    "created_at": "2025-05-06T16:45:44.643822-07:00",
-                },
-                vector=None,
-                shard_key=None,
-                order_value=None,
-            ),
+            get_vector_payload_record("5e6c2501-095c-49b4-8e59-348cf6745f1d"),
+            get_vector_payload_record("f179d243-6875-4a91-a278-5d153e2ca193"),
+            get_vector_payload_record("27b6bd28-2e23-4c2e-9715-1a46b00362cd"),
+            get_vector_payload_record("43d356c7-6833-4c27-abff-2876cc37b144"),
+            get_vector_payload_record("be6c8333-2e75-4177-a9b6-6a2a5d75dd32"),
         ]
+        # Mock the LLM response
         mock_memory.llm.generate_response.side_effect = [
             '{"facts": ["I like rice and beans and cheese", "I like tacos"]}',
             json.dumps(
@@ -245,56 +218,28 @@ class TestAsyncAddToVectorStoreErrors:
             },
         }
 
+        def get_vector_payload(vector_id):
+            return memory_payload_lookup.get(vector_id)
+
         def get_vector_store(vector_id):
-            payload = memory_payload_lookup.get(vector_id)
+            payload = get_vector_payload(vector_id)
             if payload:
                 return Record(id=vector_id, payload=payload, vector=None, shard_key=None, order_value=None)
+            return None
+        
+        def get_vector_payload_record(vector_id):
+            payload = get_vector_payload(vector_id)
+            if payload:
+                return ScoredPoint(id=vector_id, version=57, score=0.9, payload=payload, vector=None, shard_key=None, order_value=None)
             return None
 
         mock_async_memory.vector_store.get.side_effect = get_vector_store
         mock_async_memory.vector_store.search.return_value = [
-            ScoredPoint(
-                id="5e6c2501-095c-49b4-8e59-348cf6745f1d",
-                score=0.9,
-                version=57,
-                payload={
-                    "data": "I like rice and beans",
-                    "user_id": "default_user",
-                    "hash": hashlib.md5("I like rice and beans".encode()).hexdigest(),
-                    "created_at": "2025-05-06T16:45:44.643822-07:00",
-                },
-                vector=None,
-                shard_key=None,
-                order_value=None,
-            ),
-            ScoredPoint(
-                id="f179d243-6875-4a91-a278-5d153e2ca193",
-                score=0.8,
-                version=57,
-                payload={
-                    "data": "Likes rice",
-                    "user_id": "default_user",
-                    "hash": hashlib.md5("Likes rice".encode()).hexdigest(),
-                    "created_at": "2025-05-06T16:45:44.643822-07:00",
-                },
-                vector=None,
-                shard_key=None,
-                order_value=None,
-            ),
-            ScoredPoint(
-                id="27b6bd28-2e23-4c2e-9715-1a46b00362cd",
-                score=0.7,
-                version=57,
-                payload={
-                    "data": "I like basmati rice",
-                    "user_id": "default_user",
-                    "hash": hashlib.md5("I like basmati rice".encode()).hexdigest(),
-                    "created_at": "2025-05-06T16:45:44.643822-07:00",
-                },
-                vector=None,
-                shard_key=None,
-                order_value=None,
-            ),
+            get_vector_payload_record("5e6c2501-095c-49b4-8e59-348cf6745f1d"),
+            get_vector_payload_record("f179d243-6875-4a91-a278-5d153e2ca193"),
+            get_vector_payload_record("27b6bd28-2e23-4c2e-9715-1a46b00362cd"),
+            get_vector_payload_record("43d356c7-6833-4c27-abff-2876cc37b144"),
+            get_vector_payload_record("be6c8333-2e75-4177-a9b6-6a2a5d75dd32"),
         ]
         mock_async_memory.llm.generate_response.side_effect = [
             '{"facts": ["I like rice and beans and cheese", "I like tacos"]}',
