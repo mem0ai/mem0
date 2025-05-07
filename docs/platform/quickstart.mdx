@@ -269,10 +269,12 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </Note>
 
 #### Long-term memory for both users and agents
-When you provide both `user_id` and `agent_id`, Mem0 will store memories with both identifiers attached:
-- Each memory will be tagged with both the specified `user_id` and `agent_id`
-- During retrieval, you'll need to provide both IDs to access the memories
-- This enables tracking the full context of conversations between specific users and agents
+When you provide both `user_id` and `agent_id`, Mem0 will store memories for both identifiers separately:
+- Memories from messages with `"role": "user"` are automatically tagged with the provided `user_id`
+- Memories from messages with `"role": "assistant"` are automatically tagged with the provided `agent_id`
+- During retrieval, you can provide either `user_id` or `agent_id` to access the respective memories
+- You can continuously enrich existing memory collections by adding new memories to the same `user_id` or `agent_id` in subsequent API calls, either together or separately, allowing for progressive memory building over time
+- This dual-tagging approach enables personalized experiences for both users and AI agents in your application
 
 <CodeGroup>
 
@@ -314,11 +316,13 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 {
     "results": [
         {
+            // memory from user1
             "id": "c57abfa2-f0ac-48af-896a-21728dbcecee0",
             "data": {"memory": "Travelling to San Francisco"},
             "event": "ADD"
         },
         {
+            // memory from agent1
             "id": "0e8c003f-7db7-426a-9fdc-a46f9331a0c2",
             "data": {"memory": "Going to Dubai next month"},
             "event": "ADD"
