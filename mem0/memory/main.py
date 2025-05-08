@@ -115,7 +115,7 @@ class Memory(MemoryBase):
         user_id=None,
         agent_id=None,
         run_id=None,
-        metadata=None,
+        metadata: dict | None = None,
         filters=None,
         infer=True,
         memory_type=None,
@@ -149,6 +149,9 @@ class Memory(MemoryBase):
         """
         if metadata is None:
             metadata = {}
+        else:
+            # Create a deep copy to avoid modifying the original metadata
+            metadata = deepcopy(metadata)
 
         filters = filters or {}
         if user_id:
@@ -642,14 +645,17 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, existing_embeddings, metadata=None):
+    def _create_memory(self, data, existing_embeddings, metadata: dict | None = None):
         logging.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
+        if metadata is None:
+            metadata = {}
+        else:
+            metadata = deepcopy(metadata)
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
@@ -663,7 +669,7 @@ class Memory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
-    def _create_procedural_memory(self, messages, metadata=None, prompt=None):
+    def _create_procedural_memory(self, messages, metadata: dict | None = None, prompt=None):
         """
         Create a procedural memory
 
@@ -691,6 +697,7 @@ class Memory(MemoryBase):
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
+        metadata = deepcopy(metadata)
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
         # Generate embeddings for the summary
@@ -704,7 +711,7 @@ class Memory(MemoryBase):
 
         return result
 
-    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    def _update_memory(self, memory_id, data, existing_embeddings, metadata: dict | None = None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -712,8 +719,11 @@ class Memory(MemoryBase):
         except Exception:
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data")
-
-        new_metadata = metadata or {}
+        if metadata is None:
+            new_metadata = {}
+        else:
+            # Create a deep copy to avoid modifying the original metadata
+            new_metadata = deepcopy(metadata)
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
@@ -846,7 +856,7 @@ class AsyncMemory(MemoryBase):
         user_id=None,
         agent_id=None,
         run_id=None,
-        metadata=None,
+        metadata: dict | None = None,
         filters=None,
         infer=True,
         memory_type=None,
@@ -880,6 +890,9 @@ class AsyncMemory(MemoryBase):
         """
         if metadata is None:
             metadata = {}
+        else:
+            # Create a deep copy to avoid modifying the original metadata
+            metadata = deepcopy(metadata)
 
         filters = filters or {}
         if user_id:
@@ -973,7 +986,6 @@ class AsyncMemory(MemoryBase):
         # Process all facts concurrently
         async def process_fact(new_mem):
             messages_embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem, "add")
-            new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = await asyncio.to_thread(
                 self.vector_store.search,
                 query=new_mem,
@@ -981,14 +993,15 @@ class AsyncMemory(MemoryBase):
                 limit=5,
                 filters=filters,
             )
-            return [(mem.id, mem.payload["data"]) for mem in existing_memories]
+            return (new_mem, messages_embeddings, [(mem.id, mem.payload["data"]) for mem in existing_memories])
 
         fact_tasks = [process_fact(fact) for fact in new_retrieved_facts]
         fact_results = await asyncio.gather(*fact_tasks)
 
-        # Flatten results and build retrieved_old_memory
-        for result in fact_results:
-            for mem_id, mem_data in result:
+        # Process results and build retrieved_old_memory and embeddings
+        for new_mem, embeddings, mem_pairs in fact_results:
+            new_message_embeddings[new_mem] = embeddings
+            for mem_id, mem_data in mem_pairs:
                 retrieved_old_memory.append({"id": mem_id, "text": mem_data})
 
         retrieved_old_memory = unique_old_memory(retrieved_old_memory)
@@ -1394,7 +1407,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
-    async def _create_memory(self, data, existing_embeddings, metadata=None):
+    async def _create_memory(self, data, existing_embeddings, metadata: dict | None = None):
         logging.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -1402,7 +1415,10 @@ class AsyncMemory(MemoryBase):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
+        if metadata is None:
+            metadata = {}
+        else:
+            metadata = deepcopy(metadata)
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
@@ -1419,7 +1435,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
-    async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
+    async def _create_procedural_memory(self, messages, metadata: dict | None = None, llm=None, prompt=None):
         """
         Create a procedural memory asynchronously
 
@@ -1460,6 +1476,7 @@ class AsyncMemory(MemoryBase):
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
+        metadata = deepcopy(metadata)
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
         # Generate embeddings for the summary
@@ -1473,7 +1490,7 @@ class AsyncMemory(MemoryBase):
 
         return result
 
-    async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    async def _update_memory(self, memory_id, data, existing_embeddings, metadata: dict | None = None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -1483,7 +1500,11 @@ class AsyncMemory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = metadata or {}
+        if metadata is None:
+            new_metadata = {}
+        else:
+            # Create a deep copy to avoid modifying the original metadata
+            new_metadata = deepcopy(metadata)
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
