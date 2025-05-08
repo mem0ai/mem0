@@ -377,9 +377,9 @@ class TestAsyncAddMemory:
             {"memory": "Likes pizza", "event": "DELETE", "id": "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"},
             {"memory": "Likes tacos", "event": "ADD"},
             {"memory": "Likes Tuesdays", "event": "ADD"},
-            {"memory": "Likes T-Shirts", "event": "ADD"},
             {"memory": "Likes Potatoes", "event": "ADD"},
             {"memory": "Likes Pineapple", "event": "ADD"},
+            {"memory": "Likes T-Shirts", "event": "ADD"},
         ]
         assert sorted(unordered_results, key=lambda x: x["event"] + x["memory"]) == sorted(
             expected_unordered_results, key=lambda x: x["event"] + x["memory"]
