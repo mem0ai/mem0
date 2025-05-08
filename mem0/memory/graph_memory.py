@@ -267,7 +267,7 @@ class MemoryGraph:
             ],
             tools=_tools,
         )
-        
+
         to_be_deleted = []
         for item in memory_updates["tool_calls"]:
             if item["name"] == "delete_graph_memory":
@@ -396,7 +396,7 @@ class MemoryGraph:
                     WITH n
                     MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
                     ON CREATE SET m.created = timestamp()
-                    CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
+                    CALL db.create.setNodeVectorProperty(m, 'embedding', $source_embedding)
                     WITH n, m
                     MERGE (n)-[rel:{relationship}]->(m)
                     ON CREATE SET rel.created = timestamp()
