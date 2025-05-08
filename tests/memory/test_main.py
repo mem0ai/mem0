@@ -376,17 +376,32 @@ class TestAsyncAddMemory:
         assert sorted(unordered_results, key=lambda x: x["event"] + x["memory"]) == sorted(
             expected_unordered_results, key=lambda x: x["event"] + x["memory"]
         )
-        assert mock_async_memory.vector_store.update.call_count == 1
-        assert (
-            mock_async_memory.vector_store.update.call_args[1]["payload"]["data"] == "I like rice and beans and cheese"
+        # Check update calls unordered
+        expected_update_call_values = [
+            {
+                "vector_id": "5e6c2501-095c-49b4-8e59-348cf6745f1d",
+                "data": "I like rice and beans and cheese",
+                "hash": hashlib.md5("I like rice and beans and cheese".encode()).hexdigest(),
+            }
+        ]
+        actual_update_calls = [call[1] for call in mock_async_memory.vector_store.update.call_args_list]
+        actual_update_call_values = [
+            {"vector_id": call_params["vector_id"], "data": call_params["payload"]["data"], "hash": call_params["payload"]["hash"]}
+            for call_params in actual_update_calls
+        ]
+        assert len(actual_update_calls) == len(expected_update_call_values)
+        assert sorted(actual_update_call_values, key=lambda x: x["hash"]) == sorted(
+            expected_update_call_values, key=lambda x: x["hash"]
         )
-        assert (
-            mock_async_memory.vector_store.update.call_args[1]["payload"]["hash"]
-            == hashlib.md5("I like rice and beans and cheese".encode()).hexdigest()
-        )
-        assert mock_async_memory.vector_store.delete.call_count == 1
-        assert mock_async_memory.vector_store.delete.call_args[1]["vector_id"] == "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"
 
+        # Check delete calls unordered
+        expected_delete_call_values = ["be6c8333-2e75-4177-a9b6-6a2a5d75dd32"]
+        actual_delete_calls = [call[1] for call in mock_async_memory.vector_store.delete.call_args_list]
+        actual_delete_call_values = [call_params["vector_id"] for call_params in actual_delete_calls]
+        assert len(actual_delete_calls) == len(expected_delete_call_values)
+        assert sorted(actual_delete_call_values) == sorted(expected_delete_call_values)
+
+        # Check insert calls unordered
         expected_insert_call_values = [
             {
                 "data": "Likes tacos",
