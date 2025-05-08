@@ -29,3 +29,9 @@ run-zep-search:
 
 run-openai:
 	python run_experiments.py --technique_type openai --output_folder results/
+
+run-memobase-add:
+	python run_experiments.py --technique_type memobase --method add --output_folder results/
+
+run-memobase-search:
+	python run_experiments.py --technique_type memobase --method search --output_folder results/
