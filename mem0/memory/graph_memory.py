@@ -267,6 +267,7 @@ class MemoryGraph:
             ],
             tools=_tools,
         )
+        
         to_be_deleted = []
         for item in memory_updates["tool_calls"]:
             if item["name"] == "delete_graph_memory":
