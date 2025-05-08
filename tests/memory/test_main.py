@@ -76,7 +76,7 @@ def create_mock_scored_point(memory_payload, vector_id):
 
 @pytest.fixture
 def base_memory_scenario():
-    """Returns (relevant_existing_memories, llm_responses, id_mapping)
+    """Returns (relevant_existing_memories, llm_responses, id_mapping, message_from_user)
 
     The ID mapping serves an important purpose in the memory system.
     Here's a clearer explanation of why and how it's used:
