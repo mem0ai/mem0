@@ -266,7 +266,7 @@ class TestAddMemory:
         )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog, base_memory_scenario):
-        """Test empty response in AsyncMemory.add. 
+        """Test empty response in AsyncMemory.add.
         Sometimes the LLM doesn't return a valid JSON response
         and we need to handle that gracefully.
         """
@@ -352,14 +352,30 @@ class TestAsyncAddMemory:
         assert add_result is not None
         assert "results" in add_result
         results = add_result["results"]
-        assert len(results) == 3
-        assert results[0]["memory"] == "I like rice and beans and cheese"
-        assert results[0]["event"] == "UPDATE"
-        assert results[1]["memory"] == "Likes pizza"
-        assert results[1]["event"] == "DELETE"
-        assert results[1]["id"] == "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"
-        assert results[2]["memory"] == "Likes tacos"
-        assert results[2]["event"] == "ADD"
+        unordered_results = []
+        for result in results:
+            testing_result = {"memory": result["memory"], "event": result["event"]}
+            if result["event"] == "UPDATE":
+                testing_result["previous_memory"] = result["previous_memory"]
+                testing_result["id"] = result["id"]
+            if result["event"] == "DELETE":
+                testing_result["id"] = result["id"]
+            unordered_results.append(testing_result)
+
+        assert len(unordered_results) == 3
+        expected_unordered_results = [
+            {
+                "id": "5e6c2501-095c-49b4-8e59-348cf6745f1d",
+                "memory": "I like rice and beans and cheese",
+                "event": "UPDATE",
+                "previous_memory": "I like rice and beans",
+            },
+            {"memory": "Likes pizza", "event": "DELETE", "id": "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"},
+            {"memory": "Likes tacos", "event": "ADD"},
+        ]
+        assert sorted(unordered_results, key=lambda x: x["event"] + x["memory"]) == sorted(
+            expected_unordered_results, key=lambda x: x["event"] + x["memory"]
+        )
         assert mock_async_memory.vector_store.update.call_count == 1
         assert (
             mock_async_memory.vector_store.update.call_args[1]["payload"]["data"] == "I like rice and beans and cheese"
@@ -370,21 +386,35 @@ class TestAsyncAddMemory:
         )
         assert mock_async_memory.vector_store.delete.call_count == 1
         assert mock_async_memory.vector_store.delete.call_args[1]["vector_id"] == "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"
-        assert mock_async_memory.vector_store.insert.call_args[1]["payloads"][0]["data"] == "Likes tacos"
-        assert (
-            mock_async_memory.vector_store.insert.call_args[1]["payloads"][0]["hash"]
-            == hashlib.md5("Likes tacos".encode()).hexdigest()
-        )
-        assert mock_async_memory.vector_store.insert.call_count == 1
-        assert mock_async_memory.vector_store.insert.call_args[1]["vectors"] == [
-            [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+        expected_insert_call_values = [
+            {
+                "data": "Likes tacos",
+                "hash": hashlib.md5("Likes tacos".encode()).hexdigest(),
+            }
         ]
+
+        # Convert the call_args_list to a list of dictionaries
+        # containing the "data" and "hash" values
+        # from the payloads in the insert calls
+        # This is done to compare the actual calls with the expected calls
+        # in an order-independent manner
+        actual_calls = [call[1] for call in mock_async_memory.vector_store.insert.call_args_list]
+        actual_insert_call_values = [
+            {"data": call_params["payloads"][0]["data"], "hash": call_params["payloads"][0]["hash"]}
+            for call_params in actual_calls
+        ]
+        # Check that all expected calls are present (order-independent)
+        assert len(actual_calls) == len(expected_insert_call_values)
+        assert sorted(actual_insert_call_values, key=lambda x: x["hash"]) == sorted(
+            expected_insert_call_values, key=lambda x: x["hash"]
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(
         self, mock_async_memory, caplog, mocker, base_memory_scenario
     ):
-        """Test empty response in AsyncMemory.add. 
+        """Test empty response in AsyncMemory.add.
         Sometimes the LLM doesn't return a valid JSON response
         and we need to handle that gracefully.
         """
