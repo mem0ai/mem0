@@ -25,10 +25,12 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
+    create_uuid_mapping,
     get_fact_retrieval_messages,
     parse_messages,
     parse_vision_messages,
     remove_code_blocks,
+    unique_old_memory,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
@@ -249,17 +251,11 @@ class Memory(MemoryBase):
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
-        unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
-        retrieved_old_memory = list(unique_data.values())
+        retrieved_old_memory = unique_old_memory(retrieved_old_memory)
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
-        # mapping UUIDs with integers for handling UUID hallucinations
-        temp_uuid_mapping = {}
-        for idx, item in enumerate(retrieved_old_memory):
-            temp_uuid_mapping[str(idx)] = item["id"]
-            retrieved_old_memory[idx]["id"] = str(idx)
+        # Create temporary mapping between UUIDs and integers for handling UUID hallucinations
+        retrieved_old_memory, temp_uuid_mapping = create_uuid_mapping(retrieved_old_memory)
 
         function_calling_prompt = get_update_memory_messages(
             retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
@@ -995,17 +991,11 @@ class AsyncMemory(MemoryBase):
             for mem_id, mem_data in result:
                 retrieved_old_memory.append({"id": mem_id, "text": mem_data})
 
-        unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
-        retrieved_old_memory = list(unique_data.values())
+        retrieved_old_memory = unique_old_memory(retrieved_old_memory)
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
-        # mapping UUIDs with integers for handling UUID hallucinations
-        temp_uuid_mapping = {}
-        for idx, item in enumerate(retrieved_old_memory):
-            temp_uuid_mapping[str(idx)] = item["id"]
-            retrieved_old_memory[idx]["id"] = str(idx)
+        # Create temporary mapping between UUIDs and integers for handling UUID hallucinations
+        retrieved_old_memory, temp_uuid_mapping = create_uuid_mapping(retrieved_old_memory)
 
         function_calling_prompt = get_update_memory_messages(
             retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
