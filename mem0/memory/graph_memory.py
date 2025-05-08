@@ -334,6 +334,7 @@ class MemoryGraph:
                     MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
                         destination.created = timestamp()
+                    WITH source, destination
                     CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
@@ -355,6 +356,7 @@ class MemoryGraph:
                     MERGE (source:{source_type} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
                         source.created = timestamp()
+                    WITH source, destination
                     CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
@@ -392,10 +394,12 @@ class MemoryGraph:
                 cypher = f"""
                     MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET n.created = timestamp()
+                    WITH n
                     CALL db.create.setNodeVectorProperty(n, 'embedding', $source_embedding)
                     WITH n
                     MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
                     ON CREATE SET m.created = timestamp()
+                    WITH n, m
                     CALL db.create.setNodeVectorProperty(m, 'embedding', $source_embedding)
                     WITH n, m
                     MERGE (n)-[rel:{relationship}]->(m)
