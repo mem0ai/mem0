@@ -123,7 +123,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
         return data;
     } catch (error) {
         console.error("Error in searchInternalMemories:", error);
-        return null;
+        throw error;
     }
 }
 
@@ -139,7 +139,7 @@ const addMemories = async (messages: LanguageModelV1Prompt, config?: Mem0ConfigS
         return response;
     } catch (error) {
         console.error("Error in addMemories:", error);
-        return null;
+        throw error;
     }
 }
 
@@ -168,7 +168,7 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
         return data;
     } catch (error) {
         console.error("Error in updateMemories:", error);
-        return null;
+        throw error;
     }
 }
 
