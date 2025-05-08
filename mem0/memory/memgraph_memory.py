@@ -369,8 +369,8 @@ class MemoryGraph:
             relationship = item["relationship"]
 
             # types
-            source_type = entity_type_map.get(source, "unknown")
-            destination_type = entity_type_map.get(destination, "unknown")
+            source_type = entity_type_map.get(source, "__User__")
+            destination_type = entity_type_map.get(destination, "__User__")
 
             # embeddings
             source_embedding = self.embedding_model.embed(source)
