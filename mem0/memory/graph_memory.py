@@ -332,8 +332,9 @@ class MemoryGraph:
                     WHERE elementId(source) = $source_id
                     MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
-                        destination.created = timestamp(),
-                        destination.embedding = $destination_embedding
+                        destination.created = timestamp()
+                    CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
+                    WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp()
@@ -352,8 +353,9 @@ class MemoryGraph:
                     WHERE elementId(destination) = $destination_id
                     MERGE (source:{source_type} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
-                        source.created = timestamp(),
-                        source.embedding = $source_embedding
+                        source.created = timestamp()
+                    CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
+                    WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created = timestamp()
@@ -376,6 +378,8 @@ class MemoryGraph:
                     ON CREATE SET 
                         r.created_at = timestamp(),
                         r.updated_at = timestamp()
+                    
+                    
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
@@ -386,11 +390,13 @@ class MemoryGraph:
             else:
                 cypher = f"""
                     MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding
-                    ON MATCH SET n.embedding = $source_embedding
+                    ON CREATE SET n.created = timestamp()
+                    CALL db.create.setNodeVectorProperty(n, 'embedding', $source_embedding)
+                    WITH n
                     MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding
-                    ON MATCH SET m.embedding = $dest_embedding
+                    ON CREATE SET m.created = timestamp()
+                    CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
+                    WITH n, m
                     MERGE (n)-[rel:{relationship}]->(m)
                     ON CREATE SET rel.created = timestamp()
                     RETURN n.name AS source, type(rel) AS relationship, m.name AS target
