@@ -30,12 +30,15 @@ sqlalchemy = "^2.0.31"
 langchain-neo4j = "^0.4.0"
 neo4j = "^5.23.1"
 rank-bm25 = "^0.2.2"
+pre-commit = "^4.2.0"
 
 [tool.poetry.extras]
 graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
+pytest-mock = "^3.14.0"
+pytest-asyncio = "^0.23.7"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.5"
@@ -49,4 +52,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 120
 exclude = ["embedchain/"]
-
