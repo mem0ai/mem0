@@ -189,6 +189,10 @@ def base_memory_scenario():
                     },
                     {"id": "4", "text": "Likes pizza", "event": "DELETE"},
                     {"id": "5", "text": "Likes tacos", "event": "ADD"},
+                    {"id": "6", "text": "Likes Tuesdays", "event": "ADD"},
+                    {"id": "7", "text": "Likes T-Shirts", "event": "ADD"},
+                    {"id": "8", "text": "Likes Potatoes", "event": "ADD"},
+                    {"id": "9", "text": "Likes Pineapple", "event": "ADD"},
                 ]
             }
         ),
@@ -362,7 +366,7 @@ class TestAsyncAddMemory:
                 testing_result["id"] = result["id"]
             unordered_results.append(testing_result)
 
-        assert len(unordered_results) == 3
+        assert len(unordered_results) == 7
         expected_unordered_results = [
             {
                 "id": "5e6c2501-095c-49b4-8e59-348cf6745f1d",
@@ -372,6 +376,10 @@ class TestAsyncAddMemory:
             },
             {"memory": "Likes pizza", "event": "DELETE", "id": "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"},
             {"memory": "Likes tacos", "event": "ADD"},
+            {"memory": "Likes Tuesdays", "event": "ADD"},
+            {"memory": "Likes T-Shirts", "event": "ADD"},
+            {"memory": "Likes Potatoes", "event": "ADD"},
+            {"memory": "Likes Pineapple", "event": "ADD"},
         ]
         assert sorted(unordered_results, key=lambda x: x["event"] + x["memory"]) == sorted(
             expected_unordered_results, key=lambda x: x["event"] + x["memory"]
@@ -406,7 +414,23 @@ class TestAsyncAddMemory:
             {
                 "data": "Likes tacos",
                 "hash": hashlib.md5("Likes tacos".encode()).hexdigest(),
-            }
+            },
+            {
+                "data": "Likes Pineapple",
+                "hash": hashlib.md5("Likes Pineapple".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes Potatoes",
+                "hash": hashlib.md5("Likes Potatoes".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes T-Shirts",
+                "hash": hashlib.md5("Likes T-Shirts".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes Tuesdays",
+                "hash": hashlib.md5("Likes Tuesdays".encode()).hexdigest(),
+            },
         ]
 
         # Convert the call_args_list to a list of dictionaries
