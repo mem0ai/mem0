@@ -233,8 +233,15 @@ class MemoryGraph:
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
             WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
             WHERE similarity >= $threshold
-            MATCH (n)-[r]->(m)
-            RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id, similarity
+            CALL (n) {
+                MATCH (n)-[r]->(m) 
+                RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
+                UNION
+                MATCH (m)-[r]->(n) 
+                RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
+            }
+            WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity //deduplicate
+            RETURN source, source_id, relationship, relation_id, destination, destination_id, similarity
             ORDER BY similarity DESC
             LIMIT $limit
             """
