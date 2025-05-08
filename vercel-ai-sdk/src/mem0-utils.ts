@@ -80,7 +80,8 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
         })}`, 'Content-Type': 'application/json'}, 
         body: JSON.stringify({query, filters, ...config, top_k: config&&config.top_k || top_k, version: "v2", output_format: "v1.1", ...org_project_filters}),
     };
-    const response  = await fetch('https://api.mem0.ai/v2/memories/search/', options);
+    const baseUrl = config?.host || 'https://api.mem0.ai';
+    const response  = await fetch(`${baseUrl}/v2/memories/search/`, options);
     const data =  await response.json();
     return data;
 }
@@ -107,7 +108,8 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
         body: JSON.stringify({messages, ...config}),
     };
 
-    const response  = await fetch('https://api.mem0.ai/v1/memories/', options);
+    const baseUrl = config?.host || 'https://api.mem0.ai';
+    const response  = await fetch(`${baseUrl}/v1/memories/`, options);
     const data =  await response.json();
     return data;
 }
