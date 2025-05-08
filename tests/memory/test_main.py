@@ -247,26 +247,97 @@ class TestAddMemory:
         assert add_result is not None
         assert "results" in add_result
         results = add_result["results"]
-        assert len(results) == 3
-        assert results[0]["memory"] == "I like rice and beans and cheese"
-        assert results[0]["event"] == "UPDATE"
-        assert results[1]["memory"] == "Likes pizza"
-        assert results[1]["event"] == "DELETE"
-        assert results[1]["id"] == "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"
-        assert results[2]["memory"] == "Likes tacos"
-        assert results[2]["event"] == "ADD"
-        assert mock_memory.vector_store.update.call_count == 1
-        assert mock_memory.vector_store.update.call_args[1]["payload"]["data"] == "I like rice and beans and cheese"
-        assert (
-            mock_memory.vector_store.update.call_args[1]["payload"]["hash"]
-            == hashlib.md5("I like rice and beans and cheese".encode()).hexdigest()
+        unordered_results = []
+        for result in results:
+            testing_result = {"memory": result["memory"], "event": result["event"]}
+            if result["event"] == "UPDATE":
+                testing_result["previous_memory"] = result["previous_memory"]
+                testing_result["id"] = result["id"]
+            if result["event"] == "DELETE":
+                testing_result["id"] = result["id"]
+            unordered_results.append(testing_result)
+
+        assert len(unordered_results) == 7
+        expected_unordered_results = [
+            {
+                "id": "5e6c2501-095c-49b4-8e59-348cf6745f1d",
+                "memory": "I like rice and beans and cheese",
+                "event": "UPDATE",
+                "previous_memory": "I like rice and beans",
+            },
+            {"memory": "Likes pizza", "event": "DELETE", "id": "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"},
+            {"memory": "Likes tacos", "event": "ADD"},
+            {"memory": "Likes Tuesdays", "event": "ADD"},
+            {"memory": "Likes Potatoes", "event": "ADD"},
+            {"memory": "Likes Pineapple", "event": "ADD"},
+            {"memory": "Likes T-Shirts", "event": "ADD"},
+        ]
+        assert sorted(unordered_results, key=lambda x: x["event"] + x["memory"]) == sorted(
+            expected_unordered_results, key=lambda x: x["event"] + x["memory"]
         )
-        assert mock_memory.vector_store.delete.call_count == 1
-        assert mock_memory.vector_store.delete.call_args[1]["vector_id"] == "be6c8333-2e75-4177-a9b6-6a2a5d75dd32"
-        assert mock_memory.vector_store.insert.call_args[1]["payloads"][0]["data"] == "Likes tacos"
-        assert (
-            mock_memory.vector_store.insert.call_args[1]["payloads"][0]["hash"]
-            == hashlib.md5("Likes tacos".encode()).hexdigest()
+        # Check update calls unordered
+        expected_update_call_values = [
+            {
+                "vector_id": "5e6c2501-095c-49b4-8e59-348cf6745f1d",
+                "data": "I like rice and beans and cheese",
+                "hash": hashlib.md5("I like rice and beans and cheese".encode()).hexdigest(),
+            }
+        ]
+        actual_update_calls = [call[1] for call in mock_memory.vector_store.update.call_args_list]
+        actual_update_call_values = [
+            {"vector_id": call_params["vector_id"], "data": call_params["payload"]["data"], "hash": call_params["payload"]["hash"]}
+            for call_params in actual_update_calls
+        ]
+        assert len(actual_update_calls) == len(expected_update_call_values)
+        assert sorted(actual_update_call_values, key=lambda x: x["hash"]) == sorted(
+            expected_update_call_values, key=lambda x: x["hash"]
+        )
+
+        # Check delete calls unordered
+        expected_delete_call_values = ["be6c8333-2e75-4177-a9b6-6a2a5d75dd32"]
+        actual_delete_calls = [call[1] for call in mock_memory.vector_store.delete.call_args_list]
+        actual_delete_call_values = [call_params["vector_id"] for call_params in actual_delete_calls]
+        assert len(actual_delete_calls) == len(expected_delete_call_values)
+        assert sorted(actual_delete_call_values) == sorted(expected_delete_call_values)
+
+        # Check insert calls unordered
+        expected_insert_call_values = [
+            {
+                "data": "Likes tacos",
+                "hash": hashlib.md5("Likes tacos".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes Pineapple",
+                "hash": hashlib.md5("Likes Pineapple".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes Potatoes",
+                "hash": hashlib.md5("Likes Potatoes".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes T-Shirts",
+                "hash": hashlib.md5("Likes T-Shirts".encode()).hexdigest(),
+            },
+            {
+                "data": "Likes Tuesdays",
+                "hash": hashlib.md5("Likes Tuesdays".encode()).hexdigest(),
+            },
+        ]
+
+        # Convert the call_args_list to a list of dictionaries
+        # containing the "data" and "hash" values
+        # from the payloads in the insert calls
+        # This is done to compare the actual calls with the expected calls
+        # in an order-independent manner
+        actual_calls = [call[1] for call in mock_memory.vector_store.insert.call_args_list]
+        actual_insert_call_values = [
+            {"data": call_params["payloads"][0]["data"], "hash": call_params["payloads"][0]["hash"]}
+            for call_params in actual_calls
+        ]
+        # Check that all expected calls are present (order-independent)
+        assert len(actual_calls) == len(expected_insert_call_values)
+        assert sorted(actual_insert_call_values, key=lambda x: x["hash"]) == sorted(
+            expected_insert_call_values, key=lambda x: x["hash"]
         )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog, base_memory_scenario):
