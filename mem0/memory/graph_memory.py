@@ -452,7 +452,7 @@ class MemoryGraph:
             AND destination_candidate.user_id = $user_id
 
             WITH destination_candidate,
-            round(2 * vector.similarity.cosine(destination_candidate.embedding, destination_candidate) - 1, 4) AS destination_similarity // denormalize for backward compatibility
+            round(2 * vector.similarity.cosine(destination_candidate.embedding, $destination_embedding) - 1, 4) AS destination_similarity // denormalize for backward compatibility
 
             WHERE destination_similarity >= $threshold
 
