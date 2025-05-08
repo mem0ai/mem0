@@ -179,23 +179,41 @@ export default class MemoryClient {
   }
 
   async ping(): Promise<void> {
-    const response = await fetch(`${this.host}/v1/ping/`, {
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
-      },
-    });
+    try {
+      const response = await this._fetchWithErrorHandling(
+        `${this.host}/v1/ping/`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Token ${this.apiKey}`,
+          },
+        },
+      );
 
-    const data = await response.json();
+      if (!response || typeof response !== "object") {
+        throw new APIError("Invalid response format from ping endpoint");
+      }
 
-    if (data.status !== "ok") {
-      throw new Error("API Key is invalid");
+      if (response.status !== "ok") {
+        throw new APIError(response.message || "API Key is invalid");
+      }
+
+      const { org_id, project_id, user_email } = response;
+
+      // Only update if values are actually present
+      if (org_id && !this.organizationId) this.organizationId = org_id;
+      if (project_id && !this.projectId) this.projectId = project_id;
+      if (user_email) this.telemetryId = user_email;
+    } catch (error: any) {
+      // Convert generic errors to APIError with meaningful messages
+      if (error instanceof APIError) {
+        throw error;
+      } else {
+        throw new APIError(
+          `Failed to ping server: ${error.message || "Unknown error"}`,
+        );
+      }
     }
-
-    const { org_id, project_id, user_email } = data;
-
-    this.organizationId = this.organizationId || org_id || null;
-    this.projectId = this.projectId || project_id || null;
-    this.telemetryId = user_email || "";
   }
 
   async add(
