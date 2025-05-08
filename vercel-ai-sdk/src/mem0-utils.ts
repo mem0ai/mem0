@@ -204,7 +204,7 @@ const retrieveMemories = async (prompt: LanguageModelV1Prompt | string, config?:
         return `System Message: ${systemPrompt} ${memoriesText1} ${graphPrompt}`;
     } catch (error) {
         console.error("Error in retrieveMemories:", error);
-        return "";
+        throw error;
     }
 }
 
@@ -219,7 +219,7 @@ const getMemories = async (prompt: LanguageModelV1Prompt | string, config?: Mem0
         return memories;
     } catch (error) {
         console.error("Error in getMemories:", error);
-        return [];
+        throw error;
     }
 }
 

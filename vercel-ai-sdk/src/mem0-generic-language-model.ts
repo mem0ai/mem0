@@ -31,9 +31,13 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
   provider: string;
 
   private async processMemories(messagesPrompts: LanguageModelV1Message[], mem0Config: Mem0ConfigSettings) {
+    try {
     // Add New Memories
     addMemories(messagesPrompts, mem0Config).then((res) => {
       return res;
+    }).catch((e) => {
+      console.error("Error while adding memories");
+      return { memories: [], messagesPrompts: [] };
     });
 
     // Get Memories
@@ -87,6 +91,10 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     }
 
     return { memories, messagesPrompts };
+    } catch(e) {
+      console.error("Error while processing memories");
+      return { memories: [], messagesPrompts };
+    }
   }
 
   async doGenerate(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
