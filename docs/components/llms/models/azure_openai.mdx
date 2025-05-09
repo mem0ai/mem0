@@ -18,6 +18,8 @@ To use Azure OpenAI models, you have to set the `LLM_AZURE_OPENAI_API_KEY`, `LLM
 import os
 from mem0 import Memory
 
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+
 os.environ["LLM_AZURE_OPENAI_API_KEY"] = "your-api-key"
 os.environ["LLM_AZURE_DEPLOYMENT"] = "your-deployment-name"
 os.environ["LLM_AZURE_ENDPOINT"] = "your-api-base-url"
