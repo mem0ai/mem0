@@ -76,6 +76,8 @@ class LiteLLM(LLMBase):
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
+        if self.config.api_key:
+            params["api_key"] = self.config.api_key
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
