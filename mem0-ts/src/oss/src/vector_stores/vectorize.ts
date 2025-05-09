@@ -236,8 +236,81 @@ export class VectorizeDB implements VectorStore {
     }
   }
 
+  private generateUUID(): string {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
+  }
+
   async getUserId(): Promise<string> {
-    throw new Error("getUserId Not yet implemented");
+    try {
+      let found = false;
+      for await (const index of this.client!.vectorize.indexes.list({
+        account_id: this.accountId,
+      })) {
+        if (index.name === "memory_migrations") {
+          found = true;
+        }
+      }
+
+      if (!found) {
+        await this.client?.vectorize.indexes.create({
+          account_id: this.accountId,
+          name: "memory_migrations",
+          config: {
+            dimensions: 1,
+            metric: "cosine",
+          },
+        });
+      }
+
+      // Now try to get the userId
+      const result: any = await this.client?.vectorize.indexes.query(
+        "memory_migrations",
+        {
+          account_id: this.accountId,
+          vector: Array(this.dimensions).fill(0), // Dummy vector for listing
+          topK: 1,
+          returnMetadata: "all",
+        }
+      );
+      if (result.matches.length > 0) {
+        return result.matches[0].metadata.userId as string;
+      }
+
+      // Generate a random userId if none exists
+      const randomUserId =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+      const data: VectorizeVector = {
+        id: this.generateUUID(),
+        values: [0],
+        metadata: { userId: randomUserId },
+      };
+
+      await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/upsert`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-ndjson",
+            Authorization: `Bearer ${this.client?.apiToken}`,
+          },
+          body: JSON.stringify(data) + "\n", // ndjson format
+        }
+      );
+      return randomUserId;
+    } catch (error) {
+      console.error("Error getting user ID:", error);
+      throw new Error(
+        `Failed to get user ID: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async setUserId(userId: string): Promise<void> {
