@@ -23,6 +23,7 @@ class EmbedderConfig(BaseModel):
             "together",
             "lmstudio",
             "langchain",
+            "aws_bedrock",
         ]:
             return v
         else:
