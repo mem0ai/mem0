@@ -1,4 +1,5 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
+
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig

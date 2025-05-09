@@ -7,9 +7,10 @@ export OPENAI_API_KEY="your_openai_api_key"
 export MEM0_API_KEY="your_mem0_api_key"
 """
 
-from mem0 import MemoryClient
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
+
+from mem0 import MemoryClient
 
 # Initialize memory
 memory_client = MemoryClient(api_key="your-mem0-api-key")

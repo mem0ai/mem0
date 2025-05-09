@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import Mock, patch
-from mem0.embeddings.openai import OpenAIEmbedding
+
+import pytest
+
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.openai import OpenAIEmbedding
 
 
 @pytest.fixture

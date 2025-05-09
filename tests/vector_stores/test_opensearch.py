@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import dotenv
 
 try:
-    from opensearchpy import OpenSearch, AWSV4SignerAuth
+    from opensearchpy import AWSV4SignerAuth, OpenSearch
 except ImportError:
     raise ImportError(
         "OpenSearch requires extra dependencies. Install with `pip install opensearch-py`"
@@ -155,7 +155,7 @@ class TestOpenSearchDB(unittest.TestCase):
         mock_signer = AWSV4SignerAuth(mock_credentials, "us-east-1", "es")
 
         with patch('mem0.vector_stores.opensearch.OpenSearch') as mock_opensearch:
-            test_db = OpenSearchDB(
+            OpenSearchDB(
                 host="localhost",
                 port=9200,
                 collection_name="test_collection",

@@ -31,9 +31,13 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
   provider: string;
 
   private async processMemories(messagesPrompts: LanguageModelV1Message[], mem0Config: Mem0ConfigSettings) {
+    try {
     // Add New Memories
     addMemories(messagesPrompts, mem0Config).then((res) => {
       return res;
+    }).catch((e) => {
+      console.error("Error while adding memories");
+      return { memories: [], messagesPrompts: [] };
     });
 
     // Get Memories
@@ -41,23 +45,23 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
 
     const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
 
-    const isGraphEnabled = mem0Config.enable_graph;
+    const isGraphEnabled = mem0Config?.enable_graph;
   
     let memoriesText = "";
     let memoriesText2 = "";
     try {
       // @ts-ignore
       if (isGraphEnabled) {
-        memoriesText = memories.results.map((memory: any) => {
-          return `Memory: ${memory.memory}\n\n`;
+        memoriesText = memories?.results?.map((memory: any) => {
+          return `Memory: ${memory?.memory}\n\n`;
         }).join("\n\n");
 
-        memoriesText2 = memories.relations.map((memory: any) => {
-          return `Relation: ${memory.source} -> ${memory.relationship} -> ${memory.target} \n\n`;
+        memoriesText2 = memories?.relations?.map((memory: any) => {
+          return `Relation: ${memory?.source} -> ${memory?.relationship} -> ${memory?.target} \n\n`;
         }).join("\n\n");
       } else {
-        memoriesText = memories.map((memory: any) => {
-          return `Memory: ${memory.memory}\n\n`;
+        memoriesText = memories?.map((memory: any) => {
+          return `Memory: ${memory?.memory}\n\n`;
         }).join("\n\n");
       }
     } catch(e) {
@@ -78,15 +82,19 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
     };
 
     // Add the system prompt to the beginning of the messages if there are memories
-    if (memories.length > 0) {
+    if (memories?.length > 0) {
       messagesPrompts.unshift(systemPrompt);
     }
 
     if (isGraphEnabled) {
-      memories = memories.results;
+      memories = memories?.results;
     }
 
     return { memories, messagesPrompts };
+    } catch(e) {
+      console.error("Error while processing memories");
+      return { memories: [], messagesPrompts };
+    }
   }
 
   async doGenerate(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
@@ -121,7 +129,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       });
       
       // If there are no memories, return the original response
-      if (!memories || memories.length === 0) {
+      if (!memories || memories?.length === 0) {
         return ans;
       }
       
@@ -129,7 +137,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       const sources = [...(ans.sources || [])];
       
       // Add a combined source with all memories
-      if (Array.isArray(memories) && memories.length > 0) {
+      if (Array.isArray(memories) && memories?.length > 0) {
         sources.push({
           title: "Mem0 Memories",
           sourceType: "url",
@@ -138,13 +146,13 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
           providerMetadata: {
             mem0: {
               memories: memories,
-              memoriesText: memories.map((memory: any) => memory.memory).join("\n\n")
+              memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
             }
           }
         });
         
         // Add individual memory sources for more detailed information
-        memories.forEach((memory: any) => {
+        memories?.forEach((memory: any) => {
           sources.push({
             title: memory.title || "Memory",
             sourceType: "url",
@@ -153,7 +161,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
             providerMetadata: {
               mem0: {
                 memory: memory,
-                memoryText: memory.memory
+                memoryText: memory?.memory
               }
             }
           });
@@ -204,7 +212,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
       });
 
       // If there are no memories, return the original stream
-      if (!memories || memories.length === 0) {
+      if (!memories || memories?.length === 0) {
         return streamResponse;
       }
 
@@ -216,7 +224,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
         start(controller) {
           // Add source chunks for each memory at the beginning
           try {
-            if (Array.isArray(memories) && memories.length > 0) {
+            if (Array.isArray(memories) && memories?.length > 0) {
               // Create a single source that contains all memories
               controller.enqueue({
                 type: 'source',
@@ -228,25 +236,25 @@ export class Mem0GenericLanguageModel implements LanguageModelV1 {
                   providerMetadata: {
                     mem0: {
                       memories: memories,
-                      memoriesText: memories.map((memory: any) => memory.memory).join("\n\n")
+                      memoriesText: memories?.map((memory: any) => memory?.memory).join("\n\n")
                     }
                   }
                 }
               });
               
               // Also add individual memory sources for more detailed information
-              memories.forEach((memory: any) => {
+              memories?.forEach((memory: any) => {
                 controller.enqueue({
                   type: 'source',
                   source: {
-                    title: memory.title || "Memory",
+                    title: memory?.title || "Memory",
                     sourceType: "url",
                     id: "mem0-memory-" + generateRandomId(),
                     url: "https://app.mem0.ai",
                     providerMetadata: {
                       mem0: {
                         memory: memory,
-                        memoryText: memory.memory
+                        memoryText: memory?.memory
                       }
                     }
                   }

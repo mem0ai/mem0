@@ -24,7 +24,7 @@ def merge_metadata_dict(left: Optional[dict[str, Any]], right: Optional[dict[str
     for k, v in right.items():
         if k not in merged:
             merged[k] = v
-        elif type(merged[k]) != type(v):
+        elif type(merged[k]) is not type(v):
             raise ValueError(f'additional_kwargs["{k}"] already exists in this message,' " but with a different type.")
         elif isinstance(merged[k], str):
             merged[k] += v

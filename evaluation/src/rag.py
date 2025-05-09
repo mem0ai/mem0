@@ -1,13 +1,14 @@
-from openai import OpenAI
 import json
-import numpy as np
-from tqdm import tqdm
-from jinja2 import Template
-import tiktoken
+import os
 import time
 from collections import defaultdict
-import os
+
+import numpy as np
+import tiktoken
 from dotenv import load_dotenv
+from jinja2 import Template
+from openai import OpenAI
+from tqdm import tqdm
 
 load_dotenv()
 
