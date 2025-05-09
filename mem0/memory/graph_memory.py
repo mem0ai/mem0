@@ -341,7 +341,7 @@ class MemoryGraph:
                     SET source.mentions = coalesce(source.mentions, 0) + 1
                     MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
-                        destination.created = timestamp()
+                        destination.created = timestamp(),
                         destination.mentions = 1
                     ON MATCH SET
                         destination.mentions = coalesce(destinations.mentions, 0) + 1
