@@ -322,8 +322,8 @@ class MemoryGraph:
             relationship = item["relationship"]
 
             # types
-            source_type = entity_type_map.get(source, "__User__")
-            destination_type = entity_type_map.get(destination, "__User__")
+            source_type = entity_type_map.get(source, "unknown")
+            destination_type = entity_type_map.get(destination, "unknown")
 
             # embeddings
             source_embedding = self.embedding_model.embed(source)
@@ -338,15 +338,22 @@ class MemoryGraph:
                 cypher = f"""
                     MATCH (source)
                     WHERE elementId(source) = $source_id
+                    SET source.mentions = coalesce(source.mentions, 0) + 1
                     MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
                         destination.created = timestamp()
+                        destination.mentions = 1
+                    ON MATCH SET
+                        destination.mentions = coalesce(destinations.mentions, 0) + 1
                     WITH source, destination
                     CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created = timestamp()
+                        r.created = timestamp(),
+                        r.mentions = 1
+                    ON MATCH SET
+                        r.mentions = coalesce(r.mentions, 0) + 1
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -360,15 +367,22 @@ class MemoryGraph:
                 cypher = f"""
                     MATCH (destination)
                     WHERE elementId(destination) = $destination_id
+                    SET destination.mentions = coalesce(destination.mentions, 0) + 1
                     MERGE (source:{source_type} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
-                        source.created = timestamp()
+                        source.created = timestamp(),
+                        source.mentions = 1
+                    ON MATCH SET
+                        source.mentions = coalesce(source.mentions, 0) + 1
                     WITH source, destination
                     CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created = timestamp()
+                        r.created = timestamp(),
+                        r.mentions = 1
+                    ON MATCH SET
+                        r.mentions = coalesce(r.mentions, 0) + 1
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -382,12 +396,16 @@ class MemoryGraph:
                 cypher = f"""
                     MATCH (source)
                     WHERE elementId(source) = $source_id
+                    SET source.mentions = coalesce(source.mentions, 0) + 1
                     MATCH (destination)
                     WHERE elementId(destination) = $destination_id
+                    SET destination.mentions = coalesce(destination.mentions) + 1
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
                         r.created_at = timestamp(),
-                        r.updated_at = timestamp()
+                        r.updated_at = timestamp(),
+                        r.mentions = 1
+                    ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
                     
                     
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
@@ -400,17 +418,22 @@ class MemoryGraph:
             else:
                 cypher = f"""
                     MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET n.created = timestamp()
+                    ON CREATE SET n.created = timestamp(),
+                                  n.mentions = 1
+                    ON MATCH SET n.mentions = coalesce(n.mentions, 0) + 1
                     WITH n
                     CALL db.create.setNodeVectorProperty(n, 'embedding', $source_embedding)
                     WITH n
                     MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET m.created = timestamp()
+                    ON CREATE SET m.created = timestamp(),
+                                  m.mentions = 1
+                    ON MATCH SET m.mentions = coalesce(m.mentions, 0) + 1
                     WITH n, m
                     CALL db.create.setNodeVectorProperty(m, 'embedding', $source_embedding)
                     WITH n, m
                     MERGE (n)-[rel:{relationship}]->(m)
-                    ON CREATE SET rel.created = timestamp()
+                    ON CREATE SET rel.created = timestamp(), rel.mentions = 1
+                    ON MATCH SET rel.mentions = coalesce(rel.mentions, 0) + 1
                     RETURN n.name AS source, type(rel) AS relationship, m.name AS target
                     """
                 params = {
