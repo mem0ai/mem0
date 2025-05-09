@@ -344,7 +344,7 @@ class MemoryGraph:
                         destination.created = timestamp(),
                         destination.mentions = 1
                     ON MATCH SET
-                        destination.mentions = coalesce(destinations.mentions, 0) + 1
+                        destination.mentions = coalesce(destination.mentions, 0) + 1
                     WITH source, destination
                     CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
                     WITH source, destination
