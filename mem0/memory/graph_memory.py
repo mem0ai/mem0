@@ -339,6 +339,7 @@ class MemoryGraph:
                     MATCH (source)
                     WHERE elementId(source) = $source_id
                     SET source.mentions = coalesce(source.mentions, 0) + 1
+                    WITH source
                     MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
                         destination.created = timestamp(),
@@ -368,6 +369,7 @@ class MemoryGraph:
                     MATCH (destination)
                     WHERE elementId(destination) = $destination_id
                     SET destination.mentions = coalesce(destination.mentions, 0) + 1
+                    WITH destination
                     MERGE (source:{source_type} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
                         source.created = timestamp(),
@@ -397,6 +399,7 @@ class MemoryGraph:
                     MATCH (source)
                     WHERE elementId(source) = $source_id
                     SET source.mentions = coalesce(source.mentions, 0) + 1
+                    WITH source
                     MATCH (destination)
                     WHERE elementId(destination) = $destination_id
                     SET destination.mentions = coalesce(destination.mentions) + 1
