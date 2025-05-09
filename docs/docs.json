@@ -166,7 +166,8 @@
                           "components/embedders/models/gemini",
                           "components/embedders/models/lmstudio",
                           "components/embedders/models/together",
-                          "components/embedders/models/langchain"
+                          "components/embedders/models/langchain",
+                          "components/embedders/models/aws_bedrock"
                         ]
                       }
                     ]
