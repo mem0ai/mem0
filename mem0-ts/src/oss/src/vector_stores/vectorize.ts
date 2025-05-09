@@ -274,7 +274,7 @@ export class VectorizeDB implements VectorStore {
         "memory_migrations",
         {
           account_id: this.accountId,
-          vector: Array(this.dimensions).fill(0), // Dummy vector for listing
+          vector: [0],
           topK: 1,
           returnMetadata: "all",
         }
@@ -294,7 +294,7 @@ export class VectorizeDB implements VectorStore {
       };
 
       await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/upsert`,
+        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/memory_migrations/upsert`,
         {
           method: "POST",
           headers: {
@@ -314,7 +314,42 @@ export class VectorizeDB implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
-    throw new Error("setUserId Not yet implemented");
+    try {
+      // Get existing point ID
+      const result: any = await this.client?.vectorize.indexes.query(
+        "memory_migrations",
+        {
+          account_id: this.accountId,
+          vector: [0],
+          topK: 1,
+          returnMetadata: "all",
+        }
+      );
+      const pointId =
+        result.matches.length > 0 ? result.matches[0].id : this.generateUUID();
+
+      const data: VectorizeVector = {
+        id: pointId,
+        values: [0],
+        metadata: { userId },
+      };
+      await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/memory_migrations/upsert`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-ndjson",
+            Authorization: `Bearer ${this.client?.apiToken}`,
+          },
+          body: JSON.stringify(data) + "\n", // ndjson format
+        }
+      );
+    } catch (error) {
+      console.error("Error setting user ID:", error);
+      throw new Error(
+        `Failed to set user ID: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   async initialize(): Promise<void> {
