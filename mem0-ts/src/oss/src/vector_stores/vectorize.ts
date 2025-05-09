@@ -7,7 +7,6 @@ interface VectorizeConfig extends VectorStoreConfig {
   apiKey?: string;
   indexName: string;
   accountId: string;
-  // binding?: Vectorize; // TODO - Optional binding for Cloudflare Workers
 }
 
 interface CloudflareVector {
@@ -21,14 +20,12 @@ export class VectorizeDB implements VectorStore {
   private dimensions: number;
   private indexName: string;
   private accountId: string;
-  private binding?: Vectorize; // TODO - Optional binding for Cloudflare Workers
 
   constructor(config: VectorizeConfig) {
     this.client = new Cloudflare({ apiToken: config.apiKey });
     this.dimensions = config.dimension || 1536;
     this.indexName = config.indexName;
     this.accountId = config.accountId;
-    this.binding = config.binding; // TODO - Optional binding for Cloudflare Workers
     this.initialize().catch(console.error);
   }
 
@@ -49,13 +46,6 @@ export class VectorizeDB implements VectorStore {
       const ndjsonPayload = vectorObjects
         .map((v) => JSON.stringify(v))
         .join("\n");
-
-      // TODO - Optional binding for Cloudflare Workers
-      /*
-      if (this.binding) {
-        //this.binding.insert();
-      }
-      */
 
       const response = await fetch(
         `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/vectorize/v2/indexes/${this.indexName}/insert`,
