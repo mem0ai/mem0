@@ -53,6 +53,7 @@ class EmbedderFactory:
         "together": "mem0.embeddings.together.TogetherEmbedding",
         "lmstudio": "mem0.embeddings.lmstudio.LMStudioEmbedding",
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
+        "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
     }
 
     @classmethod
