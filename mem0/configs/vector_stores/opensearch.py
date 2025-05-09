@@ -15,6 +15,7 @@ class OpenSearchConfig(BaseModel):
     use_ssl: bool = Field(False, description="Use SSL for connection (default False for OpenSearch)")
     auto_create_index: bool = Field(True, description="Automatically create index during initialization")
     http_auth: Optional[object] = Field(None, description="HTTP authentication method / AWS SigV4")
+    engine: str = Field("nmslib", description="Engine type: 'nmslib', 'faiss', or 'lucene' (AOSS only supports nmslib or faiss)")
 
     @model_validator(mode="before")
     @classmethod
@@ -26,6 +27,13 @@ class OpenSearchConfig(BaseModel):
         # Authentication: Either API key or user/password must be provided
         if not any([values.get("api_key"), (values.get("user") and values.get("password")), values.get("http_auth")]):
             raise ValueError("Either api_key or user/password must be provided for OpenSearch authentication")
+
+        # Validate engine for AOSS if http_auth is set with service=aoss
+        http_auth = values.get("http_auth")
+        if http_auth and hasattr(http_auth, "service") and http_auth.service == "aoss":
+            engine = values.get("engine", "nmslib")
+            if engine not in ["nmslib", "faiss"]:
+                raise ValueError("Amazon OpenSearch Service Serverless only supports 'nmslib' or 'faiss' engines")
 
         return values
 
