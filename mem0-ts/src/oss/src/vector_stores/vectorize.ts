@@ -354,14 +354,18 @@ export class VectorizeDB implements VectorStore {
 
   async initialize(): Promise<void> {
     try {
-      const existing = new Set<string>();
+      // Check if the index already exists
+      let indexFound = false;
       for await (const idx of this.client!.vectorize.indexes.list({
         account_id: this.accountId,
       })) {
-        existing.add(idx.name!);
+        if (idx.name === this.indexName) {
+          indexFound = true;
+          break;
+        }
       }
-
-      if (!existing.has(this.indexName)) {
+      // If the index doesn't exist, create it
+      if (!indexFound) {
         try {
           await this.client?.vectorize.indexes.create({
             account_id: this.accountId,
@@ -413,6 +417,27 @@ export class VectorizeDB implements VectorStore {
             }
           );
         }
+      }
+      // Create memory_migrations collection if it doesn't exist
+      let found = false;
+      for await (const index of this.client!.vectorize.indexes.list({
+        account_id: this.accountId,
+      })) {
+        if (index.name === "memory_migrations") {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        await this.client?.vectorize.indexes.create({
+          account_id: this.accountId,
+          name: "memory_migrations",
+          config: {
+            dimensions: 1,
+            metric: "cosine",
+          },
+        });
       }
     } catch (err: any) {
       throw new Error(err);
