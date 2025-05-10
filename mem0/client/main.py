@@ -3,7 +3,7 @@ import logging
 import os
 import warnings
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, overload, Literal
 
 import httpx
 import requests
@@ -215,8 +215,28 @@ class MemoryClient:
         )
         return response.json()
 
+    @overload
+    def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.0"] = "v1.0",
+        **kwargs
+    ) -> List[Dict[str, Any]]:
+        ...
+
+    @overload
+    def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.1"] = "v1.1",
+        **kwargs
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        ...
+
     @api_error_handler
-    def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def search(self, query: str, version: str = "v1", **kwargs) -> Union[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         """Search memories based on a query.
 
         Args:
@@ -225,19 +245,21 @@ class MemoryClient:
             **kwargs: Additional parameters such as user_id, agent_id, app_id, top_k, filters.
 
         Returns:
-            A list of dictionaries containing search results.
+            If output_format is "v1.0", returns a list of dictionaries containing search results.
+            If output_format is "v1.1", returns a dictionary with a "results" key containing the list of search results.
 
         Raises:
             APIError: If the API request fails.
         """
         payload = {"query": query}
-        params = self._prepare_params(kwargs)
-        payload.update(params)
+        payload.update(self._prepare_params(kwargs))
         response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
-        capture_client_event("client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "sync"})
+        capture_client_event(
+            "client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
@@ -886,18 +908,50 @@ class AsyncMemoryClient:
         )
         return response.json()
 
+    @overload
+    async def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.0"] = "v1.0",
+        **kwargs
+    ) -> List[Dict[str, Any]]:
+        ...
+
+    @overload
+    async def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.1"] = "v1.1",
+        **kwargs
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        ...
+
     @api_error_handler
-    async def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: str = "v1.0",
+        **kwargs
+    ) -> Union[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         payload = {"query": query}
         payload.update(self._prepare_params(kwargs))
         response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
+
         if "metadata" in kwargs:
             del kwargs["metadata"]
+
         capture_client_event(
             "client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "async"}
         )
-        return response.json()
+
+        result = response.json()
+        if output_format == "v1.1":
+            return {"results": result} if isinstance(result, list) else result
+        return result
 
     @api_error_handler
     async def update(self, memory_id: str, data: str) -> Dict[str, Any]:
@@ -1077,6 +1131,18 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Get instructions or categories for the current project.
+
+        Args:
+            fields: List of fields to retrieve
+
+        Returns:
+            Dictionary containing the requested fields.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -1091,9 +1157,24 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_project(
-        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[List[str]] = None,
+        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
+        """Update the project settings.
+
+        Args:
+            custom_instructions: New instructions for the project
+            custom_categories: New categories for the project
+
+        Returns:
+            Dictionary containing the API response.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
@@ -1122,15 +1203,41 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def get_webhooks(self, project_id: str) -> Dict[str, Any]:
-        response = await self.async_client.get(
-            f"api/v1/webhooks/projects/{project_id}/",
-        )
+        """Get webhooks configuration for the project.
+
+        Args:
+            project_id: The ID of the project to get webhooks for.
+
+        Returns:
+            Dictionary containing webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If project_id is not set.
+        """
+
+        response = await self.async_client.get(f"api/v1/webhooks/projects/{project_id}/")
         response.raise_for_status()
         capture_client_event("client.get_webhook", self, {"sync_type": "async"})
         return response.json()
 
     @api_error_handler
     async def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
+        """Create a webhook for the current project.
+
+        Args:
+            url: The URL to send the webhook to.
+            name: The name of the webhook.
+            event_types: List of event types to trigger the webhook for.
+
+        Returns:
+            Dictionary containing the created webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If project_id is not set.
+        """
+
         payload = {"url": url, "name": name, "event_types": event_types}
         response = await self.async_client.post(f"api/v1/webhooks/projects/{project_id}/", json=payload)
         response.raise_for_status()
@@ -1145,6 +1252,21 @@ class AsyncMemoryClient:
         url: Optional[str] = None,
         event_types: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        """Update a webhook configuration.
+
+        Args:
+            webhook_id: ID of the webhook to update
+            name: Optional new name for the webhook
+            url: Optional new URL for the webhook
+            event_types: Optional list of event types to trigger the webhook for.
+
+        Returns:
+            Dictionary containing the updated webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+
         payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
         response = await self.async_client.put(f"api/v1/webhooks/{webhook_id}/", json=payload)
         response.raise_for_status()
@@ -1153,6 +1275,18 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def delete_webhook(self, webhook_id: int) -> Dict[str, str]:
+        """Delete a webhook configuration.
+
+        Args:
+            webhook_id: ID of the webhook to delete
+
+        Returns:
+            Dictionary containing success message.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+
         response = await self.async_client.delete(f"api/v1/webhooks/{webhook_id}/")
         response.raise_for_status()
         capture_client_event("client.delete_webhook", self, {"webhook_id": webhook_id, "sync_type": "async"})
