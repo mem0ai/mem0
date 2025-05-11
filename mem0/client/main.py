@@ -654,7 +654,7 @@ class MemoryClient:
 
         response = self.client.post("/v1/feedback/", json=data)
         response.raise_for_status()
-        capture_client_event("client.feedback", self, data, {"sync_type": "sync"})
+        capture_client_event("client.feedback", self, {**data, **{"sync_type": "sync"}})
         return response.json()
 
     def _prepare_payload(
@@ -1172,6 +1172,6 @@ class AsyncMemoryClient:
 
         response = await self.async_client.post("/v1/feedback/", json=data)
         response.raise_for_status()
-        capture_client_event("client.feedback", self, data, {"sync_type": "async"})
+        capture_client_event("client.feedback", self, {**data, **{"sync_type": "sync"}})
         return response.json()
 
