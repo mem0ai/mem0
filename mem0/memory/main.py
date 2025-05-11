@@ -9,7 +9,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytz
 from pydantic import ValidationError
@@ -115,7 +115,7 @@ class Memory(MemoryBase):
         user_id=None,
         agent_id=None,
         run_id=None,
-        metadata: dict | None = None,
+        metadata: Optional[dict] = None,
         filters=None,
         infer=True,
         memory_type=None,
@@ -645,7 +645,7 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, existing_embeddings, metadata: dict | None = None):
+    def _create_memory(self, data, existing_embeddings, metadata: Optional[dict] = None):
         logging.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -669,7 +669,7 @@ class Memory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
-    def _create_procedural_memory(self, messages, metadata: dict | None = None, prompt=None):
+    def _create_procedural_memory(self, messages, metadata: Optional[dict] = None, prompt=None):
         """
         Create a procedural memory
 
@@ -711,7 +711,7 @@ class Memory(MemoryBase):
 
         return result
 
-    def _update_memory(self, memory_id, data, existing_embeddings, metadata: dict | None = None):
+    def _update_memory(self, memory_id, data, existing_embeddings, metadata: Optional[dict] = None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -856,7 +856,7 @@ class AsyncMemory(MemoryBase):
         user_id=None,
         agent_id=None,
         run_id=None,
-        metadata: dict | None = None,
+        metadata: Optional[dict] = None,
         filters=None,
         infer=True,
         memory_type=None,
@@ -1407,7 +1407,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
-    async def _create_memory(self, data, existing_embeddings, metadata: dict | None = None):
+    async def _create_memory(self, data, existing_embeddings, metadata: Optional[dict] = None):
         logging.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -1435,7 +1435,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
-    async def _create_procedural_memory(self, messages, metadata: dict | None = None, llm=None, prompt=None):
+    async def _create_procedural_memory(self, messages, metadata: Optional[dict] = None, llm=None, prompt=None):
         """
         Create a procedural memory asynchronously
 
@@ -1490,7 +1490,7 @@ class AsyncMemory(MemoryBase):
 
         return result
 
-    async def _update_memory(self, memory_id, data, existing_embeddings, metadata: dict | None = None):
+    async def _update_memory(self, memory_id, data, existing_embeddings, metadata: Optional[dict] = None):
         logger.info(f"Updating memory with {data=}")
 
         try:
