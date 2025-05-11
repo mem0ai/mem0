@@ -7,6 +7,11 @@ from mem0.client.main import AsyncMemoryClient, MemoryClient
 class TestMemoryClient:
     @pytest.fixture
     def mock_client(self, mocker):
+        """Fixture that provides a mocked HTTPX client for testing.
+        
+        Returns:
+            MagicMock: A mocked httpx.Client instance with pre-configured responses.
+        """
         mock = mocker.MagicMock(spec=httpx.Client)
         mock.headers = {
             "Authorization": "Token test_key",
@@ -20,6 +25,17 @@ class TestMemoryClient:
         return mock
 
     def test_init_with_custom_client(self, mock_client, mocker):
+        """Test MemoryClient initialization with custom HTTPX client.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - API key is set correctly
+            - Base URL is configured properly
+            - Required headers are present
+        """
         # Given
         api_key = "test_key"
         mocker.patch.object(MemoryClient, '_validate_api_key', return_value="test@example.com")
@@ -34,12 +50,31 @@ class TestMemoryClient:
         assert "Mem0-User-ID" in mock_client.headers
 
     def test_init_missing_api_key(self, mocker):
+        """Test MemoryClient initialization without API key.
+        
+        Args:
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Raises ValueError when no API key is provided
+        """
         # Given/When/Then
         mocker.patch.dict('os.environ', {'MEM0_API_KEY': ''})
         with pytest.raises(ValueError, match="Mem0 API Key not provided"):
             MemoryClient(api_key=None)
 
     def test_add_memory(self, mock_client, mocker):
+        """Test adding a memory through the client.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Request payload is properly formatted
+            - Response is correctly returned
+        """
         # Given
         mocker.patch.object(MemoryClient, '_validate_api_key', return_value="test@example.com")
         client = MemoryClient(api_key="test_key", client=mock_client)
@@ -64,6 +99,16 @@ class TestMemoryClient:
         )
 
     def test_get_memory(self, mock_client, mocker):
+        """Test retrieving a memory by ID.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Response is correctly returned
+        """
         # Given
         mocker.patch.object(MemoryClient, '_validate_api_key', return_value="test@example.com")
         client = MemoryClient(api_key="test_key", client=mock_client)
@@ -84,6 +129,17 @@ class TestMemoryClient:
         )
 
     def test_search_memory_v1_format(self, mock_client, mocker):
+        """Test memory search with v1.0 output format.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Request payload includes output_format
+            - Response is correctly returned
+        """
         # Given
         mocker.patch.object(MemoryClient, '_validate_api_key', return_value="test@example.com")
         client = MemoryClient(api_key="test_key", client=mock_client)
@@ -104,6 +160,15 @@ class TestMemoryClient:
         )
 
     def test_search_memory_v1_1_format(self, mock_client, mocker):
+        """Test memory search with v1.1 output format.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Response format matches v1.1 specification
+        """
         # Given
         mocker.patch.object(MemoryClient, '_validate_api_key', return_value="test@example.com")
         client = MemoryClient(api_key="test_key", client=mock_client)
@@ -120,6 +185,16 @@ class TestMemoryClient:
         assert result == {"results": [{"id": "mem123"}]}
 
     def test_delete_memory(self, mock_client, mocker):
+        """Test deleting a memory by ID.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Response indicates successful deletion
+        """
         # Given
         mocker.patch.object(MemoryClient, '_validate_api_key', return_value="test@example.com")
         client = MemoryClient(api_key="test_key", client=mock_client)
@@ -140,6 +215,14 @@ class TestMemoryClient:
         )
 
     def test_api_error_handling(self, mock_client):
+        """Test error handling for API requests.
+        
+        Args:
+            mock_client: Mocked httpx.Client fixture
+            
+        Verifies:
+            - Proper exception is raised for API errors
+        """
         # Given
         client = MemoryClient(api_key="test_key", client=mock_client)
         mock_client.get.side_effect = httpx.HTTPStatusError(
@@ -155,6 +238,11 @@ class TestMemoryClient:
 class TestAsyncMemoryClient:
     @pytest.fixture
     def mock_async_client(self, mocker):
+        """Fixture that provides a mocked async HTTPX client for testing.
+        
+        Returns:
+            MagicMock: A mocked httpx.AsyncClient instance with pre-configured responses.
+        """
         mock = mocker.MagicMock(spec=httpx.AsyncClient)
         request = httpx.Request("GET", "https://api.mem0.ai/v1/ping/")
         mock.get.return_value = httpx.Response(200, json={"status": "ok"}, request=request)
@@ -162,6 +250,17 @@ class TestAsyncMemoryClient:
 
     @pytest.mark.asyncio
     async def test_async_add(self, mock_async_client, mocker):
+        """Test async memory addition.
+        
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Request payload is properly formatted
+            - Response is correctly returned
+        """
         # Given
         api_key = "test_key"
         test_messages = "test message"
@@ -186,6 +285,16 @@ class TestAsyncMemoryClient:
 
     @pytest.mark.asyncio
     async def test_async_get(self, mock_async_client, mocker):
+        """Test async memory retrieval by ID.
+        
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Response is correctly returned
+        """
         # Given
         mocker.patch.object(AsyncMemoryClient, '_validate_api_key', return_value="test@example.com")
         client = AsyncMemoryClient(api_key="test_key", client=mock_async_client)
@@ -207,6 +316,15 @@ class TestAsyncMemoryClient:
 
     @pytest.mark.asyncio
     async def test_async_search(self, mock_async_client, mocker):
+        """Test async memory search.
+        
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Response format matches expected structure
+        """
         # Given
         mocker.patch.object(AsyncMemoryClient, '_validate_api_key', return_value="test@example.com")
         client = AsyncMemoryClient(api_key="test_key", client=mock_async_client)
@@ -224,6 +342,15 @@ class TestAsyncMemoryClient:
 
     @pytest.mark.asyncio
     async def test_async_error_handling(self, mock_async_client, mocker):
+        """Test async error handling for API requests.
+        
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Proper exception is raised for API errors
+        """
         # Given
         mocker.patch.object(AsyncMemoryClient, '_validate_api_key', return_value="test@example.com")
         client = AsyncMemoryClient(api_key="test_key", client=mock_async_client)
@@ -239,6 +366,17 @@ class TestAsyncMemoryClient:
 
     @pytest.mark.asyncio
     async def test_async_batch_operations(self, mock_async_client, mocker):
+        """Test async batch memory updates.
+        
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+            
+        Verifies:
+            - Correct API endpoint is called
+            - Request payload includes all memories
+            - Response indicates successful update
+        """
         # Given
         mocker.patch.object(AsyncMemoryClient, '_validate_api_key', return_value="test@example.com")
         client = AsyncMemoryClient(api_key="test_key", client=mock_async_client)
