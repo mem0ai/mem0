@@ -648,7 +648,7 @@ class MemoryClient:
 
         feedback = feedback.upper() if feedback else None
         if feedback is not None and feedback not in VALID_FEEDBACK_VALUES:
-            raise ValueError(f'feedback must be one of {", ".join(VALID_FEEDBACK_VALUES)} or None')
+            raise ValueError(f'feedback must be one of {", ".join(sorted(list(VALID_FEEDBACK_VALUES)))} or None')
 
         data = {"memory_id": memory_id, "feedback": feedback, "feedback_reason": feedback_reason}
 
@@ -1166,7 +1166,7 @@ class AsyncMemoryClient:
 
         feedback = feedback.upper() if feedback else None
         if feedback is not None and feedback not in VALID_FEEDBACK_VALUES:
-            raise ValueError(f'feedback must be one of {", ".join(VALID_FEEDBACK_VALUES)} or None')
+            raise ValueError(f'feedback must be one of {", ".join(sorted(list(VALID_FEEDBACK_VALUES)))} or None')
 
         data = {"memory_id": memory_id, "feedback": feedback, "feedback_reason": feedback_reason}
 
@@ -1174,4 +1174,3 @@ class AsyncMemoryClient:
         response.raise_for_status()
         capture_client_event("client.feedback", self, {**data, **{"sync_type": "sync"}})
         return response.json()
-
