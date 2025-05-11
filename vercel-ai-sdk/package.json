@@ -1,6 +1,6 @@
 {
   "name": "@mem0/vercel-ai-provider",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Vercel AI Provider for providing memory to LLMs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
