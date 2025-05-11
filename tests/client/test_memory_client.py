@@ -665,9 +665,51 @@ class TestAsyncMemoryClient:
             MagicMock: A mocked httpx.AsyncClient instance with pre-configured responses.
         """
         mock = mocker.MagicMock(spec=httpx.AsyncClient)
+        mock.headers = {"Authorization": "Token test_key", "Mem0-User-ID": "test_user_id"}
         request = httpx.Request("GET", "https://api.mem0.ai/v1/ping/")
         mock.get.return_value = httpx.Response(200, json={"status": "ok"}, request=request)
         return mock
+
+    @pytest.mark.asyncio
+    async def test_async_init_with_custom_client(self, mock_async_client, mocker):
+        """Test AsyncMemoryClient initialization with custom HTTPX client.
+
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+
+        Verifies:
+            - API key is set correctly
+            - Base URL is configured properly
+            - Required headers are present
+        """
+        # Given
+        api_key = "test_key"
+        mocker.patch.object(AsyncMemoryClient, "_validate_api_key", return_value="test@example.com")
+
+        # When
+        client = AsyncMemoryClient(api_key=api_key, client=mock_async_client)
+
+        # Then
+        assert client.api_key == api_key
+        assert str(mock_async_client.base_url) == "https://api.mem0.ai"
+        assert "Authorization" in mock_async_client.headers
+        assert "Mem0-User-ID" in mock_async_client.headers
+
+    @pytest.mark.asyncio
+    async def test_async_init_missing_api_key(self, mocker):
+        """Test AsyncMemoryClient initialization without API key.
+
+        Args:
+            mocker: Pytest mocker fixture
+
+        Verifies:
+            - Raises ValueError when no API key is provided
+        """
+        # Given/When/Then
+        mocker.patch.dict("os.environ", {"MEM0_API_KEY": ""})
+        with pytest.raises(ValueError, match="Mem0 API Key not provided"):
+            AsyncMemoryClient(api_key=None)
 
     @pytest.mark.asyncio
     async def test_async_add(self, mock_async_client, mocker):
@@ -726,15 +768,43 @@ class TestAsyncMemoryClient:
         mock_async_client.get.assert_called_once_with("/v1/memories/mem123/", params={})
 
     @pytest.mark.asyncio
-    async def test_async_search(self, mock_async_client, mocker):
-        """Test async memory search.
+    async def test_async_search_v1_format(self, mock_async_client, mocker):
+        """Test async memory search with v1.0 output format.
 
         Args:
             mock_async_client: Mocked httpx.AsyncClient fixture
             mocker: Pytest mocker fixture
 
         Verifies:
-            - Response format matches expected structure
+            - Correct API endpoint is called
+            - Request payload includes output_format
+            - Response is correctly returned
+        """
+        # Given
+        mocker.patch.object(AsyncMemoryClient, "_validate_api_key", return_value="test@example.com")
+        client = AsyncMemoryClient(api_key="test_key", client=mock_async_client)
+        request = httpx.Request("POST", "https://api.mem0.ai/v1/memories/search/")
+        mock_async_client.post.return_value = httpx.Response(200, json=[{"id": "mem123"}], request=request)
+
+        # When
+        result = await client.search("test query", output_format="v1.0")
+
+        # Then
+        assert result == [{"id": "mem123"}]
+        mock_async_client.post.assert_called_once_with(
+            "/v1/memories/search/", json={"query": "test query", "output_format": "v1.0"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_search_v1_1_format(self, mock_async_client, mocker):
+        """Test async memory search with v1.1 output format.
+
+        Args:
+            mock_async_client: Mocked httpx.AsyncClient fixture
+            mocker: Pytest mocker fixture
+
+        Verifies:
+            - Response format matches v1.1 specification
         """
         # Given
         mocker.patch.object(AsyncMemoryClient, "_validate_api_key", return_value="test@example.com")
