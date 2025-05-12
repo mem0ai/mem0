@@ -32,7 +32,6 @@ from mem0.memory.utils import (
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
-# Placed after imports, before class definitions or other module-level setup
 
 def _build_filters_and_metadata(
     user_id: Optional[str] = None,
@@ -71,23 +70,20 @@ def _build_filters_and_metadata(
     effective_filters = deepcopy(input_filters) if input_filters is not None else {}
 
     if conversation_id:
-        # Group chat mode: conversation_id is the primary scope.
+        #Group chat mode: conversation_id is the primary scope.
         processed_metadata["conversation_id"] = conversation_id
         effective_filters["conversation_id"] = conversation_id
         
-        if participant_id: # Identifies the specific contributor in the conversation
+        if participant_id: #Identifies the specific contributor in the conversation
             processed_metadata["participant_id"] = participant_id
             effective_filters["participant_id"] = participant_id
         
-        # agent_id and run_id can serve as auxiliary context in group mode
+        
         if agent_id:
             processed_metadata["agent_id"] = agent_id
             effective_filters["agent_id"] = agent_id
         if run_id:
             processed_metadata["run_id"] = run_id
-        
-        # Note: user_id (classic) is not added to metadata/filters if conversation_id is present,
-        # to avoid ambiguity with participant_id.
     else:
         # Classic mode: No conversation_id provided.
         # Scope by user_id, agent_id, or run_id.
@@ -99,14 +95,10 @@ def _build_filters_and_metadata(
             effective_filters["agent_id"] = agent_id
         if run_id:
             processed_metadata["run_id"] = run_id
-        
-        # participant_id is not applicable in classic mode and is ignored.
 
     return processed_metadata, effective_filters
 
-# Setup user config
 setup_config()
-
 logger = logging.getLogger(__name__)
 
 
@@ -241,9 +233,7 @@ class Memory(MemoryBase):
             participant_id=participant_id,
             input_metadata=metadata
         )
-
-        # Validate scoping for classic mode (when conversation_id is not used).
-        # In group mode, conversation_id itself provides the primary scope.
+        
         if not conversation_id: 
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
@@ -251,15 +241,6 @@ class Memory(MemoryBase):
                     "at least one of 'user_id', 'agent_id', or 'run_id' must be specified."
                 )
         
-        # The comments explaining the validation logic from the previous version are now largely
-        # covered by the refined docstring and the self-documenting nature of the code block above.
-        # We can remove them to reduce clutter if the above is clear enough.
-        # For example, the comments:
-        # "# If conversation_id IS provided (group mode), then conversation_id itself acts as the primary scope."
-        # "# participant_id is optional for attribution within that conversation."
-        # "# No further validation regarding presence of participant_id is needed here,"
-        # "# as _build_filters_and_metadata handles its inclusion if provided."
-        # are now well-explained by the docstring and the logic in _build_filters_and_metadata.
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -269,8 +250,6 @@ class Memory(MemoryBase):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
-        # Procedural memories are typically associated with an agent.
-        # If conversation_id is also present, agent_id in processed_metadata will ensure it's scoped correctly.
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             return results
@@ -280,7 +259,6 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        # Concurrently add to vector store and graph store (if enabled)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
             future2 = executor.submit(self._add_to_graph, messages, effective_filters) # effective_filters also used for graph
@@ -360,7 +338,6 @@ class Memory(MemoryBase):
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
-        # mapping UUIDs with integers for handling UUID hallucinations
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
@@ -472,7 +449,6 @@ class Memory(MemoryBase):
         if not memory:
             return None
 
-        # Define the keys to be directly promoted from payload to the top level of the result item
         promoted_payload_keys = [
             "user_id",        # For classic mode
             "agent_id",       # For classic and group mode (auxiliary)
@@ -481,31 +457,23 @@ class Memory(MemoryBase):
             "participant_id"  # For group mode
         ]
         
-        # Define keys that are part of the core MemoryItem or are handled separately
         core_and_promoted_keys = {
             "data", "hash", "created_at", "updated_at", "id",
             *promoted_payload_keys
         }
 
-        # Prepare base memory item from MemoryItem model
-        # Note: MemoryItem itself does not include user_id, agent_id etc. these are added from payload.
-        # 'score' is typically not present on a direct 'get', so excluding it might not be necessary
-        # or can be handled if MemoryItem includes it as Optional.
-        # For now, assuming MemoryItem.model_dump() is sufficient.
         result_item = MemoryItem(
             id=memory.id,
             memory=memory.payload["data"],
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
-        ).model_dump() # Exclude score if it's part of MemoryItem and None here
+        ).model_dump()
 
-        # Add promoted keys if they exist in the payload
         for key in promoted_payload_keys:
             if key in memory.payload:
                 result_item[key] = memory.payload[key]
         
-        # Add remaining payload items as 'metadata'
         additional_metadata = {
             k: v for k, v in memory.payload.items() if k not in core_and_promoted_keys
         }
@@ -523,8 +491,6 @@ class Memory(MemoryBase):
         conversation_id: Optional[str] = None,
         participant_id: Optional[str] = None,
         limit: int = 100,
-        # Consider adding 'filters: Optional[Dict[str, Any]] = None' in the future
-        # for consistency with search(), if advanced custom filtering for get_all is desired.
     ):
         """
         Lists memories, operating in one of two modes:
@@ -554,9 +520,6 @@ class Memory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
         """
         
-        # Build effective filters for listing memories.
-        # input_metadata is not relevant here. input_filters is currently None as get_all
-        # historically derived its filters directly from ID parameters.
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
@@ -566,8 +529,6 @@ class Memory(MemoryBase):
             input_filters=None 
         )
 
-        # Validate scoping for classic mode.
-        # In group mode, 'conversation_id' ensures the primary scope.
         if not conversation_id: 
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
@@ -581,7 +542,6 @@ class Memory(MemoryBase):
             {"limit": limit, "keys": list(effective_filters.keys()), "sync_type": "sync"}
         )
 
-        # Concurrently list from vector store and graph store (if enabled)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
             future_graph_entities = (
@@ -606,9 +566,9 @@ class Memory(MemoryBase):
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            return all_memories_result # Returns list for v1.0
+            return all_memories_result 
         else:
-            return {"results": all_memories_result} # Returns dict for v1.1+
+            return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
         memories = self.vector_store.list(filters=filters, limit=limit)
@@ -689,8 +649,6 @@ class Memory(MemoryBase):
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
-        # Build effective filters for the search operation by combining
-        # explicit ID parameters with any custom filters provided by the user.
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
@@ -700,8 +658,6 @@ class Memory(MemoryBase):
             input_filters=filters  # User-provided custom filters are passed here
         )
 
-        # Validate scoping for classic mode.
-        # In group mode, 'conversation_id' ensures the primary scope.
         if not conversation_id: 
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
@@ -716,7 +672,6 @@ class Memory(MemoryBase):
             {"limit": limit, "version": self.api_version, "keys": list(effective_filters.keys()), "sync_type": "sync"},
         )
 
-        # Concurrently search vector store and graph store (if enabled)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit)
             future_graph_entities = (
@@ -764,22 +719,19 @@ class Memory(MemoryBase):
 
         original_memories = []
         for mem in memories:
-            # Start with the base MemoryItem attributes
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
-                score=mem.score, # score comes from the search result 'mem', not payload directly
-            ).model_dump() # Pydantic's model_dump by default excludes None values
+                score=mem.score,
+            ).model_dump() 
 
-            # Add promoted keys if they exist in the payload
             for key in promoted_payload_keys:
                 if key in mem.payload:
                     memory_item_dict[key] = mem.payload[key]
             
-            # Add remaining payload items as 'metadata'
             additional_metadata = {
                 k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys
             }
@@ -925,13 +877,10 @@ class Memory(MemoryBase):
             raise ValueError("Metadata cannot be done for procedural memory.")
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
-        # Generate embeddings for the summary
         embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
-        # Create the memory
         memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
 
-        # Return results in the same format as add()
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
         return result
@@ -1012,7 +961,6 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
-        # Close the old connection if possible
         if hasattr(self.db, "connection") and self.db.connection:
             self.db.connection.execute("DROP TABLE IF EXISTS history")
             self.db.connection.close()
@@ -1134,19 +1082,13 @@ class AsyncMemory(MemoryBase):
             input_metadata=metadata
         )
 
-        # Primary validation: Ensure that if not in group mode (i.e., conversation_id was not provided),
-        # at least one of the classic identifiers (user_id, agent_id, run_id) was provided
-        # and has therefore populated effective_filters for scoping.
         if not conversation_id: # This means we are in classic mode
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
                     "When 'conversation_id' is not provided (classic mode), "
                     "at least one of 'user_id', 'agent_id', or 'run_id' must be specified."
                 )
-        # If conversation_id IS provided (group mode), then conversation_id itself acts as the primary scope.
-        # participant_id is optional for attribution within that conversation.
-        # No further validation regarding presence of participant_id is needed here,
-        # as _build_filters_and_metadata handles its inclusion if provided.
+
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -1165,7 +1107,6 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        # Run vector store and graph operations concurrently
         vector_store_task = asyncio.create_task(self._add_to_vector_store(messages, processed_metadata, effective_filters, infer))
         graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
 
@@ -1226,7 +1167,6 @@ class AsyncMemory(MemoryBase):
         retrieved_old_memory = []
         new_message_embeddings = {}
 
-        # Process all facts concurrently
         async def process_fact(new_mem):
             messages_embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
@@ -1242,7 +1182,6 @@ class AsyncMemory(MemoryBase):
         fact_tasks = [process_fact(fact) for fact in new_retrieved_facts]
         fact_results = await asyncio.gather(*fact_tasks)
 
-        # Flatten results and build retrieved_old_memory
         for result in fact_results:
             for mem_id, mem_data in result:
                 retrieved_old_memory.append({"id": mem_id, "text": mem_data})
@@ -1253,7 +1192,6 @@ class AsyncMemory(MemoryBase):
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
-        # mapping UUIDs with integers for handling UUID hallucinations
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
@@ -1316,7 +1254,6 @@ class AsyncMemory(MemoryBase):
                 except Exception as e:
                     logging.error(f"Error in new_memories_with_actions: {e}")
 
-            # Wait for all memory operations to complete
             for task, resp, event_type, mem_id in memory_tasks:
                 try:
                     result_id = await task
@@ -1383,26 +1320,19 @@ class AsyncMemory(MemoryBase):
         if not memory:
             return None
 
-        # Define the keys to be directly promoted from payload to the top level of the result item
         promoted_payload_keys = [
-            "user_id",        # For classic mode
-            "agent_id",       # For classic and group mode (auxiliary)
-            "run_id",         # For classic and group mode (auxiliary)
-            "conversation_id",# For group mode
-            "participant_id"  # For group mode
+            "user_id",        
+            "agent_id",       
+            "run_id",         
+            "conversation_id",
+            "participant_id" 
         ]
         
-        # Define keys that are part of the core MemoryItem or are handled separately
         core_and_promoted_keys = {
             "data", "hash", "created_at", "updated_at", "id",
             *promoted_payload_keys
         }
 
-        # Prepare base memory item from MemoryItem model
-        # Note: MemoryItem itself does not include user_id, agent_id etc. these are added from payload.
-        # 'score' is typically not present on a direct 'get', so excluding it might not be necessary
-        # or can be handled if MemoryItem includes it as Optional.
-        # For now, assuming MemoryItem.model_dump() is sufficient.
         result_item = MemoryItem(
             id=memory.id,
             memory=memory.payload["data"],
@@ -1411,12 +1341,10 @@ class AsyncMemory(MemoryBase):
             updated_at=memory.payload.get("updated_at"),
         ).model_dump() # Exclude score if it's part of MemoryItem and None here
 
-        # Add promoted keys if they exist in the payload
         for key in promoted_payload_keys:
             if key in memory.payload:
                 result_item[key] = memory.payload[key]
         
-        # Add remaining payload items as 'metadata'
         additional_metadata = {
             k: v for k, v in memory.payload.items() if k not in core_and_promoted_keys
         }
@@ -1434,8 +1362,6 @@ class AsyncMemory(MemoryBase):
         conversation_id: Optional[str] = None,
         participant_id: Optional[str] = None,
         limit: int = 100,
-        # Consider adding 'filters: Optional[Dict[str, Any]] = None' in the future
-        # for consistency with search(), if advanced custom filtering for get_all is desired.
     ):
         """
         Lists memories, operating in one of two modes:
@@ -1465,9 +1391,6 @@ class AsyncMemory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
         """
         
-        # Build effective filters for listing memories.
-        # input_metadata is not relevant here. input_filters is currently None as get_all
-        # historically derived its filters directly from ID parameters.
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
@@ -1477,8 +1400,6 @@ class AsyncMemory(MemoryBase):
             input_filters=None 
         )
 
-        # Validate scoping for classic mode.
-        # In group mode, 'conversation_id' ensures the primary scope.
         if not conversation_id: 
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
@@ -1492,7 +1413,6 @@ class AsyncMemory(MemoryBase):
             {"limit": limit, "keys": list(effective_filters.keys()), "sync_type": "async"}
         )
 
-        # Concurrently list from vector store and graph store (if enabled)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
             future_graph_entities = (
@@ -1600,19 +1520,16 @@ class AsyncMemory(MemoryBase):
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
-        # Build effective filters for the search operation by combining
-        # explicit ID parameters with any custom filters provided by the user.
+      
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
             conversation_id=conversation_id,
             participant_id=participant_id,
-            input_filters=filters  # User-provided custom filters are passed here
+            input_filters=filters
         )
 
-        # Validate scoping for classic mode.
-        # In group mode, 'conversation_id' ensures the primary scope.
         if not conversation_id: 
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
@@ -1627,19 +1544,22 @@ class AsyncMemory(MemoryBase):
             {"limit": limit, "version": self.api_version, "keys": list(effective_filters.keys()), "sync_type": "async"},
         )
 
-        # Concurrently search vector store and graph store (if enabled)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
-            )
-
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
-
-            original_memories = future_memories.result()
-            graph_entities = future_graph_entities.result() if future_graph_entities else None
+        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit))
+        
+        graph_task = None
+        if self.enable_graph:
+            if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
+                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, limit))
+            else:
+                graph_task = asyncio.create_task(
+                    asyncio.to_thread(self.graph.search, query, effective_filters, limit)
+                )
+        
+        if graph_task:
+            original_memories, graph_entities = await asyncio.gather(vector_store_task, graph_task)
+        else:
+            original_memories = await vector_store_task
+            graph_entities = None
         
         if self.enable_graph:
             return {"results": original_memories, "relations": graph_entities}
@@ -1663,11 +1583,11 @@ class AsyncMemory(MemoryBase):
         )
 
         promoted_payload_keys = [
-            "user_id",        # For classic mode
-            "agent_id",       # For classic and group mode (auxiliary)
-            "run_id",         # For classic and group mode (auxiliary)
-            "conversation_id",# For group mode
-            "participant_id"  # For group mode
+            "user_id",        
+            "agent_id",       
+            "run_id",         
+            "conversation_id",
+            "participant_id" 
         ]
         
         core_and_promoted_keys = {
@@ -1677,22 +1597,19 @@ class AsyncMemory(MemoryBase):
 
         original_memories = []
         for mem in memories:
-            # Start with the base MemoryItem attributes
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
-                score=mem.score, # score comes from the search result 'mem', not payload directly
-            ).model_dump() # Pydantic's model_dump by default excludes None values
+                score=mem.score, 
+            ).model_dump() 
 
-            # Add promoted keys if they exist in the payload
             for key in promoted_payload_keys:
                 if key in mem.payload:
                     memory_item_dict[key] = mem.payload[key]
             
-            # Add remaining payload items as 'metadata'
             additional_metadata = {
                 k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys
             }

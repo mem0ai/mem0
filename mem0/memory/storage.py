@@ -16,14 +16,13 @@ class SQLiteManager:
     def _execute_query(self, query: str, params: tuple = (), commit: bool = False):
         """Helper to execute queries with lock and connection management."""
         with self._lock:
-            # Ensure connection is alive, especially for file-based DBs that might be closed
             if not self.connection:
                 self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
             
-            with self.connection: # Context manager handles begin/commit/rollback
+            with self.connection:
                 cursor = self.connection.cursor()
                 cursor.execute(query, params)
-                if commit: # Only commit if it's a data-modifying statement that needs it
+                if commit:
                     self.connection.commit() 
                 return cursor
 
@@ -46,7 +45,6 @@ class SQLiteManager:
         """
         self._execute_query(base_create_query, commit=True)
 
-        # Add new columns if they don't exist
         columns_to_add = {
             "conversation_id": "TEXT",
             "participant_id": "TEXT"
@@ -61,7 +59,6 @@ class SQLiteManager:
                     self._execute_query(f"ALTER TABLE history ADD COLUMN {col_name} {col_type}", commit=True)
                     logger.info(f"Added column '{col_name}' to 'history' table.")
                 except sqlite3.OperationalError as e:
-                    # This might happen in rare race conditions or if the column was just added
                     logger.warning(f"Could not add column '{col_name}': {e}. It might already exist.")
 
     def add_history(
@@ -106,7 +103,6 @@ class SQLiteManager:
             WHERE memory_id = ?
             ORDER BY created_at ASC, DATETIME(updated_at) ASC
         """ 
-        # DATETIME(updated_at) ensures correct sorting if updated_at can be NULL for ADD events
         cursor = self._execute_query(query, (memory_id,))
         rows = cursor.fetchall()
         return [
@@ -120,7 +116,7 @@ class SQLiteManager:
                 "event": row[6],
                 "created_at": row[7],
                 "updated_at": row[8],
-                "is_deleted": bool(row[9]) # Convert to boolean
+                "is_deleted": bool(row[9])
             }
             for row in rows
         ]
@@ -167,12 +163,12 @@ class SQLiteManager:
     def reset(self):
         """Drops and recreates the history table."""
         self._execute_query("DROP TABLE IF EXISTS history", commit=True)
-        self._ensure_history_table_schema() # Recreate with the new schema
+        self._ensure_history_table_schema()
 
-    def close(self): # Good practice to have a close method
+    def close(self):
         if self.connection:
             self.connection.close()
             self.connection = None
 
-    def __del__(self): # Ensure connection is closed when object is garbage collected
+    def __del__(self):
         self.close()
