@@ -10,26 +10,6 @@ OpenMemory is a local memory infrastructure powered by Mem0 that lets you carry 
 
 <img src="https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b" alt="OpenMemory UI" />
 
-## Try OpenMemory
-
-You can try OpenMemory by running the following commands:
-
-```bash
-curl -sL https://raw.githubusercontent.com/mem0ai/mem0/user/dyadav/openmemory/openmemory/run.sh | bash
-```
-
-You may find the following environment variables useful:
-
-```bash
-export OPENAI_API_KEY="sk-proj-..."
-```
-
-You can configure the MCP client using the following command:
-
-```bash
-npx install-mcp i "http://localhost:8765/mcp/cursor/sse/{$whoami}" --client cursor
-```
-
 ## What is the OpenMemory MCP Server
 
 The OpenMemory MCP Server is a private, local-first memory server that creates a shared, persistent memory layer for your MCP-compatible tools. This runs entirely on your machine, enabling seamless context handoff across tools. Whether you're switching between development, planning, or debugging environments, your AI assistants can access relevant memory without needing repeated instructions.
