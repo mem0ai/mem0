@@ -39,7 +39,7 @@ if [ $(docker ps -aq -f name=mem0_api) ]; then
   docker rm -f mem0_api
 fi
 
-# Create a custom network for the containers (instead of using --link)
+# Create a custom network for the containers
 docker network create mem0_network || echo "Network 'mem0_network' already exists."
 
 # Run API container
@@ -55,7 +55,7 @@ docker run -d \
   mem0/openmemory-mcp \
   sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
 
-echo "✅ OpenMemory is running at http://localhost:8765"
+echo "✅ OpenMemory API is running at http://localhost:8765"
 
 # Check if the container "mem0_ui" already exists and remove it if necessary
 if [ $(docker ps -aq -f name=mem0_ui) ]; then
@@ -63,16 +63,30 @@ if [ $(docker ps -aq -f name=mem0_ui) ]; then
   docker rm -f mem0_ui
 fi
 
+# Find an available port starting from 3000
+echo "🔍 Looking for available port for frontend..."
+for port in {3000..3010}; do
+  if ! lsof -i:$port >/dev/null 2>&1; then
+    FRONTEND_PORT=$port
+    break
+  fi
+done
+
+if [ -z "$FRONTEND_PORT" ]; then
+  echo "❌ Could not find an available port between 3000 and 3010"
+  exit 1
+fi
+
 # Start the frontend
-echo "🚀 Starting frontend..."
+echo "🚀 Starting frontend on port $FRONTEND_PORT..."
 docker run -d \
   --name mem0_ui \
   --network mem0_network \
   -e NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
   -e NEXT_PUBLIC_USER_ID="$USER" \
-  -p 3000:3000 \
+  -p ${FRONTEND_PORT}:3000 \
   -v "$(pwd)":/usr/src/openmemory \
   mem0/openmemory-ui \
   sh -c "npm run dev"
 
-echo "✅ Frontend is running at http://localhost:3000"
+echo "✅ Frontend is running at http://localhost:$FRONTEND_PORT"
