@@ -336,10 +336,10 @@ class MemoryGraph:
             # types
             source_type = entity_type_map.get(source, "__User__")
             source_label = self.node_label if self.node_label else f":{source_type}"
-            source_extra_set = f", source{self.source_type}" if self.node_label else ""
+            source_extra_set = f", source{source_type}" if self.node_label else ""
             destination_type = entity_type_map.get(destination, "__User__")
             destination_label = self.node_label if self.node_label else f":{destination_type}"
-            destination_extra_set = f", destination{self.destination_type}" if self.node_label else ""
+            destination_extra_set = f", destination{destination_type}" if self.node_label else ""
 
             # embeddings
             source_embedding = self.embedding_model.embed(source)
