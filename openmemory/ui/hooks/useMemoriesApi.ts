@@ -104,7 +104,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   const memories = useSelector((state: RootState) => state.memories.memories);
   const selectedMemory = useSelector((state: RootState) => state.memories.selectedMemory);
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
   const fetchMemories = useCallback(async (
     query?: string,
