@@ -14,12 +14,34 @@ We welcome all forms of contributions:
 ## Development Workflow
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b openmemory/feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+4. Push to the branch (`git push origin openmemory/feature/amazing-feature`)
 5. Open a Pull Request
 
 ## Development Setup
+
+### Backend Setup
+
+```bash
+# Copy environment file and edit file to update OPENAI_API_KEY and other secrets
+make env
+
+# Build the containers
+make build
+
+# Start the services
+make up
+```
+
+### Frontend Setup
+
+The frontend is a React application. To start the frontend:
+
+```bash
+# Install dependencies and start the development server
+make ui-dev
+```
 
 ### Prerequisites
 - Docker and Docker Compose
