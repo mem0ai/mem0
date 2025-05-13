@@ -452,7 +452,7 @@ class MemoryGraph:
                     WITH source
                     CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
                     WITH source
-                    MERGE (destination:{destination_label} {{name: $dest_name, user_id: $user_id}})
+                    MERGE (destination {destination_label} {{name: $dest_name, user_id: $user_id}})
                     ON CREATE SET destination.created = timestamp(),
                                   destination.mentions = 1
                                   {destination_extra_set}
