@@ -123,8 +123,9 @@ class MemoryGraph:
         return search_results
 
     def delete_all(self, filters):
-        cypher = """
-        MATCH (n {user_id: $user_id})
+        node_label = f":{self.node_label}" if self.node_label else ""
+        cypher = f"""
+        MATCH (n {node_label} {{user_id: $user_id}})
         DETACH DELETE n
         """
         params = {"user_id": filters["user_id"]}
@@ -142,10 +143,10 @@ class MemoryGraph:
                 - 'contexts': The base data store response for each memory.
                 - 'entities': A list of strings representing the nodes and relationships
         """
-
+        node_label = f":{self.node_label}" if self.node_label else ""
         # return all nodes and relationships
-        query = """
-        MATCH (n {user_id: $user_id})-[r]->(m {user_id: $user_id})
+        query = f"""
+        MATCH (n {node_label } {{user_id: $user_id}})-[r]->(m {node_label} {{user_id: $user_id}})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -456,9 +457,9 @@ class MemoryGraph:
                     ON CREATE SET destination.created = timestamp(),
                                   destination.mentions = 1
                                   {destination_extra_set}
-                    ON MATCH SET destination.mentions = coalesce(m.mentions, 0) + 1
+                    ON MATCH SET destination.mentions = coalesce(destination.mentions, 0) + 1
                     WITH source, destination
-                    CALL db.create.setNodeVectorProperty(m, 'embedding', $source_embedding)
+                    CALL db.create.setNodeVectorProperty(destination, 'embedding', $source_embedding)
                     WITH source, destination
                     MERGE (source)-[rel:{relationship}]->(destination)
                     ON CREATE SET rel.created = timestamp(), rel.mentions = 1
