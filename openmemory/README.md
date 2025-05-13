@@ -62,7 +62,7 @@ make down
 The frontend is a React application. To start the frontend:
 
 ```bash
-# Install dependencies and start the development server
+# Install dependencies and start the production server
 make ui
 ```
 

@@ -62,4 +62,9 @@ ui-build:
 ui-start:
 	cd ui && NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) pnpm start
 
+ui-dev-start:
+	cd ui && NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) && pnpm dev
+
+ui-dev: ui-install ui-dev-start
+
 ui: ui-install ui-build ui-start
