@@ -41,13 +41,16 @@ class SQLiteManager:
                 created_at DATETIME,
                 updated_at DATETIME,
                 is_deleted INTEGER DEFAULT 0
+                -- conversation_id, participant_id, actor_id, role will be added below if not exist
             );
         """
         self._execute_query(base_create_query, commit=True)
 
         columns_to_add = {
             "conversation_id": "TEXT",
-            "participant_id": "TEXT"
+            "participant_id": "TEXT",
+            "actor_id": "TEXT",
+            "role": "TEXT"
         }
         
         cursor = self._execute_query("PRAGMA table_info(history)")
@@ -59,7 +62,7 @@ class SQLiteManager:
                     self._execute_query(f"ALTER TABLE history ADD COLUMN {col_name} {col_type}", commit=True)
                     logger.info(f"Added column '{col_name}' to 'history' table.")
                 except sqlite3.OperationalError as e:
-                    logger.warning(f"Could not add column '{col_name}': {e}. It might already exist.")
+                    logger.warning(f"Could not add column '{col_name}' (it might already exist): {e}")
 
     def add_history(
         self,
@@ -72,20 +75,24 @@ class SQLiteManager:
         is_deleted: int = 0,
         conversation_id: Optional[str] = None, 
         participant_id: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        role: Optional[str] = None,
     ):
         query = """
             INSERT INTO history (
-                id, memory_id, conversation_id, participant_id,
+                id, memory_id, conversation_id, participant_id, actor_id, role,
                 old_memory, new_memory, event, 
                 created_at, updated_at, is_deleted
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         params = (
             str(uuid.uuid4()),
             memory_id,
             conversation_id,
             participant_id,
+            actor_id,
+            role,
             old_memory,
             new_memory,
             event,
@@ -97,7 +104,7 @@ class SQLiteManager:
 
     def get_history(self, memory_id: str) -> List[Dict[str, Any]]:
         query = """
-            SELECT id, memory_id, conversation_id, participant_id,
+            SELECT id, memory_id, conversation_id, participant_id, actor_id, role,
                    old_memory, new_memory, event, created_at, updated_at, is_deleted
             FROM history
             WHERE memory_id = ?
@@ -111,12 +118,14 @@ class SQLiteManager:
                 "memory_id": row[1],
                 "conversation_id": row[2],
                 "participant_id": row[3],
-                "old_memory": row[4],
-                "new_memory": row[5],
-                "event": row[6],
-                "created_at": row[7],
-                "updated_at": row[8],
-                "is_deleted": bool(row[9])
+                "actor_id": row[4],
+                "role": row[5],
+                "old_memory": row[6],
+                "new_memory": row[7],
+                "event": row[8],
+                "created_at": row[9],
+                "updated_at": row[10],
+                "is_deleted": bool(row[11])
             }
             for row in rows
         ]
@@ -124,13 +133,14 @@ class SQLiteManager:
     def get_history_by_conversation(
         self, 
         conversation_id: str, 
-        participant_id: Optional[str] = None, 
+        participant_id: Optional[str] = None,
+        actor_id: Optional[str] = None,
         limit: int = 100,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
         params: List[Any] = [conversation_id]
         query = """
-            SELECT id, memory_id, conversation_id, participant_id,
+            SELECT id, memory_id, conversation_id, participant_id, actor_id, role,
                    old_memory, new_memory, event, created_at, updated_at, is_deleted
             FROM history
             WHERE conversation_id = ?
@@ -138,6 +148,11 @@ class SQLiteManager:
         if participant_id:
             query += " AND participant_id = ?"
             params.append(participant_id)
+        
+        # Phase-1: Add filtering by actor_id
+        if actor_id:
+            query += " AND actor_id = ?"
+            params.append(actor_id)
         
         query += " ORDER BY created_at ASC, DATETIME(updated_at) ASC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -150,12 +165,14 @@ class SQLiteManager:
                 "memory_id": row[1],
                 "conversation_id": row[2],
                 "participant_id": row[3],
-                "old_memory": row[4],
-                "new_memory": row[5],
-                "event": row[6],
-                "created_at": row[7],
-                "updated_at": row[8],
-                "is_deleted": bool(row[9])
+                "actor_id": row[4],
+                "role": row[5],
+                "old_memory": row[6],
+                "new_memory": row[7],
+                "event": row[8],
+                "created_at": row[9],
+                "updated_at": row[10],
+                "is_deleted": bool(row[11])
             }
             for row in rows
         ]

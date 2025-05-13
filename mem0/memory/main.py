@@ -39,64 +39,103 @@ def _build_filters_and_metadata(
     run_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
     participant_id: Optional[str] = None,
+    actor_id: Optional[str] = None,
     input_metadata: Optional[Dict[str, Any]] = None,
     input_filters: Optional[Dict[str, Any]] = None,
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Builds metadata for storage and effective filters for querying,
-    adapting to classic (single-context) or group chat (conversation-based) modes.
+    Constructs metadata for storage and filters for querying based on session and actor identifiers.
 
-    In classic mode (conversation_id is None), 'user_id', 'agent_id', or 'run_id'
-    are used for scoping. 'participant_id' is ignored.
+    This function determines the appropriate session context (Group Mode via `conversation_id`
+    or Classic Mode via `user_id`, `agent_id`, or `run_id`) and prepares two key dictionaries:
+    1. `base_metadata_template`: Used as a template for metadata when storing new memories.
+       It includes the primary session identifier(s) and any `input_metadata`.
+    2. `effective_query_filters`: Used for querying existing memories. It includes the
+       primary session identifier(s), any `input_filters`, and a resolved actor
+       identifier for targeted filtering if specified by any actor-related inputs.
 
-    In group mode (conversation_id is provided), 'conversation_id' is the primary
-    scope. 'participant_id' (if provided) identifies the contributor.
-    'user_id' (classic sense) is not used for primary scoping in group mode.
-    'agent_id' and 'run_id' can act as auxiliary identifiers in both modes.
+    The function prioritizes `conversation_id` for Group Mode. If not provided, it falls
+    back to Classic Mode, using `user_id`, `agent_id`, or `run_id` as the session key.
+    Auxiliary identifiers like `agent_id` and `run_id` can be included in both modes
+    if provided.
+
+    For actor-specific filtering within `effective_query_filters`, identifiers are resolved
+    with the following precedence: `actor_id` parameter, `participant_id` parameter,
+    `actor_id` from `input_filters`, then `participant_id` from `input_filters` (legacy).
+    This resolved actor ID is used for querying but is not added to `base_metadata_template`,
+    as the actor for storage is typically derived from message content at a later stage.
 
     Args:
-        user_id: Identifier for the user in classic mode.
-        agent_id: Identifier for the agent.
-        run_id: Identifier for the run.
-        conversation_id: Identifier for a shared conversation (enables group mode).
-        participant_id: Identifier for a participant within a 'conversation_id'.
-        input_metadata: Base metadata dictionary to augment.
-        input_filters: Base filters dictionary to augment.
+        user_id (Optional[str]): User identifier, primarily for Classic Mode session scoping.
+        agent_id (Optional[str]): Agent identifier, for Classic Mode session scoping or
+            as auxiliary information in Group Mode.
+        run_id (Optional[str]): Run identifier, for Classic Mode session scoping or
+            as auxiliary information in Group Mode.
+        conversation_id (Optional[str]): Conversation identifier. If provided, activates
+            Group Mode, making it the primary session scope.
+        participant_id (Optional[str]): Participant identifier, used as a potential source for
+            actor-specific filtering. See actor resolution precedence in the main description.
+        actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
+            actor-specific filtering. See actor resolution precedence in the main description.
+        input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
+            session identifiers for the storage metadata template. Defaults to an empty dict.
+        input_filters (Optional[Dict[str, Any]]): Base dictionary to be augmented with
+            session and actor identifiers for query filters. Defaults to an empty dict.
 
     Returns:
-        A tuple: (processed_metadata_for_storage, effective_filters_for_query).
+        tuple[Dict[str, Any], Dict[str, Any]]: A tuple containing:
+            - base_metadata_template (Dict[str, Any]): Metadata template for storing memories,
+              scoped to the determined session.
+            - effective_query_filters (Dict[str, Any]): Filters for querying memories,
+              scoped to the determined session and potentially a resolved actor.
     """
-    processed_metadata = deepcopy(input_metadata) if input_metadata is not None else {}
-    effective_filters = deepcopy(input_filters) if input_filters is not None else {}
+
+    base_metadata_template = deepcopy(input_metadata) if input_metadata is not None else {}
+    
+  
+    effective_query_filters = deepcopy(input_filters) if input_filters is not None else {}
+
+    final_actor_id_for_filtering = actor_id or participant_id
+    if not final_actor_id_for_filtering and input_filters and "actor_id" in input_filters:
+        final_actor_id_for_filtering = input_filters["actor_id"]
+    elif not final_actor_id_for_filtering and input_filters and "participant_id" in input_filters: # Legacy filter key
+        final_actor_id_for_filtering = input_filters["participant_id"]
+
 
     if conversation_id:
-        #Group chat mode: conversation_id is the primary scope.
-        processed_metadata["conversation_id"] = conversation_id
-        effective_filters["conversation_id"] = conversation_id
-        
-        if participant_id: #Identifies the specific contributor in the conversation
-            processed_metadata["participant_id"] = participant_id
-            effective_filters["participant_id"] = participant_id
-        
-        
-        if agent_id:
-            processed_metadata["agent_id"] = agent_id
-            effective_filters["agent_id"] = agent_id
-        if run_id:
-            processed_metadata["run_id"] = run_id
-    else:
-        # Classic mode: No conversation_id provided.
-        # Scope by user_id, agent_id, or run_id.
-        if user_id:
-            processed_metadata["user_id"] = user_id
-            effective_filters["user_id"] = user_id
-        if agent_id:
-            processed_metadata["agent_id"] = agent_id
-            effective_filters["agent_id"] = agent_id
-        if run_id:
-            processed_metadata["run_id"] = run_id
+        base_metadata_template["conversation_id"] = conversation_id
+        effective_query_filters["conversation_id"] = conversation_id
 
-    return processed_metadata, effective_filters
+        if final_actor_id_for_filtering:
+            effective_query_filters["actor_id"] = final_actor_id_for_filtering # Use "actor_id" as the consistent key for filtering
+
+        if agent_id:
+            base_metadata_template["agent_id"] = agent_id
+            if "agent_id" not in effective_query_filters: # Avoid overwriting if already in input_filters
+                effective_query_filters["agent_id"] = agent_id
+        if run_id:
+            base_metadata_template["run_id"] = run_id
+            if "run_id" not in effective_query_filters:
+                effective_query_filters["run_id"] = run_id
+    else:
+        session_context_key: Optional[str] = None
+        session_context_val: Optional[str] = None
+
+        if user_id:
+            session_context_key, session_context_val = "user_id", user_id
+        elif agent_id:
+            session_context_key, session_context_val = "agent_id", agent_id
+        elif run_id:
+            session_context_key, session_context_val = "run_id", run_id
+        
+        if session_context_key and session_context_val:
+            base_metadata_template[session_context_key] = session_context_val
+            effective_query_filters[session_context_key] = session_context_val
+
+        if final_actor_id_for_filtering:
+            effective_query_filters["actor_id"] = final_actor_id_for_filtering
+
+    return base_metadata_template, effective_query_filters
 
 setup_config()
 logger = logging.getLogger(__name__)
@@ -289,20 +328,46 @@ class Memory(MemoryBase):
     def _add_to_vector_store(self, messages, metadata, filters, infer):
         if not infer:
             returned_memories = []
-            for message in messages:
-                if message["role"] != "system":
-                    message_embeddings = self.embedding_model.embed(message["content"], "add")
-                    memory_id = self._create_memory(message["content"], message_embeddings, metadata)
-                    returned_memories.append({"id": memory_id, "memory": message["content"], "event": "ADD"})
+            for message_dict in messages: 
+                if not isinstance(message_dict, dict) or \
+                   message_dict.get("role") is None or \
+                   message_dict.get("content") is None:
+                    logger.warning(f"Skipping invalid message format: {message_dict}")
+                    continue
+
+                if message_dict["role"] == "system":
+                    continue                        
+
+              
+                per_msg_meta = deepcopy(metadata)
+                per_msg_meta["role"] = message_dict["role"]
+
+                
+                actor_name = message_dict.get("name")
+                if actor_name:
+                    per_msg_meta["actor_id"] = actor_name
+
+                msg_content = message_dict["content"]
+                msg_embeddings = self.embedding_model.embed(msg_content, "add")
+                mem_id = self._create_memory(msg_content, msg_embeddings, per_msg_meta)
+
+                returned_memories.append(
+                    {
+                        "id": mem_id,
+                        "memory": msg_content,
+                        "event": "ADD",
+                        "actor_id": actor_name if actor_name else None,
+                        "role": message_dict["role"],
+                    }
+                )
             return returned_memories
 
-        parsed_messages = parse_messages(messages)
-
+        parsed_messages_str = parse_messages(messages) 
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
-            user_prompt = f"Input:\n{parsed_messages}"
+            user_prompt = f"Input:\n{parsed_messages_str}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages_str)
 
         response = self.llm.generate_response(
             messages=[
@@ -321,17 +386,18 @@ class Memory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-        for new_mem in new_retrieved_facts:
-            messages_embeddings = self.embedding_model.embed(new_mem, "add")
-            new_message_embeddings[new_mem] = messages_embeddings
+        for new_mem_content in new_retrieved_facts: 
+            messages_embeddings = self.embedding_model.embed(new_mem_content, "add")
+            new_message_embeddings[new_mem_content] = messages_embeddings
             existing_memories = self.vector_store.search(
-                query=new_mem,
+                query=new_mem_content,
                 vectors=messages_embeddings,
                 limit=5,
                 filters=filters,
             )
             for mem in existing_memories:
                 retrieved_old_memory.append({"id": mem.id, "text": mem.payload["data"]})
+        
         unique_data = {}
         for item in retrieved_old_memory:
             unique_data[item["id"]] = item
@@ -348,80 +414,69 @@ class Memory(MemoryBase):
         )
 
         try:
-            response: str = self.llm.generate_response(
+            response_actions_str: str = self.llm.generate_response(
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
             logging.error(f"Error in new memory actions response: {e}")
-            response = ""
+            response_actions_str = ""
 
         try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
+            response_actions_str = remove_code_blocks(response_actions_str)
+            new_memories_with_actions = json.loads(response_actions_str)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
-        returned_memories = []
+        returned_memories_infer_true = []
         try:
-            for resp in new_memories_with_actions.get("memory", []):
-                logging.info(resp)
+            for resp_action in new_memories_with_actions.get("memory", []):
+                logging.info(resp_action)
                 try:
-                    if not resp.get("text"):
+                    action_text = resp_action.get("text")
+                    if not action_text:
                         logging.info("Skipping memory entry because of empty `text` field.")
                         continue
-                    elif resp.get("event") == "ADD":
+                    
+                    event_type = resp_action.get("event")
+                    if event_type == "ADD":
                         memory_id = self._create_memory(
-                            data=resp.get("text"),
+                            data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
-                        returned_memories.append(
-                            {
-                                "id": memory_id,
-                                "memory": resp.get("text"),
-                                "event": resp.get("event"),
-                            }
-                        )
-                    elif resp.get("event") == "UPDATE":
+                        returned_memories_infer_true.append({"id": memory_id, "memory": action_text, "event": event_type})
+                    elif event_type == "UPDATE":
                         self._update_memory(
-                            memory_id=temp_uuid_mapping[resp["id"]],
-                            data=resp.get("text"),
+                            memory_id=temp_uuid_mapping[resp_action["id"]],
+                            data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
-                        returned_memories.append(
-                            {
-                                "id": temp_uuid_mapping[resp.get("id")],
-                                "memory": resp.get("text"),
-                                "event": resp.get("event"),
-                                "previous_memory": resp.get("old_memory"),
-                            }
-                        )
-                    elif resp.get("event") == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
-                        returned_memories.append(
-                            {
-                                "id": temp_uuid_mapping[resp.get("id")],
-                                "memory": resp.get("text"),
-                                "event": resp.get("event"),
-                            }
-                        )
-                    elif resp.get("event") == "NONE":
+                        returned_memories_infer_true.append({
+                            "id": temp_uuid_mapping[resp_action.get("id")], "memory": action_text, 
+                            "event": event_type, "previous_memory": resp_action.get("old_memory"),
+                        })
+                    elif event_type == "DELETE":
+                        self._delete_memory(memory_id=temp_uuid_mapping[resp_action.get("id")])
+                        returned_memories_infer_true.append({
+                            "id": temp_uuid_mapping[resp_action.get("id")], "memory": action_text,
+                            "event": event_type,
+                        })
+                    elif event_type == "NONE":
                         logging.info("NOOP for Memory.")
                 except Exception as e:
-                    logging.error(f"Error in new_memories_with_actions: {e}")
+                    logging.error(f"Error processing memory action: {resp_action}, Error: {e}")
         except Exception as e:
-            logging.error(f"Error in new_memories_with_actions: {e}")
+            logging.error(f"Error iterating new_memories_with_actions: {e}")
 
         capture_event(
             "mem0.add",
             self,
             {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "sync"},
         )
-
-        return returned_memories
+        return returned_memories_infer_true
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
@@ -450,11 +505,13 @@ class Memory(MemoryBase):
             return None
 
         promoted_payload_keys = [
-            "user_id",        # For classic mode
-            "agent_id",       # For classic and group mode (auxiliary)
-            "run_id",         # For classic and group mode (auxiliary)
-            "conversation_id",# For group mode
-            "participant_id"  # For group mode
+            "user_id",
+            "agent_id",
+            "run_id",
+            "conversation_id",
+            "participant_id",
+            "actor_id",
+            "role",
         ]
         
         core_and_promoted_keys = {
@@ -490,6 +547,7 @@ class Memory(MemoryBase):
         run_id: Optional[str] = None,
         conversation_id: Optional[str] = None,
         participant_id: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
         """
@@ -511,6 +569,9 @@ class Memory(MemoryBase):
             conversation_id (str, optional): Identifier for a shared conversation. Activates group mode.
             participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
                 Only used if 'conversation_id' is also provided.
+            filters (dict, optional): Additional custom key-value filters to apply to the search.
+                These are merged with the ID-based scoping filters. For example, 
+                `filters={"actor_id": "some_user"}`.
             limit (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
@@ -526,7 +587,7 @@ class Memory(MemoryBase):
             run_id=run_id,
             conversation_id=conversation_id,
             participant_id=participant_id,
-            input_filters=None 
+            input_filters=filters 
         )
 
         if not conversation_id: 
@@ -571,11 +632,14 @@ class Memory(MemoryBase):
             return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
-        memories = self.vector_store.list(filters=filters, limit=limit)
+        memories_result = self.vector_store.list(filters=filters, limit=limit)
+        actual_memories = memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
 
         promoted_payload_keys = [
             "user_id", "agent_id", "run_id",
-            "conversation_id", "participant_id"
+            "conversation_id", "participant_id",
+            "actor_id",
+            "role",
         ]
         core_and_promoted_keys = {
             "data", "hash", "created_at", "updated_at", "id",
@@ -583,7 +647,7 @@ class Memory(MemoryBase):
         }
 
         formatted_memories = []
-        for mem in memories[0]: 
+        for mem in actual_memories: 
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
@@ -655,7 +719,7 @@ class Memory(MemoryBase):
             run_id=run_id,
             conversation_id=conversation_id,
             participant_id=participant_id,
-            input_filters=filters  # User-provided custom filters are passed here
+            input_filters=filters
         )
 
         if not conversation_id: 
@@ -705,11 +769,13 @@ class Memory(MemoryBase):
         memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
 
         promoted_payload_keys = [
-            "user_id",        # For classic mode
-            "agent_id",       # For classic and group mode (auxiliary)
-            "run_id",         # For classic and group mode (auxiliary)
-            "conversation_id",# For group mode
-            "participant_id"  # For group mode
+            "user_id",
+            "agent_id",
+            "run_id",
+            "conversation_id",
+            "participant_id",
+            "actor_id",
+            "role",
         ]
         
         core_and_promoted_keys = {
@@ -837,12 +903,14 @@ class Memory(MemoryBase):
         )
         self.db.add_history(
             memory_id,
-            None,  # old_memory is None for ADD
-            data,  # new_memory is the data being added
+            None,
+            data,
             "ADD",
-            created_at=metadata.get("created_at"), # Use .get for safety
+            created_at=metadata.get("created_at"),
             conversation_id=metadata.get("conversation_id"),
-            participant_id=metadata.get("participant_id")
+            participant_id=metadata.get("participant_id"),
+            actor_id=metadata.get("actor_id"),
+            role=metadata.get("role"),
         )
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
@@ -891,10 +959,13 @@ class Memory(MemoryBase):
         try:
             existing_memory = self.vector_store.get(vector_id=memory_id)
         except Exception:
+            logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+        
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
+        
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
@@ -906,22 +977,28 @@ class Memory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-
         if "conversation_id" in existing_memory.payload:
             new_metadata["conversation_id"] = existing_memory.payload["conversation_id"]
         if "participant_id" in existing_memory.payload:
             new_metadata["participant_id"] = existing_memory.payload["participant_id"]
+        
+        if "actor_id" in existing_memory.payload:
+            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        if "role" in existing_memory.payload:
+            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, "update")
+        
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
             payload=new_metadata,
         )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
+        
         self.db.add_history(
             memory_id,
             prev_value,
@@ -931,6 +1008,8 @@ class Memory(MemoryBase):
             updated_at=new_metadata["updated_at"],
             conversation_id=new_metadata.get("conversation_id"),
             participant_id=new_metadata.get("participant_id"),
+            actor_id=new_metadata.get("actor_id"),
+            role=new_metadata.get("role"),
         )
         capture_event("mem0._update_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
@@ -947,6 +1026,8 @@ class Memory(MemoryBase):
             "DELETE",
             conversation_id=existing_memory.payload.get("conversation_id"),
             participant_id=existing_memory.payload.get("participant_id"),
+            actor_id=existing_memory.payload.get("actor_id"),
+            role=existing_memory.payload.get("role"),
             is_deleted=1,
         )
         capture_event("mem0._delete_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
@@ -1082,7 +1163,7 @@ class AsyncMemory(MemoryBase):
             input_metadata=metadata
         )
 
-        if not conversation_id: # This means we are in classic mode
+        if not conversation_id:
             if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
                     "When 'conversation_id' is not provided (classic mode), "
@@ -1130,68 +1211,82 @@ class AsyncMemory(MemoryBase):
 
         return {"results": vector_store_result}
 
-    async def _add_to_vector_store(self, messages, metadata, filters, infer):
+    async def _add_to_vector_store(
+        self, 
+        messages: list, 
+        metadata: dict,
+        filters: dict,
+        infer: bool,
+    ):
         if not infer:
             returned_memories = []
-            for message in messages:
-                if message["role"] != "system":
-                    message_embeddings = await asyncio.to_thread(self.embedding_model.embed, message["content"], "add")
-                    memory_id = await self._create_memory(message["content"], message_embeddings, metadata)
-                    returned_memories.append({"id": memory_id, "memory": message["content"], "event": "ADD"})
+            for message_dict in messages:
+                if not isinstance(message_dict, dict) or \
+                   message_dict.get("role") is None or \
+                   message_dict.get("content") is None:
+                    logger.warning(f"Skipping invalid message format (async): {message_dict}")
+                    continue
+
+                if message_dict["role"] == "system":
+                    continue
+
+                per_msg_meta = deepcopy(metadata)
+                per_msg_meta["role"] = message_dict["role"]
+                
+                actor_name = message_dict.get("name")
+                if actor_name:
+                    per_msg_meta["actor_id"] = actor_name
+                
+                msg_content = message_dict["content"]
+                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
+                mem_id = await self._create_memory(msg_content, msg_embeddings, per_msg_meta)
+                
+                returned_memories.append({
+                    "id": mem_id, "memory": msg_content, "event": "ADD",
+                    "actor_id": actor_name if actor_name else None,
+                    "role": message_dict["role"],
+                })
             return returned_memories
 
-        parsed_messages = parse_messages(messages)
-
+        parsed_messages_str = parse_messages(messages)
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
-            user_prompt = f"Input:\n{parsed_messages}"
+            user_prompt = f"Input:\n{parsed_messages_str}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages_str)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             response_format={"type": "json_object"},
         )
-
         try:
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            logging.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+            logging.error(f"Error in new_retrieved_facts: {e}"); new_retrieved_facts = []
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-
-        async def process_fact(new_mem):
-            messages_embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem, "add")
-            new_message_embeddings[new_mem] = messages_embeddings
-            existing_memories = await asyncio.to_thread(
-                self.vector_store.search,
-                query=new_mem,
-                vectors=messages_embeddings,
-                limit=5,
-                filters=filters,
+        
+        async def process_fact_for_search(new_mem_content):
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, new_mem_content, "add")
+            new_message_embeddings[new_mem_content] = embeddings
+            existing_mems = await asyncio.to_thread(
+                self.vector_store.search, query=new_mem_content, vectors=embeddings,
+                limit=5, filters=filters, # 'filters' is query_filters_for_inference
             )
-            return [(mem.id, mem.payload["data"]) for mem in existing_memories]
+            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
 
-        fact_tasks = [process_fact(fact) for fact in new_retrieved_facts]
-        fact_results = await asyncio.gather(*fact_tasks)
-
-        for result in fact_results:
-            for mem_id, mem_data in result:
-                retrieved_old_memory.append({"id": mem_id, "text": mem_data})
-
+        search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
+        search_results_list = await asyncio.gather(*search_tasks)
+        for result_group in search_results_list:
+            retrieved_old_memory.extend(result_group)
+        
         unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
+        for item in retrieved_old_memory: unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
-
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
@@ -1200,99 +1295,77 @@ class AsyncMemory(MemoryBase):
         function_calling_prompt = get_update_memory_messages(
             retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
         )
-
         try:
-            response: str = await asyncio.to_thread(
+            response_actions_str = await asyncio.to_thread(
                 self.llm.generate_response,
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}")
-            response = ""
-
+            logging.error(f"Error in new memory actions response: {e}"); response_actions_str = ""
+        
         try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
+            response_actions_str = remove_code_blocks(response_actions_str)
+            new_memories_with_actions = json.loads(response_actions_str)
         except Exception as e:
-            logging.error(f"Invalid JSON response: {e}")
-            new_memories_with_actions = {}
+            logging.error(f"Invalid JSON response: {e}"); new_memories_with_actions = {}
 
-        returned_memories = []
+        returned_memories_infer_true_async = [] # Use a different variable name
         try:
             memory_tasks = []
-            for resp in new_memories_with_actions.get("memory", []):
-                logging.info(resp)
+            for resp_action in new_memories_with_actions.get("memory", []):
+                logging.info(resp_action)
                 try:
-                    if not resp.get("text"):
-                        logging.info("Skipping memory entry because of empty `text` field.")
-                        continue
-                    elif resp.get("event") == "ADD":
-                        task = asyncio.create_task(
-                            self._create_memory(
-                                data=resp.get("text"),
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "ADD", None))
-                    elif resp.get("event") == "UPDATE":
-                        task = asyncio.create_task(
-                            self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
-                                data=resp.get("text"),
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
-                    elif resp.get("event") == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp["id"]]))
-                    elif resp.get("event") == "NONE":
-                        logging.info("NOOP for Memory.")
-                except Exception as e:
-                    logging.error(f"Error in new_memories_with_actions: {e}")
+                    action_text = resp_action.get("text")
+                    if not action_text: continue
+                    event_type = resp_action.get("event")
 
-            for task, resp, event_type, mem_id in memory_tasks:
+                    if event_type == "ADD":
+                        task = asyncio.create_task(self._create_memory(
+                            data=action_text, existing_embeddings=new_message_embeddings,
+                            metadata=deepcopy(metadata)
+                        ))
+                        memory_tasks.append((task, resp_action, "ADD", None))
+                    elif event_type == "UPDATE":
+                        task = asyncio.create_task(self._update_memory(
+                            memory_id=temp_uuid_mapping[resp_action["id"]], data=action_text,
+                            existing_embeddings=new_message_embeddings, metadata=deepcopy(metadata)
+                        ))
+                        memory_tasks.append((task, resp_action, "UPDATE", temp_uuid_mapping[resp_action["id"]]))
+                    elif event_type == "DELETE":
+                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp_action.get("id")]))
+                        memory_tasks.append((task, resp_action, "DELETE", temp_uuid_mapping[resp_action.get("id")]))
+                    elif event_type == "NONE":
+                        logging.info("NOOP for Memory (async).")
+                except Exception as e:
+                    logging.error(f"Error processing memory action (async): {resp_action}, Error: {e}")
+            
+            for task, resp_action, event_type, mem_id in memory_tasks:
                 try:
                     result_id = await task
                     if event_type == "ADD":
-                        returned_memories.append(
-                            {
-                                "id": result_id,
-                                "memory": resp.get("text"),
-                                "event": resp.get("event"),
-                            }
-                        )
+                        returned_memories_infer_true_async.append({
+                            "id": result_id, "memory": resp_action.get("text"), "event": event_type
+                        })
                     elif event_type == "UPDATE":
-                        returned_memories.append(
-                            {
-                                "id": mem_id,
-                                "memory": resp.get("text"),
-                                "event": resp.get("event"),
-                                "previous_memory": resp.get("old_memory"),
-                            }
-                        )
+                        returned_memories_infer_true_async.append({
+                            "id": mem_id, "memory": resp_action.get("text"), 
+                            "event": event_type, "previous_memory": resp_action.get("old_memory")
+                        })
                     elif event_type == "DELETE":
-                        returned_memories.append(
-                            {
-                                "id": mem_id,
-                                "memory": resp.get("text"),
-                                "event": resp.get("event"),
-                            }
-                        )
+                        returned_memories_infer_true_async.append({
+                            "id": mem_id, "memory": resp_action.get("text"), "event": event_type
+                        })
                 except Exception as e:
-                    logging.error(f"Error processing memory task: {e}")
-
+                    logging.error(f"Error awaiting memory task (async): {e}")
         except Exception as e:
-            logging.error(f"Error in new_memories_with_actions: {e}")
-
+            logging.error(f"Error in memory processing loop (async): {e}")
+        
         capture_event(
-            "mem0.add", self, {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "async"}
+            "mem0.add", self, 
+            {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "async"}
         )
-
-        return returned_memories
+        return returned_memories_infer_true_async
 
     async def _add_to_graph(self, messages, filters):
         added_entities = []
@@ -1325,7 +1398,9 @@ class AsyncMemory(MemoryBase):
             "agent_id",       
             "run_id",         
             "conversation_id",
-            "participant_id" 
+            "participant_id",
+            "actor_id",
+            "role",
         ]
         
         core_and_promoted_keys = {
@@ -1339,7 +1414,7 @@ class AsyncMemory(MemoryBase):
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
-        ).model_dump() # Exclude score if it's part of MemoryItem and None here
+        ).model_dump()
 
         for key in promoted_payload_keys:
             if key in memory.payload:
@@ -1361,6 +1436,7 @@ class AsyncMemory(MemoryBase):
         run_id: Optional[str] = None,
         conversation_id: Optional[str] = None,
         participant_id: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
         """
@@ -1382,6 +1458,9 @@ class AsyncMemory(MemoryBase):
             conversation_id (str, optional): Identifier for a shared conversation. Activates group mode.
             participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
                 Only used if 'conversation_id' is also provided.
+            filters (dict, optional): Additional custom key-value filters to apply to the search.
+                These are merged with the ID-based scoping filters. For example, 
+                `filters={"actor_id": "some_user"}`.
             limit (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
@@ -1397,7 +1476,7 @@ class AsyncMemory(MemoryBase):
             run_id=run_id,
             conversation_id=conversation_id,
             participant_id=participant_id,
-            input_filters=None 
+            input_filters=filters 
         )
 
         if not conversation_id: 
@@ -1437,16 +1516,19 @@ class AsyncMemory(MemoryBase):
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            return all_memories_result # Returns list for v1.0
+            return all_memories_result
         else:
-            return {"results": all_memories_result} # Returns dict for v1.1+
+            return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+        actual_memories = memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
 
         promoted_payload_keys = [
             "user_id", "agent_id", "run_id",
-            "conversation_id", "participant_id"
+            "conversation_id", "participant_id",
+            "actor_id",
+            "role",
         ]
         core_and_promoted_keys = {
             "data", "hash", "created_at", "updated_at", "id",
@@ -1454,7 +1536,7 @@ class AsyncMemory(MemoryBase):
         }
 
         formatted_memories = []
-        for mem in memories[0]: 
+        for mem in actual_memories: 
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
@@ -1583,11 +1665,13 @@ class AsyncMemory(MemoryBase):
         )
 
         promoted_payload_keys = [
-            "user_id",        
-            "agent_id",       
-            "run_id",         
+            "user_id",
+            "agent_id",
+            "run_id",
             "conversation_id",
-            "participant_id" 
+            "participant_id",
+            "actor_id",
+            "role",
         ]
         
         core_and_promoted_keys = {
@@ -1724,12 +1808,14 @@ class AsyncMemory(MemoryBase):
         await asyncio.to_thread(
             self.db.add_history,
             memory_id,
-            None,  # old_memory
-            data,  # new_memory
+            None,
+            data,
             "ADD",
-            created_at=metadata.get("created_at"), # Use .get for safety
+            created_at=metadata.get("created_at"),
             conversation_id=metadata.get("conversation_id"),
-            participant_id=metadata.get("participant_id")
+            participant_id=metadata.get("participant_id"),
+            actor_id=metadata.get("actor_id"),
+            role=metadata.get("role"),
         )
 
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "async"})
@@ -1777,13 +1863,10 @@ class AsyncMemory(MemoryBase):
             raise ValueError("Metadata cannot be done for procedural memory.")
 
         metadata["memory_type"] = MemoryType.PROCEDURAL.value
-        # Generate embeddings for the summary
         embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
-        # Create the memory
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        # Return results in the same format as add()
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
         return result
@@ -1794,11 +1877,13 @@ class AsyncMemory(MemoryBase):
         try:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         except Exception:
+            logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
-
+        
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
+        
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
@@ -1810,17 +1895,21 @@ class AsyncMemory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-
         if "conversation_id" in existing_memory.payload:
             new_metadata["conversation_id"] = existing_memory.payload["conversation_id"]
-        if "participant_id" in existing_memory.payload:
+        if "participant_id" in existing_memory.payload: # Legacy participant_id from "group chat v1"
             new_metadata["participant_id"] = existing_memory.payload["participant_id"]
+        
+        if "actor_id" in existing_memory.payload:
+            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        if "role" in existing_memory.payload:
+            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
-
+        
         await asyncio.to_thread(
             self.vector_store.update,
             vector_id=memory_id,
@@ -1828,7 +1917,7 @@ class AsyncMemory(MemoryBase):
             payload=new_metadata,
         )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
-
+        
         await asyncio.to_thread(
             self.db.add_history,
             memory_id,
@@ -1839,6 +1928,8 @@ class AsyncMemory(MemoryBase):
             updated_at=new_metadata["updated_at"],
             conversation_id=new_metadata.get("conversation_id"),
             participant_id=new_metadata.get("participant_id"),
+            actor_id=new_metadata.get("actor_id"),
+            role=new_metadata.get("role"),
         )
         capture_event("mem0._update_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
@@ -1857,6 +1948,8 @@ class AsyncMemory(MemoryBase):
             "DELETE",
             conversation_id=existing_memory.payload.get("conversation_id"),
             participant_id=existing_memory.payload.get("participant_id"),
+            actor_id=existing_memory.payload.get("actor_id"),
+            role=existing_memory.payload.get("role"),
             is_deleted=1,
         )
 
