@@ -45,8 +45,8 @@ export const Install = () => {
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
-      ? `http://localhost:8765/mcp/openmemory/sse/${user}`
-      : `npx install-mcp i http://localhost:8765/mcp/${tab}/sse/${user} --client ${tab}`;
+      ? `${process.env.NEXT_PUBLIC_API_URL}/mcp/openmemory/sse/${user}`
+      : `npx install-mcp i ${process.env.NEXT_PUBLIC_API_URL}/mcp/${tab}/sse/${user} --client ${tab}`;
 
     try {
       // Try using the Clipboard API first
@@ -89,7 +89,7 @@ export const Install = () => {
         <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(255,255,255,0.08),_rgba(255,255,255,0))] data-[state=active]:border-[#708090]"></div>
       </div>
 
-      <Tabs defaultValue="cursor" className="w-full">
+      <Tabs defaultValue="claude" className="w-full">
         <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-8">
           {allTabs.map(({ key, label, icon }) => (
             <TabsTrigger
@@ -126,7 +126,7 @@ export const Install = () => {
               <div className="relative">
                 <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                   <code className="text-gray-300">
-                    http://localhost:8000/mcp/openmemory/sse/user
+                    ${process.env.NEXT_PUBLIC_API_URL}/mcp/openmemory/sse/${user}
                   </code>
                 </pre>
                 <div>
@@ -161,7 +161,7 @@ export const Install = () => {
                 <div className="relative">
                   <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                     <code className="text-gray-300">
-                      {`npx install-mcp i http://localhost:8000/mcp/${key}/sse/user --client ${key}`}
+                      {`npx install-mcp i ${process.env.NEXT_PUBLIC_API_URL}/mcp/${key}/sse/${user} --client ${key}`}
                     </code>
                   </pre>
                   <div>
