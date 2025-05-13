@@ -185,6 +185,14 @@
             ]
           },
           {
+            "tab": "OpenMemory",
+            "icon": "square-terminal",
+            "pages": [
+              "openmemory/overview",
+              "openmemory/quickstart"
+            ]
+          },
+          {
             "tab": "Examples",
             "groups": [
               {
