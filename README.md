@@ -15,6 +15,8 @@
   <a href="https://mem0.dev/DiG">Join Discord</a>
   ·
   <a href="https://mem0.dev/demo">Demo</a>
+  ·
+  <a href="https://mem0.dev/openmemory">OpenMemory</a>
 </p>
 
 <p align="center">
