@@ -20,62 +20,14 @@ make up  # runs openmemory mcp server
 make ui   # runs openmemory ui
 ```
 
+After running these commands, you will have:
+- OpenMemory MCP server running at: http://localhost:8765 (API documentation available at http://localhost:8765/docs)
+- OpenMemory UI running at: http://localhost:3000
+
 ## Project Structure
 
 - `api/` - Backend APIs + MCP server
 - `ui/` - Frontend React application
-
-## Getting Started
-
-### Backend Setup
-
-The backend runs in Docker containers. To start the backend:
-
-```bash
-# Copy environment file and edit file to update OPENAI_API_KEY and other secrets
-make env
-
-# Build the containers
-make build
-
-# Start the services
-make up
-```
-
-Other useful backend commands:
-```bash
-# Run database migrations
-make migrate
-
-# View logs
-make logs
-
-# Open a shell in the API container
-make shell
-
-# Run tests
-make test
-
-# Stop the services
-make down
-```
-
-### Frontend Setup
-
-The frontend is a React application. To start the frontend:
-
-```bash
-# Install dependencies and start the production server
-make ui
-```
-
-Next, OpenMemory dashboard will be available at `http://localhost:3000` which will guide you through installing MCP server in your MCP clients.
-
-## Development
-
-- Backend API runs at `http://localhost:8765`
-- Frontend runs at `http://localhost:3000`
-- API documentation is available at `http://localhost:8765/docs`
 
 ## Contributing
 
@@ -96,16 +48,4 @@ How to contribute:
 4. Push to the branch (`git push origin openmemory/feature/amazing-feature`)
 5. Open a Pull Request
 
-We value:
-- Clean, well-documented code
-- Thoughtful discussions about features and improvements
-- Respectful and constructive feedback
-- A welcoming environment for all contributors
-
 Join us in building the future of AI memory management! Your contributions help make OpenMemory better for everyone.
-
-## Roadmap
-- Add support for other LLM providers
-- Support different user ids
-- Set retention period for memories
-
