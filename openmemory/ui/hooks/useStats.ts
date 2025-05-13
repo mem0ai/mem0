@@ -35,7 +35,7 @@ export const useStats = (): UseMemoriesApiReturn => {
   const dispatch = useDispatch<AppDispatch>();
   const user_id = useSelector((state: RootState) => state.profile.userId);
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
   const fetchStats = async () => {
     setIsLoading(true);
