@@ -15,6 +15,7 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 
 You can run the project using the following two commands:
 ```bash
+make build # builds the mcp server
 make up  # runs openmemory mcp server
 make ui   # runs openmemory ui
 ```
