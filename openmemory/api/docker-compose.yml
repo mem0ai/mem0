@@ -6,6 +6,7 @@ services:
     volumes:
       - mem0_storage:/mem0/storage
   api:
+    image: mem0/openmemory-mcp
     build: .
     environment:
       - OPENAI_API_KEY

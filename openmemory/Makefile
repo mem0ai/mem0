@@ -56,7 +56,10 @@ test-clean:
 ui-install:
 	cd ui && pnpm install
 
-ui-start:
-	cd ui && NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) pnpm build && pnpm start
+ui-build:
+	cd ui && pnpm build
 
-ui: ui-install ui-start
+ui-start:
+	cd ui && NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) pnpm start
+
+ui: ui-install ui-build ui-start
