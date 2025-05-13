@@ -1,0 +1,11 @@
+*.db
+.env*
+!.env.example
+.venv/
+__pycache__
+.DS_Store
+node_modules/
+*.log
+api/.openmemory*
+**/.next
+.openmemory/
