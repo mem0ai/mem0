@@ -17,6 +17,12 @@ if [ -z "$OPENAI_API_KEY" ]; then
   exit 1
 fi
 
+# Check if the container "mem0_store" already exists and remove it if necessary
+if [ $(docker ps -aq -f name=mem0_store) ]; then
+  echo "⚠️ Found existing container 'mem0_store'. Removing it..."
+  docker rm -f mem0_store
+fi
+
 # Run Qdrant
 echo "🚀 Starting Qdrant..."
 docker run -d \
@@ -25,9 +31,11 @@ docker run -d \
   -v mem0_storage:/mem0/storage \
   qdrant/qdrant
 
-# Build API container
-echo "🔧 Building API container..."
-docker build -t mem0/openmemory-mcp .
+# Check if the container "mem0_api" already exists and remove it if necessary
+if [ $(docker ps -aq -f name=mem0_api) ]; then
+  echo "⚠️ Found existing container 'mem0_api'. Removing it..."
+  docker rm -f mem0_api
+fi
 
 # Run API container
 echo "🚀 Starting API..."
