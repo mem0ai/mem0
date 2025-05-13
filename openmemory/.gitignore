@@ -1,6 +1,8 @@
 *.db
 .env*
 !.env.example
+!.env.dev
+!ui/lib
 .venv/
 __pycache__
 .DS_Store

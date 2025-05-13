@@ -1,0 +1,13 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mem0/openmemory-ui:latest
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NEXT_PUBLIC_API_URL=NEXT_PUBLIC_API_URL
+      - NEXT_PUBLIC_USER_ID=NEXT_PUBLIC_USER_ID

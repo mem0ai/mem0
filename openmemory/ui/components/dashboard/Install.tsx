@@ -43,10 +43,12 @@ export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const user = process.env.NEXT_PUBLIC_USER_ID || "user";
 
+  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
-      ? `${process.env.NEXT_PUBLIC_API_URL}/mcp/openmemory/sse/${user}`
-      : `npx install-mcp i ${process.env.NEXT_PUBLIC_API_URL}/mcp/${tab}/sse/${user} --client ${tab}`;
+      ? `${URL}/mcp/openmemory/sse/${user}`
+      : `npx install-mcp i ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
 
     try {
       // Try using the Clipboard API first
@@ -126,7 +128,7 @@ export const Install = () => {
               <div className="relative">
                 <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                   <code className="text-gray-300">
-                    ${process.env.NEXT_PUBLIC_API_URL}/mcp/openmemory/sse/${user}
+                    {URL}/mcp/openmemory/sse/{user}
                   </code>
                 </pre>
                 <div>
@@ -161,7 +163,7 @@ export const Install = () => {
                 <div className="relative">
                   <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                     <code className="text-gray-300">
-                      {`npx install-mcp i ${process.env.NEXT_PUBLIC_API_URL}/mcp/${key}/sse/${user} --client ${key}`}
+                      {`npx install-mcp i ${URL}/mcp/${key}/sse/${user} --client ${key}`}
                     </code>
                   </pre>
                   <div>

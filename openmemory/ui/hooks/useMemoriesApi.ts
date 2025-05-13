@@ -104,6 +104,8 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   const memories = useSelector((state: RootState) => state.memories.memories);
   const selectedMemory = useSelector((state: RootState) => state.memories.selectedMemory);
 
+  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
   const fetchMemories = useCallback(async (
     query?: string,
     page: number = 1,
@@ -120,7 +122,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setError(null);
     try {
       const response = await axios.post<ApiResponse>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/filter`,
+        `${URL}/api/v1/memories/filter`,
         {
           user_id: user_id,
           page: page,
@@ -167,7 +169,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         infer: false,
         app: "openmemory",
       }
-      await axios.post<ApiMemoryItem>(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/`, memoryData);
+      await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
       setError(errorMessage);
@@ -178,7 +180,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
 
   const deleteMemories = async (memory_ids: string[]) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/`, {
+      await axios.delete(`${URL}/api/v1/memories/`, {
         data: { memory_ids, user_id }
       });
       dispatch(setMemoriesSuccess(memories.filter((memory: Memory) => !memory_ids.includes(memory.id))));
@@ -198,7 +200,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setError(null);
     try {
       const response = await axios.get<SimpleMemory>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/${memoryId}?user_id=${user_id}`
+        `${URL}/api/v1/memories/${memoryId}?user_id=${user_id}`
       );
       setIsLoading(false);
       dispatch(setSelectedMemory(response.data));
@@ -218,7 +220,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setError(null);
     try {
       const response = await axios.get<AccessLogResponse>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/${memoryId}/access-log?page=${page}&page_size=${pageSize}`
+        `${URL}/api/v1/memories/${memoryId}/access-log?page=${page}&page_size=${pageSize}`
       );
       setIsLoading(false);
       dispatch(setAccessLogs(response.data.logs));
@@ -238,7 +240,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setError(null);
     try {
       const response = await axios.get<RelatedMemoriesResponse>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/${memoryId}/related?user_id=${user_id}`
+        `${URL}/api/v1/memories/${memoryId}/related?user_id=${user_id}`
       );
 
       const adaptedMemories: Memory[] = response.data.items.map((item: RelatedMemoryItem) => ({
@@ -269,7 +271,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/${memoryId}`, {
+      await axios.put(`${URL}/api/v1/memories/${memoryId}`, {
         memory_id: memoryId,
         memory_content: content,
         user_id: user_id
@@ -291,7 +293,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/memories/actions/pause`, {
+      await axios.post(`${URL}/api/v1/memories/actions/pause`, {
         memory_ids: memoryIds,
         all_for_app: true,
         state: state,
