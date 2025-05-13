@@ -9,9 +9,12 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 - Node.js (for frontend development)
 - OpenAI API Key (required for LLM interactions)
 
-Make sure to set your OpenAI API key as an environment variable:
+## Quickstart
+
+You can run the project using the following two commands:
 ```bash
-export OPENAI_API_KEY=your_api_key_here
+make api  # runs openmemory mcp server
+make ui   # runs openmemory ui
 ```
 
 ## Project Structure
