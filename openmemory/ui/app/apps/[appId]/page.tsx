@@ -1,29 +1,34 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
-import { useSelector } from "react-redux"
-import { RootState } from "@/store/store"
-import { useAppsApi } from "@/hooks/useAppsApi"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MemoryCard } from "./components/MemoryCard"
-import AppDetailCard from "./components/AppDetailCard"
-import "@/styles/animation.css"
-import NotFound from "@/app/not-found"
-import { AppDetailCardSkeleton } from "@/skeleton/AppDetailCardSkeleton"
-import { MemoryCardSkeleton } from "@/skeleton/MemoryCardSkeleton"
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
+import { useAppsApi } from "@/hooks/useAppsApi";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MemoryCard } from "./components/MemoryCard";
+import AppDetailCard from "./components/AppDetailCard";
+import "@/styles/animation.css";
+import NotFound from "@/app/not-found";
+import { AppDetailCardSkeleton } from "@/skeleton/AppDetailCardSkeleton";
+import { MemoryCardSkeleton } from "@/skeleton/MemoryCardSkeleton";
 
 export default function AppDetailsPage() {
-  const params = useParams()
-  const appId = params.appId as string
-  const [activeTab, setActiveTab] = useState("created")
+  const params = useParams();
+  const appId = params.appId as string;
+  const [activeTab, setActiveTab] = useState("created");
 
-  const { fetchAppDetails, fetchAppMemories, fetchAppAccessedMemories, fetchApps } = useAppsApi()
-  const selectedApp = useSelector((state: RootState) => state.apps.selectedApp)
+  const {
+    fetchAppDetails,
+    fetchAppMemories,
+    fetchAppAccessedMemories,
+    fetchApps,
+  } = useAppsApi();
+  const selectedApp = useSelector((state: RootState) => state.apps.selectedApp);
 
   useEffect(() => {
-    fetchApps({})
-  }, [fetchApps])
+    fetchApps({});
+  }, [fetchApps]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,10 +38,10 @@ export default function AppDetailsPage() {
           await Promise.all([
             fetchAppDetails(appId),
             fetchAppMemories(appId),
-            fetchAppAccessedMemories(appId)
+            fetchAppAccessedMemories(appId),
           ]);
         } catch (error) {
-          console.error('Error loading app data:', error);
+          console.error("Error loading app data:", error);
         }
       }
     };
@@ -45,7 +50,9 @@ export default function AppDetailsPage() {
   }, [appId, fetchAppDetails, fetchAppMemories, fetchAppAccessedMemories]);
 
   if (selectedApp.error) {
-    return <NotFound message={selectedApp.error} title="Error loading app details" />;
+    return (
+      <NotFound message={selectedApp.error} title="Error loading app details" />
+    );
   }
 
   if (!selectedApp.details) {
@@ -84,11 +91,15 @@ export default function AppDetailsPage() {
     }
 
     if (memories.error) {
-      return <NotFound message={memories.error} title="Error loading memories" />;
+      return (
+        <NotFound message={memories.error} title="Error loading memories" />
+      );
     }
 
     if (memories.items.length === 0) {
-      return <div className="text-zinc-400 text-center py-8">No memories found</div>;
+      return (
+        <div className="text-zinc-400 text-center py-8">No memories found</div>
+      );
     }
 
     return memories.items.map((memory) => (
@@ -135,7 +146,10 @@ export default function AppDetailsPage() {
     }
 
     return memories.items.map((accessedMemory) => (
-      <div key={accessedMemory.memory.id + accessedMemory.memory.created_at} className="relative">
+      <div
+        key={accessedMemory.memory.id + accessedMemory.memory.created_at}
+        className="relative"
+      >
         <MemoryCard
           id={accessedMemory.memory.id}
           content={accessedMemory.memory.content}
@@ -155,27 +169,41 @@ export default function AppDetailsPage() {
       <div className="container flex justify-between">
         {/* Main content area */}
         <div className="flex-1 p-4 max-w-4xl animate-fade-slide-down">
-          <Tabs defaultValue="created" className="mb-6" onValueChange={setActiveTab}>
+          <Tabs
+            defaultValue="created"
+            className="mb-6"
+            onValueChange={setActiveTab}
+          >
             <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-8 p-0">
               <TabsTrigger
                 value="created"
-                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none ${activeTab === "created" ? "text-white" : "text-zinc-400"}`}
+                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none ${
+                  activeTab === "created" ? "text-white" : "text-zinc-400"
+                }`}
               >
                 Created ({selectedApp.memories.created.total})
               </TabsTrigger>
               <TabsTrigger
                 value="accessed"
-                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none ${activeTab === "accessed" ? "text-white" : "text-zinc-400"}`}
+                className={`px-0 pb-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none ${
+                  activeTab === "accessed" ? "text-white" : "text-zinc-400"
+                }`}
               >
                 Accessed ({selectedApp.memories.accessed.total})
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="created" className="mt-6 space-y-6 animate-fade-slide-down delay-1">
+            <TabsContent
+              value="created"
+              className="mt-6 space-y-6 animate-fade-slide-down delay-1"
+            >
               {renderCreatedMemories()}
             </TabsContent>
 
-            <TabsContent value="accessed" className="mt-6 space-y-6 animate-fade-slide-down delay-1">
+            <TabsContent
+              value="accessed"
+              className="mt-6 space-y-6 animate-fade-slide-down delay-1"
+            >
               {renderAccessedMemories()}
             </TabsContent>
           </Tabs>
@@ -188,4 +216,4 @@ export default function AppDetailsPage() {
       </div>
     </div>
   );
-} 
+}

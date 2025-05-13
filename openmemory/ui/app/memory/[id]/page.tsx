@@ -14,7 +14,9 @@ import NotFound from "@/app/not-found";
 
 function MemoryContent({ id }: { id: string }) {
   const { fetchMemoryById, isLoading, error } = useMemoriesApi();
-  const memory = useSelector((state: RootState) => state.memories.selectedMemory);
+  const memory = useSelector(
+    (state: RootState) => state.memories.selectedMemory
+  );
 
   useEffect(() => {
     const loadMemory = async () => {
@@ -52,17 +54,16 @@ export default function MemoryPage({
   return (
     <div>
       <div className="animate-fade-slide-down delay-1">
-      <UpdateMemory
-        memoryId={updateMemoryDialog.memoryId || ""}
-        memoryContent={updateMemoryDialog.memoryContent || ""}
-        open={updateMemoryDialog.isOpen}
-        onOpenChange={handleCloseUpdateMemoryDialog}
+        <UpdateMemory
+          memoryId={updateMemoryDialog.memoryId || ""}
+          memoryContent={updateMemoryDialog.memoryContent || ""}
+          open={updateMemoryDialog.isOpen}
+          onOpenChange={handleCloseUpdateMemoryDialog}
         />
-        </div>
-        <div className="animate-fade-slide-down delay-2">
-
-      <MemoryContent id={resolvedParams.id} />
-        </div>
+      </div>
+      <div className="animate-fade-slide-down delay-2">
+        <MemoryContent id={resolvedParams.id} />
+      </div>
     </div>
   );
 }

@@ -1,11 +1,10 @@
-import { PauseIcon } from "lucide-react"
-import Image from "next/image"
-import { useEffect, useState } from "react"
-import { useMemoriesApi } from "@/hooks/useMemoriesApi"
-import { constants } from "@/components/shared/source-app"
-import { useDispatch, useSelector } from "react-redux"
-import { RootState } from "@/store/store"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import { constants } from "@/components/shared/source-app";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AccessLogEntry {
   id: string;
@@ -19,7 +18,9 @@ interface AccessLogProps {
 
 export function AccessLog({ memoryId }: AccessLogProps) {
   const { fetchAccessLogs } = useMemoriesApi();
-  const accessEntries = useSelector((state: RootState) => state.memories.accessLogs);
+  const accessEntries = useSelector(
+    (state: RootState) => state.memories.accessLogs
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export function AccessLog({ memoryId }: AccessLogProps) {
       try {
         await fetchAccessLogs(memoryId);
       } catch (error) {
-        console.error('Failed to fetch access logs:', error);
+        console.error("Failed to fetch access logs:", error);
       } finally {
         setIsLoading(false);
       }
@@ -55,15 +56,19 @@ export function AccessLog({ memoryId }: AccessLogProps) {
       </div>
 
       <ScrollArea className="p-6 max-h-[450px]">
-        {
-            accessEntries.length === 0 && <div className="w-full max-w-md mx-auto rounded-3xl overflow-hidden min-h-[110px] flex items-center justify-center text-white p-6">
-            <p className="text-center text-zinc-500">No access logs available</p>
+        {accessEntries.length === 0 && (
+          <div className="w-full max-w-md mx-auto rounded-3xl overflow-hidden min-h-[110px] flex items-center justify-center text-white p-6">
+            <p className="text-center text-zinc-500">
+              No access logs available
+            </p>
           </div>
-        }
+        )}
         <ul className="space-y-8">
           {accessEntries.map((entry: AccessLogEntry, index: number) => {
-            const appConfig = constants[entry.app_name as keyof typeof constants] || constants.default;
-            
+            const appConfig =
+              constants[entry.app_name as keyof typeof constants] ||
+              constants.default;
+
             return (
               <li key={entry.id} className="relative flex items-start gap-4">
                 <div className="relative z-10 rounded-full overflow-hidden bg-[#2a2a2a] w-8 h-8 flex items-center justify-center flex-shrink-0">
@@ -89,15 +94,16 @@ export function AccessLog({ memoryId }: AccessLogProps) {
                 <div className="flex flex-col">
                   <span className="font-medium">{appConfig.name}</span>
                   <span className="text-zinc-400 text-sm">
-                    {
-                      new Date(entry.accessed_at + "Z").toLocaleDateString("en-US", {
+                    {new Date(entry.accessed_at + "Z").toLocaleDateString(
+                      "en-US",
+                      {
                         year: "numeric",
                         month: "short",
                         day: "numeric",
                         hour: "numeric",
                         minute: "numeric",
-                      })
-                    }
+                      }
+                    )}
                   </span>
                 </div>
               </li>
@@ -107,4 +113,4 @@ export function AccessLog({ memoryId }: AccessLogProps) {
       </ScrollArea>
     </div>
   );
-} 
+}

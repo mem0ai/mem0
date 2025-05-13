@@ -1,5 +1,5 @@
 "use client";
-import { SimpleMemory, useMemoriesApi } from "@/hooks/useMemoriesApi";
+import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import { MemoryActions } from "./MemoryActions";
 import { ArrowLeft, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,12 @@ interface MemoryDetailsProps {
   memory_id: string;
 }
 
-export function MemoryDetails({
-  memory_id,
-}: MemoryDetailsProps) {
+export function MemoryDetails({ memory_id }: MemoryDetailsProps) {
   const router = useRouter();
   const { fetchMemoryById, hasUpdates } = useMemoriesApi();
-  const memory = useSelector((state: RootState) => state.memories.selectedMemory);
+  const memory = useSelector(
+    (state: RootState) => state.memories.selectedMemory
+  );
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -53,7 +53,10 @@ export function MemoryDetails({
             <div className="flex px-6 py-3 justify-between items-center mb-6 bg-zinc-800 border-b border-zinc-800">
               <div className="flex items-center gap-2">
                 <h1 className="font-semibold text-white">
-                  Memory <span className="ml-1 text-zinc-400 text-sm font-normal">#{memory?.id?.slice(0, 6)}</span>
+                  Memory{" "}
+                  <span className="ml-1 text-zinc-400 text-sm font-normal">
+                    #{memory?.id?.slice(0, 6)}
+                  </span>
                 </h1>
                 <Button
                   variant="ghost"
@@ -68,35 +71,65 @@ export function MemoryDetails({
                   )}
                 </Button>
               </div>
-              <MemoryActions memoryId={memory?.id || ""} memoryContent={memory?.text || ""} memoryState={memory?.state || ""} />
+              <MemoryActions
+                memoryId={memory?.id || ""}
+                memoryContent={memory?.text || ""}
+                memoryState={memory?.state || ""}
+              />
             </div>
 
             <div className="px-6 py-2">
               <div className="border-l-2 border-primary pl-4 mb-6">
-                <p className={`${memory?.state === "archived" || memory?.state === "paused" ? "text-zinc-400" : "text-white"}`}>{memory?.text}</p>
+                <p
+                  className={`${
+                    memory?.state === "archived" || memory?.state === "paused"
+                      ? "text-zinc-400"
+                      : "text-white"
+                  }`}
+                >
+                  {memory?.text}
+                </p>
               </div>
 
               <div className="mt-6 pt-4 border-t border-zinc-800">
                 <div className="flex justify-between items-center">
-                <div className="">
-                      <Categories categories={memory?.categories || []} isPaused={memory?.state === "archived" || memory?.state === "paused"} />
-                    </div>
+                  <div className="">
+                    <Categories
+                      categories={memory?.categories || []}
+                      isPaused={
+                        memory?.state === "archived" ||
+                        memory?.state === "paused"
+                      }
+                    />
+                  </div>
                   <div className="flex items-center gap-2 min-w-[300px] justify-end">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 bg-zinc-700 px-3 py-1 rounded-lg">
-                      <span className="text-sm text-zinc-400">
-                        Created by: 
-                      </span>
-                    <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
-                      <Image src={constants[memory?.app_name as keyof typeof constants]?.iconImage || ""} alt="OpenMemory" width={24} height={24} />
-                    </div>
-                    <p className="text-sm text-zinc-100 font-semibold">
-                      {constants[memory?.app_name as keyof typeof constants]?.name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 bg-zinc-700 px-3 py-1 rounded-lg">
+                        <span className="text-sm text-zinc-400">
+                          Created by:
+                        </span>
+                        <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+                          <Image
+                            src={
+                              constants[
+                                memory?.app_name as keyof typeof constants
+                              ]?.iconImage || ""
+                            }
+                            alt="OpenMemory"
+                            width={24}
+                            height={24}
+                          />
+                        </div>
+                        <p className="text-sm text-zinc-100 font-semibold">
+                          {
+                            constants[
+                              memory?.app_name as keyof typeof constants
+                            ]?.name
+                          }
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  </div>
-                  
                 </div>
 
                 {/* <div className="flex justify-end gap-2 w-full mt-2">
@@ -104,7 +137,6 @@ export function MemoryDetails({
                     {new Date(memory.created_at).toLocaleString()}
                   </p>
                 </div> */}
-
               </div>
             </div>
           </div>

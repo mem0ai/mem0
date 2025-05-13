@@ -12,7 +12,9 @@ interface RelatedMemoriesProps {
 
 export function RelatedMemories({ memoryId }: RelatedMemoriesProps) {
   const { fetchRelatedMemories } = useMemoriesApi();
-  const relatedMemories = useSelector((state: RootState) => state.memories.relatedMemories);
+  const relatedMemories = useSelector(
+    (state: RootState) => state.memories.relatedMemories
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export function RelatedMemories({ memoryId }: RelatedMemoriesProps) {
       try {
         await fetchRelatedMemories(memoryId);
       } catch (error) {
-        console.error('Failed to fetch related memories:', error);
+        console.error("Failed to fetch related memories:", error);
       } finally {
         setIsLoading(false);
       }
@@ -52,24 +54,33 @@ export function RelatedMemories({ memoryId }: RelatedMemoriesProps) {
       </div>
       <div className="space-y-6 p-6">
         {relatedMemories.map((memory: Memory) => (
-          <div key={memory.id} className="border-l-2 border-zinc-800 pl-6 py-1 hover:bg-zinc-700/10 transition-colors cursor-pointer">
+          <div
+            key={memory.id}
+            className="border-l-2 border-zinc-800 pl-6 py-1 hover:bg-zinc-700/10 transition-colors cursor-pointer"
+          >
             <Link href={`/memory/${memory.id}`}>
-            <h3 className="font-medium mb-3">{memory.memory}</h3>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Categories categories={memory.categories} isPaused={memory.state === "paused" || memory.state === "archived"} concat={true} />
-                {memory.state !== "active" && (
-              <span className="inline-block px-3 border border-yellow-600 text-yellow-600 font-semibold text-xs rounded-full bg-yellow-400/10 backdrop-blur-sm">
-                {memory.state === "paused" ? "Paused" : "Archived"}
-              </span>
-            )}
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-zinc-400 text-sm">
-                  {formatDate(memory.created_at)}
+              <h3 className="font-medium mb-3">{memory.memory}</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Categories
+                    categories={memory.categories}
+                    isPaused={
+                      memory.state === "paused" || memory.state === "archived"
+                    }
+                    concat={true}
+                  />
+                  {memory.state !== "active" && (
+                    <span className="inline-block px-3 border border-yellow-600 text-yellow-600 font-semibold text-xs rounded-full bg-yellow-400/10 backdrop-blur-sm">
+                      {memory.state === "paused" ? "Paused" : "Archived"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-zinc-400 text-sm">
+                    {formatDate(memory.created_at)}
+                  </div>
                 </div>
               </div>
-            </div>
             </Link>
           </div>
         ))}

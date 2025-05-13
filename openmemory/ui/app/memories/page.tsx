@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 import { MemoriesSection } from "@/app/memories/components/MemoriesSection";
 import { MemoryFilters } from "@/app/memories/components/MemoryFilters";
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from "next/navigation";
 import "@/styles/animation.css";
-import UpdateMemory from '@/components/shared/update-memory';
-import { useUI } from '@/hooks/useUI';
+import UpdateMemory from "@/components/shared/update-memory";
+import { useUI } from "@/hooks/useUI";
 
 export default function MemoriesPage() {
   const router = useRouter();
@@ -14,10 +14,10 @@ export default function MemoriesPage() {
   const { updateMemoryDialog, handleCloseUpdateMemoryDialog } = useUI();
   useEffect(() => {
     // Set default pagination values if not present in URL
-    if (!searchParams.has('page') || !searchParams.has('size')) {
+    if (!searchParams.has("page") || !searchParams.has("size")) {
       const params = new URLSearchParams(searchParams.toString());
-      if (!searchParams.has('page')) params.set('page', '1');
-      if (!searchParams.has('size')) params.set('size', '10');
+      if (!searchParams.has("page")) params.set("page", "1");
+      if (!searchParams.has("size")) params.set("size", "10");
       router.push(`?${params.toString()}`);
     }
   }, []);
@@ -41,5 +41,5 @@ export default function MemoriesPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

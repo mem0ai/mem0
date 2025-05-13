@@ -21,7 +21,6 @@ export default function NotFound({
   message = "Page Not Found",
   title,
 }: NotFoundProps) {
-    
   const potentialStatusCode = getStatusCode(message);
 
   return (
@@ -32,7 +31,11 @@ export default function NotFound({
           <div className="bee-sketch blue"></div>
         </div>
         <h1>
-          {statusCode ? `${statusCode}:` : potentialStatusCode ? `${potentialStatusCode}:` : "404"}
+          {statusCode
+            ? `${statusCode}:`
+            : potentialStatusCode
+            ? `${potentialStatusCode}:`
+            : "404"}
           <small>{title || message || "Page Not Found"}</small>
         </h1>
       </div>

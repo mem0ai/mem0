@@ -17,17 +17,21 @@ interface MemoryActionsProps {
   memoryState: string;
 }
 
-export function MemoryActions({ memoryId, memoryContent, memoryState }: MemoryActionsProps) {
+export function MemoryActions({
+  memoryId,
+  memoryContent,
+  memoryState,
+}: MemoryActionsProps) {
   const { handleOpenUpdateMemoryDialog } = useUI();
   const { updateMemoryState, isLoading } = useMemoriesApi();
-  
+
   const handleEdit = () => {
     handleOpenUpdateMemoryDialog(memoryId, memoryContent);
-  }
+  };
 
   const handleStateChange = (newState: string) => {
     updateMemoryState([memoryId], newState);
-  }
+  };
 
   const getStateLabel = () => {
     switch (memoryState) {
@@ -38,7 +42,7 @@ export function MemoryActions({ memoryId, memoryContent, memoryState }: MemoryAc
       default:
         return "Active";
     }
-  }
+  };
 
   const getStateIcon = () => {
     switch (memoryState) {
@@ -49,16 +53,16 @@ export function MemoryActions({ memoryId, memoryContent, memoryState }: MemoryAc
       default:
         return <Play className="h-3 w-3 mr-2" />;
     }
-  }
+  };
 
   return (
     <div className="flex gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button 
-            disabled={isLoading} 
-            variant="outline" 
-            size="sm" 
+          <Button
+            disabled={isLoading}
+            variant="outline"
+            size="sm"
             className="shadow-md bg-zinc-900 border border-zinc-700/50 hover:bg-zinc-950 text-zinc-400"
           >
             <span className="font-semibold">{getStateLabel()}</span>
@@ -95,11 +99,11 @@ export function MemoryActions({ memoryId, memoryContent, memoryState }: MemoryAc
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Button 
-        disabled={isLoading} 
-        variant="outline" 
-        size="sm" 
-        onClick={handleEdit} 
+      <Button
+        disabled={isLoading}
+        variant="outline"
+        size="sm"
+        onClick={handleEdit}
         className="shadow-md bg-zinc-900 border border-zinc-700/50 hover:bg-zinc-950 text-zinc-400"
       >
         <Pencil className="h-3 w-3 -mr-1" />
@@ -107,4 +111,4 @@ export function MemoryActions({ memoryId, memoryContent, memoryState }: MemoryAc
       </Button>
     </div>
   );
-} 
+}

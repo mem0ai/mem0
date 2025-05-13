@@ -17,27 +17,30 @@ const clientTabs = [
 ];
 
 const colorGradientMap: { [key: string]: string } = {
-  claude: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]',
-  cline: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(112,128,144,0.3),_rgba(112,128,144,0))] data-[state=active]:border-[#708090]',
-  cursor: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(255,255,255,0.08),_rgba(255,255,255,0))] data-[state=active]:border-[#708090]',
-  roocline: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(45,32,92,0.8),_rgba(45,32,92,0))] data-[state=active]:border-[#7E3FF2]',
-  windsurf: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(0,176,137,0.3),_rgba(0,176,137,0))] data-[state=active]:border-[#00B089]',
-  witsy: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(33,135,255,0.3),_rgba(33,135,255,0))] data-[state=active]:border-[#2187FF]',
-  enconvo: 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]',
+  claude:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]",
+  cline:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(112,128,144,0.3),_rgba(112,128,144,0))] data-[state=active]:border-[#708090]",
+  cursor:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(255,255,255,0.08),_rgba(255,255,255,0))] data-[state=active]:border-[#708090]",
+  roocline:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(45,32,92,0.8),_rgba(45,32,92,0))] data-[state=active]:border-[#7E3FF2]",
+  windsurf:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(0,176,137,0.3),_rgba(0,176,137,0))] data-[state=active]:border-[#00B089]",
+  witsy:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(33,135,255,0.3),_rgba(33,135,255,0))] data-[state=active]:border-[#2187FF]",
+  enconvo:
+    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]",
 };
 
 const getColorGradient = (color: string) => {
   if (colorGradientMap[color]) {
     return colorGradientMap[color];
   }
-  return 'data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]';
+  return "data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]";
 };
 
-
-const allTabs = [
-  { key: "mcp", label: "MCP Link", icon: "🔗" },
-  ...clientTabs,
-];
+const allTabs = [{ key: "mcp", label: "MCP Link", icon: "🔗" }, ...clientTabs];
 
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
@@ -56,13 +59,13 @@ export const Install = () => {
         await navigator.clipboard.writeText(text);
       } else {
         // Fallback: Create a temporary textarea element
-        const textarea = document.createElement('textarea');
+        const textarea = document.createElement("textarea");
         textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
         document.body.appendChild(textarea);
         textarea.select();
-        document.execCommand('copy');
+        document.execCommand("copy");
         document.body.removeChild(textarea);
       }
 
@@ -70,7 +73,7 @@ export const Install = () => {
       setCopiedTab(tab);
       setTimeout(() => setCopiedTab(null), 1500); // Reset after 1.5s
     } catch (error) {
-      console.error('Failed to copy text:', error);
+      console.error("Failed to copy text:", error);
       // You might want to add a toast notification here to show the error
     }
   };
@@ -97,7 +100,9 @@ export const Install = () => {
             <TabsTrigger
               key={key}
               value={key}
-              className={`flex-1 px-0 pb-2 rounded-none ${getColorGradient(key)} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center justify-center gap-2 text-sm`}
+              className={`flex-1 px-0 pb-2 rounded-none ${getColorGradient(
+                key
+              )} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center justify-center gap-2 text-sm`}
             >
               {icon.startsWith("/") ? (
                 <div>
@@ -119,9 +124,7 @@ export const Install = () => {
         <TabsContent value="mcp" className="mt-6">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader className="py-4">
-              <CardTitle className="text-white text-xl">
-                MCP Link
-              </CardTitle>
+              <CardTitle className="text-white text-xl">MCP Link</CardTitle>
             </CardHeader>
             <hr className="border-zinc-800" />
             <CardContent className="py-4">
@@ -135,9 +138,9 @@ export const Install = () => {
                   <button
                     className="absolute top-0 right-0 py-3 px-4 rounded-md hover:bg-zinc-600 bg-zinc-700"
                     aria-label="Copy to clipboard"
-                    onClick={() => handleCopy('mcp', true)}
+                    onClick={() => handleCopy("mcp", true)}
                   >
-                    {copiedTab === 'mcp' ? (
+                    {copiedTab === "mcp" ? (
                       <Check className="h-5 w-5 text-green-400" />
                     ) : (
                       <Copy className="h-5 w-5 text-zinc-400" />
@@ -155,7 +158,8 @@ export const Install = () => {
             <Card className="bg-zinc-900 border-zinc-800">
               <CardHeader className="py-4">
                 <CardTitle className="text-white text-xl">
-                  {key.charAt(0).toUpperCase() + key.slice(1)} Installation Command
+                  {key.charAt(0).toUpperCase() + key.slice(1)} Installation
+                  Command
                 </CardTitle>
               </CardHeader>
               <hr className="border-zinc-800" />

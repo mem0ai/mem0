@@ -35,16 +35,20 @@ import {
 } from "@/store/filtersSlice";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 
-const columns = [{
-  label: "Memory",
-  value: "memory"
-}, {
-  label: "App Name",
-  value: "app_name"
-}, {
-  label: "Created On",
-  value: "created_at"
-}];
+const columns = [
+  {
+    label: "Memory",
+    value: "memory",
+  },
+  {
+    label: "App Name",
+    value: "app_name",
+  },
+  {
+    label: "Created On",
+    value: "created_at",
+  },
+];
 
 export default function FilterComponent() {
   const dispatch = useDispatch();
@@ -53,7 +57,9 @@ export default function FilterComponent() {
   const { fetchMemories } = useMemoriesApi();
   const [isOpen, setIsOpen] = useState(false);
   const [tempSelectedApps, setTempSelectedApps] = useState<string[]>([]);
-  const [tempSelectedCategories, setTempSelectedCategories] = useState<string[]>([]);
+  const [tempSelectedCategories, setTempSelectedCategories] = useState<
+    string[]
+  >([]);
   const [showArchived, setShowArchived] = useState(false);
 
   const apps = useSelector((state: RootState) => state.apps.apps);
@@ -125,7 +131,7 @@ export default function FilterComponent() {
       // Update the global state with temporary selections
       dispatch(setSelectedApps(tempSelectedApps));
       dispatch(setSelectedCategories(tempSelectedCategories));
-      dispatch({ type: 'filters/setShowArchived', payload: showArchived });
+      dispatch({ type: "filters/setShowArchived", payload: showArchived });
 
       await fetchMemories(undefined, 1, 10, {
         apps: selectedAppIds,
@@ -180,13 +186,13 @@ export default function FilterComponent() {
   };
 
   const hasActiveFilters =
-    filters.selectedApps.length > 0 || 
-    filters.selectedCategories.length > 0 || 
+    filters.selectedApps.length > 0 ||
+    filters.selectedCategories.length > 0 ||
     filters.showArchived;
 
   const hasTempFilters =
-    tempSelectedApps.length > 0 || 
-    tempSelectedCategories.length > 0 || 
+    tempSelectedApps.length > 0 ||
+    tempSelectedCategories.length > 0 ||
     showArchived;
 
   return (
@@ -200,9 +206,7 @@ export default function FilterComponent() {
             }`}
           >
             <Filter
-              className={`h-4 w-4 ${
-                hasActiveFilters ? "text-primary" : ""
-              }`}
+              className={`h-4 w-4 ${hasActiveFilters ? "text-primary" : ""}`}
             />
             Filter
             {hasActiveFilters && (
@@ -329,7 +333,9 @@ export default function FilterComponent() {
                   <Checkbox
                     id="show-archived"
                     checked={showArchived}
-                    onCheckedChange={(checked) => setShowArchived(checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      setShowArchived(checked as boolean)
+                    }
                     className="border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                   <Label
@@ -348,9 +354,9 @@ export default function FilterComponent() {
               <Button
                 onClick={handleClearFilters}
                 className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
-            >
-              Clear All
-            </Button>
+              >
+                Clear All
+              </Button>
             )}
             {/* Apply filters button */}
             <Button

@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,14 +8,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { useState, useRef, useEffect } from "react"
-import { Loader2 } from "lucide-react"
-import { useMemoriesApi } from "@/hooks/useMemoriesApi"
-import { toast } from "sonner"
-import { Textarea } from "@/components/ui/textarea"
-import { usePathname } from "next/navigation"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useRef } from "react";
+import { Loader2 } from "lucide-react";
+import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { usePathname } from "next/navigation";
 
 interface UpdateMemoryProps {
   memoryId: string;
@@ -24,8 +24,14 @@ interface UpdateMemoryProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const UpdateMemory = ({ memoryId, memoryContent, open, onOpenChange }: UpdateMemoryProps) => {
-  const { updateMemory, isLoading, fetchMemories, fetchMemoryById } = useMemoriesApi();
+const UpdateMemory = ({
+  memoryId,
+  memoryContent,
+  open,
+  onOpenChange,
+}: UpdateMemoryProps) => {
+  const { updateMemory, isLoading, fetchMemories, fetchMemoryById } =
+    useMemoriesApi();
   const textRef = useRef<HTMLTextAreaElement>(null);
   const pathname = usePathname();
 
@@ -43,7 +49,7 @@ const UpdateMemory = ({ memoryId, memoryContent, open, onOpenChange }: UpdateMem
       console.error(error);
       toast.error("Failed to update memory");
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,14 +70,24 @@ const UpdateMemory = ({ memoryId, memoryContent, open, onOpenChange }: UpdateMem
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button className="w-[140px]" disabled={isLoading} onClick={() => handleUpdateMemory(textRef?.current?.value || "")}>
-            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Update Memory"}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="w-[140px]"
+            disabled={isLoading}
+            onClick={() => handleUpdateMemory(textRef?.current?.value || "")}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              "Update Memory"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
-export default UpdateMemory
+export default UpdateMemory;

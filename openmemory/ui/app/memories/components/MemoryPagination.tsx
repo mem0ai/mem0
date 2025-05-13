@@ -1,10 +1,10 @@
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface MemoryPaginationProps {
-  currentPage: number
-  totalPages: number
-  setCurrentPage: (page: number) => void
+  currentPage: number;
+  totalPages: number;
+  setCurrentPage: (page: number) => void;
 }
 
 export function MemoryPagination({
@@ -36,5 +36,5 @@ export function MemoryPagination({
         </Button>
       </div>
     </div>
-  )
+  );
 }

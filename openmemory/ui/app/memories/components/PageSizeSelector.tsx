@@ -4,15 +4,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 
 interface PageSizeSelectorProps {
-  pageSize: number
-  onPageSizeChange: (size: number) => void
+  pageSize: number;
+  onPageSizeChange: (size: number) => void;
 }
 
-export function PageSizeSelector({ pageSize, onPageSizeChange }: PageSizeSelectorProps) {
-  const pageSizeOptions = [10, 20, 50, 100]
+export function PageSizeSelector({
+  pageSize,
+  onPageSizeChange,
+}: PageSizeSelectorProps) {
+  const pageSizeOptions = [10, 20, 50, 100];
 
   return (
     <div className="flex items-center gap-2">
@@ -34,7 +37,7 @@ export function PageSizeSelector({ pageSize, onPageSizeChange }: PageSizeSelecto
       </Select>
       <span className="text-sm text-zinc-500">items</span>
     </div>
-  )
+  );
 }
 
-export default PageSizeSelector; 
+export default PageSizeSelector;

@@ -6,12 +6,10 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
 import { constants } from "@/components/shared/source-app";
 import { App } from "@/store/appsSlice";
 import Image from "next/image";
-import { BiEdit } from "react-icons/bi";
 import { useRouter } from "next/navigation";
 
 interface AppCardProps {

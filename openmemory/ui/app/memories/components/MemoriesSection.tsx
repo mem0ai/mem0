@@ -1,59 +1,65 @@
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Category, Client } from "../../../components/types"
-import { MemoryTable } from "./MemoryTable"
-import { MemoryPagination } from "./MemoryPagination"
-import { CreateMemoryDialog } from "./CreateMemoryDialog"
-import { PageSizeSelector } from "./PageSizeSelector"
-import { useMemoriesApi } from "@/hooks/useMemoriesApi"
-import { useRouter, useSearchParams } from "next/navigation"
-import { MemoryTableSkeleton } from "@/skeleton/MemoryTableSkeleton"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Category, Client } from "../../../components/types";
+import { MemoryTable } from "./MemoryTable";
+import { MemoryPagination } from "./MemoryPagination";
+import { CreateMemoryDialog } from "./CreateMemoryDialog";
+import { PageSizeSelector } from "./PageSizeSelector";
+import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import { useRouter, useSearchParams } from "next/navigation";
+import { MemoryTableSkeleton } from "@/skeleton/MemoryTableSkeleton";
 
 export function MemoriesSection() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { fetchMemories } = useMemoriesApi()
-  const [memories, setMemories] = useState<any[]>([])
-  const [totalItems, setTotalItems] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { fetchMemories } = useMemoriesApi();
+  const [memories, setMemories] = useState<any[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const currentPage = Number(searchParams.get("page")) || 1
-  const itemsPerPage = Number(searchParams.get("size")) || 10
-  const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all")
-  const [selectedClient, setSelectedClient] = useState<Client | "all">("all")
+  const currentPage = Number(searchParams.get("page")) || 1;
+  const itemsPerPage = Number(searchParams.get("size")) || 10;
+  const [selectedCategory, setSelectedCategory] = useState<Category | "all">(
+    "all"
+  );
+  const [selectedClient, setSelectedClient] = useState<Client | "all">("all");
 
   useEffect(() => {
     const loadMemories = async () => {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
-        const searchQuery = searchParams.get("search") || ""
-        const result = await fetchMemories(searchQuery, currentPage, itemsPerPage)
-        setMemories(result.memories)
-        setTotalItems(result.total)
-        setTotalPages(result.pages)
+        const searchQuery = searchParams.get("search") || "";
+        const result = await fetchMemories(
+          searchQuery,
+          currentPage,
+          itemsPerPage
+        );
+        setMemories(result.memories);
+        setTotalItems(result.total);
+        setTotalPages(result.pages);
       } catch (error) {
-        console.error("Failed to fetch memories:", error)
+        console.error("Failed to fetch memories:", error);
       }
-      setIsLoading(false)
-    }
+      setIsLoading(false);
+    };
 
-    loadMemories()
-  }, [currentPage, itemsPerPage, fetchMemories, searchParams])
+    loadMemories();
+  }, [currentPage, itemsPerPage, fetchMemories, searchParams]);
 
   const setCurrentPage = (page: number) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set("page", page.toString())
-    params.set("size", itemsPerPage.toString())
-    router.push(`?${params.toString()}`)
-  }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    params.set("size", itemsPerPage.toString());
+    router.push(`?${params.toString()}`);
+  };
 
   const handlePageSizeChange = (size: number) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set("page", "1")  // Reset to page 1 when changing page size
-    params.set("size", size.toString())
-    router.push(`?${params.toString()}`)
-  }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1"); // Reset to page 1 when changing page size
+    params.set("size", size.toString());
+    router.push(`?${params.toString()}`);
+  };
 
   if (isLoading) {
     return (
@@ -65,7 +71,7 @@ export function MemoriesSection() {
           <div className="h-8 w-32 bg-zinc-800 rounded animate-pulse" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -81,7 +87,8 @@ export function MemoriesSection() {
               />
               <div className="text-sm text-zinc-500 mr-2">
                 Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} memories
+                {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
+                {totalItems} memories
               </div>
               <MemoryPagination
                 currentPage={currentPage}
@@ -121,8 +128,8 @@ export function MemoriesSection() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setSelectedCategory("all")
-                  setSelectedClient("all")
+                  setSelectedCategory("all");
+                  setSelectedClient("all");
                 }}
               >
                 Clear Filters
@@ -134,5 +141,5 @@ export function MemoriesSection() {
         )}
       </div>
     </div>
-  )
-} 
+  );
+}

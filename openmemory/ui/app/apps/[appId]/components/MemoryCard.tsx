@@ -1,25 +1,38 @@
-import { ArrowRight } from "lucide-react"
-import Categories from "@/components/shared/categories"
-import Link from "next/link"
-import { constants } from "@/components/shared/source-app"
-import Image from "next/image"
+import { ArrowRight } from "lucide-react";
+import Categories from "@/components/shared/categories";
+import Link from "next/link";
+import { constants } from "@/components/shared/source-app";
+import Image from "next/image";
 interface MemoryCardProps {
-  id: string
-  content: string
-  created_at: string
-  metadata?: Record<string, any>
-  categories?: string[]
-  access_count?: number
-  app_name: string
-  state: string
+  id: string;
+  content: string;
+  created_at: string;
+  metadata?: Record<string, any>;
+  categories?: string[];
+  access_count?: number;
+  app_name: string;
+  state: string;
 }
 
-export function MemoryCard({ id, content, created_at, metadata, categories, access_count, app_name, state }: MemoryCardProps) {
+export function MemoryCard({
+  id,
+  content,
+  created_at,
+  metadata,
+  categories,
+  access_count,
+  app_name,
+  state,
+}: MemoryCardProps) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
       <div className="p-4">
         <div className="border-l-2 border-primary pl-4 mb-4">
-          <p className={`${state !== "active" ? "text-zinc-400" : "text-white"}`}>{content}</p>
+          <p
+            className={`${state !== "active" ? "text-zinc-400" : "text-white"}`}
+          >
+            {content}
+          </p>
         </div>
 
         {metadata && Object.keys(metadata).length > 0 && (
@@ -99,4 +112,4 @@ export function MemoryCard({ id, content, created_at, metadata, categories, acce
       </div>
     </div>
   );
-} 
+}

@@ -1,24 +1,24 @@
-"use client"
-import { useEffect } from "react"
-import { useSelector } from "react-redux"
-import { RootState } from "@/store/store"
-import { useAppsApi } from "@/hooks/useAppsApi"
-import { AppCard } from "./AppCard"
-import { AppCardSkeleton } from "@/skeleton/AppCardSkeleton"
+"use client";
+import { useEffect } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
+import { useAppsApi } from "@/hooks/useAppsApi";
+import { AppCard } from "./AppCard";
+import { AppCardSkeleton } from "@/skeleton/AppCardSkeleton";
 
 export function AppGrid() {
-  const { fetchApps, isLoading } = useAppsApi()
-  const apps = useSelector((state: RootState) => state.apps.apps)
-  const filters = useSelector((state: RootState) => state.apps.filters)
+  const { fetchApps, isLoading } = useAppsApi();
+  const apps = useSelector((state: RootState) => state.apps.apps);
+  const filters = useSelector((state: RootState) => state.apps.filters);
 
   useEffect(() => {
     fetchApps({
       name: filters.searchQuery,
-      is_active: filters.isActive === 'all' ? undefined : filters.isActive,
+      is_active: filters.isActive === "all" ? undefined : filters.isActive,
       sort_by: filters.sortBy,
-      sort_direction: filters.sortDirection
-    })
-  }, [fetchApps, filters])
+      sort_direction: filters.sortDirection,
+    });
+  }, [fetchApps, filters]);
 
   if (isLoading) {
     return (
@@ -27,7 +27,7 @@ export function AppGrid() {
           <AppCardSkeleton key={i} />
         ))}
       </div>
-    )
+    );
   }
 
   if (apps.length === 0) {
@@ -35,7 +35,7 @@ export function AppGrid() {
       <div className="text-center text-zinc-500 py-8">
         No apps found matching your filters
       </div>
-    )
+    );
   }
 
   return (
@@ -44,5 +44,5 @@ export function AppGrid() {
         <AppCard key={app.id} app={app} />
       ))}
     </div>
-  )
+  );
 }
