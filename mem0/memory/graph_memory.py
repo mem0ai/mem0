@@ -40,21 +40,20 @@ class MemoryGraph:
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider, self.config.embedder.config, self.config.vector_store.config
         )
-        self.node_label = "__Entity__" if self.config.graph_store.config.base_label else ""
+        self.node_label = ":__Entity__" if self.config.graph_store.config.base_label else ""
 
         if self.config.graph_store.config.base_label:
             # Safely add user_id index
             try:
-                self.graph.query(f"CREATE INDEX entity_single IF NOT EXISTS FOR (n:{self.node_label}) ON (n.user_id)")
+                self.graph.query(f"CREATE INDEX entity_single IF NOT EXISTS FOR (n {self.node_label}) ON (n.user_id)")
             except Exception:
                 pass
-            if self.graph._is_enterprise:  # Create composite index if enterprise
-                try:  # Safely try to add composite index
-                    self.graph.query(
-                        f"CREATE INDEX entity_composite IF NOT EXISTS FOR (n:{self.node_label}) ON (n.name, n.user_id)"
-                    )
-                except Exception:
-                    pass
+            try:  # Safely try to add composite index (Enterprise only)
+                self.graph.query(
+                    f"CREATE INDEX entity_composite IF NOT EXISTS FOR (n {self.node_label}) ON (n.name, n.user_id)"
+                )
+            except Exception:
+                pass
 
         self.llm_provider = "openai_structured"
         if self.config.llm.provider:
@@ -123,9 +122,8 @@ class MemoryGraph:
         return search_results
 
     def delete_all(self, filters):
-        node_label = f":{self.node_label}" if self.node_label else ""
         cypher = f"""
-        MATCH (n {node_label} {{user_id: $user_id}})
+        MATCH (n {self.node_label} {{user_id: $user_id}})
         DETACH DELETE n
         """
         params = {"user_id": filters["user_id"]}
@@ -143,10 +141,9 @@ class MemoryGraph:
                 - 'contexts': The base data store response for each memory.
                 - 'entities': A list of strings representing the nodes and relationships
         """
-        node_label = f":{self.node_label}" if self.node_label else ""
         # return all nodes and relationships
         query = f"""
-        MATCH (n {node_label } {{user_id: $user_id}})-[r]->(m {node_label} {{user_id: $user_id}})
+        MATCH (n {self.node_label} {{user_id: $user_id}})-[r]->(m {self.node_label} {{user_id: $user_id}})
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
@@ -240,12 +237,11 @@ class MemoryGraph:
     def _search_graph_db(self, node_list, filters, limit=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
-        node_label = f":{self.node_label}" if self.node_label else ""
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
 
             cypher_query = f"""
-            MATCH (n {node_label})
+            MATCH (n {self.node_label})
             WHERE n.embedding IS NOT NULL AND n.user_id = $user_id
             WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
             WHERE similarity >= $threshold
@@ -309,11 +305,10 @@ class MemoryGraph:
             relationship = item["relationship"]
 
             # Delete the specific relationship between nodes
-            node_label = f":{self.node_label}" if self.node_label else ""
             cypher = f"""
-            MATCH (n {node_label} {{name: $source_name, user_id: $user_id}})
+            MATCH (n {self.node_label} {{name: $source_name, user_id: $user_id}})
             -[r:{relationship}]->
-            (m {node_label} {{name: $dest_name, user_id: $user_id}})
+            (m {self.node_label} {{name: $dest_name, user_id: $user_id}})
             DELETE r
             RETURN 
                 n.name AS source,
@@ -339,14 +334,12 @@ class MemoryGraph:
             relationship = item["relationship"]
 
             # types
-            node_label = f":{self.node_label}" if self.node_label else ""
-
             source_type = entity_type_map.get(source, "__User__")
-            source_label = node_label if node_label else f":{source_type}"
-            source_extra_set = f", source{node_label}" if node_label else ""
+            source_label = self.node_label if self.node_label else f":{source_type}"
+            source_extra_set = f", source{self.node_label}" if self.node_label else ""
             destination_type = entity_type_map.get(destination, "__User__")
-            destination_label = node_label if node_label else f":{destination_type}"
-            destination_extra_set = f", destination{node_label}" if node_label else ""
+            destination_label = self.node_label if self.node_label else f":{destination_type}"
+            destination_extra_set = f", destination{self.node_label}" if self.node_label else ""
 
             # embeddings
             source_embedding = self.embedding_model.embed(source)
@@ -485,9 +478,8 @@ class MemoryGraph:
         return entity_list
 
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
-        node_label = f":{self.node_label}" if self.node_label else ""
         cypher = f"""
-            MATCH (source_candidate {node_label})
+            MATCH (source_candidate {self.node_label})
             WHERE source_candidate.embedding IS NOT NULL 
             AND source_candidate.user_id = $user_id
 
@@ -512,9 +504,8 @@ class MemoryGraph:
         return result
 
     def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
-        node_label = f":{self.node_label}" if self.node_label else ""
         cypher = f"""
-            MATCH (destination_candidate {node_label})
+            MATCH (destination_candidate {self.node_label})
             WHERE destination_candidate.embedding IS NOT NULL 
             AND destination_candidate.user_id = $user_id
 
