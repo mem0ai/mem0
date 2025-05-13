@@ -81,12 +81,9 @@ fi
 echo "🚀 Starting frontend on port $FRONTEND_PORT..."
 docker run -d \
   --name mem0_ui \
-  --network mem0_network \
+  -p ${FRONTEND_PORT}:3000 \
   -e NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
   -e NEXT_PUBLIC_USER_ID="$USER" \
-  -p ${FRONTEND_PORT}:3000 \
-  -v "$(pwd)":/usr/src/openmemory \
-  mem0/openmemory-ui \
-  sh -c "npm run dev"
+  mem0/openmemory-ui:latest
 
 echo "✅ Frontend is running at http://localhost:$FRONTEND_PORT"
