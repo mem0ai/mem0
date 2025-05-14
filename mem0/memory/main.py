@@ -810,7 +810,10 @@ class AsyncMemory(MemoryBase):
         self.enable_graph = False
 
         if self.config.graph_store.config:
-            from mem0.memory.graph_memory import MemoryGraph
+            if self.config.graph_store.provider == "memgraph":
+                from mem0.memory.memgraph_memory import MemoryGraph
+            else:
+                from mem0.memory.graph_memory import MemoryGraph
 
             self.graph = MemoryGraph(self.config)
             self.enable_graph = True
