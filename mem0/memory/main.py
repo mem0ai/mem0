@@ -34,34 +34,27 @@ from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 
 def _build_filters_and_metadata(
+    *, # Enforce keyword-only arguments
     user_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     run_id: Optional[str] = None,
-    conversation_id: Optional[str] = None,
-    participant_id: Optional[str] = None,
-    actor_id: Optional[str] = None,
+    actor_id: Optional[str] = None, # For query-time filtering
     input_metadata: Optional[Dict[str, Any]] = None,
     input_filters: Optional[Dict[str, Any]] = None,
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Constructs metadata for storage and filters for querying based on session and actor identifiers.
+    
+    This helper ties every memory/query to exactly one session id (`user_id`, `agent_id`, or `run_id`) and optionally narrows queries to a specific `actor_id`.  It returns two dicts:
 
-    This function determines the appropriate session context (Group Mode via `conversation_id`
-    or Classic Mode via `user_id`, `agent_id`, or `run_id`) and prepares two key dictionaries:
+
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
        It includes the primary session identifier(s) and any `input_metadata`.
     2. `effective_query_filters`: Used for querying existing memories. It includes the
        primary session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
 
-    The function prioritizes `conversation_id` for Group Mode. If not provided, it falls
-    back to Classic Mode, using `user_id`, `agent_id`, or `run_id` as the session key.
-    Auxiliary identifiers like `agent_id` and `run_id` can be included in both modes
-    if provided.
-
-    For actor-specific filtering within `effective_query_filters`, identifiers are resolved
-    with the following precedence: `actor_id` parameter, `participant_id` parameter,
-    `actor_id` from `input_filters`, then `participant_id` from `input_filters` (legacy).
+    Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
     This resolved actor ID is used for querying but is not added to `base_metadata_template`,
     as the actor for storage is typically derived from message content at a later stage.
 
@@ -71,10 +64,6 @@ def _build_filters_and_metadata(
             as auxiliary information in Group Mode.
         run_id (Optional[str]): Run identifier, for Classic Mode session scoping or
             as auxiliary information in Group Mode.
-        conversation_id (Optional[str]): Conversation identifier. If provided, activates
-            Group Mode, making it the primary session scope.
-        participant_id (Optional[str]): Participant identifier, used as a potential source for
-            actor-specific filtering. See actor resolution precedence in the main description.
         actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
             actor-specific filtering. See actor resolution precedence in the main description.
         input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
@@ -89,53 +78,32 @@ def _build_filters_and_metadata(
             - effective_query_filters (Dict[str, Any]): Filters for querying memories,
               scoped to the determined session and potentially a resolved actor.
     """
-
-    base_metadata_template = deepcopy(input_metadata) if input_metadata is not None else {}
     
-  
-    effective_query_filters = deepcopy(input_filters) if input_filters is not None else {}
-
-    final_actor_id_for_filtering = actor_id or participant_id
-    if not final_actor_id_for_filtering and input_filters and "actor_id" in input_filters:
-        final_actor_id_for_filtering = input_filters["actor_id"]
-    elif not final_actor_id_for_filtering and input_filters and "participant_id" in input_filters: # Legacy filter key
-        final_actor_id_for_filtering = input_filters["participant_id"]
-
-
-    if conversation_id:
-        base_metadata_template["conversation_id"] = conversation_id
-        effective_query_filters["conversation_id"] = conversation_id
-
-        if final_actor_id_for_filtering:
-            effective_query_filters["actor_id"] = final_actor_id_for_filtering # Use "actor_id" as the consistent key for filtering
-
-        if agent_id:
-            base_metadata_template["agent_id"] = agent_id
-            if "agent_id" not in effective_query_filters: # Avoid overwriting if already in input_filters
-                effective_query_filters["agent_id"] = agent_id
-        if run_id:
-            base_metadata_template["run_id"] = run_id
-            if "run_id" not in effective_query_filters:
-                effective_query_filters["run_id"] = run_id
-    else:
-        session_context_key: Optional[str] = None
-        session_context_val: Optional[str] = None
-
-        if user_id:
-            session_context_key, session_context_val = "user_id", user_id
-        elif agent_id:
-            session_context_key, session_context_val = "agent_id", agent_id
-        elif run_id:
-            session_context_key, session_context_val = "run_id", run_id
+    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    effective_query_filters = deepcopy(input_filters) if input_filters else {}
+    
+    # ---------- resolve session id (mandatory) ----------
+    session_key, session_val = None, None
+    if user_id:
+        session_key, session_val = "user_id", user_id
+    elif agent_id:
+        session_key, session_val = "agent_id", agent_id
+    elif run_id:
+        session_key, session_val = "run_id", run_id
         
-        if session_context_key and session_context_val:
-            base_metadata_template[session_context_key] = session_context_val
-            effective_query_filters[session_context_key] = session_context_val
-
-        if final_actor_id_for_filtering:
-            effective_query_filters["actor_id"] = final_actor_id_for_filtering
-
+    if session_key is None:
+        raise ValueError("One of 'user_id', 'agent_id', or 'run_id' must be provided.")
+    
+    base_metadata_template[session_key] = session_val
+    effective_query_filters[session_key] = session_val
+    
+    # ---------- optional actor filter ----------
+    resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
+    if resolved_actor_id:
+        effective_query_filters["actor_id"] = resolved_actor_id
+        
     return base_metadata_template, effective_query_filters
+    
 
 setup_config()
 logger = logging.getLogger(__name__)
@@ -217,46 +185,33 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        participant_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
     ):
         """
-        Adds new memories. Operates in one of two modes:
-        1. Classic Mode (if 'conversation_id' is None): Associates memories with a 'user_id', 
-           'agent_id', or 'run_id'. At least one of these must be provided.
-        2. Group Mode (if 'conversation_id' is provided): Associates memories with a shared
-           'conversation_id'. A 'participant_id' can optionally be provided to attribute
-           the memory to a specific participant within that conversation. If 'participant_id'
-           is None, the memory is considered general to the conversation.
+        Create a new memory.
+        
+        Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required.
 
         Args:
             messages (str or List[Dict[str, str]]): The message content or list of messages
                 (e.g., `[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]`)
                 to be processed and stored.
-            user_id (str, optional): Identifier for the user in classic mode (when 'conversation_id' is None).
-            agent_id (str, optional): Identifier for an agent. Can be used in classic mode or as
-                auxiliary context in group mode.
-            run_id (str, optional): Identifier for a specific run or session. Can be used in classic
-                mode or as auxiliary context in group mode.
-            conversation_id (str, optional): Identifier for a shared conversation. Providing this
-                activates group mode.
-            participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
-                Only applicable if 'conversation_id' is also provided.
-            metadata (dict, optional): Custom key-value pairs to store alongside the memory.
-                The system will add 'conversation_id', 'participant_id', etc., to this.
+            user_id (str, optional): ID of the user creating the memory. Defaults to None.
+            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
+            run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
                 If False, 'messages' are added as raw memories directly.
             memory_type (str, optional): Specifies the type of memory. Currently, only
                 `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
-                are treated as general conversational/factual memories.
-            prompt (str, optional): Custom prompt to use for procedural memory creation if
-                'memory_type' is "procedural_memory".
+                are treated as general conversational/factual memories.memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
+            prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+               
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation, typically
@@ -264,23 +219,14 @@ class Memory(MemoryBase):
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
         """
+        
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
-            conversation_id=conversation_id,
-            participant_id=participant_id,
-            input_metadata=metadata
+            input_metadata=metadata,
         )
         
-        if not conversation_id: 
-            if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-                raise ValueError(
-                    "When 'conversation_id' is not provided (classic mode), "
-                    "at least one of 'user_id', 'agent_id', or 'run_id' must be specified."
-                )
-        
-
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
                 f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
@@ -288,6 +234,12 @@ class Memory(MemoryBase):
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
+            
+        elif isinstance(messages, dict):
+            messages = [messages]
+            
+        elif not isinstance(messages, list):
+            raise ValueError("messages must be str, dict, or list[dict]")
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
@@ -300,7 +252,7 @@ class Memory(MemoryBase):
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
-            future2 = executor.submit(self._add_to_graph, messages, effective_filters) # effective_filters also used for graph
+            future2 = executor.submit(self._add_to_graph, messages, effective_filters)
 
             concurrent.futures.wait([future1, future2])
 
@@ -362,12 +314,13 @@ class Memory(MemoryBase):
                 )
             return returned_memories
 
-        parsed_messages_str = parse_messages(messages) 
+        parsed_messages = parse_messages(messages) 
+        
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
-            user_prompt = f"Input:\n{parsed_messages_str}"
+            user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages_str)
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
         response = self.llm.generate_response(
             messages=[
@@ -386,11 +339,11 @@ class Memory(MemoryBase):
 
         retrieved_old_memory = []
         new_message_embeddings = {}
-        for new_mem_content in new_retrieved_facts: 
-            messages_embeddings = self.embedding_model.embed(new_mem_content, "add")
-            new_message_embeddings[new_mem_content] = messages_embeddings
+        for new_mem in new_retrieved_facts: 
+            messages_embeddings = self.embedding_model.embed(new_mem, "add")
+            new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
-                query=new_mem_content,
+                query=new_mem,
                 vectors=messages_embeddings,
                 limit=5,
                 filters=filters,
@@ -404,6 +357,7 @@ class Memory(MemoryBase):
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
 
+        # mapping UUIDs with integers for handling UUID hallucinations
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
@@ -414,60 +368,60 @@ class Memory(MemoryBase):
         )
 
         try:
-            response_actions_str: str = self.llm.generate_response(
+            response: str = self.llm.generate_response(
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
             logging.error(f"Error in new memory actions response: {e}")
-            response_actions_str = ""
+            response = ""
 
         try:
-            response_actions_str = remove_code_blocks(response_actions_str)
-            new_memories_with_actions = json.loads(response_actions_str)
+            response = remove_code_blocks(response)
+            new_memories_with_actions = json.loads(response)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
-        returned_memories_infer_true = []
+        returned_memories = []
         try:
-            for resp_action in new_memories_with_actions.get("memory", []):
-                logging.info(resp_action)
+            for resp in new_memories_with_actions.get("memory", []):
+                logging.info(resp)
                 try:
-                    action_text = resp_action.get("text")
+                    action_text = resp.get("text")
                     if not action_text:
                         logging.info("Skipping memory entry because of empty `text` field.")
                         continue
                     
-                    event_type = resp_action.get("event")
+                    event_type = resp.get("event")
                     if event_type == "ADD":
                         memory_id = self._create_memory(
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
-                        returned_memories_infer_true.append({"id": memory_id, "memory": action_text, "event": event_type})
+                        returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
                         self._update_memory(
-                            memory_id=temp_uuid_mapping[resp_action["id"]],
+                            memory_id=temp_uuid_mapping[resp.get("id")],
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
-                        returned_memories_infer_true.append({
-                            "id": temp_uuid_mapping[resp_action.get("id")], "memory": action_text, 
-                            "event": event_type, "previous_memory": resp_action.get("old_memory"),
+                        returned_memories.append({
+                            "id": temp_uuid_mapping[resp.get("id")], "memory": action_text, 
+                            "event": event_type, "previous_memory": resp.get("old_memory"),
                         })
                     elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp_action.get("id")])
-                        returned_memories_infer_true.append({
-                            "id": temp_uuid_mapping[resp_action.get("id")], "memory": action_text,
+                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
+                        returned_memories.append({
+                            "id": temp_uuid_mapping[resp.get("id")], "memory": action_text,
                             "event": event_type,
                         })
                     elif event_type == "NONE":
                         logging.info("NOOP for Memory.")
                 except Exception as e:
-                    logging.error(f"Error processing memory action: {resp_action}, Error: {e}")
+                    logging.error(f"Error processing memory action: {resp}, Error: {e}")
         except Exception as e:
             logging.error(f"Error iterating new_memories_with_actions: {e}")
 
@@ -476,7 +430,7 @@ class Memory(MemoryBase):
             self,
             {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "sync"},
         )
-        return returned_memories_infer_true
+        return returned_memories
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
@@ -508,8 +462,6 @@ class Memory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
-            "conversation_id",
-            "participant_id",
             "actor_id",
             "role",
         ]
@@ -545,30 +497,16 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        participant_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
         """
-        Lists memories, operating in one of two modes:
-        1. Classic Mode (if 'conversation_id' is None): Lists memories scoped to a 'user_id',
-           'agent_id', or 'run_id'. At least one of these must be specified.
-        2. Group Mode (if 'conversation_id' is provided): Lists memories within the specified
-           'conversation_id'. If 'participant_id' is also provided, the list is further
-           filtered to that participant's contributions. If 'participant_id' is None,
-           memories from all participants (and conversation-level memories) within
-           that conversation are listed.
+        List all memories.
 
         Args:
-            user_id (str, optional): Identifier for the user in classic mode.
-            agent_id (str, optional): Identifier for an agent. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            run_id (str, optional): Identifier for a specific run. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            conversation_id (str, optional): Identifier for a shared conversation. Activates group mode.
-            participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
-                Only used if 'conversation_id' is also provided.
+            user_id (str, optional): user id
+            agent_id (str, optional): agent id
+            run_id (str, optional): run id
             filters (dict, optional): Additional custom key-value filters to apply to the search.
                 These are merged with the ID-based scoping filters. For example, 
                 `filters={"actor_id": "some_user"}`.
@@ -585,17 +523,11 @@ class Memory(MemoryBase):
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
-            conversation_id=conversation_id,
-            participant_id=participant_id,
             input_filters=filters 
         )
-
-        if not conversation_id: 
-            if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-                raise ValueError(
-                    "When 'conversation_id' is not provided (classic mode), "
-                    "at least one of 'user_id', 'agent_id', or 'run_id' must be specified for get_all."
-                )
+        
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
         capture_event(
             "mem0.get_all", 
@@ -637,7 +569,6 @@ class Memory(MemoryBase):
 
         promoted_payload_keys = [
             "user_id", "agent_id", "run_id",
-            "conversation_id", "participant_id",
             "actor_id",
             "role",
         ]
@@ -677,36 +608,18 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        participant_id: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
     ):
         """
-        Searches for memories based on a query, operating in one of two modes:
-        1. Classic Mode (if 'conversation_id' is None): Searches memories scoped to a 'user_id',
-           'agent_id', or 'run_id'. At least one of these (or a custom filter providing them)
-           must be specified.
-        2. Group Mode (if 'conversation_id' is provided): Searches memories within the specified
-           'conversation_id'. If 'participant_id' is also provided, the search is further
-           filtered to that participant's contributions within the conversation. If 'participant_id'
-           is None, memories from all participants (and conversation-level memories) within
-           that conversation are searched.
-
+        Searches for memories based on a query
         Args:
-            query (str): The natural language query to search for.
-            user_id (str, optional): Identifier for the user in classic mode.
-            agent_id (str, optional): Identifier for an agent. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            run_id (str, optional): Identifier for a specific run. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            conversation_id (str, optional): Identifier for a shared conversation. Activates group mode.
-            participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
-                Only used if 'conversation_id' is also provided.
-            limit (int, optional): The maximum number of memory results to return. Defaults to 100.
-            filters (dict, optional): Additional custom key-value filters to apply to the search.
-                These are merged with the ID-based scoping filters. For example,
-                `filters={"custom_tag": "important"}`.
+            query (str): Query to search for.
+            user_id (str, optional): ID of the user to search for. Defaults to None.
+            agent_id (str, optional): ID of the agent to search for. Defaults to None.
+            run_id (str, optional): ID of the run to search for. Defaults to None.
+            limit (int, optional): Limit the number of results. Defaults to 100.
+            filters (dict, optional): Filters to apply to the search. Defaults to None..
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
@@ -717,18 +630,11 @@ class Memory(MemoryBase):
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
-            conversation_id=conversation_id,
-            participant_id=participant_id,
             input_filters=filters
         )
-
-        if not conversation_id: 
-            if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-                raise ValueError(
-                    "In classic search mode (when 'conversation_id' is not provided), "
-                    "at least one of 'user_id', 'agent_id', or 'run_id' must be specified "
-                    "either directly or within the 'filters' dictionary."
-                )
+        
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
         capture_event(
             "mem0.search",
@@ -772,8 +678,6 @@ class Memory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
-            "conversation_id",
-            "participant_id",
             "actor_id",
             "role",
         ]
@@ -837,7 +741,7 @@ class Memory(MemoryBase):
         self._delete_memory(memory_id)
         return {"message": "Memory deleted successfully!"}
 
-    def delete_all(self, user_id=None, agent_id=None, run_id=None):
+    def delete_all(self, user_id:Optional[str]=None, agent_id:Optional[str]=None, run_id:Optional[str]=None):
         """
         Delete all memories.
 
@@ -846,7 +750,7 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
-        filters = {}
+        filters: Dict[str, Any] = {}
         if user_id:
             filters["user_id"] = user_id
         if agent_id:
@@ -907,8 +811,6 @@ class Memory(MemoryBase):
             data,
             "ADD",
             created_at=metadata.get("created_at"),
-            conversation_id=metadata.get("conversation_id"),
-            participant_id=metadata.get("participant_id"),
             actor_id=metadata.get("actor_id"),
             role=metadata.get("role"),
         )
@@ -976,12 +878,7 @@ class Memory(MemoryBase):
         if "agent_id" in existing_memory.payload:
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "conversation_id" in existing_memory.payload:
-            new_metadata["conversation_id"] = existing_memory.payload["conversation_id"]
-        if "participant_id" in existing_memory.payload:
-            new_metadata["participant_id"] = existing_memory.payload["participant_id"]
-        
+            new_metadata["run_id"] = existing_memory.payload["run_id"]        
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" in existing_memory.payload:
@@ -1006,8 +903,6 @@ class Memory(MemoryBase):
             "UPDATE",
             created_at=new_metadata["created_at"],
             updated_at=new_metadata["updated_at"],
-            conversation_id=new_metadata.get("conversation_id"),
-            participant_id=new_metadata.get("participant_id"),
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
@@ -1024,8 +919,6 @@ class Memory(MemoryBase):
             prev_value,
             None,
             "DELETE",
-            conversation_id=existing_memory.payload.get("conversation_id"),
-            participant_id=existing_memory.payload.get("participant_id"),
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,
@@ -1123,8 +1016,6 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        participant_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
@@ -1137,14 +1028,8 @@ class AsyncMemory(MemoryBase):
         Args:
             messages (str or List[Dict[str, str]]): Messages to store in the memory.
             user_id (str, optional): ID of the user creating the memory.
-                                     If 'conversation_id' is provided, this acts as 'participant_id'.
-                                     Defaults to None.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
-            conversation_id (str, optional): ID of the shared conversation. If provided,
-                                             enables group chat mode. Defaults to None.
-            participant_id (str, optional): ID of the participant within a conversation.
-                                            Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
@@ -1158,19 +1043,9 @@ class AsyncMemory(MemoryBase):
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
-            conversation_id=conversation_id,
-            participant_id=participant_id,
             input_metadata=metadata
         )
-
-        if not conversation_id:
-            if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-                raise ValueError(
-                    "When 'conversation_id' is not provided (classic mode), "
-                    "at least one of 'user_id', 'agent_id', or 'run_id' must be specified."
-                )
-
-
+        
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
                 f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
@@ -1178,6 +1053,12 @@ class AsyncMemory(MemoryBase):
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
+            
+        elif isinstance(messages, dict):
+            messages = [messages]
+            
+        elif not isinstance(messages, list):
+            raise ValueError("messages must be str, dict, or list[dict]")
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt, llm=llm)
@@ -1248,12 +1129,12 @@ class AsyncMemory(MemoryBase):
                 })
             return returned_memories
 
-        parsed_messages_str = parse_messages(messages)
+        parsed_messages = parse_messages(messages)
         if self.config.custom_fact_extraction_prompt:
             system_prompt = self.config.custom_fact_extraction_prompt
-            user_prompt = f"Input:\n{parsed_messages_str}"
+            user_prompt = f"Input:\n{parsed_messages}"
         else:
-            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages_str)
+            system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
         response = await asyncio.to_thread(
             self.llm.generate_response,
@@ -1296,65 +1177,65 @@ class AsyncMemory(MemoryBase):
             retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
         )
         try:
-            response_actions_str = await asyncio.to_thread(
+            response = await asyncio.to_thread(
                 self.llm.generate_response,
                 messages=[{"role": "user", "content": function_calling_prompt}],
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}"); response_actions_str = ""
+            logging.error(f"Error in new memory actions response: {e}"); response = ""
         
         try:
-            response_actions_str = remove_code_blocks(response_actions_str)
-            new_memories_with_actions = json.loads(response_actions_str)
+            response = remove_code_blocks(response)
+            new_memories_with_actions = json.loads(response)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}"); new_memories_with_actions = {}
 
-        returned_memories_infer_true_async = [] # Use a different variable name
+        returned_memories = [] 
         try:
             memory_tasks = []
-            for resp_action in new_memories_with_actions.get("memory", []):
-                logging.info(resp_action)
+            for resp in new_memories_with_actions.get("memory", []):
+                logging.info(resp)
                 try:
-                    action_text = resp_action.get("text")
+                    action_text = resp.get("text")
                     if not action_text: continue
-                    event_type = resp_action.get("event")
+                    event_type = resp.get("event")
 
                     if event_type == "ADD":
                         task = asyncio.create_task(self._create_memory(
                             data=action_text, existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata)
                         ))
-                        memory_tasks.append((task, resp_action, "ADD", None))
+                        memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
                         task = asyncio.create_task(self._update_memory(
-                            memory_id=temp_uuid_mapping[resp_action["id"]], data=action_text,
+                            memory_id=temp_uuid_mapping[resp["id"]], data=action_text,
                             existing_embeddings=new_message_embeddings, metadata=deepcopy(metadata)
                         ))
-                        memory_tasks.append((task, resp_action, "UPDATE", temp_uuid_mapping[resp_action["id"]]))
+                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
                     elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp_action.get("id")]))
-                        memory_tasks.append((task, resp_action, "DELETE", temp_uuid_mapping[resp_action.get("id")]))
+                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
+                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
                     elif event_type == "NONE":
                         logging.info("NOOP for Memory (async).")
                 except Exception as e:
-                    logging.error(f"Error processing memory action (async): {resp_action}, Error: {e}")
+                    logging.error(f"Error processing memory action (async): {resp}, Error: {e}")
             
-            for task, resp_action, event_type, mem_id in memory_tasks:
+            for task, resp, event_type, mem_id in memory_tasks:
                 try:
                     result_id = await task
                     if event_type == "ADD":
-                        returned_memories_infer_true_async.append({
-                            "id": result_id, "memory": resp_action.get("text"), "event": event_type
+                        returned_memories.append({
+                            "id": result_id, "memory": resp.get("text"), "event": event_type
                         })
                     elif event_type == "UPDATE":
-                        returned_memories_infer_true_async.append({
-                            "id": mem_id, "memory": resp_action.get("text"), 
-                            "event": event_type, "previous_memory": resp_action.get("old_memory")
+                        returned_memories.append({
+                            "id": mem_id, "memory": resp.get("text"), 
+                            "event": event_type, "previous_memory": resp.get("old_memory")
                         })
                     elif event_type == "DELETE":
-                        returned_memories_infer_true_async.append({
-                            "id": mem_id, "memory": resp_action.get("text"), "event": event_type
+                        returned_memories.append({
+                            "id": mem_id, "memory": resp.get("text"), "event": event_type
                         })
                 except Exception as e:
                     logging.error(f"Error awaiting memory task (async): {e}")
@@ -1365,7 +1246,7 @@ class AsyncMemory(MemoryBase):
             "mem0.add", self, 
             {"version": self.api_version, "keys": list(filters.keys()), "sync_type": "async"}
         )
-        return returned_memories_infer_true_async
+        return returned_memories
 
     async def _add_to_graph(self, messages, filters):
         added_entities = []
@@ -1397,8 +1278,6 @@ class AsyncMemory(MemoryBase):
             "user_id",        
             "agent_id",       
             "run_id",         
-            "conversation_id",
-            "participant_id",
             "actor_id",
             "role",
         ]
@@ -1434,30 +1313,16 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        participant_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
         """
-        Lists memories, operating in one of two modes:
-        1. Classic Mode (if 'conversation_id' is None): Lists memories scoped to a 'user_id',
-           'agent_id', or 'run_id'. At least one of these must be specified.
-        2. Group Mode (if 'conversation_id' is provided): Lists memories within the specified
-           'conversation_id'. If 'participant_id' is also provided, the list is further
-           filtered to that participant's contributions. If 'participant_id' is None,
-           memories from all participants (and conversation-level memories) within
-           that conversation are listed.
+       List all memories.
 
         Args:
-            user_id (str, optional): Identifier for the user in classic mode.
-            agent_id (str, optional): Identifier for an agent. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            run_id (str, optional): Identifier for a specific run. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            conversation_id (str, optional): Identifier for a shared conversation. Activates group mode.
-            participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
-                Only used if 'conversation_id' is also provided.
+            user_id (str, optional): user id
+            agent_id (str, optional): agent id
+            run_id (str, optional): run id
             filters (dict, optional): Additional custom key-value filters to apply to the search.
                 These are merged with the ID-based scoping filters. For example, 
                 `filters={"actor_id": "some_user"}`.
@@ -1474,13 +1339,10 @@ class AsyncMemory(MemoryBase):
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
-            conversation_id=conversation_id,
-            participant_id=participant_id,
             input_filters=filters 
         )
 
-        if not conversation_id: 
-            if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
                 raise ValueError(
                     "When 'conversation_id' is not provided (classic mode), "
                     "at least one of 'user_id', 'agent_id', or 'run_id' must be specified for get_all."
@@ -1526,7 +1388,6 @@ class AsyncMemory(MemoryBase):
 
         promoted_payload_keys = [
             "user_id", "agent_id", "run_id",
-            "conversation_id", "participant_id",
             "actor_id",
             "role",
         ]
@@ -1566,59 +1427,34 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        participant_id: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
     ):
         """
-        Searches for memories based on a query, operating in one of two modes:
-        1. Classic Mode (if 'conversation_id' is None): Searches memories scoped to a 'user_id',
-           'agent_id', or 'run_id'. At least one of these (or a custom filter providing them)
-           must be specified.
-        2. Group Mode (if 'conversation_id' is provided): Searches memories within the specified
-           'conversation_id'. If 'participant_id' is also provided, the search is further
-           filtered to that participant's contributions within the conversation. If 'participant_id'
-           is None, memories from all participants (and conversation-level memories) within
-           that conversation are searched.
-
+        Searches for memories based on a query
         Args:
-            query (str): The natural language query to search for.
-            user_id (str, optional): Identifier for the user in classic mode.
-            agent_id (str, optional): Identifier for an agent. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            run_id (str, optional): Identifier for a specific run. Can be used for scoping in
-                classic mode or as an auxiliary filter in group mode.
-            conversation_id (str, optional): Identifier for a shared conversation. Activates group mode.
-            participant_id (str, optional): Identifier for a participant within a 'conversation_id'.
-                Only used if 'conversation_id' is also provided.
-            limit (int, optional): The maximum number of memory results to return. Defaults to 100.
-            filters (dict, optional): Additional custom key-value filters to apply to the search.
-                These are merged with the ID-based scoping filters. For example,
-                `filters={"custom_tag": "important"}`.
+            query (str): Query to search for.
+            user_id (str, optional): ID of the user to search for. Defaults to None.
+            agent_id (str, optional): ID of the agent to search for. Defaults to None.
+            run_id (str, optional): ID of the run to search for. Defaults to None.
+            limit (int, optional): Limit the number of results. Defaults to 100.
+            filters (dict, optional): Filters to apply to the search. Defaults to None..
 
         Returns:
             dict: A dictionary containing the search results, typically under a "results" key,
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
-      
+        
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
-            conversation_id=conversation_id,
-            participant_id=participant_id,
             input_filters=filters
         )
 
-        if not conversation_id: 
-            if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-                raise ValueError(
-                    "In classic search mode (when 'conversation_id' is not provided), "
-                    "at least one of 'user_id', 'agent_id', or 'run_id' must be specified "
-                    "either directly or within the 'filters' dictionary."
-                )
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+                raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
 
         capture_event(
             "mem0.search",
@@ -1668,8 +1504,6 @@ class AsyncMemory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
-            "conversation_id",
-            "participant_id",
             "actor_id",
             "role",
         ]
@@ -1812,8 +1646,6 @@ class AsyncMemory(MemoryBase):
             data,
             "ADD",
             created_at=metadata.get("created_at"),
-            conversation_id=metadata.get("conversation_id"),
-            participant_id=metadata.get("participant_id"),
             actor_id=metadata.get("actor_id"),
             role=metadata.get("role"),
         )
@@ -1821,13 +1653,14 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "async"})
         return memory_id
 
-    async def _create_procedural_memory(self, messages, metadata=None, prompt=None):
+    async def _create_procedural_memory(self, messages, metadata=None,llm=None ,prompt=None):
         """
         Create a procedural memory asynchronously
 
         Args:
             messages (list): List of messages to create a procedural memory from.
             metadata (dict): Metadata to create a procedural memory from.
+            llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
         try:
@@ -1895,10 +1728,7 @@ class AsyncMemory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "conversation_id" in existing_memory.payload:
-            new_metadata["conversation_id"] = existing_memory.payload["conversation_id"]
-        if "participant_id" in existing_memory.payload: # Legacy participant_id from "group chat v1"
-            new_metadata["participant_id"] = existing_memory.payload["participant_id"]
+        
         
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
@@ -1926,8 +1756,6 @@ class AsyncMemory(MemoryBase):
             "UPDATE",
             created_at=new_metadata["created_at"],
             updated_at=new_metadata["updated_at"],
-            conversation_id=new_metadata.get("conversation_id"),
-            participant_id=new_metadata.get("participant_id"),
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
@@ -1946,8 +1774,6 @@ class AsyncMemory(MemoryBase):
             prev_value,
             None,
             "DELETE",
-            conversation_id=existing_memory.payload.get("conversation_id"),
-            participant_id=existing_memory.payload.get("participant_id"),
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,

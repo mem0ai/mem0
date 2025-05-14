@@ -1,0 +1,261 @@
+---
+title: Collaborative Task Agent
+---
+
+<Snippet file="paper-release.mdx" />
+
+# Building a Collaborative Task Management System with Mem0
+
+## Overview
+
+Mem0's advanced attribution capabilities now allow you to create multi-user collaborative systems by attaching an **`actor_id`** to each memory. By setting the speaker's name in `message["name"]`, you can build powerful team collaboration tools where contributions are properly attributed to their authors.
+
+When using `infer=False`, messages are stored exactly as provided while still preserving actor metadata—making this approach ideal for:
+
+- Multi-user chat applications
+- Team brainstorming sessions
+- Project management tools
+- Any collaborative "shared canvas" scenario
+
+> **ℹ️ Note**  
+> Actor attribution works today with `infer=False` mode.  
+> Full attribution support for the fact-extraction pipeline (`infer=True`) will be available in an upcoming release.
+
+## Key Concepts
+
+### Session Context
+
+Session context is defined by one of three identifiers:
+- **`user_id`**: Ideal for personal memory or user-specific data
+- **`agent_id`**: Used for agent-specific memory storage
+- **`run_id`**: Best for shared task contexts or collaborative spaces
+
+Developers choose which identifier best represents their use case. In this example, we use `run_id` to create a shared project space where all team members can collaborate.
+
+### Actor Attribution
+
+Actor attribution is derived internally from:
+- **`message["name"]`**: Becomes the `actor_id` in the memory's metadata
+- **`message["role"]`**: Stored as the `role` in the memory's metadata
+
+Note that `actor_id` is not a top-level parameter for the `add()` method, but is instead extracted from the message itself.
+
+### Memory Filtering
+
+When retrieving memories, you can filter by actor using the `filters` parameter:
+```python
+# Get all memories from a specific actor
+memories = mem.search("query", run_id="landing-v1", filters={"actor_id": "alice"})
+
+# Get all memories from all team members
+all_memories = mem.get_all(run_id="landing-v1")
+```
+
+## Upcoming Features
+
+Mem0 will soon support full actor attribution with `infer=True`, enabling automatic extraction of actor names during the fact extraction process. This enhancement will allow the system to:
+
+1. Maintain attribution information when converting raw messages to semantic facts
+2. Associate extracted knowledge with its original source
+3. Track the provenance of information across complex interactions
+
+## Enterprise Use Cases
+
+Mem0's actor attribution system can power a wide range of advanced conversation and agent scenarios:
+
+### Conversation Scenarios
+
+| Scenario | Description | Implementation |
+|----------|-------------|----------------|
+| **Simple Chat** | One-to-one conversation between user and assistant | `user_id` for session context, messages with `role` field |
+| **Multi-User Chat** | Multiple humans conversing with a single assistant | `run_id` for shared space, each user with unique `actor_id` |
+| **Multi-Agent Chat** | Multiple AI assistants with distinct personas or capabilities | Each agent gets a unique `actor_id`, shared `run_id` |
+| **Group Chat** | Complex interactions between multiple humans and assistants | Shared `run_id`, each participant has unique `actor_id` |
+
+### Agent-Based Applications
+
+#### State Maintenance for Task Execution
+
+Agents performing complex tasks can maintain state between execution steps:
+
+```python
+# Browser automation agent example
+def execute_browser_task(steps, agent_id):
+    browser_agent = Agent(agent_id=agent_id)
+    
+    for step in steps:
+        # Execute step
+        result = browser_agent.execute(step)
+        
+        # Store step result with attribution
+        browser_agent.add_memory(
+            f"Executed: {step} with result: {result}",
+            actor_id="browser_agent"
+        )
+        
+        # Use memory to inform next steps
+        context = browser_agent.recall_relevant(step)
+```
+
+#### Multi-Agent Collaboration Systems
+
+Enterprise systems with multiple specialized agents working together:
+
+```python
+# Example: Research system with specialized agents
+research_system = CollaborationSystem(run_id="research_project_x")
+
+# Add specialized agents
+research_system.add_agent("literature_review", expertise="academic_papers")
+research_system.add_agent("data_analysis", expertise="statistics")
+research_system.add_agent("visualization", expertise="data_presentation")
+
+# Execute collaborative workflow
+research_system.process_query("Analyze market trends for electric vehicles")
+```
+
+## Architecture
+
+The collaborative task agent uses a simple but powerful architecture:
+
+* A **shared project space** identified by a single `run_id`
+* Each participant (human or AI) writes with their own **unique name** which becomes the `actor_id` in Mem0
+* All memories can be searched, filtered, or visualized by actor
+
+## Implementation
+
+Below is a complete implementation of a collaborative task agent that demonstrates how to build team-oriented applications with Mem0:
+
+```python
+from openai import OpenAI
+from mem0 import Memory
+import os
+
+# Configuration
+os.environ["OPENAI_API_KEY"] = "sk-your-key"
+client = OpenAI()
+
+RUN_ID = "landing-v1"          # Shared project context
+APP_ID = "task-agent-demo"     # Application identifier
+
+# Initialize Mem0 with default settings (local Qdrant + SQLite)
+mem = Memory()              
+
+class TaskAgent:
+    def __init__(self, run_id: str):
+        """
+        Initialize a collaborative task agent for a specific project.
+        
+        Args:
+            run_id: Unique identifier for this project workspace
+        """
+        self.run_id = run_id
+        self.mem = mem
+
+    def add_message(self, role: str, speaker: str, content: str):
+        """
+        Store a chat message with proper attribution.
+        
+        Args:
+            role: Message role (user, assistant, system)
+            speaker: Name of the person/agent speaking (becomes actor_id)
+            content: The actual message content
+        """
+        msg = {"role": role, "name": speaker, "content": content}
+        self.mem.add(
+            [msg],                      # Wrap in list to avoid parsing errors
+            run_id=self.run_id,
+            metadata={"app_id": APP_ID},
+            infer=False                 # Store raw messages with attribution
+        )
+
+    def brainstorm(self, prompt: str, speaker: str = "assistant"):
+        """
+        Generate a response based on project context and team input.
+        
+        Args:
+            prompt: The question or task to address
+            speaker: Name to attribute the assistant's response to
+            
+        Returns:
+            str: The assistant's response
+        """
+        # Retrieve relevant context from team's shared memory
+        ctx = self.mem.search(prompt, run_id=self.run_id, limit=8)["results"]
+        context = "\n".join(f"- {m['memory']} (by {m.get('actor_id')})" for m in ctx)
+
+        # Generate response with context-aware prompting
+        sys = "You are the team's project assistant. Use the memory context if helpful."
+        msgs = [
+            {"role": "system", "content": sys},
+            {"role": "user", "content": f"Q: {prompt}\n\nContext:\n{context}"}
+        ]
+        
+        reply = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=msgs
+        ).choices[0].message.content.strip()
+
+        # Store the assistant's response with attribution
+        self.add_message("assistant", speaker, reply)
+        return reply
+
+    def dump(self):
+        """Display all messages in the shared project space with attribution."""
+        for m in self.mem.get_all(run_id=self.run_id)["results"]:
+            who = m.get("actor_id") or ""
+            print(f"[{who:8}] {m['memory']}")
+
+# Demo Usage
+agent = TaskAgent(RUN_ID)
+
+# Team collaboration session
+agent.add_message("user", "alice", "Let's list tasks for the new landing page.")
+agent.add_message("user", "bob", "I'll own the hero section copy.")
+agent.add_message("user", "carol", "I'll choose three product screenshots.")
+
+print("\nAssistant reply:\n")
+print(agent.brainstorm("What are the current open tasks?"))
+
+print("\n--- Project memory so far ---")
+agent.dump()
+```
+
+## Advanced Usage Examples
+
+Here are some additional ways to leverage the actor attribution feature:
+
+```python
+# Get messages from a specific team member
+alice_messages = mem.search("landing page", 
+                           run_id=RUN_ID, 
+                           filters={"actor_id": "alice"})
+
+# Filter by both actor and role
+bob_user_messages = mem.search("copy", 
+                              run_id=RUN_ID, 
+                              filters={"actor_id": "bob", "role": "user"})
+
+# Get all assistant responses
+assistant_messages = mem.get_all(
+    run_id=RUN_ID, 
+    filters={"role": "assistant"}
+)
+```
+
+## Key Features
+
+- **Actor Attribution**: Each memory is linked to its creator, enabling personalized interactions
+- **Shared Context**: All team members work in a unified project space
+- **Contextual Responses**: The assistant uses relevant team input when generating responses
+- **Simple Integration**: Easy to add to existing workflows and applications
+
+## Applications
+
+This collaborative task agent pattern can be extended to build a wide range of team-oriented applications:
+
+- Project management dashboards
+- Multi-user brainstorming tools
+- Team documentation systems
+- Collaborative research environments
+
