@@ -19,17 +19,13 @@ git clone https://github.com/mem0ai/mem0.git
 cd mem0/openmemory
 
 # Create the backend .env file with your OpenAI key
-pushd api && echo "OPENAI_API_KEY=your_key_here" > .env && popd
+make env
 
 # Build the Docker images
 make build
 
 # Start all services (API server, vector database, and MCP server components)
-make up 
-
-# Start the frontend
-cp ui/.env.example ui/.env
-make ui
+make up
 ```
 
 You can configure the MCP client using the following command (replace username with your username):

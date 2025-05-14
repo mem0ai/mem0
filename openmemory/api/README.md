@@ -11,7 +11,14 @@ The easiest way to get started is using Docker. Make sure you have Docker and Do
 make build
 ```
 
-2. Start the services:
+2. Create `.env` file:
+```bash
+make env
+```
+
+Once you run this command, edit the file `api/.env` and enter the `OPENAI_API_KEY`.
+
+3. Start the services:
 ```bash
 make up
 ```
