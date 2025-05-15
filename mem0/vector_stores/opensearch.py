@@ -34,28 +34,28 @@ class OpenSearchDB(VectorStoreBase):
             use_ssl=config.use_ssl,
             verify_certs=config.verify_certs,
             connection_class=RequestsHttpConnection,
+            pool_maxsize=20
         )
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
-
-        # Create index only if auto_create_index is True
-        if config.auto_create_index:
-            self.create_index()
+        print("opensearch init")
+        self.create_col("mem0", self.embedding_model_dims)
 
     def create_index(self) -> None:
         """Create OpenSearch index with proper mappings if it doesn't exist."""
+        print("creating index")
         index_settings = {
             "settings": {
-                "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s", "knn": True}
+                "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "10s", "knn": True}
             },
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {
+                    "vector_field": {
                         "type": "knn_vector",
                         "dimension": self.embedding_model_dims,
-                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
@@ -63,20 +63,25 @@ class OpenSearchDB(VectorStoreBase):
         }
 
         if not self.client.indices.exists(index=self.collection_name):
+            print("creating index 1111")
             self.client.indices.create(index=self.collection_name, body=index_settings)
             logger.info(f"Created index {self.collection_name}")
         else:
+            print("index already exists")
             logger.info(f"Index {self.collection_name} already exists")
+
+        print("index created")
 
     def create_col(self, name: str, vector_size: int) -> None:
         """Create a new collection (index in OpenSearch)."""
+        print("creating col")
         index_settings = {
             "mappings": {
                 "properties": {
-                    "vector": {
+                    "vector_field": {
                         "type": "knn_vector",
                         "dimension": vector_size,
-                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
                     },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
@@ -88,10 +93,13 @@ class OpenSearchDB(VectorStoreBase):
             self.client.indices.create(index=name, body=index_settings)
             logger.info(f"Created index {name}")
 
+        print("index created - create_col")
+
     def insert(
         self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
     ) -> List[OutputData]:
         """Insert vectors into the index."""
+        print("inserting", payloads)
         if not ids:
             ids = [str(i) for i in range(len(vectors))]
 
@@ -102,9 +110,9 @@ class OpenSearchDB(VectorStoreBase):
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
             action = {
                 "_index": self.collection_name,
-                "_id": id_,
                 "_source": {
-                    "vector": vec,
+                    "id": id_,
+                    "vector_field": vec,
                     "metadata": payloads[i],  # Store metadata in the metadata field
                 },
             }
@@ -115,33 +123,44 @@ class OpenSearchDB(VectorStoreBase):
         results = []
         for i, id_ in enumerate(ids):
             results.append(OutputData(id=id_, score=1.0, payload=payloads[i]))
+        print("inserted")
         return results
 
     def search(
         self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
-        """Search for similar vectors using OpenSearch k-NN search with pre-filtering."""
+        """Search for similar vectors using OpenSearch k-NN search with post-filtering."""
+        # First perform k-NN search without filters
+        print("searching")
         search_query = {
-            "size": limit,
+            "size": limit * 2,  # Request more results to account for post-filtering
             "query": {
                 "knn": {
-                    "vector": {
+                    "vector_field": {
                         "vector": vectors,
-                        "k": limit,
+                        "k": limit * 2,
                     }
                 }
             },
         }
 
-        if filters:
-            filter_conditions = [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]
-            search_query["query"]["knn"]["vector"]["filter"] = {"bool": {"filter": filter_conditions}}
-
         response = self.client.search(index=self.collection_name, body=search_query)
+
+        # Post-filter the results
+        hits = response["hits"]["hits"]
+        if filters:
+            filtered_hits = []
+            for hit in hits:
+                metadata = hit["_source"].get("metadata", {})
+                if all(metadata.get(key) == value for key, value in filters.items()):
+                    filtered_hits.append(hit)
+            hits = filtered_hits[:limit]  # Take only up to limit results after filtering
+        else:
+            hits = hits[:limit]  # Take only up to limit results if no filtering
 
         results = [
             OutputData(id=hit["_id"], score=hit["_score"], payload=hit["_source"].get("metadata", {}))
-            for hit in response["hits"]["hits"]
+            for hit in hits
         ]
         return results
 
@@ -161,11 +180,39 @@ class OpenSearchDB(VectorStoreBase):
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
+        print("getting", vector_id)
+        # return None
         try:
-            response = self.client.get(index=self.collection_name, id=vector_id)
-            return OutputData(id=response["_id"], score=1.0, payload=response["_source"].get("metadata", {}))
+            # First check if index exists
+            if not self.client.indices.exists(index=self.collection_name):
+                logger.warning(f"Index {self.collection_name} does not exist")
+                return None
+
+            print("111")
+            # Check if document exists before trying to get it
+            exists = self.client.exists(index=self.collection_name, id=vector_id)
+            print("222")
+            if not exists:
+                logger.warning(f"Vector with ID {vector_id} does not exist")
+                return None
+
+            print("333")
+            response = self.client.get(
+                index=self.collection_name,
+                id=vector_id,
+                ignore=[404]  # Ignore 404 errors
+            )
+            print("444")
+            if not response.get("found", False):
+                return None
+            print("555")
+            return OutputData(
+                id=response["_id"],
+                score=1.0,
+                payload=response["_source"].get("metadata", {})
+            )
         except Exception as e:
-            logger.error(f"Error retrieving vector {vector_id}: {e}")
+            logger.error(f"Error retrieving vector {vector_id}: {str(e)}")
             return None
 
     def list_cols(self) -> List[str]:
@@ -199,7 +246,7 @@ class OpenSearchDB(VectorStoreBase):
                 for hit in response["hits"]["hits"]
             ]
         ]
-        
+
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")

@@ -100,6 +100,7 @@ class Qdrant(VectorStoreBase):
             payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
+        print("inserting qdrant", payloads)
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         points = [
             PointStruct(
@@ -142,6 +143,7 @@ class Qdrant(VectorStoreBase):
         Returns:
             list: Search results.
         """
+        print("searching qdrant", filters)
         query_filter = self._create_filter(filters) if filters else None
         hits = self.client.query_points(
             collection_name=self.collection_name,
