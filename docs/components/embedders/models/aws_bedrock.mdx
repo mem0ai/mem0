@@ -25,7 +25,7 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 
 # AWS credentials
-os.environ["AWS_REGION"] = "us-east-1"
+os.environ["AWS_REGION"] = "us-west-2"
 os.environ["AWS_ACCESS_KEY_ID"] = "your-access-key"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "your-secret-key"
 
@@ -33,7 +33,7 @@ config = {
     "embedder": {
         "provider": "aws_bedrock",
         "config": {
-            "model": "amazon.titan-embed-text-v1"
+            "model": "amazon.titan-embed-text-v2:0"
         }
     }
 }

@@ -1,0 +1,120 @@
+---
+title: AWS Bedrock and AOSS
+---
+
+<Snippet file="paper-release.mdx" />
+
+This example demonstrates how to configure and use the `mem0ai` SDK with **AWS Bedrock** and **OpenSearch Service (AOSS)** for persistent memory capabilities in Python.
+
+## Installation
+
+Install the required dependencies:
+
+```bash
+pip install mem0ai boto3 opensearch-py
+```
+
+## Environment Setup
+
+Set your AWS environment variables:
+
+```python
+import os
+
+# Set these in your environment or notebook
+os.environ['AWS_REGION'] = 'us-west-2'
+os.environ['AWS_ACCESS_KEY_ID'] = 'AK00000000000000000'
+os.environ['AWS_SECRET_ACCESS_KEY'] = 'AS00000000000000000'
+
+# Confirm they are set
+print(os.environ['AWS_REGION'])
+print(os.environ['AWS_ACCESS_KEY_ID'])
+print(os.environ['AWS_SECRET_ACCESS_KEY'])
+```
+
+## Configuration and Usage
+
+This sets up Mem0 with AWS Bedrock for embeddings and LLM, and OpenSearch as the vector store.
+
+```python
+import boto3
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
+from mem0.memory.main import Memory
+
+region = 'us-west-2'
+service = 'aoss'
+credentials = boto3.Session().get_credentials()
+auth = AWSV4SignerAuth(credentials, region, service)
+
+config = {
+    "embedder": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "amazon.titan-embed-text-v2:0"
+        }
+    },
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "anthropic.claude-3-5-haiku-20241022-v1:0",
+            "temperature": 0.1,
+            "max_tokens": 2000
+        }
+    },
+    "vector_store": {
+        "provider": "opensearch",
+        "config": {
+            "collection_name": "mem0",
+            "host": "your-opensearch-domain.us-west-2.es.amazonaws.com",
+            "port": 443,
+            "http_auth": auth,
+            "embedding_model_dims": 1024,
+            "connection_class": RequestsHttpConnection,
+            "pool_maxsize": 20,
+            "use_ssl": True,
+            "verify_certs": True
+        }
+    }
+}
+
+# Initialize memory system
+m = Memory.from_config(config)
+```
+
+## Usage
+
+#### Add a memory:
+
+```python
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+# Store inferred memories (default behavior)
+result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
+```
+
+#### Search a memory:
+```python
+relevant_memories = m.search(query, user_id="alice")
+```
+
+#### Get all memories:
+```python
+all_memories = m.get_all(user_id="alice")
+```
+
+#### Get a specific memory:
+```python
+memory = m.get(memory_id)
+```
+
+
+---
+
+## Conclusion
+
+With Mem0 and AWS services like Bedrock and OpenSearch, you can build intelligent AI companions that remember, adapt, and personalize their responses over time. This makes them ideal for long-term assistants, tutors, or support bots with persistent memory and natural conversation abilities.
