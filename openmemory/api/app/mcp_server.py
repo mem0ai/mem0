@@ -350,7 +350,7 @@ async def handle_sse(request: Request):
         client_name_var.reset(client_token)
 
 
-@mcp_router.post("/messages/")
+@mcp_router.post("/{client_name}/sse/{user_id}/messages/")
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
@@ -362,7 +362,7 @@ async def handle_post_message(request: Request):
 
         # Create a simple send function that does nothing
         async def send(message):
-            pass
+            return {}
 
         # Call handle_post_message with the correct arguments
         await sse.handle_post_message(request.scope, receive, send)
