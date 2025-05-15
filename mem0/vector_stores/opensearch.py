@@ -268,7 +268,6 @@ class OpenSearchDB(VectorStoreBase):
             hits = response["hits"]["hits"]
 
             if not hits:
-                logger.warning(f"Vector with ID {vector_id} does not exist")
                 return None
 
             return OutputData(
