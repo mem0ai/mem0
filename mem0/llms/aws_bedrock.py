@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 try:
@@ -9,6 +10,14 @@ except ImportError:
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
+PROVIDERS = ["ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer"]
+
+
+def extract_provider(model: str) -> str:
+    for provider in PROVIDERS:
+        if re.search(rf"\b{re.escape(provider)}\b", model):
+            return provider
+    raise ValueError(f"Unknown provider in model: {model}")
 
 class AWSBedrockLLM(LLMBase):
     def __init__(self, config: Optional[BaseLlmConfig] = None):
@@ -34,13 +43,14 @@ class AWSBedrockLLM(LLMBase):
         Returns:
             str: A formatted string combining all messages, structured with roles capitalized and separated by newlines.
         """
+
         formatted_messages = []
         for message in messages:
             role = message["role"].capitalize()
             content = message["content"]
             formatted_messages.append(f"\n\n{role}: {content}")
 
-        return "".join(formatted_messages) + "\n\nAssistant:"
+        return "\n\nHuman: " + "".join(formatted_messages) + "\n\nAssistant:"
 
     def _parse_response(self, response, tools) -> str:
         """
@@ -68,8 +78,9 @@ class AWSBedrockLLM(LLMBase):
 
             return processed_response
 
-        response_body = json.loads(response["body"].read().decode())
-        return response_body.get("completion", "")
+        response_body = response.get("body").read().decode()
+        response_json = json.loads(response_body)
+        return response_json.get("content", [{"text": ""}])[0].get("text", "")
 
     def _prepare_input(
         self,
@@ -113,9 +124,9 @@ class AWSBedrockLLM(LLMBase):
             input_body = {
                 "inputText": prompt,
                 "textGenerationConfig": {
-                    "maxTokenCount": model_kwargs.get("max_tokens_to_sample"),
-                    "topP": model_kwargs.get("top_p"),
-                    "temperature": model_kwargs.get("temperature"),
+                    "maxTokenCount": self.model_kwargs["max_tokens_to_sample"] or self.model_kwargs["max_tokens"] or 5000,
+                    "topP": self.model_kwargs["top_p"] or 0.9,
+                    "temperature": self.model_kwargs["temperature"] or 0.1,
                 },
             }
             input_body["textGenerationConfig"] = {
@@ -206,15 +217,40 @@ class AWSBedrockLLM(LLMBase):
         else:
             # Use invoke_model method when no tools are provided
             prompt = self._format_messages(messages)
-            provider = self.model.split(".")[0]
-            input_body = self._prepare_input(provider, self.config.model, prompt, **self.model_kwargs)
+            provider = extract_provider(self.config.model)
+            input_body = self._prepare_input(provider, self.config.model, prompt, model_kwargs=self.model_kwargs)
             body = json.dumps(input_body)
 
-            response = self.client.invoke_model(
-                body=body,
-                modelId=self.model,
-                accept="application/json",
-                contentType="application/json",
+            if provider == "anthropic" or provider == "deepseek":
+
+                input_body = {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [{"type": "text", "text": prompt}]
+                        }
+                    ],
+                    "max_tokens": self.model_kwargs["max_tokens_to_sample"] or self.model_kwargs["max_tokens"] or 5000,
+                    "temperature": self.model_kwargs["temperature"] or 0.1,
+                    "top_p": self.model_kwargs["top_p"] or 0.9,
+                    "anthropic_version": "bedrock-2023-05-31",
+                }
+                
+                body = json.dumps(input_body)
+                
+
+                response = self.client.invoke_model(
+                    body=body,
+                    modelId=self.config.model,
+                    accept="application/json",
+                    contentType="application/json",
+                )
+            else:
+                response = self.client.invoke_model(
+                    body=body,
+                    modelId=self.config.model,
+                    accept="application/json",
+                    contentType="application/json",
             )
 
         return self._parse_response(response, tools)
