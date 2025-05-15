@@ -91,7 +91,7 @@ class OpenSearchDB(VectorStoreBase):
             logger.info(f"Created index {name}")
 
             # Wait for index to be ready
-            max_retries = 30  # 30 seconds timeout
+            max_retries = 60  # 60 seconds timeout
             retry_count = 0
             while retry_count < max_retries:
                 try:
@@ -106,7 +106,7 @@ class OpenSearchDB(VectorStoreBase):
                         raise TimeoutError(
                             f"Index {name} creation timed out after {max_retries} seconds"
                         )
-                    time.sleep(1)
+                    time.sleep(0.5)
 
     def insert(
         self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
