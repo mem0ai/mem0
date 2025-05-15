@@ -69,21 +69,15 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        collection_name = self.config.vector_store.config.collection_name
-        print("memory init", self.config.vector_store.config.collection_name)
         self.config.vector_store.config.collection_name = "mem0migrations"
-        print("000")
         if self.config.vector_store.provider in ["faiss", "qdrant"]:
             provider_path = f"migrations_{self.config.vector_store.provider}"
             self.config.vector_store.config.path = os.path.join(mem0_dir, provider_path)
             os.makedirs(self.config.vector_store.config.path, exist_ok=True)
-        print("222--")
         self._telemetry_vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-        print("333--")
         capture_event("mem0.init", self, {"sync_type": "sync"})
-        self.config.vector_store.config.collection_name = collection_name
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -651,7 +645,6 @@ class Memory(MemoryBase):
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logging.debug(f"Creating memory with {data=}")
-        print("IN CREEATE memorues", data)
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
