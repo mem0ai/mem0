@@ -41,18 +41,7 @@ class OpenSearchConfig(BaseModel):
         # Check if host is provided
         if not values.get("host"):
             raise ValueError("Host must be provided for OpenSearch")
-
-        # Authentication: Either API key or user/password must be provided
-        # if not any([
-        #     values.get("api_key"),
-        #     (values.get("user") and values.get("password")),
-        #     values.get("http_auth")
-        # ]):
-        #     raise ValueError(
-        #         "Either api_key or user/password must be provided for OpenSearch "
-        #         "authentication"
-        #     )
-
+        
         return values
 
     @model_validator(mode="before")

@@ -118,7 +118,6 @@ class OpenSearchDB(VectorStoreBase):
         if payloads is None:
             payloads = [{} for _ in range(len(vectors))]
 
-        actions = []
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
             body = {
                 "vector_field": vec,
@@ -126,9 +125,6 @@ class OpenSearchDB(VectorStoreBase):
                 "id": id_,
             }
             self.client.index(index=self.collection_name, body=body)
-            # actions.append(action)
-
-        # bulk(self.client, actions)
 
         results = []
 
