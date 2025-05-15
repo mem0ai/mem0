@@ -21,23 +21,71 @@ class OutputData(BaseModel):
     payload: Dict
 
 
+def _is_aoss_enabled(http_auth: Any) -> bool:
+    """Check if the service is Amazon OpenSearch Serverless (AOSS)."""
+    if http_auth is not None and hasattr(http_auth, "service") and http_auth.service == "aoss":
+        return True
+    return False
+
+
+def _validate_aoss_with_engines(is_aoss: bool, engine: str) -> None:
+    """Validate AOSS with the engine."""
+    if is_aoss and engine != "nmslib" and engine != "faiss":
+        raise ValueError("Amazon OpenSearch Service Serverless only supports `nmslib` or `faiss` engines")
+
+
+def _get_space_type_for_engine(engine: str) -> str:
+    """Get the appropriate space_type for the engine."""
+    if engine == "faiss":
+        # FAISS with HNSW supports l2 (Euclidean) and innerproduct, but not cosinesimil
+        return "l2"
+    else:
+        # NMSLIB and Lucene support cosinesimil
+        return "cosinesimil"
+
+
 class OpenSearchDB(VectorStoreBase):
     def __init__(self, **kwargs):
         config = OpenSearchConfig(**kwargs)
 
+        # Check if using Amazon OpenSearch Serverless
+        self.is_aoss = _is_aoss_enabled(http_auth=config.http_auth)
+        
         # Initialize OpenSearch client
-        self.client = OpenSearch(
-            hosts=[{"host": config.host, "port": config.port or 9200}],
-            http_auth=config.http_auth
-            if config.http_auth
-            else ((config.user, config.password) if (config.user and config.password) else None),
-            use_ssl=config.use_ssl,
-            verify_certs=config.verify_certs,
-            connection_class=RequestsHttpConnection,
-        )
+        # Handle both URL string for AOSS and host/port dictionary for standard OpenSearch
+        if isinstance(config.host, str) and (config.host.startswith("https://") or config.host.startswith("http://")):
+            # Using URL format for host (common with AOSS)
+            self.client = OpenSearch(
+                hosts=config.host,
+                http_auth=config.http_auth
+                if config.http_auth
+                else ((config.user, config.password) if (config.user and config.password) else None),
+                use_ssl=config.use_ssl,
+                verify_certs=config.verify_certs,
+                connection_class=RequestsHttpConnection,
+            )
+        else:
+            # Traditional host/port configuration
+            self.client = OpenSearch(
+                hosts=[{"host": config.host, "port": config.port or 9200}],
+                http_auth=config.http_auth
+                if config.http_auth
+                else ((config.user, config.password) if (config.user and config.password) else None),
+                use_ssl=config.use_ssl,
+                verify_certs=config.verify_certs,
+                connection_class=RequestsHttpConnection,
+            )
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
+        self.engine = config.engine if hasattr(config, "engine") else "nmslib"
+        
+        # Validate AOSS compatibility if enabled
+        if self.is_aoss:
+            _validate_aoss_with_engines(self.is_aoss, self.engine)
+            
+        # Determine appropriate space_type for the engine
+        self.space_type = _get_space_type_for_engine(self.engine)
 
         # Create index only if auto_create_index is True
         if config.auto_create_index:
@@ -45,9 +93,12 @@ class OpenSearchDB(VectorStoreBase):
 
     def create_index(self) -> None:
         """Create OpenSearch index with proper mappings if it doesn't exist."""
+        # Set refresh_interval based on whether we're using AOSS (needs at least 10s)
+        refresh_interval = "10s" if self.is_aoss else "1s"
+        
         index_settings = {
             "settings": {
-                "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s", "knn": True}
+                "index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": refresh_interval, "knn": True}
             },
             "mappings": {
                 "properties": {
@@ -55,7 +106,7 @@ class OpenSearchDB(VectorStoreBase):
                     "vector": {
                         "type": "knn_vector",
                         "dimension": self.embedding_model_dims,
-                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": self.engine if self.is_aoss else "lucene", "name": "hnsw", "space_type": self.space_type},
                     },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
@@ -76,7 +127,7 @@ class OpenSearchDB(VectorStoreBase):
                     "vector": {
                         "type": "knn_vector",
                         "dimension": vector_size,
-                        "method": {"engine": "lucene", "name": "hnsw", "space_type": "cosinesimil"},
+                        "method": {"engine": self.engine if self.is_aoss else "lucene", "name": "hnsw", "space_type": self.space_type},
                     },
                     "payload": {"type": "object"},
                     "id": {"type": "keyword"},
@@ -102,12 +153,18 @@ class OpenSearchDB(VectorStoreBase):
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
             action = {
                 "_index": self.collection_name,
-                "_id": id_,
                 "_source": {
                     "vector": vec,
                     "metadata": payloads[i],  # Store metadata in the metadata field
                 },
             }
+            
+            # For AOSS, use "id" instead of "_id"
+            if self.is_aoss:
+                action["id"] = id_
+            else:
+                action["_id"] = id_
+                
             actions.append(action)
 
         bulk(self.client, actions)
@@ -135,7 +192,20 @@ class OpenSearchDB(VectorStoreBase):
 
         if filters:
             filter_conditions = [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]
-            search_query["query"]["knn"]["vector"]["filter"] = {"bool": {"filter": filter_conditions}}
+
+            # AOSS uses filter directly instead of subquery_clause
+            if self.is_aoss and self.engine in ["faiss", "nmslib"]:
+                search_query["query"]["knn"]["vector"]["filter"] = {"bool": {"filter": filter_conditions}}
+            else:
+                # Use boolean filter for other engines
+                search_query["query"] = {
+                    "bool": {
+                        "filter": filter_conditions,
+                        "must": [
+                            {"knn": {"vector": {"vector": vectors, "k": limit}}}
+                        ]
+                    }
+                }
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
