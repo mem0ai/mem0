@@ -9,7 +9,7 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 - Docker and Docker Compose
 - Python 3.9+ (for backend development)
 - Node.js (for frontend development)
-- OpenAI API Key (required for LLM interactions)
+- OpenAI API Key (required for LLM interactions, run `cp api/.env.example api/.env` then change **OPENAI_API_KEY** to yours)
 
 ## Quickstart
 
