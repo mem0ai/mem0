@@ -200,6 +200,7 @@
                 "icon": "lightbulb",
                 "pages": [
                   "examples",
+                  "examples/aws_example",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
                   "examples/eliza_os",
