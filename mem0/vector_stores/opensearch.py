@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
+import time
 
 try:
     from opensearchpy import OpenSearch, RequestsHttpConnection
@@ -69,8 +70,8 @@ class OpenSearchDB(VectorStoreBase):
     def create_col(self, name: str, vector_size: int) -> None:
         """Create a new collection (index in OpenSearch)."""
         index_settings = {
-            "settings" : {
-                "index.knn" : True
+            "settings": {
+                "index.knn": True
             },
             "mappings": {
                 "properties": {
@@ -88,6 +89,24 @@ class OpenSearchDB(VectorStoreBase):
         if not self.client.indices.exists(index=name):
             self.client.indices.create(index=name, body=index_settings)
             logger.info(f"Created index {name}")
+
+            # Wait for index to be ready
+            max_retries = 30  # 30 seconds timeout
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    # Check if index is ready by attempting a simple search
+                    self.client.search(index=name, body={"query": {"match_all": {}}})
+                    logger.info(f"Index {name} is ready")
+                    time.sleep(1)
+                    return
+                except Exception:
+                    retry_count += 1
+                    if retry_count == max_retries:
+                        raise TimeoutError(
+                            f"Index {name} creation timed out after {max_retries} seconds"
+                        )
+                    time.sleep(1)
 
     def insert(
         self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
@@ -233,7 +252,8 @@ class OpenSearchDB(VectorStoreBase):
         try:
             # First check if index exists
             if not self.client.indices.exists(index=self.collection_name):
-                logger.warning(f"Index {self.collection_name} does not exist")
+                logger.info(f"Index {self.collection_name} does not exist, creating it...")
+                self.create_col(self.collection_name, self.embedding_model_dims)
                 return None
 
             search_query = {
