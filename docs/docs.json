@@ -203,6 +203,7 @@
                   "examples/aws_example",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/collaborative-task-agent",
                   "examples/eliza_os",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",

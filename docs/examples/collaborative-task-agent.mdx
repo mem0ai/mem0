@@ -1,0 +1,273 @@
+---
+title: Collaborative Task Agent
+---
+
+<Snippet file="paper-release.mdx" />
+
+# Building a Collaborative Task Management System with Mem0
+
+## Overview
+
+Mem0's advanced attribution capabilities now allow you to create multi-user , multi-agent collaborative or chat systems by attaching an **`actor_id`** to each memory. By setting the users's name in `message["name"]`, you can build powerful team collaboration tools where contributions are properly attributed to their authors.
+
+When using `infer=False`, messages are stored exactly as provided while still preserving actor metadata—making this approach ideal for:
+
+- Multi-user chat applications
+- Team brainstorming sessions
+- Any collaborative "shared canvas" scenario
+
+> **ℹ️ Note**  
+> Actor attribution works today with `infer=False` mode.  
+> Full attribution support for the fact-extraction pipeline (`infer=True`) will be available in an upcoming release.
+
+## Key Concepts
+
+### Session Context
+
+Session context is defined by one of three identifiers:
+- **`user_id`**: Ideal for personal memory or user-specific data
+- **`agent_id`**: Used for agent-specific memory storage
+- **`run_id`**: Best for shared task contexts or collaborative spaces
+
+Developers choose which identifier best represents their use case. In this example, we use `run_id` to create a shared project space where all team members can collaborate.
+
+### Actor Attribution
+
+Actor attribution is derived internally from:
+- **`message["name"]`**: Becomes the `actor_id` in the memory's metadata
+- **`message["role"]`**: Stored as the `role` in the memory's metadata
+
+Note that `actor_id` is not a top-level parameter for the `add()` method, but is instead extracted from the message itself.
+
+### Memory Filtering
+
+When retrieving memories, you can filter by actor using the `filters` parameter:
+```python
+# Get all memories from a specific actor
+memories = mem.search("query", run_id="landing-v1", filters={"actor_id": "alice"})
+
+# Get all memories from all team members
+all_memories = mem.get_all(run_id="landing-v1")
+```
+
+## Upcoming Features
+
+Mem0 will soon support full actor attribution with `infer=True`, enabling automatic extraction of actor names during the fact extraction process. This enhancement will allow the system to:
+
+1. Maintain attribution information when converting raw messages to semantic facts
+2. Associate extracted knowledge with its original source
+3. Track the provenance of information across complex interactions
+
+Mem0's actor attribution system can power a wide range of advanced conversation and agent scenarios:
+
+### Conversation Scenarios
+
+| Scenario | Description | Implementation |
+|----------|-------------|----------------|
+| **Simple Chat** | One-to-one conversation between user and assistant
+| **Multi-User Chat** | Multiple users conversing with a single assistant
+| **Multi-Agent Chat** | Multiple AI assistants with distinct personas or capabilities
+| **Group Chat** | Complex interactions between multiple humans and assistants
+### Agent-Based Applications
+
+The collaborative task agent uses a simple but powerful architecture:
+
+* A **shared project space** identified by a single `run_id`
+* Each participant (user or AI) writes with their own **unique name** which becomes the `actor_id` in Mem0
+* All memories can be searched, filtered, or visualized by actor
+
+
+## Implementation
+
+Below is a complete implementation of a collaborative task agent that demonstrates how to build team-oriented applications with Mem0.
+
+```python
+from openai import OpenAI
+from mem0 import Memory
+import os
+from datetime import datetime # For parsing and formatting timestamps
+
+# Configuration
+os.environ["OPENAI_API_KEY"] = "sk-your-key" # Replace with your key
+client = OpenAI()
+
+RUN_ID = "landing-v1"          # Shared project context
+APP_ID = "task-agent-demo"     # Application identifier
+
+# Initialize Mem0 with default settings (local Qdrant + SQLite)
+# Ensure the path is writable if not using in-memory
+mem = Memory() 
+
+class TaskAgent:
+    def __init__(self, run_id: str):
+        """
+        Initialize a collaborative task agent for a specific project.
+        
+        Args:
+            run_id: Unique identifier for this project workspace
+        """
+        self.run_id = run_id
+        self.mem = mem
+
+    def add_message(self, role: str, speaker: str, content: str):
+        """
+        Store a chat message with proper attribution.
+        
+        Args:
+            role: Message role (user, assistant, system)
+            speaker: Name of the person/agent speaking (becomes actor_id)
+            content: The actual message content
+        """
+        msg = {"role": role, "name": speaker, "content": content}
+        # Ensure created_at is stored. Mem0 does this by default.
+        self.mem.add(
+            [msg],
+            run_id=self.run_id,
+            metadata={"app_id": APP_ID},
+            infer=False
+        )
+
+    def brainstorm(self, prompt: str, speaker: str = "assistant", search_limit: int = 10, exclude_assistant_context: bool = False):
+        """
+        Generate a response based on project context and team input.
+        
+        Args:
+            prompt: The question or task to address
+            speaker: Name to attribute the assistant's response to
+            search_limit: Max number of memories to retrieve for context
+            exclude_assistant_context: If True, filters out assistant's own messages from context
+            
+        Returns:
+            str: The assistant's response
+        """
+        # Retrieve relevant context from team's shared memory
+        # Fetch a bit more if we plan to filter, to ensure we still get enough relevant user messages.
+        fetch_limit = search_limit + 5 if exclude_assistant_context else search_limit
+        retrieved_memories = self.mem.search(prompt, run_id=self.run_id, limit=fetch_limit)["results"]
+
+        # Client-side sorting by 'created_at' to prioritize recent memories for context.
+        # Note: Timestamps should be in a directly comparable format or parsed.
+        # Mem0 stores created_at as ISO format strings, which are comparable.
+        retrieved_memories.sort(key=lambda m: m.get('created_at', ''), reverse=True)
+        
+        ctx_for_llm = []
+        if exclude_assistant_context:
+            for m in retrieved_memories:
+                if m.get("role") != "assistant":
+                    ctx_for_llm.append(m)
+                if len(ctx_for_llm) >= search_limit:
+                    break
+        else:
+            ctx_for_llm = retrieved_memories[:search_limit]
+
+        context_parts = []
+        for m in ctx_for_llm:
+            actor = m.get('actor_id') or "Unknown"
+            # Attempt to parse and format the timestamp for better readability
+            try:
+                ts_iso = m.get('created_at', '')
+                if ts_iso:
+                    ts_obj = datetime.fromisoformat(ts_iso.replace('Z', '+00:00')) # Handle Zulu time
+                    formatted_ts = ts_obj.strftime('%Y-%m-%d %H:%M:%S %Z')
+                else:
+                    formatted_ts = "Timestamp N/A"
+            except ValueError:
+                formatted_ts = ts_iso # Fallback to raw string if parsing fails
+            context_parts.append(f"- {m['memory']} (by {actor} at {formatted_ts})")
+        
+        context_str = "\n".join(context_parts)
+
+        # Generate response with context-aware prompting
+        sys_prompt = "You are the team's project assistant. Use the provided memory context, paying attention to timestamps for recency, to answer the user's query or perform the task."
+        user_prompt_with_context = f"Query: {prompt}\n\nRelevant Context (most recent first):\n{context_str}"
+        
+        msgs = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt_with_context}
+        ]
+        
+        reply = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=msgs
+        ).choices[0].message.content.strip()
+
+        # Store the assistant's response with attribution
+        self.add_message("assistant", speaker, reply)
+        return reply
+
+    def dump(self, sort_by_time: bool = True, group_by_speaker: bool = False):
+        """
+        Display all messages in the shared project space with attribution.
+        Can be sorted by time and/or grouped by speaker.
+        """
+        results = self.mem.get_all(run_id=self.run_id)["results"]
+        
+        if not results:
+            print("No memories found for this run.")
+            return
+
+        # Sort by 'created_at' if requested
+        if sort_by_time:
+            results.sort(key=lambda m: m.get('created_at', ''))
+            print(f"\n--- Project memory (run_id: {self.run_id}, sorted by time) ---")
+        else:
+            print(f"\n--- Project memory (run_id: {self.run_id}) ---")
+
+        if group_by_speaker:
+            from collections import defaultdict
+            grouped_memories = defaultdict(list)
+            for m in results: # Use already potentially sorted results
+                grouped_memories[m.get("actor_id") or "Unknown"].append(m)
+            
+            for speaker, mem_list in grouped_memories.items():
+                print(f"\n=== Speaker: {speaker} ===")
+                # If not already sorted by time globally, sort within group
+                # If already sorted globally, this re-sort is redundant unless different key.
+                # For simplicity, if sort_by_time was true, list is already sorted.
+                for m_item in mem_list: 
+                    timestamp_str = m_item.get('created_at', 'Timestamp N/A')
+                    try:
+                        # Basic parsing for display, adjust as needed
+                        dt_obj = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                        formatted_time = dt_obj.strftime('%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        formatted_time = timestamp_str # Fallback
+                    print(f"[{formatted_time:19}] {m_item['memory']}")
+        else: # Not grouping by speaker
+            for m in results:
+                who = m.get("actor_id") or "Unknown"
+                timestamp_str = m.get('created_at', 'Timestamp N/A')
+                try:
+                    dt_obj = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    formatted_time = dt_obj.strftime('%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    formatted_time = timestamp_str # Fallback
+                print(f"[{formatted_time:19}][{who:8}] {m['memory']}")
+
+# Demo Usage
+agent = TaskAgent(RUN_ID)
+
+# Team collaboration session
+agent.add_message("user", "alice", "Let's list tasks for the new landing page.")
+agent.add_message("user", "bob", "I'll own the hero section copy. Maybe tomorrow.")
+agent.add_message("user", "carol", "I'll choose three product screenshots later today.")
+agent.add_message("user", "alice", "Actually, I will work on the hero section copy today.")
+
+
+print("\nAssistant brainstorm reply (default settings):\n")
+print(agent.brainstorm("What are the current open tasks related to the hero section?"))
+
+print("\nAssistant brainstorm reply (excluding its own prior context):\n")
+print(agent.brainstorm("Summarize what Alice is working on.", exclude_assistant_context=True))
+
+
+print("\n--- Dump (sorted by time by default) ---")
+agent.dump()
+
+print("\n--- Dump (grouped by speaker, also sorted by time globally) ---")
+agent.dump(group_by_speaker=True)
+
+print("\n--- Dump (default order, not sorted by time explicitly by dump) ---")
+agent.dump(sort_by_time=False)
+
+```
