@@ -12,7 +12,7 @@ from app.database import get_db
 from app.auth import get_current_supa_user
 from gotrue.types import User as SupabaseUser
 from app.utils.memory import get_memory_client
-from app.utils.db import get_user_and_app
+from app.utils.db import get_or_create_user, get_user_and_app
 from app.models import (
     Memory, MemoryState, MemoryAccessLog, App,
     MemoryStatusHistory, User, Category, AccessControl
@@ -20,7 +20,7 @@ from app.models import (
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
 
-router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
+router = APIRouter(prefix="/memories", tags=["memories"])
 
 
 def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
@@ -170,21 +170,39 @@ async def list_memories(
     else:
         query = query.order_by(Memory.created_at.desc())
 
-
-    # Get paginated results
-    paginated_results = sqlalchemy_paginate(query.options(joinedload(Memory.app), joinedload(Memory.categories)).distinct(), params)
+    # Get paginated results - items are SQLAlchemy Memory objects
+    paginated_sqla_results = sqlalchemy_paginate(
+        query.options(joinedload(Memory.app), joinedload(Memory.categories)).distinct(), 
+        params
+    )
 
     # Filter results based on permissions
-    filtered_items = []
-    for item in paginated_results.items:
-        if check_memory_access_permissions(db, item, app_id):
-            filtered_items.append(item)
+    permitted_sqla_items = []
+    for item in paginated_sqla_results.items: # item is app.models.Memory
+        if check_memory_access_permissions(db, item, app_id): # app_id is the one from query params for filtering
+            permitted_sqla_items.append(item)
 
-    # Update paginated results with filtered items
-    paginated_results.items = filtered_items
-    paginated_results.total = len(filtered_items)
+    # Now, transform the permitted SQLAlchemy items into MemoryResponse Pydantic models
+    response_items = [
+        MemoryResponse(
+            id=mem.id,
+            content=mem.content,
+            created_at=mem.created_at, 
+            state=mem.state.value if mem.state else None,
+            app_id=mem.app_id,
+            app_name=mem.app.name if mem.app else None, 
+            categories=[cat.name for cat in mem.categories], 
+            metadata_=mem.metadata_
+        )
+        for mem in permitted_sqla_items
+    ]
 
-    return paginated_results
+    # Create a new Page object with the transformed items and correct total
+    return Page.create(
+        items=response_items,
+        total=len(response_items), 
+        params=params 
+    )
 
 
 # Get all categories

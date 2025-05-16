@@ -8,7 +8,7 @@ from gotrue.types import User as SupabaseUser # Correct type hint
 from app.utils.db import get_or_create_user
 
 
-router = APIRouter(prefix="/api/v1/stats", tags=["stats"])
+router = APIRouter(prefix="/stats", tags=["stats"])
 
 @router.get("/")
 async def get_user_stats(

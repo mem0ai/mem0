@@ -10,7 +10,7 @@ from app.auth import get_current_supa_user
 from gotrue.types import User as SupabaseUser
 from app.utils.db import get_or_create_user
 
-router = APIRouter(prefix="/api/v1/apps", tags=["apps"])
+router = APIRouter(prefix="/apps", tags=["apps"])
 
 # Helper function to get an app owned by the current user, or raise 404/403
 def get_user_app_or_40x(db: Session, app_id: UUID, user_id_from_auth: UUID) -> App:
