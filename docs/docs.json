@@ -194,6 +194,7 @@
                   "examples",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/collaborative-task-agent",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
