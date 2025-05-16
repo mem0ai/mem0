@@ -287,6 +287,7 @@ async def delete_all_memories() -> str:
 
             # delete the accessible memories only
             for memory_id in accessible_memory_ids:
+                memory_id = str(memory_id)
                 memory_client.delete(memory_id)
 
             # Update each memory's state and create history entries
