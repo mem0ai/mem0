@@ -58,7 +58,11 @@ class EmbedderFactory:
 
     @classmethod
     def create(cls, provider_name, config, vector_config: Optional[dict]):
-        if provider_name == "upstash_vector" and vector_config and vector_config.enable_embeddings:
+        if (
+            provider_name == "upstash_vector"
+            and vector_config
+            and vector_config.enable_embeddings
+        ):
             return MockEmbeddings()
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
@@ -86,6 +90,7 @@ class VectorStoreFactory:
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
+        "vikingdb": "mem0.vector_stores.vikingdb.VikingDB",
     }
 
     @classmethod
@@ -98,9 +103,8 @@ class VectorStoreFactory:
             return vector_store_instance(**config)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
-        
+
     @classmethod
     def reset(cls, instance):
         instance.reset()
         return instance
-        
