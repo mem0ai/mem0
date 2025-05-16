@@ -199,7 +199,7 @@ async def call_agent_async(query, runner, user_id, session_id):
 async def run_conversation():
     # First interaction - patient introduces themselves with key information
     await call_agent_async(
-        "Hi, I'm Sarah. I've been having headaches for the past week, and I have a penicillin allergy.",
+        "Hi, I'm Alex. I've been having headaches for the past week, and I have a penicillin allergy.",
         runner=runner,
         user_id=USER_ID,
         session_id=SESSION_ID
@@ -238,11 +238,11 @@ if __name__ == "__main__":
 
 This healthcare assistant demonstrates several key capabilities:
 
-1. **Memory Storage**: When Sarah mentions her headaches and penicillin allergy, the agent stores this information in Mem0 using the `save_patient_info` tool.
+1. **Memory Storage**: When Alex mentions her headaches and penicillin allergy, the agent stores this information in Mem0 using the `save_patient_info` tool.
 
-2. **Contextual Retrieval**: When Sarah asks about headache causes, the agent uses the `retrieve_patient_info` tool to recall her specific situation.
+2. **Contextual Retrieval**: When Alex asks about headache causes, the agent uses the `retrieve_patient_info` tool to recall her specific situation.
 
-3. **Memory Application**: When discussing medications, the agent remembers Sarah's penicillin allergy without her needing to repeat it, providing safer and more personalized advice.
+3. **Memory Application**: When discussing medications, the agent remembers Alex's penicillin allergy without her needing to repeat it, providing safer and more personalized advice.
 
 4. **Conversation Continuity**: The agent maintains context across the entire conversation session, creating a more natural and efficient interaction.
 

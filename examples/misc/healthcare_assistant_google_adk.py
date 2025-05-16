@@ -149,7 +149,7 @@ async def call_agent_async(query, runner, user_id, session_id):
 async def run_conversation():
     # First interaction - patient introduces themselves with key information
     await call_agent_async(
-        "Hi, I'm Sarah. I've been having headaches for the past week, and I have a penicillin allergy.",
+        "Hi, I'm Alex. I've been having headaches for the past week, and I have a penicillin allergy.",
         runner=runner,
         user_id=USER_ID,
         session_id=SESSION_ID
