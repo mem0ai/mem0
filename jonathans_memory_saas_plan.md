@@ -16,7 +16,7 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
 
 **Overall Goal:** Launch a functional multi-tenant Minimum Viable Product (MVP) of "Jonathan's Memory." This MVP will feature:
 1.  User authentication (registration, login, logout).
-2.  User-scoped memory: Each user's memories are isolated and private.
+2.  User-scoped memory: Each user's memories are isolated and private within a shared data store, managed by the application.
 3.  Deployment to a simple cloud platform for initial user access.
 
 **Key Priorities for this MVP:**
@@ -28,7 +28,7 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
 
 ### **Phase 1: Backend - Authentication & User-Scoped Memory**
 
-**Goal:** Modify the existing `openmemory/api` (FastAPI) backend to support multiple users with Supabase authentication and ensure each user's memories are stored in a dedicated Qdrant collection.
+**Goal:** Modify the existing `openmemory/api` (FastAPI) backend to support multiple users with Supabase authentication and ensure each user's memories are securely isolated within a shared Qdrant collection by leveraging `mem0`'s user-ID based operations.
 
 **Junior Engineer Prerequisites:**
 *   Familiarity with Python, FastAPI, Docker.
@@ -45,8 +45,17 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
             ```env
             SUPABASE_URL="YOUR_SUPABASE_PROJECT_URL"
             SUPABASE_SERVICE_KEY="YOUR_SUPABASE_SERVICE_ROLE_KEY"
-            # Ensure OPENAI_API_KEY is also present and correct
             OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+
+            QDRANT_HOST="mem0_store" # Default for local Docker, or your actual Qdrant host
+            QDRANT_PORT="6333"       # Default for local Docker, or your actual Qdrant port
+            MAIN_QDRANT_COLLECTION_NAME="jonathans_memory_main" # Static name for the main Qdrant collection
+
+            # For mem0's LLM/Embedder configuration (ensure these are set)
+            LLM_PROVIDER="openai"
+            OPENAI_MODEL="gpt-4o-mini" # Or your preferred model
+            EMBEDDER_PROVIDER="openai"
+            EMBEDDER_MODEL="text-embedding-ada-002" # Or your preferred embedder model
             ```
         *   Add corresponding entries to `openmemory/api/.env.example` (without actual values for keys).
         *   Add `supabase-py` to `openmemory/api/requirements.txt`:
@@ -55,74 +64,89 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
             ```
         *   If running locally, rebuild the API Docker image: `docker compose build openmemory-mcp` (or `make build` from the `openmemory` root, then restart containers).
 
-**2. User-Scoped Qdrant Collections (Modify `openmemory/api/app/utils/memory.py`):**
-    *   **Why:** The current `get_memory_client()` uses a single, hardcoded Qdrant collection ("openmemory") and a global client. For multi-tenancy with data isolation per user, we need a separate Qdrant collection for each user.
+**2. User-Aware `mem0` Client with Shared Qdrant Collection (Modify `openmemory/api/app/utils/memory.py`):**
+    *   **Why:** For simplicity and alignment with Qdrant & `mem0` best practices, we will use a single, shared Qdrant collection for all users (e.g., "jonathans_memory_main"). The `mem0` library is expected to handle user data isolation by accepting a `user_id` in its methods (e.g., `add`, `search`). This `user_id` will then be used by `mem0` to manage data appropriately within the shared Qdrant collection, likely through Qdrant's payload filtering capabilities. The `get_memory_client` function will therefore configure `mem0` with static connection details for this shared collection.
     *   **Action (Engineer):** Modify `get_memory_client` function:
         ```python
         # In openmemory/api/app/utils/memory.py
+        import os
+        from mem0 import Memory # Ensure this import is correct for your mem0 version
 
-        from mem0 import Memory # Keep this
-        # Remove: global memory_client
-        # Remove: memory_client = None
+        # Remove any old global memory_client instance if present.
 
-        def get_memory_client(user_id: str, custom_instructions: str = None): # Add user_id parameter
-            \"\"\"
-            Initializes and returns a Mem0 client configured for a specific user.
-            Each user will have their own Qdrant collection.
-            \"\"\"
-            if not user_id:
-                raise ValueError("user_id is required to initialize the memory client")
-
-            # Sanitize user_id for collection name if necessary, though Supabase UUIDs are generally safe.
-            # For simplicity, we'll use it directly as per the plan.
-            # A more robust approach might involve hashing or ensuring format compliance for collection names.
-            collection_name = f"jonathan_memory_user_{user_id}"
-
+        def get_memory_client(custom_instructions: str = None): # user_id parameter removed from here
+            """
+            Initializes and returns a Mem0 client configured with a static Qdrant collection.
+            User-specific operations will be handled by passing user_id to the mem0 client's methods.
+            """
             try:
+                qdrant_host = os.getenv("QDRANT_HOST", "mem0_store")
+                qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
+                # Use a static collection name defined in .env
+                collection_name = os.getenv("MAIN_QDRANT_COLLECTION_NAME") # Ensure this is set in .env
+
+                llm_provider = os.getenv("LLM_PROVIDER", "openai")
+                openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+                embedder_provider = os.getenv("EMBEDDER_PROVIDER", "openai")
+                embedder_model = os.getenv("EMBEDDER_MODEL", "text-embedding-ada-002")
+                openai_api_key = os.getenv("OPENAI_API_KEY")
+
+                if not openai_api_key:
+                    raise ValueError("OPENAI_API_KEY must be set in environment variables for mem0.")
+                if not collection_name:
+                    raise ValueError("MAIN_QDRANT_COLLECTION_NAME must be set in .env for mem0 Qdrant config.")
+
+
                 config = {
                     "vector_store": {
                         "provider": "qdrant",
                         "config": {
-                            "collection_name": collection_name, # Dynamic collection name
-                            "host": os.getenv("QDRANT_HOST", "mem0_store"), # Use env var or default
-                            "port": int(os.getenv("QDRANT_PORT", 6333)),   # Use env var or default
-                            # Add other Qdrant client parameters if needed (e.g., api_key for Qdrant Cloud)
+                            "collection_name": collection_name, # Static collection name
+                            "host": qdrant_host,
+                            "port": qdrant_port,
+                            # Add "api_key": os.getenv("QDRANT_API_KEY") if using Qdrant Cloud and it needs an API key
                         }
                     },
-                    "llm": { # Ensure LLM config is present if not implicitly handled by mem0 defaults
-                        "provider": os.getenv("LLM_PROVIDER", "openai"),
+                    "llm": { # Ensure LLM config is present and keys are passed
+                        "provider": llm_provider,
                         "config": {
-                            "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-                            # Potentially API key here if mem0 doesn't pick it from env automatically
-                            # "api_key": os.getenv("OPENAI_API_KEY")
+                            "model": openai_model,
+                            "api_key": openai_api_key # Explicitly pass API key
+                        }
+                    },
+                    "embedder": { # Ensure Embedder config is present and keys are passed
+                        "provider": embedder_provider,
+                        "config": {
+                            "model": embedder_model,
+                            "api_key": openai_api_key # Explicitly pass API key
                         }
                     }
-                    # Ensure embedder config is also present if needed
                 }
+                # For debugging:
+                # print(f"Initializing mem0 client. Qdrant: {qdrant_host}:{qdrant_port}, Collection: {collection_name}")
+                # print(f"LLM: {llm_provider}/{openai_model}, Embedder: {embedder_provider}/{embedder_model}")
 
-                # Ensure OPENAI_API_KEY is accessible by mem0. Memory() might pick it up from env.
-                # If not, you might need to pass it in llm.config or embedder.config
-                # memory_instance = Memory(config=MemoryConfig(**config_dict)) # Or Memory.from_config()
                 memory_instance = Memory.from_config(config_dict=config)
 
             except Exception as e:
                 # Log the error for debugging
-                print(f"Error initializing memory client for user {user_id} with collection {collection_name}: {e}")
+                print(f"Error initializing memory client with collection '{collection_name}': {e}")
                 raise Exception(f"Exception occurred while initializing memory client: {e}")
 
-            if custom_instructions:
-                # This method .update_project() might not exist or apply in the same way
-                # when instantiating per user. Review mem0 docs if this feature is critical.
-                # For MVP, can be commented out if problematic.
-                # memory_instance.update_project(custom_instructions=custom_instructions)
-                pass
-
-
+            # The .update_project() method might apply to the client's general behavior.
+            # If custom_instructions are global, this is fine. If they were meant to be per-user,
+            # this approach needs reconsideration for custom_instructions. For MVP, defer if complex.
+            # if custom_instructions:
+            #     try:
+            #         memory_instance.update_project(custom_instructions=custom_instructions)
+            #     except Exception as e:
+            #         print(f"Warning: Failed to update project with custom instructions: {e}")
+            
             return memory_instance
 
-        # Remove or comment out: get_default_user_id() function
+        # Remove or comment out: get_default_user_id() function if it exists
         ```
-    *   **Note:** Ensure Qdrant host (`mem0_store`) and port are correctly configured for your Docker environment or cloud deployment. Add `QDRANT_HOST` and `QDRANT_PORT` to `.env` if they differ from defaults.
+    *   **Note:** Ensure Qdrant host (`QDRANT_HOST`), port (`QDRANT_PORT`), and the main collection name (`MAIN_QDRANT_COLLECTION_NAME`) are correctly set in your `.env` file.
 
 **3. Supabase Authentication Middleware (Modify `openmemory/api/main.py`):**
     *   **Why:** To protect API endpoints and identify the authenticated Supabase user.
@@ -211,7 +235,7 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
         *   Import `get_current_user` dependency or pass user from request context.
         *   In each `@mcp.tool` (e.g., `add_memories`, `search_memory`):
             *   Obtain the authenticated Supabase user's ID (e.g., `supabase_user_id = current_user.id`).
-            *   Instantiate the memory client: `m_client = get_memory_client(user_id=str(supabase_user_id))`.
+            *   Instantiate the memory client: `m_client = get_memory_client()`.
             *   Use `m_client` for all operations.
             *   Ensure the `uid` or `user_id` passed to `memory_client.add(...)`, `memory_client.search(...)` etc., is the Supabase user ID.
             *   The `get_user_and_app` utility will need to be adapted to use the Supabase user ID to find/create the user in your local SQL `User` table.
@@ -229,7 +253,7 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
         #     if not client_name: # This logic might need re-evaluation with Supabase users
         #         return "Error: client_name not provided"
 
-        #     m_client = get_memory_client(user_id=supabase_user_id)
+        #     m_client = get_memory_client() # No user_id needed for client instantiation with shared collection
         #     db = SessionLocal()
         #     try:
         #         # Adapt get_user_and_app to use supabase_user_id
@@ -266,7 +290,7 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
     *   Send requests to your protected API endpoints (e.g., `/mcp/...` tools or `/api/v1/memories/...`) with the JWT in the `Authorization: Bearer <YOUR_JWT>` header.
     *   Verify:
         *   Endpoints without a valid JWT are rejected (401).
-        *   Memories are created in Qdrant in collections like `jonathan_memory_user_<supabase_user_id>`.
+        *   Memories are created in the shared Qdrant collection (e.g., `jonathans_memory_main` or the value of `MAIN_QDRANT_COLLECTION_NAME`), and inspecting the vector point's payload in Qdrant should show a field correctly identifying the user (e.g., a `user_id` field in the payload matching the Supabase user ID).
         *   SQL database entries (Users, Memories metadata) are correctly associated with the Supabase user ID.
 
 ---
