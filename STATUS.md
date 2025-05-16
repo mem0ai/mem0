@@ -8,46 +8,44 @@ Launch a functional multi-tenant Minimum Viable Product (MVP) with:
 2.  User-scoped memory storage and retrieval.
 3.  Deployment to a simple cloud platform (future phase).
 
-## Current Phase: Backend - Authentication & Multi-Tenancy Implementation
+## Current Phase: Backend Multi-Tenancy COMPLETE - Ready for Frontend Integration
 
-### Completed Steps:
-*   **Branch Creation:** User confirmed new Git branch `feat/supabase-auth-multitenancy` is active.
-*   **Dependencies:** Corrected `supabase` package name and `mem0ai` version in `openmemory/api/requirements.txt`.
-*   **Environment Configuration:** User provided with `.env` template; confirmed `.env` populated with actual secrets by user.
-*   **Core Authentication (`openmemory/api/main.py`, `openmemory/api/app/auth.py`):** Logic moved to `app/auth.py`, resolving circular imports. Supabase client initialized. `get_current_supa_user` dependency implemented.
-*   **`mem0` Client (`openmemory/api/app/utils/memory.py`):** Correctly configured for static shared Qdrant collection.
-*   **Database Utilities (`openmemory/api/app/utils/db.py`):** Adapted for Supabase User IDs.
-*   **Routers Adapted (`memories.py`, `apps.py`, `stats.py`):** Endpoints updated. Corrected imports, fixed `SyntaxError` in `apps.py`.
-*   **Missing Routers Handled:** Imports for `users_router`, `feedback_router` commented out in `main.py`.
-*   **MCP Server (`openmemory/api/app/mcp_server.py`):** Adapted for Supabase User ID context and `mem0` multi-tenancy.
-*   **Database Initialization:** Successfully ran Alembic migrations (`make migrate` or `docker compose exec ... alembic upgrade head`), creating database tables (e.g., `openmemory.db` for SQLite).
-*   **API Startup SUCCESSFUL:** Backend API now starts without Python import/syntax errors and with database tables initialized.
+### Completed Steps (Backend Authentication & Multi-Tenancy):
+*   **Branch Creation:** Active development on `feat/supabase-auth-multitenancy`.
+*   **Dependencies:** `supabase` package correctly configured in `requirements.txt`.
+*   **Environment Configuration:** `.env` setup for Supabase, Qdrant, OpenAI, and `mem0` settings.
+*   **Core Authentication (`app/auth.py`, `main.py`):** Supabase client initialized; `get_current_supa_user` FastAPI dependency implemented and applied to routers, resolving circular imports.
+*   **`mem0` Client (`app/utils/memory.py`):** Configured for a static shared Qdrant collection, relying on `user_id` in `mem0` method calls for data isolation.
+*   **Database Utilities (`app/utils/db.py`):** `get_or_create_user()` and `get_user_and_app()` adapted to use Supabase User IDs, mapping to local `User` table (PK `User.id` stores Supabase UUID).
+*   **Routers Adapted (`memories.py`, `apps.py`, `stats.py`):** Endpoints refactored for Supabase JWT authentication and user-scoped data operations. Import issues and `ResponseValidationError` resolved.
+*   **Missing Routers Handled:** Imports for non-existent routers commented out in `main.py`.
+*   **MCP Server (`app/mcp_server.py`):** Adapted to use Supabase User ID from context for `mem0` calls and database interactions.
+*   **Database Initialization:** Alembic migrations successfully run, creating necessary SQL tables.
+*   **API Startup:** Backend API starts successfully.
+*   **Functional API Testing:** Core memory CRUD operations (List, Create) successfully tested with two distinct users, confirming authentication, data creation, and data isolation (users only see their own data).
 
-### Next Immediate Steps:
-1.  **Functional API Testing (Manual/Automated):**
-    *   **Obtain Supabase JWTs:** SUCCESS - User A and User B JWTs obtained.
-    *   **Set JWT as Shell Variable:** User advised to set JWTs as shell variables.
-    *   **Test `GET /api/v1/memories/` (List Memories for User A - Initial):** SUCCESS - Returned empty list.
-    *   **Test `POST /api/v1/memories/` (Create Memory for User A):** SUCCESS - Memory created for User A.
-    *   **Test `GET /api/v1/memories/` (List Memories for User A - After Create):** SUCCESS - Listed User A's memory.
-    *   **Test `GET /api/v1/memories/` (List Memories for User B - Initial):** SUCCESS - Returned empty list for User B.
-    *   **Test `POST /api/v1/memories/` (Create Memory for User B):** SUCCESS - Memory created for User B.
-    *   **Test `GET /api/v1/memories/` (List Memories for User B - After Create):** SUCCESS - Listed User B's memory (and not User A's).
-    *   **Test `GET /api/v1/memories/` (List Memories for User A - Final Check):** SUCCESS - Confirmed User A still only sees User A's memory. Data isolation verified for core memory list/create operations.
-    *   **Overall API Testing Status:** Core authentication and multi-tenancy for memories verified!
-2.  **Commit Changes:** User advised to commit all successful backend changes to the `feat/supabase-auth-multitenancy` branch.
-3.  **Address Linter Errors in `apps_router.py`**: Investigate and fix any remaining (likely cosmetic) linter errors.
-4.  **Review & Address Remaining Outstanding Issues.**
+### Next Phase: Frontend Integration & Further Backend Refinements
+1.  **Git Workflow:**
+    *   Commit all recent successful backend changes to `feat/supabase-auth-multitenancy`.
+    *   Merge `feat/supabase-auth-multitenancy` into `main`.
+    *   Create a new branch from `main` for frontend development (e.g., `feat/frontend-supabase-integration`).
+2.  **Frontend Development (`openmemory/ui`):**
+    *   Integrate Supabase JS client for user authentication (signup, login, logout).
+    *   Manage user sessions and JWTs on the client-side.
+    *   Update UI components to make authenticated API calls to the backend, displaying user-specific memories and data.
+3.  **Address Remaining Backend Issues (from Outstanding List below).**
+4.  **MCP Client Adaptation:** Ensure any client connecting to MCP server's SSE endpoint provides the Supabase User ID in the path and that the SSE endpoint authentication is hardened.
 
-### Key Outstanding Issues & Questions to Address:
-*   **`apps_router.py` Linter Errors**: While `SyntaxError` is fixed, some cosmetic linter warnings might persist.
-*   **SSE Endpoint Security (`mcp_server.py`)**: `handle_sse` endpoint needs JWT authentication for production.
-*   **Missing Routers Implementation**: Decide on `users_router`, `feedback_router` (create or confirm removal).
-*   **Alembic Migrations for `User` Table**: Migrations run successfully creating initial tables. Future schema changes or constraint adjustments may require new revisions.
-*   **`check_memory_access_permissions` Function**: Review and adapt this function in `memories_router.py` for the new auth system.
-*   **`mem0` Multi-Tenancy Behavior Verification**: Confirm through testing that `mem0` correctly isolates data in Qdrant based on `user_id` passed to its methods.
-*   **Email in MCP Context**: `get_user_and_app` is called with `email=None` in MCP tools; assess impact on user record creation.
-*   **SQL `Memory` and `mem0_id` Linking**: Evaluate making `mem0_id` a dedicated column in the `Memory` SQL table for stronger linking.
+### Key Outstanding Issues & Questions to Address (Post-MVP or in Parallel):
+*   **`apps_router.py` Linter Errors**: Investigate and fix any remaining (likely cosmetic) linter errors if they cause issues or noise.
+*   **SSE Endpoint Security (`mcp_server.py`)**: `handle_sse` endpoint needs robust JWT authentication for production environments.
+*   **Missing Routers Implementation**: Decide on `users_router`, `feedback_router` (implement or confirm removal from `main.py` imports).
+*   **Alembic Migrations for `User` Table**: Current setup works. Future schema changes or constraint adjustments may require new revisions.
+*   **`check_memory_access_permissions` Function**: Review and adapt this function in `memories_router.py` more thoroughly for complex permission scenarios if needed beyond basic user ownership.
+*   **`mem0` Multi-Tenancy Behavior Verification**: While API tests show isolation, deeper verification of `mem0`'s interaction with Qdrant payload for `user_id` could be beneficial for understanding.
+*   **Email in MCP Context**: `get_user_and_app` is called with `email=None` in MCP tools; this is acceptable for MVP as `get_or_create_user` handles it, but could be enhanced if MCP clients can provide email.
+*   **SQL `Memory` and `mem0_id` Linking**: Evaluate adding a dedicated `mem0_id` column to the `Memory` SQL table for robust linking to vector store entries (currently in metadata).
+*   **Pydantic V2 Migration:** Address deprecation warnings for Pydantic V1 style models and validators in `app/schemas.py` and elsewhere.
 
 ---
 *(This file will be updated as progress is made.)* 

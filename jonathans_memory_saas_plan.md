@@ -28,6 +28,15 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
 
 ### **Phase 1: Backend - Authentication & User-Scoped Memory**
 
+**[STATUS: LARGELY COMPLETE FOR MVP]**
+*   **Outcome:** Successfully integrated Supabase for user authentication (JWT-based). Modified the FastAPI backend to support multi-tenancy.
+*   Core memory operations (create, list) now correctly isolate data per authenticated user, using a shared Qdrant collection managed by `mem0` (leveraging `user_id` for internal payload filtering) and a relational SQL database for metadata.
+*   API endpoints for memories, apps, and stats are now user-scoped.
+*   MCP server tools adapted to use the authenticated user's context.
+*   Database initialized with Alembic migrations.
+*   API starts successfully and core multi-tenancy has been verified through testing with multiple users.
+*   *Remaining items from this phase are minor or deferred (see STATUS.MD for details).*
+
 **Goal:** Modify the existing `openmemory/api` (FastAPI) backend to support multiple users with Supabase authentication and ensure each user's memories are securely isolated within a shared Qdrant collection by leveraging `mem0`'s user-ID based operations.
 
 **Junior Engineer Prerequisites:**
