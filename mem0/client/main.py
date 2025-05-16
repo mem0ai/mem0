@@ -3,7 +3,7 @@ import logging
 import os
 import warnings
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, overload, Literal
 
 import httpx
 import requests
@@ -59,11 +59,11 @@ class MemoryClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        host: Optional[str] = None,
-        org_id: Optional[str] = None,
-        project_id: Optional[str] = None,
-        client: Optional[httpx.Client] = None,
+        api_key: str | None = None,
+        host: str | None = None,
+        org_id: str | None = None,
+        project_id: str | None = None,
+        client: httpx.Client | None = None,
     ):
         """Initialize the MemoryClient.
 
@@ -132,7 +132,7 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    def add(self, messages: str | list[dict[str, str]], **kwargs) -> dict[str, Any]:
         """Add a new memory.
 
         Args:
@@ -164,7 +164,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get(self, memory_id: str) -> Dict[str, Any]:
+    def get(self, memory_id: str) -> dict[str, Any]:
         """Retrieve a specific memory by ID.
 
         Args:
@@ -183,7 +183,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def get_all(self, version: str = "v1", **kwargs) -> list[dict[str, Any]]:
         """Retrieve all memories, with optional filtering.
 
         Args:
@@ -215,8 +215,28 @@ class MemoryClient:
         )
         return response.json()
 
+    @overload
+    def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.0"] = "v1.0",
+        **kwargs
+    ) -> list[dict[str, Any]]:
+        ...
+
+    @overload
+    def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.1"] = "v1.1",
+        **kwargs
+    ) -> dict[str, list[dict[str, Any]]]:
+        ...
+
     @api_error_handler
-    def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    def search(self, query: str, version: str = "v1", **kwargs) -> list[dict[str, Any]] | dict[str, list[dict[str, Any]]]:
         """Search memories based on a query.
 
         Args:
@@ -225,23 +245,25 @@ class MemoryClient:
             **kwargs: Additional parameters such as user_id, agent_id, app_id, top_k, filters.
 
         Returns:
-            A list of dictionaries containing search results.
+            If output_format is "v1.0", returns a list of dictionaries containing search results.
+            If output_format is "v1.1", returns a dictionary with a "results" key containing the list of search results.
 
         Raises:
             APIError: If the API request fails.
         """
         payload = {"query": query}
-        params = self._prepare_params(kwargs)
-        payload.update(params)
+        payload.update(self._prepare_params(kwargs))
         response = self.client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
-        capture_client_event("client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "sync"})
+        capture_client_event(
+            "client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
-    def update(self, memory_id: str, data: str) -> Dict[str, Any]:
+    def update(self, memory_id: str, data: str) -> dict[str, Any]:
         """
         Update a memory by ID.
         Args:
@@ -257,7 +279,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete(self, memory_id: str) -> Dict[str, Any]:
+    def delete(self, memory_id: str) -> dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
@@ -276,7 +298,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_all(self, **kwargs) -> Dict[str, str]:
+    def delete_all(self, **kwargs) -> dict[str, str]:
         """Delete all memories, with optional filtering.
 
         Args:
@@ -295,7 +317,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def history(self, memory_id: str) -> List[Dict[str, Any]]:
+    def history(self, memory_id: str) -> list[dict[str, Any]]:
         """Retrieve the history of a specific memory.
 
         Args:
@@ -314,7 +336,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def users(self) -> Dict[str, Any]:
+    def users(self) -> dict[str, Any]:
         """Get all users, agents, and sessions for which memories exist."""
         params = self._prepare_params()
         response = self.client.get("/v1/entities/", params=params)
@@ -325,11 +347,11 @@ class MemoryClient:
     @api_error_handler
     def delete_users(
         self,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        app_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-    ) -> Dict[str, str]:
+        user_id: str | None = None,
+        agent_id: str | None = None,
+        app_id: str | None = None,
+        run_id: str | None = None,
+    ) -> dict[str, str]:
         """Delete specific entities or all entities if no filters provided.
 
         Args:
@@ -382,7 +404,7 @@ class MemoryClient:
         }
 
     @api_error_handler
-    def reset(self) -> Dict[str, str]:
+    def reset(self) -> dict[str, str]:
         """Reset the client by deleting all users and memories.
 
         This method deletes all users, agents, sessions, and memories associated with the client.
@@ -401,7 +423,7 @@ class MemoryClient:
         return {"message": "Client reset successful. All users and memories deleted."}
 
     @api_error_handler
-    def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def batch_update(self, memories: list[dict[str, Any]]) -> dict[str, Any]:
         """Batch update memories.
 
         Args:
@@ -422,7 +444,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def batch_delete(self, memories: list[dict[str, Any]]) -> dict[str, Any]:
         """Batch delete memories.
 
         Args:
@@ -442,7 +464,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+    def create_memory_export(self, schema: str, **kwargs) -> dict[str, Any]:
         """Create a memory export with the provided schema.
 
         Args:
@@ -458,7 +480,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+    def get_memory_export(self, **kwargs) -> dict[str, Any]:
         """Get a memory export.
 
         Args:
@@ -473,7 +495,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
+    def get_project(self, fields: list[str] | None = None) -> dict[str, Any]:
         """Get instructions or categories for the current project.
 
         Args:
@@ -501,10 +523,10 @@ class MemoryClient:
     @api_error_handler
     def update_project(
         self,
-        custom_instructions: Optional[str] = None,
-        custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        custom_instructions: str | None = None,
+        custom_categories: list[str] | None = None,
+        retrieval_criteria: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Update the project settings.
 
         Args:
@@ -550,7 +572,7 @@ class MemoryClient:
         raise NotImplementedError("Chat is not implemented yet")
 
     @api_error_handler
-    def get_webhooks(self, project_id: str) -> Dict[str, Any]:
+    def get_webhooks(self, project_id: str) -> dict[str, Any]:
         """Get webhooks configuration for the project.
 
         Args:
@@ -570,7 +592,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
+    def create_webhook(self, url: str, name: str, project_id: str, event_types: list[str]) -> dict[str, Any]:
         """Create a webhook for the current project.
 
         Args:
@@ -596,10 +618,10 @@ class MemoryClient:
     def update_webhook(
         self,
         webhook_id: int,
-        name: Optional[str] = None,
-        url: Optional[str] = None,
-        event_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        url: str | None = None,
+        event_types: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Update a webhook configuration.
 
         Args:
@@ -622,7 +644,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_webhook(self, webhook_id: int) -> Dict[str, str]:
+    def delete_webhook(self, webhook_id: int) -> dict[str, str]:
         """Delete a webhook configuration.
 
         Args:
@@ -642,8 +664,8 @@ class MemoryClient:
 
     @api_error_handler
     def feedback(
-        self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None
-    ) -> Dict[str, str]:
+        self, memory_id: str, feedback: str | None = None, feedback_reason: str | None = None
+    ) -> dict[str, str]:
         VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_NEGATIVE"}
 
         feedback = feedback.upper() if feedback else None
@@ -658,8 +680,8 @@ class MemoryClient:
         return response.json()
 
     def _prepare_payload(
-        self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, messages: str | list[dict[str, str]] | None, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
         """Prepare the payload for API requests.
 
         Args:
@@ -678,7 +700,7 @@ class MemoryClient:
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
 
-    def _prepare_params(self, kwargs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _prepare_params(self, kwargs: dict[str, Any] | None = None) -> dict[str, Any]:
         """Prepare query parameters for API requests.
 
         Args:
@@ -713,11 +735,11 @@ class AsyncMemoryClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        host: Optional[str] = None,
-        org_id: Optional[str] = None,
-        project_id: Optional[str] = None,
-        client: Optional[httpx.AsyncClient] = None,
+        api_key: str | None = None,
+        host: str | None = None,
+        org_id: str | None = None,
+        project_id: str | None = None,
+        client: httpx.AsyncClient | None = None,
     ):
         """Initialize the AsyncMemoryClient.
 
@@ -788,8 +810,8 @@ class AsyncMemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     def _prepare_payload(
-        self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, messages: str | list[dict[str, str]] | None, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
         """Prepare the payload for API requests.
 
         Args:
@@ -808,7 +830,7 @@ class AsyncMemoryClient:
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
 
-    def _prepare_params(self, kwargs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _prepare_params(self, kwargs: dict[str, Any] | None = None) -> dict[str, Any]:
         """Prepare query parameters for API requests.
 
         Args:
@@ -840,7 +862,7 @@ class AsyncMemoryClient:
         await self.async_client.aclose()
 
     @api_error_handler
-    async def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    async def add(self, messages: str | list[dict[str, str]], **kwargs) -> dict[str, Any]:
         kwargs = self._prepare_params(kwargs)
         if kwargs.get("output_format") != "v1.1":
             kwargs["output_format"] = "v1.1"
@@ -860,7 +882,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get(self, memory_id: str) -> Dict[str, Any]:
+    async def get(self, memory_id: str) -> dict[str, Any]:
         params = self._prepare_params()
         response = await self.async_client.get(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
@@ -868,7 +890,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_all(self, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def get_all(self, version: str = "v1", **kwargs) -> list[dict[str, Any]]:
         params = self._prepare_params(kwargs)
         if version == "v1":
             response = await self.async_client.get(f"/{version}/memories/", params=params)
@@ -886,21 +908,53 @@ class AsyncMemoryClient:
         )
         return response.json()
 
+    @overload
+    async def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.0"] = "v1.0",
+        **kwargs
+    ) -> list[dict[str, Any]]:
+        ...
+
+    @overload
+    async def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: Literal["v1.1"] = "v1.1",
+        **kwargs
+    ) -> dict[str, list[dict[str, Any]]]:
+        ...
+
     @api_error_handler
-    async def search(self, query: str, version: str = "v1", **kwargs) -> List[Dict[str, Any]]:
+    async def search(
+        self,
+        query: str,
+        version: str = "v1",
+        output_format: str = "v1.0",
+        **kwargs
+    ) -> list[dict[str, Any]] | dict[str, list[dict[str, Any]]]:
         payload = {"query": query}
         payload.update(self._prepare_params(kwargs))
         response = await self.async_client.post(f"/{version}/memories/search/", json=payload)
         response.raise_for_status()
+
         if "metadata" in kwargs:
             del kwargs["metadata"]
+
         capture_client_event(
             "client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "async"}
         )
-        return response.json()
+
+        result = response.json()
+        if output_format == "v1.1":
+            return {"results": result} if isinstance(result, list) else result
+        return result
 
     @api_error_handler
-    async def update(self, memory_id: str, data: str) -> Dict[str, Any]:
+    async def update(self, memory_id: str, data: str) -> dict[str, Any]:
         params = self._prepare_params()
         response = await self.async_client.put(f"/v1/memories/{memory_id}/", json={"text": data}, params=params)
         response.raise_for_status()
@@ -908,7 +962,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete(self, memory_id: str) -> Dict[str, Any]:
+    async def delete(self, memory_id: str) -> dict[str, Any]:
         params = self._prepare_params()
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
@@ -916,7 +970,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete_all(self, **kwargs) -> Dict[str, str]:
+    async def delete_all(self, **kwargs) -> dict[str, str]:
         params = self._prepare_params(kwargs)
         response = await self.async_client.delete("/v1/memories/", params=params)
         response.raise_for_status()
@@ -924,7 +978,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def history(self, memory_id: str) -> List[Dict[str, Any]]:
+    async def history(self, memory_id: str) -> list[dict[str, Any]]:
         params = self._prepare_params()
         response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
         response.raise_for_status()
@@ -932,7 +986,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def users(self) -> Dict[str, Any]:
+    async def users(self) -> dict[str, Any]:
         params = self._prepare_params()
         response = await self.async_client.get("/v1/entities/", params=params)
         response.raise_for_status()
@@ -942,11 +996,11 @@ class AsyncMemoryClient:
     @api_error_handler
     async def delete_users(
         self,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        app_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-    ) -> Dict[str, str]:
+        user_id: str | None = None,
+        agent_id: str | None = None,
+        app_id: str | None = None,
+        run_id: str | None = None,
+    ) -> dict[str, str]:
         """Delete specific entities or all entities if no filters provided.
 
         Args:
@@ -996,13 +1050,13 @@ class AsyncMemoryClient:
         }
 
     @api_error_handler
-    async def reset(self) -> Dict[str, str]:
+    async def reset(self) -> dict[str, str]:
         await self.delete_users()
         capture_client_event("client.reset", self, {"sync_type": "async"})
         return {"message": "Client reset successful. All users and memories deleted."}
 
     @api_error_handler
-    async def batch_update(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def batch_update(self, memories: list[dict[str, Any]]) -> dict[str, Any]:
         """Batch update memories.
 
         Args:
@@ -1023,7 +1077,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def batch_delete(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def batch_delete(self, memories: list[dict[str, Any]]) -> dict[str, Any]:
         """Batch delete memories.
 
         Args:
@@ -1043,7 +1097,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def create_memory_export(self, schema: str, **kwargs) -> Dict[str, Any]:
+    async def create_memory_export(self, schema: str, **kwargs) -> dict[str, Any]:
         """Create a memory export with the provided schema.
 
         Args:
@@ -1061,7 +1115,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_memory_export(self, **kwargs) -> Dict[str, Any]:
+    async def get_memory_export(self, **kwargs) -> dict[str, Any]:
         """Get a memory export.
 
         Args:
@@ -1076,7 +1130,19 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def get_project(self, fields: list[str] | None = None) -> dict[str, Any]:
+        """Get instructions or categories for the current project.
+
+        Args:
+            fields: List of fields to retrieve
+
+        Returns:
+            Dictionary containing the requested fields.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -1091,9 +1157,24 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_project(
-        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
+        self,
+        custom_instructions: str | None = None,
+        custom_categories: list[str] | None = None,
+        retrieval_criteria: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Update the project settings.
+
+        Args:
+            custom_instructions: New instructions for the project
+            custom_categories: New categories for the project
+
+        Returns:
+            Dictionary containing the API response.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If org_id or project_id are not set.
+        """
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
@@ -1121,16 +1202,42 @@ class AsyncMemoryClient:
         raise NotImplementedError("Chat is not implemented yet")
 
     @api_error_handler
-    async def get_webhooks(self, project_id: str) -> Dict[str, Any]:
-        response = await self.async_client.get(
-            f"api/v1/webhooks/projects/{project_id}/",
-        )
+    async def get_webhooks(self, project_id: str) -> dict[str, Any]:
+        """Get webhooks configuration for the project.
+
+        Args:
+            project_id: The ID of the project to get webhooks for.
+
+        Returns:
+            Dictionary containing webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If project_id is not set.
+        """
+
+        response = await self.async_client.get(f"api/v1/webhooks/projects/{project_id}/")
         response.raise_for_status()
         capture_client_event("client.get_webhook", self, {"sync_type": "async"})
         return response.json()
 
     @api_error_handler
-    async def create_webhook(self, url: str, name: str, project_id: str, event_types: List[str]) -> Dict[str, Any]:
+    async def create_webhook(self, url: str, name: str, project_id: str, event_types: list[str]) -> dict[str, Any]:
+        """Create a webhook for the current project.
+
+        Args:
+            url: The URL to send the webhook to.
+            name: The name of the webhook.
+            event_types: List of event types to trigger the webhook for.
+
+        Returns:
+            Dictionary containing the created webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+            ValueError: If project_id is not set.
+        """
+
         payload = {"url": url, "name": name, "event_types": event_types}
         response = await self.async_client.post(f"api/v1/webhooks/projects/{project_id}/", json=payload)
         response.raise_for_status()
@@ -1141,10 +1248,25 @@ class AsyncMemoryClient:
     async def update_webhook(
         self,
         webhook_id: int,
-        name: Optional[str] = None,
-        url: Optional[str] = None,
-        event_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        url: str | None = None,
+        event_types: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Update a webhook configuration.
+
+        Args:
+            webhook_id: ID of the webhook to update
+            name: Optional new name for the webhook
+            url: Optional new URL for the webhook
+            event_types: Optional list of event types to trigger the webhook for.
+
+        Returns:
+            Dictionary containing the updated webhook details.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+
         payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
         response = await self.async_client.put(f"api/v1/webhooks/{webhook_id}/", json=payload)
         response.raise_for_status()
@@ -1152,7 +1274,19 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete_webhook(self, webhook_id: int) -> Dict[str, str]:
+    async def delete_webhook(self, webhook_id: int) -> dict[str, str]:
+        """Delete a webhook configuration.
+
+        Args:
+            webhook_id: ID of the webhook to delete
+
+        Returns:
+            Dictionary containing success message.
+
+        Raises:
+            APIError: If the API request fails.
+        """
+
         response = await self.async_client.delete(f"api/v1/webhooks/{webhook_id}/")
         response.raise_for_status()
         capture_client_event("client.delete_webhook", self, {"webhook_id": webhook_id, "sync_type": "async"})
@@ -1160,8 +1294,8 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def feedback(
-        self, memory_id: str, feedback: Optional[str] = None, feedback_reason: Optional[str] = None
-    ) -> Dict[str, str]:
+        self, memory_id: str, feedback: str | None = None, feedback_reason: str | None = None
+    ) -> dict[str, str]:
         VALID_FEEDBACK_VALUES = {"POSITIVE", "NEGATIVE", "VERY_NEGATIVE"}
 
         feedback = feedback.upper() if feedback else None
