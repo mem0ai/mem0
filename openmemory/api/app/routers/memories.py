@@ -1,7 +1,6 @@
 from datetime import datetime, UTC
 from typing import List, Optional, Set
-from uuid import UUID
-import uuid
+from uuid import UUID, uuid4
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -246,7 +245,7 @@ async def create_memory(
         for result in qdrant_response['results']:
             if result['event'] == 'ADD':
                 # Get the Qdrant-generated ID
-                memory_id = uuid.UUID(result['id'])
+                memory_id = UUID(result['id'])
                 
                 # Check if memory already exists
                 existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
@@ -283,7 +282,7 @@ async def create_memory(
     
     # Fallback to traditional DB-only approach if Qdrant integration fails
     # Generate a random UUID for the memory
-    memory_id = uuid.uuid4()
+    memory_id = uuid4()
     memory = Memory(
         id=memory_id,
         user_id=user.id,
