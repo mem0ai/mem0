@@ -8,7 +8,7 @@ title: Collaborative Task Agent
 
 ## Overview
 
-Mem0's advanced attribution capabilities now allow you to create multi-user collaborative systems by attaching an **`actor_id`** to each memory. By setting the users's name in `message["name"]`, you can build powerful team collaboration tools where contributions are properly attributed to their authors.
+Mem0's advanced attribution capabilities now allow you to create multi-user , multi-agent collaborative or chat systems by attaching an **`actor_id`** to each memory. By setting the users's name in `message["name"]`, you can build powerful team collaboration tools where contributions are properly attributed to their authors.
 
 When using `infer=False`, messages are stored exactly as provided while still preserving actor metadata—making this approach ideal for:
 
@@ -58,19 +58,16 @@ Mem0 will soon support full actor attribution with `infer=True`, enabling automa
 2. Associate extracted knowledge with its original source
 3. Track the provenance of information across complex interactions
 
-## Enterprise Use Cases
-
 Mem0's actor attribution system can power a wide range of advanced conversation and agent scenarios:
 
 ### Conversation Scenarios
 
 | Scenario | Description | Implementation |
 |----------|-------------|----------------|
-| **Simple Chat** | One-to-one conversation between user and assistant | `user_id` for session context, messages with `role` field |
-| **Multi-User Chat** | Multiple users conversing with a single assistant | `run_id` for shared space, each user with unique `actor_id` |
-| **Multi-Agent Chat** | Multiple AI assistants with distinct personas or capabilities | Each agent gets a unique `actor_id`, shared `run_id` |
-| **Group Chat** | Complex interactions between multiple humans and assistants | Shared `run_id`, each participant has unique `actor_id` |
-
+| **Simple Chat** | One-to-one conversation between user and assistant
+| **Multi-User Chat** | Multiple users conversing with a single assistant
+| **Multi-Agent Chat** | Multiple AI assistants with distinct personas or capabilities
+| **Group Chat** | Complex interactions between multiple humans and assistants
 ### Agent-Based Applications
 
 The collaborative task agent uses a simple but powerful architecture:
@@ -79,13 +76,10 @@ The collaborative task agent uses a simple but powerful architecture:
 * Each participant (user or AI) writes with their own **unique name** which becomes the `actor_id` in Mem0
 * All memories can be searched, filtered, or visualized by actor
 
-## Architecture
-
-The agent architecture remains the same as before, with a focus on enhancing the implementation to meet the feedback requirements.
 
 ## Implementation
 
-Below is a complete implementation of a collaborative task agent that demonstrates how to build team-oriented applications with Mem0. The agent has been enhanced based on feedback to provide more relevant and organized information.
+Below is a complete implementation of a collaborative task agent that demonstrates how to build team-oriented applications with Mem0.
 
 ```python
 from openai import OpenAI
