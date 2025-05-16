@@ -4867,7 +4867,7 @@
 						"nullable": true
 					},
 					"infer": {
-						"description": "Wether to infer the memories or directly store the messages.",
+						"description": "Whether to infer the memories or directly store the messages.",
 						"title": "Infer",
 						"type": "boolean",
 						"default": true
