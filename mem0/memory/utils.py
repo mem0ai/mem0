@@ -70,6 +70,37 @@ def get_image_description(image_obj, llm, vision_details):
     return response
 
 
+def create_uuid_mapping(retrieved_old_memory):
+    """Create a temporary mapping between UUIDs and integer indices.
+    
+    Args:
+        retrieved_old_memory: List of memory items with UUIDs
+        
+    Returns:
+        tuple: (modified_memory_list, uuid_mapping_dict)
+    """
+    temp_uuid_mapping = {}
+    for idx, item in enumerate(retrieved_old_memory):
+        temp_uuid_mapping[str(idx)] = item["id"]
+        retrieved_old_memory[idx]["id"] = str(idx)
+    return retrieved_old_memory, temp_uuid_mapping
+
+
+def unique_old_memory(retrieved_old_memory: list) -> list:
+    """Processes the retrieved old memory to ensure unique entries.
+    
+    Args:
+        retrieved_old_memory: List of memory items with duplicate possible
+        
+    Returns:
+        List of unique memory items based on their IDs
+    """
+    unique_data = {}
+    for item in retrieved_old_memory:
+        unique_data[item["id"]] = item
+    return list(unique_data.values())
+
+
 def parse_vision_messages(messages, llm=None, vision_details="auto"):
     """
     Parse the vision messages from the messages
