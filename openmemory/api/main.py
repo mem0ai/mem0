@@ -1,122 +1,62 @@
 import datetime
 import os
-from fastapi import FastAPI, Depends, HTTPException, Request
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
 from fastapi.security import OAuth2PasswordBearer
-from supabase import create_client, Client
-from starlette.status import HTTP_401_UNAUTHORIZED
 from app.database import engine, Base, SessionLocal
 from app.mcp_server import setup_mcp_server
 from app.routers import memories_router, apps_router, stats_router
 from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import User, App
-from uuid import uuid4
-from app.config import USER_ID, DEFAULT_APP_ID
+from app.auth import get_current_supa_user
 
-# Initialize Supabase client
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+# Configure logging
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
+logger = logging.getLogger(__name__)
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    raise RuntimeError("Supabase URL and Service Key must be set in environment variables.")
+# Supabase client is now initialized in app.auth.py
+# oauth2_scheme can also be moved to app.auth.py if only used there, or keep if needed by main app
+# For simplicity, if oauth2_scheme was only for get_current_supa_user, it's implicitly handled by FastAPI's Depends with security schemes.
+# If you used OAuth2PasswordBearer for other things in main, keep it. Otherwise, it might not be needed here directly.
+# Let's assume it's not directly needed in main.py anymore.
 
-supabase_backend_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Application startup...")
+    # Base.metadata.create_all(bind=engine) # Alembic handles this
+    logger.info("Database and services initialization (if any at startup beyond Supabase client)." )
+    yield
+    logger.info("Application shutdown.")
 
-app = FastAPI(title="Jonathan's Memory API")
+app = FastAPI(
+    title="Jonathan's Memory API (Supabase Auth)", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
+# CORS Middleware Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Or specify your frontend URL for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Create all tables
-Base.metadata.create_all(bind=engine)
+# Include routers - Now using get_current_supa_user from app.auth
+app.include_router(memories_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
+app.include_router(apps_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
+# Conditionally include other routers if they exist and are set up
+# if 'users_router' in globals(): # A way to check, or just comment out
+# app.include_router(users_router, prefix="/api/v1")
+# if 'feedback_router' in globals():
+# app.include_router(feedback_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
+app.include_router(stats_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 
-# Authentication Dependency
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+setup_mcp_server(app) # Keep
 
-async def get_current_user(request: Request):
-    token = request.headers.get("Authorization")
-    if not token:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED, detail="Not authenticated (no token)"
-        )
-    if token.startswith("Bearer "):
-        token = token.split("Bearer ")[1]
-    
-    try:
-        user_response = supabase_backend_client.auth.get_user(jwt=token)
-        user = user_response.user
-        if not user:
-            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
-        return user
-    except Exception as e:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {e}",
-        )
+# add_pagination(app) # Keep if used
 
-# Check for USER_ID and create default user if needed
-def create_default_user():
-    db = SessionLocal()
-    try:
-        # Check if user exists
-        user = db.query(User).filter(User.user_id == USER_ID).first()
-        if not user:
-            # Create default user
-            user = User(
-                id=uuid4(),
-                user_id=USER_ID,
-                name="Default User",
-                created_at=datetime.datetime.now(datetime.UTC)
-            )
-            db.add(user)
-            db.commit()
-    finally:
-        db.close()
-
-def create_default_app():
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.user_id == USER_ID).first()
-        if not user:
-            return
-
-        # Check if app already exists
-        existing_app = db.query(App).filter(
-            App.name == DEFAULT_APP_ID,
-            App.owner_id == user.id
-        ).first()
-
-        if existing_app:
-            return
-
-        app = App(
-            id=uuid4(),
-            name=DEFAULT_APP_ID,
-            owner_id=user.id,
-            created_at=datetime.datetime.now(datetime.UTC),
-            updated_at=datetime.datetime.now(datetime.UTC),
-        )
-        db.add(app)
-        db.commit()
-    finally:
-        db.close()
-
-# Create default user on startup
-create_default_user()
-create_default_app()
-
-# Setup MCP server
-setup_mcp_server(app)
-
-# Include routers with auth dependency
-app.include_router(memories_router, dependencies=[Depends(get_current_user)])
-app.include_router(apps_router, dependencies=[Depends(get_current_user)])
-app.include_router(stats_router, dependencies=[Depends(get_current_user)])
-
-# Add pagination support
-add_pagination(app)
+logger.info("FastAPI application configured and routers included.")

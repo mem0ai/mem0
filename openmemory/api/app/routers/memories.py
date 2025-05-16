@@ -9,6 +9,10 @@ from pydantic import BaseModel
 from sqlalchemy import or_, func
 
 from app.database import get_db
+from app.auth import get_current_supa_user
+from gotrue.types import User as SupabaseUser
+from app.utils.memory import get_memory_client
+from app.utils.db import get_or_create_user, get_user_and_app
 from app.models import (
     Memory, MemoryState, MemoryAccessLog, App,
     MemoryStatusHistory, User, Category, AccessControl
@@ -16,7 +20,7 @@ from app.models import (
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
 
-router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
+router = APIRouter(prefix="/memories", tags=["memories"])
 
 
 def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
@@ -26,27 +30,28 @@ def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
     return memory
 
 
-def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, user_id: UUID):
+def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, changed_by_supa_user_id: str):
     memory = get_memory_or_404(db, memory_id)
-    old_state = memory.state
+    changed_by_user_record = db.query(User).filter(User.id == UUID(changed_by_supa_user_id)).first()
+    if not changed_by_user_record:
+        raise HTTPException(status_code=404, detail="User performing action not found in local DB")
 
-    # Update memory state
+    internal_user_pk = changed_by_user_record.id
+
+    old_state = memory.state
     memory.state = new_state
     if new_state == MemoryState.archived:
         memory.archived_at = datetime.now(UTC)
     elif new_state == MemoryState.deleted:
         memory.deleted_at = datetime.now(UTC)
 
-    # Record state change
     history = MemoryStatusHistory(
         memory_id=memory_id,
-        changed_by=user_id,
+        changed_by=internal_user_pk,
         old_state=old_state,
         new_state=new_state
     )
     db.add(history)
-    db.commit()
-    return memory
 
 
 def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
@@ -92,7 +97,7 @@ def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
 # List all memories with filtering
 @router.get("/", response_model=Page[MemoryResponse])
 async def list_memories(
-    user_id: str,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     app_id: Optional[UUID] = None,
     from_date: Optional[int] = Query(
         None,
@@ -111,9 +116,10 @@ async def list_memories(
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == user_id).first()
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found or could not be created")
 
     # Build base query
     query = db.query(Memory).filter(
@@ -146,241 +152,324 @@ async def list_memories(
 
     # Apply sorting if specified
     if sort_column:
-        sort_field = getattr(Memory, sort_column, None)
-        if sort_field:
-            query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
+        sort_field = None
+        if sort_column == "memory": sort_field = Memory.content
+        elif sort_column == "categories": sort_field = Category.name
+        elif sort_column == "app_name": sort_field = App.name
+        elif sort_column == "created_at": sort_field = Memory.created_at
+        
+        if sort_field is not None:
+            if sort_column == "categories" and not categories:
+                query = query.join(Memory.categories)
+            if sort_column == "app_name" and not app_id:
+                query = query.outerjoin(App, Memory.app_id == App.id)
+                
+            query = query.order_by(sort_field.desc() if sort_direction == "desc" else sort_field.asc())
+        else:
+            query = query.order_by(Memory.created_at.desc())
+    else:
+        query = query.order_by(Memory.created_at.desc())
 
-
-    # Get paginated results
-    paginated_results = sqlalchemy_paginate(query, params)
+    # Get paginated results - items are SQLAlchemy Memory objects
+    paginated_sqla_results = sqlalchemy_paginate(
+        query.options(joinedload(Memory.app), joinedload(Memory.categories)).distinct(), 
+        params
+    )
 
     # Filter results based on permissions
-    filtered_items = []
-    for item in paginated_results.items:
-        if check_memory_access_permissions(db, item, app_id):
-            filtered_items.append(item)
+    permitted_sqla_items = []
+    for item in paginated_sqla_results.items: # item is app.models.Memory
+        if check_memory_access_permissions(db, item, app_id): # app_id is the one from query params for filtering
+            permitted_sqla_items.append(item)
 
-    # Update paginated results with filtered items
-    paginated_results.items = filtered_items
-    paginated_results.total = len(filtered_items)
+    # Now, transform the permitted SQLAlchemy items into MemoryResponse Pydantic models
+    response_items = [
+        MemoryResponse(
+            id=mem.id,
+            content=mem.content,
+            created_at=mem.created_at, 
+            state=mem.state.value if mem.state else None,
+            app_id=mem.app_id,
+            app_name=mem.app.name if mem.app else None, 
+            categories=[cat.name for cat in mem.categories], 
+            metadata_=mem.metadata_
+        )
+        for mem in permitted_sqla_items
+    ]
 
-    return paginated_results
+    # Create a new Page object with the transformed items and correct total
+    return Page.create(
+        items=response_items,
+        total=len(response_items), 
+        params=params 
+    )
 
 
 # Get all categories
 @router.get("/categories")
 async def get_categories(
-    user_id: str,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == user_id).first()
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Get unique categories associated with the user's memories
-    # Get all memories
     memories = db.query(Memory).filter(Memory.user_id == user.id, Memory.state != MemoryState.deleted, Memory.state != MemoryState.archived).all()
-    # Get all categories from memories
-    categories = [category for memory in memories for category in memory.categories]
-    # Get unique categories
-    unique_categories = list(set(categories))
-
+    categories_set = set()
+    for memory_item in memories:
+        for category_item in memory_item.categories:
+            categories_set.add(category_item.name)
+    
     return {
-        "categories": unique_categories,
-        "total": len(unique_categories)
+        "categories": list(categories_set),
+        "total": len(categories_set)
     }
 
 
-class CreateMemoryRequest(BaseModel):
-    user_id: str
+class CreateMemoryRequestData(BaseModel):
     text: str
     metadata: dict = {}
     infer: bool = True
-    app: str = "openmemory"
+    app_name: str
 
 
 # Create new memory
-@router.post("/")
+@router.post("/", response_model=MemoryResponse)
 async def create_memory(
-    request: CreateMemoryRequest,
+    request: CreateMemoryRequestData,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    # Get or create app
-    app_obj = db.query(App).filter(App.name == request.app).first()
-    if not app_obj:
-        app_obj = App(name=request.app, owner_id=user.id)
-        db.add(app_obj)
-        db.commit()
-        db.refresh(app_obj)
+    supabase_user_id_str = str(current_supa_user.id)
+    
+    user, app_obj = get_user_and_app(db, supabase_user_id_str, request.app_name, current_supa_user.email)
 
-    # Check if app is active
     if not app_obj.is_active:
-        raise HTTPException(status_code=403, detail=f"App {request.app} is currently paused on OpenMemory. Cannot create new memories.")
+        raise HTTPException(status_code=403, detail=f"App {request.app_name} is currently paused. Cannot create new memories.")
 
-    # Create memory
-    memory = Memory(
+    sql_memory = Memory(
         user_id=user.id,
         app_id=app_obj.id,
         content=request.text,
         metadata_=request.metadata
     )
-    db.add(memory)
-    db.commit()
-    db.refresh(memory)
-    return memory
+    db.add(sql_memory)
+    try:
+        db.commit()
+        db.refresh(sql_memory)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    return MemoryResponse(
+        id=sql_memory.id,
+        content=sql_memory.content,
+        created_at=sql_memory.created_at,
+        state=sql_memory.state.value if sql_memory.state else None,
+        app_id=sql_memory.app_id,
+        app_name=app_obj.name,
+        categories=[cat.name for cat in sql_memory.categories],
+        metadata_=sql_memory.metadata_
+    )
 
 
 # Get memory by ID
-@router.get("/{memory_id}")
+@router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(
     memory_id: UUID,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+
     memory = get_memory_or_404(db, memory_id)
-    return {
-        "id": memory.id,
-        "text": memory.content,
-        "created_at": int(memory.created_at.timestamp()),
-        "state": memory.state.value,
-        "app_id": memory.app_id,
-        "app_name": memory.app.name if memory.app else None,
-        "categories": [category.name for category in memory.categories],
-        "metadata_": memory.metadata_
-    }
+    
+    if memory.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this memory")
+
+    return MemoryResponse(
+        id=memory.id,
+        content=memory.content,
+        created_at=memory.created_at,
+        state=memory.state.value if memory.state else None,
+        app_id=memory.app_id,
+        app_name=memory.app.name if memory.app else None,
+        categories=[category.name for category in memory.categories],
+        metadata_=memory.metadata_
+    )
 
 
-class DeleteMemoriesRequest(BaseModel):
+class DeleteMemoriesRequestData(BaseModel):
     memory_ids: List[UUID]
-    user_id: str
+
 
 # Delete multiple memories
-@router.delete("/")
+@router.delete("/", status_code=200)
 async def delete_memories(
-    request: DeleteMemoriesRequest,
+    request: DeleteMemoriesRequestData,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
 
-    for memory_id in request.memory_ids:
-        update_memory_state(db, memory_id, MemoryState.deleted, user.id)
-    return {"message": f"Successfully deleted {len(request.memory_ids)} memories"}
+    deleted_count = 0
+    not_found_count = 0
+    not_authorized_count = 0
+
+    user_internal_id = UUID(supabase_user_id_str)
+
+    for memory_id_to_delete in request.memory_ids:
+        memory_to_delete = db.query(Memory).filter(Memory.id == memory_id_to_delete).first()
+        if not memory_to_delete:
+            not_found_count += 1
+            continue
+        if memory_to_delete.user_id != user_internal_id:
+            not_authorized_count += 1
+            continue
+        
+        update_memory_state(db, memory_id_to_delete, MemoryState.deleted, supabase_user_id_str)
+        deleted_count += 1
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error committing deletions: {e}")
+
+    return {"message": f"Successfully deleted {deleted_count} memories. Not found: {not_found_count}. Not authorized: {not_authorized_count}."}
 
 
 # Archive memories
-@router.post("/actions/archive")
+@router.post("/actions/archive", status_code=200)
 async def archive_memories(
     memory_ids: List[UUID],
-    user_id: UUID,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    for memory_id in memory_ids:
-        update_memory_state(db, memory_id, MemoryState.archived, user_id)
-    return {"message": f"Successfully archived {len(memory_ids)} memories"}
+    supabase_user_id_str = str(current_supa_user.id)
+    archived_count = 0
+    not_found_count = 0
+    not_authorized_count = 0
+    user_internal_id = UUID(supabase_user_id_str)
+
+    for memory_id_to_archive in memory_ids:
+        memory_to_archive = db.query(Memory).filter(Memory.id == memory_id_to_archive).first()
+        if not memory_to_archive:
+            not_found_count += 1
+            continue
+        if memory_to_archive.user_id != user_internal_id:
+            not_authorized_count += 1
+            continue
+        update_memory_state(db, memory_id_to_archive, MemoryState.archived, supabase_user_id_str)
+        archived_count += 1
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error committing archival: {e}")
+    
+    return {"message": f"Successfully archived {archived_count} memories. Not found: {not_found_count}. Not authorized: {not_authorized_count}."}
 
 
-class PauseMemoriesRequest(BaseModel):
+class PauseMemoriesRequestData(BaseModel):
     memory_ids: Optional[List[UUID]] = None
     category_ids: Optional[List[UUID]] = None
     app_id: Optional[UUID] = None
-    all_for_app: bool = False
-    global_pause: bool = False
-    state: Optional[MemoryState] = None
-    user_id: str
+    global_pause_for_user: bool = False
+    state: Optional[MemoryState] = MemoryState.paused
+
 
 # Pause access to memories
-@router.post("/actions/pause")
+@router.post("/actions/pause", status_code=200)
 async def pause_memories(
-    request: PauseMemoriesRequest,
+    request: PauseMemoriesRequestData,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    
-    global_pause = request.global_pause
-    all_for_app = request.all_for_app
-    app_id = request.app_id
-    memory_ids = request.memory_ids
-    category_ids = request.category_ids
-    state = request.state or MemoryState.paused
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
 
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user_id = user.id
-    
-    if global_pause:
-        # Pause all memories
-        memories = db.query(Memory).filter(
-            Memory.state != MemoryState.deleted,
-            Memory.state != MemoryState.archived
-        ).all()
-        for memory in memories:
-            update_memory_state(db, memory.id, state, user_id)
-        return {"message": "Successfully paused all memories"}
+    state_to_set = request.state or MemoryState.paused
 
-    if app_id:
-        # Pause all memories for an app
-        memories = db.query(Memory).filter(
-            Memory.app_id == app_id,
+    count = 0
+    if request.global_pause_for_user:
+        memories_to_update = db.query(Memory).filter(
             Memory.user_id == user.id,
-            Memory.state != MemoryState.deleted,
-            Memory.state != MemoryState.archived
         ).all()
-        for memory in memories:
-            update_memory_state(db, memory.id, state, user_id)
-        return {"message": f"Successfully paused all memories for app {app_id}"}
-    
-    if all_for_app and memory_ids:
-        # Pause all memories for an app
-        memories = db.query(Memory).filter(
+        for memory_item in memories_to_update:
+            update_memory_state(db, memory_item.id, state_to_set, supabase_user_id_str)
+            count += 1
+        message = f"Successfully set state for all {count} accessible memories for user."
+
+    elif request.app_id:
+        memories_to_update = db.query(Memory).filter(
+            Memory.app_id == request.app_id,
             Memory.user_id == user.id,
-            Memory.state != MemoryState.deleted,
-            Memory.id.in_(memory_ids)
         ).all()
-        for memory in memories:
-            update_memory_state(db, memory.id, state, user_id)
-        return {"message": f"Successfully paused all memories"}
+        for memory_item in memories_to_update:
+            update_memory_state(db, memory_item.id, state_to_set, supabase_user_id_str)
+            count += 1
+        message = f"Successfully set state for {count} memories for app {request.app_id}."
+    
+    elif request.memory_ids:
+        for mem_id in request.memory_ids:
+            memory_to_update = db.query(Memory).filter(Memory.id == mem_id, Memory.user_id == user.id).first()
+            if memory_to_update:
+                 update_memory_state(db, mem_id, state_to_set, supabase_user_id_str)
+                 count += 1
+        message = f"Successfully set state for {count} specified memories."
 
-    if memory_ids:
-        # Pause specific memories
-        for memory_id in memory_ids:
-            update_memory_state(db, memory_id, state, user_id)
-        return {"message": f"Successfully paused {len(memory_ids)} memories"}
-
-    if category_ids:
-        # Pause memories by category
-        memories = db.query(Memory).join(Memory.categories).filter(
-            Category.id.in_(category_ids),
+    elif request.category_ids:
+        memories_to_update = db.query(Memory).join(Memory.categories).filter(
+            Memory.user_id == user.id,
+            Category.id.in_(request.category_ids),
             Memory.state != MemoryState.deleted,
-            Memory.state != MemoryState.archived
-        ).all()
-        for memory in memories:
-            update_memory_state(db, memory.id, state, user_id)
-        return {"message": f"Successfully paused memories in {len(category_ids)} categories"}
+        ).distinct().all()
+        for memory_item in memories_to_update:
+            update_memory_state(db, memory_item.id, state_to_set, supabase_user_id_str)
+            count += 1
+        message = f"Successfully set state for {count} memories in {len(request.category_ids)} categories."
+    else:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Invalid pause request parameters. Specify memories, app, categories, or global_pause_for_user.")
 
-    raise HTTPException(status_code=400, detail="Invalid pause request parameters")
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error committing state changes: {e}")
+        
+    return {"message": message}
 
 
 # Get memory access logs
 @router.get("/{memory_id}/access-log")
 async def get_memory_access_log(
     memory_id: UUID,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+
+    memory_owner_check = get_memory_or_404(db, memory_id)
+    if memory_owner_check.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access logs for this memory")
+
     query = db.query(MemoryAccessLog).filter(MemoryAccessLog.memory_id == memory_id)
     total = query.count()
     logs = query.order_by(MemoryAccessLog.accessed_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
-    # Get app name
-    for log in logs:
-        app = db.query(App).filter(App.id == log.app_id).first()
-        log.app_name = app.name if app else None
+    for log_item in logs:
+        app = db.query(App).filter(App.id == log_item.app_id).first()
+        log_item.app_name = app.name if app else None
 
     return {
         "total": total,
@@ -390,28 +479,47 @@ async def get_memory_access_log(
     }
 
 
-class UpdateMemoryRequest(BaseModel):
+class UpdateMemoryRequestData(BaseModel):
     memory_content: str
-    user_id: str
+
 
 # Update a memory
-@router.put("/{memory_id}")
+@router.put("/{memory_id}", response_model=MemoryResponse)
 async def update_memory(
     memory_id: UUID,
-    request: UpdateMemoryRequest,
+    request: UpdateMemoryRequestData,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    memory = get_memory_or_404(db, memory_id)
-    memory.content = request.memory_content
-    db.commit()
-    db.refresh(memory)
-    return memory
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    
+    memory_to_update = get_memory_or_404(db, memory_id)
 
-class FilterMemoriesRequest(BaseModel):
-    user_id: str
+    if memory_to_update.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this memory")
+
+    memory_to_update.content = request.memory_content
+    try:
+        db.commit()
+        db.refresh(memory_to_update)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        
+    return MemoryResponse(
+        id=memory_to_update.id,
+        content=memory_to_update.content,
+        created_at=memory_to_update.created_at,
+        state=memory_to_update.state.value if memory_to_update.state else None,
+        app_id=memory_to_update.app_id,
+        app_name=memory_to_update.app.name if memory_to_update.app else None,
+        categories=[cat.name for cat in memory_to_update.categories],
+        metadata_=memory_to_update.metadata_
+    )
+
+
+class FilterMemoriesRequestData(BaseModel):
     page: int = 1
     size: int = 10
     search_query: Optional[str] = None
@@ -423,43 +531,37 @@ class FilterMemoriesRequest(BaseModel):
     to_date: Optional[int] = None
     show_archived: Optional[bool] = False
 
+
 @router.post("/filter", response_model=Page[MemoryResponse])
 async def filter_memories(
-    request: FilterMemoriesRequest,
+    request: FilterMemoriesRequestData,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
 
-    # Build base query
     query = db.query(Memory).filter(
         Memory.user_id == user.id,
         Memory.state != MemoryState.deleted,
     )
 
-    # Filter archived memories based on show_archived parameter
     if not request.show_archived:
         query = query.filter(Memory.state != MemoryState.archived)
 
-    # Apply search filter
     if request.search_query:
         query = query.filter(Memory.content.ilike(f"%{request.search_query}%"))
 
-    # Apply app filter
     if request.app_ids:
         query = query.filter(Memory.app_id.in_(request.app_ids))
 
-    # Add joins for app and categories
     query = query.outerjoin(App, Memory.app_id == App.id)
 
-    # Apply category filter
     if request.category_ids:
         query = query.join(Memory.categories).filter(Category.id.in_(request.category_ids))
     else:
         query = query.outerjoin(Memory.categories)
 
-    # Apply date filters
     if request.from_date:
         from_datetime = datetime.fromtimestamp(request.from_date, tz=UTC)
         query = query.filter(Memory.created_at >= from_datetime)
@@ -468,7 +570,6 @@ async def filter_memories(
         to_datetime = datetime.fromtimestamp(request.to_date, tz=UTC)
         query = query.filter(Memory.created_at <= to_datetime)
 
-    # Apply sorting
     if request.sort_column and request.sort_direction:
         sort_direction = request.sort_direction.lower()
         if sort_direction not in ['asc', 'desc']:
@@ -477,42 +578,42 @@ async def filter_memories(
         sort_mapping = {
             'memory': Memory.content,
             'app_name': App.name,
-            'created_at': Memory.created_at
+            'created_at': Memory.created_at,
         }
-
-        if request.sort_column not in sort_mapping:
-            raise HTTPException(status_code=400, detail="Invalid sort column")
-
-        sort_field = sort_mapping[request.sort_column]
-        if sort_direction == 'desc':
-            query = query.order_by(sort_field.desc())
+        
+        if request.sort_column == 'categories':
+            query = query.order_by(Memory.created_at.desc())
+        elif request.sort_column in sort_mapping:
+            sort_field = sort_mapping[request.sort_column]
+            if sort_direction == 'desc':
+                query = query.order_by(sort_field.desc())
+            else:
+                query = query.order_by(sort_field.asc())
         else:
-            query = query.order_by(sort_field.asc())
+            query = query.order_by(Memory.created_at.desc())
     else:
-        # Default sorting
         query = query.order_by(Memory.created_at.desc())
 
-    # Add eager loading for categories and make the query distinct
     query = query.options(
-        joinedload(Memory.categories)
-    ).distinct(Memory.id)
+        joinedload(Memory.categories),
+        joinedload(Memory.app)
+    ).distinct()
 
-    # Use fastapi-pagination's paginate function
     return sqlalchemy_paginate(
         query,
         Params(page=request.page, size=request.size),
         transformer=lambda items: [
             MemoryResponse(
-                id=memory.id,
-                content=memory.content,
-                created_at=memory.created_at,
-                state=memory.state.value,
-                app_id=memory.app_id,
-                app_name=memory.app.name if memory.app else None,
-                categories=[category.name for category in memory.categories],
-                metadata_=memory.metadata_
+                id=mem.id,
+                content=mem.content,
+                created_at=mem.created_at,
+                state=mem.state.value if mem.state else None,
+                app_id=mem.app_id,
+                app_name=mem.app.name if mem.app else None,
+                categories=[cat.name for cat in mem.categories],
+                metadata_=mem.metadata_
             )
-            for memory in items
+            for mem in items
         ]
     )
 
@@ -520,25 +621,22 @@ async def filter_memories(
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])
 async def get_related_memories(
     memory_id: UUID,
-    user_id: str,
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     params: Params = Depends(),
     db: Session = Depends(get_db)
 ):
-    # Validate user
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
     
-    # Get the source memory
-    memory = get_memory_or_404(db, memory_id)
-    
-    # Extract category IDs from the source memory
-    category_ids = [category.id for category in memory.categories]
+    source_memory = get_memory_or_404(db, memory_id)
+    if source_memory.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access related memories for this item.")
+        
+    category_ids = [category.id for category in source_memory.categories]
     
     if not category_ids:
-        return Page.create([], total=0, params=params)
+        return Page[MemoryResponse].create([], total=0, params=params)
     
-    # Build query for related memories
     query = db.query(Memory).distinct(Memory.id).filter(
         Memory.user_id == user.id,
         Memory.id != memory_id,
@@ -553,23 +651,24 @@ async def get_related_memories(
         Memory.created_at.desc()
     ).group_by(Memory.id)
     
-    # ⚡ Force page size to be 5
-    params = Params(page=params.page, size=5)
-    
-    return sqlalchemy_paginate(
+    page_num = params.page if params and params.page is not None else 1
+    forced_params = Params(page=page_num, size=5)
+
+    paginated_results = sqlalchemy_paginate(
         query,
-        params,
-        transformer=lambda items: [
-            MemoryResponse(
-                id=memory.id,
-                content=memory.content,
-                created_at=memory.created_at,
-                state=memory.state.value,
-                app_id=memory.app_id,
-                app_name=memory.app.name if memory.app else None,
-                categories=[category.name for category in memory.categories],
-                metadata_=memory.metadata_
-            )
-            for memory in items
-        ]
+        forced_params,
     )
+    transformed_items = [
+            MemoryResponse(
+                id=item.id,
+                content=item.content,
+                created_at=item.created_at,
+                state=item.state.value if item.state else None,
+                app_id=item.app_id,
+                app_name=item.app.name if item.app else None,
+                categories=[cat.name for cat in item.categories],
+                metadata_=item.metadata_
+            )
+            for item in paginated_results.items
+        ]
+    return Page[MemoryResponse](items=transformed_items, total=paginated_results.total, page=paginated_results.page, size=paginated_results.size, pages=paginated_results.pages)

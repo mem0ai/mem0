@@ -10,7 +10,7 @@ import os
 from dotenv import load_dotenv
 from app.database import SessionLocal
 from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog
-from app.utils.db import get_user_and_app
+from app.utils.db import get_user_and_app, get_or_create_user
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
@@ -24,12 +24,13 @@ mcp = FastMCP("mem0-mcp-server")
 
 # Check if OpenAI API key is set
 if not os.getenv("OPENAI_API_KEY"):
+    logging.error("OPENAI_API_KEY is not set in .env file for MCP server")
     raise Exception("OPENAI_API_KEY is not set in .env file")
 
 memory_client = get_memory_client()
 
-# Context variables for user_id and client_name
-user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
+# Context variables for user_id (Supabase User ID string) and client_name
+user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("supa_user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
 # Create a router for MCP endpoints
@@ -40,300 +41,219 @@ sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add new memories to the user's memory")
 async def add_memories(text: str) -> str:
-    uid = user_id_var.get(None)
+    supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
-    if not uid:
-        return "Error: user_id not provided"
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
     if not client_name:
-        return "Error: client_name not provided"
+        return "Error: client_name not available in context"
 
     try:
         db = SessionLocal()
         try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
 
-            # Check if app is active
             if not app.is_active:
-                return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
+                return f"Error: App {app.name} is currently paused. Cannot create new memories."
 
-            response = memory_client.add(text,
-                                         user_id=uid,
-                                         metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                        })
+            response = memory_client.add(
+                data=text,
+                user_id=supa_uid,
+                metadata={
+                    "source_app": "openmemory_mcp",
+                    "mcp_client": client_name,
+                    "app_db_id": str(app.id)
+                }
+            )
 
-            # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
                 for result in response['results']:
-                    memory_id = uuid.UUID(result['id'])
-                    memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                    mem0_memory_id_str = result['id']
+                    mem0_content = result.get('memory', text)
 
-                    if result['event'] == 'ADD':
-                        if not memory:
-                            memory = Memory(
-                                id=memory_id,
-                                user_id=user.id,
-                                app_id=app.id,
-                                content=result['memory'],
-                                state=MemoryState.active
-                            )
-                            db.add(memory)
-                        else:
-                            memory.state = MemoryState.active
-                            memory.content = result['memory']
-
-                        # Create history entry
+                    if result.get('event') == 'ADD':
+                        sql_memory_record = Memory(
+                            user_id=user.id,
+                            app_id=app.id,
+                            content=mem0_content,
+                            state=MemoryState.active,
+                            metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
+                        )
+                        db.add(sql_memory_record)
                         history = MemoryStatusHistory(
-                            memory_id=memory_id,
+                            memory_id=sql_memory_record.id,
                             changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
+                            old_state=None,
                             new_state=MemoryState.active
                         )
                         db.add(history)
-
-                    elif result['event'] == 'DELETE':
-                        if memory:
-                            memory.state = MemoryState.deleted
-                            memory.deleted_at = datetime.datetime.now(datetime.UTC)
-                            # Create history entry
+                    elif result.get('event') == 'DELETE':
+                        if sql_memory_record:
+                            sql_memory_record.state = MemoryState.deleted
+                            sql_memory_record.deleted_at = datetime.datetime.now(datetime.UTC)
                             history = MemoryStatusHistory(
-                                memory_id=memory_id,
+                                memory_id=sql_memory_record.id,
                                 changed_by=user.id,
                                 old_state=MemoryState.active,
                                 new_state=MemoryState.deleted
                             )
                             db.add(history)
-
                 db.commit()
-
             return response
         finally:
             db.close()
     except Exception as e:
+        logging.error(f"Error in add_memories MCP tool: {e}", exc_info=True)
         return f"Error adding to memory: {e}"
 
 
 @mcp.tool(description="Search the user's memory for memories that match the query")
 async def search_memory(query: str) -> str:
-    uid = user_id_var.get(None)
+    supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
-    if not uid:
-        return "Error: user_id not provided"
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
     if not client_name:
-        return "Error: client_name not provided"
+        return "Error: client_name not available in context"
     try:
         db = SessionLocal()
         try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
 
-            # Get accessible memory IDs based on ACL
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
-            conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=uid))]
-            logging.info(f"Accessible memory IDs: {accessible_memory_ids}")
-            logging.info(f"Conditions: {conditions}")
-            if accessible_memory_ids:
-                # Convert UUIDs to strings for Qdrant
-                accessible_memory_ids_str = [str(memory_id) for memory_id in accessible_memory_ids]
-                conditions.append(qdrant_models.HasIdCondition(has_id=accessible_memory_ids_str))
-            filters = qdrant_models.Filter(must=conditions)
-            logging.info(f"Filters: {filters}")
-            embeddings = memory_client.embedding_model.embed(query, "search")
-            hits = memory_client.vector_store.client.query_points(
-                collection_name=memory_client.vector_store.collection_name,
-                query=embeddings,
-                query_filter=filters,
-                limit=10,
-            )
+            mem0_search_results = memory_client.search(query=query, user_id=supa_uid)
 
-            memories = hits.points
-            memories = [
-                {
-                    "id": memory.id,
-                    "memory": memory.payload["data"],
-                    "hash": memory.payload.get("hash"),
-                    "created_at": memory.payload.get("created_at"),
-                    "updated_at": memory.payload.get("updated_at"),
-                    "score": memory.score,
-                }
-                for memory in memories
-            ]
+            processed_results = []
+            actual_results_list = []
+            if isinstance(mem0_search_results, dict) and 'results' in mem0_search_results:
+                 actual_results_list = mem0_search_results['results']
+            elif isinstance(mem0_search_results, list):
+                 actual_results_list = mem0_search_results
 
-            # Log memory access for each memory found
-            if isinstance(memories, dict) and 'results' in memories:
-                print(f"Memories: {memories}")
-                for memory_data in memories['results']:
-                    if 'id' in memory_data:
-                        memory_id = uuid.UUID(memory_data['id'])
-                        # Create access log entry
-                        access_log = MemoryAccessLog(
-                            memory_id=memory_id,
-                            app_id=app.id,
-                            access_type="search",
-                            metadata_={
-                                "query": query,
-                                "score": memory_data.get('score'),
-                                "hash": memory_data.get('hash')
-                            }
-                        )
-                        db.add(access_log)
-                db.commit()
-            else:
-                for memory in memories:
-                    memory_id = uuid.UUID(memory['id'])
-                    # Create access log entry
-                    access_log = MemoryAccessLog(
-                        memory_id=memory_id,
-                        app_id=app.id,
-                        access_type="search",
-                        metadata_={
-                            "query": query,
-                            "score": memory.get('score'),
-                            "hash": memory.get('hash')
-                        }
-                    )
-                    db.add(access_log)
-                db.commit()
-            return json.dumps(memories, indent=2)
+            for mem_data in actual_results_list:
+                mem0_id = mem_data.get('id')
+                if not mem0_id: continue
+
+                access_log = MemoryAccessLog(
+                    app_id=app.id,
+                    access_type="search_mcp",
+                    metadata_={
+                        "query": query,
+                        "mem0_id": mem0_id,
+                        "score": mem_data.get('score')
+                    }
+                )
+                db.add(access_log)
+                processed_results.append(mem_data)
+            
+            db.commit()
+            return json.dumps(processed_results, indent=2)
         finally:
             db.close()
     except Exception as e:
-        logging.exception(e)
+        logging.error(f"Error in search_memory MCP tool: {e}", exc_info=True)
         return f"Error searching memory: {e}"
 
 
 @mcp.tool(description="List all memories in the user's memory")
 async def list_memories() -> str:
-    uid = user_id_var.get(None)
+    supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
-    if not uid:
-        return "Error: user_id not provided"
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
     if not client_name:
-        return "Error: client_name not provided"
+        return "Error: client_name not available in context"
     try:
         db = SessionLocal()
         try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
 
-            # Get all memories
-            memories = memory_client.get_all(user_id=uid)
-            filtered_memories = []
+            all_mem0_memories = memory_client.get_all(user_id=supa_uid)
 
-            # Filter memories based on permissions
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
-            if isinstance(memories, dict) and 'results' in memories:
-                for memory_data in memories['results']:
-                    if 'id' in memory_data:
-                        memory_id = uuid.UUID(memory_data['id'])
-                        if memory_id in accessible_memory_ids:
-                            # Create access log entry
-                            access_log = MemoryAccessLog(
-                                memory_id=memory_id,
-                                app_id=app.id,
-                                access_type="list",
-                                metadata_={
-                                    "hash": memory_data.get('hash')
-                                }
-                            )
-                            db.add(access_log)
-                            filtered_memories.append(memory_data)
-                db.commit()
-            else:
-                for memory in memories:
-                    memory_id = uuid.UUID(memory['id'])
-                    memory_obj = db.query(Memory).filter(Memory.id == memory_id).first()
-                    if memory_obj and check_memory_access_permissions(db, memory_obj, app.id):
-                        # Create access log entry
-                        access_log = MemoryAccessLog(
-                            memory_id=memory_id,
-                            app_id=app.id,
-                            access_type="list",
-                            metadata_={
-                                "hash": memory.get('hash')
-                            }
-                        )
-                        db.add(access_log)
-                        filtered_memories.append(memory)
-                db.commit()
-            return json.dumps(filtered_memories, indent=2)
+            processed_results = []
+            actual_results_list = []
+            if isinstance(all_mem0_memories, dict) and 'results' in all_mem0_memories:
+                 actual_results_list = all_mem0_memories['results']
+            elif isinstance(all_mem0_memories, list):
+                 actual_results_list = all_mem0_memories
+
+            for mem_data in actual_results_list:
+                mem0_id = mem_data.get('id')
+                if not mem0_id: continue
+                access_log = MemoryAccessLog(
+                    app_id=app.id,
+                    access_type="list_mcp",
+                    metadata_={ "mem0_id": mem0_id }
+                )
+                db.add(access_log)
+                processed_results.append(mem_data)
+            
+            db.commit()
+            return json.dumps(processed_results, indent=2)
         finally:
             db.close()
     except Exception as e:
+        logging.error(f"Error in list_memories MCP tool: {e}", exc_info=True)
         return f"Error getting memories: {e}"
 
 
 @mcp.tool(description="Delete all memories in the user's memory")
 async def delete_all_memories() -> str:
-    uid = user_id_var.get(None)
+    supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
-    if not uid:
-        return "Error: user_id not provided"
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
     if not client_name:
-        return "Error: client_name not provided"
+        return "Error: client_name not available in context"
     try:
         db = SessionLocal()
         try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
 
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            memory_client.delete_all(user_id=supa_uid)
 
-            # delete the accessible memories only
-            for memory_id in accessible_memory_ids:
-                memory_client.delete(memory_id)
-
-            # Update each memory's state and create history entries
+            sql_memories_to_delete = db.query(Memory).filter(Memory.user_id == user.id).all()
             now = datetime.datetime.now(datetime.UTC)
-            for memory_id in accessible_memory_ids:
-                memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                # Update memory state
-                memory.state = MemoryState.deleted
-                memory.deleted_at = now
-
-                # Create history entry
-                history = MemoryStatusHistory(
-                    memory_id=memory_id,
-                    changed_by=user.id,
-                    old_state=MemoryState.active,
-                    new_state=MemoryState.deleted
-                )
-                db.add(history)
-
-                # Create access log entry
-                access_log = MemoryAccessLog(
-                    memory_id=memory_id,
-                    app_id=app.id,
-                    access_type="delete_all",
-                    metadata_={"operation": "bulk_delete"}
-                )
-                db.add(access_log)
-
+            for mem_record in sql_memories_to_delete:
+                if mem_record.state != MemoryState.deleted:
+                    history = MemoryStatusHistory(
+                        memory_id=mem_record.id,
+                        changed_by=user.id,
+                        old_state=mem_record.state,
+                        new_state=MemoryState.deleted
+                    )
+                    db.add(history)
+                    mem_record.state = MemoryState.deleted
+                    mem_record.deleted_at = now
+                    
+                    access_log = MemoryAccessLog(
+                        memory_id=mem_record.id,
+                        app_id=app.id,
+                        access_type="delete_all_mcp",
+                        metadata_={
+                            "operation": "bulk_delete_mcp_tool",
+                            "mem0_user_id_cleared": supa_uid
+                        }
+                    )
+                    db.add(access_log)
+            
             db.commit()
-            return "Successfully deleted all memories"
+            return f"Successfully initiated deletion of all memories for user {supa_uid} via mem0 and updated SQL records."
         finally:
             db.close()
     except Exception as e:
+        logging.error(f"Error in delete_all_memories MCP tool: {e}", exc_info=True)
         return f"Error deleting memories: {e}"
 
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
 async def handle_sse(request: Request):
-    """Handle SSE connections for a specific user and client"""
-    # Extract user_id and client_name from path parameters
-    uid = request.path_params.get("user_id")
-    user_token = user_id_var.set(uid or "")
+    supa_user_id_from_path = request.path_params.get("user_id")
+    user_token = user_id_var.set(supa_user_id_from_path or "")
     client_name = request.path_params.get("client_name")
     client_token = client_name_var.set(client_name or "")
 
     try:
-        # Handle SSE connection
         async with sse.connect_sse(
             request.scope,
             request.receive,
@@ -345,7 +265,6 @@ async def handle_sse(request: Request):
                 mcp._mcp_server.create_initialization_options(),
             )
     finally:
-        # Clean up context variables
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
 
