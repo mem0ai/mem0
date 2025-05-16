@@ -1,0 +1,43 @@
+---
+title: Quickstart
+icon: "terminal"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+
+## Setting Up OpenMemory
+
+Getting started with OpenMemory is straight forward and takes just a few minutes to set up on your local machine. Follow these steps:
+
+### Getting started
+First clone the repository and then follow the instructions:
+```bash
+# Clone the repository
+git clone https://github.com/mem0ai/mem0.git
+cd mem0/openmemory
+
+# Create the backend .env file with your OpenAI key
+make env
+
+# Build the Docker images
+make build
+
+# Start all services (API server, vector database, and MCP server components)
+make up
+```
+
+You can configure the MCP client using the following command (replace username with your username):
+
+```bash
+npx install-mcp i "http://localhost:8765/mcp/cursor/sse/username" --client cursor
+```
+
+The OpenMemory dashboard will be available at http://localhost:3000. From here, you can view and manage your memories, as well as check connection status with your MCP clients.
+
+Once set up, OpenMemory runs locally on your machine, ensuring all your AI memories remain private and secure while being accessible across any compatible MCP client.
+
+### Getting Started Today
+
+- Github Repository: https://github.com/mem0ai/mem0/openmemory
