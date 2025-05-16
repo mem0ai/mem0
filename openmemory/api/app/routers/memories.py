@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, UTC
 from typing import List, Optional, Set
 from uuid import UUID
@@ -8,7 +7,6 @@ from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
 from sqlalchemy import or_, func
-from qdrant_client import models as qdrant_models
 
 from app.database import get_db
 from app.models import (
@@ -17,12 +15,8 @@ from app.models import (
 )
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
-from app.utils.memory import get_memory_client
 
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
-
-# Initialize the memory client with Qdrant connection
-memory_client = get_memory_client()
 
 
 def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
@@ -254,7 +248,7 @@ async def get_memory(
         "app_id": memory.app_id,
         "app_name": memory.app.name if memory.app else None,
         "categories": [category.name for category in memory.categories],
-        "metadata": memory.metadata_
+        "metadata_": memory.metadata_
     }
 
 
@@ -438,168 +432,76 @@ async def filter_memories(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # If there's a search query, use Qdrant for semantic search
-    if request.search_query:
-        try:
-            # Use memory_client to get embedding and search
-            embeddings = memory_client.embedding_model.embed(request.search_query, "search")
-            
-            # Create filter conditions
-            conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=request.user_id))]
-            
-            # Add date filters if provided
-            if request.from_date:
-                from_timestamp = request.from_date
-                conditions.append(
-                    qdrant_models.FieldCondition(
-                        key="created_at",
-                        range=qdrant_models.Range(gte=from_timestamp)
-                    )
-                )
-                
-            if request.to_date:
-                to_timestamp = request.to_date
-                conditions.append(
-                    qdrant_models.FieldCondition(
-                        key="created_at",
-                        range=qdrant_models.Range(lte=to_timestamp)
-                    )
-                )
-                
-            # Create combined filter
-            filters = qdrant_models.Filter(must=conditions)
-            
-            # Search Qdrant
-            hits = memory_client.vector_store.client.query_points(
-                collection_name=memory_client.vector_store.collection_name,
-                query=embeddings,
-                query_filter=filters,
-                limit=request.size,
-                offset=(request.page - 1) * request.size
-            )
-            
-            # Get memory IDs from search results
-            memory_ids = [UUID(hit.id) for hit in hits.points]
-            
-            # Get full memory objects from database with additional filtering
-            memory_items = []
-            for memory_id in memory_ids:
-                mem = db.query(Memory).filter(
-                    Memory.id == memory_id,
-                    Memory.user_id == user.id
-                ).first()
-                
-                # Apply additional filters that weren't applied in Qdrant
-                if mem and (request.show_archived or mem.state != MemoryState.archived) and mem.state != MemoryState.deleted:
-                    # Filter by app_ids if provided
-                    if request.app_ids and mem.app_id not in request.app_ids:
-                        continue
-                        
-                    # Filter by category_ids if provided
-                    if request.category_ids:
-                        category_matches = False
-                        for category in mem.categories:
-                            if category.id in request.category_ids:
-                                category_matches = True
-                                break
-                        if not category_matches:
-                            continue
-                    
-                    # Log memory access
-                    access_log = MemoryAccessLog(
-                        memory_id=memory_id,
-                        app_id=mem.app_id,
-                        access_type="search",
-                        metadata_={
-                            "query": request.search_query
-                        }
-                    )
-                    db.add(access_log)
-                    memory_items.append(mem)
-            
-            logging.info(f"Memory items: {len(memory_items)}")
+    # Build base query
+    query = db.query(Memory).filter(
+        Memory.user_id == user.id,
+        Memory.state != MemoryState.deleted,
+    )
 
-            db.commit()
-            
-            # Convert Memory objects to MemoryResponse
-            memory_responses = [
-                MemoryResponse(
-                    id=memory.id,
-                    content=memory.content,
-                    created_at=memory.created_at,
-                    state=memory.state.value,
-                    app_id=memory.app_id,
-                    app_name=memory.app.name if memory.app else None,
-                    categories=[category.name for category in memory.categories],
-                    metadata_=memory.metadata_
-                )
-                for memory in memory_items
-            ]
-            
-            # Format response
-            total = len(memory_responses)
-            response = {
-                "items": memory_responses,
-                "total": total,
-                "page": request.page,
-                "size": request.size,
-                "pages": (total + request.size - 1) // request.size if request.size > 0 else 0
-            }
-            
-            return response
-            
-        except Exception as e:
-            logging.exception(f"Error in Qdrant search: {e}")
-            # Fall back to database search if Qdrant fails
-            pass
-            
-    # Standard database filtering (either no search query or Qdrant failed)
-    query = db.query(Memory).filter(Memory.user_id == user.id)
-    
-    # Apply all filters
+    # Filter archived memories based on show_archived parameter
     if not request.show_archived:
         query = query.filter(Memory.state != MemoryState.archived)
-    query = query.filter(Memory.state != MemoryState.deleted)
-    
+
+    # Apply search filter
     if request.search_query:
         query = query.filter(Memory.content.ilike(f"%{request.search_query}%"))
-        
+
+    # Apply app filter
     if request.app_ids:
         query = query.filter(Memory.app_id.in_(request.app_ids))
-        
+
+    # Add joins for app and categories
+    query = query.outerjoin(App, Memory.app_id == App.id)
+
+    # Apply category filter
+    if request.category_ids:
+        query = query.join(Memory.categories).filter(Category.id.in_(request.category_ids))
+    else:
+        query = query.outerjoin(Memory.categories)
+
+    # Apply date filters
     if request.from_date:
         from_datetime = datetime.fromtimestamp(request.from_date, tz=UTC)
         query = query.filter(Memory.created_at >= from_datetime)
-        
+
     if request.to_date:
         to_datetime = datetime.fromtimestamp(request.to_date, tz=UTC)
         query = query.filter(Memory.created_at <= to_datetime)
-        
-    # Add proper eager loading
-    query = query.options(joinedload(Memory.app), joinedload(Memory.categories))
-    
-    # Apply category filter if provided
-    if request.category_ids:
-        query = query.join(Memory.categories).filter(Category.id.in_(request.category_ids))
-        
+
     # Apply sorting
-    if request.sort_column:
-        if request.sort_column == "created_at":
-            sort_field = Memory.created_at
-        elif request.sort_column == "content":
-            sort_field = Memory.content
+    if request.sort_column and request.sort_direction:
+        sort_direction = request.sort_direction.lower()
+        if sort_direction not in ['asc', 'desc']:
+            raise HTTPException(status_code=400, detail="Invalid sort direction")
+
+        sort_mapping = {
+            'memory': Memory.content,
+            'app_name': App.name,
+            'created_at': Memory.created_at
+        }
+
+        if request.sort_column not in sort_mapping:
+            raise HTTPException(status_code=400, detail="Invalid sort column")
+
+        sort_field = sort_mapping[request.sort_column]
+        if sort_direction == 'desc':
+            query = query.order_by(sort_field.desc())
         else:
-            sort_field = getattr(Memory, request.sort_column, None)
-            
-        if sort_field:
-            query = query.order_by(sort_field.desc() if request.sort_direction == "desc" else sort_field.asc())
+            query = query.order_by(sort_field.asc())
     else:
-        # Default sort by created_at descending
+        # Default sorting
         query = query.order_by(Memory.created_at.desc())
-    
-    # Use this transformer to convert Memory to MemoryResponse
-    def transform_to_memory_response(items):
-        return [
+
+    # Add eager loading for categories and make the query distinct
+    query = query.options(
+        joinedload(Memory.categories)
+    ).distinct(Memory.id)
+
+    # Use fastapi-pagination's paginate function
+    return sqlalchemy_paginate(
+        query,
+        Params(page=request.page, size=request.size),
+        transformer=lambda items: [
             MemoryResponse(
                 id=memory.id,
                 content=memory.content,
@@ -612,10 +514,7 @@ async def filter_memories(
             )
             for memory in items
         ]
-    
-    # Paginate results with transformer
-    params = Params(page=request.page, size=request.size)
-    return sqlalchemy_paginate(query, params, transformer=transform_to_memory_response)
+    )
 
 
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])
@@ -629,114 +528,48 @@ async def get_related_memories(
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # Get the memory
+    
+    # Get the source memory
     memory = get_memory_or_404(db, memory_id)
     
-    # Check that memory belongs to the user
-    if memory.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Access denied to this memory")
-        
-    try:
-        # Use memory_client to get embedding and search for similar memories in Qdrant
-        embeddings = memory_client.embedding_model.embed(memory.content, "memory")
-        
-        # Create filter for user_id
-        conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=user_id))]
-        
-        # Exclude the current memory from results
-        conditions.append(
-            qdrant_models.FieldCondition(
-                key="id", 
-                match=qdrant_models.MatchValue(value=str(memory_id)), 
-                must_not=True
-            )
-        )
-        
-        filters = qdrant_models.Filter(must=conditions)
-        
-        # Search for related memories in Qdrant
-        hits = memory_client.vector_store.client.query_points(
-            collection_name=memory_client.vector_store.collection_name,
-            query=embeddings,
-            query_filter=filters,
-            limit=params.size,
-            offset=(params.page - 1) * params.size
-        )
-        
-        # Process search results
-        memory_ids = [UUID(hit.id) for hit in hits.points]
-        
-        # Get full memory objects from database
-        memory_items = []
-        for memory_id in memory_ids:
-            mem = db.query(Memory).filter(Memory.id == memory_id).first()
-            if mem and mem.state != MemoryState.deleted and mem.state != MemoryState.archived:
-                # Create access log
-                access_log = MemoryAccessLog(
-                    memory_id=memory_id,
-                    app_id=memory.app_id,
-                    access_type="related_search",
-                    metadata_={
-                        "original_memory_id": str(memory.id)
-                    }
-                )
-                db.add(access_log)
-                memory_items.append(mem)
-                
-        db.commit()
-        
-        # Convert Memory objects to MemoryResponse
-        memory_responses = [
+    # Extract category IDs from the source memory
+    category_ids = [category.id for category in memory.categories]
+    
+    if not category_ids:
+        return Page.create([], total=0, params=params)
+    
+    # Build query for related memories
+    query = db.query(Memory).distinct(Memory.id).filter(
+        Memory.user_id == user.id,
+        Memory.id != memory_id,
+        Memory.state != MemoryState.deleted
+    ).join(Memory.categories).filter(
+        Category.id.in_(category_ids)
+    ).options(
+        joinedload(Memory.categories),
+        joinedload(Memory.app)
+    ).order_by(
+        func.count(Category.id).desc(),
+        Memory.created_at.desc()
+    ).group_by(Memory.id)
+    
+    # ⚡ Force page size to be 5
+    params = Params(page=params.page, size=5)
+    
+    return sqlalchemy_paginate(
+        query,
+        params,
+        transformer=lambda items: [
             MemoryResponse(
-                id=mem.id,
-                content=mem.content,
-                created_at=mem.created_at,
-                state=mem.state.value,
-                app_id=mem.app_id,
-                app_name=mem.app.name if mem.app else None,
-                categories=[category.name for category in mem.categories],
-                metadata_=mem.metadata_
+                id=memory.id,
+                content=memory.content,
+                created_at=memory.created_at,
+                state=memory.state.value,
+                app_id=memory.app_id,
+                app_name=memory.app.name if memory.app else None,
+                categories=[category.name for category in memory.categories],
+                metadata_=memory.metadata_
             )
-            for mem in memory_items
+            for memory in items
         ]
-        
-        # Format response to match the expected PaginatedMemoryResponse format
-        total = len(memory_responses)
-        response = {
-            "items": memory_responses,
-            "total": total,
-            "page": params.page,
-            "size": params.size,
-            "pages": (total + params.size - 1) // params.size if params.size > 0 else 0
-        }
-        
-        return response
-        
-    except Exception as e:
-        logging.exception(f"Error fetching related memories: {e}")
-        # Fallback to database if Qdrant search fails
-        filtered_query = db.query(Memory).filter(
-            Memory.user_id == user.id,
-            Memory.id != memory_id,
-            Memory.state != MemoryState.deleted,
-            Memory.state != MemoryState.archived
-        )
-        
-        # Use transformer to convert Memory to MemoryResponse
-        def transform_to_memory_response(items):
-            return [
-                MemoryResponse(
-                    id=memory.id,
-                    content=memory.content,
-                    created_at=memory.created_at,
-                    state=memory.state.value,
-                    app_id=memory.app_id,
-                    app_name=memory.app.name if memory.app else None,
-                    categories=[category.name for category in memory.categories],
-                    metadata_=memory.metadata_
-                )
-                for memory in items
-            ]
-        
-        return sqlalchemy_paginate(filtered_query, params, transformer=transform_to_memory_response)
+    )

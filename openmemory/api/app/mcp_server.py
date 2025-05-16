@@ -131,121 +131,74 @@ async def search_memory(query: str) -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get accessible memory IDs based on ACL
-            user_memories = db.query(Memory).filter(
-                Memory.user_id == user.id,
-                Memory.state != MemoryState.deleted,
-                Memory.state != MemoryState.archived
-            ).all()
-            
+            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
-            
-            # Initialize result collections
-            all_memories = []
-            found_memory_ids = set()
-            
-            # PART 1: VECTOR SEARCH WITH QDRANT
-            try:
-                # Set up conditions for Qdrant search
-                conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=uid))]
-                
-                if accessible_memory_ids:
-                    # Convert UUIDs to strings for Qdrant
-                    accessible_memory_ids_str = [str(memory_id) for memory_id in accessible_memory_ids]
-                    conditions.append(qdrant_models.HasIdCondition(has_id=accessible_memory_ids_str))
-                
-                filters = qdrant_models.Filter(must=conditions)
-                
-                # Perform vector search
-                embeddings = memory_client.embedding_model.embed(query, "search")
-                hits = memory_client.vector_store.client.query_points(
-                    collection_name=memory_client.vector_store.collection_name,
-                    query=embeddings,
-                    query_filter=filters,
-                    limit=10,
-                )
+            conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=uid))]
+            logging.info(f"Accessible memory IDs: {accessible_memory_ids}")
+            logging.info(f"Conditions: {conditions}")
+            if accessible_memory_ids:
+                # Convert UUIDs to strings for Qdrant
+                accessible_memory_ids_str = [str(memory_id) for memory_id in accessible_memory_ids]
+                conditions.append(qdrant_models.HasIdCondition(has_id=accessible_memory_ids_str))
+            filters = qdrant_models.Filter(must=conditions)
+            logging.info(f"Filters: {filters}")
+            embeddings = memory_client.embedding_model.embed(query, "search")
+            hits = memory_client.vector_store.client.query_points(
+                collection_name=memory_client.vector_store.collection_name,
+                query=embeddings,
+                query_filter=filters,
+                limit=10,
+            )
 
-                # Process vector search results
-                vector_memories = []
-                for memory in hits.points:
-                    memory_id = memory.id
-                    memory_data = {
-                        "id": memory_id,
-                        "memory": memory.payload["data"],
-                        "hash": memory.payload.get("hash"),
-                        "created_at": memory.payload.get("created_at"),
-                        "updated_at": memory.payload.get("updated_at"),
-                        "score": memory.score,
-                        "source": "vector_search"
-                    }
-                    vector_memories.append(memory_data)
-                    found_memory_ids.add(memory_id)
-                    
+            memories = hits.points
+            memories = [
+                {
+                    "id": memory.id,
+                    "memory": memory.payload["data"],
+                    "hash": memory.payload.get("hash"),
+                    "created_at": memory.payload.get("created_at"),
+                    "updated_at": memory.payload.get("updated_at"),
+                    "score": memory.score,
+                }
+                for memory in memories
+            ]
+
+            # Log memory access for each memory found
+            if isinstance(memories, dict) and 'results' in memories:
+                print(f"Memories: {memories}")
+                for memory_data in memories['results']:
+                    if 'id' in memory_data:
+                        memory_id = uuid.UUID(memory_data['id'])
+                        # Create access log entry
+                        access_log = MemoryAccessLog(
+                            memory_id=memory_id,
+                            app_id=app.id,
+                            access_type="search",
+                            metadata_={
+                                "query": query,
+                                "score": memory_data.get('score'),
+                                "hash": memory_data.get('hash')
+                            }
+                        )
+                        db.add(access_log)
+                db.commit()
+            else:
+                for memory in memories:
+                    memory_id = uuid.UUID(memory['id'])
                     # Create access log entry
                     access_log = MemoryAccessLog(
-                        memory_id=uuid.UUID(memory_id),
+                        memory_id=memory_id,
                         app_id=app.id,
                         access_type="search",
                         metadata_={
                             "query": query,
-                            "score": memory.score,
-                            "hash": memory.payload.get("hash")
+                            "score": memory.get('score'),
+                            "hash": memory.get('hash')
                         }
                     )
                     db.add(access_log)
-                
-                all_memories.extend(vector_memories)
-            except Exception as e:
-                logging.exception(f"Error in vector search: {e}")
-                # Vector search failed, continue with SQL search
-            
-            # PART 2: TEXT SEARCH WITH SQL
-            # Perform text search on the database memories
-            sql_memories = []
-            for memory in user_memories:
-                # Skip memories already found in vector search
-                if str(memory.id) in found_memory_ids:
-                    continue
-                    
-                # Simple text search: check if query appears in memory content
-                if query.lower() in memory.content.lower():
-                    memory_data = {
-                        "id": str(memory.id),
-                        "memory": memory.content,
-                        "created_at": int(memory.created_at.timestamp()) if memory.created_at else None,
-                        "updated_at": int(memory.updated_at.timestamp()) if memory.updated_at else None,
-                        "score": 0.5,  # Default score for text matches
-                        "source": "text_search"
-                    }
-                    sql_memories.append(memory_data)
-                    
-                    # Create access log entry
-                    access_log = MemoryAccessLog(
-                        memory_id=memory.id,
-                        app_id=app.id,
-                        access_type="search",
-                        metadata_={
-                            "query": query,
-                            "score": 0.5,
-                            "source": "text_search"
-                        }
-                    )
-                    db.add(access_log)
-
-            logging.info(f"SQL memories: {len(sql_memories)}")
-            logging.info(f"Vector memories: {len(vector_memories)}")
-            
-            # Add SQL search results to the final list
-            all_memories.extend(sql_memories)
-            
-            # Sort combined results by score (highest first)
-            all_memories.sort(key=lambda x: x.get("score", 0), reverse=True)
-            
-            # Commit the access logs
-            db.commit()
-            
-            # Return all results as JSON
-            return json.dumps(all_memories, indent=2)
-            
+                db.commit()
+            return json.dumps(memories, indent=2)
         finally:
             db.close()
     except Exception as e:
@@ -396,15 +349,8 @@ async def handle_sse(request: Request):
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
 
-@mcp_router.post("/messages/")
-async def handle_post_message_sse(request: Request):
-    return await handle_post_message(request)
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message_sse(request: Request):
-    return await handle_post_message(request)
-
-
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
