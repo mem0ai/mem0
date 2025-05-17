@@ -23,7 +23,9 @@ load_dotenv()
 mcp = FastMCP("mem0-mcp-server")
 
 # Check if OpenAI API key is set
-if not os.getenv("OPENAI_API_KEY"):
+if os.getenv("LLM_PROVIDER") == "anthropic" and not os.getenv("LLM_API_KEY"):
+    raise Exception("LLM_API_KEY is not set in .env file")
+elif os.getenv("LLM_PROVIDER") == "openai" and not os.getenv("OPENAI_API_KEY"):
     raise Exception("OPENAI_API_KEY is not set in .env file")
 
 memory_client = get_memory_client()
