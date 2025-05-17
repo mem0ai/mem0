@@ -1,16 +1,29 @@
+"use client";
+
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Session, User, AuthError, AuthChangeEvent } from '@supabase/supabase-js';
+import {
+  Session, User, AuthError, AuthChangeEvent,
+  AuthResponse, // For signIn and signUp
+  SignInWithPasswordCredentials,
+  SignUpWithPasswordCredentials
+} from '@supabase/supabase-js'; // Added more specific types
 import { supabase } from '../lib/supabaseClient';
+
+// Store the latest token globally, accessible by non-React modules
+let globalAccessToken: string | null = null;
+
+export const getGlobalAccessToken = () => globalAccessToken;
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
   error: AuthError | null;
-  signInWithPassword: typeof supabase.auth.signInWithPassword;
-  signUpWithPassword: typeof supabase.auth.signUp;
-  signInWithGoogle: () => Promise<void>;
-  signOut: typeof supabase.auth.signOut;
+  // Simplified return types for our wrapper functions
+  signInWithPassword: (credentials: SignInWithPasswordCredentials) => Promise<AuthResponse>; 
+  signUpWithPassword: (credentials: SignUpWithPasswordCredentials) => Promise<AuthResponse>;
+  signInWithGoogle: () => Promise<void>; // signInWithOAuth doesn't have a straightforward return to type here for data
+  signOut: () => Promise<{ error: AuthError | null }>; // signOut returns { error }
   accessToken: string | null;
 }
 
@@ -21,14 +34,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<AuthError | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [localAccessToken, setLocalAccessToken] = useState<string | null>(null); // State variable for token
 
   useEffect(() => {
+    const updateTokenStates = (currentSession: Session | null) => {
+      const token = currentSession?.access_token ?? null;
+      setLocalAccessToken(token);
+      globalAccessToken = token;
+      console.log('AuthContext: globalAccessToken updated:', globalAccessToken); // DEBUG LINE
+    };
+
     setIsLoading(true);
-    supabase.auth.getSession().then(({ data: { session: currentSession } }: { data: { session: Session | null }}) => {
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => { // Removed explicit typing, rely on inference
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      setAccessToken(currentSession?.access_token ?? null);
+      updateTokenStates(currentSession);
       setIsLoading(false);
     });
 
@@ -36,68 +56,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (event: AuthChangeEvent, currentSession: Session | null) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        setAccessToken(currentSession?.access_token ?? null);
+        updateTokenStates(currentSession);
         setIsLoading(false);
-        setError(null); // Clear previous errors on auth state change
+        setError(null);
       }
     );
 
     return () => {
-      authListener?.unsubscribe();
+      authListener.subscription?.unsubscribe(); // Corrected unsubscribe path
     };
   }, []);
 
   const signInWithPassword = async (
-    credentials: Parameters<typeof supabase.auth.signInWithPassword>[0]
-  ) => {
+    credentials: SignInWithPasswordCredentials
+  ): Promise<AuthResponse> => {
     setIsLoading(true);
     setError(null);
-    const { data, error } = await supabase.auth.signInWithPassword(credentials);
-    if (error) setError(error);
-    // Session state will be updated by onAuthStateChange listener
+    const response = await supabase.auth.signInWithPassword(credentials);
+    if (response.error) setError(response.error);
     setIsLoading(false);
-    return { data, error };
+    return response;
   };
 
   const signUpWithPassword = async (
-    credentials: Parameters<typeof supabase.auth.signUp>[0]
-  ) => {
+    credentials: SignUpWithPasswordCredentials
+  ): Promise<AuthResponse> => {
     setIsLoading(true);
     setError(null);
-    const { data, error } = await supabase.auth.signUp(credentials);
-    if (error) setError(error);
+    const response = await supabase.auth.signUp(credentials);
+    if (response.error) setError(response.error);
     setIsLoading(false);
-    return { data, error };
+    return response;
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        // Optional: Add redirectTo if needed for specific post-OAuth flows
-        // redirectTo: `${window.location.origin}/auth/callback` 
-      },
+      options: {},
     });
-    if (error) {
-      setError(error);
+    if (oauthError) {
+      setError(oauthError);
       setIsLoading(false);
     }
-    // Supabase handles the redirect and onAuthStateChange will update session
+    // No explicit data return here, session updates via onAuthStateChange
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<{ error: AuthError | null }> => {
     setIsLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signOut();
-    if (error) setError(error);
-    // Session state will be updated by onAuthStateChange listener
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) setError(signOutError);
+    globalAccessToken = null;
+    setLocalAccessToken(null);
     setIsLoading(false);
-    return { error };
+    return { error: signOutError };
   };
 
-  const value = {
+  const value: AuthContextType = {
     session,
     user,
     isLoading,
@@ -106,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signUpWithPassword,
     signInWithGoogle,
     signOut,
-    accessToken,
+    accessToken: localAccessToken, // Corrected: use the state variable here
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

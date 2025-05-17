@@ -24,7 +24,7 @@ COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY . .
 
 RUN cp next.config.dev.mjs next.config.mjs
-RUN cp .env.example .env
+# RUN cp .env.example .env
 RUN pnpm build
 
 FROM base AS runner

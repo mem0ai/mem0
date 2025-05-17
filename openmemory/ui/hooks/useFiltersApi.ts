@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from '../lib/apiClient';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import {
@@ -32,14 +32,17 @@ export const useFiltersApi = (): UseFiltersApiReturn => {
   const dispatch = useDispatch<AppDispatch>();
   const user_id = useSelector((state: RootState) => state.profile.userId);
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
-
   const fetchCategories = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     dispatch(setCategoriesLoading());
+    setError(null); // Clear previous errors
     try {
-      const response = await axios.get<CategoriesResponse>(
-        `${URL}/api/v1/memories/categories?user_id=${user_id}`
+      // The backend /api/v1/memories/categories seems to want user_id from your logs.
+      // However, all routers are protected by get_current_supa_user, so backend already knows the user.
+      // Ideally, the backend endpoint should use the JWT user. Sending user_id is okay if backend handles it.
+      console.log(`useFiltersApi: Fetching categories for user_id (from redux): ${user_id}`); // DEBUG
+      const response = await apiClient.get<CategoriesResponse>(
+        `/api/v1/memories/categories`, { params: { user_id: user_id } } 
       );
 
       dispatch(setCategoriesSuccess({
@@ -48,11 +51,13 @@ export const useFiltersApi = (): UseFiltersApiReturn => {
       }));
       setIsLoading(false);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch categories';
+      console.error("useFiltersApi: Failed to fetch categories", err); // DEBUG
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch categories';
       setError(errorMessage);
       dispatch(setCategoriesError(errorMessage));
       setIsLoading(false);
-      throw new Error(errorMessage);
+      // It's often better not to re-throw here unless the component specifically needs to catch it.
+      // throw new Error(errorMessage); 
     }
   }, [dispatch, user_id]);
 

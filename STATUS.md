@@ -8,44 +8,65 @@ Launch a functional multi-tenant Minimum Viable Product (MVP) with:
 2.  User-scoped memory storage and retrieval.
 3.  Deployment to a simple cloud platform (future phase).
 
-## Current Phase: Backend Multi-Tenancy COMPLETE - Ready for Frontend Integration
+## Current Phase: Frontend Integration - Debugging Connection & CORS
 
 ### Completed Steps (Backend Authentication & Multi-Tenancy):
 *   **Branch Creation:** Active development on `feat/supabase-auth-multitenancy`.
 *   **Dependencies:** `supabase` package correctly configured in `requirements.txt`.
 *   **Environment Configuration:** `.env` setup for Supabase, Qdrant, OpenAI, and `mem0` settings.
-*   **Core Authentication (`app/auth.py`, `main.py`):** Supabase client initialized; `get_current_supa_user` FastAPI dependency implemented and applied to routers, resolving circular imports.
-*   **`mem0` Client (`app/utils/memory.py`):** Configured for a static shared Qdrant collection, relying on `user_id` in `mem0` method calls for data isolation.
-*   **Database Utilities (`app/utils/db.py`):** `get_or_create_user()` and `get_user_and_app()` adapted to use Supabase User IDs, mapping to local `User` table (PK `User.id` stores Supabase UUID).
-*   **Routers Adapted (`memories.py`, `apps.py`, `stats.py`):** Endpoints refactored for Supabase JWT authentication and user-scoped data operations. Import issues and `ResponseValidationError` resolved.
-*   **Missing Routers Handled:** Imports for non-existent routers commented out in `main.py`.
-*   **MCP Server (`app/mcp_server.py`):** Adapted to use Supabase User ID from context for `mem0` calls and database interactions.
-*   **Database Initialization:** Alembic migrations successfully run, creating necessary SQL tables.
-*   **API Startup:** Backend API starts successfully.
-*   **Functional API Testing:** Core memory CRUD operations (List, Create) successfully tested with two distinct users, confirming authentication, data creation, and data isolation (users only see their own data).
+*   **Core Authentication (`app/auth.py`, `main.py`):** Supabase client initialized; `get_current_supa_user` FastAPI dependency implemented and applied to routers.
+*   **`mem0` Client (`app/utils/memory.py`):** Configured for a static shared Qdrant collection.
+*   **Database Utilities (`app/utils/db.py`):** `get_or_create_user()` and `get_user_and_app()` adapted for Supabase User IDs.
+*   **Routers Adapted (`memories.py`, `apps.py`, `stats.py`):** Endpoints refactored for Supabase JWT authentication.
+*   **MCP Server (`app/mcp_server.py`):** Adapted for Supabase User ID.
+*   **Database Initialization:** Alembic migrations run.
+*   **API Startup & Basic Multi-Tenancy Tests:** Backend API starts; initial tests showed data isolation for `useMemoriesApi.ts` after manual login. **Further testing confirmed memory creation and app listing are functional after backend fixes.**
+*   **Docker Environment:** Successfully configured Dockerfiles and `.env` handling for both UI and API services. `docker compose build` and `docker compose up -d` are now stable.
+*   **Backend Error Resolution:**
+    *   Fixed `AttributeError: 'Query' object has no attribute 'scalar_one'` in `app/routers/apps.py`.
+    *   Resolved `UNIQUE constraint failed: apps.name` by modifying `App` model schema (composite unique key `(owner_id, name)`) and applying Alembic migration. Core multi-tenancy for app ownership is now correctly handled.
 
-### Next Phase: Frontend Integration & Further Backend Refinements
-1.  **Git Workflow:**
-    *   Commit all recent successful backend changes to `feat/supabase-auth-multitenancy`.
-    *   Merge `feat/supabase-auth-multitenancy` into `main`.
-    *   Create a new branch from `main` for frontend development (e.g., `feat/frontend-supabase-integration`).
-2.  **Frontend Development (`openmemory/ui`):**
-    *   Integrate Supabase JS client for user authentication (signup, login, logout).
-    *   Manage user sessions and JWTs on the client-side.
-    *   Update UI components to make authenticated API calls to the backend, displaying user-specific memories and data.
-3.  **Address Remaining Backend Issues (from Outstanding List below).**
-4.  **MCP Client Adaptation:** Ensure any client connecting to MCP server's SSE endpoint provides the Supabase User ID in the path and that the SSE endpoint authentication is hardened.
+### Frontend Integration Progress:
+*   **Supabase Client & AuthContext:** `supabaseClient.ts` and `AuthContext.tsx` (with `"use client;"`) created. `AuthContext` manages session and provides a global JWT accessor (`getGlobalAccessToken`).
+*   **`apiClient.ts`:** Axios instance configured with an interceptor to use `getGlobalAccessToken` for attaching JWTs.
+*   **Custom Hooks Updated:** `useMemoriesApi.ts`, `useFiltersApi.ts`, `useAppsApi.ts`, `useStats.ts` have been modified to use `apiClient`.
+*   **Auth UI:** Basic `AuthForm.tsx` and `LogoutButton.tsx` created; `AuthProvider` wraps `app/layout.tsx`.
+*   **Dependency Management:** Switched to `pnpm` for frontend dependencies.
 
-### Key Outstanding Issues & Questions to Address (Post-MVP or in Parallel):
-*   **`apps_router.py` Linter Errors**: Investigate and fix any remaining (likely cosmetic) linter errors if they cause issues or noise.
-*   **SSE Endpoint Security (`mcp_server.py`)**: `handle_sse` endpoint needs robust JWT authentication for production environments.
-*   **Missing Routers Implementation**: Decide on `users_router`, `feedback_router` (implement or confirm removal from `main.py` imports).
-*   **Alembic Migrations for `User` Table**: Current setup works. Future schema changes or constraint adjustments may require new revisions.
-*   **`check_memory_access_permissions` Function**: Review and adapt this function in `memories_router.py` more thoroughly for complex permission scenarios if needed beyond basic user ownership.
-*   **`mem0` Multi-Tenancy Behavior Verification**: While API tests show isolation, deeper verification of `mem0`'s interaction with Qdrant payload for `user_id` could be beneficial for understanding.
-*   **Email in MCP Context**: `get_user_and_app` is called with `email=None` in MCP tools; this is acceptable for MVP as `get_or_create_user` handles it, but could be enhanced if MCP clients can provide email.
-*   **SQL `Memory` and `mem0_id` Linking**: Evaluate adding a dedicated `mem0_id` column to the `Memory` SQL table for robust linking to vector store entries (currently in metadata).
-*   **Pydantic V2 Migration:** Address deprecation warnings for Pydantic V1 style models and validators in `app/schemas.py` and elsewhere.
+### Next Phase: Resolve Runtime Errors & Complete Frontend - Backend Integration
+
+**[STATUS UPDATE: Major backend/Docker blockers resolved. Core functionality (auth, memory creation, app listing) is working. Shifting focus to frontend refinements for MVP.]**
+
+**Immediate Next Steps:**
+
+1.  **~~Stabilize Backend API Service & CORS for POST/PUT/DELETE:~~ [DONE]**
+    *   ~~Action: Modify `openmemory/docker-compose.yml` to remove/comment out the `openmemory-ui` service (frontend runs via `pnpm run dev`).~~ (Decided to run all services with Docker Compose).
+    *   **Action:** Docker environment (UI and API) builds and runs successfully. Backend errors causing 500s (and thus CORS-like symptoms) have been resolved.
+    *   **Verify:** API is running, accessible, and core operations succeed with JWT auth.
+
+2.  **Verify All Frontend API Calls: [LARGELY DONE - CORE FUNCTIONALITY WORKING]**
+    *   **Action:** Clean and restart frontend: `cd openmemory/ui && rm -rf .next node_modules && pnpm install && pnpm run dev` (if running UI locally) OR rely on `docker compose up -d --build` for full stack.
+    *   **Action (In Incognito Browser with DevTools):** Clear local storage. Navigate to `/auth`, log in.
+    *   **Verification COMPLETE for:**
+        *   Console logs show `AuthContext: globalAccessToken updated: <VALID_JWT>`.
+        *   API calls use `Authorization: Bearer <JWT>` header.
+        *   **Memory creation and app listing now return 2xx.** No more 500 errors causing CORS issues for these primary paths.
+    *   **Outstanding Verification/Refinement:**
+        *   Thoroughly test all other API endpoints (filters, stats, categories) to ensure 2xx responses and correct data scoping.
+
+3.  **Improve Login UX: [PENDING - NEXT ACTION ITEM]**
+    *   Ensure unauthenticated users are easily guided to the `/auth` page from the main application UI (e.g., from Navbar).
+
+4.  **Synchronize Redux `user_id`: [PENDING - CRITICAL FRONTEND FIX]**
+    *   After successful Supabase login, update `state.profile.userId` in the Redux store with the actual Supabase user ID (`user.id` from `useAuth()`).
+    *   **Symptom:** Payloads for memory creation, category fetching, etc., still contain `user_id: 'deshraj'` from Redux.
+    *   **Impact:** While backend might be correctly using JWT for auth, sending incorrect `user_id` in payload is a data consistency bug and bad practice.
+
+### Key Outstanding Issues & Questions (Post-MVP or in Parallel with above debugging):
+*   **Original `user_id=deshraj` Source:** (Related to above) Investigate why `state.profile.userId` defaults to or contains "deshraj" and ensure it's correctly managed post-login.
+*   **Pydantic V2 Migration:** (From original plan) Address deprecation warnings for Pydantic V1 style models.
+*   **SSE Endpoint Security (`mcp_server.py`):** (From original plan) Needs robust JWT authentication.
+*   **`check_memory_access_permissions` Review:** (From original plan) Adapt for complex scenarios if needed.
 
 ---
 *(This file will be updated as progress is made.)* 

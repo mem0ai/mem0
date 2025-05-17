@@ -101,7 +101,7 @@ async def list_apps(
     # Get total count for pagination (efficiently)
     # Clone the query and remove ordering/limit/offset for counting.
     count_query = query.with_entities(func.count(App.id)).order_by(None)
-    total = count_query.scalar_one()
+    total = count_query.scalar()
     
     results = query.offset((page - 1) * page_size).limit(page_size).all()
 
@@ -144,7 +144,7 @@ async def get_app_details(
         "is_active": app.is_active,
         "total_memories_created": db.query(func.count(Memory.id))
             .filter(Memory.app_id == app.id)
-            .scalar_one(),
+            .scalar(),
         "total_memories_accessed": access_stats.total_memories_accessed or 0,
         "first_accessed": access_stats.first_accessed,
         "last_accessed": access_stats.last_accessed
@@ -170,7 +170,7 @@ async def list_app_memories(
     ).options(joinedload(Memory.categories))
     
     total_query = query.with_entities(func.count(Memory.id)).order_by(None)
-    total = total_query.scalar_one()
+    total = total_query.scalar()
     memories_results = query.order_by(Memory.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
     return {

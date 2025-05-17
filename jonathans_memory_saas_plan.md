@@ -28,14 +28,17 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
 
 ### **Phase 1: Backend - Authentication & User-Scoped Memory**
 
-**[STATUS: LARGELY COMPLETE FOR MVP]**
+**[STATUS: VERY LARGELY COMPLETE FOR MVP]**
 *   **Outcome:** Successfully integrated Supabase for user authentication (JWT-based). Modified the FastAPI backend to support multi-tenancy.
 *   Core memory operations (create, list) now correctly isolate data per authenticated user, using a shared Qdrant collection managed by `mem0` (leveraging `user_id` for internal payload filtering) and a relational SQL database for metadata.
-*   API endpoints for memories, apps, and stats are now user-scoped.
+*   **Key Fixes Implemented:**
+    *   Resolved `AttributeError` in `apps.py` related to `.scalar_one()`.
+    *   Corrected database schema for `App` model: removed global unique constraint on `name` and added a composite unique constraint `(owner_id, name)` via Alembic migration. This resolved `UNIQUE constraint failed: apps.name` errors, allowing multiple users to have apps named "openmemory".
+*   API endpoints for memories, apps, and stats are now user-scoped and largely functional.
 *   MCP server tools adapted to use the authenticated user's context.
-*   Database initialized with Alembic migrations.
-*   API starts successfully and core multi-tenancy has been verified through testing with multiple users.
-*   *Remaining items from this phase are minor or deferred (see STATUS.MD for details).*
+*   Database initialized and updated with Alembic migrations.
+*   API starts successfully and core multi-tenancy (including memory creation and app listing) has been verified through testing with multiple users.
+*   *Remaining items from this phase are minor or deferred (see STATUS.MD for details, e.g., Pydantic V2 migration, SSE security).*
 
 **Goal:** Modify the existing `openmemory/api` (FastAPI) backend to support multiple users with Supabase authentication and ensure each user's memories are securely isolated within a shared Qdrant collection by leveraging `mem0`'s user-ID based operations.
 
@@ -302,6 +305,41 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
         *   Memories are created in the shared Qdrant collection (e.g., `jonathans_memory_main` or the value of `MAIN_QDRANT_COLLECTION_NAME`), and inspecting the vector point's payload in Qdrant should show a field correctly identifying the user (e.g., a `user_id` field in the payload matching the Supabase user ID).
         *   SQL database entries (Users, Memories metadata) are correctly associated with the Supabase user ID.
 
+**[STATUS UPDATE - MVP FUNCTIONALITY LARGELY RESTORED, FOCUS ON FRONTEND REFINEMENTS]**
+
+**Overall Status:**
+*   **Dockerized Environment:** Both frontend and backend services build and run successfully via `docker compose`. Issues with Dockerfile configurations and `.env` file handling have been resolved.
+*   **Backend Stability:** Critical backend errors (`AttributeError` in `apps.py`, `UNIQUE constraint failed` for `apps.name`) have been fixed. The database schema for `App` model now correctly supports multi-tenancy for app names.
+*   **Core Functionality:** Frontend can authenticate via Supabase, JWTs are passed, and **memory creation is working**. Listing apps is also functional.
+*   The primary connection issues (`net::ERR_CONNECTION_REFUSED` / CORS) were symptoms of the underlying backend 500 errors and are now resolved.
+
+**Current Blockers & Debugging Next Steps (Handover Point):**
+
+*   **Blocker 1: `net::ERR_CONNECTION_REFUSED` for all API calls / CORS errors for POST requests.**
+    *   **[RESOLVED]** These issues were primarily due to backend 500 errors (now fixed) preventing proper responses. The Docker environment is now stable, and services are communicating.
+
+*   **Blocker 2: Backend 500 Errors (`AttributeError`, `UNIQUE constraint failed`)**
+    *   **[RESOLVED]**
+        *   `AttributeError: 'Query' object has no attribute 'scalar_one'` in `apps.py` fixed by using `.scalar()`.
+        *   `sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: apps.name` fixed by changing `App.name` to be unique per `owner_id` (schema change + migration).
+
+*   **Blocker 3: Potential 401s from some hooks if `apiClient` not used (Secondary after connection is fixed).**
+    *   **[LARGELY ADDRESSED/OBSERVED]** Hooks were updated to use `apiClient`. Current testing shows JWTs are being sent. Some initial 401s/307s were observed in backend logs but did not seem to prevent eventual successful operations once 500 errors were fixed. Ongoing monitoring during full testing is advised.
+
+*   **Next Step 1 (Critical Frontend): Data Consistency: Redux `user_id` vs. Supabase JWT `user.id`**
+    *   **Symptom:** The `user_id` field in API request payloads (e.g., `user_id: 'deshraj'`) still comes from Redux state (`state.profile.userId`).
+    *   **Action:** This needs to be updated with the actual Supabase user ID (`current_supa_user.id` or `useAuth().user.id`) after successful login to ensure correct data scoping if these parameters are used by the backend for authorization beyond the JWT (though backend should primarily rely on JWT).
+    *   **Verify:** After fix, ensure request payloads for creating memories, fetching categories, etc., contain the correct Supabase user ID.
+
+*   **Next Step 2 (Frontend UX): Login Flow Accessibility**
+    *   **Action:** The `/auth` page is not easily discoverable. Implement a "Login" link in the main UI (e.g., `Navbar.tsx`) that shows when `useAuth().user` is `null`.
+
+*   **Testing & Verification:**
+    1.  **Restart Docker Services:** `docker compose down && docker compose up -d` (to ensure all changes are active).
+    2.  **Test Full Auth Flow in Incognito:** Sign up (new user), log out, log in.
+    3.  **Verify ALL API Calls:** (memories, apps, categories, stats) in Network tab now use the token via `apiClient` and return 2xx. Confirm no CORS errors.
+    4.  **Confirm `user_id` in Payloads:** (After Redux fix) Verify payloads use the correct Supabase user ID.
+
 ---
 
 ### **Phase 2: Frontend - Supabase Integration & UI (`openmemory/ui`)**
@@ -362,6 +400,52 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
     *   Test user registration, login, and logout flows.
     *   Verify that authenticated API calls to your backend are successful and that data displayed is user-specific.
     *   Check browser developer tools for any errors.
+
+**[STATUS UPDATE - PAUSED HERE DUE TO RUNTIME BLOCKERS]**
+
+**Current Blockers & Debugging Next Steps (Handover Point):**
+
+*   **Overall Status:** Frontend can authenticate via Supabase, and JWTs are correctly passed to the `apiClient` for requests initiated by `useMemoriesApi.ts`. However, critical runtime errors prevent full functionality.
+
+*   **Blocker 1: `net::ERR_CONNECTION_REFUSED` for all API calls / CORS errors for POST requests.**
+    *   **Symptom:** Frontend cannot reliably connect to the backend API at `http://localhost:8765`. When `POST` requests (like create memory) are attempted, they hit a CORS wall even if the token is sent.
+    *   **Likely Cause (Backend):** 
+        1.  The `openmemory-mcp` Docker service might not be starting/staying up correctly.
+        2.  The CORS fix in `openmemory/api/main.py` (specifying exact origins like `http://localhost:3000` instead of `"*"` when `allow_credentials=True`) is not active in the running Docker container. This requires a Docker image **rebuild**.
+        3.  Potential port conflict with `openmemory-ui` service in `docker-compose.yml` if not removed/commented out, as UI is run locally with `pnpm run dev`.
+    *   **Next Debug Steps (Backend Focus First):
+        1.  **Modify `openmemory/docker-compose.yml`**: Ensure the `openmemory-ui` service definition is commented out or removed.
+        2.  **Clean Rebuild & Restart Backend ONLY** (from `openmemory` directory):
+            ```bash
+            docker compose down
+            docker compose build openmemory-mcp # Critical to pick up main.py CORS changes
+            docker compose up -d openmemory-mcp mem0_store
+            ```
+        3.  **Verify Backend**: `docker compose ps` (ensure `openmemory-mcp` is running). `docker compose logs -f openmemory-mcp` (check for startup errors and later for request logs). Test `http://localhost:8765/docs`.
+
+*   **Blocker 2: Potential 401s from some hooks if `apiClient` not used (Secondary after connection is fixed).**
+    *   **Symptom (from previous logs):** Calls from `useAppsApi.ts`, `useFiltersApi.ts`, `useStats.ts` were resulting in 401s.
+    *   **Status:** These hooks *have been modified* in this session to use `apiClient`. This needs to be confirmed effective once the connection (`ERR_CONNECTION_REFUSED`) and backend CORS issues are resolved.
+    *   **Next Debug Steps (Frontend - After Backend is Stable):
+        1.  **Clean Frontend Restart** (from `openmemory/ui` directory):
+            ```bash
+            rm -rf .next node_modules 
+pnpm install 
+pnpm run dev
+            ```
+        2.  **Test Full Auth Flow in Incognito:** Log in. Check console for `globalAccessToken` update. Verify ALL API calls (memories, apps, categories, stats) in Network tab now use the token via `apiClient` and return 2xx.
+
+*   **Blocker 3: Potential 422 Unprocessable Entity on Create Memory (Secondary).**
+    *   **Symptom (from previous logs):** `POST /api/v1/memories/` was sending the token but got a 422 (then CORS, then `net::ERR_FAILED`).
+    *   **Status:** The frontend payload for `createMemory` in `useMemoriesApi.ts` was updated to send `app_name: "openmemory"` instead of `app`. This *should* align with the backend Pydantic model `CreateMemoryRequestData`.
+    *   **Next Debug Steps (After Backend & Connection/CORS Fixed):
+        1.  If 422 persists, check **backend API logs** (`docker compose logs openmemory-mcp`) for detailed Pydantic validation errors. This will show the exact field causing issues.
+
+*   **UX Consideration: Login Flow Accessibility**
+    *   The `/auth` page is not easily discoverable. Implement a "Login" link in the main UI (e.g., `Navbar.tsx`) that shows when `useAuth().user` is `null`.
+
+*   **Data Consistency: Redux `user_id` vs. Supabase JWT `user.id`**
+    *   The `user_id` field in API request payloads (e.g., `user_id: 'deshraj'`) comes from Redux state (`state.profile.userId`). This needs to be updated with the actual Supabase user ID (`current_supa_user.id` or `useAuth().user.id`) after successful login to ensure correct data scoping if these parameters are used by the backend for authorization beyond the JWT.
 
 ---
 

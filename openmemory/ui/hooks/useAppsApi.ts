@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from '../lib/apiClient';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import {
@@ -52,11 +52,11 @@ interface FetchAppsParams {
 }
 
 interface UseAppsApiReturn {
-  fetchApps: (params?: FetchAppsParams) => Promise<{ apps: App[], total: number }>;
+  fetchApps: (params?: FetchAppsParams) => Promise<{ apps: App[], total: number } | undefined>;
   fetchAppDetails: (appId: string) => Promise<void>;
   fetchAppMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchAppAccessedMemories: (appId: string, page?: number, pageSize?: number) => Promise<void>;
-  updateAppDetails: (appId: string, details: { is_active: boolean }) => Promise<void>;
+  updateAppDetails: (appId: string, details: { is_active: boolean }) => Promise<any | undefined>;
   isLoading: boolean;
   error: string | null;
 }
@@ -65,11 +65,8 @@ export const useAppsApi = (): UseAppsApiReturn => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
-  const user_id = useSelector((state: RootState) => state.profile.userId);
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
-
-  const fetchApps = useCallback(async (params: FetchAppsParams = {}): Promise<{ apps: App[], total: number }> => {
+  const fetchApps = useCallback(async (params: FetchAppsParams = {}): Promise<{ apps: App[], total: number } | undefined> => {
     const {
       name,
       is_active,
@@ -81,19 +78,20 @@ export const useAppsApi = (): UseAppsApiReturn => {
 
     setIsLoading(true);
     dispatch(setAppsLoading());
+    setError(null);
     try {
-      const queryParams = new URLSearchParams({
-        page: String(page),
-        page_size: String(page_size)
-      });
+      const queryParams: Record<string, any> = {
+        page: page,
+        page_size: page_size,
+        sort_by: sort_by,
+        sort_direction: sort_direction
+      };
+      if (name) queryParams.name = name;
+      if (is_active !== undefined) queryParams.is_active = String(is_active);
 
-      if (name) queryParams.append('name', name);
-      if (is_active !== undefined) queryParams.append('is_active', String(is_active));
-      if (sort_by) queryParams.append('sort_by', sort_by);
-      if (sort_direction) queryParams.append('sort_direction', sort_direction);
-
-      const response = await axios.get<ApiResponse>(
-        `${URL}/api/v1/apps/?${queryParams.toString()}`
+      console.log("useAppsApi: Fetching apps with params:", queryParams);
+      const response = await apiClient.get<ApiResponse>(
+        `/api/v1/apps/`, { params: queryParams }
       );
 
       setIsLoading(false);
@@ -103,38 +101,43 @@ export const useAppsApi = (): UseAppsApiReturn => {
         total: response.data.total
       };
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch apps';
+      console.error("useAppsApi: Failed to fetch apps", err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch apps';
       setError(errorMessage);
       dispatch(setAppsError(errorMessage));
       setIsLoading(false);
-      throw new Error(errorMessage);
+      return undefined;
     }
   }, [dispatch]);
 
   const fetchAppDetails = useCallback(async (appId: string): Promise<void> => {
     setIsLoading(true);
     dispatch(setSelectedAppLoading());
+    setError(null);
     try {
-      const response = await axios.get<AppDetails>(
-        `${URL}/api/v1/apps/${appId}`
+      console.log(`useAppsApi: Fetching details for app ${appId}`);
+      const response = await apiClient.get<AppDetails>(
+        `/api/v1/apps/${appId}`
       );
       dispatch(setSelectedAppDetails(response.data));
       setIsLoading(false);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch app details';
+      console.error("useAppsApi: Failed to fetch app details", err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch app details';
       dispatch(setSelectedAppError(errorMessage));
       setError(errorMessage);
       setIsLoading(false);
-      throw new Error(errorMessage);
     }
   }, [dispatch]);
 
   const fetchAppMemories = useCallback(async (appId: string, page: number = 1, pageSize: number = 10): Promise<void> => {
     setIsLoading(true);
     dispatch(setCreatedMemoriesLoading());
+    setError(null);
     try {
-      const response = await axios.get<MemoriesResponse>(
-        `${URL}/api/v1/apps/${appId}/memories?page=${page}&page_size=${pageSize}`
+      console.log(`useAppsApi: Fetching memories for app ${appId}`);
+      const response = await apiClient.get<MemoriesResponse>(
+        `/api/v1/apps/${appId}/memories`, { params: { page, page_size: pageSize } }
       );
       dispatch(setCreatedMemoriesSuccess({
         items: response.data.memories,
@@ -143,7 +146,8 @@ export const useAppsApi = (): UseAppsApiReturn => {
       }));
       setIsLoading(false);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch app memories';
+      console.error("useAppsApi: Failed to fetch app memories", err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch app memories';
       dispatch(setCreatedMemoriesError(errorMessage));
       setError(errorMessage);
       setIsLoading(false);
@@ -153,9 +157,11 @@ export const useAppsApi = (): UseAppsApiReturn => {
   const fetchAppAccessedMemories = useCallback(async (appId: string, page: number = 1, pageSize: number = 10): Promise<void> => {
     setIsLoading(true);
     dispatch(setAccessedMemoriesLoading());
+    setError(null);
     try {
-      const response = await axios.get<AccessedMemoriesResponse>(
-        `${URL}/api/v1/apps/${appId}/accessed?page=${page}&page_size=${pageSize}`
+      console.log(`useAppsApi: Fetching accessed memories for app ${appId}`);
+      const response = await apiClient.get<AccessedMemoriesResponse>(
+        `/api/v1/apps/${appId}/accessed`, { params: { page, page_size: pageSize } }
       );
       dispatch(setAccessedMemoriesSuccess({
         items: response.data.memories,
@@ -164,25 +170,31 @@ export const useAppsApi = (): UseAppsApiReturn => {
       }));
       setIsLoading(false);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch accessed memories';
+      console.error("useAppsApi: Failed to fetch accessed memories", err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch accessed memories';
       dispatch(setAccessedMemoriesError(errorMessage));
       setError(errorMessage);
       setIsLoading(false);
     }
   }, [dispatch]);
 
-  const updateAppDetails = async (appId: string, details: { is_active: boolean }) => {
+  const updateAppDetails = async (appId: string, details: { is_active: boolean }): Promise<any | undefined> => {
     setIsLoading(true);
+    setError(null);
     try {
-      const response = await axios.put(
-        `${URL}/api/v1/apps/${appId}?is_active=${details.is_active}`
+      console.log(`useAppsApi: Updating app ${appId} details:`, details);
+      const response = await apiClient.put(
+        `/api/v1/apps/${appId}`, details
       );
       setIsLoading(false);
       return response.data;
-    } catch (error) {
-      console.error("Failed to update app details:", error);
+    } catch (error: any) {
+      console.error("useAppsApi: Failed to update app details:", error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update app details';
+      setError(errorMessage);
+      dispatch(setSelectedAppError(errorMessage));
       setIsLoading(false);
-      throw error;
+      return undefined;
     }
   };
 

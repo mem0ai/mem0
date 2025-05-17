@@ -37,12 +37,18 @@ app = FastAPI(
 )
 
 # CORS Middleware Configuration
+# When allow_credentials=True, allow_origins cannot be "*"
+# It must be a list of specific origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Or specify your frontend URL for production
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:3001", 
+        # Add your deployed frontend URL here later if applicable
+    ],  
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # Be more specific or keep "*"
+    allow_headers=["Authorization", "Content-Type"], # Specify common headers or keep "*"
 )
 
 # Include routers - Now using get_current_supa_user from app.auth

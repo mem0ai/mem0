@@ -11,9 +11,11 @@ import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Navbar() {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   const memoriesApi = useMemoriesApi();
   const appsApi = useAppsApi();
@@ -129,16 +131,30 @@ export function Navbar() {
           </Link>
         </div>
         <div className="flex items-center gap-4">
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            size="sm"
-            className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
-          >
-            <FiRefreshCcw className="transition-transform duration-300 group-hover:rotate-180" />
-            Refresh
-          </Button>
-          <CreateMemoryDialog />
+          {user ? (
+            <>
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                size="sm"
+                className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
+              >
+                <FiRefreshCcw className="transition-transform duration-300 group-hover:rotate-180" />
+                Refresh
+              </Button>
+              <CreateMemoryDialog />
+            </>
+          ) : (
+            <Link href="/auth">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Login
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>
