@@ -20,6 +20,8 @@ class BaseEmbedderConfig(ABC):
         ollama_base_url: Optional[str] = None,
         # Openai specific
         openai_base_url: Optional[str] = None,
+        # MistralAI specific
+        mistralai_server_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
         huggingface_base_url: Optional[str] = None,
@@ -55,6 +57,8 @@ class BaseEmbedderConfig(ABC):
         :type huggingface_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
+        :param mistral_server_url: Mistralai server URL to be use, defaults to "https://api.mistral.ai"
+        :type mistral_server_url: Optional[str], optional
         :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
@@ -81,6 +85,9 @@ class BaseEmbedderConfig(ABC):
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
+
+        # MistralAI specific
+        self.mistralai_server_url = mistralai_server_url
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}

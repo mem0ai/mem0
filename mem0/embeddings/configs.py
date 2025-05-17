@@ -17,6 +17,7 @@ class EmbedderConfig(BaseModel):
             "openai",
             "ollama",
             "huggingface",
+            "mistralai",
             "azure_openai",
             "gemini",
             "vertexai",
