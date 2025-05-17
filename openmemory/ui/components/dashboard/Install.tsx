@@ -80,7 +80,7 @@ export const Install = () => {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-6">Install OpenMemory</h2>
+      <h2 className="text-xl font-semibold mb-6">Install Jean Memory</h2>
 
       <div className="hidden">
         <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]"></div>

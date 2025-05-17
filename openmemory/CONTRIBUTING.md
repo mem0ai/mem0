@@ -1,4 +1,6 @@
-# Contributing to OpenMemory
+# Contributing to Jean Memory
+
+First off, thank you for considering contributing to Jean Memory! We appreciate your time and effort.
 
 We are a team of developers passionate about the future of AI and open-source software. With years of experience in both fields, we believe in the power of community-driven development and are excited to build tools that make AI more accessible and personalized.
 
@@ -14,9 +16,9 @@ We welcome all forms of contributions:
 ## Development Workflow
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b openmemory/feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin openmemory/feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b jean-memory/feature/amazing-feature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin jean-memory/feature/amazing-feature`)
 5. Open a Pull Request
 
 ## Development Setup
@@ -67,4 +69,4 @@ We value:
 3. Include tests for new features
 4. Make sure all tests pass before submitting
 
-Join us in building the future of AI memory management! Your contributions help make OpenMemory better for everyone.
+Join us in building the future of AI memory management! Your contributions help make Jean Memory better for everyone.

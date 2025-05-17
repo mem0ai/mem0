@@ -53,7 +53,7 @@ export function CreateMemoryDialog() {
         <DialogHeader>
           <DialogTitle>Create New Memory</DialogTitle>
           <DialogDescription>
-            Add a new memory to your OpenMemory instance
+            Add a new memory to your Jean Memory instance
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

@@ -1,8 +1,8 @@
-# OpenMemory
+# Jean Memory
 
-OpenMemory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
+Jean Memory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
 
-![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
+![Jean Memory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
 ## Prerequisites
 
@@ -16,12 +16,12 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 You can run the project using the following two commands:
 ```bash
 make build # builds the mcp server and ui
-make up  # runs openmemory mcp server and ui
+make up  # runs jean memory mcp server and ui
 ```
 
 After running these commands, you will have:
-- OpenMemory MCP server running at: http://localhost:8765 (API documentation available at http://localhost:8765/docs)
-- OpenMemory UI running at: http://localhost:3000
+- Jean Memory MCP server running at: http://localhost:8765 (API documentation available at http://localhost:8765/docs)
+- Jean Memory UI running at: http://localhost:3000
 
 ## Project Structure
 
@@ -42,9 +42,13 @@ We welcome all forms of contributions:
 How to contribute:
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b openmemory/feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin openmemory/feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b jean-memory/feature/amazing-feature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin jean-memory/feature/amazing-feature`)
 5. Open a Pull Request
 
-Join us in building the future of AI memory management! Your contributions help make OpenMemory better for everyone.
+## Community
+
+Join us in building the future of AI memory management! Your contributions help make Jean Memory better for everyone.
+
+<a href="https://mem0.dev/jean-memory">Jean Memory</a>

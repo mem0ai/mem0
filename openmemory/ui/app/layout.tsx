@@ -8,8 +8,8 @@ import { Providers } from "./providers";
 import { AuthProvider } from "../contexts/AuthContext";
 
 export const metadata = {
-  title: "OpenMemory - Developer Dashboard",
-  description: "Manage your OpenMemory integration and stored memories",
+  title: "Jean Memory - Developer Dashboard",
+  description: "Manage your Jean Memory integration and stored memories",
   generator: "v0.dev",
 };
 

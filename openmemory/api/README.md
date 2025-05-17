@@ -1,6 +1,6 @@
-# OpenMemory API
+# Jean Memory API
 
-This directory contains the backend API for OpenMemory, built with FastAPI and SQLAlchemy. This also runs the Mem0 MCP Server that you can use with MCP clients to remember things.
+This directory contains the backend API for Jean Memory, built with FastAPI and SQLAlchemy. This also runs the Mem0 MCP Server that you can use with MCP clients to remember things.
 
 ## Quick Start with Docker (Recommended)
 
