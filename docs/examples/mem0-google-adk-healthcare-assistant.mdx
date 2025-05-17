@@ -21,11 +21,19 @@ By integrating Mem0's memory layer with Google ADK, the assistant maintains cont
 
 ## Setup
 
-```python
-# Install required packages
-!pip install google-adk -q
-!pip install mem0ai -q
+Before you begin, make sure you have:
 
+Installed Google ADK and Mem0 SDK:
+```bash
+pip install google-adk
+pip install mem0ai
+```
+
+## Code Breakdown
+
+Let's get started and understand the different components required in building a healthcare assistant powered by memory
+
+```python
 # Import dependencies
 import os
 from google.adk.agents import Agent
