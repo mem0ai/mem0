@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const memoriesApi = useMemoriesApi();
   const appsApi = useAppsApi();
@@ -143,6 +143,14 @@ export function Navbar() {
                 Refresh
               </Button>
               <CreateMemoryDialog />
+              <Button
+                onClick={async () => await signOut()}
+                variant="outline"
+                size="sm"
+                className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-red-400 hover:text-red-300"
+              >
+                Logout
+              </Button>
             </>
           ) : (
             <Link href="/auth">
