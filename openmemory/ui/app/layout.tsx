@@ -21,8 +21,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="h-screen font-sans antialiased flex flex-col bg-zinc-950">
-        <AuthProvider>
-          <Providers>
+        <Providers>
+          <AuthProvider>
             <ThemeProvider
               attribute="class"
               defaultTheme="dark"
@@ -33,8 +33,8 @@ export default function RootLayout({
               <ScrollArea className="h-[calc(100vh-64px)]">{children}</ScrollArea>
               <Toaster />
             </ThemeProvider>
-          </Providers>
-        </AuthProvider>
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

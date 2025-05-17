@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface ProfileState {
-  userId: string;
+  userId: string | null;
   totalMemories: number;
   totalApps: number;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -10,7 +10,7 @@ interface ProfileState {
 }
 
 const initialState: ProfileState = {
-  userId: process.env.NEXT_PUBLIC_USER_ID || 'deshraj',
+  userId: null,
   totalMemories: 0,
   totalApps: 0,
   status: 'idle',
@@ -22,7 +22,7 @@ const profileSlice = createSlice({
   name: 'profile',
   initialState,
   reducers: {
-    setUserId: (state, action: PayloadAction<string>) => {
+    setUserId: (state, action: PayloadAction<string | null>) => {
       state.userId = action.payload;
     },
     setProfileLoading: (state) => {
@@ -36,7 +36,7 @@ const profileSlice = createSlice({
     resetProfileState: (state) => {
       state.status = 'idle';
       state.error = null;
-      state.userId = process.env.NEXT_PUBLIC_USER_ID || 'deshraj';
+      state.userId = null;
     },
     setTotalMemories: (state, action: PayloadAction<number>) => {
       state.totalMemories = action.payload;

@@ -8,6 +8,8 @@ import {
   SignUpWithPasswordCredentials
 } from '@supabase/supabase-js'; // Added more specific types
 import { supabase } from '../lib/supabaseClient';
+import { useDispatch } from 'react-redux'; // Import useDispatch
+import { setUserId } from '@/store/profileSlice'; // Import setUserId
 
 // Store the latest token globally, accessible by non-React modules
 let globalAccessToken: string | null = null;
@@ -35,28 +37,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<AuthError | null>(null);
   const [localAccessToken, setLocalAccessToken] = useState<string | null>(null); // State variable for token
+  const dispatch = useDispatch(); // Initialize useDispatch
 
   useEffect(() => {
-    const updateTokenStates = (currentSession: Session | null) => {
+    const updateTokenAndProfile = (currentSession: Session | null) => {
       const token = currentSession?.access_token ?? null;
       setLocalAccessToken(token);
       globalAccessToken = token;
       console.log('AuthContext: globalAccessToken updated:', globalAccessToken); // DEBUG LINE
+
+      const supabaseUser = currentSession?.user ?? null;
+      setUser(supabaseUser);
+      if (supabaseUser) {
+        dispatch(setUserId(supabaseUser.id));
+      } else {
+        // When session is null (logout), dispatch with a value indicating no user
+        // This will be handled by ensuring profileSlice.setUserId can accept null
+        // or by calling a reset action if preferred. For now, assuming setUserId handles it.
+        dispatch(setUserId(null as any)); // Temporarily as any, will fix in profileSlice
+      }
     };
 
     setIsLoading(true);
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => { // Removed explicit typing, rely on inference
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      updateTokenStates(currentSession);
+      // setUser(currentSession?.user ?? null); // Moved to updateTokenAndProfile
+      updateTokenAndProfile(currentSession);
       setIsLoading(false);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, currentSession: Session | null) => {
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        updateTokenStates(currentSession);
+        // setUser(currentSession?.user ?? null); // Moved to updateTokenAndProfile
+        updateTokenAndProfile(currentSession);
         setIsLoading(false);
         setError(null);
       }
@@ -65,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       authListener.subscription?.unsubscribe(); // Corrected unsubscribe path
     };
-  }, []);
+  }, [dispatch]);
 
   const signInWithPassword = async (
     credentials: SignInWithPasswordCredentials
@@ -108,8 +122,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) setError(signOutError);
-    globalAccessToken = null;
-    setLocalAccessToken(null);
+    // User state and profile userId will be cleared by onAuthStateChange handler
+    // globalAccessToken = null; // Handled by onAuthStateChange
+    // setLocalAccessToken(null); // Handled by onAuthStateChange
     setIsLoading(false);
     return { error: signOutError };
   };
