@@ -35,35 +35,36 @@ Launch a functional multi-tenant Minimum Viable Product (MVP) with:
 
 ### Next Phase: Resolve Runtime Errors & Complete Frontend - Backend Integration
 
-**[STATUS UPDATE: Major backend/Docker blockers resolved. Core functionality (auth, memory creation, app listing) is working. Shifting focus to frontend refinements for MVP.]**
+**[STATUS UPDATE: Major backend/Docker blockers resolved. Core functionality (auth, memory creation, app listing) is working. Frontend refinements (Redux user_id, AuthForm style, Logout) implemented. Final verification pending.]**
 
 **Immediate Next Steps:**
 
 1.  **~~Stabilize Backend API Service & CORS for POST/PUT/DELETE:~~ [DONE]**
-    *   ~~Action: Modify `openmemory/docker-compose.yml` to remove/comment out the `openmemory-ui` service (frontend runs via `pnpm run dev`).~~ (Decided to run all services with Docker Compose).
-    *   **Action:** Docker environment (UI and API) builds and runs successfully. Backend errors causing 500s (and thus CORS-like symptoms) have been resolved.
-    *   **Verify:** API is running, accessible, and core operations succeed with JWT auth.
+    *   Docker environment (UI and API) builds and runs successfully. Backend errors causing 500s (and thus CORS-like symptoms) have been resolved.
+    *   API is running, accessible, and core operations succeed with JWT auth.
 
-2.  **Verify All Frontend API Calls: [LARGELY DONE - CORE FUNCTIONALITY WORKING]**
-    *   **Action:** Clean and restart frontend: `cd openmemory/ui && rm -rf .next node_modules && pnpm install && pnpm run dev` (if running UI locally) OR rely on `docker compose up -d --build` for full stack.
-    *   **Action (In Incognito Browser with DevTools):** Clear local storage. Navigate to `/auth`, log in.
-    *   **Verification COMPLETE for:**
+2.  **Verify All Frontend API Calls: [LARGELY DONE - CORE FUNCTIONALITY WORKING - PENDING FINAL TEST]**
+    *   Rely on `docker compose up -d --build` for full stack testing.
+    *   **Verification mostly COMPLETE for:**
         *   Console logs show `AuthContext: globalAccessToken updated: <VALID_JWT>`.
         *   API calls use `Authorization: Bearer <JWT>` header.
-        *   **Memory creation and app listing now return 2xx.** No more 500 errors causing CORS issues for these primary paths.
-    *   **Outstanding Verification/Refinement:**
-        *   Thoroughly test all other API endpoints (filters, stats, categories) to ensure 2xx responses and correct data scoping.
+        *   Memory creation and app listing now return 2xx.
+    *   **Recent Fixes to Verify:**
+        *   Confirm Redux `state.profile.userId` now correctly reflects the Supabase user ID in logs and subsequent API calls.
+        *   Confirm no 401 errors from hooks attempting to fetch data immediately after logout.
+        *   Confirm logout redirects to `/auth`.
+        *   Confirm AuthForm styling and Google Sign-In button presence.
 
-3.  **Improve Login UX: [PENDING - NEXT ACTION ITEM]**
-    *   Ensure unauthenticated users are easily guided to the `/auth` page from the main application UI (e.g., from Navbar).
+3.  **Improve Login UX: [DONE]**
+    *   Navbar now shows conditional Login/Logout buttons. AuthForm styling improved.
 
-4.  **Synchronize Redux `user_id`: [PENDING - CRITICAL FRONTEND FIX]**
-    *   After successful Supabase login, update `state.profile.userId` in the Redux store with the actual Supabase user ID (`user.id` from `useAuth()`).
-    *   **Symptom:** Payloads for memory creation, category fetching, etc., still contain `user_id: 'deshraj'` from Redux.
-    *   **Impact:** While backend might be correctly using JWT for auth, sending incorrect `user_id` in payload is a data consistency bug and bad practice.
+4.  **Synchronize Redux `user_id`: [DONE]**
+    *   `AuthContext.tsx` now dispatches `setUserId` with Supabase user ID.
+    *   `profileSlice.ts` updated to handle `null` and initialize `userId` to `null`.
+    *   Data fetching hooks (`useFiltersApi`, `useAppsApi`, `useMemoriesApi`, `useStats`) now have guards to prevent API calls if `user_id` is null.
 
 ### Key Outstanding Issues & Questions (Post-MVP or in Parallel with above debugging):
-*   **Original `user_id=deshraj` Source:** (Related to above) Investigate why `state.profile.userId` defaults to or contains "deshraj" and ensure it's correctly managed post-login.
+*   **~~Original `user_id=deshraj` Source:~~ [RESOLVED]** This was due to Redux `initialState` and lack of update from Supabase auth. Now fixed.
 *   **Pydantic V2 Migration:** (From original plan) Address deprecation warnings for Pydantic V1 style models.
 *   **SSE Endpoint Security (`mcp_server.py`):** (From original plan) Needs robust JWT authentication.
 *   **`check_memory_access_permissions` Review:** (From original plan) Adapt for complex scenarios if needed.

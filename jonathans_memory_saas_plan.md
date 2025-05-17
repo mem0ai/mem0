@@ -1,14 +1,14 @@
 # Jonathan's Memory: SaaS Conversion & MVP Deployment Plan
 
-This document outlines the plan to convert the open-source OpenMemory project into a multi-tenant SaaS application, "Jonathan's Memory," and deploy an MVP. Our vision is to create a consumer-focused, cloud-based memory application that is personalized and secure. This plan leverages insights from the "jean-memory" project for simplicity, especially in authentication.
+This document outlines the plan to convert the open-source Jean Memory project into a multi-tenant SaaS application, "Jonathan's Memory," and deploy an MVP. Our vision is to create a consumer-focused, cloud-based memory application that is personalized and secure. This plan leverages insights from the "jean-memory" project for simplicity, especially in authentication.
 
 ## Current Status: Local Foundation Ready!
 
-**Phase 0: Stabilize Local OpenMemory Instance - COMPLETE**
-*   The local OpenMemory instance is stable and functional.
+**Phase 0: Stabilize Local Jean Memory Instance - COMPLETE**
+*   The local Jean Memory instance is stable and functional.
 *   OpenAI API key issues have been resolved.
 *   Container instability issues (e.g., `exit code 137`) have been addressed.
-*   Core OpenMemory functionality has been confirmed locally.
+*   Core Jean Memory functionality has been confirmed locally.
 
 With a stable foundation, we can now proceed rapidly to build and deploy the MVP.
 
@@ -328,17 +328,25 @@ With a stable foundation, we can now proceed rapidly to build and deploy the MVP
 
 *   **Next Step 1 (Critical Frontend): Data Consistency: Redux `user_id` vs. Supabase JWT `user.id`**
     *   **Symptom:** The `user_id` field in API request payloads (e.g., `user_id: 'deshraj'`) still comes from Redux state (`state.profile.userId`).
-    *   **Action:** This needs to be updated with the actual Supabase user ID (`current_supa_user.id` or `useAuth().user.id`) after successful login to ensure correct data scoping if these parameters are used by the backend for authorization beyond the JWT (though backend should primarily rely on JWT).
-    *   **Verify:** After fix, ensure request payloads for creating memories, fetching categories, etc., contain the correct Supabase user ID.
+    *   **[FIXED] Action:** Modified `AuthContext.tsx` to dispatch `setUserId` with the actual Supabase user ID on login/session change. Updated `profileSlice.ts` to handle `null` for `userId` and initialize it to `null`.
+    *   **Verify:** After fix, ensure request payloads for creating memories, fetching categories, etc., contain the correct Supabase user ID. **Initial tests show this is working.**
 
 *   **Next Step 2 (Frontend UX): Login Flow Accessibility**
-    *   **Action:** The `/auth` page is not easily discoverable. Implement a "Login" link in the main UI (e.g., `Navbar.tsx`) that shows when `useAuth().user` is `null`.
+    *   **[DONE] Action:** The `/auth` page is not easily discoverable. Implemented a "Login" link/button in `Navbar.tsx` that shows when `useAuth().user` is `null`. A "Logout" button was also added, visible when logged in.
+
+*   **Next Step 3 (Frontend UX): Auth Form Polish**
+    *   **[DONE] Action:** Refactored `AuthForm.tsx` to use shadcn/ui components (`Button`, `Input`, `Label`) and improved layout for a more standard OAuth feel. Added Google icon.
+
+*   **Next Step 4 (Frontend Bug): API calls on Logout**
+    *   **Symptom:** API calls were being made immediately after logout, before client state fully updated, leading to 401s in console.
+    *   **[FIXED] Action:** Added guards to data-fetching hooks (`useFiltersApi`, `useAppsApi`, `useMemoriesApi`, `useStats`) to prevent API calls if `user_id` from Redux is null. Modified `AuthContext.signOut` to more proactively clear client state and added redirect to `/auth` in `Navbar.tsx` after logout.
 
 *   **Testing & Verification:**
-    1.  **Restart Docker Services:** `docker compose down && docker compose up -d` (to ensure all changes are active).
-    2.  **Test Full Auth Flow in Incognito:** Sign up (new user), log out, log in.
-    3.  **Verify ALL API Calls:** (memories, apps, categories, stats) in Network tab now use the token via `apiClient` and return 2xx. Confirm no CORS errors.
-    4.  **Confirm `user_id` in Payloads:** (After Redux fix) Verify payloads use the correct Supabase user ID.
+    1.  **Restart Docker Services:** `docker compose down && docker compose up -d --build` (to ensure all changes are active). **[DONE]**
+    2.  **Test Full Auth Flow in Incognito:** Sign up (new user), log out, log in. **[PENDING YOUR VERIFICATION]**
+    3.  **Verify ALL API Calls & No 401s on Logout:** (memories, apps, categories, stats) in Network tab now use the token via `apiClient` and return 2xx when logged in. Confirm no 401 errors from hooks after logout. **[PENDING YOUR VERIFICATION]**
+    4.  **Confirm `user_id` in Payloads:** (After Redux fix) Verify payloads use the correct Supabase user ID. **[PENDING YOUR VERIFICATION - Initial positive signs from console logs]**
+    5.  **Verify AuthForm appearance and Google Sign-In button.** (Google Sign-In functionality requires Supabase dashboard setup). **[PENDING YOUR VERIFICATION]**
 
 ---
 
