@@ -31,8 +31,18 @@ export const useFiltersApi = (): UseFiltersApiReturn => {
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const user_id = useSelector((state: RootState) => state.profile.userId);
+  // const { accessToken } = useAuth(); // Alternative: Get token directly from AuthContext
 
   const fetchCategories = useCallback(async (): Promise<void> => {
+    // if (!accessToken) { // Alternative check
+    if (!user_id) { // Check if user_id (from Redux, now reflects Supabase auth state) is null
+      console.log("useFiltersApi: No user_id, skipping fetchCategories.");
+      // Optionally dispatch an action to clear categories or set an appropriate state
+      // dispatch(setCategoriesSuccess({ categories: [], total: 0 }));
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     dispatch(setCategoriesLoading());
     setError(null); // Clear previous errors

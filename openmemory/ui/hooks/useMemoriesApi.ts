@@ -118,6 +118,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       showArchived?: boolean;
     }
   ): Promise<{ memories: Memory[], total: number, pages: number }> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping fetchMemories.");
+      return { memories: [], total: 0, pages: 0 };
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -162,6 +166,11 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   }, [user_id, dispatch]);
 
   const createMemory = async (text: string): Promise<void> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping createMemory.");
+      setError("User not authenticated to create memory.");
+      throw new Error("User not authenticated to create memory.");
+    }
     try {
       const memoryData = {
         user_id: user_id,
@@ -180,6 +189,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const deleteMemories = async (memory_ids: string[]) => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping deleteMemories.");
+      return;
+    }
     try {
       await apiClient.delete(`/api/v1/memories/`, {
         data: { memory_ids, user_id }
@@ -194,6 +207,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const fetchMemoryById = async (memoryId: string): Promise<void> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping fetchMemoryById.");
+      return;
+    }
     if (memoryId === "") {
       return;
     }
@@ -214,6 +231,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const fetchAccessLogs = async (memoryId: string, page: number = 1, pageSize: number = 10): Promise<void> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping fetchAccessLogs.");
+      return;
+    }
     if (memoryId === "") {
       return;
     }
@@ -234,6 +255,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const fetchRelatedMemories = async (memoryId: string): Promise<void> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping fetchRelatedMemories.");
+      return;
+    }
     if (memoryId === "") {
       return;
     }
@@ -266,6 +291,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const updateMemory = async (memoryId: string, content: string): Promise<void> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping updateMemory.");
+      return;
+    }
     if (memoryId === "") {
       return;
     }
@@ -288,6 +317,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   };
 
   const updateMemoryState = async (memoryIds: string[], state: string): Promise<void> => {
+    if (!user_id) {
+      console.log("useMemoriesApi: No user_id, skipping updateMemoryState.");
+      return;
+    }
     if (memoryIds.length === 0) {
       return;
     }

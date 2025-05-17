@@ -65,8 +65,13 @@ export const useAppsApi = (): UseAppsApiReturn => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
+  const currentUserId = useSelector((state: RootState) => state.profile.userId);
 
   const fetchApps = useCallback(async (params: FetchAppsParams = {}): Promise<{ apps: App[], total: number } | undefined> => {
+    if (!currentUserId) {
+      console.log("useAppsApi: No user_id, skipping fetchApps.");
+      return undefined;
+    }
     const {
       name,
       is_active,
@@ -108,9 +113,13 @@ export const useAppsApi = (): UseAppsApiReturn => {
       setIsLoading(false);
       return undefined;
     }
-  }, [dispatch]);
+  }, [dispatch, currentUserId]);
 
   const fetchAppDetails = useCallback(async (appId: string): Promise<void> => {
+    if (!currentUserId) {
+      console.log("useAppsApi: No user_id, skipping fetchAppDetails.");
+      return;
+    }
     setIsLoading(true);
     dispatch(setSelectedAppLoading());
     setError(null);
@@ -128,9 +137,13 @@ export const useAppsApi = (): UseAppsApiReturn => {
       setError(errorMessage);
       setIsLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, currentUserId]);
 
   const fetchAppMemories = useCallback(async (appId: string, page: number = 1, pageSize: number = 10): Promise<void> => {
+    if (!currentUserId) {
+      console.log("useAppsApi: No user_id, skipping fetchAppMemories.");
+      return;
+    }
     setIsLoading(true);
     dispatch(setCreatedMemoriesLoading());
     setError(null);
@@ -152,9 +165,13 @@ export const useAppsApi = (): UseAppsApiReturn => {
       setError(errorMessage);
       setIsLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, currentUserId]);
 
   const fetchAppAccessedMemories = useCallback(async (appId: string, page: number = 1, pageSize: number = 10): Promise<void> => {
+    if (!currentUserId) {
+      console.log("useAppsApi: No user_id, skipping fetchAppAccessedMemories.");
+      return;
+    }
     setIsLoading(true);
     dispatch(setAccessedMemoriesLoading());
     setError(null);
@@ -176,9 +193,13 @@ export const useAppsApi = (): UseAppsApiReturn => {
       setError(errorMessage);
       setIsLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, currentUserId]);
 
   const updateAppDetails = async (appId: string, details: { is_active: boolean }): Promise<any | undefined> => {
+    if (!currentUserId) {
+      console.log("useAppsApi: No user_id, skipping updateAppDetails.");
+      return undefined;
+    }
     setIsLoading(true);
     setError(null);
     try {

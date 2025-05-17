@@ -34,11 +34,20 @@ export const useStats = (): UseStatsReturn => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
-  const user_id = useSelector((state: RootState) => state.profile.userId); // Keep for now if backend endpoint specifically needs it
+  const user_id = useSelector((state: RootState) => state.profile.userId);
 
   // const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765"; // No longer needed
 
   const fetchStats = useCallback(async () => {
+    if (!user_id) {
+      console.log("useStats: No user_id, skipping fetchStats.");
+      // Optionally clear stats or set an appropriate state
+      // dispatch(setTotalMemories(0)); 
+      // dispatch(setTotalApps(0)); 
+      // dispatch(setApps([]));
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {

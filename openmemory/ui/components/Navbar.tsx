@@ -5,7 +5,7 @@ import { HiHome, HiMiniRectangleStack } from "react-icons/hi2";
 import { RiApps2AddFill } from "react-icons/ri";
 import { FiRefreshCcw } from "react-icons/fi";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CreateMemoryDialog } from "@/app/memories/components/CreateMemoryDialog";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import Image from "next/image";
@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, signOut } = useAuth();
 
   const memoriesApi = useMemoriesApi();
@@ -144,7 +145,10 @@ export function Navbar() {
               </Button>
               <CreateMemoryDialog />
               <Button
-                onClick={async () => await signOut()}
+                onClick={async () => {
+                  await signOut();
+                  router.push('/auth');
+                }}
                 variant="outline"
                 size="sm"
                 className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-red-400 hover:text-red-300"

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import {
   Session, User, AuthError, AuthChangeEvent,
   AuthResponse, // For signIn and signUp
@@ -36,32 +36,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<AuthError | null>(null);
-  const [localAccessToken, setLocalAccessToken] = useState<string | null>(null); // State variable for token
-  const dispatch = useDispatch(); // Initialize useDispatch
+  const [localAccessToken, setLocalAccessToken] = useState<string | null>(null);
+  const dispatch = useDispatch();
+
+  // Define updateTokenAndProfile in the component scope
+  const updateTokenAndProfile = useCallback((currentSession: Session | null) => {
+    const token = currentSession?.access_token ?? null;
+    setLocalAccessToken(token);
+    globalAccessToken = token;
+    console.log('AuthContext: globalAccessToken updated:', globalAccessToken);
+
+    const supabaseUser = currentSession?.user ?? null;
+    setUser(supabaseUser);
+    if (supabaseUser) {
+      dispatch(setUserId(supabaseUser.id));
+    } else {
+      dispatch(setUserId(null as any)); 
+    }
+  }, [dispatch]); // Added dispatch to dependency array
 
   useEffect(() => {
-    const updateTokenAndProfile = (currentSession: Session | null) => {
-      const token = currentSession?.access_token ?? null;
-      setLocalAccessToken(token);
-      globalAccessToken = token;
-      console.log('AuthContext: globalAccessToken updated:', globalAccessToken); // DEBUG LINE
-
-      const supabaseUser = currentSession?.user ?? null;
-      setUser(supabaseUser);
-      if (supabaseUser) {
-        dispatch(setUserId(supabaseUser.id));
-      } else {
-        // When session is null (logout), dispatch with a value indicating no user
-        // This will be handled by ensuring profileSlice.setUserId can accept null
-        // or by calling a reset action if preferred. For now, assuming setUserId handles it.
-        dispatch(setUserId(null as any)); // Temporarily as any, will fix in profileSlice
-      }
-    };
-
     setIsLoading(true);
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
-      // setUser(currentSession?.user ?? null); // Moved to updateTokenAndProfile
       updateTokenAndProfile(currentSession);
       setIsLoading(false);
     });
@@ -69,7 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, currentSession: Session | null) => {
         setSession(currentSession);
-        // setUser(currentSession?.user ?? null); // Moved to updateTokenAndProfile
         updateTokenAndProfile(currentSession);
         setIsLoading(false);
         setError(null);
@@ -77,9 +73,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => {
-      authListener.subscription?.unsubscribe(); // Corrected unsubscribe path
+      authListener.subscription?.unsubscribe();
     };
-  }, [dispatch]);
+  }, [updateTokenAndProfile]); // useEffect now depends on updateTokenAndProfile
 
   const signInWithPassword = async (
     credentials: SignInWithPasswordCredentials
@@ -88,6 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     const response = await supabase.auth.signInWithPassword(credentials);
     if (response.error) setError(response.error);
+    // onAuthStateChange will handle updating user and token states
     setIsLoading(false);
     return response;
   };
@@ -99,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     const response = await supabase.auth.signUp(credentials);
     if (response.error) setError(response.error);
+    // onAuthStateChange will handle updating user and token states
     setIsLoading(false);
     return response;
   };
@@ -121,10 +119,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     setError(null);
     const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) setError(signOutError);
-    // User state and profile userId will be cleared by onAuthStateChange handler
-    // globalAccessToken = null; // Handled by onAuthStateChange
-    // setLocalAccessToken(null); // Handled by onAuthStateChange
+    if (signOutError) {
+      setError(signOutError);
+    } else {
+      updateTokenAndProfile(null); // Now callable here
+    }
     setIsLoading(false);
     return { error: signOutError };
   };
