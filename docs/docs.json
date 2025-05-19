@@ -47,6 +47,7 @@
                     "pages": [
                       "features/platform-overview",
                       "features/advanced-retrieval",
+                      "features/criteria-retrieval",
                       "features/contextual-add",
                       "features/multimodal-support",
                       "features/timestamp",

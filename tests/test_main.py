@@ -29,7 +29,7 @@ def memory_instance():
         config = MemoryConfig(version="v1.1")
         config.graph_store.config = {"some_config": "value"}
         return Memory(config)
-    
+
 @pytest.fixture
 def memory_custom_instance():
     with patch("mem0.utils.factory.EmbedderFactory") as mock_embedder, patch(

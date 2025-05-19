@@ -4,7 +4,6 @@ import time
 
 try:
     from opensearchpy import OpenSearch, RequestsHttpConnection
-    from opensearchpy.helpers import bulk
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
 
