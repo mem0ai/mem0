@@ -61,20 +61,20 @@ messages = [
 
 client.add(messages, user_id="alice")
 
-# Search with criteria-based filtering (v2 search)
+# Search with criteria-based filtering
 filters = {
     "AND": [
         {"user_id": "alice"}
     ]
 }
-results_v2 = client.search(
+results_with_criteria = client.search(
     query="Why I am feeling happy today?", 
     filters=filters, 
     version="v2"
 )
 
-# Standard search without criteria filtering (v1)
-results_v1 = client.search(
+# Standard search without criteria filtering
+results_without_criteria = client.search(
     query="Why I am feeling happy today?", 
     user_id="alice"
 )
@@ -82,9 +82,9 @@ results_v1 = client.search(
 
 ## Search Results Comparison
 
-Let's compare the results from v1 and v2 search:
+Let's compare the results from criteria-based retrieval versus standard retrieval to see how the emotional criteria affects ranking:
 
-### V2 Search Results (with Criteria)
+### Search Results (with Criteria)
 ```python
 [
     {
@@ -115,7 +115,7 @@ Let's compare the results from v1 and v2 search:
 ]
 ```
 
-### V1 Search Results (without Criteria)
+### Search Results (without Criteria)
 ```python
 [
     {
@@ -146,26 +146,26 @@ Let's compare the results from v1 and v2 search:
 ]
 ```
 
-Looking at the example results above, we can see how v2's criteria-based filtering affects the output:
+Looking at the example results above, we can see how criteria-based filtering affects the output:
 
-1. **Memory Ordering**: In v2, memories with high joy scores (like feeling refreshed and drawing) are ranked higher, while in v1, the most relevant memory ("User is happy today") comes first.
+1. **Memory Ordering**: With criteria, memories with high joy scores (like feeling refreshed and drawing) are ranked higher, while without criteria, the most relevant memory ("User is happy today") comes first.
 
-2. **Score Distribution**: V2 scores are more spread out (0.116 to 0.666) and reflect the criteria weights, while v1 scores are more clustered (0.336 to 0.607) and based purely on relevance.
+2. **Score Distribution**: With criteria, scores are more spread out (0.116 to 0.666) and reflect the criteria weights, while without criteria, scores are more clustered (0.336 to 0.607) and based purely on relevance.
 
-3. **Negative Content**: In v2, the negative memory about rain has a much lower score (0.116) due to the emotion criteria, while in v1 it maintains a relatively high score (0.4617) due to its relevance.
+3. **Negative Content**: With criteria, the negative memory about rain has a much lower score (0.116) due to the emotion criteria, while without criteria it maintains a relatively high score (0.4617) due to its relevance.
 
-4. **Curiosity Content**: The storm-related memory gets a moderate score in v2 (0.400) due to the curiosity criteria, while in v1 it's ranked lower (0.340) as it's less relevant to the happiness query.
+4. **Curiosity Content**: The storm-related memory gets a moderate score (0.400) with criteria due to the curiosity weighting, while without criteria it's ranked lower (0.340) as it's less relevant to the happiness query.
 
 ## Key Differences
 
-1. **Scoring**: V2 uses normalized scores (0-1) based on custom criteria weights, while V1 uses standard relevance scoring
+1. **Scoring**: With criteria, normalized scores (0-1) are used based on custom criteria weights, while without criteria, standard relevance scoring is used
 
-2. **Ordering**: V2 first retrieves memories by relevance, then applies criteria-based filtering and prioritization, while V1 orders solely by relevance
+2. **Ordering**: With criteria, memories are first retrieved by relevance, then criteria-based filtering and prioritization is applied, while without criteria, ordering is solely by relevance
 
-3. **Filtering**: V2 allows for post-retrieval filtering based on custom criteria (joy, curiosity, etc.), which isn't available in V1
+3. **Filtering**: With criteria, post-retrieval filtering based on custom criteria (joy, curiosity, etc.) is available, which isn't available without criteria
 
 <Note>
-If no custom criteria are set at the project level, V2 search will behave exactly like V1, performing only relevance-based retrieval without any criteria-based filtering or prioritization.
+When no custom criteria are specified, the search will default to standard relevance-based retrieval. In this case, results are returned based solely on their relevance to the query, without any additional filtering or prioritization that would normally be applied through criteria.
 </Note>
 
 ## How It Works
