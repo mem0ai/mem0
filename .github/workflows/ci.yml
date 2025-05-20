@@ -53,7 +53,7 @@ jobs:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
-        run: make install_all
+        run: make install_all && pip install -e ".[test]"
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
