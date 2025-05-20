@@ -239,7 +239,6 @@ class TestAddMemory:
                 user_id="default_user",
                 agent_id="test_agent",
                 metadata={},
-                filters={},
                 infer=True,
             )
 
@@ -362,7 +361,6 @@ class TestAddMemory:
                 user_id="default_user",
                 agent_id="test_agent",
                 metadata={},
-                filters={},
                 infer=True,
             )
 
@@ -419,7 +417,6 @@ class TestAsyncAddMemory:
                 user_id="default_user",
                 agent_id="test_agent",
                 metadata={},
-                filters={},
                 infer=True,
             )
 
@@ -546,7 +543,6 @@ class TestAsyncAddMemory:
                 user_id="default_user",
                 agent_id="test_agent",
                 metadata={},
-                filters={},
                 infer=True,
             )
 
