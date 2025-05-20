@@ -1,0 +1,70 @@
+---
+title: MistralAI
+---
+
+To use MistralAI embedding models, set the `MISTRAL_API_KEY` environment variable. You can obtain the Mistral API key from the [MistralAI Platform](https://console.mistral.ai/api-keys).
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["MISTRAL_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "mistralai",
+        "config": {
+            "model": "mistral-embed"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'mistralai',
+    config: {
+      apiKey: 'your-mistral-api-key',
+      model: 'mistral-embed',
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("I'm visiting Paris", { userId: "john" });
+```
+</CodeGroup>
+
+### Config
+
+Here are the parameters available for configuring MistralAI embedder:
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `mistral-embed` |
+| `api_key` | The Mistral API key | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `mistral-embed` |
+| `apiKey` | The Mistral API key | `None` |
+</Tab>
+</Tabs>
