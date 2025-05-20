@@ -5,6 +5,11 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 ![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
 ## Easy Setup
+
+### Prerequisites
+- Docker
+- OpenAI API Key
+
 You can quickly run OpenMemory by running the following command:
 
 ```bash
