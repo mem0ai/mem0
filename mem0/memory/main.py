@@ -25,10 +25,10 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
+    extract_json_string,
     get_fact_retrieval_messages,
     parse_messages,
     parse_vision_messages,
-    remove_code_blocks,
 )
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
@@ -327,8 +327,9 @@ class Memory(MemoryBase):
             response_format={"type": "json_object"},
         )
 
+    
         try:
-            response = remove_code_blocks(response)
+            response = extract_json_string(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}")
@@ -374,8 +375,8 @@ class Memory(MemoryBase):
             response = ""
 
         try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
+            new_memories_with_actions = extract_json_string(new_memories_with_actions)
+            new_memories_with_actions = json.loads(new_memories_with_actions)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
@@ -1139,7 +1140,7 @@ class AsyncMemory(MemoryBase):
             response_format={"type": "json_object"},
         )
         try:
-            response = remove_code_blocks(response)
+            response = extract_json_string(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
             logging.error(f"Error in new_retrieved_facts: {e}"); new_retrieved_facts = []
@@ -1183,8 +1184,8 @@ class AsyncMemory(MemoryBase):
             logging.error(f"Error in new memory actions response: {e}"); response = ""
         
         try:
-            response = remove_code_blocks(response)
-            new_memories_with_actions = json.loads(response)
+            new_memories_with_actions = extract_json_string(new_memories_with_actions)
+            new_memories_with_actions = json.loads(new_memories_with_actions)
         except Exception as e:
             logging.error(f"Invalid JSON response: {e}"); new_memories_with_actions = {}
 

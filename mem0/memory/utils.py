@@ -98,3 +98,36 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
             returned_messages.append(msg)
 
     return returned_messages
+
+
+def extract_json_string(content: str) -> str:
+    """
+    Extracts the first valid JSON object from LLM output, ignoring reasoning blocks (e.g., <think>...</think>)
+    and markdown code wrappers (```json ... ```).
+
+    This ensures compatibility with json.loads by returning only the actual JSON portion.
+
+    Args:
+        content (str): LLM-generated string that may include reasoning or formatting.
+
+    Returns:
+        str: A clean JSON string or the original content if no JSON object is found.
+
+    Raises:
+        ValueError: If the input content is empty or contains no JSON object.
+    """
+    if not content or not content.strip():
+        raise ValueError("LLM response is empty or contains only whitespace.")
+
+    content = remove_code_blocks(content.strip())
+
+    # Remove reasoning tags like <think>...</think>
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL)
+
+    # Extract the first {...} block
+    match = re.search(r"(\{.*\})", content, flags=re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    raise ValueError("No JSON object found in the LLM response.")
+
