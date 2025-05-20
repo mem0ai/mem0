@@ -29,7 +29,7 @@ For detailed guidance on pull requests, refer to [GitHub's documentation](https:
 
 ## 📦 Dependency Management
 
-We use `poetry` as our package manager. Install it by following the [official instructions](https://python-poetry.org/docs/#installation).
+We use `hatch` as our package manager. Install it by following the [official instructions](https://hatch.pypa.io/latest/install/).
 
 ⚠️ **Do NOT use `pip` or `conda` for dependency management.** Instead, run:
 
@@ -37,7 +37,7 @@ We use `poetry` as our package manager. Install it by following the [official in
 make install_all
 
 # Activate virtual environment
-poetry shell
+hatch shell
 ```
 
 ---
@@ -60,9 +60,9 @@ Run the linter and fix any reported issues before submitting your PR:
 make lint
 ```
 
-### 🎨 Code Formatting with `black`
+### 🎨 Code Formatting
 
-To maintain a consistent code style, format your code using `black`:
+To maintain a consistent code style, format your code:
 
 ```bash
 make format
@@ -76,7 +76,7 @@ Run tests to verify functionality before submitting your PR:
 make test
 ```
 
-💡 **Note:** Some dependencies have been removed from Poetry to reduce package size. Run `make install_all` to install necessary dependencies before running tests.
+💡 **Note:** Some dependencies have been removed from the main dependencies to reduce package size. Run `make install_all` to install necessary dependencies before running tests.
 
 ---
 

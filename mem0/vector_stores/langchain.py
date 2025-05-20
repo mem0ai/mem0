@@ -143,7 +143,6 @@ class Langchain(VectorStoreBase):
         elif hasattr(self.client, "reset_collection"):
             self.client.reset_collection()
         else:
-            # Fallback to the generic delete method
             self.client.delete(ids=None)
 
     def col_info(self):
