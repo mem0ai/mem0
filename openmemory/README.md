@@ -4,6 +4,30 @@ OpenMemory is your personal memory layer for LLMs - private, portable, and open-
 
 ![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
+## Easy Setup
+
+### Prerequisites
+- Docker
+- OpenAI API Key
+
+You can quickly run OpenMemory by running the following command:
+
+```bash
+curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | bash
+```
+
+You should set the `OPENAI_API_KEY` as a global environment variable:
+
+```bash
+export OPENAI_API_KEY=your_api_key
+```
+
+You can also set the `OPENAI_API_KEY` as a parameter to the script:
+
+```bash
+curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash
+```
+
 ## Prerequisites
 
 - Docker and Docker Compose
