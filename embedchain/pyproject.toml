@@ -91,6 +91,7 @@ exclude = '''
 
 [tool.black.format]
 color = true
+
 [tool.poetry.dependencies]
 python = ">=3.9,<=3.13.2"
 python-dotenv = "^1.0.0"
