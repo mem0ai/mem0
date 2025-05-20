@@ -1,25 +1,115 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "embedchain"
 version = "0.1.128"
 description = "Simplest open source retrieval (RAG) framework"
 authors = [
-    "Taranjeet Singh <taranjeet@embedchain.ai>",
-    "Deshraj Yadav <deshraj@embedchain.ai>",
+    { name = "Taranjeet Singh", email = "taranjeet@embedchain.ai" },
+    { name = "Deshraj Yadav", email = "deshraj@embedchain.ai" },
 ]
 license = "Apache License"
 readme = "README.md"
-exclude = [
-    "db",
-    "configs",
-    "notebooks"
-]
-packages = [
-    { include = "embedchain" },
+requires-python = ">=3.9,<=3.13.2"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "langchain>=0.3.1",
+    "requests>=2.31.0",
+    "openai>=1.1.1",
+    "chromadb>=0.5.10",
+    "posthog>=3.0.2",
+    "rich>=13.7.0",
+    "beautifulsoup4>=4.12.2",
+    "pypdf>=5.0.0",
+    "gptcache>=0.1.43",
+    "pysbd>=0.3.4",
+    "mem0ai>=0.1.54",
+    "schema>=0.7.5",
+    "sqlalchemy>=2.0.27",
+    "alembic>=1.13.1",
+    "langchain-cohere>=0.3.0",
+    "langchain-community>=0.3.1",
+    "langsmith>=0.3.18",
+    "langchain-openai>=0.2.1",
 ]
 
-[build-system]
-build-backend = "poetry.core.masonry.api"
-requires = ["poetry-core"]
+[project.optional-dependencies]
+opensource = [
+    "sentence-transformers>=2.2.2",
+    "torch==2.3.0",
+    "gpt4all==2.0.2",
+]
+lancedb = ["lancedb>=0.6.2"]
+elasticsearch = ["elasticsearch>=8.9.0"]
+opensearch = ["opensearch-py>=2.3.1"]
+weaviate = ["weaviate-client>=3.24.1"]
+qdrant = ["qdrant-client>=1.6.3"]
+together = ["together>=1.2.1"]
+milvus = ["pymilvus==2.4.3"]
+vertexai = ["langchain-google-vertexai>=2.0.2"]
+llama2 = ["replicate>=0.15.4"]
+gmail = [
+    "requests",
+    "google-api-python-client>=2.111.0",
+    "google-auth>=2.25.2",
+    "google-auth-oauthlib>=1.2.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-api-core>=2.15.0",
+]
+googledrive = [
+    "google-api-python-client>=2.111.0",
+    "google-auth-oauthlib>=1.2.0",
+    "google-auth-httplib2>=0.2.0",
+]
+postgres = [
+    "psycopg>=3.1.12",
+    "psycopg-binary>=3.1.12",
+    "psycopg-pool>=3.1.8",
+]
+mysql = ["mysql-connector-python>=8.1.0"]
+google = ["google-generativeai>=0.3.0"]
+mistralai = ["langchain-mistralai>=0.2.0"]
+aws = ["langchain-aws>=0.2.1"]
+dev = [
+    "black>=23.3.0",
+    "pre-commit>=3.2.2",
+    "ruff>=0.1.11",
+    "pytest>=7.3.1",
+    "pytest-mock>=3.10.0",
+    "pytest-env>=0.8.1",
+    "click>=8.1.3",
+    "isort>=5.12.0",
+    "pytest-cov>=4.1.0",
+    "responses>=0.23.3",
+    "mock>=5.1.0",
+    "pytest-asyncio>=0.21.1",
+]
+
+[project.scripts]
+ec = "embedchain.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["embedchain"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"README.md" = "README.md"
+
+[tool.hatch.envs.default.scripts]
+format = [
+    "black .",
+    "isort .",
+]
+lint = [
+    "ruff check .",
+]
+test = [
+    "pytest {args}",
+]
+coverage = [
+    "pytest --cov=embedchain --cov-report=xml",
+]
 
 [tool.ruff]
 line-length = 120
@@ -55,7 +145,6 @@ fixable = ["ALL"]
 unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-# Ignore `E402` (import violations) in all `__init__.py` files, and in `path/to/file.py`.
 [tool.ruff.lint.per-file-ignores]
 "embedchain/__init__.py" = ["E401"]
 
@@ -91,99 +180,3 @@ exclude = '''
 
 [tool.black.format]
 color = true
-
-[tool.poetry.dependencies]
-python = ">=3.9,<=3.13.2"
-python-dotenv = "^1.0.0"
-langchain = "^0.3.1"
-requests = "^2.31.0"
-openai = ">=1.1.1"
-chromadb = "^0.5.10"
-posthog = "^3.0.2"
-rich = "^13.7.0"
-beautifulsoup4 = "^4.12.2"
-pypdf = "^5.0.0"
-gptcache = "^0.1.43"
-pysbd = "^0.3.4"
-mem0ai = "^0.1.54"
-tiktoken = { version = "^0.7.0", optional = true }
-sentence-transformers = { version = "^2.2.2", optional = true }
-torch = { version = "2.3.0", optional = true }
-# Torch 2.0.1 is not compatible with poetry (https://github.com/pytorch/pytorch/issues/100974)
-gpt4all = { version = "2.0.2", optional = true }
-# 1.0.9 is not working for some users (https://github.com/nomic-ai/gpt4all/issues/1394)
-opensearch-py = { version = "2.3.1", optional = true }
-elasticsearch = { version = "^8.9.0", optional = true }
-cohere = { version = "^5.3", optional = true }
-together = { version = "^1.2.1", optional = true }
-lancedb = { version = "^0.6.2", optional = true }
-weaviate-client = { version = "^3.24.1", optional = true }
-qdrant-client = { version = "^1.6.3", optional = true }
-pymilvus = { version = "2.4.3", optional = true }
-google-cloud-aiplatform = { version = "^1.26.1", optional = true }
-replicate = { version = "^0.15.4", optional = true }
-schema = "^0.7.5"
-psycopg = { version = "^3.1.12", optional = true }
-psycopg-binary = { version = "^3.1.12", optional = true }
-psycopg-pool = { version = "^3.1.8", optional = true }
-mysql-connector-python = { version = "^8.1.0", optional = true }
-google-generativeai = { version = "^0.3.0", optional = true }
-google-api-python-client = { version = "^2.111.0", optional = true }
-google-auth-oauthlib = { version = "^1.2.0", optional = true }
-google-auth = { version = "^2.25.2", optional = true }
-google-auth-httplib2 = { version = "^0.2.0", optional = true }
-google-api-core = { version = "^2.15.0", optional = true }
-langchain-mistralai = { version = "^0.2.0", optional = true }
-langchain-openai = "^0.2.1"
-langchain-google-vertexai = { version = "^2.0.2", optional = true }
-sqlalchemy = "^2.0.27"
-alembic = "^1.13.1"
-langchain-cohere = "^0.3.0"
-langchain-community = "^0.3.1"
-langchain-aws = {version = "^0.2.1", optional = true}
-langsmith = "^0.3.18"
-
-[tool.poetry.group.dev.dependencies]
-black = "^23.3.0"
-pre-commit = "^3.2.2"
-ruff = "^0.1.11"
-pytest = "^7.3.1"
-pytest-mock = "^3.10.0"
-pytest-env = "^0.8.1"
-click = "^8.1.3"
-isort = "^5.12.0"
-pytest-cov = "^4.1.0"
-responses = "^0.23.3"
-mock = "^5.1.0"
-pytest-asyncio = "^0.21.1"
-
-[tool.poetry.extras]
-opensource = ["sentence-transformers", "torch", "gpt4all"]
-lancedb = ["lancedb"]
-elasticsearch = ["elasticsearch"]
-opensearch = ["opensearch-py"]
-weaviate = ["weaviate-client"]
-qdrant = ["qdrant-client"]
-together = ["together"]
-milvus = ["pymilvus"]
-vertexai = ["langchain-google-vertexai"]
-llama2 = ["replicate"]
-gmail = [
-    "requests",
-    "google-api-python-client",
-    "google-auth",
-    "google-auth-oauthlib",
-    "google-auth-httplib2",
-    "google-api-core",
-]
-googledrive = ["google-api-python-client", "google-auth-oauthlib", "google-auth-httplib2"]
-postgres = ["psycopg", "psycopg-binary", "psycopg-pool"]
-mysql = ["mysql-connector-python"]
-google = ["google-generativeai"]
-mistralai = ["langchain-mistralai"]
-aws = ["langchain-aws"]
-
-[tool.poetry.group.docs.dependencies]
-
-[tool.poetry.scripts]
-ec = "embedchain.cli:cli"
