@@ -38,6 +38,7 @@ Place the dataset files in the `dataset/` directory:
 │   ├── mem0/             # Implementation of the Mem0 technique
 │   ├── openai/           # Implementation of the OpenAI memory
 │   ├── zep/              # Implementation of the Zep memory
+│   ├── memobase_client   # Implementation of the Memobase technique
 │   ├── rag.py            # Implementation of the RAG technique
 │   └── langmem.py        # Implementation of the Language-based memory
 ├── metrics/              # Code for evaluation metrics
@@ -68,6 +69,7 @@ MEM0_ORGANIZATION_ID="your-mem0-organization-id"
 MODEL="gpt-4o-mini"  # or your preferred model
 EMBEDDING_MODEL="text-embedding-3-small"  # or your preferred embedding model
 ZEP_API_KEY="api-key-from-zep"
+MEMOBASE_API_KEY="api-key-from-Memobase"
 ```
 
 ### Running Experiments
@@ -95,6 +97,10 @@ make run-langmem          # Run LangMem
 # Run Zep experiments
 make run-zep-add          # Add memories using Zep
 make run-zep-search       # Search memories using Zep
+
+# Run Memobase experiments
+make run-memobase-add          # Add memories using Zep
+make run-memobase-search       # Search memories using Zep
 
 # Run OpenAI experiments
 make run-openai           # Run OpenAI experiments
