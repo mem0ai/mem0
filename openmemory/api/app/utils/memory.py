@@ -1,7 +1,8 @@
 import os
 
 from mem0 import Memory
-
+from app.utils.anthropic_embeddings import anthropic_embedder
+from app.utils.anthropic_llm import anthropic_llm
 
 memory_client = None
 
@@ -43,6 +44,15 @@ def get_memory_client(custom_instructions: str = None):
     # Update project with custom instructions if provided
     if custom_instructions:
         memory_client.update_project(custom_instructions=custom_instructions)
+
+    # Patch the embedding model if using Anthropic
+    if config.get("embedding_model_provider") == "anthropic":
+        # Replace the OpenAI embedding function with our Anthropic one
+        memory_client.embedding_model.embed_documents = anthropic_embedder.embed_documents
+
+    # Patch the LLM if using Anthropic
+    if os.environ.get("LLM_PROVIDER") == "anthropic":
+        memory_client.llm.generate_response = anthropic_llm.generate_response
 
     return memory_client
 
