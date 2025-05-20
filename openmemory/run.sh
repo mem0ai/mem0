@@ -10,7 +10,8 @@ USER="${USER:-$(whoami)}"
 NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:8765}"
 
 if [ -z "$OPENAI_API_KEY" ]; then
-  echo "❌ OPENAI_API_KEY not set. Please run with: OPENAI_API_KEY=your_key ./run.sh"
+  echo "❌ OPENAI_API_KEY not set. Please run with: curl -sL https://raw.githubusercontent.com/mem0ai/mem0/main/openmemory/run.sh | OPENAI_API_KEY=your_api_key bash"
+  echo "❌ OPENAI_API_KEY not set. You can also set it as global environment variable: export OPENAI_API_KEY=your_api_key"
   exit 1
 fi
 
