@@ -57,6 +57,8 @@
 
 [Mem0](https://mem0.ai) ("mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. It remembers user preferences, adapts to individual needs, and continuously learns over time—ideal for customer support chatbots, AI assistants, and autonomous systems.
 
+This fork focuses on using **Anthropic Claude** models for embeddings. Where the upstream project relied on OpenAI, embedding calls here default to Anthropic's API.
+
 ### Key Features & Use Cases
 
 **Core Capabilities:**
