@@ -64,7 +64,7 @@ services:
     volumes:
       - mem0_storage:/mem0/storage
   openmemory-mcp:
-    image: whysosaket/openmemory-mcp:latest
+    image: mem0/openmemory-mcp:latest
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - USER=${USER}
@@ -90,7 +90,7 @@ docker run -d \
   -p ${FRONTEND_PORT}:3000 \
   -e NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
   -e NEXT_PUBLIC_USER_ID="$USER" \
-  whysosaket/openmemory-ui:latest
+  mem0/openmemory-ui:latest
 
 echo "✅ Backend:  http://localhost:8765"
 echo "✅ Frontend: http://localhost:$FRONTEND_PORT"
