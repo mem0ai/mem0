@@ -5,7 +5,6 @@ import pytest
 from azure.core.exceptions import HttpResponseError
 
 from mem0.configs.vector_stores.azure_ai_search import AzureAISearchConfig
-
 # Import the AzureAISearch class and related models
 from mem0.vector_stores.azure_ai_search import AzureAISearch
 

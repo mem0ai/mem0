@@ -1,9 +1,11 @@
 import asyncio
 import warnings
+
 from google.adk.agents import Agent
-from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from google.genai import types
+
 from mem0 import MemoryClient
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -22,7 +24,7 @@ def save_patient_info(information: str) -> dict:
     user_id = getattr(save_patient_info, 'user_id', 'default_user')
 
     # Store in Mem0
-    response = mem0_client.add(
+    mem0_client.add(
         [{"role": "user", "content": information}],
         user_id=user_id,
         run_id="healthcare_session",
@@ -191,7 +193,7 @@ async def interactive_mode():
     session_id = f"session_{hash(patient_id) % 1000:03d}"
 
     # Create session for this user
-    session = session_service.create_session(
+    session_service.create_session(
         app_name=APP_NAME,
         user_id=patient_id,
         session_id=session_id

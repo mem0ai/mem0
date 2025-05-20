@@ -2,13 +2,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 from google.api_core import exceptions
-from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (
-    Namespace,
-)
+from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import \
+    Namespace
 
-from mem0.configs.vector_stores.vertex_ai_vector_search import (
-    GoogleMatchingEngineConfig,
-)
+from mem0.configs.vector_stores.vertex_ai_vector_search import \
+    GoogleMatchingEngineConfig
 from mem0.vector_stores.vertex_ai_vector_search import GoogleMatchingEngine
 
 

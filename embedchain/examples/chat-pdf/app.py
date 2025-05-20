@@ -8,7 +8,8 @@ import streamlit as st
 
 from embedchain import App
 from embedchain.config import BaseLlmConfig
-from embedchain.helpers.callbacks import StreamingStdOutCallbackHandlerYield, generate
+from embedchain.helpers.callbacks import (StreamingStdOutCallbackHandlerYield,
+                                          generate)
 
 
 def embedchain_bot(db_path, api_key):
