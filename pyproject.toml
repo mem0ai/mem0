@@ -67,7 +67,7 @@ lint-fix = [
     "ruff check --fix",
 ]
 test = [
-    "pytest {args}",
+    "pytest tests/ {args}",
 ]
 
 [tool.ruff]

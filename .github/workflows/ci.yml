@@ -60,7 +60,7 @@ jobs:
           mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
           hatch run format
       - name: Run tests and generate coverage report
-        run: cd mem0 && make test
+        run: make test
 
   build_embedchain:
     needs: check_changes
