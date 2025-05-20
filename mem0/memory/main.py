@@ -1154,11 +1154,13 @@ class AsyncMemory(MemoryBase):
                 self.vector_store.search, query=new_mem_content, vectors=embeddings,
                 limit=5, filters=filters, # 'filters' is query_filters_for_inference
             )
-            return [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems]
+            return (new_mem_content, embeddings, [{"id": mem.id, "text": mem.payload["data"]} for mem in existing_mems])
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
-        for result_group in search_results_list:
+        # Process results and build retrieved_old_memory and embeddings
+        for new_mem, embeddings, result_group in search_results_list:
+            new_message_embeddings[new_mem] = embeddings
             retrieved_old_memory.extend(result_group)
         
         retrieved_old_memory = unique_old_memory(retrieved_old_memory)
