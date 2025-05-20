@@ -2,14 +2,16 @@
 
 OpenMemory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
 
+This fork is tailored for use with **Anthropic Claude** embedding models. The original project relied on OpenAI embeddings, but all embedding-related functionality now defaults to Anthropic. You will need an Anthropic API key to run the backend services.
+
 ![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
 ## Prerequisites
 
 - Docker and Docker Compose
-- Python 3.9+ (for backend development)
+- Python 3.10+ (for backend development)
 - Node.js (for frontend development)
-- OpenAI API Key (required for LLM interactions, run `cp api/.env.example api/.env` then change **OPENAI_API_KEY** to yours)
+- Anthropic API Key (required for LLM interactions, run `cp api/.env.example api/.env` then set **LLM_API_KEY** and **EMBEDDING_MODEL_API_KEY**)
 
 ## Quickstart
 

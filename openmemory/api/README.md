@@ -16,7 +16,14 @@ make build
 make env
 ```
 
-Once you run this command, edit the file `api/.env` and enter the `OPENAI_API_KEY`.
+After running this command, edit the file `api/.env` and provide your Anthropic credentials:
+
+```
+LLM_PROVIDER=anthropic
+LLM_API_KEY=sk-your-anthropic-key
+EMBEDDING_MODEL_PROVIDER=anthropic
+EMBEDDING_MODEL_API_KEY=sk-your-anthropic-key
+```
 
 3. Start the services:
 ```bash

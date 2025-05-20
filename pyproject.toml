@@ -20,7 +20,7 @@ packages = [
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = ">=3.10,<4.0"
 qdrant-client = "^1.9.1"
 pydantic = "^2.7.3"
 openai = "^1.33.0"
