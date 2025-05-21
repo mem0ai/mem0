@@ -1195,7 +1195,6 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_memories_with_actions = json.loads(response)
         except Exception as e:
-            logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
         if not new_memories_with_actions:
