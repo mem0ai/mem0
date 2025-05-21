@@ -47,6 +47,7 @@
                     "pages": [
                       "features/platform-overview",
                       "features/advanced-retrieval",
+                      "features/criteria-retrieval",
                       "features/contextual-add",
                       "features/multimodal-support",
                       "features/timestamp",
@@ -200,8 +201,10 @@
                 "icon": "lightbulb",
                 "pages": [
                   "examples",
+                  "examples/aws_example",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/collaborative-task-agent",
                   "examples/eliza_os",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
@@ -216,6 +219,7 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
+                  "examples/mem0-google-adk-healthcare-assistant",
                   "examples/email_processing",
                   "examples/youtube-assistant"
                 ]

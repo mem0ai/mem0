@@ -38,7 +38,7 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add new memories to the user's memory")
+@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevent information whcih can be useful in the future conversation. This can also be called when the user asks you to remember something.")
 async def add_memories(text: str) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -116,7 +116,7 @@ async def add_memories(text: str) -> str:
         return f"Error adding to memory: {e}"
 
 
-@mcp.tool(description="Search the user's memory for memories that match the query")
+@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
 async def search_memory(query: str) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -133,16 +133,17 @@ async def search_memory(query: str) -> str:
             # Get accessible memory IDs based on ACL
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            
             conditions = [qdrant_models.FieldCondition(key="user_id", match=qdrant_models.MatchValue(value=uid))]
-            logging.info(f"Accessible memory IDs: {accessible_memory_ids}")
-            logging.info(f"Conditions: {conditions}")
+            
             if accessible_memory_ids:
                 # Convert UUIDs to strings for Qdrant
                 accessible_memory_ids_str = [str(memory_id) for memory_id in accessible_memory_ids]
                 conditions.append(qdrant_models.HasIdCondition(has_id=accessible_memory_ids_str))
+
             filters = qdrant_models.Filter(must=conditions)
-            logging.info(f"Filters: {filters}")
             embeddings = memory_client.embedding_model.embed(query, "search")
+            
             hits = memory_client.vector_store.client.query_points(
                 collection_name=memory_client.vector_store.collection_name,
                 query=embeddings,
@@ -150,6 +151,7 @@ async def search_memory(query: str) -> str:
                 limit=10,
             )
 
+            # Process search results
             memories = hits.points
             memories = [
                 {
@@ -351,6 +353,14 @@ async def handle_sse(request: Request):
 
 
 @mcp_router.post("/messages/")
+async def handle_get_message(request: Request):
+    return await handle_post_message(request)
+
+
+@mcp_router.post("/{client_name}/sse/{user_id}/messages/")
+async def handle_post_message(request: Request):
+    return await handle_post_message(request)
+
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
@@ -362,7 +372,7 @@ async def handle_post_message(request: Request):
 
         # Create a simple send function that does nothing
         async def send(message):
-            pass
+            return {}
 
         # Call handle_post_message with the correct arguments
         await sse.handle_post_message(request.scope, receive, send)
