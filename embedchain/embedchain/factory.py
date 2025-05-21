@@ -24,14 +24,18 @@ class LlmFactory:
         "aws_bedrock": "embedchain.llm.aws_bedrock.AWSBedrockLlm",
         "mistralai": "embedchain.llm.mistralai.MistralAILlm",
         "clarifai": "embedchain.llm.clarifai.ClarifaiLlm",
+        "deepseek": "mem0.llms.deepseek.DeepseekLLM",
         "groq": "embedchain.llm.groq.GroqLlm",
         "nvidia": "embedchain.llm.nvidia.NvidiaLlm",
+        "siliconlife": "mem0.llms.silicon_life.SiliconLifeLLM",
         "vllm": "embedchain.llm.vllm.VLLM",
     }
     provider_to_config_class = {
+        "anthropic": "embedchain.config.llm.base.BaseLlmConfig",
+        "deepseek": "embedchain.config.llm.base.BaseLlmConfig",
         "embedchain": "embedchain.config.llm.base.BaseLlmConfig",
         "openai": "embedchain.config.llm.base.BaseLlmConfig",
-        "anthropic": "embedchain.config.llm.base.BaseLlmConfig",
+        "siliconlife": "embedchain.config.llm.base.BaseLlmConfig",
     }
 
     @classmethod

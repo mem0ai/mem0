@@ -109,3 +109,120 @@ class TestAppFromConfig:
         # Validate the Embedder config values
         embedder_config = config_data["embedder"]["config"]
         assert app.embedding_model.config.deployment_name == embedder_config["deployment_name"]
+
+
+# ASIF: Adding new tests for custom LLM integration
+import unittest
+from unittest.mock import patch
+import tempfile
+import shutil
+# Assuming App is imported from embedchain.app based on previous file reading
+# from embedchain.app import App # Already imported at the top as `from embedchain import App`
+# BaseLlmConfig from embedchain.config.llm.base will be used by LlmFactory
+# For Embedder, let's use a minimal config for OpenAIEmbedder or a dummy one.
+
+class TestAppCustomLlmIntegration(unittest.TestCase):
+    def setUp(self):
+        # Create a temporary directory for ChromaDB
+        self.temp_dir = tempfile.mkdtemp()
+        # Mock OPENAI_API_KEY for the default embedder if not overridden
+        # Or ensure the chosen embedder doesn't require real keys for init.
+        # The tests will use a dummy "openai" embedder for simplicity.
+        os.environ["OPENAI_API_KEY"] = "fake_openai_key_for_embedder"
+
+
+    def tearDown(self):
+        # Remove the temporary directory
+        shutil.rmtree(self.temp_dir)
+        if "OPENAI_API_KEY" in os.environ and os.environ["OPENAI_API_KEY"] == "fake_openai_key_for_embedder":
+            del os.environ["OPENAI_API_KEY"]
+
+
+    @patch('mem0.llms.silicon_life.SiliconLifeLLM.generate_response')
+    def test_siliconlife_llm_integration(self, mock_generate_response):
+        mock_generate_response.return_value = "Mocked SiliconLife response"
+
+        app_config_dict = {
+            "app": {"config": {"id": "test_sl_app"}}, # Minimal app config
+            "llm": {
+                "provider": "siliconlife",
+                "config": {
+                    "model": "test-silicon-model",
+                    "api_key": "fake_sl_api_key",
+                    # The SiliconLifeLLM __init__ uses getattr(self.config, 'silicon_life_base_url', default_url)
+                    # So we should provide it here.
+                    "silicon_life_base_url": "https://mock.api.siliconlife.ai/v1/custom" 
+                }
+            },
+            "vectordb": {
+                "provider": "chroma", 
+                "config": {
+                    "collection_name": "test_sl_collection", 
+                    "dir": self.temp_dir, # Use temp dir
+                    "allow_reset": True,
+                }
+            },
+            "embedder": { # Dummy embedder config
+                "provider": "openai", 
+                "config": {
+                    "model": "text-embedding-ada-002", # A common default
+                    "api_key": "fake_openai_key_for_embedder" 
+                }
+            }
+        }
+
+        # Use App.from_config to instantiate with the dictionary
+        app = App.from_config(config=app_config_dict)
+        
+        # Add some data to query against, otherwise query might not call LLM
+        app.add("Test data for SiliconLife query")
+
+        # Perform a query
+        response = app.query("Some query to SiliconLife")
+
+        # Assertions
+        mock_generate_response.assert_called_once()
+        # The actual messages passed to generate_response will be complex due to prompt formatting
+        # So, we mainly check if it was called and if the final response matches.
+        self.assertEqual(response, "Mocked SiliconLife response")
+
+    @patch('mem0.llms.deepseek.DeepseekLLM.generate_response')
+    def test_deepseek_llm_integration(self, mock_generate_response):
+        mock_generate_response.return_value = "Mocked Deepseek response"
+
+        app_config_dict = {
+            "app": {"config": {"id": "test_ds_app"}},
+            "llm": {
+                "provider": "deepseek",
+                "config": {
+                    "model": "test-deepseek-model",
+                    "api_key": "fake_ds_api_key",
+                    # DeepseekLLM __init__ uses self.config.deepseek_base_url
+                    "deepseek_base_url": "https://mock.api.deepseek.com/v1/custom"
+                }
+            },
+            "vectordb": {
+                "provider": "chroma", 
+                "config": {
+                    "collection_name": "test_ds_collection", 
+                    "dir": self.temp_dir, # Use temp dir
+                    "allow_reset": True,
+                }
+            },
+            "embedder": {
+                "provider": "openai", 
+                "config": {
+                    "model": "text-embedding-ada-002",
+                    "api_key": "fake_openai_key_for_embedder"
+                }
+            }
+        }
+
+        app = App.from_config(config=app_config_dict)
+        
+        app.add("Test data for Deepseek query")
+
+        response = app.query("Some query to Deepseek")
+
+        mock_generate_response.assert_called_once()
+        self.assertEqual(response, "Mocked Deepseek response")
