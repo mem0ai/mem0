@@ -22,11 +22,12 @@ load_dotenv()
 # Initialize MCP and memory client
 mcp = FastMCP("mem0-mcp-server")
 
-# Check if OpenAI API key is set
-if not os.getenv("OPENAI_API_KEY"):
-    raise Exception("OPENAI_API_KEY is not set in .env file")
-
-memory_client = get_memory_client()
+# Initialize memory client
+try:
+    memory_client = get_memory_client()
+except Exception as e:
+    logging.error(f"Failed to initialize memory client: {e}")
+    raise
 
 # Context variables for user_id and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")

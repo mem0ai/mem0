@@ -50,3 +50,6 @@ downgrade:
 
 ui-dev:
 	cd ui && NEXT_PUBLIC_USER_ID=$(USER) NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) pnpm install && pnpm dev
+
+ui-build:
+	docker compose build openmemory-ui

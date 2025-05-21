@@ -327,9 +327,33 @@ async def create_memory(
 @router.get("/{memory_id}")
 async def get_memory(
     memory_id: UUID,
+    user_id: str = Query(..., description="User ID"),
     db: Session = Depends(get_db)
 ):
     memory = get_memory_or_404(db, memory_id)
+    
+    # Get user and app
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    app = db.query(App).filter(App.id == memory.app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="App not found")
+    
+    # Create access log entry
+    access_log = MemoryAccessLog(
+        memory_id=memory_id,
+        app_id=app.id,
+        access_type="view",
+        metadata_={
+            "user_id": user_id,
+            "app_name": app.name
+        }
+    )
+    db.add(access_log)
+    db.commit()
+    
     return {
         "id": memory.id,
         "text": memory.content,

@@ -17,7 +17,7 @@ def get_memory_client(custom_instructions: str = None):
         Initialized Mem0 client instance.
 
     Raises:
-        Exception: If required API keys are not set.
+        Exception: If required configuration is not set.
     """
     global memory_client
 
@@ -32,13 +32,31 @@ def get_memory_client(custom_instructions: str = None):
                     "collection_name": "openmemory",
                     "host": "mem0_store",
                     "port": 6333,
+                    "embedding_model_dims": 768
+                }
+            },
+            "llm": {
+                "provider": "ollama",
+                "config": {
+                    "model": "llama2",
+                    "ollama_base_url": "http://host.docker.internal:11434",
+                    "temperature": 0.7,
+                    "max_tokens": 2000
+                }
+            },
+            "embedder": {
+                "provider": "ollama",
+                "config": {
+                    "model": "nomic-embed-text",
+                    "ollama_base_url": "http://host.docker.internal:11434",
+                    "embedding_dims": 768
                 }
             }
         }
 
         memory_client = Memory.from_config(config_dict=config)
-    except Exception:
-        raise Exception("Exception occurred while initializing memory client")
+    except Exception as e:
+        raise Exception(f"Exception occurred while initializing memory client: {str(e)}")
 
     # Update project with custom instructions if provided
     if custom_instructions:
