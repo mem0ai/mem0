@@ -37,7 +37,7 @@ def supabase_instance(mock_vecs_client, mock_collection):
         index_method=IndexMethod.HNSW,
         index_measure=IndexMeasure.COSINE,
     )
-    
+
     # Manually set the collection attribute since we're mocking the initialization
     instance.collection = mock_collection
     return instance
@@ -46,14 +46,8 @@ def supabase_instance(mock_vecs_client, mock_collection):
 def test_create_col(supabase_instance, mock_vecs_client, mock_collection):
     supabase_instance.create_col(1536)
 
-    mock_vecs_client.return_value.get_or_create_collection.assert_called_with(
-        name="test_collection",
-        dimension=1536
-    )
-    mock_collection.create_index.assert_called_with(
-        method="hnsw",
-        measure="cosine_distance"
-    )
+    mock_vecs_client.return_value.get_or_create_collection.assert_called_with(name="test_collection", dimension=1536)
+    mock_collection.create_index.assert_called_with(method="hnsw", measure="cosine_distance")
 
 
 def test_insert_vectors(supabase_instance, mock_collection):
@@ -63,18 +57,12 @@ def test_insert_vectors(supabase_instance, mock_collection):
 
     supabase_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-    expected_records = [
-        ("id1", [0.1, 0.2, 0.3], {"name": "vector1"}),
-        ("id2", [0.4, 0.5, 0.6], {"name": "vector2"})
-    ]
+    expected_records = [("id1", [0.1, 0.2, 0.3], {"name": "vector1"}), ("id2", [0.4, 0.5, 0.6], {"name": "vector2"})]
     mock_collection.upsert.assert_called_once_with(expected_records)
 
 
 def test_search_vectors(supabase_instance, mock_collection):
-    mock_results = [
-        ("id1", 0.9, {"name": "vector1"}),
-        ("id2", 0.8, {"name": "vector2"})
-    ]
+    mock_results = [("id1", 0.9, {"name": "vector1"}), ("id2", 0.8, {"name": "vector2"})]
     mock_collection.query.return_value = mock_results
 
     vectors = [[0.1, 0.2, 0.3]]
@@ -82,11 +70,7 @@ def test_search_vectors(supabase_instance, mock_collection):
     results = supabase_instance.search(query="", vectors=vectors, limit=2, filters=filters)
 
     mock_collection.query.assert_called_once_with(
-        data=vectors,
-        limit=2,
-        filters={"category": {"$eq": "test"}},
-        include_metadata=True,
-        include_value=True
+        data=vectors, limit=2, filters={"category": {"$eq": "test"}}, include_metadata=True, include_value=True
     )
 
     assert len(results) == 2
@@ -129,11 +113,8 @@ def test_get_vector(supabase_instance, mock_collection):
 
 def test_list_vectors(supabase_instance, mock_collection):
     mock_query_results = [("id1", 0.9, {}), ("id2", 0.8, {})]
-    mock_fetch_results = [
-        ("id1", [0.1, 0.2, 0.3], {"name": "vector1"}),
-        ("id2", [0.4, 0.5, 0.6], {"name": "vector2"})
-    ]
-    
+    mock_fetch_results = [("id1", [0.1, 0.2, 0.3], {"name": "vector1"}), ("id2", [0.4, 0.5, 0.6], {"name": "vector2"})]
+
     mock_collection.query.return_value = mock_query_results
     mock_collection.fetch.return_value = mock_fetch_results
 
@@ -153,10 +134,7 @@ def test_col_info(supabase_instance, mock_collection):
         "name": "test_collection",
         "count": 100,
         "dimension": 1536,
-        "index": {
-            "method": "hnsw",
-            "metric": "cosine_distance"
-        }
+        "index": {"method": "hnsw", "metric": "cosine_distance"},
     }
 
 
@@ -168,10 +146,7 @@ def test_preprocess_filters(supabase_instance):
     # Test multiple filters
     multi_filter = {"category": "test", "type": "document"}
     assert supabase_instance._preprocess_filters(multi_filter) == {
-        "$and": [
-            {"category": {"$eq": "test"}},
-            {"type": {"$eq": "document"}}
-        ]
+        "$and": [{"category": {"$eq": "test"}}, {"type": {"$eq": "document"}}]
     }
 
     # Test None filters
