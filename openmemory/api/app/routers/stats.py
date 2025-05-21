@@ -1,8 +1,7 @@
+from app.database import get_db
+from app.models import App, Memory, MemoryState, User
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import User, Memory, App, MemoryState
-
 
 router = APIRouter(prefix="/api/v1/stats", tags=["stats"])
 

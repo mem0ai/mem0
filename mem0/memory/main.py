@@ -5,31 +5,28 @@ import hashlib
 import json
 import logging
 import os
+import pickle
 import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+import cachetools
 import pytz
+import redis
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
-from mem0.configs.prompts import (
-    PROCEDURAL_MEMORY_SYSTEM_PROMPT,
-    get_update_memory_messages,
-)
+from mem0.configs.prompts import (PROCEDURAL_MEMORY_SYSTEM_PROMPT,
+                                  get_update_memory_messages)
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import (
-    get_fact_retrieval_messages,
-    parse_messages,
-    parse_vision_messages,
-    remove_code_blocks,
-)
+from mem0.memory.utils import (get_fact_retrieval_messages, parse_messages,
+                               parse_vision_messages, remove_code_blocks)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 
@@ -149,6 +146,11 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.init", self, {"sync_type": "sync"})
+
+        self._local_cache = cachetools.LRUCache(maxsize=512)
+        redis_url = os.environ.get("MEM0_REDIS_URL", "redis://localhost:6379/0")
+        self._redis_client = redis.Redis.from_url(redis_url)
+        self._redis_ttl = int(os.environ.get("MEM0_REDIS_TTL", 600))  # 10 min padrão
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -598,6 +600,10 @@ class Memory(MemoryBase):
             
         return formatted_memories
 
+    def _make_cache_key(self, query, user_id, agent_id, run_id, limit, filters):
+        # Serializa os parâmetros relevantes para compor a chave única
+        return pickle.dumps((query, user_id, agent_id, run_id, limit, filters))
+
     def search(
         self,
         query: str,
@@ -608,54 +614,47 @@ class Memory(MemoryBase):
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Searches for memories based on a query
-        Args:
-            query (str): Query to search for.
-            user_id (str, optional): ID of the user to search for. Defaults to None.
-            agent_id (str, optional): ID of the agent to search for. Defaults to None.
-            run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Filters to apply to the search. Defaults to None..
-
-        Returns:
-            dict: A dictionary containing the search results, typically under a "results" key,
-                  and potentially "relations" if graph store is enabled.
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
-        """
+        cache_key = self._make_cache_key(query, user_id, agent_id, run_id, limit, filters)
+        # 1. Tenta cache local
+        result = self._local_cache.get(cache_key)
+        if result is not None:
+            logger.info("[CACHE] Local cache hit")
+            return result
+        # 2. Tenta cache Redis
+        redis_result = self._redis_client.get(cache_key)
+        if redis_result is not None:
+            logger.info("[CACHE] Redis cache hit")
+            result = pickle.loads(redis_result)
+            self._local_cache[cache_key] = result
+            return result
+        # 3. Busca storage persistente
+        logger.info("[CACHE] Miss in all caches, querying persistent store")
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
             input_filters=filters
         )
-        
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
-
         capture_event(
             "mem0.search",
             self,
             {"limit": limit, "version": self.api_version, "keys": list(effective_filters.keys()), "sync_type": "sync"},
         )
-
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit)
             future_graph_entities = (
                 executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
             )
-
             concurrent.futures.wait(
                 [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
             )
-
             original_memories = future_memories.result()
             graph_entities = future_graph_entities.result() if future_graph_entities else None
-        
         if self.enable_graph:
-            return {"results": original_memories, "relations": graph_entities}
-
-        if self.api_version == "v1.0":
+            result = {"results": original_memories, "relations": graph_entities}
+        elif self.api_version == "v1.0":
             warnings.warn(
                 "The current search API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -663,9 +662,13 @@ class Memory(MemoryBase):
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            return {"results": original_memories}
+            result = {"results": original_memories}
         else:
-            return {"results": original_memories}
+            result = {"results": original_memories}
+        # Propaga para Redis e cache local
+        self._redis_client.setex(cache_key, self._redis_ttl, pickle.dumps(result))
+        self._local_cache[cache_key] = result
+        return result
 
     def _search_vector_store(self, query, filters, limit):
         embeddings = self.embedding_model.embed(query, "search")
@@ -1142,7 +1145,8 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            logging.error(f"Error in new_retrieved_facts: {e}"); new_retrieved_facts = []
+            logging.error(f"Error in new_retrieved_facts: {e}")
+            new_retrieved_facts = []
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -1162,7 +1166,8 @@ class AsyncMemory(MemoryBase):
             retrieved_old_memory.extend(result_group)
         
         unique_data = {}
-        for item in retrieved_old_memory: unique_data[item["id"]] = item
+        for item in retrieved_old_memory:
+            unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
         temp_uuid_mapping = {}
@@ -1180,13 +1185,15 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}"); response = ""
+            logging.error(f"Error in new memory actions response: {e}")
+            response = ""
         
         try:
             response = remove_code_blocks(response)
             new_memories_with_actions = json.loads(response)
         except Exception as e:
-            logging.error(f"Invalid JSON response: {e}"); new_memories_with_actions = {}
+            logging.error(f"Invalid JSON response: {e}")
+            new_memories_with_actions = {}
 
         returned_memories = [] 
         try:
@@ -1195,7 +1202,8 @@ class AsyncMemory(MemoryBase):
                 logging.info(resp)
                 try:
                     action_text = resp.get("text")
-                    if not action_text: continue
+                    if not action_text:
+                        continue
                     event_type = resp.get("event")
 
                     if event_type == "ADD":
@@ -1442,44 +1450,47 @@ class AsyncMemory(MemoryBase):
                   and potentially "relations" if graph store is enabled.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
-        
+        cache_key = self._make_cache_key(query, user_id, agent_id, run_id, limit, filters)
+        # 1. Tenta cache local
+        result = self._local_cache.get(cache_key)
+        if result is not None:
+            logger.info("[CACHE] Local cache hit")
+            return result
+        # 2. Tenta cache Redis
+        redis_result = self._redis_client.get(cache_key)
+        if redis_result is not None:
+            logger.info("[CACHE] Redis cache hit")
+            result = pickle.loads(redis_result)
+            self._local_cache[cache_key] = result
+            return result
+        # 3. Busca storage persistente
+        logger.info("[CACHE] Miss in all caches, querying persistent store")
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
             input_filters=filters
         )
-
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-                raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
-
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
         capture_event(
             "mem0.search",
             self,
             {"limit": limit, "version": self.api_version, "keys": list(effective_filters.keys()), "sync_type": "async"},
         )
-
-        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit))
-        
-        graph_task = None
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit)
+            future_graph_entities = (
+                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
+            )
+            concurrent.futures.wait(
+                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+            )
+            original_memories = future_memories.result()
+            graph_entities = future_graph_entities.result() if future_graph_entities else None
         if self.enable_graph:
-            if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
-                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, limit))
-            else:
-                graph_task = asyncio.create_task(
-                    asyncio.to_thread(self.graph.search, query, effective_filters, limit)
-                )
-        
-        if graph_task:
-            original_memories, graph_entities = await asyncio.gather(vector_store_task, graph_task)
-        else:
-            original_memories = await vector_store_task
-            graph_entities = None
-        
-        if self.enable_graph:
-            return {"results": original_memories, "relations": graph_entities}
-
-        if self.api_version == "v1.0":
+            result = {"results": original_memories, "relations": graph_entities}
+        elif self.api_version == "v1.0":
             warnings.warn(
                 "The current search API output format is deprecated. "
                 "To use the latest format, set `api_version='v1.1'`. "
@@ -1487,15 +1498,17 @@ class AsyncMemory(MemoryBase):
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            return {"results": original_memories}
+            result = {"results": original_memories}
         else:
-            return {"results": original_memories}
+            result = {"results": original_memories}
+        # Propaga para Redis e cache local
+        self._redis_client.setex(cache_key, self._redis_ttl, pickle.dumps(result))
+        self._local_cache[cache_key] = result
+        return result
 
     async def _search_vector_store(self, query, filters, limit):
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
-        memories = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, limit=limit, filters=filters
-        )
+        embeddings = self.embedding_model.embed(query, "search")
+        memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
 
         promoted_payload_keys = [
             "user_id",
@@ -1661,9 +1674,8 @@ class AsyncMemory(MemoryBase):
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
         try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
+            from langchain_core.messages.utils import \
+                convert_to_messages  # type: ignore
         except Exception:
             logger.error(
                 "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."

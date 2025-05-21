@@ -2,7 +2,6 @@ import os
 
 from mem0 import Memory
 
-
 memory_client = None
 
 

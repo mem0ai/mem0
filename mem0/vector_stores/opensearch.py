@@ -1,6 +1,6 @@
 import logging
-from typing import Any, Dict, List, Optional
 import time
+from typing import Any, Dict, List, Optional
 
 try:
     from opensearchpy import OpenSearch, RequestsHttpConnection

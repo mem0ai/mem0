@@ -13,16 +13,9 @@ try:
     from azure.search.documents import SearchClient
     from azure.search.documents.indexes import SearchIndexClient
     from azure.search.documents.indexes.models import (
-        BinaryQuantizationCompression,
-        HnswAlgorithmConfiguration,
-        ScalarQuantizationCompression,
-        SearchField,
-        SearchFieldDataType,
-        SearchIndex,
-        SimpleField,
-        VectorSearch,
-        VectorSearchProfile,
-    )
+        BinaryQuantizationCompression, HnswAlgorithmConfiguration,
+        ScalarQuantizationCompression, SearchField, SearchFieldDataType,
+        SearchIndex, SimpleField, VectorSearch, VectorSearchProfile)
     from azure.search.documents.models import VectorizedQuery
 except ImportError:
     raise ImportError(
