@@ -3,7 +3,7 @@ import logging
 import os
 import warnings
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import httpx
 import requests
@@ -132,11 +132,11 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
-            messages: Either a string message or a list of message dictionaries.
+            messages: A list of message dictionaries.
             **kwargs: Additional parameters such as user_id, agent_id, app_id, metadata, filters.
 
         Returns:
@@ -658,7 +658,7 @@ class MemoryClient:
         return response.json()
 
     def _prepare_payload(
-        self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
+        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
@@ -670,10 +670,7 @@ class MemoryClient:
             A dictionary containing the prepared payload.
         """
         payload = {}
-        if isinstance(messages, str):
-            payload["messages"] = [{"role": "user", "content": messages}]
-        elif isinstance(messages, list):
-            payload["messages"] = messages
+        payload["messages"] = messages
 
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
@@ -788,7 +785,7 @@ class AsyncMemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     def _prepare_payload(
-        self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
+        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
@@ -800,10 +797,7 @@ class AsyncMemoryClient:
             A dictionary containing the prepared payload.
         """
         payload = {}
-        if isinstance(messages, str):
-            payload["messages"] = [{"role": "user", "content": messages}]
-        elif isinstance(messages, list):
-            payload["messages"] = messages
+        payload["messages"] = messages
 
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
@@ -840,7 +834,7 @@ class AsyncMemoryClient:
         await self.async_client.aclose()
 
     @api_error_handler
-    async def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    async def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         kwargs = self._prepare_params(kwargs)
         if kwargs.get("output_format") != "v1.1":
             kwargs["output_format"] = "v1.1"
