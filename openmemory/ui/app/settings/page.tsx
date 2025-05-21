@@ -84,6 +84,7 @@ export default function SettingsPage() {
         title: "Settings reset",
         description: "Configuration has been reset to default values.",
       })
+      await fetchConfig()
     } catch (error) {
       toast({
         title: "Error",
@@ -104,7 +105,7 @@ export default function SettingsPage() {
           <div className="flex space-x-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="border-red-400 text-red-400 hover:bg-red-50 hover:text-red-500" disabled={isLoading}>
+                <Button variant="outline" className="border-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-zinc-50" disabled={isLoading}>
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Reset Defaults
                 </Button>
@@ -126,7 +127,7 @@ export default function SettingsPage() {
               </AlertDialogContent>
             </AlertDialog>
             
-            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700" disabled={isLoading}>
+            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90" disabled={isLoading}>
               <SaveIcon className="mr-2 h-4 w-4" />
               {isLoading ? "Saving..." : "Save Configuration"}
             </Button>

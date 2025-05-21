@@ -103,36 +103,11 @@ def save_config(config: Dict[str, Any]):
             detail=f"Error writing configuration: {str(e)}"
         )
 
-def mask_api_keys(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Create a copy of the config with API keys masked for display.
-    This is useful when sending to the frontend.
-    """
-    config_copy = config_dict.copy()
-    
-    if "mem0" in config_copy:
-        if "llm" in config_copy["mem0"] and "config" in config_copy["mem0"]["llm"]:
-            llm_config = config_copy["mem0"]["llm"]["config"]
-            if "api_key" in llm_config and llm_config["api_key"] and not llm_config["api_key"].startswith("env:"):
-                # Mask API key for display purposes
-                llm_config["api_key"] = "********"
-                
-        if "embedder" in config_copy["mem0"] and "config" in config_copy["mem0"]["embedder"]:
-            embedder_config = config_copy["mem0"]["embedder"]["config"]
-            if "api_key" in embedder_config and embedder_config["api_key"] and not embedder_config["api_key"].startswith("env:"):
-                # Mask API key for display purposes
-                embedder_config["api_key"] = "********"
-    
-    return config_copy
-
 @router.get("/", response_model=ConfigModel)
 async def get_configuration():
     """Get the current configuration."""
     config = get_config()
-    
-    # For security, mask direct API keys when returning to frontend
-    safe_config = mask_api_keys(config)
-    return safe_config
+    return config
 
 @router.put("/", response_model=ConfigModel)
 async def update_configuration(config: ConfigModel):
@@ -145,10 +120,7 @@ async def update_configuration(config: ConfigModel):
     
     # Save the configuration as provided (including API keys if directly set)
     save_config(updated_config)
-    
-    # For security, return masked API keys
-    safe_config = mask_api_keys(updated_config)
-    return safe_config
+    return updated_config
 
 @router.post("/reset", response_model=ConfigModel)
 async def reset_configuration():
@@ -159,10 +131,7 @@ async def reset_configuration():
         
         # Save it as the current configuration
         save_config(default_config)
-        
-        # For security, mask direct API keys when returning
-        safe_config = mask_api_keys(default_config)
-        return safe_config
+        return default_config
     except Exception as e:
         raise HTTPException(
             status_code=500, 
@@ -174,11 +143,6 @@ async def get_llm_configuration():
     """Get only the LLM configuration."""
     config = get_config()
     llm_config = config.get("mem0", {}).get("llm", {})
-    
-    # Mask API key if present
-    if "config" in llm_config and "api_key" in llm_config["config"] and llm_config["config"]["api_key"] and not llm_config["config"]["api_key"].startswith("env:"):
-        llm_config["config"]["api_key"] = "********"
-        
     return llm_config
 
 @router.put("/mem0/llm", response_model=LLMProvider)
@@ -195,24 +159,13 @@ async def update_llm_configuration(llm_config: LLMProvider):
     
     # Save the configuration with API key if provided
     save_config(current_config)
-    
-    # Create masked version for response
-    response_config = current_config.copy()
-    if "config" in response_config["mem0"]["llm"] and "api_key" in response_config["mem0"]["llm"]["config"] and response_config["mem0"]["llm"]["config"]["api_key"] and not response_config["mem0"]["llm"]["config"]["api_key"].startswith("env:"):
-        response_config["mem0"]["llm"]["config"]["api_key"] = "********"
-        
-    return response_config["mem0"]["llm"]
+    return current_config["mem0"]["llm"]
 
 @router.get("/mem0/embedder", response_model=EmbedderProvider)
 async def get_embedder_configuration():
     """Get only the Embedder configuration."""
     config = get_config()
     embedder_config = config.get("mem0", {}).get("embedder", {})
-    
-    # Mask API key if present
-    if "config" in embedder_config and "api_key" in embedder_config["config"] and embedder_config["config"]["api_key"] and not embedder_config["config"]["api_key"].startswith("env:"):
-        embedder_config["config"]["api_key"] = "********"
-        
     return embedder_config
 
 @router.put("/mem0/embedder", response_model=EmbedderProvider)
@@ -229,10 +182,4 @@ async def update_embedder_configuration(embedder_config: EmbedderProvider):
     
     # Save the configuration with API key if provided
     save_config(current_config)
-    
-    # Create masked version for response
-    response_config = current_config.copy()
-    if "config" in response_config["mem0"]["embedder"] and "api_key" in response_config["mem0"]["embedder"]["config"] and response_config["mem0"]["embedder"]["config"]["api_key"] and not response_config["mem0"]["embedder"]["config"]["api_key"].startswith("env:"):
-        response_config["mem0"]["embedder"]["config"]["api_key"] = "********"
-        
-    return response_config["mem0"]["embedder"] 
+    return current_config["mem0"]["embedder"] 

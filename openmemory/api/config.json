@@ -8,6 +8,13 @@
                 "max_tokens": 2000,
                 "api_key": "env:API_KEY"
             }
+        },
+        "embedder": {
+            "provider": "openai",
+            "config": {
+                "model": "text-embedding-3-small",
+                "api_key": "env:API_KEY"
+            }
         }
     }
 }

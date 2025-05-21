@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { PlusCircle, Trash2 } from "lucide-react"
+import { PlusCircle, Trash2, Eye, EyeOff } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
@@ -17,6 +17,8 @@ interface FormViewProps {
 
 export function FormView({ settings, onChange }: FormViewProps) {
   const [showLlmAdvanced, setShowLlmAdvanced] = useState(false)
+  const [showLlmApiKey, setShowLlmApiKey] = useState(false)
+  const [showEmbedderApiKey, setShowEmbedderApiKey] = useState(false)
 
   const handleOpenMemoryChange = (key: string, value: any) => {
     onChange({
@@ -262,82 +264,6 @@ export function FormView({ settings, onChange }: FormViewProps) {
 
   return (
     <div className="space-y-8">
-      {/* OpenMemory Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>OpenMemory Configuration</CardTitle>
-          <CardDescription>Configure your OpenMemory user settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* UserId field commented out as requested
-          <div className="space-y-2">
-            <Label htmlFor="user-id">User ID</Label>
-            <Input
-              id="user-id"
-              placeholder="Enter your user ID"
-              value={settings.openmemory?.user || ""}
-              onChange={(e) => handleOpenMemoryChange("user", e.target.value)}
-            />
-          </div>
-          */}
-
-          {/* Custom Fields for OpenMemory */}
-          {settings.openmemory?._customFields?.map((field: any, index: number) => (
-            <div key={`openmemory-field-${index}`} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
-              <div className="space-y-2">
-                <Label htmlFor={`openmemory-key-${index}`}>Field Name</Label>
-                <Input
-                  id={`openmemory-key-${index}`}
-                  placeholder="Field name"
-                  value={field.key}
-                  onChange={(e) => updateCustomField("openmemory", index, "key", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor={`openmemory-value-${index}`}>Value</Label>
-                  <Select
-                    value={field.type}
-                    onValueChange={(value) => updateCustomField("openmemory", index, "type", value)}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="string">String</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  id={`openmemory-value-${index}`}
-                  placeholder="Value"
-                  type={field.type === "number" ? "number" : "text"}
-                  value={field.value}
-                  onChange={(e) => {
-                    const value = field.type === "number" ? Number(e.target.value) : e.target.value
-                    updateCustomField("openmemory", index, "value", value)
-                  }}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeCustomField("openmemory", index)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-
-          <Button variant="outline" size="sm" onClick={() => addCustomField("openmemory", "")} className="mt-2">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Custom Field
-          </Button>
-        </CardContent>
-      </Card>
-
       {/* LLM Settings */}
       <Card>
         <CardHeader>
@@ -377,13 +303,27 @@ export function FormView({ settings, onChange }: FormViewProps) {
           {needsLlmApiKey && (
             <div className="space-y-2">
               <Label htmlFor="llm-api-key">API Key</Label>
-              <Input
-                id="llm-api-key"
-                type="password"
-                placeholder="env:API_KEY"
-                value={settings.mem0?.llm?.config?.api_key || ""}
-                onChange={(e) => handleLlmConfigChange("api_key", e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="llm-api-key"
+                  type={showLlmApiKey ? "text" : "password"}
+                  placeholder="env:API_KEY"
+                  value={settings.mem0?.llm?.config?.api_key || ""}
+                  onChange={(e) => handleLlmConfigChange("api_key", e.target.value)}
+                />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  type="button" 
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                  onClick={() => setShowLlmApiKey(!showLlmApiKey)}
+                >
+                  {showLlmApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Use "env:API_KEY" to load from environment variable, or enter directly
+              </p>
             </div>
           )}
 
@@ -514,13 +454,27 @@ export function FormView({ settings, onChange }: FormViewProps) {
           {needsEmbedderApiKey && (
             <div className="space-y-2">
               <Label htmlFor="embedder-api-key">API Key</Label>
-              <Input
-                id="embedder-api-key"
-                type="password"
-                placeholder="env:API_KEY"
-                value={settings.mem0?.embedder?.config?.api_key || ""}
-                onChange={(e) => handleEmbedderConfigChange("api_key", e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="embedder-api-key"
+                  type={showEmbedderApiKey ? "text" : "password"}
+                  placeholder="env:API_KEY"
+                  value={settings.mem0?.embedder?.config?.api_key || ""}
+                  onChange={(e) => handleEmbedderConfigChange("api_key", e.target.value)}
+                />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  type="button" 
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                  onClick={() => setShowEmbedderApiKey(!showEmbedderApiKey)}
+                >
+                  {showEmbedderApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Use "env:API_KEY" to load from environment variable, or enter directly
+              </p>
             </div>
           )}
 

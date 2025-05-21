@@ -56,7 +56,7 @@ def get_memory_client(custom_instructions: str = None):
                         api_key = config["llm"]["config"]["api_key"]
                         
                         # If API key is set to load from environment
-                        if api_key and api_key.startswith("env:"):
+                        if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
                             env_var = api_key.split(":", 1)[1]
                             env_api_key = os.environ.get(env_var)
                             if env_api_key:
@@ -74,7 +74,7 @@ def get_memory_client(custom_instructions: str = None):
                         api_key = config["embedder"]["config"]["api_key"]
                         
                         # If API key is set to load from environment
-                        if api_key and api_key.startswith("env:"):
+                        if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
                             env_var = api_key.split(":", 1)[1]
                             env_api_key = os.environ.get(env_var)
                             if env_api_key:
