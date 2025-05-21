@@ -229,7 +229,7 @@ class Supabase(VectorStoreBase):
         records = self.collection.fetch(ids=ids)
 
         return [[OutputData(id=str(record[0]), score=None, payload=record[2]) for record in records]]
-    
+
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")

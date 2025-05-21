@@ -377,4 +377,3 @@ class AzureAISearch(VectorStoreBase):
         except Exception as e:
             logger.error(f"Error resetting index {self.index_name}: {e}")
             raise
-

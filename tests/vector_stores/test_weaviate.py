@@ -76,15 +76,15 @@
 #         self.client_mock.batch = MagicMock()
 
 #         self.client_mock.batch.fixed_size.return_value.__enter__.return_value = MagicMock()
-        
+
 #         self.client_mock.collections.get.return_value.data.insert_many.return_value = {
 #             "results": [{"id": "id1"}, {"id": "id2"}]
 #         }
-        
+
 #         vectors = [[0.1] * 1536, [0.2] * 1536]
 #         payloads = [{"key1": "value1"}, {"key2": "value2"}]
 #         ids = [str(uuid.uuid4()), str(uuid.uuid4())]
-        
+
 #         results = self.weaviate_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
 #     def test_get(self):
@@ -108,7 +108,7 @@
 #         result = self.weaviate_db.get(vector_id=valid_uuid)
 
 #         assert result.id == valid_uuid
-        
+
 #         expected_payload = mock_response.properties.copy()
 #         expected_payload["id"] = valid_uuid
 
@@ -131,10 +131,10 @@
 #                 "metadata": {"distance": 0.2}
 #             }
 #         ]
-        
+
 #         mock_response = MagicMock()
 #         mock_response.objects = []
-        
+
 #         for obj in mock_objects:
 #             mock_obj = MagicMock()
 #             mock_obj.uuid = obj["uuid"]
@@ -142,16 +142,16 @@
 #             mock_obj.metadata = MagicMock()
 #             mock_obj.metadata.distance = obj["metadata"]["distance"]
 #             mock_response.objects.append(mock_obj)
-        
+
 #         mock_hybrid = MagicMock()
 #         self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
 #         mock_hybrid.return_value = mock_response
-        
+
 #         vectors = [[0.1] * 1536]
 #         results = self.weaviate_db.search(query="", vectors=vectors, limit=5)
-        
+
 #         mock_hybrid.assert_called_once()
-        
+
 #         self.assertEqual(len(results), 1)
 #         self.assertEqual(results[0].id, "id1")
 #         self.assertEqual(results[0].score, 0.8)
@@ -163,28 +163,28 @@
 
 #     def test_list(self):
 #         mock_objects = []
-        
+
 #         mock_obj1 = MagicMock()
 #         mock_obj1.uuid = "id1"
 #         mock_obj1.properties = {"key1": "value1"}
 #         mock_objects.append(mock_obj1)
-        
+
 #         mock_obj2 = MagicMock()
 #         mock_obj2.uuid = "id2"
 #         mock_obj2.properties = {"key2": "value2"}
 #         mock_objects.append(mock_obj2)
-        
+
 #         mock_response = MagicMock()
 #         mock_response.objects = mock_objects
-        
+
 #         mock_fetch = MagicMock()
 #         self.client_mock.collections.get.return_value.query.fetch_objects = mock_fetch
 #         mock_fetch.return_value = mock_response
-        
+
 #         results = self.weaviate_db.list(limit=10)
-        
+
 #         mock_fetch.assert_called_once()
-        
+
 #         # Verify results
 #         self.assertEqual(len(results), 1)
 #         self.assertEqual(len(results[0]), 2)

@@ -286,7 +286,7 @@ class PGVector(VectorStoreBase):
             self.cur.close()
         if hasattr(self, "conn"):
             self.conn.close()
-            
+
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")

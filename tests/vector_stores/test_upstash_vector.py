@@ -29,9 +29,7 @@ def upstash_instance(mock_index):
 
 @pytest.fixture
 def upstash_instance_with_embeddings(mock_index):
-    return UpstashVector(
-        client=mock_index.return_value, collection_name="ns", enable_embeddings=True
-    )
+    return UpstashVector(client=mock_index.return_value, collection_name="ns", enable_embeddings=True)
 
 
 def test_insert_vectors(upstash_instance, mock_index):
@@ -52,12 +50,8 @@ def test_insert_vectors(upstash_instance, mock_index):
 
 def test_search_vectors(upstash_instance, mock_index):
     mock_result = [
-        QueryResult(
-            id="id1", score=0.1, vector=None, metadata={"name": "vector1"}, data=None
-        ),
-        QueryResult(
-            id="id2", score=0.2, vector=None, metadata={"name": "vector2"}, data=None
-        ),
+        QueryResult(id="id1", score=0.1, vector=None, metadata={"name": "vector1"}, data=None),
+        QueryResult(id="id2", score=0.2, vector=None, metadata={"name": "vector2"}, data=None),
     ]
 
     upstash_instance.client.query_many.return_value = [mock_result]
@@ -93,9 +87,7 @@ def test_delete_vector(upstash_instance):
 
     upstash_instance.delete(vector_id=vector_id)
 
-    upstash_instance.client.delete.assert_called_once_with(
-        ids=[vector_id], namespace="ns"
-    )
+    upstash_instance.client.delete.assert_called_once_with(ids=[vector_id], namespace="ns")
 
 
 def test_update_vector(upstash_instance):
@@ -115,18 +107,12 @@ def test_update_vector(upstash_instance):
 
 
 def test_get_vector(upstash_instance):
-    mock_result = [
-        QueryResult(
-            id="id1", score=None, vector=None, metadata={"name": "vector1"}, data=None
-        )
-    ]
+    mock_result = [QueryResult(id="id1", score=None, vector=None, metadata={"name": "vector1"}, data=None)]
     upstash_instance.client.fetch.return_value = mock_result
 
     result = upstash_instance.get(vector_id="id1")
 
-    upstash_instance.client.fetch.assert_called_once_with(
-        ids=["id1"], namespace="ns", include_metadata=True
-    )
+    upstash_instance.client.fetch.assert_called_once_with(ids=["id1"], namespace="ns", include_metadata=True)
 
     assert result.id == "id1"
     assert result.payload == {"name": "vector1"}
@@ -134,15 +120,9 @@ def test_get_vector(upstash_instance):
 
 def test_list_vectors(upstash_instance):
     mock_result = [
-        QueryResult(
-            id="id1", score=None, vector=None, metadata={"name": "vector1"}, data=None
-        ),
-        QueryResult(
-            id="id2", score=None, vector=None, metadata={"name": "vector2"}, data=None
-        ),
-        QueryResult(
-            id="id3", score=None, vector=None, metadata={"name": "vector3"}, data=None
-        ),
+        QueryResult(id="id1", score=None, vector=None, metadata={"name": "vector1"}, data=None),
+        QueryResult(id="id2", score=None, vector=None, metadata={"name": "vector2"}, data=None),
+        QueryResult(id="id3", score=None, vector=None, metadata={"name": "vector3"}, data=None),
     ]
     handler = MagicMock()
 
@@ -204,12 +184,8 @@ def test_insert_vectors_with_embeddings(upstash_instance_with_embeddings, mock_i
 
 def test_search_vectors_with_embeddings(upstash_instance_with_embeddings, mock_index):
     mock_result = [
-        QueryResult(
-            id="id1", score=0.1, vector=None, metadata={"name": "vector1"}, data="data1"
-        ),
-        QueryResult(
-            id="id2", score=0.2, vector=None, metadata={"name": "vector2"}, data="data2"
-        ),
+        QueryResult(id="id1", score=0.1, vector=None, metadata={"name": "vector1"}, data="data1"),
+        QueryResult(id="id2", score=0.2, vector=None, metadata={"name": "vector2"}, data="data2"),
     ]
 
     upstash_instance_with_embeddings.client.query.return_value = mock_result
@@ -260,9 +236,7 @@ def test_insert_vectors_with_embeddings_missing_data(upstash_instance_with_embed
         ValueError,
         match="When embeddings are enabled, all payloads must contain a 'data' field",
     ):
-        upstash_instance_with_embeddings.insert(
-            vectors=vectors, payloads=payloads, ids=ids
-        )
+        upstash_instance_with_embeddings.insert(vectors=vectors, payloads=payloads, ids=ids)
 
 
 def test_update_vector_with_embeddings_missing_data(upstash_instance_with_embeddings):
@@ -316,18 +290,12 @@ def test_get_vector_not_found(upstash_instance):
 
     result = upstash_instance.get(vector_id="nonexistent")
 
-    upstash_instance.client.fetch.assert_called_once_with(
-        ids=["nonexistent"], namespace="ns", include_metadata=True
-    )
+    upstash_instance.client.fetch.assert_called_once_with(ids=["nonexistent"], namespace="ns", include_metadata=True)
     assert result is None
 
 
 def test_search_vectors_empty_filters(upstash_instance):
-    mock_result = [
-        QueryResult(
-            id="id1", score=0.1, vector=None, metadata={"name": "vector1"}, data=None
-        )
-    ]
+    mock_result = [QueryResult(id="id1", score=0.1, vector=None, metadata={"name": "vector1"}, data=None)]
     upstash_instance.client.query_many.return_value = [mock_result]
 
     vectors = [[0.1, 0.2, 0.3]]

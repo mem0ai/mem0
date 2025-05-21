@@ -88,7 +88,7 @@ class RedisDB(VectorStoreBase):
             The created index object.
         """
         # Use provided parameters or fall back to instance attributes
-        collection_name = name or self.schema['index']['name']
+        collection_name = name or self.schema["index"]["name"]
         embedding_dims = vector_size or self.embedding_model_dims
         distance_metric = distance or "cosine"
 
@@ -237,17 +237,16 @@ class RedisDB(VectorStoreBase):
         """
         Reset the index by deleting and recreating it.
         """
-        collection_name = self.schema['index']['name']
+        collection_name = self.schema["index"]["name"]
         logger.warning(f"Resetting index {collection_name}...")
         self.delete_col()
-        
+
         self.index = SearchIndex.from_dict(self.schema)
         self.index.set_client(self.client)
         self.index.create(overwrite=True)
-        
-        #or use 
-        #self.create_col(collection_name, self.embedding_model_dims)
 
+        # or use
+        # self.create_col(collection_name, self.embedding_model_dims)
 
         # Recreate the index with the same parameters
         self.create_col(collection_name, self.embedding_model_dims)

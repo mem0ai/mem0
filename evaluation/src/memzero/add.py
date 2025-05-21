@@ -13,7 +13,7 @@ load_dotenv()
 
 
 # Update custom instructions
-custom_instructions ="""
+custom_instructions = """
 Generate personal memories that follow these guidelines:
 
 1. Each memory should be self-contained with complete context, including:
@@ -47,7 +47,7 @@ class MemoryADD:
         self.mem0_client = MemoryClient(
             api_key=os.getenv("MEM0_API_KEY"),
             org_id=os.getenv("MEM0_ORGANIZATION_ID"),
-            project_id=os.getenv("MEM0_PROJECT_ID")
+            project_id=os.getenv("MEM0_PROJECT_ID"),
         )
 
         self.mem0_client.update_project(custom_instructions=custom_instructions)
@@ -59,15 +59,16 @@ class MemoryADD:
             self.load_data()
 
     def load_data(self):
-        with open(self.data_path, 'r') as f:
+        with open(self.data_path, "r") as f:
             self.data = json.load(f)
         return self.data
 
     def add_memory(self, user_id, message, metadata, retries=3):
         for attempt in range(retries):
             try:
-                _ = self.mem0_client.add(message, user_id=user_id, version="v2",
-                                         metadata=metadata, enable_graph=self.is_graph)
+                _ = self.mem0_client.add(
+                    message, user_id=user_id, version="v2", metadata=metadata, enable_graph=self.is_graph
+                )
                 return
             except Exception as e:
                 if attempt < retries - 1:
@@ -78,13 +79,13 @@ class MemoryADD:
 
     def add_memories_for_speaker(self, speaker, messages, timestamp, desc):
         for i in tqdm(range(0, len(messages), self.batch_size), desc=desc):
-            batch_messages = messages[i:i+self.batch_size]
+            batch_messages = messages[i : i + self.batch_size]
             self.add_memory(speaker, batch_messages, metadata={"timestamp": timestamp})
 
     def process_conversation(self, item, idx):
-        conversation = item['conversation']
-        speaker_a = conversation['speaker_a']
-        speaker_b = conversation['speaker_b']
+        conversation = item["conversation"]
+        speaker_a = conversation["speaker_a"]
+        speaker_b = conversation["speaker_b"]
 
         speaker_a_user_id = f"{speaker_a}_{idx}"
         speaker_b_user_id = f"{speaker_b}_{idx}"
@@ -94,7 +95,7 @@ class MemoryADD:
         self.mem0_client.delete_all(user_id=speaker_b_user_id)
 
         for key in conversation.keys():
-            if key in ['speaker_a', 'speaker_b'] or "date" in key or "timestamp" in key:
+            if key in ["speaker_a", "speaker_b"] or "date" in key or "timestamp" in key:
                 continue
 
             date_time_key = key + "_date_time"
@@ -104,10 +105,10 @@ class MemoryADD:
             messages = []
             messages_reverse = []
             for chat in chats:
-                if chat['speaker'] == speaker_a:
+                if chat["speaker"] == speaker_a:
                     messages.append({"role": "user", "content": f"{speaker_a}: {chat['text']}"})
                     messages_reverse.append({"role": "assistant", "content": f"{speaker_a}: {chat['text']}"})
-                elif chat['speaker'] == speaker_b:
+                elif chat["speaker"] == speaker_b:
                     messages.append({"role": "assistant", "content": f"{speaker_b}: {chat['text']}"})
                     messages_reverse.append({"role": "user", "content": f"{speaker_b}: {chat['text']}"})
                 else:
@@ -116,11 +117,11 @@ class MemoryADD:
             # add memories for the two users on different threads
             thread_a = threading.Thread(
                 target=self.add_memories_for_speaker,
-                args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A")
+                args=(speaker_a_user_id, messages, timestamp, "Adding Memories for Speaker A"),
             )
             thread_b = threading.Thread(
                 target=self.add_memories_for_speaker,
-                args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B")
+                args=(speaker_b_user_id, messages_reverse, timestamp, "Adding Memories for Speaker B"),
             )
 
             thread_a.start()
@@ -134,10 +135,7 @@ class MemoryADD:
         if not self.data:
             raise ValueError("No data loaded. Please set data_path and call load_data() first.")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(self.process_conversation, item, idx)
-                for idx, item in enumerate(self.data)
-            ]
+            futures = [executor.submit(self.process_conversation, item, idx) for idx, item in enumerate(self.data)]
 
             for future in futures:
                 future.result()

@@ -22,7 +22,8 @@ class Neo4jConfig(BaseModel):
         if not url or not username or not password:
             raise ValueError("Please provide 'url', 'username' and 'password'.")
         return values
-    
+
+
 class MemgraphConfig(BaseModel):
     url: Optional[str] = Field(None, description="Host address for the graph database")
     username: Optional[str] = Field(None, description="Username for the graph database")

@@ -16,26 +16,21 @@ from mem0 import Memory
 
 # Configure Mem0 with Grok 3 and Qdrant
 config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "embedding_model_dims": 384
-        }
-    },
+    "vector_store": {"provider": "qdrant", "config": {"embedding_model_dims": 384}},
     "llm": {
         "provider": "xai",
         "config": {
             "model": "grok-3-beta",
             "temperature": 0.1,
             "max_tokens": 2000,
-        }
+        },
     },
     "embedder": {
         "provider": "huggingface",
         "config": {
             "model": "all-MiniLM-L6-v2"  # open embedding model
-        }
-    }
+        },
+    },
 }
 
 # Instantiate memory layer
@@ -57,20 +52,14 @@ def recommend_movie_with_memory(user_id: str, user_query: str):
         prompt += f"\nPreviously, the user mentioned: {past_memories}"
 
     # Generate movie recommendation using Grok 3
-    response = grok_client.chat.completions.create(
-        model="grok-3-beta",
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
+    response = grok_client.chat.completions.create(model="grok-3-beta", messages=[{"role": "user", "content": prompt}])
     recommendation = response.choices[0].message.content
 
     # Store conversation in memory
     memory.add(
-        [{"role": "user", "content": user_query},
-         {"role": "assistant", "content": recommendation}],
+        [{"role": "user", "content": user_query}, {"role": "assistant", "content": recommendation}],
         user_id=user_id,
-        metadata={"category": "movie"}
+        metadata={"category": "movie"},
     )
 
     return recommendation
@@ -81,10 +70,11 @@ if __name__ == "__main__":
     user_id = "arshi"
     recommend_movie_with_memory(user_id, "I'm looking for a movie to watch tonight. Any suggestions?")
     # OUTPUT: You have watched Intersteller last weekend and you don't like horror movies, maybe you can watch "Purple Hearts" today.
-    recommend_movie_with_memory(user_id, "Can we skip the tearjerkers? I really enjoyed Notting Hill and Crazy Rich Asians.")
+    recommend_movie_with_memory(
+        user_id, "Can we skip the tearjerkers? I really enjoyed Notting Hill and Crazy Rich Asians."
+    )
     # OUTPUT: Got it — no sad endings! You might enjoy "The Proposal" or "Love, Rosie". They’re both light-hearted romcoms with happy vibes.
     recommend_movie_with_memory(user_id, "Any light-hearted movie I can watch after work today?")
     # OUTPUT: Since you liked Crazy Rich Asians and The Proposal, how about "The Intern" or "Isn’t It Romantic"? Both are upbeat, funny, and perfect for relaxing.
     recommend_movie_with_memory(user_id, "I’ve already watched The Intern. Something new maybe?")
     # OUTPUT: No problem! Try "Your Place or Mine" - romcoms that match your taste and are tear-free!
-

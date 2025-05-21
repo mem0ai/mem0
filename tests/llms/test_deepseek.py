@@ -31,12 +31,12 @@ def test_deepseek_llm_base_url():
     # case3: with config.deepseek_base_url
     config_base_url = "https://api.config.com/v1/"
     config = BaseLlmConfig(
-        model="deepseek-chat", 
-        temperature=0.7, 
-        max_tokens=100, 
-        top_p=1.0, 
-        api_key="api_key", 
-        deepseek_base_url=config_base_url
+        model="deepseek-chat",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        api_key="api_key",
+        deepseek_base_url=config_base_url,
     )
     llm = DeepSeekLLM(config)
     assert str(llm.client.base_url) == config_base_url
@@ -99,13 +99,13 @@ def test_generate_response_with_tools(mock_deepseek_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_deepseek_client.chat.completions.create.assert_called_once_with(
-        model="deepseek-chat", 
-        messages=messages, 
-        temperature=0.7, 
-        max_tokens=100, 
-        top_p=1.0, 
-        tools=tools, 
-        tool_choice="auto"
+        model="deepseek-chat",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        tools=tools,
+        tool_choice="auto",
     )
 
     assert response["content"] == "I've added the memory for you."
