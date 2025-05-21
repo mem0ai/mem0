@@ -51,7 +51,7 @@ class VectorStoreBase(ABC):
     def list(self, filters=None, limit=None):
         """List all memories."""
         pass
-    
+
     @abstractmethod
     def reset(self):
         """Reset by delete the collection and recreate it."""

@@ -58,7 +58,12 @@ class ElasticsearchDB(VectorStoreBase):
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
-                    "vector": {"type": "dense_vector", "dims": self.embedding_model_dims, "index": True, "similarity": "cosine"},
+                    "vector": {
+                        "type": "dense_vector",
+                        "dims": self.embedding_model_dims,
+                        "index": True,
+                        "similarity": "cosine",
+                    },
                     "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
                 }
             },
@@ -222,7 +227,7 @@ class ElasticsearchDB(VectorStoreBase):
             )
 
         return [results]
-    
+
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")

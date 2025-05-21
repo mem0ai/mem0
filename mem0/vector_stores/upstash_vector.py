@@ -285,10 +285,9 @@ class UpstashVector(VectorStoreBase):
         - Per-namespace vector and pending vector counts
         """
         return self.client.info()
-    
+
     def reset(self):
         """
         Reset the Upstash Vector index.
         """
         self.delete_col()
-

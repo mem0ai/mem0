@@ -1,12 +1,3 @@
-TECHNIQUES = [
-    "mem0",
-    "rag",
-    "langmem",
-    "zep",
-    "openai"
-]
+TECHNIQUES = ["mem0", "rag", "langmem", "zep", "openai"]
 
-METHODS = [
-    "add",
-    "search"
-]
+METHODS = ["add", "search"]

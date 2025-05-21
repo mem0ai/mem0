@@ -57,7 +57,7 @@ def initialize_memory():
         },
         {
             "role": "user",
-            "content": "I prefer brief and concise responses without unnecessary explanations. I get frustrated when assistants are too wordy or repeat information I already know."
+            "content": "I prefer brief and concise responses without unnecessary explanations. I get frustrated when assistants are too wordy or repeat information I already know.",
         },
         {
             "role": "assistant",
@@ -65,7 +65,7 @@ def initialize_memory():
         },
         {
             "role": "user",
-            "content": "I like to listen to jazz music when I'm working, especially artists like Miles Davis and John Coltrane. I find it helps me focus and be more productive."
+            "content": "I like to listen to jazz music when I'm working, especially artists like Miles Davis and John Coltrane. I find it helps me focus and be more productive.",
         },
         {
             "role": "assistant",
@@ -73,7 +73,7 @@ def initialize_memory():
         },
         {
             "role": "user",
-            "content": "I usually wake up at 7 AM and prefer reminders for meetings 30 minutes in advance. My most productive hours are between 9 AM and noon, so I try to schedule important tasks during that time."
+            "content": "I usually wake up at 7 AM and prefer reminders for meetings 30 minutes in advance. My most productive hours are between 9 AM and noon, so I try to schedule important tasks during that time.",
         },
         {
             "role": "assistant",
@@ -81,7 +81,7 @@ def initialize_memory():
         },
         {
             "role": "user",
-            "content": "My favorite color is navy blue, and I prefer dark mode in all my apps. I'm allergic to peanuts, so please remind me to check ingredients when I ask about recipes or restaurants."
+            "content": "My favorite color is navy blue, and I prefer dark mode in all my apps. I'm allergic to peanuts, so please remind me to check ingredients when I ask about recipes or restaurants.",
         },
         {
             "role": "assistant",
@@ -89,7 +89,7 @@ def initialize_memory():
         },
         {
             "role": "user",
-            "content": "My partner's name is Jamie, and we have a golden retriever named Max who is 3 years old. My parents live in Chicago, and I try to visit them once every two months."
+            "content": "My partner's name is Jamie, and we have a golden retriever named Max who is 3 years old. My parents live in Chicago, and I try to visit them once every two months.",
         },
         {
             "role": "assistant",
@@ -135,11 +135,11 @@ def record_audio(filename="input.wav", record_seconds=5):
     stream.close()
     p.terminate()
 
-    with wave.open(filename, 'wb') as wf:
+    with wave.open(filename, "wb") as wf:
         wf.setnchannels(channels)
         wf.setsampwidth(p.get_sample_size(fmt))
         wf.setframerate(rate)
-        wf.writeframes(b''.join(frames))
+        wf.writeframes(b"".join(frames))
 
 
 # ------------------ STT USING WHISPER ------------------
@@ -147,10 +147,7 @@ def transcribe_whisper(audio_path):
     print("🔎 Transcribing with Whisper...")
     try:
         with open(audio_path, "rb") as audio_file:
-            transcript = openai_client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
+            transcript = openai_client.audio.transcriptions.create(model="whisper-1", file=audio_file)
         print(f"🗣️ You said: {transcript.text}")
         return transcript.text
     except Exception as e:
@@ -165,9 +162,7 @@ def get_agent_response(user_input):
 
     try:
         task = Task(
-            description=f"Respond to: {user_input}",
-            expected_output="A short and relevant reply.",
-            agent=voice_agent
+            description=f"Respond to: {user_input}", expected_output="A short and relevant reply.", agent=voice_agent
         )
         crew = Crew(
             agents=[voice_agent],
@@ -175,22 +170,19 @@ def get_agent_response(user_input):
             process=Process.sequential,
             verbose=True,
             memory=True,
-            memory_config={
-                "provider": "mem0",
-                "config": {"user_id": USER_ID}
-            }
+            memory_config={"provider": "mem0", "config": {"user_id": USER_ID}},
         )
         result = crew.kickoff()
 
         # Extract the text response from the complex result object
-        if hasattr(result, 'raw'):
+        if hasattr(result, "raw"):
             return result.raw
-        elif isinstance(result, dict) and 'raw' in result:
-            return result['raw']
-        elif isinstance(result, dict) and 'tasks_output' in result:
-            outputs = result['tasks_output']
+        elif isinstance(result, dict) and "raw" in result:
+            return result["raw"]
+        elif isinstance(result, dict) and "tasks_output" in result:
+            outputs = result["tasks_output"]
             if outputs and isinstance(outputs, list) and len(outputs) > 0:
-                return outputs[0].get('raw', str(result))
+                return outputs[0].get("raw", str(result))
 
         # Fallback to string representation if we can't extract the raw response
         return str(result)
@@ -204,10 +196,7 @@ def get_agent_response(user_input):
 def speak_response(text):
     print(f"🤖 Agent: {text}")
     audio = tts_client.text_to_speech.convert(
-        text=text,
-        voice_id="JBFqnCBsd6RMkjVDRZzb",
-        model_id="eleven_multilingual_v2",
-        output_format="mp3_44100_128"
+        text=text, voice_id="JBFqnCBsd6RMkjVDRZzb", model_id="eleven_multilingual_v2", output_format="mp3_44100_128"
     )
     play(audio)
 
@@ -220,7 +209,7 @@ def run_voice_agent():
             record_audio(tmp_audio.name)
             try:
                 user_text = transcribe_whisper(tmp_audio.name)
-                if user_text.lower() in ['exit', 'quit', 'stop']:
+                if user_text.lower() in ["exit", "quit", "stop"]:
                     print("👋 Exiting.")
                     break
                 response = get_agent_response(user_text)
