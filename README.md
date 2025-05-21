@@ -93,6 +93,16 @@ Install sdk via npm:
 npm install mem0ai
 ```
 
+## Quick Installation
+
+For a streamlined setup, you can use the `install_mem0.sh` script located in the root of the repository. This script will check for necessary prerequisites (Python, pip, Poetry) and install all required dependencies.
+
+To use it, navigate to the repository's root directory and run:
+
+```bash
+./install_mem0.sh
+```
+
 ### Basic Usage
 
 Mem0 requires an LLM to function, with `gpt-4o-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
