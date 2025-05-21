@@ -1189,7 +1189,6 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}")
             response = ""
         
         try:
