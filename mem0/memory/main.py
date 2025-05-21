@@ -562,7 +562,7 @@ class Memory(MemoryBase):
 
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, limit=limit)
-        actual_memories = memories_result[0] if isinstance(memories_result, tuple) and len(memories_result) > 0 else memories_result
+        actual_memories = memories_result[0] if isinstance(memories_result, (list, tuple)) and len(memories_result) > 0 and isinstance(memories_result[0], list) else memories_result
 
         promoted_payload_keys = [
             "user_id", "agent_id", "run_id",
