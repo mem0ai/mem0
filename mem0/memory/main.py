@@ -335,7 +335,7 @@ class Memory(MemoryBase):
             new_retrieved_facts = []
 
         if not new_retrieved_facts:
-            logger.info("No new facts retrieved from input. Skipping memory update LLM call.")
+            logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
             return []
 
         retrieved_old_memory = []
