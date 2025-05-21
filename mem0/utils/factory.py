@@ -98,9 +98,8 @@ class VectorStoreFactory:
             return vector_store_instance(**config)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
-        
+
     @classmethod
     def reset(cls, instance):
         instance.reset()
         return instance
-        

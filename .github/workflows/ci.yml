@@ -56,6 +56,7 @@ jobs:
         run: |
           make install_all
           pip install -e ".[test]"
+          pip install pinecone pinecone-text
         if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |

@@ -44,31 +44,14 @@ DEFAULT_CONFIG = {
             "user": POSTGRES_USER,
             "password": POSTGRES_PASSWORD,
             "collection_name": POSTGRES_COLLECTION_NAME,
-        }
+        },
     },
     "graph_store": {
         "provider": "neo4j",
-        "config": {
-            "url": NEO4J_URI,
-            "username": NEO4J_USERNAME,
-            "password": NEO4J_PASSWORD
-        }
+        "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
     },
-    "llm": {
-        "provider": "openai",
-        "config": {
-            "api_key": OPENAI_API_KEY,
-            "temperature": 0.2,
-            "model": "gpt-4o"
-        }
-    },
-    "embedder": {
-        "provider": "openai",
-        "config": {
-            "api_key": OPENAI_API_KEY,
-            "model": "text-embedding-3-small"
-        }
-    },
+    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4o"}},
+    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
     "history_db_path": HISTORY_DB_PATH,
 }
 
@@ -115,9 +98,7 @@ def set_config(config: Dict[str, Any]):
 def add_memory(memory_create: MemoryCreate):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
-        raise HTTPException(
-            status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required."
-        )
+        raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
 
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
@@ -138,7 +119,9 @@ def get_all_memories(
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None}
+        params = {
+            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
+        }
         return MEMORY_INSTANCE.get_all(**params)
     except Exception as e:
         logging.exception("Error in get_all_memories:")
@@ -207,7 +190,9 @@ def delete_all_memories(
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None}
+        params = {
+            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
+        }
         MEMORY_INSTANCE.delete_all(**params)
         return {"message": "All relevant memories deleted"}
     except Exception as e:
@@ -229,4 +214,4 @@ def reset_memory():
 @app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)
 def home():
     """Redirect to the OpenAPI documentation."""
-    return RedirectResponse(url='/docs')
+    return RedirectResponse(url="/docs")
