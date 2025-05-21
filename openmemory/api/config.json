@@ -1,0 +1,13 @@
+{
+    "mem0": {
+        "llm": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "max_tokens": 2000,
+                "api_key": "env:API_KEY"
+            }
+        }
+    }
+}
