@@ -41,3 +41,12 @@ clean:
 
 test:
 	hatch run test
+
+test-py-3.9:
+	hatch run test_39:test
+
+test-py-3.10:
+	hatch run test_310:test
+
+test-py-3.11:
+	hatch run test_311:test
