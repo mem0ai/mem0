@@ -45,22 +45,22 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
-                      "features/platform-overview",
-                      "features/advanced-retrieval",
-                      "features/criteria-retrieval",
-                      "features/contextual-add",
-                      "features/multimodal-support",
-                      "features/timestamp",
-                      "features/selective-memory",
-                      "features/custom-categories",
-                      "features/custom-instructions",
-                      "features/direct-import",
-                      "features/async-client",
-                      "features/memory-export",
-                      "features/webhooks",
-                      "features/graph-memory",
-                      "features/feedback-mechanism",
-                      "features/expiration-date"
+                      "platform/features/platform-overview",
+                      "platform/features/advanced-retrieval",
+                      "platform/features/criteria-retrieval",
+                      "platform/features/contextual-add",
+                      "platform/features/multimodal-support",
+                      "platform/features/timestamp",
+                      "platform/features/selective-memory",
+                      "platform/features/custom-categories",
+                      "platform/features/custom-instructions",
+                      "platform/features/direct-import",
+                      "platform/features/async-client",
+                      "platform/features/memory-export",
+                      "platform/features/webhooks",
+                      "platform/features/graph-memory",
+                      "platform/features/feedback-mechanism",
+                      "platform/features/expiration-date"
                     ]
                   }
                 ]
@@ -77,10 +77,10 @@
                     "icon": "wrench",
                     "pages": [
                       "open-source/features/async-memory",
-                      "features/openai_compatibility",
-                      "features/custom-fact-extraction-prompt",
-                      "features/custom-update-memory-prompt",
-                      "open-source/multimodal-support",
+                      "open-source/features/openai_compatibility",
+                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-update-memory-prompt",
+                      "open-source/features/multimodal-support",
                       "open-source/features/rest-api"
                     ]
                   },
