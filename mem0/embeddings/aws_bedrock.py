@@ -23,12 +23,12 @@ class AWSBedrockEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "amazon.titan-embed-text-v1"
-        
+
         # Get AWS config from environment variables or use defaults
         aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
         aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
         aws_region = os.environ.get("AWS_REGION", "us-west-2")
-        
+
         # Check if AWS config is provided in the config
         if hasattr(self.config, "aws_access_key_id"):
             aws_access_key = self.config.aws_access_key_id
@@ -36,7 +36,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
             aws_secret_key = self.config.aws_secret_access_key
         if hasattr(self.config, "aws_region"):
             aws_region = self.config.aws_region
-            
+
         self.client = boto3.client(
             "bedrock-runtime",
             region_name=aws_region,

@@ -242,6 +242,7 @@ class TestAddMemory:
                 infer=True,
             )
 
+        # Verify
         assert mock_memory.llm.generate_response.call_count == 2
         assert add_result is not None
         assert "results" in add_result
@@ -284,7 +285,11 @@ class TestAddMemory:
         ]
         actual_update_calls = [call[1] for call in mock_memory.vector_store.update.call_args_list]
         actual_update_call_values = [
-            {"vector_id": call_params["vector_id"], "data": call_params["payload"]["data"], "hash": call_params["payload"]["hash"]}
+            {
+                "vector_id": call_params["vector_id"],
+                "data": call_params["payload"]["data"],
+                "hash": call_params["payload"]["hash"],
+            }
             for call_params in actual_update_calls
         ]
         assert len(actual_update_calls) == len(expected_update_call_values)
@@ -364,6 +369,7 @@ class TestAddMemory:
                 infer=True,
             )
 
+        # Verify
         assert mock_memory.llm.generate_response.call_count == 2
         assert add_result is not None
         assert "results" in add_result
@@ -462,7 +468,11 @@ class TestAsyncAddMemory:
         ]
         actual_update_calls = [call[1] for call in mock_async_memory.vector_store.update.call_args_list]
         actual_update_call_values = [
-            {"vector_id": call_params["vector_id"], "data": call_params["payload"]["data"], "hash": call_params["payload"]["hash"]}
+            {
+                "vector_id": call_params["vector_id"],
+                "data": call_params["payload"]["data"],
+                "hash": call_params["payload"]["hash"],
+            }
             for call_params in actual_update_calls
         ]
         assert len(actual_update_calls) == len(expected_update_call_values)
