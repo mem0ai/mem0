@@ -2316,6 +2316,11 @@
 										"message": {
 											"type": "string",
 											"example": "Organization created successfully."
+										},
+										"org_id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "Unique identifier for the organization"
 										}
 									}
 								}
@@ -3199,6 +3204,11 @@
 										"message": {
 											"type": "string",
 											"example": "Project created successfully."
+										},
+										"project_id": {
+											"type": "string",
+											"format": "uuid",
+											"description": "Unique identifier for the project"
 										}
 									}
 								}
