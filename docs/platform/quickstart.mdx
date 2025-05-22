@@ -142,7 +142,7 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </CodeGroup>
 
 <Note>
-    Messages passed along with `user_id`, `run_id`, or `app_id` are stored as user memories, while messages from the assistant are excluded from memory. To store messages for the assistant, use `agent_id` exclusively and avoid including other IDs, such as user_id, alongside it. This ensures the memory is properly attributed to the assistant.
+    When using `user_id`, only memories from messages with `"role": "user"` are stored. Messages from the assistant are excluded. When using `agent_id`, only memories from messages with `"role": "assistant"` are stored. If you provide both `user_id` and `agent_id` in the same call, each message will be stored with the appropriate ID based on its role. This role-based separation prevents the memories of one role from influencing the memories of a different role, ensuring cleaner and more reliable memory management.
 </Note>
 
 <Note>Metadata allows you to store structured information (location, timestamp, user state) with memories. Add it during creation to enable precise filtering and retrieval during searches.</Note>
