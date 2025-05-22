@@ -64,7 +64,10 @@ client = AsyncMemoryClient()
 
 
 async def main():
-    response = await client.add("I'm travelling to SF", user_id="john")
+    messages = [
+        {"role": "user", "content": "I'm travelling to SF"}
+    ]
+    response = await client.add(messages, user_id="john")
     print(response)
 
 await main()
@@ -1547,11 +1550,17 @@ Fun fact: You can also delete the memory using the `add()` method by passing a n
 <CodeGroup>
 
 ```python Python
-client.add("Delete all of my food preferences", user_id="alex")
+messages = [
+    {"role": "user", "content": "Delete all of my food preferences"}
+]
+client.add(messages, user_id="alex")
 ```
 
 ```javascript JavaScript
-client.add("Delete all of my food preferences", { user_id: "alex" })
+const messages = [
+    {"role": "user", "content": "Delete all of my food preferences"}
+]
+client.add(messages, { user_id: "alex" })
     .then(result => console.log(result))
     .catch(error => console.error(error));
 ```
