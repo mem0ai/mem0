@@ -142,7 +142,20 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </CodeGroup>
 
 <Note>
-    When using `user_id`, only memories from messages with `"role": "user"` are stored. Messages from the assistant are excluded. When using `agent_id`, only memories from messages with `"role": "assistant"` are stored. If you provide both `user_id` and `agent_id` in the same call, each message will be stored with the appropriate ID based on its role. This role-based separation prevents the memories of one role from influencing the memories of a different role, ensuring cleaner and more reliable memory management.
+    When passing `user_id`, memories are primarily created based on user messages, but may be influenced by assistant messages for contextual understanding. For example, in a conversation about food preferences, both the user's stated preferences and their responses to the assistant's questions would form user memories. Similarly, when using `agent_id`, assistant messages are prioritized, but user messages might influence the agent's memories based on context. This approach ensures comprehensive memory creation while maintaining appropriate attribution to either users or agents.
+    
+    **Example:**
+    ```
+    User: My favorite cuisine is Italian
+    Assistant: Nice! What about Indian cuisine?
+    User: Don't like it much since I cannot eat spicy food
+    
+    Resulting user memories:
+    memory1 - Likes Italian food
+    memory2 - Doesn't like Indian food since cannot eat spicy 
+    
+    (memory2 comes from user's response about Indian cuisine)
+    ```
 </Note>
 
 <Note>Metadata allows you to store structured information (location, timestamp, user state) with memories. Add it during creation to enable precise filtering and retrieval during searches.</Note>
