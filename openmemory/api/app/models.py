@@ -56,6 +56,17 @@ class App(Base):
     memories = relationship("Memory", back_populates="app")
 
 
+class Config(Base):
+    __tablename__ = "configs"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    key = Column(String, unique=True, nullable=False, index=True)
+    value = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=get_current_utc_time)
+    updated_at = Column(DateTime,
+                        default=get_current_utc_time,
+                        onupdate=get_current_utc_time)
+
+
 class Memory(Base):
     __tablename__ = "memories"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())

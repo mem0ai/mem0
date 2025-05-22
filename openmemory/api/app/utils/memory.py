@@ -2,6 +2,8 @@ import os
 import json
 
 from mem0 import Memory
+from app.database import SessionLocal
+from app.models import Config as ConfigModel
 
 
 memory_client = None
@@ -38,54 +40,108 @@ def get_memory_client(custom_instructions: str = None):
             },
         }
         
-        # Load configuration from config.json
+        # Load configuration from database
         try:
-            with open("/usr/src/openmemory/config.json", "r") as f:
-                json_config = json.load(f)
+            db = SessionLocal()
+            db_config = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
+            
+            if db_config:
+                json_config = db_config.value
                 
-            # Add configurations from config.json
-            if "mem0" in json_config:
-                mem0_config = json_config["mem0"]
-                
-                # Add LLM configuration if available
-                if "llm" in mem0_config:
-                    config["llm"] = mem0_config["llm"]
+                # Add configurations from the database
+                if "mem0" in json_config:
+                    mem0_config = json_config["mem0"]
                     
-                    # Handle API key - support both direct keys and environment variables
-                    if "config" in config["llm"] and "api_key" in config["llm"]["config"]:
-                        api_key = config["llm"]["config"]["api_key"]
+                    # Add LLM configuration if available
+                    if "llm" in mem0_config:
+                        config["llm"] = mem0_config["llm"]
                         
-                        # If API key is set to load from environment
-                        if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
-                            env_var = api_key.split(":", 1)[1]
-                            env_api_key = os.environ.get(env_var)
-                            if env_api_key:
-                                config["llm"]["config"]["api_key"] = env_api_key
-                            else:
-                                raise Exception(f"{env_var} environment variable not set")
-                        # Otherwise, use the API key directly as provided in the config
-                
-                # Add Embedder configuration if available
-                if "embedder" in mem0_config:
-                    config["embedder"] = mem0_config["embedder"]
+                        # Handle API key - support both direct keys and environment variables
+                        if "config" in config["llm"] and "api_key" in config["llm"]["config"]:
+                            api_key = config["llm"]["config"]["api_key"]
+                            
+                            # If API key is set to load from environment
+                            if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
+                                env_var = api_key.split(":", 1)[1]
+                                env_api_key = os.environ.get(env_var)
+                                if env_api_key:
+                                    config["llm"]["config"]["api_key"] = env_api_key
+                                else:
+                                    raise Exception(f"{env_var} environment variable not set")
+                            # Otherwise, use the API key directly as provided in the config
                     
-                    # Handle API key - support both direct keys and environment variables
-                    if "config" in config["embedder"] and "api_key" in config["embedder"]["config"]:
-                        api_key = config["embedder"]["config"]["api_key"]
+                    # Add Embedder configuration if available
+                    if "embedder" in mem0_config:
+                        config["embedder"] = mem0_config["embedder"]
                         
-                        # If API key is set to load from environment
-                        if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
-                            env_var = api_key.split(":", 1)[1]
-                            env_api_key = os.environ.get(env_var)
-                            if env_api_key:
-                                config["embedder"]["config"]["api_key"] = env_api_key
-                            else:
-                                raise Exception(f"{env_var} environment variable not set")
-                        # Otherwise, use the API key directly as provided in the config
+                        # Handle API key - support both direct keys and environment variables
+                        if "config" in config["embedder"] and "api_key" in config["embedder"]["config"]:
+                            api_key = config["embedder"]["config"]["api_key"]
+                            
+                            # If API key is set to load from environment
+                            if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
+                                env_var = api_key.split(":", 1)[1]
+                                env_api_key = os.environ.get(env_var)
+                                if env_api_key:
+                                    config["embedder"]["config"]["api_key"] = env_api_key
+                                else:
+                                    raise Exception(f"{env_var} environment variable not set")
+                            # Otherwise, use the API key directly as provided in the config
+            else:
+                # If no config in database, try to load from file for backwards compatibility
+                try:
+                    with open("/usr/src/openmemory/config.json", "r") as f:
+                        file_config = json.load(f)
+                    
+                    # Add configurations from config.json
+                    if "mem0" in file_config:
+                        mem0_config = file_config["mem0"]
+                        
+                        # Add LLM configuration if available
+                        if "llm" in mem0_config:
+                            config["llm"] = mem0_config["llm"]
+                            
+                            # Handle API key
+                            if "config" in config["llm"] and "api_key" in config["llm"]["config"]:
+                                api_key = config["llm"]["config"]["api_key"]
+                                
+                                if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
+                                    env_var = api_key.split(":", 1)[1]
+                                    env_api_key = os.environ.get(env_var)
+                                    if env_api_key:
+                                        config["llm"]["config"]["api_key"] = env_api_key
+                                    else:
+                                        raise Exception(f"{env_var} environment variable not set")
+                        
+                        # Add Embedder configuration if available
+                        if "embedder" in mem0_config:
+                            config["embedder"] = mem0_config["embedder"]
+                            
+                            # Handle API key
+                            if "config" in config["embedder"] and "api_key" in config["embedder"]["config"]:
+                                api_key = config["embedder"]["config"]["api_key"]
+                                
+                                if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
+                                    env_var = api_key.split(":", 1)[1]
+                                    env_api_key = os.environ.get(env_var)
+                                    if env_api_key:
+                                        config["embedder"]["config"]["api_key"] = env_api_key
+                                    else:
+                                        raise Exception(f"{env_var} environment variable not set")
+                    
+                    # Save the file config to database for future use
+                    db_config = ConfigModel(key="main", value=file_config)
+                    db.add(db_config)
+                    db.commit()
+                except Exception as e:
+                    print(f"Error loading config.json: {e}")
+                    # Continue with basic configuration if config.json can't be loaded
+                    
+            db.close()
                             
         except Exception as e:
-            print(f"Error loading config.json: {e}")
-            # Continue with basic configuration if config.json can't be loaded
+            print(f"Error loading configuration: {e}")
+            # Continue with basic configuration if database config can't be loaded
 
         memory_client = Memory.from_config(config_dict=config)
     except Exception as e:
