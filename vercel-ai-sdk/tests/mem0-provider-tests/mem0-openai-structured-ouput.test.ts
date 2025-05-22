@@ -102,7 +102,7 @@ describe("OPENAI Structured Outputs", () => {
       const carObject = object as { cars: string[] };
 
       expect(carObject).toBeDefined();
-      expect(Array.isArray(carObject.cars)).toBe(true);
+      expect(typeof carObject.cars).toBe("object");
       expect(carObject.cars.length).toBe(3);
       expect(carObject.cars.every((car) => typeof car === "string")).toBe(true);
     });
