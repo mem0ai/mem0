@@ -1,0 +1,69 @@
+---
+title: Multimodal Support
+description: Integrate images into your interactions with Mem0
+icon: "image"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+Mem0 extends its capabilities beyond text by supporting multimodal data. With this feature, users can seamlessly integrate images into their interactions—allowing Mem0 to extract relevant information.
+
+## How It Works
+
+When a user submits an image, Mem0 processes it to extract textual information and other pertinent details. These details are then added to the user's memory, enhancing the system's ability to understand and recall multimodal inputs.
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+client = Memory()
+
+messages = [
+    {
+        "role": "user",
+        "content": "Hi, my name is Alice."
+    },
+    {
+        "role": "assistant",
+        "content": "Nice to meet you, Alice! What do you like to eat?"
+    },
+    {
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://www.superhealthykids.com/wp-content/uploads/2021/10/best-veggie-pizza-featured-image-square-2.jpg"
+            }
+        }
+    },
+]
+
+# Calling the add method to ingest messages into the memory system
+client.add(messages, user_id="alice")
+```
+
+```json Output
+{
+  "results": [
+    {
+      "memory": "Name is Alice",
+      "event": "ADD",
+      "id": "7ae113a3-3cb5-46e9-b6f7-486c36391847"
+    },
+    {
+      "memory": "Likes large pizza with toppings including cherry tomatoes, black olives, green spinach, yellow bell peppers, diced ham, and sliced mushrooms",
+      "event": "ADD",
+      "id": "56545065-7dee-4acf-8bf2-a5b2535aabb3"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+Using these methods, you can seamlessly incorporate various media types into your interactions, further enhancing Mem0's multimodal capabilities.
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
