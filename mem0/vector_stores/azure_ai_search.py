@@ -337,7 +337,7 @@ class AzureAISearch(VectorStoreBase):
         for result in search_results:
             payload = json.loads(result["payload"])
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
-        return [results]
+        return results
 
     def __del__(self):
         """Close the search client when the object is deleted."""
