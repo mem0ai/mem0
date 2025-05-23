@@ -248,7 +248,9 @@
                   "integrations/elevenlabs",
                   "integrations/pipecat",
                   "integrations/agno",
-                  "integrations/keywords"
+                  "integrations/keywords",
+                  "integrations/raycast",
+                  "integrations/mastra"
                 ]
               }
             ]
