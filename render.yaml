@@ -64,11 +64,8 @@ services:
     buildCommand: "pnpm install && pnpm build"
     startCommand: "pnpm start"
     envVars:
-      # Supabase Configuration (Public keys - Set in dashboard)
-      - key: NEXT_PUBLIC_SUPABASE_URL
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        sync: false
+      # Link the environment group created in Render dashboard
+      - fromGroup: frontend-public-env 
       
       # Backend API URL - Automatically set from backend service
       - key: NEXT_PUBLIC_API_URL
