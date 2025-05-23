@@ -1,0 +1,84 @@
+---
+title: LM Studio
+---
+
+<Snippet file="paper-release.mdx" />
+
+To use LM Studio with Mem0, you'll need to have LM Studio running locally with its server enabled. LM Studio provides a way to run local LLMs with an OpenAI-compatible API.
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
+
+config = {
+    "llm": {
+        "provider": "lmstudio",
+        "config": {
+            "model": "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-IQ2_M.gguf",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "lmstudio_base_url": "http://localhost:1234/v1", # default LM Studio API URL
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+</CodeGroup>
+
+### Running Completely Locally
+
+You can also use LM Studio for both LLM and embedding to run Mem0 entirely locally:
+
+```python
+from mem0 import Memory
+
+# No external API keys needed!
+config = {
+    "llm": {
+        "provider": "lmstudio"
+    },
+    "embedder": {
+        "provider": "lmstudio"
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice123", metadata={"category": "movies"})
+```
+
+<Note>
+  When using LM Studio for both LLM and embedding, make sure you have:
+  1. An LLM model loaded for generating responses
+  2. An embedding model loaded for vector embeddings
+  3. The server enabled with the correct endpoints accessible
+</Note>
+
+<Note>
+  To use LM Studio, you need to:
+  1. Download and install [LM Studio](https://lmstudio.ai/)
+  2. Start a local server from the "Server" tab
+  3. Set the appropriate `lmstudio_base_url` in your configuration (default is usually http://localhost:1234/v1)
+</Note>
+
+## Config
+
+All available parameters for the `lmstudio` config are present in [Master List of All Params in Config](../config).

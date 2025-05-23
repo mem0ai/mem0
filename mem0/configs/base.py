@@ -6,8 +6,11 @@ from pydantic import BaseModel, Field
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.graphs.configs import GraphStoreConfig
 from mem0.llms.configs import LlmConfig
-from mem0.memory.setup import mem0_dir
 from mem0.vector_stores.configs import VectorStoreConfig
+
+# Set up the directory path
+home_dir = os.path.expanduser("~")
+mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
 
 
 class MemoryItem(BaseModel):
@@ -46,10 +49,14 @@ class MemoryConfig(BaseModel):
     )
     version: str = Field(
         description="The version of the API",
-        default="v1.0",
+        default="v1.1",
     )
-    custom_prompt: Optional[str] = Field(
-        description="Custom prompt for the memory",
+    custom_fact_extraction_prompt: Optional[str] = Field(
+        description="Custom prompt for the fact extraction",
+        default=None,
+    )
+    custom_update_memory_prompt: Optional[str] = Field(
+        description="Custom prompt for the update memory",
         default=None,
     )
 

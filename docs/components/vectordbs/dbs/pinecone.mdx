@@ -1,0 +1,92 @@
+[Pinecone](https://www.pinecone.io/) is a fully managed vector database designed for machine learning applications, offering high performance vector search with low latency at scale. It's particularly well-suited for semantic search, recommendation systems, and other AI-powered applications.
+
+> **Note**: Before configuring Pinecone, you need to select an embedding model (e.g., OpenAI, Cohere, or custom models) and ensure the `embedding_model_dims` in your config matches your chosen model's dimensions. For example, OpenAI's text-embedding-3-small uses 1536 dimensions.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+os.environ["PINECONE_API_KEY"] = "your-api-key"
+
+# Example using serverless configuration
+config = {
+    "vector_store": {
+        "provider": "pinecone",
+        "config": {
+            "collection_name": "testing",
+            "embedding_model_dims": 1536,  # Matches OpenAI's text-embedding-3-small
+            "serverless_config": {
+                "cloud": "aws",  # Choose between 'aws' or 'gcp' or 'azure'
+                "region": "us-east-1"
+            },
+            "metric": "cosine"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Pinecone:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | Name of the index/collection | Required |
+| `embedding_model_dims` | Dimensions of the embedding model (must match your chosen embedding model) | Required |
+| `client` | Existing Pinecone client instance | `None` |
+| `api_key` | API key for Pinecone | Environment variable: `PINECONE_API_KEY` |
+| `environment` | Pinecone environment | `None` |
+| `serverless_config` | Configuration for serverless deployment (AWS or GCP or Azure) | `None` |
+| `pod_config` | Configuration for pod-based deployment | `None` |
+| `hybrid_search` | Whether to enable hybrid search | `False` |
+| `metric` | Distance metric for vector similarity | `"cosine"` |
+| `batch_size` | Batch size for operations | `100` |
+
+> **Important**: You must choose either `serverless_config` or `pod_config` for your deployment, but not both.
+
+#### Serverless Config Example
+```python
+config = {
+    "vector_store": {
+        "provider": "pinecone",
+        "config": {
+            "collection_name": "memory_index",
+            "embedding_model_dims": 1536,  # For OpenAI's text-embedding-3-small
+            "serverless_config": {
+                "cloud": "aws",  # or "gcp" or "azure"
+                "region": "us-east-1"  # Choose appropriate region
+            }
+        }
+    }
+}
+```
+
+#### Pod Config Example
+```python
+config = {
+    "vector_store": {
+        "provider": "pinecone",
+        "config": {
+            "collection_name": "memory_index",
+            "embedding_model_dims": 1536,  # For OpenAI's text-embedding-ada-002
+            "pod_config": {
+                "environment": "gcp-starter",
+                "replicas": 1,
+                "pod_type": "starter"
+            }
+        }
+    }
+}
+```

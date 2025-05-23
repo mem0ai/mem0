@@ -1,0 +1,149 @@
+---
+title: FAQs
+icon: "question"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+<AccordionGroup>
+    <Accordion title="How does Mem0 work?">
+        Mem0 utilizes a sophisticated hybrid database system to efficiently manage and retrieve memories for AI agents and assistants. Each memory is linked to a unique identifier, such as a user ID or agent ID, enabling Mem0 to organize and access memories tailored to specific individuals or contexts.
+
+        When a message is added to Mem0 via the `add` method, the system extracts pertinent facts and preferences, distributing them across various data stores: a vector database and a graph database. This hybrid strategy ensures that diverse types of information are stored optimally, facilitating swift and effective searches.
+
+        When an AI agent or LLM needs to access memories, it employs the `search` method. Mem0 conducts a comprehensive search across these data stores, retrieving relevant information from each.
+
+        The retrieved memories can be seamlessly integrated into the LLM's prompt as required, enhancing the personalization and relevance of responses.
+  </Accordion>
+
+    <Accordion title="What are the key features of Mem0?">
+        - **User, Session, and AI Agent Memory**: Retains information across sessions and interactions for users and AI agents, ensuring continuity and context.
+        - **Adaptive Personalization**: Continuously updates memories based on user interactions and feedback.
+        - **Developer-Friendly API**: Offers a straightforward API for seamless integration into various applications.
+        - **Platform Consistency**: Ensures consistent behavior and data across different platforms and devices.
+        - **Managed Service**: Provides a hosted solution for easy deployment and maintenance.
+        - **Save Costs**: Saves costs by adding relevent memories instead of complete transcripts to context window
+    </Accordion>
+
+    <Accordion title="How Mem0 is different from traditional RAG?">
+        Mem0's memory implementation for Large Language Models (LLMs) offers several advantages over Retrieval-Augmented Generation (RAG):
+
+        - **Entity Relationships**: Mem0 can understand and relate entities across different interactions, unlike RAG which retrieves information from static documents. This leads to a deeper understanding of context and relationships.
+
+        - **Contextual Continuity**: Mem0 retains information across sessions, maintaining continuity in conversations and interactions, which is essential for long-term engagement applications like virtual companions or personalized learning assistants.
+
+        - **Adaptive Learning**: Mem0 improves its personalization based on user interactions and feedback, making the memory more accurate and tailored to individual users over time.
+
+        - **Dynamic Updates**: Mem0 can dynamically update its memory with new information and interactions, unlike RAG which relies on static data. This allows for real-time adjustments and improvements, enhancing the user experience.
+
+        These advanced memory capabilities make Mem0 a powerful tool for developers aiming to create personalized and context-aware AI applications.
+    </Accordion>
+
+
+    <Accordion title="What are the common use-cases of Mem0?">
+        - **Personalized Learning Assistants**: Long-term memory allows learning assistants to remember user preferences, strengths and weaknesses, and progress, providing a more tailored and effective learning experience.
+
+        - **Customer Support AI Agents**: By retaining information from previous interactions, customer support bots can offer more accurate and context-aware assistance, improving customer satisfaction and reducing resolution times.
+
+        - **Healthcare Assistants**: Long-term memory enables healthcare assistants to keep track of patient history, medication schedules, and treatment plans, ensuring personalized and consistent care.
+
+        - **Virtual Companions**: Virtual companions can use long-term memory to build deeper relationships with users by remembering personal details, preferences, and past conversations, making interactions more delightful.
+
+        - **Productivity Tools**: Long-term memory helps productivity tools remember user habits, frequently used documents, and task history, streamlining workflows and enhancing efficiency.
+
+        - **Gaming AI**: In gaming, AI with long-term memory can create more immersive experiences by remembering player choices, strategies, and progress, adapting the game environment accordingly.
+
+    </Accordion>
+
+    <Accordion title="Why aren't my memories being created?">
+        Mem0 uses a sophisticated classification system to determine which parts of text should be extracted as memories. Not all text content will generate memories, as the system is designed to identify specific types of memorable information.
+        There are several scenarios where mem0 may return an empty list of memories:
+
+        - When users input definitional questions (e.g., "What is backpropagation?")
+        - For general concept explanations that don't contain personal or experiential information
+        - Technical definitions and theoretical explanations
+        - General knowledge statements without personal context
+        - Abstract or theoretical content
+
+        Example Scenarios
+
+        ```
+        Input: "What is machine learning?"
+        No memories extracted - Content is definitional and does not meet memory classification criteria.
+
+        Input: "Yesterday I learned about machine learning in class"
+        Memory extracted - Contains personal experience and temporal context.
+        ```
+
+        Best Practices
+
+        To ensure successful memory extraction:
+        - Include temporal markers (when events occurred)
+        - Add personal context or experiences
+        - Frame information in terms of real-world applications or experiences
+        - Include specific examples or cases rather than general definitions
+    </Accordion>
+
+    <Accordion title="How do I configure Mem0 for AWS Lambda?">
+        When deploying Mem0 on AWS Lambda, you'll need to modify the storage directory configuration due to Lambda's file system restrictions. By default, Lambda only allows writing to the `/tmp` directory.
+
+        To configure Mem0 for AWS Lambda, set the `MEM0_DIR` environment variable to point to a writable directory in `/tmp`:
+
+        ```bash
+        MEM0_DIR=/tmp/.mem0
+        ```
+
+        If you're not using environment variables, you'll need to modify the storage path in your code:
+
+        ```python
+        # Change from
+        home_dir = os.path.expanduser("~")
+        mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
+
+        # To
+        mem0_dir = os.environ.get("MEM0_DIR", "/tmp/.mem0")
+        ```
+
+        Note that the `/tmp` directory in Lambda has a size limit of 512MB and its contents are not persistent between function invocations.
+    </Accordion>
+
+    <Accordion title="How can I use metadata with Mem0?">
+        Metadata is the recommended approach for incorporating additional information with Mem0. You can store any type of structured data as metadata during the `add` method, such as location, timestamp, weather conditions, user state, or application context. This enriches your memories with valuable contextual information that can be used for more precise retrieval and filtering.
+
+        During retrieval, you have two main approaches for using metadata:
+
+        1. **Pre-filtering**: Include metadata parameters in your initial search query to narrow down the memory pool
+        2. **Post-processing**: Retrieve a broader set of memories based on query, then apply metadata filters to refine the results
+
+        Examples of useful metadata you might store:
+
+        - **Contextual information**: Location, time, device type, application state
+        - **User attributes**: Preferences, skill levels, demographic information
+        - **Interaction details**: Conversation topics, sentiment, urgency levels
+        - **Custom tags**: Any domain-specific categorization relevant to your application
+
+        This flexibility allows you to create highly contextually aware AI applications that can adapt to specific user needs and situations. Metadata provides an additional dimension for memory retrieval, enabling more precise and relevant responses.
+    </Accordion>
+
+    <Accordion title="How do I disable telemetry in Mem0?">
+        To disable telemetry in Mem0, you can set the `MEM0_TELEMETRY` environment variable to `False`:
+
+        ```bash
+        MEM0_TELEMETRY=False
+        ```
+
+        You can also disable telemetry programmatically in your code:
+
+        ```python
+        import os
+        os.environ["MEM0_TELEMETRY"] = "False"
+        ```
+
+        Setting this environment variable will prevent Mem0 from collecting and sending any usage data, ensuring complete privacy for your application.
+    </Accordion>
+
+</AccordionGroup>
+
+
+

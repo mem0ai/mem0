@@ -104,12 +104,6 @@ class ChromaDB(VectorStoreBase):
         Returns:
             chromadb.Collection: The created or retrieved collection.
         """
-        # Skip creating collection if already exists
-        collections = self.list_cols()
-        for collection in collections:
-            if collection.name == name:
-                logging.debug(f"Collection {name} already exists. Skipping creation.")
-
         collection = self.client.get_or_create_collection(
             name=name,
             embedding_function=embedding_fn,
@@ -133,19 +127,22 @@ class ChromaDB(VectorStoreBase):
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
-    def search(self, query: List[list], limit: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(
+        self, query: str, vectors: List[list], limit: int = 5, filters: Optional[Dict] = None
+    ) -> List[OutputData]:
         """
         Search for similar vectors.
 
         Args:
-            query (List[list]): Query vector.
+            query (str): Query.
+            vectors (List[list]): List of vectors to search.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
 
         Returns:
             List[OutputData]: Search results.
         """
-        results = self.collection.query(query_embeddings=query, where=filters, n_results=limit)
+        results = self.collection.query(query_embeddings=vectors, where=filters, n_results=limit)
         final_results = self._parse_output(results)
         return final_results
 
@@ -224,3 +221,9 @@ class ChromaDB(VectorStoreBase):
         """
         results = self.collection.get(where=filters, limit=limit)
         return [self._parse_output(results)]
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.collection = self.create_col(self.collection_name)

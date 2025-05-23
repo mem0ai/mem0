@@ -5,7 +5,6 @@ import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.main import Memory
-from mem0.utils.factory import VectorStoreFactory
 
 
 @pytest.fixture(autouse=True)
@@ -18,16 +17,40 @@ def mock_openai():
 
 @pytest.fixture
 def memory_instance():
-    with patch("mem0.utils.factory.EmbedderFactory") as mock_embedder, patch(
-        "mem0.utils.factory.VectorStoreFactory"
-    ) as mock_vector_store, patch("mem0.utils.factory.LlmFactory") as mock_llm, patch(
-        "mem0.memory.telemetry.capture_event"
-    ), patch("mem0.memory.graph_memory.MemoryGraph"):
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.utils.factory.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+        patch("mem0.memory.graph_memory.MemoryGraph"),
+    ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
         mock_llm.create.return_value = Mock()
 
         config = MemoryConfig(version="v1.1")
+        config.graph_store.config = {"some_config": "value"}
+        return Memory(config)
+
+
+@pytest.fixture
+def memory_custom_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.utils.factory.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+        patch("mem0.memory.graph_memory.MemoryGraph"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(
+            version="v1.1",
+            custom_fact_extraction_prompt="custom prompt extracting memory",
+            custom_update_memory_prompt="custom prompt determining memory update",
+        )
         config.graph_store.config = {"some_config": "value"}
         return Memory(config)
 
@@ -41,13 +64,17 @@ def test_add(memory_instance, version, enable_graph):
 
     result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
 
-    assert "results" in result
-    assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
-    assert "relations" in result
-    assert result["relations"] == []
+    if enable_graph:
+        assert "results" in result
+        assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
+        assert "relations" in result
+        assert result["relations"] == []
+    else:
+        assert "results" in result
+        assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True
     )
 
     # Remove the conditional assertion for _add_to_graph
@@ -117,9 +144,9 @@ def test_search(memory_instance, version, enable_graph):
         assert result["results"][0]["score"] == 0.9
 
     memory_instance.vector_store.search.assert_called_once_with(
-        query=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
     )
-    memory_instance.embedding_model.embed.assert_called_once_with("test query")
+    memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
 
     if enable_graph:
         memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
@@ -172,22 +199,6 @@ def test_delete_all(memory_instance, version, enable_graph):
     assert result["message"] == "Memories deleted successfully!"
 
 
-def test_reset(memory_instance):
-    memory_instance.vector_store.delete_col = Mock()
-    # persisting vector store to make sure previous collection is deleted
-    initial_vector_store = memory_instance.vector_store
-    memory_instance.db.reset = Mock()
-
-    with patch.object(VectorStoreFactory, "create", return_value=Mock()) as mock_create:
-        memory_instance.reset()
-
-        initial_vector_store.delete_col.assert_called_once()
-        memory_instance.db.reset.assert_called_once()
-        mock_create.assert_called_once_with(
-            memory_instance.config.vector_store.provider, memory_instance.config.vector_store.config
-        )
-
-
 @pytest.mark.parametrize(
     "version, enable_graph, expected_result",
     [
@@ -235,3 +246,37 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
         memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
     else:
         memory_instance.graph.get_all.assert_not_called()
+
+
+def test_custom_prompts(memory_custom_instance):
+    messages = [{"role": "user", "content": "Test message"}]
+    memory_custom_instance.llm.generate_response = Mock()
+
+    with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
+        with patch(
+            "mem0.memory.main.get_update_memory_messages", return_value="custom update memory prompt"
+        ) as mock_get_update_memory_messages:
+            memory_custom_instance.add(messages=messages, user_id="test_user")
+
+            ## custom prompt
+            ##
+            mock_parse_messages.assert_called_once_with(messages)
+
+            memory_custom_instance.llm.generate_response.assert_any_call(
+                messages=[
+                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
+                    {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
+                ],
+                response_format={"type": "json_object"},
+            )
+
+            ## custom update memory prompt
+            ##
+            mock_get_update_memory_messages.assert_called_once_with(
+                [], [], memory_custom_instance.config.custom_update_memory_prompt
+            )
+
+            memory_custom_instance.llm.generate_response.assert_any_call(
+                messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
+                response_format={"type": "json_object"},
+            )

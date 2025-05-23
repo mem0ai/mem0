@@ -1,0 +1,142 @@
+---
+title: Keywords AI
+---
+
+<Snippet file="paper-release.mdx" />
+
+Build AI applications with persistent memory and comprehensive LLM observability by integrating Mem0 with Keywords AI.
+
+## Overview
+
+Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users. Keywords AI provides complete LLM observability.
+
+Combining Mem0 with Keywords AI allows you to:
+1. Add persistent memory to your AI applications
+2. Track interactions across sessions
+3. Monitor memory usage and retrieval with Keywords AI observability
+4. Optimize token usage and reduce costs
+
+<Note>
+You can get your Mem0 API key, user_id, and org_id from the [Mem0 dashboard](https://app.mem0.ai/). These are required for proper integration.
+</Note>
+
+## Setup and Configuration
+
+Install the necessary libraries:
+
+```bash
+pip install mem0 keywordsai-sdk
+```
+
+Set up your environment variables:
+
+```python
+import os
+
+# Set your API keys
+os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+os.environ["KEYWORDSAI_API_KEY"] = "your-keywords-api-key"
+os.environ["KEYWORDSAI_BASE_URL"] = "https://api.keywordsai.co/api/"
+```
+
+## Basic Integration Example
+
+Here's a simple example of using Mem0 with Keywords AI:
+
+```python
+from mem0 import Memory
+import os
+
+# Configuration
+api_key = os.getenv("MEM0_API_KEY")
+keywordsai_api_key = os.getenv("KEYWORDSAI_API_KEY")
+base_url = os.getenv("KEYWORDSAI_BASE_URL") # "https://api.keywordsai.co/api/"
+
+# Set up Mem0 with Keywords AI as the LLM provider
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.0,
+            "api_key": keywordsai_api_key,
+            "openai_base_url": base_url,
+        },
+    }
+}
+
+# Initialize Memory
+memory = Memory.from_config(config_dict=config)
+
+# Add a memory
+result = memory.add(
+    "I like to take long walks on weekends.",
+    user_id="alice",
+    metadata={"category": "hobbies"},
+)
+
+print(result)
+```
+
+## Advanced Integration with OpenAI SDK
+
+For more advanced use cases, you can integrate Keywords AI with Mem0 through the OpenAI SDK:
+
+```python
+from openai import OpenAI
+import os
+import json
+
+# Initialize client
+client = OpenAI(
+    api_key=os.environ.get("KEYWORDSAI_API_KEY"),
+    base_url=os.environ.get("KEYWORDSAI_BASE_URL"),
+)
+
+# Sample conversation messages
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+# Add memory and generate a response
+response = client.chat.completions.create(
+    model="openai/gpt-4o",
+    messages=messages,
+    extra_body={
+        "mem0_params": {
+            "user_id": "test_user",
+            "org_id": "org_1",
+            "api_key": os.environ.get("MEM0_API_KEY"),
+            "add_memories": {
+                "messages": messages,
+            },
+        }
+    },
+)
+
+print(json.dumps(response.model_dump(), indent=4))
+```
+
+For detailed information on this integration, refer to the official [Keywords AI Mem0 integration documentation](https://docs.keywordsai.co/integration/development-frameworks/mem0).
+
+## Key Features
+
+1. **Memory Integration**: Store and retrieve relevant information from past interactions
+2. **LLM Observability**: Track memory usage and retrieval patterns with Keywords AI
+3. **Session Persistence**: Maintain context across multiple user sessions
+4. **Cost Optimization**: Reduce token usage through efficient memory retrieval
+
+## Conclusion
+
+Integrating Mem0 with Keywords AI provides a powerful combination for building AI applications with persistent memory and comprehensive observability. This integration enables more personalized user experiences while providing insights into your application's memory usage.
+
+## Help
+
+For more information on using Mem0 and Keywords AI together, refer to:
+- [Mem0 Documentation](https://docs.mem0.ai)
+- [Keywords AI Documentation](https://docs.keywordsai.co)
+
+<Snippet file="get-help.mdx" />

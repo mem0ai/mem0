@@ -2,6 +2,8 @@
 title: Langchain
 ---
 
+<Snippet file="paper-release.mdx" />
+
 Build a personalized Travel Agent AI using LangChain for conversation flow and Mem0 for memory retention. This integration enables context-aware and efficient travel planning experiences.
 
 ## Overview
@@ -37,7 +39,7 @@ os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 # Initialize LangChain and Mem0
 llm = ChatOpenAI(model="gpt-4o-mini")
-mem0 = MemoryClient(api_key=os.environ["MEM0_API_KEY"])
+mem0 = MemoryClient()
 ```
 
 ## Create Prompt Template

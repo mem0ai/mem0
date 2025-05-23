@@ -66,6 +66,8 @@ class Qdrant(VectorStoreBase):
             self.client = QdrantClient(**params)
 
         self.collection_name = collection_name
+        self.embedding_model_dims = embedding_model_dims
+        self.on_disk = on_disk
         self.create_col(embedding_model_dims, on_disk)
 
     def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
@@ -127,12 +129,13 @@ class Qdrant(VectorStoreBase):
                 conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         return Filter(must=conditions) if conditions else None
 
-    def search(self, query: list, limit: int = 5, filters: dict = None) -> list:
+    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
         Search for similar vectors.
 
         Args:
-            query (list): Query vector.
+            query (str): Query.
+            vectors (list): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -140,13 +143,13 @@ class Qdrant(VectorStoreBase):
             list: Search results.
         """
         query_filter = self._create_filter(filters) if filters else None
-        hits = self.client.search(
+        hits = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query,
+            query=vectors,
             query_filter=query_filter,
             limit=limit,
         )
-        return hits
+        return hits.points
 
     def delete(self, vector_id: int):
         """
@@ -229,3 +232,9 @@ class Qdrant(VectorStoreBase):
             with_vectors=False,
         )
         return result
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col(self.embedding_model_dims, self.on_disk)

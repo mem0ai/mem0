@@ -51,6 +51,7 @@ class PGVector(VectorStoreBase):
         self.collection_name = collection_name
         self.use_diskann = diskann
         self.use_hnsw = hnsw
+        self.embedding_model_dims = embedding_model_dims
 
         self.conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         self.cur = self.conn.cursor()
@@ -67,6 +68,7 @@ class PGVector(VectorStoreBase):
         Args:
             embedding_model_dims (int): Dimension of the embedding vector.
         """
+        self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self.cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {self.collection_name} (
@@ -120,12 +122,13 @@ class PGVector(VectorStoreBase):
         )
         self.conn.commit()
 
-    def search(self, query, limit=5, filters=None):
+    def search(self, query, vectors, limit=5, filters=None):
         """
         Search for similar vectors.
 
         Args:
-            query (List[float]): Query vector.
+            query (str): Query.
+            vectors (List[float]): Query vector.
             limit (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -150,7 +153,7 @@ class PGVector(VectorStoreBase):
             ORDER BY distance
             LIMIT %s
         """,
-            (query, *filter_params, limit),
+            (vectors, *filter_params, limit),
         )
 
         results = self.cur.fetchall()
@@ -283,3 +286,9 @@ class PGVector(VectorStoreBase):
             self.cur.close()
         if hasattr(self, "conn"):
             self.conn.close()
+
+    def reset(self):
+        """Reset the index by deleting and recreating it."""
+        logger.warning(f"Resetting index {self.collection_name}...")
+        self.delete_col()
+        self.create_col(self.embedding_model_dims)

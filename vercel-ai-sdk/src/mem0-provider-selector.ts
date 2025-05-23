@@ -1,19 +1,17 @@
-import { OpenAIProviderSettings } from "@ai-sdk/openai";
 import { Mem0ProviderSettings } from "./mem0-provider";
 import Mem0AITextGenerator, { ProviderSettings } from "./provider-response-provider";
+import { LanguageModelV1 } from "ai";
 
 class Mem0ClassSelector {
     modelId: string;
     provider_wrapper: string;
-    model: string;
     config: Mem0ProviderSettings;
     provider_config?: ProviderSettings;
-    static supportedProviders = ["openai", "anthropic", "cohere", "groq"];
+    static supportedProviders = ["openai", "anthropic", "cohere", "groq", "google"];
 
     constructor(modelId: string, config: Mem0ProviderSettings, provider_config?: ProviderSettings) {
         this.modelId = modelId;
         this.provider_wrapper = config.provider || "openai";
-        this.model = this.modelId;
         this.provider_config = provider_config;
         if(config) this.config = config;
         else this.config = {
@@ -26,8 +24,8 @@ class Mem0ClassSelector {
         }
     }
 
-    createProvider() {
-            return new Mem0AITextGenerator(this.provider_wrapper, this.model, this.config , this.provider_config || {});
+    createProvider(): LanguageModelV1 {
+        return new Mem0AITextGenerator(this.modelId, this.config , this.provider_config || {});
     }
 }
 

@@ -1,5 +1,7 @@
 Build conversational AI agents with memory capabilities. This integration combines AutoGen for creating AI agents with Mem0 for memory management, enabling context-aware and personalized interactions.
 
+<Snippet file="paper-release.mdx" />
+
 ## Overview
 
 In this guide, we'll explore an example of creating a conversational AI system with memory:
@@ -30,9 +32,10 @@ USER_ID = "customer_service_bot"
 
 # Set up OpenAI API key
 os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
+os.environ['MEM0_API_KEY'] = MEM0_API_KEY
 
 # Initialize Mem0 and AutoGen agents
-memory_client = MemoryClient(api_key=MEM0_API_KEY)
+memory_client = MemoryClient()
 agent = ConversableAgent(
     "chatbot",
     llm_config={"config_list": [{"model": "gpt-4", "api_key": OPENAI_API_KEY}]},

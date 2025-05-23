@@ -2,6 +2,8 @@
 title: Customer Support AI Agent
 ---
 
+<Snippet file="paper-release.mdx" />
+
 You can create a personalized Customer Support AI Agent using Mem0. This guide will walk you through the necessary steps and provide the complete code to get you started.
 
 ## Overview
@@ -94,8 +96,8 @@ You can fetch all the memories at any point in time using the following code:
 
 ```python
 memories = support_agent.get_memories(user_id=customer_id)
-for m in memories:
-    print(m['text'])
+for m in memories['results']:
+    print(m['memory'])
 ```
 
 ### Key Points

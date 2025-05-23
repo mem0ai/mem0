@@ -1,0 +1,89 @@
+---
+title: Development
+icon: "code"
+---
+
+<Snippet file="paper-release.mdx" />
+
+# Development Contributions
+
+We strive to make contributions **easy, collaborative, and enjoyable**. Follow the steps below to ensure a smooth contribution process.
+
+## Submitting Your Contribution through PR
+
+To contribute, follow these steps:
+
+1. **Fork & Clone** the repository: [Mem0 on GitHub](https://github.com/mem0ai/mem0)
+2. **Create a Feature Branch**: Use a dedicated branch for your changes, e.g., `feature/my-new-feature`
+3. **Implement Changes**: If adding a feature or fixing a bug, ensure to:
+   - Write necessary **tests**
+   - Add **documentation, docstrings, and runnable examples**
+4. **Code Quality Checks**:
+   - Run **linting** to catch style issues
+   - Ensure **all tests pass**
+5. **Submit a Pull Request** 🚀
+
+For detailed guidance on pull requests, refer to [GitHub's documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
+
+---
+
+## 📦 Dependency Management
+
+We use `hatch` as our package manager. Install it by following the [official instructions](https://hatch.pypa.io/latest/install/).
+
+⚠️ **Do NOT use `pip` or `conda` for dependency management.** Instead, run:
+
+```bash
+make install_all
+
+# Activate virtual environment
+hatch shell
+```
+
+---
+
+## 🛠️ Development Standards
+
+### ✅ Pre-commit Hooks
+
+Ensure `pre-commit` is installed before contributing:
+
+```bash
+pre-commit install
+```
+
+### 🔍 Linting with `ruff`
+
+Run the linter and fix any reported issues before submitting your PR:
+
+```bash
+make lint
+```
+
+### 🎨 Code Formatting
+
+To maintain a consistent code style, format your code:
+
+```bash
+make format
+```
+
+### 🧪 Testing with `pytest`
+
+Run tests to verify functionality before submitting your PR:
+
+```bash
+make test
+```
+
+💡 **Note:** Some dependencies have been removed from the main dependencies to reduce package size. Run `make install_all` to install necessary dependencies before running tests.
+
+---
+
+## 🚀 Release Process
+
+Currently, releases are handled manually. We aim for frequent releases, typically when new features or bug fixes are introduced.
+
+---
+
+Thank you for contributing to Mem0! 🎉

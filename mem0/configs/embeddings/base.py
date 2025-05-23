@@ -22,11 +22,21 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        huggingface_base_url: Optional[str] = None,
         # AzureOpenAI specific
         azure_kwargs: Optional[AzureConfig] = {},
         http_client_proxies: Optional[Union[Dict, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
+        memory_add_embedding_type: Optional[str] = None,
+        memory_update_embedding_type: Optional[str] = None,
+        memory_search_embedding_type: Optional[str] = None,
+        # LM Studio specific
+        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # AWS Bedrock specific
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_region: Optional[str] = "us-west-2",
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -41,12 +51,24 @@ class BaseEmbedderConfig(ABC):
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
+        :param huggingface_base_url: Huggingface base URL to be use, defaults to None
+        :type huggingface_base_url: Optional[str], optional
         :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
         :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
+        :param vertex_credentials_json: The path to the Vertex AI credentials JSON file, defaults to None
+        :type vertex_credentials_json: Optional[str], optional
+        :param memory_add_embedding_type: The type of embedding to use for the add memory action, defaults to None
+        :type memory_add_embedding_type: Optional[str], optional
+        :param memory_update_embedding_type: The type of embedding to use for the update memory action, defaults to None
+        :type memory_update_embedding_type: Optional[str], optional
+        :param memory_search_embedding_type: The type of embedding to use for the search memory action, defaults to None
+        :type memory_search_embedding_type: Optional[str], optional
+        :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
+        :type lmstudio_base_url: Optional[str], optional
         """
 
         self.model = model
@@ -62,9 +84,20 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
-
+        self.huggingface_base_url = huggingface_base_url
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
 
         # VertexAI specific
         self.vertex_credentials_json = vertex_credentials_json
+        self.memory_add_embedding_type = memory_add_embedding_type
+        self.memory_update_embedding_type = memory_update_embedding_type
+        self.memory_search_embedding_type = memory_search_embedding_type
+
+        # LM Studio specific
+        self.lmstudio_base_url = lmstudio_base_url
+
+        # AWS Bedrock specific
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_region = aws_region

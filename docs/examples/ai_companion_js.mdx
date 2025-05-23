@@ -1,0 +1,128 @@
+---
+title: AI Companion in Node.js
+---
+
+<Snippet file="paper-release.mdx" />
+
+You can create a personalised AI Companion using Mem0. This guide will walk you through the necessary steps and provide the complete code to get you started.
+
+## Overview
+
+The Personalized AI Companion leverages Mem0 to retain information across interactions, enabling a tailored learning experience. It creates memories for each user interaction and integrates with OpenAI's GPT models to provide detailed and context-aware responses to user queries.
+
+## Setup
+
+Before you begin, ensure you have Node.js installed and create a new project. Install the required dependencies using npm:
+
+```bash
+npm install openai mem0ai
+```
+
+## Full Code Example
+
+Below is the complete code to create and interact with an AI Companion using Mem0:
+
+```javascript
+import { OpenAI } from 'openai';
+import { Memory } from 'mem0ai/oss';
+import * as readline from 'readline';
+
+const openaiClient = new OpenAI();
+const memory = new Memory();
+
+async function chatWithMemories(message, userId = "default_user") {
+  const relevantMemories = await memory.search(message, { userId: userId });
+  
+  const memoriesStr = relevantMemories.results
+    .map(entry => `- ${entry.memory}`)
+    .join('\n');
+  
+  const systemPrompt = `You are a helpful AI. Answer the question based on query and memories.
+User Memories:
+${memoriesStr}`;
+  
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: message }
+  ];
+  
+  const response = await openaiClient.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: messages
+  });
+  
+  const assistantResponse = response.choices[0].message.content || "";
+  
+  messages.push({ role: "assistant", content: assistantResponse });
+  await memory.add(messages, { userId: userId });
+  
+  return assistantResponse;
+}
+
+async function main() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  
+  console.log("Chat with AI (type 'exit' to quit)");
+  
+  const askQuestion = () => {
+    return new Promise((resolve) => {
+      rl.question("You: ", (input) => {
+        resolve(input.trim());
+      });
+    });
+  };
+  
+  try {
+    while (true) {
+      const userInput = await askQuestion();
+      
+      if (userInput.toLowerCase() === 'exit') {
+        console.log("Goodbye!");
+        rl.close();
+        break;
+      }
+      
+      const response = await chatWithMemories(userInput, "sample_user");
+      console.log(`AI: ${response}`);
+    }
+  } catch (error) {
+    console.error("An error occurred:", error);
+    rl.close();
+  }
+}
+
+main().catch(console.error);
+```
+
+### Key Components
+
+1. **Initialization**
+   - The code initializes both OpenAI and Mem0 Memory clients
+   - Uses Node.js's built-in readline module for command-line interaction
+
+2. **Memory Management (chatWithMemories function)**
+   - Retrieves relevant memories using Mem0's search functionality
+   - Constructs a system prompt that includes past memories
+   - Makes API calls to OpenAI for generating responses
+   - Stores new interactions in memory
+
+3. **Interactive Chat Interface (main function)**
+   - Creates a command-line interface for user interaction
+   - Handles user input and displays AI responses
+   - Includes graceful exit functionality
+
+### Environment Setup
+
+Make sure to set up your environment variables:
+```bash
+export OPENAI_API_KEY=your_api_key
+```
+
+### Conclusion
+
+This implementation demonstrates how to create an AI Companion that maintains context across conversations using Mem0's memory capabilities. The system automatically stores and retrieves relevant information, creating a more personalized and context-aware interaction experience.
+
+As users interact with the system, Mem0's memory system continuously learns and adapts, making future responses more relevant and personalized. This setup is ideal for creating long-term learning AI assistants that can maintain context and provide increasingly personalized responses over time.

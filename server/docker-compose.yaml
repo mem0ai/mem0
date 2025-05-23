@@ -1,0 +1,74 @@
+name: mem0-dev
+
+services:
+  mem0:
+    build:
+      context: ..  # Set context to parent directory
+      dockerfile: server/dev.Dockerfile
+    ports:
+      - "8888:8000"
+    env_file:
+      - .env
+    networks:
+      - mem0_network
+    volumes:
+      - ./history:/app/history      # History db location. By default, it creates a history.db file on the server folder
+      - .:/app                      # Server code. This allows to reload the app when the server code is updated
+      - ../mem0:/app/packages/mem0  # Mem0 library. This allows to reload the app when the library code is updated
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Enable auto-reload
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1  # Prevents Python from writing .pyc files
+      - PYTHONUNBUFFERED=1  # Ensures Python output is sent straight to terminal
+
+  postgres:
+      image: ankane/pgvector:v0.5.1
+      restart: on-failure
+      shm_size: "128mb" # Increase this if vacuuming fails with a "no space left on device" error
+      networks:
+        - mem0_network
+      environment:
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=postgres
+      healthcheck:
+        test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - postgres_db:/var/lib/postgresql/data
+      ports:
+        - "8432:5432"
+  neo4j:
+    image: neo4j:5.26.4
+    networks:
+      - mem0_network
+    healthcheck:
+      test: wget http://localhost:7687 || exit 1
+      interval: 1s
+      timeout: 10s
+      retries: 20
+      start_period: 3s
+    ports:
+      - "8474:7474" # HTTP
+      - "8687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/mem0graph
+      - NEO4J_PLUGINS=["apoc"]  # Add this line to install APOC
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+
+volumes:
+  neo4j_data:
+  postgres_db:
+
+networks:
+  mem0_network:
+    driver: bridge

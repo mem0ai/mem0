@@ -1,0 +1,71 @@
+---
+title: Mem0 Demo
+---
+
+
+<Snippet file="paper-release.mdx" />
+
+You can create a personalized AI Companion using Mem0. This guide will walk you through the necessary steps and provide the complete setup instructions to get you started.
+
+<video
+  autoPlay
+  muted
+  loop
+  playsInline
+  className="w-full aspect-video rounded-lg"
+  src="https://github.com/user-attachments/assets/cebc4f8e-bdb9-4837-868d-13c5ab7bb433"
+></video>
+
+You can try the [Mem0 Demo](https://mem0-4vmi.vercel.app) live here.
+
+## Overview
+
+The Personalized AI Companion leverages Mem0 to retain information across interactions, enabling a tailored learning experience. It creates memories for each user interaction and integrates with OpenAI's GPT models to provide detailed and context-aware responses to user queries.
+
+## Setup
+
+Before you begin, follow these steps to set up the demo application:
+
+1. Clone the Mem0 repository:
+   ```bash
+   git clone https://github.com/mem0ai/mem0.git
+   ```
+
+2. Navigate to the demo application folder:
+   ```bash
+   cd mem0/examples/mem0-demo
+   ```
+
+3. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+
+4. Set up environment variables by creating a `.env` file in the project root with the following content:
+   ```bash
+   OPENAI_API_KEY=your_openai_api_key
+   MEM0_API_KEY=your_mem0_api_key
+   ```
+   You can obtain your `MEM0_API_KEY` by signing up at [Mem0 API Dashboard](https://app.mem0.ai/dashboard/api-keys).
+
+5. Start the development server:
+   ```bash
+   pnpm run dev
+   ```
+
+## Enhancing the Next.js Application
+
+Once the demo is running, you can customize and enhance the Next.js application by modifying the components in the `mem0-demo` folder. Consider:
+- Adding new memory features to improve contextual retention.
+- Customizing the UI to better suit your application needs.
+- Integrating additional APIs or third-party services to extend functionality.
+
+## Full Code
+
+You can find the complete source code for this demo on GitHub:
+[Mem0 Demo GitHub](https://github.com/mem0ai/mem0/tree/main/examples/mem0-demo)
+
+## Conclusion
+
+This setup demonstrates how to build an AI Companion that maintains memory across interactions using Mem0. The system continuously adapts to user interactions, making future responses more relevant and personalized. Experiment with the application and enhance it further to suit your use case!
+

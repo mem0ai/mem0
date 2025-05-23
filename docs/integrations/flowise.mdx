@@ -1,0 +1,128 @@
+---
+title: Flowise
+---
+
+<Snippet file="paper-release.mdx" />
+
+The [**Mem0 Memory**](https://github.com/mem0ai/mem0) integration with [Flowise](https://github.com/FlowiseAI/Flowise) enables persistent memory capabilities for your AI chatflows. [Flowise](https://flowiseai.com/) is an open-source low-code tool for developers to build customized LLM orchestration flows & AI agents using a drag & drop interface.
+
+## Overview
+
+1. 🧠 Provides persistent memory storage for Flowise chatflows
+2. 🔄 Seamless integration with existing Flowise templates
+3. 🚀 Compatible with various LLM nodes in Flowise
+4. 📝 Supports custom memory configurations
+5. ⚡ Easy to set up and manage
+
+## Prerequisites
+
+Before setting up Mem0 with Flowise, ensure you have:
+
+1. [Flowise installed](https://github.com/FlowiseAI/Flowise#⚡quick-start) (NodeJS >= 18.15.0 required):
+```bash
+npm install -g flowise
+npx flowise start
+```
+
+2. Access to the Flowise UI at http://localhost:3000
+3. Basic familiarity with [Flowise's LLM orchestration](https://flowiseai.com/#features) concepts
+
+## Setup and Configuration
+
+### 1. Set Up Flowise
+
+1. Open the Flowise application and create a new canvas, or select a template from the Flowise marketplace.
+2. In this example, we use the **Conversation Chain** template.
+3. Replace the default **Buffer Memory** with **Mem0 Memory**.
+
+![Flowise Memory Integration](https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/flowise-flow.png)
+
+### 2. Obtain Your Mem0 API Key
+
+1. Navigate to the [Mem0 API Key dashboard](https://app.mem0.ai/dashboard/api-keys).
+2. Generate or copy your existing Mem0 API Key.
+
+![Mem0 API Key](https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/api-key.png)
+
+### 3. Configure Mem0 Credentials
+
+1. Enter the **Mem0 API Key** in the Mem0 Credentials section.
+2. Configure additional settings as needed:
+
+```typescript
+{
+  "apiKey": "m0-xxx",
+  "userId": "user-123",  // Optional: Specify user ID
+  "projectId": "proj-xxx",  // Optional: Specify project ID
+  "orgId": "org-xxx"  // Optional: Specify organization ID
+}
+```
+
+<figure>
+  <img src="https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/creds.png" alt="Mem0 Credentials" />
+  <figcaption>Configure API Credentials</figcaption>
+</figure>
+
+## Memory Features
+
+### 1. Basic Memory Storage
+
+Test your memory configuration:
+
+1. Save your Flowise configuration
+2. Run a test chat and store some information
+3. Verify the stored memories in the [Mem0 Dashboard](https://app.mem0.ai/dashboard/requests)
+
+![Flowise Test Chat](https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/flowise-chat-1.png)
+
+### 2. Memory Retention
+
+Validate memory persistence:
+
+1. Clear the chat history in Flowise
+2. Ask a question about previously stored information
+3. Confirm that the AI remembers the context
+
+![Testing Memory Retention](https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/flowise-chat-2.png)
+
+## Advanced Configuration
+
+### Memory Settings
+
+![Mem0 Settings](https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/settings.png)
+
+Available settings include:
+
+1. **Search Only Mode**: Enable memory retrieval without creating new memories
+2. **Mem0 Entities**: Configure identifiers:
+   - `user_id`: Unique identifier for each user
+   - `run_id`: Specific conversation session ID
+   - `app_id`: Application identifier
+   - `agent_id`: AI agent identifier
+3. **Project ID**: Assign memories to specific projects
+4. **Organization ID**: Organize memories by organization
+
+### Platform Configuration
+
+Additional settings available in [Mem0 Project Settings](https://app.mem0.ai/dashboard/project-settings):
+
+1. **Custom Instructions**: Define memory extraction rules
+2. **Expiration Date**: Set automatic memory cleanup periods
+
+![Mem0 Project Settings](https://raw.githubusercontent.com/FlowiseAI/FlowiseDocs/main/en/.gitbook/assets/mem0/mem0-settings.png)
+
+## Best Practices
+
+1. **User Identification**: Use consistent `user_id` values for reliable memory retrieval
+2. **Memory Organization**: Utilize projects and organizations for better memory management
+3. **Regular Maintenance**: Monitor and clean up unused memories periodically
+
+## Help & Resources
+
+- [Flowise Documentation](https://flowiseai.com/docs)
+- [Flowise GitHub Repository](https://github.com/FlowiseAI/Flowise)
+- [Flowise Website](https://flowiseai.com/)
+- [Mem0 Platform](https://app.mem0.ai/)
+- Need assistance? Reach out through:
+
+<Snippet file="get-help.mdx" /> 

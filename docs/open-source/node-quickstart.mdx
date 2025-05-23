@@ -1,0 +1,457 @@
+---
+title: Node SDK
+description: 'Get started with Mem0 quickly!'
+icon: "node"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+> Welcome to the Mem0 quickstart guide. This guide will help you get up and running with Mem0 in no time.
+
+## Installation
+
+To install Mem0, you can use npm. Run the following command in your terminal:
+
+```bash
+npm install mem0ai
+```
+
+## Basic Usage
+
+### Initialize Mem0
+
+<Tabs>
+  <Tab title="Basic">
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory();
+```
+  </Tab>
+  <Tab title="Advanced">
+If you want to run Mem0 in production, initialize using the following method:
+
+```typescript
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+    version: 'v1.1',
+    embedder: {
+      provider: 'openai',
+      config: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        model: 'text-embedding-3-small',
+      },
+    },
+    vectorStore: {
+      provider: 'memory',
+      config: {
+        collectionName: 'memories',
+        dimension: 1536,
+      },
+    },
+    llm: {
+      provider: 'openai',
+      config: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        model: 'gpt-4-turbo-preview',
+      },
+    },
+    historyDbPath: 'memory.db',
+  });
+```
+  </Tab>
+</Tabs>
+
+
+### Store a Memory
+
+<CodeGroup>
+```typescript Code
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+
+await memory.add(messages, { userId: "alice", metadata: { category: "movie_recommendations" } });
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "metadata": {
+        "category": "movie_recommendations"
+      }
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "metadata": {
+        "category": "movie_recommendations"
+      }
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
+      "metadata": {
+        "category": "movie_recommendations"
+      }
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Retrieve Memories
+
+<CodeGroup>
+```typescript Code
+// Get all memories
+const allMemories = await memory.getAll({ userId: "alice" });
+console.log(allMemories)
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "hash": "1a271c007316c94377175ee80e746a19",
+      "createdAt": "2025-02-27T16:33:20.557Z",
+      "updatedAt": "2025-02-27T16:33:27.051Z",
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+
+<br />
+
+<CodeGroup>
+```typescript Code
+// Get a single memory by ID
+const singleMemory = await memory.get('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
+console.log(singleMemory);
+```
+
+```json Output
+{
+  "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+  "memory": "User is planning to watch a movie tonight.",
+  "hash": "1a271c007316c94377175ee80e746a19",
+  "createdAt": "2025-02-27T16:33:20.557Z",
+  "updatedAt": undefined,
+  "metadata": {
+    "category": "movie_recommendations"
+  },
+  "userId": "alice"
+}
+```
+</CodeGroup>
+
+### Search Memories
+
+<CodeGroup>
+```typescript Code
+const result = await memory.search('What do you know about me?', { userId: "alice" });
+console.log(result);
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "hash": "1a271c007316c94377175ee80e746a19",
+      "createdAt": "2025-02-27T16:33:20.557Z",
+      "updatedAt": undefined,
+      "score": 0.38920719231944799,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    },
+    {
+      "id": "475bde34-21e6-42ab-8bef-0ab84474f156",
+      "memory": "User loves sci-fi movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "score": 0.36869761478135689,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    },
+    {
+      "id": "cbb1fe73-0bf1-4067-8c1f-63aa53e7b1a4",
+      "memory": "User is not a big fan of thriller movies.",
+      "hash": "285d07801ae42054732314853e9eadd7",
+      "createdAt": "2025-02-27T16:33:20.560Z",
+      "updatedAt": undefined,
+      "score": 0.33855272141248272,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Update a Memory
+
+<CodeGroup>
+```typescript Code
+const result = await memory.update(
+  '892db2ae-06d9-49e5-8b3e-585ef9b85b8e',
+  'I love India, it is my favorite country.'
+);
+console.log(result);
+```
+
+```json Output
+{
+  "message": "Memory updated successfully!"
+}
+```
+</CodeGroup>
+
+### Memory History
+
+<CodeGroup>
+```typescript Code
+const history = await memory.history('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
+console.log(history);
+```
+
+```json Output
+[
+  {
+    "id": 39,
+    "memoryId": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previousValue": "User is planning to watch a movie tonight.",
+    "newValue": "I love India, it is my favorite country.",
+    "action": "UPDATE",
+    "createdAt": "2025-02-27T16:33:20.557Z",
+    "updatedAt": "2025-02-27T16:33:27.051Z",
+    "isDeleted": 0
+  },
+  {
+    "id": 37,
+    "memoryId": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+    "previousValue": null,
+    "newValue": "User is planning to watch a movie tonight.",
+    "action": "ADD",
+    "createdAt": "2025-02-27T16:33:20.557Z",
+    "updatedAt": null,
+    "isDeleted": 0
+  }
+]
+```
+</CodeGroup>
+
+### Delete Memory
+
+```typescript
+// Delete a memory by id
+await memory.delete('892db2ae-06d9-49e5-8b3e-585ef9b85b8e');
+
+// Delete all memories for a user
+await memory.deleteAll({ userId: "alice" });
+```
+
+### Reset Memory
+
+```typescript
+await memory.reset(); // Reset all memories
+```
+
+### History Store
+
+Mem0 TypeScript SDK support history stores to run on a serverless environment:
+
+We recommend using `Supabase` as a history store for serverless environments or disable history store to run on a serverless environment.
+
+<CodeGroup>
+```typescript Supabase
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+  historyStore: {
+    provider: 'supabase',
+    config: {
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseKey: process.env.SUPABASE_KEY || '',
+      tableName: 'memory_history',
+    },
+  },
+});
+```
+
+```typescript Disable History
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+  disableHistory: true,
+});
+```
+</CodeGroup>
+
+Mem0 uses SQLite as a default history store.
+
+#### Create Memory History Table in Supabase
+
+You may need to create a memory history table in Supabase to store the history of memories. Use the following SQL command in `SQL Editor` on the Supabase project dashboard to create a memory history table:
+
+```sql
+create table memory_history (
+  id text primary key,
+  memory_id text not null,
+  previous_value text,
+  new_value text,
+  action text not null,
+  created_at timestamp with time zone default timezone('utc', now()),
+  updated_at timestamp with time zone,
+  is_deleted integer default 0
+);
+```
+
+## Configuration Parameters
+
+Mem0 offers extensive configuration options to customize its behavior according to your needs. These configurations span across different components like vector stores, language models, embedders, and graph stores.
+
+<AccordionGroup>
+<Accordion title="Vector Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Vector store provider (e.g., "memory") | "memory"   |
+| `host`       | Host address                    | "localhost" |
+| `port`       | Port number                     | undefined       |
+</Accordion>
+
+<Accordion title="LLM Configuration">
+| Parameter              | Description                                   | Provider          |
+|-----------------------|-----------------------------------------------|-------------------|
+| `provider`            | LLM provider (e.g., "openai", "anthropic")    | All              |
+| `model`               | Model to use                                  | All              |
+| `temperature`         | Temperature of the model                      | All              |
+| `apiKey`             | API key to use                                | All              |
+| `maxTokens`          | Tokens to generate                            | All              |
+| `topP`               | Probability threshold for nucleus sampling    | All              |
+| `topK`               | Number of highest probability tokens to keep  | All              |
+| `openaiBaseUrl`     | Base URL for OpenAI API                      | OpenAI           |
+</Accordion>
+
+<Accordion title="Graph Store Configuration">
+| Parameter    | Description                     | Default     |
+|-------------|---------------------------------|-------------|
+| `provider`   | Graph store provider (e.g., "neo4j") | "neo4j"    |
+| `url`        | Connection URL                  | env.NEO4J_URL        |
+| `username`   | Authentication username         | env.NEO4J_USERNAME        |
+| `password`   | Authentication password         | env.NEO4J_PASSWORD        |
+</Accordion>
+
+<Accordion title="Embedder Configuration">
+| Parameter    | Description                     | Default                      |
+|-------------|---------------------------------|------------------------------|
+| `provider`   | Embedding provider              | "openai"                     |
+| `model`      | Embedding model to use          | "text-embedding-3-small"     |
+| `apiKey`    | API key for embedding service   | None                        |
+</Accordion>
+
+<Accordion title="General Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `historyDbPath` | Path to the history database         | "{mem0_dir}/history.db"    |
+| `version`         | API version                          | "v1.0"                     |
+| `customPrompt`   | Custom prompt for memory processing  | None                       |
+</Accordion>
+
+<Accordion title="History Table Configuration">
+| Parameter         | Description                          | Default                    |
+|------------------|--------------------------------------|----------------------------|
+| `provider`       | History store provider               | "sqlite"                   |
+| `config`         | History store configuration         | None (Defaults to SQLite)                      |
+| `disableHistory` | Disable history store               | false                      |
+</Accordion>
+
+<Accordion title="Complete Configuration Example">
+```typescript
+const config = {
+      version: 'v1.1',
+      embedder: {
+        provider: 'openai',
+        config: {
+          apiKey: process.env.OPENAI_API_KEY || '',
+          model: 'text-embedding-3-small',
+        },
+      },
+      vectorStore: {
+        provider: 'memory',
+        config: {
+          collectionName: 'memories',
+          dimension: 1536,
+        },
+      },
+      llm: {
+        provider: 'openai',
+        config: {
+          apiKey: process.env.OPENAI_API_KEY || '',
+          model: 'gpt-4-turbo-preview',
+        },
+      },
+      historyStore: {
+        provider: 'supabase',
+        config: {
+          supabaseUrl: process.env.SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_KEY || '',
+          tableName: 'memories',
+        },
+      },
+      disableHistory: false, // This is false by default
+      customPrompt: "I'm a virtual assistant. I'm here to help you with your queries.",
+    }
+```
+</Accordion>
+</AccordionGroup>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />
