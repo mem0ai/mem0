@@ -334,6 +334,10 @@ class Memory(MemoryBase):
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
 
+        if not new_retrieved_facts:
+            logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
+            return []
+
         retrieved_old_memory = []
         new_message_embeddings = {}
         for new_mem in new_retrieved_facts:
@@ -1137,6 +1141,11 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
+            new_retrieved_facts = []
+
+        if not new_retrieved_facts:
+            logger.info("No new facts retrieved from input. Skipping memory update LLM call.")
+            return []
             logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
 
@@ -1180,15 +1189,24 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+
+            response = ""
             logging.error(f"Error in new memory actions response: {e}")
             response = ""
-
         try:
             response = remove_code_blocks(response)
             new_memories_with_actions = json.loads(response)
         except Exception as e:
+
+            new_memories_with_actions = {}
+
+        if not new_memories_with_actions:
+            logger.info("No new facts retrieved from input (async). Skipping memory update LLM call.")
+            return []
+
             logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
+
 
         returned_memories = []
         try:
