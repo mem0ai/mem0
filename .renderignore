@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Development files
+*.log
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Testing
+tests/
+test/
+coverage/
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Other
+examples/
+cookbooks/
+evaluation/
+mem0-ts/
+vercel-ai-sdk/
+embedchain/
+server/
+mem0/ 
