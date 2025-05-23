@@ -11,6 +11,7 @@ def get_memory_client(custom_instructions: str = None):
     try:
         qdrant_host = os.getenv("QDRANT_HOST", "mem0_store")
         qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
         collection_name = os.getenv("MAIN_QDRANT_COLLECTION_NAME")
 
         if not collection_name:
@@ -25,15 +26,28 @@ def get_memory_client(custom_instructions: str = None):
         if not openai_api_key:
             raise ValueError("OPENAI_API_KEY must be set in environment variables for mem0.")
 
+        # Build Qdrant config
+        qdrant_config = {
+            "collection_name": collection_name,
+        }
+        
+        # For Qdrant Cloud, use the full URL approach
+        if "cloud.qdrant.io" in qdrant_host:
+            # Use URL format for Qdrant Cloud
+            qdrant_config["url"] = f"https://{qdrant_host}:{qdrant_port}"
+            if qdrant_api_key:
+                qdrant_config["api_key"] = qdrant_api_key
+        else:
+            # Use host/port for local Qdrant
+            qdrant_config["host"] = qdrant_host
+            qdrant_config["port"] = qdrant_port
+            if qdrant_api_key:
+                qdrant_config["api_key"] = qdrant_api_key
+
         config = {
             "vector_store": {
                 "provider": "qdrant",
-                "config": {
-                    "collection_name": collection_name,
-                    "host": qdrant_host,
-                    "port": qdrant_port,
-                    # Add "api_key": os.getenv("QDRANT_API_KEY") if using Qdrant Cloud and it needs an API key
-                }
+                "config": qdrant_config
             },
             "llm": {
                 "provider": llm_provider,
