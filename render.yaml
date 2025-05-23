@@ -86,5 +86,5 @@ databases:
     databaseName: openmemory
     user: openmemory
     region: oregon
-    plan: starter # $7/month
+    plan: basic-256mb # Basic tier - 256MB RAM, 1GB storage
     ipAllowList: [] # Allow connections from Render services 
