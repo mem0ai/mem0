@@ -1,8 +1,8 @@
+import logging
 import sqlite3
 import threading
 import uuid
-import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,7 @@ class SQLiteManager:
         """
         with self._lock, self.connection:
             cur = self.connection.cursor()
-            cur.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='history'"
-            )
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history'")
             if cur.fetchone() is None:
                 return  # nothing to migrate
 
@@ -51,13 +49,11 @@ class SQLiteManager:
             logger.info("Migrating history table to new schema (no convo columns).")
             cur.execute("ALTER TABLE history RENAME TO history_old")
 
-            self._create_history_table() 
+            self._create_history_table()
 
             intersecting = list(expected_cols & old_cols)
             cols_csv = ", ".join(intersecting)
-            cur.execute(
-                f"INSERT INTO history ({cols_csv}) SELECT {cols_csv} FROM history_old"
-            )
+            cur.execute(f"INSERT INTO history ({cols_csv}) SELECT {cols_csv} FROM history_old")
             cur.execute("DROP TABLE history_old")
 
     def _create_history_table(self) -> None:

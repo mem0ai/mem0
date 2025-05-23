@@ -131,12 +131,14 @@ curl -X POST "https://api.mem0.ai/v1/memories/export/" \
 
 ### Retrieve Export
 
-Once the export job is complete, you can retrieve the structured data:
+Once the export job is complete, you can retrieve the structured data in two ways:
+
+#### Using Filters
 
 <CodeGroup>
 
 ```python Python
-# Corrected date range (assuming you meant July 10 to July 20)
+# Retrieve using filters
 filters = {
     "AND": [
         {"created_at": {"gte": "2024-07-10", "lte": "2024-07-20"}},
@@ -148,9 +150,27 @@ response = client.get_memory_export(filters=filters)
 print(response)
 ```
 
-```bash cURL
-curl -X GET "https://api.mem0.ai/v1/memories/export/?user_id=alice" \
-     -H "Authorization: Token your-api-key"
+```json Output
+{
+    "full_name": "John Doe",
+    "current_role": "Senior Software Engineer",
+    "years_experience": 8,
+    "employment_status": "full_time",
+    "education_level": "masters",
+    "skills": ["Python", "AWS", "Machine Learning"]
+}
+```
+
+</CodeGroup>
+
+#### Using Export ID
+
+<CodeGroup>
+
+```python Python
+# Retrieve using export ID
+response = client.get_memory_export(memory_export_id="550e8400-e29b-41d4-a716-446655440000")
+print(response)
 ```
 
 ```json Output
