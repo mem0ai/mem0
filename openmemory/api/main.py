@@ -44,7 +44,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://localhost:3001", 
-        "https://jonathans-memory-ui.onrender.com",  # Corrected Frontend URL
+        "https://jean-memory-ui.onrender.com",  # UPDATED to new frontend name
     ],  
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # Be more specific or keep "*"

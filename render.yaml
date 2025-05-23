@@ -4,7 +4,7 @@
 services:
   # Backend API Service
   - type: web
-    name: jonathans-memory-api
+    name: jean-memory-api
     runtime: python
     region: oregon
     plan: starter # $7/month
@@ -56,7 +56,7 @@ services:
 
   # Frontend UI Service
   - type: web
-    name: jonathans-memory-ui
+    name: jean-memory-ui
     runtime: node
     region: oregon
     plan: starter # $7/month
@@ -64,15 +64,12 @@ services:
     buildCommand: "pnpm install && pnpm build"
     startCommand: "pnpm start"
     envVars:
-      # Link the environment group created in Render dashboard
+      # Link the environment group for Supabase public keys
       - fromGroup: frontend-public-env 
       
-      # Backend API URL - Automatically set from backend service
+      # Explicitly set the Backend API URL
       - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: jonathans-memory-api
-          property: host
+        value: "https://jean-memory-api.onrender.com"
       
       # Runtime
       - key: NODE_ENV
