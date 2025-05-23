@@ -22,11 +22,6 @@ load_dotenv()
 # Initialize MCP and memory client
 mcp = FastMCP("mem0-mcp-server")
 
-# Check if OpenAI API key is set
-if not os.getenv("OPENAI_API_KEY"):
-    logging.error("OPENAI_API_KEY is not set in .env file for MCP server")
-    raise Exception("OPENAI_API_KEY is not set in .env file")
-
 memory_client = get_memory_client()
 
 # Context variables for user_id (Supabase User ID string) and client_name
