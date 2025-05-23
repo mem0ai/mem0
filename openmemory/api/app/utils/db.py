@@ -10,35 +10,51 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
     The Supabase User ID (a UUID string) will be stored in User.id (PK, UUID type)
     and also in User.user_id (String type) for compatibility or future use.
     """
-    # Convert string Supabase ID to UUID object for querying User.id
-    user_pk_uuid = uuid.UUID(supabase_user_id)
-
-    user = db.query(User).filter(User.id == user_pk_uuid).first()
-    if not user:
-        user = User(
-            id=user_pk_uuid, # Set the PK directly
-            user_id=supabase_user_id, # Also set the string user_id field
-            email=email,
-            name=email.split("@")[0] if email else supabase_user_id # Basic name generation
-        )
-        db.add(user)
-        try:
-            db.commit()
-            db.refresh(user)
-        except Exception as e:
-            db.rollback()
-            # Log the error, e.g., logger.error(f"Error creating user {supabase_user_id}: {e}")
-            raise # Re-raise after rollback
-    elif email and not user.email: # If user exists but email was not set
-        user.email = email
-        user.name = user.name or (email.split("@")[0] if email else supabase_user_id) # Update name if not set
-        try:
-            db.commit()
-            db.refresh(user)
-        except Exception as e:
-            db.rollback()
-            # Log error
-            raise
+    # First try to find user by the string user_id
+    user = db.query(User).filter(User.user_id == supabase_user_id).first()
+    if user:
+        # Update email if provided and not set
+        if email and not user.email:
+            user.email = email
+            user.name = user.name or (email.split("@")[0] if email else supabase_user_id)
+            try:
+                db.commit()
+                db.refresh(user)
+            except Exception as e:
+                db.rollback()
+                raise
+        return user
+    
+    # Try to convert string to UUID, or create a deterministic UUID if it fails
+    try:
+        # If it's already a valid UUID string, use it directly
+        user_pk_uuid = uuid.UUID(supabase_user_id)
+    except ValueError:
+        # If not a valid UUID, create a deterministic UUID from the string
+        # Using UUID5 with a namespace to ensure consistency
+        user_pk_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, supabase_user_id)
+    
+    # Check if a user with this UUID already exists (edge case)
+    existing_user = db.query(User).filter(User.id == user_pk_uuid).first()
+    if existing_user:
+        return existing_user
+    
+    # Create new user
+    user = User(
+        id=user_pk_uuid, # Set the PK directly
+        user_id=supabase_user_id, # Also set the string user_id field
+        email=email,
+        name=email.split("@")[0] if email else supabase_user_id # Basic name generation
+    )
+    db.add(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception as e:
+        db.rollback()
+        # Log the error, e.g., logger.error(f"Error creating user {supabase_user_id}: {e}")
+        raise # Re-raise after rollback
+    
     return user
 
 

@@ -58,7 +58,7 @@ async def add_memories(text: str) -> str:
                 return f"Error: App {app.name} is currently paused. Cannot create new memories."
 
             response = memory_client.add(
-                data=text,
+                messages=text,
                 user_id=supa_uid,
                 metadata={
                     "source_app": "openmemory_mcp",
@@ -81,14 +81,18 @@ async def add_memories(text: str) -> str:
                             metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
                         )
                         db.add(sql_memory_record)
-                        history = MemoryStatusHistory(
-                            memory_id=sql_memory_record.id,
-                            changed_by=user.id,
-                            old_state=None,
-                            new_state=MemoryState.active
-                        )
-                        db.add(history)
+                        db.flush()  # Flush to get the memory ID before creating history
+                        
+                        # Don't create history for initial creation since old_state cannot be NULL
+                        # The memory is created with state=active, which is sufficient
+                        # History tracking starts from the first state change
                     elif result.get('event') == 'DELETE':
+                        # Find the existing SQL memory record by mem0_id
+                        sql_memory_record = db.query(Memory).filter(
+                            Memory.metadata_['mem0_id'].astext == mem0_memory_id_str,
+                            Memory.user_id == user.id
+                        ).first()
+                        
                         if sql_memory_record:
                             sql_memory_record.state = MemoryState.deleted
                             sql_memory_record.deleted_at = datetime.datetime.now(datetime.UTC)
@@ -134,16 +138,9 @@ async def search_memory(query: str) -> str:
                 mem0_id = mem_data.get('id')
                 if not mem0_id: continue
 
-                access_log = MemoryAccessLog(
-                    app_id=app.id,
-                    access_type="search_mcp",
-                    metadata_={
-                        "query": query,
-                        "mem0_id": mem0_id,
-                        "score": mem_data.get('score')
-                    }
-                )
-                db.add(access_log)
+                # Note: We're not creating MemoryAccessLog here because we don't have
+                # a SQL memory_id, only a mem0 ID. The schema requires memory_id to be NOT NULL.
+                # Access logging for mem0-only operations could be tracked differently if needed.
                 processed_results.append(mem_data)
             
             db.commit()
@@ -180,12 +177,9 @@ async def list_memories() -> str:
             for mem_data in actual_results_list:
                 mem0_id = mem_data.get('id')
                 if not mem0_id: continue
-                access_log = MemoryAccessLog(
-                    app_id=app.id,
-                    access_type="list_mcp",
-                    metadata_={ "mem0_id": mem0_id }
-                )
-                db.add(access_log)
+                # Note: We're not creating MemoryAccessLog here because we don't have
+                # a SQL memory_id, only a mem0 ID. The schema requires memory_id to be NOT NULL.
+                # Access logging for mem0-only operations could be tracked differently if needed.
                 processed_results.append(mem_data)
             
             db.commit()

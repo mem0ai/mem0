@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Copy, Check } from "lucide-react";
 import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
 
 const clientTabs = [
   { key: "claude", label: "Claude", icon: "/images/claude.webp" },
@@ -44,14 +45,17 @@ const allTabs = [{ key: "mcp", label: "MCP Link", icon: "🔗" }, ...clientTabs]
 
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
-  const user = process.env.NEXT_PUBLIC_USER_ID || "user";
+  const { user } = useAuth();
+  
+  // Use the authenticated user's ID, fallback to "user" if not authenticated
+  const userId = user?.id || "user";
 
   const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
-      ? `${URL}/mcp/openmemory/sse/${user}`
-      : `npx install-mcp i ${URL}/mcp/${tab}/sse/${user} --client ${tab}`;
+      ? `${URL}/mcp/openmemory/sse/${userId}`
+      : `npx install-mcp i ${URL}/mcp/${tab}/sse/${userId} --client ${tab}`;
 
     try {
       // Try using the Clipboard API first
@@ -81,6 +85,15 @@ export const Install = () => {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-6">Install Jean Memory</h2>
+      
+      {!user && (
+        <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+          <p className="text-yellow-300 text-sm">
+            ⚠️ You are not logged in. The MCP endpoint below will use a generic user ID. 
+            Please log in to get your personalized memory endpoint that will sync with your account.
+          </p>
+        </div>
+      )}
 
       <div className="hidden">
         <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]"></div>
@@ -131,7 +144,7 @@ export const Install = () => {
               <div className="relative">
                 <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                   <code className="text-gray-300">
-                    {URL}/mcp/openmemory/sse/{user}
+                    {URL}/mcp/openmemory/sse/{userId}
                   </code>
                 </pre>
                 <div>
@@ -167,7 +180,7 @@ export const Install = () => {
                 <div className="relative">
                   <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
                     <code className="text-gray-300">
-                      {`npx install-mcp i ${URL}/mcp/${key}/sse/${user} --client ${key}`}
+                      {`npx install-mcp i ${URL}/mcp/${key}/sse/${userId} --client ${key}`}
                     </code>
                   </pre>
                   <div>
