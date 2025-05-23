@@ -65,4 +65,18 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 
 ## Config
 
-All available parameters for the `anthropic` config are present in [Master List of All Params in Config](../config).
+The `AnthropicLlm` class in Embedchain allows you to configure various parameters for interacting with Anthropic models. These settings are passed from the `llm.config` object in your Embedchain configuration to the underlying `ChatAnthropic` client from Langchain.
+
+Here are the key configuration options available:
+
+-   `model`: (string, required) Specifies the Anthropic model you wish to use. For example: `"claude-3-7-sonnet-latest"`, `"claude-2"`, `"claude-instant-1"`.
+-   `temperature`: (float, optional) Controls the randomness of the model's output. Lower values (e.g., 0.1) make the output more deterministic and focused, while higher values make it more creative.
+-   `max_tokens`: (integer, optional) The maximum number of tokens the model should generate in its response. This parameter is now correctly passed to the Anthropic API.
+-   `top_p`: (float, optional) Nucleus sampling parameter. It controls the cumulative probability of the next token choices. For example, a `top_p` of 0.9 means the model considers tokens comprising the top 90% probability mass.
+-   `base_url`: (string, optional) If you need to use a custom or proxy URL for the Anthropic API, you can specify it here. This value is passed as the `anthropic_api_url` to the `ChatAnthropic` client.
+-   `model_kwargs`: (dict, optional) A dictionary for any additional keyword arguments you want to pass directly to the Anthropic model. This is useful for accessing newer or more advanced Anthropic parameters that might not have direct equivalents in Embedchain's `BaseLlmConfig`.
+-   `callbacks`: (list, optional) A list of Langchain callback handlers. These can be used for logging, streaming, or other custom behaviors during the LLM interaction.
+-   `default_headers`: (dict, optional) Allows you to specify custom headers that will be included in every API request made to Anthropic.
+-   `http_client`: (Any, optional) You can provide a custom HTTP client instance (e.g., an `httpx.Client`) for making API calls. This is useful for advanced scenarios like custom SSL configurations or transport settings.
+
+While these are the primary options for Anthropic, you can find a [Master List of All Params in Config](../config) for `BaseLlmConfig`. The example above demonstrates basic usage of `model`, `temperature`, and `max_tokens`. You can extend it with other parameters as needed.
