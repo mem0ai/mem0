@@ -2,6 +2,12 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.poetry]
+name = "mem0ai"
+version = "0.1.0"
+description = "My amazing multi-project AI app that barely works"
+authors = ["You <you@example.com>"]
+
 [project]
 name = "mem0ai"
 version = "0.1.101"
@@ -18,6 +24,8 @@ dependencies = [
     "posthog>=3.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
+    "uvicorn (>=0.34.2,<0.35.0)",
+    "fastapi (>=0.115.12,<0.116.0)",
 ]
 
 [project.optional-dependencies]
