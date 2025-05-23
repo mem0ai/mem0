@@ -10,6 +10,7 @@ services:
     plan: starter # $7/month
     rootDir: openmemory/api
     buildCommand: "pip install -r requirements.txt"
+    preDeployCommand: "alembic upgrade head" # Run database migrations before starting
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: "/health"
     envVars:

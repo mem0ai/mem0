@@ -66,3 +66,8 @@ setup_mcp_server(app) # Keep
 # add_pagination(app) # Keep if used
 
 logger.info("FastAPI application configured and routers included.")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment services"""
+    return {"status": "healthy", "timestamp": datetime.datetime.utcnow().isoformat()}
