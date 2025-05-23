@@ -43,6 +43,9 @@ const getColorGradient = (color: string) => {
 
 const allTabs = [{ key: "mcp", label: "MCP Link", icon: "🔗" }, ...clientTabs];
 
+// Potentially define outside if it should NEVER change after initial load
+const API_URL_ON_LOAD = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const { user } = useAuth();
@@ -50,7 +53,14 @@ export const Install = () => {
   // Use the authenticated user's ID, fallback to "user" if not authenticated
   const userId = user?.id || "user";
 
-  const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  // Log the raw environment variable value
+  console.log("Install.tsx: Raw NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+
+  const URL = API_URL_ON_LOAD;
+
+  // Log the resolved URL constant
+  console.log("Install.tsx: Resolved URL variable:", URL);
+  console.log("Install.tsx: User object:", user); // To see when it re-renders due to user change
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
