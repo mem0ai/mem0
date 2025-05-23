@@ -19,10 +19,11 @@ from qdrant_client import models as qdrant_models
 # Load environment variables
 load_dotenv()
 
-# Initialize MCP and memory client
+# Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
 
-memory_client = get_memory_client()
+# DO NOT initialize memory_client globally:
+# memory_client = get_memory_client()
 
 # Context variables for user_id (Supabase User ID string) and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("supa_user_id")
@@ -38,6 +39,7 @@ sse = SseServerTransport("/mcp/messages/")
 async def add_memories(text: str) -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
+    memory_client = get_memory_client() # Initialize client when tool is called
 
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
@@ -111,6 +113,7 @@ async def add_memories(text: str) -> str:
 async def search_memory(query: str) -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
+    memory_client = get_memory_client() # Initialize client when tool is called
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
     if not client_name:
@@ -151,6 +154,7 @@ async def search_memory(query: str) -> str:
 async def list_memories() -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
+    memory_client = get_memory_client() # Initialize client when tool is called
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
     if not client_name:
@@ -190,6 +194,7 @@ async def list_memories() -> str:
 async def delete_all_memories() -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
+    memory_client = get_memory_client() # Initialize client when tool is called
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
     if not client_name:
