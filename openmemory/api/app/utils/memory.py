@@ -142,10 +142,10 @@ def get_memory_client(custom_instructions: str = None):
         custom_instructions: Optional instructions for the memory project.
 
     Returns:
-        Initialized Mem0 client instance.
+        Initialized Mem0 client instance or None if initialization fails.
 
     Raises:
-        Exception: If required API keys are not set.
+        Exception: If required API keys are not set or critical configuration is missing.
     """
     global _memory_client, _config_hash
 
@@ -200,7 +200,7 @@ def get_memory_client(custom_instructions: str = None):
                                 if env_api_key:
                                     config["llm"]["config"]["api_key"] = env_api_key
                                 else:
-                                    raise Exception(f"{env_var} environment variable not set")
+                                    print(f"Warning: {env_var} environment variable not set, continuing without API key")
                             # Otherwise, use the API key directly as provided in the config
                     
                     # Add Embedder configuration if available
@@ -222,13 +222,13 @@ def get_memory_client(custom_instructions: str = None):
                                 if env_api_key:
                                     config["embedder"]["config"]["api_key"] = env_api_key
                                 else:
-                                    raise Exception(f"{env_var} environment variable not set")
+                                    print(f"Warning: {env_var} environment variable not set, continuing without API key")
                             # Otherwise, use the API key directly as provided in the config
                     
             db.close()
                             
         except Exception as e:
-            print(f"Error loading configuration: {e}")
+            print(f"Warning: Error loading configuration from database: {e}")
             # Continue with basic configuration if database config can't be loaded
 
         # Use custom_instructions parameter first, then fall back to database value
@@ -245,13 +245,23 @@ def get_memory_client(custom_instructions: str = None):
         # Only reinitialize if config changed or client doesn't exist
         if _memory_client is None or _config_hash != current_config_hash:
             print(f"Initializing memory client with config hash: {current_config_hash}")
-            _memory_client = Memory.from_config(config_dict=config)
-            _config_hash = current_config_hash
+            try:
+                _memory_client = Memory.from_config(config_dict=config)
+                _config_hash = current_config_hash
+                print("Memory client initialized successfully")
+            except Exception as init_error:
+                print(f"Warning: Failed to initialize memory client: {init_error}")
+                print("Server will continue running with limited memory functionality")
+                _memory_client = None
+                _config_hash = None
+                return None
         
         return _memory_client
         
     except Exception as e:
-        raise Exception(f"Exception occurred while initializing memory client: {e}")
+        print(f"Warning: Exception occurred while initializing memory client: {e}")
+        print("Server will continue running with limited memory functionality")
+        return None
 
 
 def get_default_user_id():

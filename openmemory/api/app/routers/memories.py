@@ -225,58 +225,92 @@ async def create_memory(
     # Log what we're about to do
     logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
     
-    # Save to Qdrant via memory_client
-    qdrant_response = get_memory_client().add(
-        request.text,
-        user_id=request.user_id,  # Use string user_id to match search
-        metadata={
-            "source_app": "openmemory",
-            "mcp_client": request.app,
-        }
-    )
-    
-    # Log the response for debugging
-    logging.info(f"Qdrant response: {qdrant_response}")
-    
-    # Process Qdrant response
-    if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
-        for result in qdrant_response['results']:
-            if result['event'] == 'ADD':
-                # Get the Qdrant-generated ID
-                memory_id = UUID(result['id'])
-                
-                # Check if memory already exists
-                existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                
-                if existing_memory:
-                    # Update existing memory
-                    existing_memory.state = MemoryState.active
-                    existing_memory.content = result['memory']
-                    memory = existing_memory
-                else:
-                    # Create memory with the EXACT SAME ID from Qdrant
-                    memory = Memory(
-                        id=memory_id,  # Use the same ID that Qdrant generated
-                        user_id=user.id,
-                        app_id=app_obj.id,
-                        content=result['memory'],
-                        metadata_=request.metadata,
-                        state=MemoryState.active
+    # Try to get memory client safely
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise Exception("Memory client is not available")
+    except Exception as client_error:
+        logging.warning(f"Memory client unavailable: {client_error}. Creating memory in database only.")
+        # Fallback to DB-only creation
+        memory_id = uuid4()
+        memory = Memory(
+            id=memory_id,
+            user_id=user.id,
+            app_id=app_obj.id,
+            content=request.text,
+            metadata_=request.metadata
+        )
+        db.add(memory)
+        
+        # Create history entry
+        history = MemoryStatusHistory(
+            memory_id=memory_id,
+            changed_by=user.id,
+            old_state=MemoryState.deleted,
+            new_state=MemoryState.active
+        )
+        db.add(history)
+        
+        db.commit()
+        db.refresh(memory)
+        return memory
+
+    # Try to save to Qdrant via memory_client
+    try:
+        qdrant_response = memory_client.add(
+            request.text,
+            user_id=request.user_id,  # Use string user_id to match search
+            metadata={
+                "source_app": "openmemory",
+                "mcp_client": request.app,
+            }
+        )
+        
+        # Log the response for debugging
+        logging.info(f"Qdrant response: {qdrant_response}")
+        
+        # Process Qdrant response
+        if isinstance(qdrant_response, dict) and 'results' in qdrant_response:
+            for result in qdrant_response['results']:
+                if result['event'] == 'ADD':
+                    # Get the Qdrant-generated ID
+                    memory_id = UUID(result['id'])
+                    
+                    # Check if memory already exists
+                    existing_memory = db.query(Memory).filter(Memory.id == memory_id).first()
+                    
+                    if existing_memory:
+                        # Update existing memory
+                        existing_memory.state = MemoryState.active
+                        existing_memory.content = result['memory']
+                        memory = existing_memory
+                    else:
+                        # Create memory with the EXACT SAME ID from Qdrant
+                        memory = Memory(
+                            id=memory_id,  # Use the same ID that Qdrant generated
+                            user_id=user.id,
+                            app_id=app_obj.id,
+                            content=result['memory'],
+                            metadata_=request.metadata,
+                            state=MemoryState.active
+                        )
+                        db.add(memory)
+                    
+                    # Create history entry
+                    history = MemoryStatusHistory(
+                        memory_id=memory_id,
+                        changed_by=user.id,
+                        old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
+                        new_state=MemoryState.active
                     )
-                    db.add(memory)
-                
-                # Create history entry
-                history = MemoryStatusHistory(
-                    memory_id=memory_id,
-                    changed_by=user.id,
-                    old_state=MemoryState.deleted if existing_memory else MemoryState.deleted,
-                    new_state=MemoryState.active
-                )
-                db.add(history)
-                
-                db.commit()
-                db.refresh(memory)
-                return memory
+                    db.add(history)
+                    
+                    db.commit()
+                    db.refresh(memory)
+                    return memory
+    except Exception as qdrant_error:
+        logging.warning(f"Qdrant operation failed: {qdrant_error}. Falling back to database-only mode.")
     
     # Fallback to traditional DB-only approach if Qdrant integration fails
     # Generate a random UUID for the memory
@@ -304,18 +338,19 @@ async def create_memory(
     
     # Attempt to add to Qdrant with the same ID we just created
     try:
-        # Try to add with our specific ID
-        get_memory_client().add(
-            request.text,
-            memory_id=str(memory_id),  # Specify the ID
-            user_id=request.user_id,
-            metadata={
-                "source_app": "openmemory",
-                "mcp_client": request.app,
-            }
-        )
+        if memory_client:
+            # Try to add with our specific ID
+            memory_client.add(
+                request.text,
+                memory_id=str(memory_id),  # Specify the ID
+                user_id=request.user_id,
+                metadata={
+                    "source_app": "openmemory",
+                    "mcp_client": request.app,
+                }
+            )
     except Exception as e:
-        logging.error(f"Failed to add to Qdrant in fallback path: {e}")
+        logging.warning(f"Failed to add to Qdrant in fallback path: {e}")
         # Continue anyway, the DB record is created
     
     return memory
