@@ -23,6 +23,10 @@ def get_memory_client(custom_instructions: str = None):
         embedder_model = os.getenv("EMBEDDER_MODEL", "text-embedding-ada-002")
         openai_api_key = os.getenv("OPENAI_API_KEY")
 
+        # --- TEMPORARY DEBUGGING ---
+        # print(f"DEBUG: Retrieved OPENAI_API_KEY: '{openai_api_key}'") 
+        # --- END TEMPORARY DEBUGGING ---
+
         if not openai_api_key:
             raise ValueError("OPENAI_API_KEY must be set in environment variables for mem0.")
 
