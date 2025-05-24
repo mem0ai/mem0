@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Config as ConfigModel
+from app.utils.memory import reset_memory_client
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
@@ -159,6 +160,7 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
     
     # Save the configuration to database
     save_config_to_db(db, updated_config)
+    reset_memory_client()
     return updated_config
 
 @router.post("/reset", response_model=ConfigSchema)
@@ -170,6 +172,7 @@ async def reset_configuration(db: Session = Depends(get_db)):
         
         # Save it as the current configuration in the database
         save_config_to_db(db, default_config)
+        reset_memory_client()
         return default_config
     except Exception as e:
         raise HTTPException(
@@ -198,6 +201,7 @@ async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depend
     
     # Save the configuration to database
     save_config_to_db(db, current_config)
+    reset_memory_client()
     return current_config["mem0"]["llm"]
 
 @router.get("/mem0/embedder", response_model=EmbedderProvider)
@@ -221,4 +225,5 @@ async def update_embedder_configuration(embedder_config: EmbedderProvider, db: S
     
     # Save the configuration to database
     save_config_to_db(db, current_config)
+    reset_memory_client()
     return current_config["mem0"]["embedder"] 

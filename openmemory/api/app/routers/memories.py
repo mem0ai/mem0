@@ -18,8 +18,6 @@ from app.models import (
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
 
-memory_client = get_memory_client()
-
 router = APIRouter(prefix="/api/v1/memories", tags=["memories"])
 
 
@@ -228,7 +226,7 @@ async def create_memory(
     logging.info(f"Creating memory for user_id: {request.user_id} with app: {request.app}")
     
     # Save to Qdrant via memory_client
-    qdrant_response = memory_client.add(
+    qdrant_response = get_memory_client().add(
         request.text,
         user_id=request.user_id,  # Use string user_id to match search
         metadata={
@@ -307,7 +305,7 @@ async def create_memory(
     # Attempt to add to Qdrant with the same ID we just created
     try:
         # Try to add with our specific ID
-        memory_client.add(
+        get_memory_client().add(
             request.text,
             memory_id=str(memory_id),  # Specify the ID
             user_id=request.user_id,

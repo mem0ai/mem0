@@ -1,12 +1,27 @@
 import os
 import json
+import hashlib
 
 from mem0 import Memory
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
 
 
-memory_client = None
+_memory_client = None
+_config_hash = None
+
+
+def _get_config_hash(config_dict):
+    """Generate a hash of the config to detect changes."""
+    config_str = json.dumps(config_dict, sort_keys=True)
+    return hashlib.md5(config_str.encode()).hexdigest()
+
+
+def reset_memory_client():
+    """Reset the global memory client to force reinitialization with new config."""
+    global _memory_client, _config_hash
+    _memory_client = None
+    _config_hash = None
 
 
 def get_memory_client(custom_instructions: str = None):
@@ -22,10 +37,7 @@ def get_memory_client(custom_instructions: str = None):
     Raises:
         Exception: If required API keys are not set.
     """
-    global memory_client
-
-    if memory_client is not None:
-        return memory_client
+    global _memory_client, _config_hash
 
     try:
         # Base configuration for vector store
@@ -143,15 +155,23 @@ def get_memory_client(custom_instructions: str = None):
             print(f"Error loading configuration: {e}")
             # Continue with basic configuration if database config can't be loaded
 
-        memory_client = Memory.from_config(config_dict=config)
+        # Check if config has changed by comparing hashes
+        current_config_hash = _get_config_hash(config)
+        
+        # Only reinitialize if config changed or client doesn't exist
+        if _memory_client is None or _config_hash != current_config_hash:
+            print(f"Initializing memory client with config hash: {current_config_hash}")
+            _memory_client = Memory.from_config(config_dict=config)
+            _config_hash = current_config_hash
+            
+            # Update project with custom instructions if provided
+            if custom_instructions:
+                _memory_client.update_project(custom_instructions=custom_instructions)
+        
+        return _memory_client
+        
     except Exception as e:
         raise Exception(f"Exception occurred while initializing memory client: {e}")
-
-    # Update project with custom instructions if provided
-    if custom_instructions:
-        memory_client.update_project(custom_instructions=custom_instructions)
-
-    return memory_client
 
 
 def get_default_user_id():
