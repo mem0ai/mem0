@@ -146,9 +146,9 @@ Please note to return the IDs in the output from the input IDs only and do not g
         }
 
 
-3. **Delete**: If the retrieved facts contain information that contradicts the information present in the memory, then you have to delete it. Or if the direction is to delete the memory, then you have to delete it.
+3. **Delete**: Only delete a memory if there is an explicit instruction to remove that specific information, or if the information is completely invalidated. For contradictory information that represents a change in preference or status, use UPDATE instead.
 Please note to return the IDs in the output from the input IDs only and do not generate any new ID.
-- **Example**:
+- **Example for DELETE operation**:
     - Old Memory:
         [
             {
@@ -157,10 +157,10 @@ Please note to return the IDs in the output from the input IDs only and do not g
             },
             {
                 "id" : "1",
-                "text" : "Loves cheese pizza"
+                "text" : "Planning to visit Paris next month"
             }
         ]
-    - Retrieved facts: ["Dislikes cheese pizza"]
+    - Retrieved facts: ["Canceled trip to Paris"]
     - New Memory:
         {
         "memory" : [
@@ -171,8 +171,29 @@ Please note to return the IDs in the output from the input IDs only and do not g
                 },
                 {
                     "id" : "1",
-                    "text" : "Loves cheese pizza",
+                    "text" : "Planning to visit Paris next month",
                     "event" : "DELETE"
+                }
+        ]
+        }
+
+- **Example for contradictory information (should use UPDATE)**:
+    - Old Memory:
+        [
+            {
+                "id" : "0",
+                "text" : "Loves cheese pizza"
+            }
+        ]
+    - Retrieved facts: ["Dislikes cheese pizza"]
+    - New Memory:
+        {
+        "memory" : [
+                {
+                    "id" : "0",
+                    "text" : "Dislikes cheese pizza",
+                    "event" : "UPDATE",
+                    "old_memory" : "Loves cheese pizza"
                 }
         ]
         }
