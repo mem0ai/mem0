@@ -16,6 +16,7 @@ import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
+import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
 import { SupabaseDB } from "../vector_stores/supabase";
@@ -90,6 +91,8 @@ export class VectorStoreFactory {
         return new SupabaseDB(config as any);
       case "langchain":
         return new LangchainVectorStore(config as any);
+      case "vectorize":
+        return new VectorizeDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
