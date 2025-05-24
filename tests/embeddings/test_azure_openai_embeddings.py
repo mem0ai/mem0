@@ -15,7 +15,7 @@ def mock_openai_client():
 
 
 def test_embed_text(mock_openai_client):
-    config = BaseEmbedderConfig(model="text-embedding-ada-002")
+    config = BaseEmbedderConfig(model="text-embedding-3-small")
     embedder = AzureOpenAIEmbedding(config)
 
     mock_embedding_response = Mock()
@@ -26,7 +26,7 @@ def test_embed_text(mock_openai_client):
     embedding = embedder.embed(text)
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Hello, this is a test."], model="text-embedding-ada-002"
+        input=["Hello, this is a test."], model="text-embedding-3-small"
     )
     assert embedding == [0.1, 0.2, 0.3]
 
@@ -37,7 +37,7 @@ def test_embed_text(mock_openai_client):
 )
 def test_embed_text_with_default_headers(default_headers, expected_header):
     config = BaseEmbedderConfig(
-        model="text-embedding-ada-002",
+        model="text-embedding-3-small",
         azure_kwargs={
             "api_key": "test",
             "api_version": "test_version",

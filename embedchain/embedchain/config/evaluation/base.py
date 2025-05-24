@@ -66,7 +66,7 @@ class AnswerRelevanceConfig(BaseConfig):
     def __init__(
         self,
         model: str = "gpt-4",
-        embedder: str = "text-embedding-ada-002",
+        embedder: str = "text-embedding-3-small",
         api_key: Optional[str] = None,
         num_gen_questions: int = 1,
         prompt: str = ANSWER_RELEVANCY_PROMPT,

@@ -20,7 +20,7 @@ def get_memory_client(custom_instructions: str = None):
         llm_provider = os.getenv("LLM_PROVIDER", "openai")
         openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         embedder_provider = os.getenv("EMBEDDER_PROVIDER", "openai")
-        embedder_model = os.getenv("EMBEDDER_MODEL", "text-embedding-ada-002")
+        embedder_model = os.getenv("EMBEDDER_MODEL", "text-embedding-3-small")
         openai_api_key = os.getenv("OPENAI_API_KEY")
 
         # --- TEMPORARY DEBUGGING ---

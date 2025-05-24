@@ -29,5 +29,5 @@ vectordb:
 embedder:
   provider: openai
   config:
-    model: 'text-embedding-ada-002'
+    model: 'text-embedding-3-small'
     deployment_name: 'my-app'

@@ -12,7 +12,7 @@ class AzureOpenAIEmbedder(BaseEmbedder):
         super().__init__(config=config)
 
         if self.config.model is None:
-            self.config.model = "text-embedding-ada-002"
+            self.config.model = "text-embedding-3-small"
 
         embeddings = AzureOpenAIEmbeddings(
             deployment=self.config.deployment_name,

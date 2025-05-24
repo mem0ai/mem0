@@ -178,7 +178,7 @@ from embedchain.evaluation.metrics import AnswerRelevance
 
 eval_config = AnswerRelevanceConfig(
     model='gpt-4',
-    embedder="text-embedding-ada-002",
+    embedder="text-embedding-3-small",
     api_key="sk-xxx",
     num_gen_questions=2
 )
@@ -192,7 +192,7 @@ score = metric.evaluate(dataset)
     The model to use for the evaluation. Defaults to `gpt-4`. We only support openai's models for now.
 </ParamField>
 <ParamField path="embedder" type="str" optional>
-    The embedder to use for embedding the text. Defaults to `text-embedding-ada-002`. We only support openai's embedders for now.
+    The embedder to use for embedding the text. Defaults to `text-embedding-3-small`. We only support openai's embedders for now.
 </ParamField>
 <ParamField path="api_key" type="str" optional>
     The openai api key to use for the evaluation. Defaults to `None`. If not provided, we will use the `OPENAI_API_KEY` environment variable.

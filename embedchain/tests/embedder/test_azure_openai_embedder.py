@@ -15,14 +15,14 @@ def test_azure_openai_embedder_with_http_client(monkeypatch):
         "httpx.Client", new=mock_http_client
     ) as mock_http_client:
         config = BaseEmbedderConfig(
-            deployment_name="text-embedding-ada-002",
+            deployment_name="text-embedding-3-small",
             http_client_proxies="http://testproxy.mem0.net:8000",
         )
 
         _ = AzureOpenAIEmbedder(config=config)
 
         mock_embeddings.assert_called_once_with(
-            deployment="text-embedding-ada-002",
+            deployment="text-embedding-3-small",
             http_client=mock_http_client_instance,
             http_async_client=None,
         )
@@ -38,14 +38,14 @@ def test_azure_openai_embedder_with_http_async_client(monkeypatch):
         "httpx.AsyncClient", new=mock_http_async_client
     ) as mock_http_async_client:
         config = BaseEmbedderConfig(
-            deployment_name="text-embedding-ada-002",
+            deployment_name="text-embedding-3-small",
             http_async_client_proxies={"http://": "http://testproxy.mem0.net:8000"},
         )
 
         _ = AzureOpenAIEmbedder(config=config)
 
         mock_embeddings.assert_called_once_with(
-            deployment="text-embedding-ada-002",
+            deployment="text-embedding-3-small",
             http_client=None,
             http_async_client=mock_http_async_client_instance,
         )

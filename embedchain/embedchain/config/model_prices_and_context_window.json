@@ -164,14 +164,14 @@
         "input_cost_per_token": 0.00000002,
         "output_cost_per_token": 0.000000
     },
-    "openai/text-embedding-ada-002": {
+    "openai/text-embedding-3-small": {
         "max_tokens": 8191,
         "max_input_tokens": 8191,
         "output_vector_size": 1536,
         "input_cost_per_token": 0.0000001,
         "output_cost_per_token": 0.000000
     },
-    "openai/text-embedding-ada-002-v2": {
+    "openai/text-embedding-3-small-v2": {
         "max_tokens": 8191,
         "max_input_tokens": 8191,
         "input_cost_per_token": 0.0000001,
@@ -329,7 +329,7 @@
         "input_cost_per_token": 0.0000015,
         "output_cost_per_token": 0.000002
     },
-    "azure/text-embedding-ada-002": {
+    "azure/text-embedding-3-small": {
         "max_tokens": 8191,
         "max_input_tokens": 8191,
         "input_cost_per_token": 0.0000001,

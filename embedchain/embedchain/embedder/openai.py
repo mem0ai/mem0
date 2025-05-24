@@ -14,7 +14,7 @@ class OpenAIEmbedder(BaseEmbedder):
         super().__init__(config=config)
 
         if self.config.model is None:
-            self.config.model = "text-embedding-ada-002"
+            self.config.model = "text-embedding-3-small"
 
         api_key = self.config.api_key or os.environ["OPENAI_API_KEY"]
         api_base = (

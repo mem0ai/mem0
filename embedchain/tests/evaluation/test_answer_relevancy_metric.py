@@ -40,7 +40,7 @@ def test_answer_relevance_init(monkeypatch):
     metric = AnswerRelevance()
     assert metric.name == EvalMetric.ANSWER_RELEVANCY.value
     assert metric.config.model == "gpt-4"
-    assert metric.config.embedder == "text-embedding-ada-002"
+    assert metric.config.embedder == "text-embedding-3-small"
     assert metric.config.api_key is None
     assert metric.config.num_gen_questions == 1
     monkeypatch.delenv("OPENAI_API_KEY")
@@ -50,7 +50,7 @@ def test_answer_relevance_init_with_config():
     metric = AnswerRelevance(config=AnswerRelevanceConfig(api_key="test_api_key"))
     assert metric.name == EvalMetric.ANSWER_RELEVANCY.value
     assert metric.config.model == "gpt-4"
-    assert metric.config.embedder == "text-embedding-ada-002"
+    assert metric.config.embedder == "text-embedding-3-small"
     assert metric.config.api_key == "test_api_key"
     assert metric.config.num_gen_questions == 1
 
