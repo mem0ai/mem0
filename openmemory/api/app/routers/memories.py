@@ -597,7 +597,7 @@ async def filter_memories(
     query = query.options(
         joinedload(Memory.categories),
         joinedload(Memory.app)
-    ).distinct()
+    ).distinct(Memory.id)
 
     return sqlalchemy_paginate(
         query,
