@@ -104,14 +104,18 @@ def _fix_ollama_urls(config_section):
     """
     Fix Ollama URLs for Docker environment.
     Replaces localhost URLs with appropriate Docker host URLs.
+    Sets default ollama_base_url if not provided.
     """
     if not config_section or "config" not in config_section:
         return config_section
     
     ollama_config = config_section["config"]
     
-    # Check for ollama_base_url and fix if it's localhost
-    if "ollama_base_url" in ollama_config:
+    # Set default ollama_base_url if not provided
+    if "ollama_base_url" not in ollama_config:
+        ollama_config["ollama_base_url"] = "http://host.docker.internal:11434"
+    else:
+        # Check for ollama_base_url and fix if it's localhost
         url = ollama_config["ollama_base_url"]
         if "localhost" in url or "127.0.0.1" in url:
             docker_host = _get_docker_host_url()
@@ -158,6 +162,9 @@ def get_memory_client(custom_instructions: str = None):
             },
         }
         
+        # Variable to track custom instructions
+        db_custom_instructions = None
+        
         # Load configuration from database
         try:
             db = SessionLocal()
@@ -165,6 +172,10 @@ def get_memory_client(custom_instructions: str = None):
             
             if db_config:
                 json_config = db_config.value
+                
+                # Extract custom instructions from openmemory settings
+                if "openmemory" in json_config and "custom_instructions" in json_config["openmemory"]:
+                    db_custom_instructions = json_config["openmemory"]["custom_instructions"]
                 
                 # Add configurations from the database
                 if "mem0" in json_config:
@@ -213,69 +224,20 @@ def get_memory_client(custom_instructions: str = None):
                                 else:
                                     raise Exception(f"{env_var} environment variable not set")
                             # Otherwise, use the API key directly as provided in the config
-            else:
-                # If no config in database, try to load from file for backwards compatibility
-                try:
-                    with open("/usr/src/openmemory/config.json", "r") as f:
-                        file_config = json.load(f)
-                    
-                    # Add configurations from config.json
-                    if "mem0" in file_config:
-                        mem0_config = file_config["mem0"]
-                        
-                        # Add LLM configuration if available
-                        if "llm" in mem0_config:
-                            config["llm"] = mem0_config["llm"]
-                            
-                            # Fix Ollama URLs for Docker if needed
-                            if config["llm"].get("provider") == "ollama":
-                                config["llm"] = _fix_ollama_urls(config["llm"])
-                            
-                            # Handle API key
-                            if "config" in config["llm"] and "api_key" in config["llm"]["config"]:
-                                api_key = config["llm"]["config"]["api_key"]
-                                
-                                if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
-                                    env_var = api_key.split(":", 1)[1]
-                                    env_api_key = os.environ.get(env_var)
-                                    if env_api_key:
-                                        config["llm"]["config"]["api_key"] = env_api_key
-                                    else:
-                                        raise Exception(f"{env_var} environment variable not set")
-                        
-                        # Add Embedder configuration if available
-                        if "embedder" in mem0_config:
-                            config["embedder"] = mem0_config["embedder"]
-                            
-                            # Fix Ollama URLs for Docker if needed
-                            if config["embedder"].get("provider") == "ollama":
-                                config["embedder"] = _fix_ollama_urls(config["embedder"])
-                            
-                            # Handle API key
-                            if "config" in config["embedder"] and "api_key" in config["embedder"]["config"]:
-                                api_key = config["embedder"]["config"]["api_key"]
-                                
-                                if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
-                                    env_var = api_key.split(":", 1)[1]
-                                    env_api_key = os.environ.get(env_var)
-                                    if env_api_key:
-                                        config["embedder"]["config"]["api_key"] = env_api_key
-                                    else:
-                                        raise Exception(f"{env_var} environment variable not set")
-                    
-                    # Save the file config to database for future use
-                    db_config = ConfigModel(key="main", value=file_config)
-                    db.add(db_config)
-                    db.commit()
-                except Exception as e:
-                    print(f"Error loading config.json: {e}")
-                    # Continue with basic configuration if config.json can't be loaded
                     
             db.close()
                             
         except Exception as e:
             print(f"Error loading configuration: {e}")
             # Continue with basic configuration if database config can't be loaded
+
+        # Use custom_instructions parameter first, then fall back to database value
+        instructions_to_use = custom_instructions or db_custom_instructions
+        if instructions_to_use:
+            config["custom_fact_extraction_prompt"] = instructions_to_use
+        
+        # Add version
+        config["version"] = "v1.1"
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
@@ -285,10 +247,6 @@ def get_memory_client(custom_instructions: str = None):
             print(f"Initializing memory client with config hash: {current_config_hash}")
             _memory_client = Memory.from_config(config_dict=config)
             _config_hash = current_config_hash
-            
-            # Update project with custom instructions if provided
-            if custom_instructions:
-                _memory_client.update_project(custom_instructions=custom_instructions)
         
         return _memory_client
         

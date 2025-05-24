@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { PlusCircle, Trash2, Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
@@ -9,6 +9,7 @@ import { Slider } from "./ui/slider"
 import { Switch } from "./ui/switch"
 import { Button } from "./ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
+import { Textarea } from "./ui/textarea"
 
 interface FormViewProps {
   settings: any
@@ -88,148 +89,10 @@ export function FormView({ settings, onChange }: FormViewProps) {
     })
   }
 
-  const addCustomField = (section: string, configPath: string) => {
-    const newField = { key: "", value: "", type: "string" }
-
-    if (section === "openmemory") {
-      onChange({
-        ...settings,
-        openmemory: {
-          ...settings.openmemory,
-          _customFields: [...(settings.openmemory._customFields || []), newField],
-        },
-      })
-    } else if (section === "llm") {
-      onChange({
-        ...settings,
-        mem0: {
-          ...settings.mem0,
-          llm: {
-            ...settings.mem0.llm,
-            config: {
-              ...settings.mem0.llm.config,
-              _customFields: [...(settings.mem0.llm.config._customFields || []), newField],
-            },
-          },
-        },
-      })
-    } else if (section === "embedder") {
-      onChange({
-        ...settings,
-        mem0: {
-          ...settings.mem0,
-          embedder: {
-            ...settings.mem0.embedder,
-            config: {
-              ...settings.mem0.embedder.config,
-              _customFields: [...(settings.mem0.embedder.config._customFields || []), newField],
-            },
-          },
-        },
-      })
-    }
-  }
-
-  const updateCustomField = (section: string, index: number, field: string, value: any) => {
-    if (section === "openmemory") {
-      const customFields = [...(settings.openmemory._customFields || [])]
-      customFields[index] = { ...customFields[index], [field]: value }
-
-      onChange({
-        ...settings,
-        openmemory: {
-          ...settings.openmemory,
-          _customFields: customFields,
-        },
-      })
-    } else if (section === "llm") {
-      const customFields = [...(settings.mem0.llm.config._customFields || [])]
-      customFields[index] = { ...customFields[index], [field]: value }
-
-      onChange({
-        ...settings,
-        mem0: {
-          ...settings.mem0,
-          llm: {
-            ...settings.mem0.llm,
-            config: {
-              ...settings.mem0.llm.config,
-              _customFields: customFields,
-            },
-          },
-        },
-      })
-    } else if (section === "embedder") {
-      const customFields = [...(settings.mem0.embedder.config._customFields || [])]
-      customFields[index] = { ...customFields[index], [field]: value }
-
-      onChange({
-        ...settings,
-        mem0: {
-          ...settings.mem0,
-          embedder: {
-            ...settings.mem0.embedder,
-            config: {
-              ...settings.mem0.embedder.config,
-              _customFields: customFields,
-            },
-          },
-        },
-      })
-    }
-  }
-
-  const removeCustomField = (section: string, index: number) => {
-    if (section === "openmemory") {
-      const customFields = [...(settings.openmemory._customFields || [])]
-      customFields.splice(index, 1)
-
-      onChange({
-        ...settings,
-        openmemory: {
-          ...settings.openmemory,
-          _customFields: customFields,
-        },
-      })
-    } else if (section === "llm") {
-      const customFields = [...(settings.mem0.llm.config._customFields || [])]
-      customFields.splice(index, 1)
-
-      onChange({
-        ...settings,
-        mem0: {
-          ...settings.mem0,
-          llm: {
-            ...settings.mem0.llm,
-            config: {
-              ...settings.mem0.llm.config,
-              _customFields: customFields,
-            },
-          },
-        },
-      })
-    } else if (section === "embedder") {
-      const customFields = [...(settings.mem0.embedder.config._customFields || [])]
-      customFields.splice(index, 1)
-
-      onChange({
-        ...settings,
-        mem0: {
-          ...settings.mem0,
-          embedder: {
-            ...settings.mem0.embedder,
-            config: {
-              ...settings.mem0.embedder.config,
-              _customFields: customFields,
-            },
-          },
-        },
-      })
-    }
-  }
-
   const needsLlmApiKey = settings.mem0?.llm?.provider?.toLowerCase() !== "ollama"
   const needsEmbedderApiKey = settings.mem0?.embedder?.provider?.toLowerCase() !== "ollama"
+  const isLlmOllama = settings.mem0?.llm?.provider?.toLowerCase() === "ollama"
+  const isEmbedderOllama = settings.mem0?.embedder?.provider?.toLowerCase() === "ollama"
 
   const LLM_PROVIDERS = [
     "OpenAI",
@@ -264,6 +127,29 @@ export function FormView({ settings, onChange }: FormViewProps) {
 
   return (
     <div className="space-y-8">
+      {/* OpenMemory Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>OpenMemory Settings</CardTitle>
+          <CardDescription>Configure your OpenMemory instance settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="custom-instructions">Custom Instructions</Label>
+            <Textarea
+              id="custom-instructions"
+              placeholder="Enter custom instructions for memory management..."
+              value={settings.openmemory?.custom_instructions || ""}
+              onChange={(e) => handleOpenMemoryChange("custom_instructions", e.target.value)}
+              className="min-h-[100px]"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Custom instructions that will be used to guide memory processing and fact extraction.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* LLM Settings */}
       <Card>
         <CardHeader>
@@ -299,6 +185,21 @@ export function FormView({ settings, onChange }: FormViewProps) {
               onChange={(e) => handleLlmConfigChange("model", e.target.value)}
             />
           </div>
+
+          {isLlmOllama && (
+            <div className="space-y-2">
+              <Label htmlFor="llm-ollama-url">Ollama Base URL</Label>
+              <Input
+                id="llm-ollama-url"
+                placeholder="http://host.docker.internal:11434"
+                value={settings.mem0?.llm?.config?.ollama_base_url || ""}
+                onChange={(e) => handleLlmConfigChange("ollama_base_url", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave empty to use default: http://host.docker.internal:11434
+              </p>
+            </div>
+          )}
 
           {needsLlmApiKey && (
             <div className="space-y-2">
@@ -360,58 +261,6 @@ export function FormView({ settings, onChange }: FormViewProps) {
               </div>
             </div>
           )}
-
-          {/* Custom Fields for LLM */}
-          {settings.mem0?.llm?.config?._customFields?.map((field: any, index: number) => (
-            <div key={`llm-field-${index}`} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
-              <div className="space-y-2">
-                <Label htmlFor={`llm-key-${index}`}>Field Name</Label>
-                <Input
-                  id={`llm-key-${index}`}
-                  placeholder="Field name"
-                  value={field.key}
-                  onChange={(e) => updateCustomField("llm", index, "key", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor={`llm-value-${index}`}>Value</Label>
-                  <Select value={field.type} onValueChange={(value) => updateCustomField("llm", index, "type", value)}>
-                    <SelectTrigger className="w-24">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="string">String</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  id={`llm-value-${index}`}
-                  placeholder="Value"
-                  type={field.type === "number" ? "number" : "text"}
-                  value={field.value}
-                  onChange={(e) => {
-                    const value = field.type === "number" ? Number(e.target.value) : e.target.value
-                    updateCustomField("llm", index, "value", value)
-                  }}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeCustomField("llm", index)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-
-          <Button variant="outline" size="sm" onClick={() => addCustomField("llm", "")} className="mt-2">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Custom Field
-          </Button>
         </CardContent>
       </Card>
 
@@ -451,6 +300,21 @@ export function FormView({ settings, onChange }: FormViewProps) {
             />
           </div>
 
+          {isEmbedderOllama && (
+            <div className="space-y-2">
+              <Label htmlFor="embedder-ollama-url">Ollama Base URL</Label>
+              <Input
+                id="embedder-ollama-url"
+                placeholder="http://host.docker.internal:11434"
+                value={settings.mem0?.embedder?.config?.ollama_base_url || ""}
+                onChange={(e) => handleEmbedderConfigChange("ollama_base_url", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave empty to use default: http://host.docker.internal:11434
+              </p>
+            </div>
+          )}
+
           {needsEmbedderApiKey && (
             <div className="space-y-2">
               <Label htmlFor="embedder-api-key">API Key</Label>
@@ -477,61 +341,6 @@ export function FormView({ settings, onChange }: FormViewProps) {
               </p>
             </div>
           )}
-
-          {/* Custom Fields for Embedder */}
-          {settings.mem0?.embedder?.config?._customFields?.map((field: any, index: number) => (
-            <div key={`embedder-field-${index}`} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
-              <div className="space-y-2">
-                <Label htmlFor={`embedder-key-${index}`}>Field Name</Label>
-                <Input
-                  id={`embedder-key-${index}`}
-                  placeholder="Field name"
-                  value={field.key}
-                  onChange={(e) => updateCustomField("embedder", index, "key", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor={`embedder-value-${index}`}>Value</Label>
-                  <Select
-                    value={field.type}
-                    onValueChange={(value) => updateCustomField("embedder", index, "type", value)}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="string">String</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  id={`embedder-value-${index}`}
-                  placeholder="Value"
-                  type={field.type === "number" ? "number" : "text"}
-                  value={field.value}
-                  onChange={(e) => {
-                    const value = field.type === "number" ? Number(e.target.value) : e.target.value
-                    updateCustomField("embedder", index, "value", value)
-                  }}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeCustomField("embedder", index)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-
-          <Button variant="outline" size="sm" onClick={() => addCustomField("embedder", "")} className="mt-2">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Custom Field
-          </Button>
         </CardContent>
       </Card>
     </div>

@@ -27,9 +27,8 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const configState = useSelector((state: RootState) => state.config)
   const [settings, setSettings] = useState({
-    openmemory: {
-      // userId field commented out as requested
-      // user: "",
+    openmemory: configState.openmemory || {
+      custom_instructions: null
     },
     mem0: configState.mem0
   })
@@ -57,13 +56,17 @@ export default function SettingsPage() {
   useEffect(() => {
     setSettings(prev => ({
       ...prev,
+      openmemory: configState.openmemory || { custom_instructions: null },
       mem0: configState.mem0
     }))
-  }, [configState.mem0])
+  }, [configState.openmemory, configState.mem0])
 
   const handleSave = async () => {
     try {
-      await saveConfig({ mem0: settings.mem0 })
+      await saveConfig({ 
+        openmemory: settings.openmemory,
+        mem0: settings.mem0 
+      })
       toast({
         title: "Settings saved",
         description: "Your configuration has been updated successfully.",

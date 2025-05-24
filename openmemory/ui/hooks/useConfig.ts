@@ -9,14 +9,16 @@ import {
   updateLLM,
   updateEmbedder,
   updateMem0Config,
+  updateOpenMemory,
   LLMProvider,
   EmbedderProvider,
-  Mem0Config
+  Mem0Config,
+  OpenMemoryConfig
 } from '@/store/configSlice';
 
 interface UseConfigApiReturn {
   fetchConfig: () => Promise<void>;
-  saveConfig: (config: { mem0: Mem0Config }) => Promise<void>;
+  saveConfig: (config: { openmemory?: OpenMemoryConfig; mem0: Mem0Config }) => Promise<void>;
   saveLLMConfig: (llmConfig: LLMProvider) => Promise<void>;
   saveEmbedderConfig: (embedderConfig: EmbedderProvider) => Promise<void>;
   resetConfig: () => Promise<void>;
@@ -47,7 +49,7 @@ export const useConfig = (): UseConfigApiReturn => {
     }
   };
 
-  const saveConfig = async (config: { mem0: Mem0Config }) => {
+  const saveConfig = async (config: { openmemory?: OpenMemoryConfig; mem0: Mem0Config }) => {
     setIsLoading(true);
     setError(null);
     

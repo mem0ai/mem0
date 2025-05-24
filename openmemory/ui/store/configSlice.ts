@@ -5,6 +5,7 @@ export interface LLMConfig {
   temperature: number;
   max_tokens: number;
   api_key?: string;
+  ollama_base_url?: string;
 }
 
 export interface LLMProvider {
@@ -15,6 +16,7 @@ export interface LLMProvider {
 export interface EmbedderConfig {
   model: string;
   api_key?: string;
+  ollama_base_url?: string;
 }
 
 export interface EmbedderProvider {
@@ -27,13 +29,21 @@ export interface Mem0Config {
   embedder?: EmbedderProvider;
 }
 
+export interface OpenMemoryConfig {
+  custom_instructions?: string | null;
+}
+
 export interface ConfigState {
+  openmemory: OpenMemoryConfig;
   mem0: Mem0Config;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
 }
 
 const initialState: ConfigState = {
+  openmemory: {
+    custom_instructions: null,
+  },
   mem0: {
     llm: {
       provider: 'openai',
@@ -64,7 +74,10 @@ const configSlice = createSlice({
       state.status = 'loading';
       state.error = null;
     },
-    setConfigSuccess: (state, action: PayloadAction<{ mem0: Mem0Config }>) => {
+    setConfigSuccess: (state, action: PayloadAction<{ openmemory?: OpenMemoryConfig; mem0: Mem0Config }>) => {
+      if (action.payload.openmemory) {
+        state.openmemory = action.payload.openmemory;
+      }
       state.mem0 = action.payload.mem0;
       state.status = 'succeeded';
       state.error = null;
@@ -72,6 +85,9 @@ const configSlice = createSlice({
     setConfigError: (state, action: PayloadAction<string>) => {
       state.status = 'failed';
       state.error = action.payload;
+    },
+    updateOpenMemory: (state, action: PayloadAction<OpenMemoryConfig>) => {
+      state.openmemory = action.payload;
     },
     updateLLM: (state, action: PayloadAction<LLMProvider>) => {
       state.mem0.llm = action.payload;
@@ -89,6 +105,7 @@ export const {
   setConfigLoading,
   setConfigSuccess,
   setConfigError,
+  updateOpenMemory,
   updateLLM,
   updateEmbedder,
   updateMem0Config,
