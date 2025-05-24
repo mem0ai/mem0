@@ -172,7 +172,7 @@ async def list_memories(
 
     # Get paginated results - items are SQLAlchemy Memory objects
     paginated_sqla_results = sqlalchemy_paginate(
-        query.options(joinedload(Memory.app), joinedload(Memory.categories)).distinct(), 
+        query.options(joinedload(Memory.app), joinedload(Memory.categories)).distinct(Memory.id), 
         params
     )
 
