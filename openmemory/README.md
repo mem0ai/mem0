@@ -1,27 +1,62 @@
-# Jean Memory
+# Jean Memory - Your Personal Memory Layer
 
-Jean Memory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
+Jean Memory is your personal memory layer for LLMs, now available as a cloud-hosted service and for local development. It allows you to build AI applications with personalized memories while giving you options for data control.
+
+**Live Cloud Version:**
+*   **Frontend UI:** [https://jean-memory-ui.onrender.com](https://jean-memory-ui.onrender.com)
+*   **Backend API:** `https://jean-memory-api.onrender.com`
+    *   API Docs: [https://jean-memory-api.onrender.com/docs](https://jean-memory-api.onrender.com/docs)
+
+To use the cloud version, simply visit the Frontend UI link above, sign up or log in, and follow the instructions to connect your MCP clients using the provided production API endpoints.
 
 ![Jean Memory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
-## Prerequisites
+## Local Development Setup
+
+If you wish to run Jean Memory locally for development or contributions, follow these steps:
+
+### Prerequisites (Local Development)
 
 - Docker and Docker Compose
-- Python 3.9+ (for backend development)
-- Node.js (for frontend development)
-- OpenAI API Key (required for LLM interactions)
+- Python 3.9+ (if modifying backend outside Docker)
+- Node.js (if modifying frontend outside Docker)
+- An OpenAI API Key (set in `openmemory/api/.env`)
+- Supabase Project: For local development, you'll need to set up a free Supabase project and configure its URL and keys in:
+    - `openmemory/api/.env` (for `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`)
+    - `openmemory/ui/.env.local` (for `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- Qdrant Instance: For local development, the `docker-compose.yml` includes a Qdrant service. If you prefer to use Qdrant Cloud, configure `QDRANT_HOST` and `QDRANT_API_KEY` in `openmemory/api/.env`.
 
-## Quickstart
+### Quickstart (Local Development)
 
-You can run the project using the following two commands:
-```bash
-make build # builds the mcp server and ui
-make up  # runs jean memory mcp server and ui
-```
+1.  **Clone the main `mem0` repository:**
+    ```bash
+    git clone https://github.com/mem0ai/mem0.git
+    cd mem0/openmemory
+    ```
 
-After running these commands, you will have:
-- Jean Memory MCP server running at: http://localhost:8765 (API documentation available at http://localhost:8765/docs)
-- Jean Memory UI running at: http://localhost:3000
+2.  **Set up Environment Variables:**
+    *   In the `openmemory/api/` directory, copy `.env.example` to `.env`:
+        ```bash
+        cp api/.env.example api/.env
+        ```
+    *   Edit `api/.env` with your `OPENAI_API_KEY`, Supabase URL/service_key, and optionally Qdrant Cloud details.
+    *   In the `openmemory/ui/` directory, copy `.env.example` to `.env.local` (if an example exists, otherwise create it):
+        ```bash
+        # cp ui/.env.example ui/.env.local (if example exists)
+        # Create ui/.env.local if it doesn't exist
+        ```
+    *   Edit `ui/.env.local` with your `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ensure `NEXT_PUBLIC_API_URL` is set to `http://localhost:8765` for local development.
+
+3.  **Build and Run with Docker Compose:**
+    From the `openmemory/` directory:
+    ```bash
+    make build # or docker compose build
+    make up    # or docker compose up -d
+    ```
+
+4.  **Access Local Services:**
+    *   Jean Memory API server: `http://localhost:8765` (API docs: `http://localhost:8765/docs`)
+    *   Jean Memory UI: `http://localhost:3000`
 
 ## Project Structure
 
