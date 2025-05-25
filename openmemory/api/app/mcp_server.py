@@ -404,7 +404,7 @@ Provide a brief analysis focusing on the query. Be concise."""
                     max_output_tokens=1024,
                 )
             ),
-            timeout=10.0  # 10 second timeout
+            timeout=30.0  # Increased from 10 to 30 seconds
         )
         return response.text
     except Exception as e:
@@ -416,10 +416,10 @@ async def _quick_document_search(gemini_service, documents: list, query: str, do
     try:
         doc = documents[0]  # Should only be one document
         
-        # Smart truncation for speed
+        # Smart truncation for speed - but less aggressive given we have more time
         content = doc.content
-        if len(content) > 20000:  # Much more aggressive truncation
-            content = content[:15000] + "\n[...truncated...]\n" + content[-3000:]
+        if len(content) > 40000:  # Increased from 20K to 40K chars
+            content = content[:30000] + "\n[...truncated...]\n" + content[-8000:]  # More content preserved
         
         prompt = f"""Analyze this document for: {query}
 
@@ -437,7 +437,7 @@ Provide a brief analysis focusing on the query. Be concise."""
                     max_output_tokens=1024,
                 )
             ),
-            timeout=12.0  # 12 second timeout per document
+            timeout=45.0  # Increased from 12 to 45 seconds per document
         )
         return response.text
     except Exception as e:
@@ -458,7 +458,7 @@ async def _orchestrate_results(gemini_service, results: list, descriptions: list
             else:
                 combined_results += f"**{desc}**: {result}\n\n"
         
-        # Quick orchestration with very short timeout
+        # Quick orchestration with more reasonable timeout
         orchestration_prompt = f"""Synthesize these search results into a coherent answer:
 
 {combined_results}
@@ -477,7 +477,7 @@ Provide a unified, comprehensive response that draws connections across all sour
                         max_output_tokens=2048,
                     )
                 ),
-                timeout=8.0  # Very short timeout for orchestration
+                timeout=20.0  # Increased from 8 to 20 seconds for orchestration
             )
             return final_response.text
         except asyncio.TimeoutError:
