@@ -3,8 +3,9 @@ import uuid
 import datetime
 from sqlalchemy import (
     Column, String, Boolean, ForeignKey, Enum, Table,
-    DateTime, JSON, Integer, UUID, Index, event, UniqueConstraint, Text, JSONB, ARRAY, Float, func, text
+    DateTime, JSON, Integer, UUID, Index, event, UniqueConstraint, Text, ARRAY, Float, func, text
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
 from sqlalchemy.orm import Session
