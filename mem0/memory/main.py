@@ -16,20 +16,14 @@ from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
-from mem0.configs.prompts import (
-    PROCEDURAL_MEMORY_SYSTEM_PROMPT,
-    get_update_memory_messages,
-)
+from mem0.configs.prompts import (PROCEDURAL_MEMORY_SYSTEM_PROMPT,
+                                  get_update_memory_messages)
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import capture_event
-from mem0.memory.utils import (
-    get_fact_retrieval_messages,
-    parse_messages,
-    parse_vision_messages,
-    remove_code_blocks,
-)
+from mem0.memory.utils import (get_fact_retrieval_messages, parse_messages,
+                               parse_vision_messages, remove_code_blocks)
 from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 
 
@@ -1189,7 +1183,6 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-
             response = ""
             logging.error(f"Error in new memory actions response: {e}")
             response = ""
@@ -1399,7 +1392,9 @@ class AsyncMemory(MemoryBase):
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
         actual_memories = (
-            memories_result[0] if isinstance(memories_result, tuple | list) and len(memories_result) > 0 else memories_result
+            memories_result[0]
+            if isinstance(memories_result, tuple | list) and len(memories_result) > 0
+            else memories_result
         )
 
         promoted_payload_keys = [
@@ -1667,9 +1662,8 @@ class AsyncMemory(MemoryBase):
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
         try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
+            from langchain_core.messages.utils import \
+                convert_to_messages  # type: ignore
         except Exception:
             logger.error(
                 "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."

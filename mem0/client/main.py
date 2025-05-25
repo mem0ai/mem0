@@ -666,9 +666,7 @@ class MemoryClient:
         capture_client_event("client.feedback", self, data, {"sync_type": "sync"})
         return response.json()
 
-    def _prepare_payload(
-        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
         Args:
@@ -794,9 +792,7 @@ class AsyncMemoryClient:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
 
-    def _prepare_payload(
-        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
         Args:
