@@ -5,6 +5,7 @@ from datetime import datetime
 import httpx
 import json
 import os
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -194,11 +195,10 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
     """
     Sync a Twitter user's recent tweets to memory.
     This can be called from an API endpoint or MCP tool.
-    from uuid import UUID
     """
     from app.utils.memory import get_memory_client
     from app.models import Memory, App
-    
+    from uuid import UUID
     service = TwitterService()
     memory_client = get_memory_client()
     
