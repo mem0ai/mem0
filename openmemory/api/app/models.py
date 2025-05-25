@@ -10,10 +10,16 @@ from app.database import Base
 from sqlalchemy.orm import Session
 from app.utils.categorization import get_categories_for_memory
 
+# Python 3.10 compatibility
+try:
+    UTC = datetime.UTC
+except AttributeError:
+    UTC = datetime.timezone.utc
+
 
 def get_current_utc_time():
     """Get current UTC time"""
-    return datetime.datetime.now(datetime.UTC)
+    return datetime.datetime.now(UTC)
 
 
 class MemoryState(enum.Enum):
@@ -77,6 +83,7 @@ class Memory(Base):
     user = relationship("User", back_populates="memories")
     app = relationship("App", back_populates="memories")
     categories = relationship("Category", secondary="memory_categories", back_populates="memories")
+    documents = relationship("Document", secondary="document_memories", back_populates="memories")
 
     __table_args__ = (
         Index('idx_memory_user_state', 'user_id', 'state'),
@@ -90,7 +97,7 @@ class Category(Base):
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
     name = Column(String, unique=True, nullable=False, index=True)
     description = Column(String)
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.UTC), index=True)
+    created_at = Column(DateTime, default=datetime.datetime.now(UTC), index=True)
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
                         onupdate=get_current_utc_time)
@@ -162,6 +169,49 @@ class MemoryAccessLog(Base):
         Index('idx_access_memory_time', 'memory_id', 'accessed_at'),
         Index('idx_access_app_time', 'app_id', 'accessed_at'),
     )
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    user_id = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
+    app_id = Column(UUID, ForeignKey("apps.id"), nullable=False, index=True)
+    
+    # Document info
+    title = Column(String, nullable=False)
+    source_url = Column(String, nullable=True)
+    document_type = Column(String, nullable=False)  # 'substack', 'medium', 'code', 'markdown'
+    
+    # Full content - using Text type for large content
+    content = Column(String, nullable=False)  # SQLAlchemy will use appropriate DB type
+    
+    # Metadata
+    metadata_ = Column('metadata', JSON, default=dict)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
+    updated_at = Column(DateTime,
+                        default=get_current_utc_time,
+                        onupdate=get_current_utc_time)
+    
+    # Relationships
+    user = relationship("User", backref="documents")
+    app = relationship("App", backref="documents")
+    memories = relationship("Memory", secondary="document_memories", back_populates="documents")
+    
+    __table_args__ = (
+        Index('idx_documents_user_app', 'user_id', 'app_id'),
+        Index('idx_documents_type', 'document_type'),
+        Index('idx_documents_created', 'created_at'),
+    )
+
+
+# Association table for documents and memories
+document_memories = Table(
+    "document_memories", Base.metadata,
+    Column("document_id", UUID, ForeignKey("documents.id"), primary_key=True, index=True),
+    Column("memory_id", UUID, ForeignKey("memories.id"), primary_key=True, index=True),
+    Index('idx_document_memory', 'document_id', 'memory_id')
+)
+
 
 def categorize_memory(memory: Memory, db: Session) -> None:
     """Categorize a memory using OpenAI and store the categories in the database."""
