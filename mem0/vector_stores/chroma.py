@@ -208,7 +208,7 @@ class ChromaDB(VectorStoreBase):
         """
         return self.client.get_collection(name=self.collection_name)
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> list[list[OutputData]]:
         """
         List all vectors in a collection.
 

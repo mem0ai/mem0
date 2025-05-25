@@ -429,7 +429,7 @@ class FAISS(VectorStoreBase):
             "distance": self.distance_strategy,
         }
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> list[list[OutputData]]:
         """
         List all vectors in a collection.
 

@@ -219,7 +219,7 @@ class MilvusDB(VectorStoreBase):
         """
         return self.client.get_collection_stats(collection_name=self.collection_name)
 
-    def list(self, filters: dict = None, limit: int = 100) -> list:
+    def list(self, filters: dict = None, limit: int = 100) -> list[list[OutputData]]:
         """
         List all vectors in a collection.
 

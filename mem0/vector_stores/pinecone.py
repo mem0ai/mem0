@@ -318,7 +318,7 @@ class PineconeDB(VectorStoreBase):
         """
         return self.client.describe_index(self.collection_name)
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> list[list[OutputData]] | dict[str, list | None]:
         """
         List vectors in an index with optional filtering.
 

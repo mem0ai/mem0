@@ -317,7 +317,7 @@ class AzureAISearch(VectorStoreBase):
         index = self.index_client.get_index(self.index_name)
         return {"name": index.name, "fields": index.fields}
 
-    def list(self, filters=None, limit=100):
+    def list(self, filters=None, limit=100) -> list[list[OutputData]]:
         """
         List all vectors in the index.
 

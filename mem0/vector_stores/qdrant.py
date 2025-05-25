@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+from typing import Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -13,6 +14,7 @@ from qdrant_client.models import (
     Range,
     VectorParams,
 )
+from qdrant_client.conversions import common_types as qdrant_types
 
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -212,7 +214,7 @@ class Qdrant(VectorStoreBase):
         """
         return self.client.get_collection(collection_name=self.collection_name)
 
-    def list(self, filters: dict = None, limit: int = 100) -> list:
+    def list(self, filters: dict = None, limit: int = 100) -> tuple[list[qdrant_types.Record], Optional[qdrant_types.PointId]]:
         """
         List all vectors in a collection.
 

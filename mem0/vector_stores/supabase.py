@@ -209,7 +209,7 @@ class Supabase(VectorStoreBase):
             "index": {"method": info.index_method, "metric": info.distance_metric},
         }
 
-    def list(self, filters: Optional[dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[dict] = None, limit: int = 100) -> list[list[OutputData]]:
         """
         List vectors in the collection.
 

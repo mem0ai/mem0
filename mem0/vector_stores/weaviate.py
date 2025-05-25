@@ -286,7 +286,7 @@ class Weaviate(VectorStoreBase):
             return schema
         return None
 
-    def list(self, filters=None, limit=100) -> List[OutputData]:
+    def list(self, filters=None, limit=100) -> list[list[OutputData]]:
         """
         List all vectors in a collection.
         """
