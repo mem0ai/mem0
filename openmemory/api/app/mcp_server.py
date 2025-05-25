@@ -21,8 +21,6 @@ import asyncio
 import google.generativeai as genai
 from app.services.chunking_service import ChunkingService
 from sqlalchemy import text
-from mcp import Server
-from mcp.types import TextContent, Tool, INVALID_PARAMS, INTERNAL_ERROR
 from app.config.memory_limits import MEMORY_LIMITS
 
 # Load environment variables
