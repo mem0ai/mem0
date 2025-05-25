@@ -4,7 +4,7 @@ from typing import Dict
 from app.database import get_db
 from app.auth import get_current_supa_user
 from gotrue.types import User as SupabaseUser
-from app.utils.db import get_or_create_user
+from app.utils.db import get_or_create_user, get_user_and_app
 from app.models import User, Document, App
 from app.integrations.substack_service import SubstackService
 import asyncio
@@ -105,23 +105,19 @@ async def sync_twitter(
         # Limit max_posts to prevent resource exhaustion
         max_posts = min(max_posts, 40)
         
-        # Get user and default app
-        user = get_or_create_user(db, str(current_supa_user.id), current_supa_user.email)
+        # Get user and Twitter app (create if doesn't exist)
+        user, app = get_user_and_app(
+            db,
+            supabase_user_id=str(current_supa_user.id),
+            app_name="twitter",
+            email=current_supa_user.email
+        )
         
-        # Get or create default app
-        default_app = db.query(App).filter(
-            App.owner_id == user.id,
-            App.name == "default"
-        ).first()
-        
-        if not default_app:
-            default_app = App(
-                owner_id=user.id,
-                name="default",
-                description="Default app for Twitter sync"
+        if not app.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="Twitter app is paused. Cannot sync tweets."
             )
-            db.add(default_app)
-            db.commit()
         
         # Sync tweets with timeout protection
         try:
@@ -129,7 +125,7 @@ async def sync_twitter(
                 sync_twitter_to_memory(
                     username=username.lstrip('@'),
                     user_id=str(current_supa_user.id),  # Use Supabase ID for mem0
-                    app_id=str(default_app.id),
+                    app_id=str(app.id),
                     db_session=db
                 ),
                 timeout=300.0  # 5 minute timeout

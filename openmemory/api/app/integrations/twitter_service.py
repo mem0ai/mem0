@@ -235,9 +235,11 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
                         user_id=user_id,  # This should be the Supabase user ID
                         metadata={
                             'source': 'twitter',
+                            'source_app': 'twitter',
                             'username': username,
                             'type': 'tweet',
-                            'app_id': app_id
+                            'app_id': app_id,
+                            'app_db_id': app_id
                         }
                     )
                     
