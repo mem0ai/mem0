@@ -20,6 +20,7 @@ from app.utils.gemini import GeminiService
 import asyncio
 import google.generativeai as genai
 from app.services.chunking_service import ChunkingService
+from sqlalchemy import text
 
 # Load environment variables
 load_dotenv()
@@ -97,9 +98,9 @@ async def add_memories(text: str) -> str:
                     elif result.get('event') == 'DELETE':
                         # Find the existing SQL memory record by mem0_id
                         sql_memory_record = db.query(Memory).filter(
-                            Memory.metadata_['mem0_id'].astext == mem0_memory_id_str,
+                            text("metadata_->>'mem0_id' = :mem0_id"),
                             Memory.user_id == user.id
-                        ).first()
+                        ).params(mem0_id=mem0_memory_id_str).first()
                         
                         if sql_memory_record:
                             sql_memory_record.state = MemoryState.deleted
