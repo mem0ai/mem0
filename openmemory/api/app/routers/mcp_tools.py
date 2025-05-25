@@ -14,6 +14,7 @@ from app.models import User, Document, DocumentChunk
 from app.utils.memory import get_memory_client
 from app.services.chunking_service import ChunkingService
 from app.integrations.substack_service import SubstackService
+from app.config.memory_limits import MEMORY_LIMITS
 import json
 import asyncio
 import logging
@@ -31,27 +32,33 @@ async def search_memory_http(
     """Search the user's memory for memories that match the query"""
     try:
         query = request.get("query", "")
+        limit = request.get("limit", MEMORY_LIMITS.search_default)
+        
         if not query:
             return {"error": "Query parameter is required"}
+        
+        # Enforce configured limits
+        limit = min(max(1, limit), MEMORY_LIMITS.search_max)
         
         # Get user
         user = get_or_create_user(db, str(current_supa_user.id), current_supa_user.email)
         
-        # Search memories
+        # Search memories with limit
         memory_client = get_memory_client()
-        results = memory_client.search(query=query, user_id=str(current_supa_user.id))
+        results = memory_client.search(query=query, user_id=str(current_supa_user.id), limit=limit)
         
         # Process results
         processed_results = []
         if isinstance(results, dict) and 'results' in results:
-            processed_results = results['results']
+            processed_results = results['results'][:limit]  # Extra safety
         elif isinstance(results, list):
-            processed_results = results
+            processed_results = results[:limit]  # Extra safety
         
         return {
             "status": "success",
             "results": processed_results,
-            "count": len(processed_results)
+            "count": len(processed_results),
+            "limit": limit
         }
         
     except Exception as e:
@@ -67,24 +74,30 @@ async def list_memories_http(
 ):
     """List all memories in the user's memory"""
     try:
+        limit = request.get("limit", MEMORY_LIMITS.list_default)
+        
+        # Enforce configured limits
+        limit = min(max(1, limit), MEMORY_LIMITS.list_max)
+        
         # Get user
         user = get_or_create_user(db, str(current_supa_user.id), current_supa_user.email)
         
-        # Get all memories
+        # Get memories with limit
         memory_client = get_memory_client()
-        results = memory_client.get_all(user_id=str(current_supa_user.id))
+        results = memory_client.get_all(user_id=str(current_supa_user.id), limit=limit)
         
         # Process results
         processed_results = []
         if isinstance(results, dict) and 'results' in results:
-            processed_results = results['results']
+            processed_results = results['results'][:limit]  # Extra safety
         elif isinstance(results, list):
-            processed_results = results
+            processed_results = results[:limit]  # Extra safety
         
         return {
             "status": "success",
             "results": processed_results,
-            "count": len(processed_results)
+            "count": len(processed_results),
+            "limit": limit
         }
         
     except Exception as e:

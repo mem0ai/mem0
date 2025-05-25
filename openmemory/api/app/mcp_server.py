@@ -21,6 +21,9 @@ import asyncio
 import google.generativeai as genai
 from app.services.chunking_service import ChunkingService
 from sqlalchemy import text
+from mcp import Server
+from mcp.types import TextContent, Tool, INVALID_PARAMS, INTERNAL_ERROR
+from app.config.memory_limits import MEMORY_LIMITS
 
 # Load environment variables
 load_dotenv()
@@ -135,7 +138,14 @@ async def add_memories(text: str) -> str:
 
 
 @mcp.tool(description="Search the user's memory for memories that match the query")
-async def search_memory(query: str) -> str:
+async def search_memory(query: str, limit: int = None) -> str:
+    """
+    Search the user's memory for memories that match the query.
+    
+    Args:
+        query: The search query string
+        limit: Maximum number of results to return (default: from config, max: from config)
+    """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -144,9 +154,14 @@ async def search_memory(query: str) -> str:
     if not client_name:
         return "Error: client_name not available in context"
     
+    # Use configured limits
+    if limit is None:
+        limit = MEMORY_LIMITS.search_default
+    limit = min(max(1, limit), MEMORY_LIMITS.search_max)
+    
     try:
         # Add timeout to prevent hanging
-        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name), timeout=30.0)
+        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name, limit), timeout=30.0)
     except asyncio.TimeoutError:
         return f"Search timed out. Please try a simpler query."
     except Exception as e:
@@ -154,7 +169,7 @@ async def search_memory(query: str) -> str:
         return f"Error searching memory: {e}"
 
 
-async def _search_memory_impl(query: str, supa_uid: str, client_name: str) -> str:
+async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10) -> str:
     """Implementation of search_memory with timeout protection"""
     memory_client = get_memory_client()
     db = SessionLocal()
@@ -162,8 +177,8 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str) -> st
         # Get user (but don't filter by specific app - search ALL memories)
         user = get_or_create_user(db, supa_uid, None)
 
-        # Search ALL memories for this user across all apps
-        mem0_search_results = memory_client.search(query=query, user_id=supa_uid)
+        # Search ALL memories for this user across all apps with limit
+        mem0_search_results = memory_client.search(query=query, user_id=supa_uid, limit=limit)
 
         processed_results = []
         actual_results_list = []
@@ -172,7 +187,7 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str) -> st
         elif isinstance(mem0_search_results, list):
              actual_results_list = mem0_search_results
 
-        for mem_data in actual_results_list:
+        for mem_data in actual_results_list[:limit]:  # Extra safety to ensure limit
             mem0_id = mem_data.get('id')
             if not mem0_id: continue
             processed_results.append(mem_data)
@@ -184,7 +199,13 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str) -> st
 
 
 @mcp.tool(description="List all memories in the user's memory")
-async def list_memories() -> str:
+async def list_memories(limit: int = None) -> str:
+    """
+    List memories in the user's memory.
+    
+    Args:
+        limit: Maximum number of memories to return (default: from config, max: from config)
+    """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -193,9 +214,14 @@ async def list_memories() -> str:
     if not client_name:
         return "Error: client_name not available in context"
     
+    # Use configured limits
+    if limit is None:
+        limit = MEMORY_LIMITS.list_default
+    limit = min(max(1, limit), MEMORY_LIMITS.list_max)
+    
     try:
         # Add timeout to prevent hanging
-        return await asyncio.wait_for(_list_memories_impl(supa_uid, client_name), timeout=30.0)
+        return await asyncio.wait_for(_list_memories_impl(supa_uid, client_name, limit), timeout=30.0)
     except asyncio.TimeoutError:
         return f"List memories timed out. Please try again."
     except Exception as e:
@@ -203,7 +229,7 @@ async def list_memories() -> str:
         return f"Error getting memories: {e}"
 
 
-async def _list_memories_impl(supa_uid: str, client_name: str) -> str:
+async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) -> str:
     """Implementation of list_memories with timeout protection"""
     memory_client = get_memory_client()
     db = SessionLocal()
@@ -211,8 +237,8 @@ async def _list_memories_impl(supa_uid: str, client_name: str) -> str:
         # Get user (but don't filter by specific app - show ALL memories)
         user = get_or_create_user(db, supa_uid, None)
 
-        # Get ALL memories for this user across all apps
-        all_mem0_memories = memory_client.get_all(user_id=supa_uid)
+        # Get ALL memories for this user across all apps with limit
+        all_mem0_memories = memory_client.get_all(user_id=supa_uid, limit=limit)
 
         processed_results = []
         actual_results_list = []
@@ -221,7 +247,7 @@ async def _list_memories_impl(supa_uid: str, client_name: str) -> str:
         elif isinstance(all_mem0_memories, list):
              actual_results_list = all_mem0_memories
 
-        for mem_data in actual_results_list:
+        for mem_data in actual_results_list[:limit]:  # Extra safety to ensure limit
             mem0_id = mem_data.get('id')
             if not mem0_id: continue
             processed_results.append(mem_data)
@@ -392,10 +418,16 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
 
 
 @mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. This searches through everything - regular memories, documents, essays, etc.")
-async def deep_memory_query(search_query: str) -> str:
+async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = False) -> str:
     """
     Performs a deep, comprehensive search across all user content using Gemini.
     Uses chunked search for efficiency, then retrieves full context.
+    
+    Args:
+        search_query: The search query string
+        memory_limit: Maximum number of memories to retrieve (default: from config, max: from config)
+        chunk_limit: Maximum number of document chunks to retrieve (default: from config, max: from config)
+        include_full_docs: Whether to include full document content (default: False)
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -404,6 +436,14 @@ async def deep_memory_query(search_query: str) -> str:
         return "Error: Supabase user_id not available in context"
     if not client_name:
         return "Error: client_name not available in context"
+    
+    # Use configured limits
+    if memory_limit is None:
+        memory_limit = MEMORY_LIMITS.deep_memory_default
+    if chunk_limit is None:
+        chunk_limit = MEMORY_LIMITS.deep_chunk_default
+    memory_limit = min(max(1, memory_limit), MEMORY_LIMITS.deep_memory_max)
+    chunk_limit = min(max(1, chunk_limit), MEMORY_LIMITS.deep_chunk_max)
     
     try:
         db = SessionLocal()
@@ -422,7 +462,7 @@ async def deep_memory_query(search_query: str) -> str:
             memories_result = memory_client.search(
                 query=search_query,
                 user_id=supa_uid,  # Use Supabase user ID for mem0 search
-                limit=20
+                limit=memory_limit
             )
             
             # Handle different memory result formats
@@ -437,7 +477,7 @@ async def deep_memory_query(search_query: str) -> str:
                 db=db,
                 query=search_query,
                 user_id=str(user.id),  # Use SQL user ID for document search
-                limit=10
+                limit=chunk_limit
             )
             
             # 3. Get unique documents from relevant chunks
@@ -479,8 +519,8 @@ async def deep_memory_query(search_query: str) -> str:
                         context += f"From '{doc.title}' ({doc.document_type}):\n"
                         context += f"{chunk.content}\n\n"
             
-            # 6. If we have relevant documents, include their full context
-            if relevant_documents and len(context) < 50000:  # Limit context size
+            # 6. If requested and we have relevant documents, include their full context
+            if include_full_docs and relevant_documents and len(context) < 50000:  # Limit context size
                 context += "\n--- FULL DOCUMENTS (Most Relevant) ---\n\n"
                 for doc in relevant_documents[:2]:  # Limit to 2 full documents
                     context += f"=== {doc.title} ===\n"
@@ -499,7 +539,9 @@ Query: {search_query}
 
 {context}
 
-Please provide a comprehensive answer based on the search results above. If you found relevant information, cite which memories or documents it came from. If the query wasn't found, explain what you did find that might be related."""
+Please provide a comprehensive answer based on the search results above. If you found relevant information, cite which memories or documents it came from. If the query wasn't found, explain what you did find that might be related.
+
+Note: Retrieved {len(memories)} memories and {len(relevant_chunks)} document chunks."""
             
             response = await asyncio.wait_for(
                 asyncio.to_thread(
