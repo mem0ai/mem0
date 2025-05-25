@@ -282,6 +282,83 @@ async def delete_all_memories() -> str:
         return f"Error deleting memories: {e}"
 
 
+@mcp.tool(description="Get detailed information about a specific memory by its ID")
+async def get_memory_details(memory_id: str) -> str:
+    """
+    Retrieve detailed information about a specific memory using its ID.
+    This is useful when you want to examine a particular memory in detail.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Get user
+            user = get_or_create_user(db, supa_uid, None)
+            
+            # First try to find the memory in our SQL database
+            sql_memory = db.query(Memory).filter(
+                Memory.id == memory_id,
+                Memory.user_id == user.id,
+                Memory.state != MemoryState.deleted
+            ).first()
+            
+            if sql_memory:
+                # Found in SQL database
+                memory_details = {
+                    "id": str(sql_memory.id),
+                    "content": sql_memory.content,
+                    "created_at": sql_memory.created_at.isoformat() if sql_memory.created_at else None,
+                    "updated_at": sql_memory.updated_at.isoformat() if sql_memory.updated_at else None,
+                    "state": sql_memory.state.value if sql_memory.state else None,
+                    "metadata": sql_memory.metadata_ or {},
+                    "app_name": sql_memory.app.name if sql_memory.app else None,
+                    "categories": [cat.name for cat in sql_memory.categories] if sql_memory.categories else [],
+                    "source": "sql_database"
+                }
+                
+                return json.dumps(memory_details, indent=2)
+            
+            # If not found in SQL, try searching mem0 by ID
+            memory_client = get_memory_client()
+            all_memories = memory_client.get_all(user_id=supa_uid)
+            
+            # Handle different response formats
+            memories_list = []
+            if isinstance(all_memories, dict) and 'results' in all_memories:
+                memories_list = all_memories['results']
+            elif isinstance(all_memories, list):
+                memories_list = all_memories
+            
+            # Look for the specific memory ID
+            for mem in memories_list:
+                if isinstance(mem, dict) and mem.get('id') == memory_id:
+                    return json.dumps({
+                        "id": mem.get('id'),
+                        "content": mem.get('memory', mem.get('content', 'No content available')),
+                        "metadata": mem.get('metadata', {}),
+                        "created_at": mem.get('created_at'),
+                        "updated_at": mem.get('updated_at'),
+                        "source": "mem0_vector_store"
+                    }, indent=2)
+            
+            # Memory not found
+            return f"Memory with ID '{memory_id}' not found. This could mean:\n1. The memory doesn't exist\n2. It belongs to a different user\n3. It has been deleted\n4. The ID format is incorrect"
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logging.error(f"Error in get_memory_details MCP tool: {e}", exc_info=True)
+        return f"Error retrieving memory details: {e}"
+
+
 @mcp.tool(description="Sync Substack posts for the user. Provide the Substack URL (e.g., https://username.substack.com)")
 async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
     supa_uid = user_id_var.get(None)
