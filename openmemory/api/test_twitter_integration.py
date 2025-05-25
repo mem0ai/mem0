@@ -5,7 +5,12 @@ Test script for Twitter integration with Apify
 import asyncio
 import sys
 import os
+import logging
 from app.integrations.twitter_service import TwitterService
+
+# Set up detailed logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 async def test_twitter_fetch():
     """Test fetching tweets"""
@@ -33,6 +38,8 @@ async def test_twitter_fetch():
             if tweet.get('created_at'):
                 print(f"   Date: {tweet['created_at']}")
             print(f"   Source: {tweet.get('source', 'unknown')}")
+            if tweet.get('url'):
+                print(f"   URL: {tweet['url']}")
         
         # Test formatting
         memories = service.format_tweets_for_memory(tweets, username)
@@ -42,6 +49,8 @@ async def test_twitter_fetch():
         
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     
     return True

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class TwitterService:
     """
-    Twitter integration service using Apify for reliable scraping.
+    Twitter integration service using Apify Tweet Scraper V2.
     """
     
     def __init__(self):
@@ -19,26 +19,34 @@ class TwitterService:
         
     async def fetch_tweets_apify(self, username: str, max_tweets: int = 40) -> List[Dict]:
         """
-        Fetch tweets using Apify Twitter scraper.
-        More reliable than Nitter but requires an API token.
+        Fetch tweets using Apify Tweet Scraper V2.
+        Uses the correct input format for actor 61RPP7dywgiy0JPD0.
         """
         if not self.apify_token:
             logger.warning("No APIFY_TOKEN found, falling back to demo tweets")
             return self._create_demo_tweets(username, min(max_tweets, 5))
         
-        # Apify Twitter Scraper actor ID
-        actor_id = "61RPP7dywgiy0JPD0"  # Official Twitter Scraper
+        # Tweet Scraper V2 actor ID
+        actor_id = "61RPP7dywgiy0JPD0"  # Official Tweet Scraper V2
         
+        # Correct input format for Tweet Scraper V2
         run_input = {
-            "handles": [username],
-            "tweetsDesired": min(max_tweets, 100),
-            "proxyConfig": {"useApifyProxy": True}
+            "twitterHandles": [username],  # Try using handles instead of search terms
+            "maxItems": min(max_tweets, 100),
+            "includeSearchTerms": False,
+            "onlyImage": False,
+            "onlyQuote": False,
+            "onlyTwitterBlue": False,
+            "onlyVerifiedUsers": False,
+            "onlyVideo": False,
+            "sort": "Latest",
+            "tweetLanguage": "en"
         }
         
         try:
             async with httpx.AsyncClient() as client:
                 # Start the actor run
-                logger.info(f"Starting Apify Twitter scraper for @{username}")
+                logger.info(f"Starting Apify Tweet Scraper V2 for @{username}")
                 
                 start_response = await client.post(
                     f"{self.apify_base_url}/acts/{actor_id}/runs",
@@ -83,7 +91,15 @@ class TwitterService:
                             
                             if results_response.status_code == 200:
                                 tweets_data = results_response.json()
-                                return self._parse_apify_tweets(tweets_data, max_tweets)
+                                logger.debug(f"Raw Apify response: {tweets_data[:2] if tweets_data else 'Empty'}")  # Log first 2 items
+                                parsed_tweets = self._parse_apify_tweets(tweets_data, max_tweets)
+                                
+                                # If we got no real tweets (demo results or empty), fall back to demo
+                                if not parsed_tweets:
+                                    logger.info("No real tweets from Apify, falling back to demo tweets")
+                                    return self._create_demo_tweets(username, min(max_tweets, 5))
+                                
+                                return parsed_tweets
                             else:
                                 logger.error(f"Failed to get results: {results_response.status_code}")
                                 break
@@ -102,27 +118,33 @@ class TwitterService:
                 return self._create_demo_tweets(username, min(max_tweets, 5))
                 
         except Exception as e:
-            logger.error(f"Error with Apify Twitter scraper: {e}")
+            logger.error(f"Error with Apify Tweet Scraper V2: {e}")
             return self._create_demo_tweets(username, min(max_tweets, 5))
     
     def _parse_apify_tweets(self, tweets_data: List[Dict], max_tweets: int) -> List[Dict]:
-        """Parse tweets from Apify response"""
+        """Parse tweets from Apify Tweet Scraper V2 response"""
         tweets = []
+        
+        # Check if we got demo results (free plan limitation)
+        if tweets_data and all(item.get('demo') for item in tweets_data[:5]):
+            logger.warning("Received demo results from Apify (free plan limitation)")
+            return []  # Return empty to trigger demo fallback
         
         for tweet_data in tweets_data[:max_tweets]:
             try:
                 if 'text' in tweet_data and tweet_data['text']:
                     tweets.append({
                         'text': tweet_data['text'],
-                        'created_at': tweet_data.get('createdAt', tweet_data.get('created_at')),
+                        'created_at': tweet_data.get('createdAt'),
                         'id': tweet_data.get('id'),
-                        'source': 'apify'
+                        'url': tweet_data.get('url'),
+                        'source': 'apify_v2'
                     })
             except Exception as e:
                 logger.error(f"Error parsing Apify tweet: {e}")
                 continue
         
-        logger.info(f"Parsed {len(tweets)} tweets from Apify response")
+        logger.info(f"Parsed {len(tweets)} tweets from Apify Tweet Scraper V2")
         return tweets
     
     async def fetch_tweets_nitter(self, username: str, max_tweets: int = 40) -> List[Dict]:
