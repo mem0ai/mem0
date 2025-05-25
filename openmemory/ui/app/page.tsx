@@ -19,9 +19,23 @@ export default function LandingPage() {
   // Redirect authenticated users to dashboard immediately
   useEffect(() => {
     if (!isLoading && user) {
+      console.log('Landing page: User authenticated, redirecting to dashboard');
       router.replace('/dashboard');
     }
   }, [user, isLoading, router]);
+
+  // Also check for Supabase OAuth callback and redirect immediately
+  useEffect(() => {
+    // Check if this is a Supabase OAuth callback (has access_token or code in URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
+    if (urlParams.get('code') || hashParams.get('access_token')) {
+      console.log('Landing page: OAuth callback detected, will redirect to dashboard once auth completes');
+      // Don't render the landing page content if this is an OAuth callback
+      return;
+    }
+  }, []);
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -33,7 +47,25 @@ export default function LandingPage() {
   }
 
   // Don't render landing page for authenticated users (they'll be redirected)
-  if (user) return null;
+  if (user) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Redirecting to dashboard...</div>
+      </div>
+    );
+  }
+
+  // Check if this is an OAuth callback - show loading instead of landing page
+  const urlParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  
+  if (urlParams.get('code') || hashParams.get('access_token')) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Completing authentication...</div>
+      </div>
+    );
+  }
 
   // Show landing page for unauthenticated users
   return (

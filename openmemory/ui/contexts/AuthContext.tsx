@@ -106,7 +106,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {},
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     if (oauthError) {
       setError(oauthError);

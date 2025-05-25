@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import { Input } from "@/components/ui/input"; 
 import { Button } from "@/components/ui/button"; 
 import { Label } from "@/components/ui/label"; 
@@ -12,7 +13,15 @@ export const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const { signInWithPassword, signUpWithPassword, signInWithGoogle, error, isLoading } = useAuth();
+  const { signInWithPassword, signUpWithPassword, signInWithGoogle, error, isLoading, user } = useAuth();
+  const router = useRouter();
+
+  // Redirect to dashboard when user becomes authenticated
+  React.useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +31,10 @@ export const AuthForm = () => {
     if (isLogin) {
       const { error: signInError } = await signInWithPassword({ email, password });
       authError = signInError;
+      if (!signInError) {
+        setMessage('Login successful! Redirecting...');
+        // The useEffect above will handle the redirect when user state updates
+      }
     } else {
       const { error: signUpError } = await signUpWithPassword({ email, password });
       if (!signUpError) {
@@ -33,15 +46,13 @@ export const AuthForm = () => {
 
     if (authError) {
       setMessage(authError.message);
-    } else if (isLogin) {
-      setMessage('Login successful! Redirecting...');
-      // Redirect is typically handled by Supabase client or navigation hook after state change
     }
   };
   
   const handleGoogleSignIn = async () => {
     setMessage('');
     await signInWithGoogle();
+    // The useEffect above will handle the redirect when user state updates
   };
 
   React.useEffect(() => {
