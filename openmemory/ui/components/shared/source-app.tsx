@@ -56,6 +56,11 @@ export const constants = {
     icon: <Icon source="/images/substack.png" />,
     iconImage: "/images/substack.png",
   },
+  twitter: {
+    name: "X",
+    icon: <Icon source="/images/x.svg" />,
+    iconImage: "/images/x.svg",
+  },
   default: {
     name: "Default",
     icon: <BiEdit size={18} className="ml-1" />,
