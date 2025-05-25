@@ -35,7 +35,7 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
       {
         id: "1",
         role: "assistant",
-        content: "Hello! I'm your personal AI assistant powered by Gemini. I have access to all your memories and can help you explore your life's journey. Ask me anything about your experiences, patterns, or insights from your memories.",
+        content: "Hello! I'm your personal AI assistant. I can help you explore your life's journey by analyzing your memories and providing insights about patterns, experiences, and growth. Ask me anything about your memories or life insights!",
         timestamp: new Date()
       }
     ]);

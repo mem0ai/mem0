@@ -10,11 +10,11 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       console.warn('GEMINI_API_KEY not found in environment variables');
       return NextResponse.json({
-        response: "I'm currently unable to access my full capabilities. To enable Gemini AI integration, please add your GEMINI_API_KEY to the environment variables. For now, I can see you have " + (memories?.length || 0) + " memories to analyze."
+        response: `I'm currently unable to access my full capabilities. To enable Gemini AI integration, please add your GEMINI_API_KEY to the environment variables. For now, I can see you have ${memories?.length || 0} memories to analyze.`
       });
     }
 
-    // Call Gemini API
+    // Call Gemini API with basic model (not the experimental one that caused issues)
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -23,33 +23,22 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: prompt
+            text: `You are a personal AI assistant with access to the user's memory collection. You have access to ${memories?.length || 0} memories.
+
+Memory Context:
+${memories?.slice(0, 10).map((m: any, index: number) => 
+  `[Memory ${index + 1}] ${m.content} (from ${m.app_name || 'unknown app'})`
+).join('\n') || 'No memories available.'}
+
+User Query: ${prompt}
+
+Please provide a helpful response based on the available memory context.`
           }]
         }],
         generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
           maxOutputTokens: 1024,
+          temperature: 0.7,
         },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
       }),
     });
 
@@ -58,15 +47,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-      "I'm having trouble generating a response right now. Please try again.";
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
 
-    return NextResponse.json({ response: aiResponse });
+    return NextResponse.json({
+      response: generatedText
+    });
 
   } catch (error) {
     console.error('Gemini API error:', error);
     return NextResponse.json({
-      response: "I'm currently experiencing technical difficulties. This feature requires Gemini AI integration to analyze your memories and provide personalized insights."
+      response: "I'm experiencing some technical difficulties right now. Please try again later."
     }, { status: 500 });
   }
 } 
