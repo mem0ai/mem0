@@ -149,6 +149,9 @@ async def list_memories(
     if categories:
         category_list = [c.strip() for c in categories.split(",")]
         query = query.filter(Category.name.in_(category_list))
+    
+    # Add distinct to handle duplicates from joins
+    query = query.distinct()
 
     # Apply sorting if specified
     if sort_column:
@@ -164,7 +167,10 @@ async def list_memories(
             if sort_column == "app_name" and not app_id:
                 query = query.outerjoin(App, Memory.app_id == App.id)
                 
-            query = query.order_by(sort_field.desc() if sort_direction == "desc" else sort_field.asc())
+            if sort_direction == "desc":
+                query = query.order_by(sort_field.desc())
+            else:
+                query = query.order_by(sort_field.asc())
         else:
             query = query.order_by(Memory.created_at.desc())
     else:
@@ -172,7 +178,7 @@ async def list_memories(
 
     # Get paginated results - items are SQLAlchemy Memory objects
     paginated_sqla_results = sqlalchemy_paginate(
-        query.options(joinedload(Memory.app), joinedload(Memory.categories)).distinct(Memory.id), 
+        query.options(joinedload(Memory.app), joinedload(Memory.categories)), 
         params
     )
 
