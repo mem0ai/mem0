@@ -194,6 +194,7 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
     """
     Sync a Twitter user's recent tweets to memory.
     This can be called from an API endpoint or MCP tool.
+    from uuid import UUID
     """
     from app.utils.memory import get_memory_client
     from app.models import Memory, App
