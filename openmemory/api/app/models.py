@@ -3,7 +3,7 @@ import uuid
 import datetime
 from sqlalchemy import (
     Column, String, Boolean, ForeignKey, Enum, Table,
-    DateTime, JSON, Integer, UUID, Index, event, UniqueConstraint
+    DateTime, JSON, Integer, UUID, Index, event, UniqueConstraint, Text, JSONB, ARRAY, Float, func, text
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -43,6 +43,7 @@ class User(Base):
 
     apps = relationship("App", back_populates="owner")
     memories = relationship("Memory", back_populates="user")
+    documents = relationship("Document", back_populates="user")
 
 
 class App(Base):
@@ -60,6 +61,7 @@ class App(Base):
 
     owner = relationship("User", back_populates="apps")
     memories = relationship("Memory", back_populates="app")
+    documents = relationship("Document", back_populates="app")
 
     __table_args__ = (UniqueConstraint('owner_id', 'name', name='uq_user_app_name'),)
 
@@ -171,39 +173,6 @@ class MemoryAccessLog(Base):
     )
 
 
-class Document(Base):
-    __tablename__ = "documents"
-    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
-    user_id = Column(UUID, ForeignKey("users.id"), nullable=False, index=True)
-    app_id = Column(UUID, ForeignKey("apps.id"), nullable=False, index=True)
-    
-    # Document info
-    title = Column(String, nullable=False)
-    source_url = Column(String, nullable=True)
-    document_type = Column(String, nullable=False)  # 'substack', 'medium', 'code', 'markdown'
-    
-    # Full content - using Text type for large content
-    content = Column(String, nullable=False)  # SQLAlchemy will use appropriate DB type
-    
-    # Metadata
-    metadata_ = Column('metadata', JSON, default=dict)
-    created_at = Column(DateTime, default=get_current_utc_time, index=True)
-    updated_at = Column(DateTime,
-                        default=get_current_utc_time,
-                        onupdate=get_current_utc_time)
-    
-    # Relationships
-    user = relationship("User", backref="documents")
-    app = relationship("App", backref="documents")
-    memories = relationship("Memory", secondary="document_memories", back_populates="documents")
-    
-    __table_args__ = (
-        Index('idx_documents_user_app', 'user_id', 'app_id'),
-        Index('idx_documents_type', 'document_type'),
-        Index('idx_documents_created', 'created_at'),
-    )
-
-
 # Association table for documents and memories
 document_memories = Table(
     "document_memories", Base.metadata,
@@ -211,6 +180,44 @@ document_memories = Table(
     Column("memory_id", UUID, ForeignKey("memories.id"), primary_key=True, index=True),
     Index('idx_document_memory', 'document_id', 'memory_id')
 )
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    app_id = Column(UUID(as_uuid=True), ForeignKey("apps.id"), nullable=False)
+    title = Column(String, nullable=False)
+    source_url = Column(String, nullable=True)
+    document_type = Column(String, nullable=False)  # 'substack', 'obsidian', 'medium', etc.
+    content = Column(Text, nullable=False)
+    metadata_ = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="documents")
+    app = relationship("App", back_populates="documents")
+    memories = relationship("Memory", secondary=document_memories, back_populates="documents")
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    embedding = Column(ARRAY(Float), nullable=True)  # For future vector search
+    metadata_ = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationships
+    document = relationship("Document", back_populates="chunks")
+    
+    # Indexes are defined in the migration
 
 
 def categorize_memory(memory: Memory, db: Session) -> None:

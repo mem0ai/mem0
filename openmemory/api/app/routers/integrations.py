@@ -8,6 +8,7 @@ from app.utils.db import get_or_create_user
 from app.models import User, Document
 from app.integrations.substack_service import SubstackService
 import asyncio
+from app.services.chunking_service import ChunkingService
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
@@ -48,21 +49,39 @@ async def sync_substack(
 
 @router.get("/documents/count")
 async def get_document_count(
-    document_type: str = None,
+    document_type: str,
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    """Get count of documents for the authenticated user"""
-    # Get the local user record
-    supabase_user_id_str = str(current_supa_user.id)
-    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found or could not be created")
+    """Get count of documents by type for the authenticated user"""
+    user = get_or_create_user(db, current_supa_user.id, current_supa_user.email)
     
-    query = db.query(Document).filter(Document.user_id == user.id)
+    count = db.query(Document).filter(
+        Document.user_id == user.id,
+        Document.document_type == document_type
+    ).count()
     
-    if document_type:
-        query = query.filter(Document.document_type == document_type)
+    return {"count": count}
+
+
+@router.post("/documents/chunk")
+async def chunk_documents(
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """Chunk all documents for the authenticated user"""
+    user = get_or_create_user(db, current_supa_user.id, current_supa_user.email)
     
-    count = query.count()
-    return {"count": count} 
+    # Run chunking in background
+    chunking_service = ChunkingService()
+    processed = await asyncio.to_thread(
+        chunking_service.chunk_all_documents,
+        db,
+        user.id
+    )
+    
+    return {
+        "status": "success",
+        "documents_processed": processed,
+        "message": f"Successfully chunked {processed} documents"
+    } 
