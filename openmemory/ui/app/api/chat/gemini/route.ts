@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Call Gemini API with basic model (not the experimental one that caused issues)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    // Updated to use the latest stable Gemini 2.0 Flash model
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +43,9 @@ Please provide a helpful response based on the available memory context.`
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
+      const errorData = await response.text();
+      console.error(`Gemini API error: ${response.status}`, errorData);
+      throw new Error(`Gemini API error: ${response.status} - ${errorData}`);
     }
 
     const data = await response.json();
@@ -56,7 +58,8 @@ Please provide a helpful response based on the available memory context.`
   } catch (error) {
     console.error('Gemini API error:', error);
     return NextResponse.json({
-      response: "I'm experiencing some technical difficulties right now. Please try again later."
+      response: "I'm experiencing some technical difficulties right now. Please try again later.",
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 
