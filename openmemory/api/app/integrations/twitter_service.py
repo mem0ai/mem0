@@ -218,29 +218,44 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
         synced_count = 0
         failed_count = 0
         
-        for i, content in enumerate(memory_contents):
-            try:
-                logger.debug(f"Adding tweet {i+1} to memory: {content[:50]}...")
-                
-                # Add to memory using mem0 client
-                response = memory_client.add(
-                    messages=content,
-                    user_id=user_id,  # This should be the Supabase user ID
-                    metadata={
-                        'source': 'twitter',
-                        'username': username,
-                        'type': 'tweet',
-                        'app_id': app_id
-                    }
-                )
-                
-                logger.debug(f"Memory client response: {response}")
-                synced_count += 1
-                
-            except Exception as e:
-                logger.error(f"Failed to add tweet {i+1} to memory: {e}")
-                failed_count += 1
-                continue
+        # Process tweets in smaller batches to prevent resource exhaustion
+        batch_size = 5  # Process 5 tweets at a time
+        
+        for i in range(0, len(memory_contents), batch_size):
+            batch = memory_contents[i:i + batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(memory_contents) + batch_size - 1)//batch_size} ({len(batch)} tweets)")
+            
+            for j, content in enumerate(batch):
+                try:
+                    logger.debug(f"Adding tweet {i+j+1} to memory: {content[:50]}...")
+                    
+                    # Add to memory using mem0 client
+                    response = memory_client.add(
+                        messages=content,
+                        user_id=user_id,  # This should be the Supabase user ID
+                        metadata={
+                            'source': 'twitter',
+                            'username': username,
+                            'type': 'tweet',
+                            'app_id': app_id
+                        }
+                    )
+                    
+                    logger.debug(f"Memory client response: {response}")
+                    synced_count += 1
+                    
+                    # Small delay to prevent overwhelming the system
+                    await asyncio.sleep(0.1)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to add tweet {i+j+1} to memory: {e}")
+                    failed_count += 1
+                    continue
+            
+            # Longer delay between batches
+            if i + batch_size < len(memory_contents):
+                logger.info(f"Batch complete. Waiting 2 seconds before next batch...")
+                await asyncio.sleep(2)
         
         logger.info(f"Twitter sync completed: {synced_count} successful, {failed_count} failed")
         return synced_count

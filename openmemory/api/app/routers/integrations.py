@@ -94,7 +94,7 @@ async def chunk_documents(
 @router.post("/sync/twitter")
 async def sync_twitter(
     username: str = Query(..., description="Twitter username without @"),
-    max_posts: int = Query(40, description="Maximum number of tweets to sync"),
+    max_posts: int = Query(20, description="Maximum number of tweets to sync (max 40)"),
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
@@ -102,6 +102,9 @@ async def sync_twitter(
     Sync recent tweets from a Twitter user to memory.
     """
     try:
+        # Limit max_posts to prevent resource exhaustion
+        max_posts = min(max_posts, 40)
+        
         # Get user and default app
         user = get_or_create_user(db, str(current_supa_user.id), current_supa_user.email)
         
@@ -120,13 +123,23 @@ async def sync_twitter(
             db.add(default_app)
             db.commit()
         
-        # Sync tweets - pass Supabase user ID for mem0
-        synced_count = await sync_twitter_to_memory(
-            username=username.lstrip('@'),
-            user_id=str(current_supa_user.id),  # Use Supabase ID for mem0
-            app_id=str(default_app.id),
-            db_session=db
-        )
+        # Sync tweets with timeout protection
+        try:
+            synced_count = await asyncio.wait_for(
+                sync_twitter_to_memory(
+                    username=username.lstrip('@'),
+                    user_id=str(current_supa_user.id),  # Use Supabase ID for mem0
+                    app_id=str(default_app.id),
+                    db_session=db
+                ),
+                timeout=300.0  # 5 minute timeout
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Twitter sync timed out for user {current_supa_user.id}")
+            raise HTTPException(
+                status_code=408,
+                detail="Twitter sync timed out. Please try with fewer tweets."
+            )
         
         return {
             "status": "success",
@@ -135,6 +148,8 @@ async def sync_twitter(
             "username": username
         }
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
     except Exception as e:
         logger.error(f"Error syncing Twitter for user {current_supa_user.id}: {e}")
         raise HTTPException(
