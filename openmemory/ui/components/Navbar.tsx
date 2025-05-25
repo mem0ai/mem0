@@ -22,6 +22,11 @@ export function Navbar() {
   const appsApi = useAppsApi();
   const statsApi = useStats();
 
+  // Don't show navbar on landing page
+  if (pathname === "/") {
+    return null;
+  }
+
   // Define route matchers with typed parameter extraction
   const routeBasedFetchMapping: {
     match: RegExp;
@@ -52,7 +57,7 @@ export function Navbar() {
       getFetchers: () => [appsApi.fetchApps],
     },
     {
-      match: /^\/$/,
+      match: /^\/dashboard$/,
       getFetchers: () => [statsApi.fetchStats, memoriesApi.fetchMemories],
     },
   ];
@@ -79,8 +84,8 @@ export function Navbar() {
   };
 
   const isActive = (href: string) => {
-    if (href === "/") return pathname === href;
-    return pathname.startsWith(href.substring(0, 5));
+    if (href === "/dashboard") return pathname === href;
+    return pathname.startsWith(href);
   };
 
   const activeClass = "bg-zinc-800 text-white border-zinc-600";
@@ -89,17 +94,17 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60">
       <div className="container flex h-14 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <Image src="/logo.svg" alt="Jean Memory" width={26} height={26} />
           <span className="text-xl font-medium">Jean Memory</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/">
+          <Link href="/dashboard">
             <Button
               variant="outline"
               size="sm"
               className={`flex items-center gap-2 border-none ${
-                isActive("/") ? activeClass : inactiveClass
+                isActive("/dashboard") ? activeClass : inactiveClass
               }`}
             >
               <HiHome />

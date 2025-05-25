@@ -8,8 +8,8 @@ import { Providers } from "./providers";
 import { AuthProvider } from "../contexts/AuthContext";
 
 export const metadata = {
-  title: "Jean Memory - Developer Dashboard",
-  description: "Manage your Jean Memory integration and stored memories",
+  title: "Jean Memory - Secure Memory for AI",
+  description: "Your secure, unified memory layer across all AI applications",
   generator: "v0.dev",
 };
 
@@ -30,7 +30,9 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <Navbar />
-              <ScrollArea className="h-[calc(100vh-64px)]">{children}</ScrollArea>
+              <main className="flex-1 overflow-hidden">
+                {children}
+              </main>
               <Toaster />
             </ThemeProvider>
           </AuthProvider>
