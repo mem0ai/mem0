@@ -12,6 +12,7 @@ import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { useAuth } from "@/contexts/AuthContext";
+import { Brain } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -59,6 +60,10 @@ export function Navbar() {
     {
       match: /^\/dashboard$/,
       getFetchers: () => [statsApi.fetchStats, memoriesApi.fetchMemories],
+    },
+    {
+      match: /^\/my-life$/,
+      getFetchers: () => [memoriesApi.fetchMemories],
     },
   ];
 
@@ -121,6 +126,18 @@ export function Navbar() {
             >
               <HiMiniRectangleStack />
               Memories
+            </Button>
+          </Link>
+          <Link href="/my-life">
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex items-center gap-2 border-none ${
+                isActive("/my-life") ? activeClass : inactiveClass
+              }`}
+            >
+              <Brain className="w-4 h-4" />
+              My Life
             </Button>
           </Link>
           <Link href="/apps">
