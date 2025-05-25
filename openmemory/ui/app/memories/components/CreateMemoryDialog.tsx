@@ -43,9 +43,9 @@ export function CreateMemoryDialog() {
         <Button
           variant="outline"
           size="sm"
-          className="bg-primary hover:bg-primary/90 text-white"
+          className="bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-700"
         >
-          <GoPlus />
+          <GoPlus className="mr-1" />
           Create Memory
         </Button>
       </DialogTrigger>
