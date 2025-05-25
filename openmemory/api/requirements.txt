@@ -13,3 +13,5 @@ pytest-asyncio>=0.21.0
 httpx>=0.24.0
 pytest-cov>=4.0.0
 tenacity==9.1.2
+anthropic==0.51.0
+ollama==0.4.8
