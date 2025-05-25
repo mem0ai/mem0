@@ -295,62 +295,35 @@ async def deep_memory_query(search_query: str) -> str:
             # Get user
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
             
-            # First, do a vector search to find relevant memories
-            memory_client = get_memory_client()
-            search_results = memory_client.search(query=search_query, user_id=supa_uid, limit=20)
+            # Get ALL memories for the user (not just search results)
+            all_memories = db.query(Memory).filter(
+                Memory.user_id == user.id,
+                Memory.state == MemoryState.active
+            ).order_by(Memory.created_at.desc()).limit(50).all()
             
-            # Collect all relevant content
+            # Convert to the format expected by Gemini
             relevant_memories = []
-            document_ids = set()
+            for mem in all_memories:
+                relevant_memories.append({
+                    'memory': mem.content,
+                    'content': mem.content,  # Add both for compatibility
+                    'metadata': mem.metadata_ or {},
+                    'created_at': mem.created_at.isoformat() if mem.created_at else None
+                })
             
-            if isinstance(search_results, dict) and 'results' in search_results:
-                for result in search_results['results']:
-                    relevant_memories.append(result)
-                    # Check if this memory is linked to a document
-                    metadata = result.get('metadata', {})
-                    if 'document_id' in metadata:
-                        document_ids.add(metadata['document_id'])
-            
-            # Get recent memories if search didn't return enough
-            if len(relevant_memories) < 10:
-                recent_memories = db.query(Memory).filter(
-                    Memory.user_id == user.id,
-                    Memory.state == MemoryState.active
-                ).order_by(Memory.created_at.desc()).limit(20).all()
-                
-                for mem in recent_memories:
-                    relevant_memories.append({
-                        'memory': mem.content,
-                        'metadata': mem.metadata_ or {},
-                        'created_at': mem.created_at.isoformat() if mem.created_at else None
-                    })
-                    if mem.metadata_ and 'document_id' in mem.metadata_:
-                        document_ids.add(mem.metadata_['document_id'])
-            
-            # Get all documents (if any)
-            documents = []
-            if document_ids:
-                documents = db.query(Document).filter(
-                    Document.id.in_(list(document_ids)),
-                    Document.user_id == user.id
-                ).all()
-            
-            # Also get recent documents even if not in search results
-            recent_docs = db.query(Document).filter(
+            # Get ALL documents for the user
+            all_documents = db.query(Document).filter(
                 Document.user_id == user.id
-            ).order_by(Document.created_at.desc()).limit(5).all()
+            ).order_by(Document.created_at.desc()).all()
             
-            # Combine documents (remove duplicates)
-            all_doc_ids = {doc.id for doc in documents}
-            for doc in recent_docs:
-                if doc.id not in all_doc_ids:
-                    documents.append(doc)
+            # Debug logging
+            logging.info(f"Deep query: Found {len(relevant_memories)} memories and {len(all_documents)} documents")
             
             # Use Gemini to perform deep analysis
             gemini_service = GeminiService()
             result = await gemini_service.deep_query(
                 memories=relevant_memories,
-                documents=documents,
+                documents=all_documents,
                 query=search_query
             )
             
