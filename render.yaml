@@ -48,6 +48,10 @@ services:
       - key: MAIN_QDRANT_COLLECTION_NAME
         value: "jonathans_memory_main"
       
+      # Apify Configuration (Optional - for Twitter integration)
+      - key: APIFY_TOKEN
+        sync: false
+      
       # Runtime Configuration
       - key: PYTHONUNBUFFERED
         value: "1"

@@ -224,7 +224,7 @@ async def list_app_accessed_memories(
     count_query = db.query(func.count(Memory.id.distinct()))\
         .join(MemoryAccessLog, Memory.id == MemoryAccessLog.memory_id)\
         .filter(MemoryAccessLog.app_id == app.id, Memory.user_id == user.id)
-    total = count_query.scalar_one_or_none() or 0
+    total = count_query.scalar() or 0
 
     results = query.offset((page - 1) * page_size).limit(page_size).all()
 
