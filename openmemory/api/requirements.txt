@@ -17,3 +17,4 @@ supabase>=2.5.0,<3.0.0
 feedparser>=6.0.0
 python-dateutil>=2.8.0
 google-generativeai>=0.3.0
+beautifulsoup4>=4.12.0
