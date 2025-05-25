@@ -93,7 +93,7 @@ Be specific and cite document titles when referencing information."""
                         context += f"  Created: {mem['created_at']}\n"
                 context += "\n"
         
-        # Add documents
+        # Add documents with smart truncation
         if documents:
             context += "\n--- DOCUMENTS ---\n\n"
             for i, doc in enumerate(documents, 1):
@@ -102,9 +102,23 @@ Be specific and cite document titles when referencing information."""
                 context += f"  Source: {doc.source_url}\n"
                 if doc.metadata_.get('published_date'):
                     context += f"  Published: {doc.metadata_['published_date']}\n"
-                context += f"  Content ({len(doc.content)} chars):\n"
-                context += f"  {doc.content}\n"
+                
+                # Smart truncation for very long documents
+                doc_content = doc.content
+                if len(doc_content) > 50000:  # If document is over 50K chars
+                    # Take first 25K and last 5K chars with indicator
+                    doc_content = doc_content[:25000] + "\n\n[... content truncated for length ...]\n\n" + doc_content[-5000:]
+                    context += f"  Content ({len(doc.content)} chars, truncated):\n"
+                else:
+                    context += f"  Content ({len(doc.content)} chars):\n"
+                
+                context += f"  {doc_content}\n"
                 context += "\n--- End of Document ---\n\n"
+        
+        # Check total context size and truncate if needed
+        if len(context) > 800000:  # 800K chars limit
+            logger.warning(f"Context too large ({len(context)} chars), using fallback")
+            return await self._fallback_query(memories[:5], documents[:2], query)
         
         # Create the comprehensive prompt
         prompt = f"""You are an advanced AI assistant with access to a user's complete knowledge base, including their memories and saved documents.
@@ -143,7 +157,7 @@ Provide a thoughtful, comprehensive response that demonstrates deep understandin
         except Exception as e:
             logger.error(f"Error in deep query: {e}")
             # Fallback to a simpler query if the full context is too large
-            if "context length" in str(e).lower():
+            if "context length" in str(e).lower() or "too long" in str(e).lower():
                 return await self._fallback_query(memories[:10], documents[:3], query)
             return f"Error performing deep query: {str(e)}"
     

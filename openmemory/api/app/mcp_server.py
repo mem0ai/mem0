@@ -295,11 +295,11 @@ async def deep_memory_query(search_query: str) -> str:
             # Get user
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
             
-            # Get ALL memories for the user (not just search results)
+            # Get ALL memories for the user (limit to most recent to avoid timeout)
             all_memories = db.query(Memory).filter(
                 Memory.user_id == user.id,
                 Memory.state == MemoryState.active
-            ).order_by(Memory.created_at.desc()).limit(50).all()
+            ).order_by(Memory.created_at.desc()).limit(30).all()  # Reduced from 50
             
             # Convert to the format expected by Gemini
             relevant_memories = []
@@ -319,21 +319,104 @@ async def deep_memory_query(search_query: str) -> str:
             # Debug logging
             logging.info(f"Deep query: Found {len(relevant_memories)} memories and {len(all_documents)} documents")
             
-            # Use Gemini to perform deep analysis
-            gemini_service = GeminiService()
-            result = await gemini_service.deep_query(
-                memories=relevant_memories,
-                documents=all_documents,
-                query=search_query
-            )
+            # Calculate total content size to determine strategy
+            total_content_size = sum(len(doc.content) for doc in all_documents)
+            total_memory_size = sum(len(mem['content']) for mem in relevant_memories)
             
-            return result
+            logging.info(f"Deep query: Total content size: {total_content_size + total_memory_size} chars")
+            
+            # Use different strategies based on content size
+            if total_content_size + total_memory_size > 500000:  # 500K chars
+                # Large content - use chunked approach with timeout protection
+                return await _chunked_deep_query(relevant_memories, all_documents, search_query)
+            else:
+                # Smaller content - use full query with timeout protection
+                try:
+                    # Set a timeout for the Gemini call
+                    gemini_service = GeminiService()
+                    result = await asyncio.wait_for(
+                        gemini_service.deep_query(
+                            memories=relevant_memories,
+                            documents=all_documents,
+                            query=search_query
+                        ),
+                        timeout=45.0  # 45 second timeout
+                    )
+                    return result
+                except asyncio.TimeoutError:
+                    logging.warning("Deep query timed out, falling back to chunked approach")
+                    return await _chunked_deep_query(relevant_memories, all_documents, search_query)
             
         finally:
             db.close()
     except Exception as e:
         logging.error(f"Error in deep_memory_query MCP tool: {e}", exc_info=True)
         return f"Error performing deep query: {str(e)}"
+
+
+async def _chunked_deep_query(memories: list, documents: list, query: str) -> str:
+    """
+    Fallback chunked approach for large content or when main query times out
+    """
+    try:
+        gemini_service = GeminiService()
+        
+        # First, search through memories only (faster)
+        memory_result = ""
+        if memories:
+            try:
+                memory_result = await asyncio.wait_for(
+                    gemini_service.deep_query(
+                        memories=memories,
+                        documents=[],  # No documents in this pass
+                        query=query
+                    ),
+                    timeout=20.0
+                )
+            except asyncio.TimeoutError:
+                memory_result = "Memory search timed out."
+        
+        # Then search through documents in chunks
+        document_results = []
+        chunk_size = 2  # Process 2 documents at a time
+        
+        for i in range(0, len(documents), chunk_size):
+            chunk = documents[i:i + chunk_size]
+            try:
+                chunk_result = await asyncio.wait_for(
+                    gemini_service.deep_query(
+                        memories=[],  # No memories in document chunks
+                        documents=chunk,
+                        query=query
+                    ),
+                    timeout=25.0
+                )
+                document_results.append(f"Documents {i+1}-{min(i+chunk_size, len(documents))}: {chunk_result}")
+            except asyncio.TimeoutError:
+                document_results.append(f"Documents {i+1}-{min(i+chunk_size, len(documents))}: Search timed out.")
+            except Exception as e:
+                document_results.append(f"Documents {i+1}-{min(i+chunk_size, len(documents))}: Error - {str(e)}")
+        
+        # Combine results
+        final_result = f"=== DEEP MEMORY SEARCH RESULTS ===\n\n"
+        final_result += f"Query: {query}\n\n"
+        
+        if memory_result:
+            final_result += f"=== MEMORY ANALYSIS ===\n{memory_result}\n\n"
+        
+        if document_results:
+            final_result += f"=== DOCUMENT ANALYSIS ===\n"
+            for result in document_results:
+                final_result += f"{result}\n\n"
+        
+        if not memory_result and not document_results:
+            final_result += "No relevant information found in your memories or documents."
+        
+        return final_result
+        
+    except Exception as e:
+        logging.error(f"Error in chunked deep query: {e}")
+        return f"Error in fallback search: {str(e)}"
 
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
