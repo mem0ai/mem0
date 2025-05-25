@@ -153,9 +153,27 @@ class ChunkingService:
         """
         # For now, use simple ILIKE search
         # This can be enhanced with vector embeddings later
-        chunks = db.query(DocumentChunk).join(Document).filter(
+        # Avoid selecting metadata column to prevent schema issues
+        chunks = db.query(
+            DocumentChunk.id,
+            DocumentChunk.document_id, 
+            DocumentChunk.chunk_index,
+            DocumentChunk.content,
+            DocumentChunk.created_at
+        ).join(Document).filter(
             Document.user_id == user_id,
             DocumentChunk.content.ilike(f"%{query}%")
         ).limit(limit).all()
         
-        return chunks 
+        # Convert to DocumentChunk objects manually
+        result_chunks = []
+        for chunk_data in chunks:
+            chunk = DocumentChunk()
+            chunk.id = chunk_data.id
+            chunk.document_id = chunk_data.document_id
+            chunk.chunk_index = chunk_data.chunk_index
+            chunk.content = chunk_data.content
+            chunk.created_at = chunk_data.created_at
+            result_chunks.append(chunk)
+        
+        return result_chunks 
