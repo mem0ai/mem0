@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict
 from app.database import get_db
-from app.auth import get_current_user
+from app.auth import get_current_supa_user
+from gotrue.types import User as SupabaseUser
+from app.utils.db import get_or_create_user
 from app.models import User, Document
 from app.integrations.substack_service import SubstackService
 import asyncio
@@ -12,7 +14,7 @@ router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 @router.post("/substack/sync")
 async def sync_substack(
     request: Dict,
-    current_user: User = Depends(get_current_user),
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
     """Sync Substack essays for the authenticated user"""
@@ -22,11 +24,17 @@ async def sync_substack(
     if not substack_url:
         raise HTTPException(status_code=400, detail="Substack URL is required")
     
+    # Get the local user record
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or could not be created")
+    
     # Use the SubstackService to handle the sync
     service = SubstackService()
     synced_count, message = await service.sync_substack_posts(
         db=db,
-        supabase_user_id=current_user.user_id,
+        supabase_user_id=supabase_user_id_str,
         substack_url=substack_url,
         max_posts=max_posts,
         use_mem0=True  # Try to use mem0, but it will gracefully degrade if not available
@@ -41,11 +49,17 @@ async def sync_substack(
 @router.get("/documents/count")
 async def get_document_count(
     document_type: str = None,
-    current_user: User = Depends(get_current_user),
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
     """Get count of documents for the authenticated user"""
-    query = db.query(Document).filter(Document.user_id == current_user.id)
+    # Get the local user record
+    supabase_user_id_str = str(current_supa_user.id)
+    user = get_or_create_user(db, supabase_user_id_str, current_supa_user.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or could not be created")
+    
+    query = db.query(Document).filter(Document.user_id == user.id)
     
     if document_type:
         query = query.filter(Document.document_type == document_type)
