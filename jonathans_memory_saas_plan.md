@@ -108,7 +108,7 @@ services:
       - key: EMBEDDER_PROVIDER  
         value: "openai"
       - key: EMBEDDER_MODEL
-        value: "text-embedding-ada-002"
+        value: "text-embedding-3-small"
 ```
 
 **Database Migration:**
@@ -176,7 +176,7 @@ OPENAI_API_KEY=[openai_key]
 LLM_PROVIDER=openai
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDER_PROVIDER=openai
-EMBEDDER_MODEL=text-embedding-ada-002
+EMBEDDER_MODEL=text-embedding-3-small
 
 # Vector Database
 QDRANT_HOST=[cluster_url].qdrant.io
