@@ -3,64 +3,49 @@
 import React, { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ChevronDown, Link2 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const clientTabs = [
+// Main apps to show in the primary tabs
+const mainApps = [
+  { key: "mcp", label: "MCP Link", icon: "🔗", isSpecial: true },
   { key: "claude", label: "Claude", icon: "/images/claude.webp" },
   { key: "cursor", label: "Cursor", icon: "/images/cursor.png" },
+  { key: "windsurf", label: "Windsurf", icon: "/images/windsurf.png" },
+];
+
+// Additional apps in the dropdown
+const additionalApps = [
   { key: "cline", label: "Cline", icon: "/images/cline.png" },
   { key: "roocline", label: "Roo Cline", icon: "/images/roocline.png" },
-  { key: "windsurf", label: "Windsurf", icon: "/images/windsurf.png" },
   { key: "witsy", label: "Witsy", icon: "/images/witsy.png" },
   { key: "enconvo", label: "Enconvo", icon: "/images/enconvo.png" },
 ];
 
 const colorGradientMap: { [key: string]: string } = {
-  claude:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]",
-  cline:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(112,128,144,0.3),_rgba(112,128,144,0))] data-[state=active]:border-[#708090]",
-  cursor:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(255,255,255,0.08),_rgba(255,255,255,0))] data-[state=active]:border-[#708090]",
-  roocline:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(45,32,92,0.8),_rgba(45,32,92,0))] data-[state=active]:border-[#7E3FF2]",
-  windsurf:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(0,176,137,0.3),_rgba(0,176,137,0))] data-[state=active]:border-[#00B089]",
-  witsy:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(33,135,255,0.3),_rgba(33,135,255,0))] data-[state=active]:border-[#2187FF]",
-  enconvo:
-    "data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]",
+  mcp: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-purple-500/20 data-[state=active]:to-transparent data-[state=active]:border-purple-500",
+  claude: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-orange-500/20 data-[state=active]:to-transparent data-[state=active]:border-orange-500",
+  cursor: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-blue-500/20 data-[state=active]:to-transparent data-[state=active]:border-blue-500",
+  windsurf: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-teal-500/20 data-[state=active]:to-transparent data-[state=active]:border-teal-500",
+  more: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-zinc-500/20 data-[state=active]:to-transparent data-[state=active]:border-zinc-500",
 };
 
-const getColorGradient = (color: string) => {
-  if (colorGradientMap[color]) {
-    return colorGradientMap[color];
-  }
-  return "data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]";
-};
-
-const allTabs = [{ key: "mcp", label: "MCP Link", icon: "🔗" }, ...clientTabs];
-
-// Potentially define outside if it should NEVER change after initial load
 const API_URL_ON_LOAD = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
 export const Install = () => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("claude");
   const { user } = useAuth();
   
-  // Use the authenticated user's ID, fallback to "user" if not authenticated
   const userId = user?.id || "user";
-
-  // Log the raw environment variable value
-  console.log("Install.tsx: Raw NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
-
   const URL = API_URL_ON_LOAD;
-
-  // Log the resolved URL constant
-  console.log("Install.tsx: Resolved URL variable:", URL);
-  console.log("Install.tsx: User object:", user); // To see when it re-renders due to user change
 
   const handleCopy = async (tab: string, isMcp: boolean = false) => {
     const text = isMcp
@@ -68,11 +53,9 @@ export const Install = () => {
       : `npx install-mcp i ${URL}/mcp/${tab}/sse/${userId} --client ${tab}`;
 
     try {
-      // Try using the Clipboard API first
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        // Fallback: Create a temporary textarea element
         const textarea = document.createElement("textarea");
         textarea.value = text;
         textarea.style.position = "fixed";
@@ -83,132 +66,128 @@ export const Install = () => {
         document.body.removeChild(textarea);
       }
 
-      // Update UI to show success
       setCopiedTab(tab);
-      setTimeout(() => setCopiedTab(null), 1500); // Reset after 1.5s
+      setTimeout(() => setCopiedTab(null), 2000);
     } catch (error) {
       console.error("Failed to copy text:", error);
-      // You might want to add a toast notification here to show the error
     }
   };
 
+  const renderInstallCard = (appKey: string, title: string, isMcp: boolean = false) => (
+    <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-medium text-zinc-100">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="relative group">
+          <pre className="bg-zinc-950/50 border border-zinc-800 px-4 py-3 rounded-lg overflow-x-auto text-sm font-mono">
+            <code className="text-zinc-300">
+              {isMcp 
+                ? `${URL}/mcp/openmemory/sse/${userId}`
+                : `npx install-mcp i ${URL}/mcp/${appKey}/sse/${userId} --client ${appKey}`
+              }
+            </code>
+          </pre>
+          <button
+            className="absolute top-2 right-2 p-2 rounded-md bg-zinc-800 hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100"
+            aria-label="Copy to clipboard"
+            onClick={() => handleCopy(appKey, isMcp)}
+          >
+            {copiedTab === appKey ? (
+              <Check className="h-4 w-4 text-green-400" />
+            ) : (
+              <Copy className="h-4 w-4 text-zinc-400" />
+            )}
+          </button>
+        </div>
+        {isMcp && (
+          <p className="text-xs text-zinc-500 mt-3">
+            Use this URL to connect Jean Memory to any MCP-compatible application
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-6">Install Jean Memory</h2>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold text-zinc-100 mb-2">Quick Setup</h2>
+        <p className="text-zinc-400 text-sm">
+          Connect Jean Memory to your favorite AI tools in seconds
+        </p>
+      </div>
       
       {!user && (
-        <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
-          <p className="text-yellow-300 text-sm">
-            ⚠️ You are not logged in. The MCP endpoint below will use a generic user ID. 
-            Please log in to get your personalized memory endpoint that will sync with your account.
+        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg backdrop-blur-sm">
+          <p className="text-amber-200 text-sm flex items-center gap-2">
+            <span className="text-amber-400">⚠️</span>
+            Sign in to sync memories across all your devices
           </p>
         </div>
       )}
 
-      <div className="hidden">
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(112,128,144,0.3),_rgba(112,128,144,0))] data-[state=active]:border-[#708090]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(45,32,92,0.3),_rgba(45,32,92,0))] data-[state=active]:border-[#2D205C]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(0,176,137,0.3),_rgba(0,176,137,0))] data-[state=active]:border-[#00B089]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(33,135,255,0.3),_rgba(33,135,255,0))] data-[state=active]:border-[#2187FF]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(126,63,242,0.3),_rgba(126,63,242,0))] data-[state=active]:border-[#7E3FF2]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(239,108,60,0.3),_rgba(239,108,60,0))] data-[state=active]:border-[#EF6C3C]"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(107,33,168,0.3),_rgba(107,33,168,0))] data-[state=active]:border-primary"></div>
-        <div className="data-[state=active]:bg-[linear-gradient(to_top,_rgba(255,255,255,0.08),_rgba(255,255,255,0))] data-[state=active]:border-[#708090]"></div>
-      </div>
-
-      <Tabs defaultValue="claude" className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-0 p-0 grid grid-cols-8">
-          {allTabs.map(({ key, label, icon }) => (
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-1 p-0 h-auto">
+          {mainApps.map(({ key, label, icon }) => (
             <TabsTrigger
               key={key}
               value={key}
-              className={`flex-1 px-0 pb-2 rounded-none ${getColorGradient(
-                key
-              )} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center justify-center gap-2 text-sm`}
+              className={`px-4 py-3 rounded-none ${colorGradientMap[key] || ''} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center gap-2 text-sm font-medium transition-all`}
             >
               {icon.startsWith("/") ? (
-                <div>
-                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
-                    <Image src={icon} alt={label} width={40} height={40} />
-                  </div>
+                <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                  <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
                 </div>
+              ) : key === "mcp" ? (
+                <Link2 className="w-4 h-4" />
               ) : (
-                <div className="h-6">
-                  <span className="relative top-1">{icon}</span>
-                </div>
+                <span className="text-base">{icon}</span>
               )}
               <span>{label}</span>
             </TabsTrigger>
           ))}
+          
+          {/* More Apps Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={`px-4 py-3 text-zinc-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-all ${additionalApps.some(app => app.key === activeTab) ? 'text-white border-b-2 border-zinc-500' : ''}`}>
+                <ChevronDown className="w-4 h-4" />
+                <span>More Apps</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-800">
+              {additionalApps.map(({ key, label, icon }) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800"
+                >
+                  {icon.startsWith("/") && (
+                    <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                      <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
+                    </div>
+                  )}
+                  <span>{label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </TabsList>
 
-        {/* MCP Tab Content */}
-        <TabsContent value="mcp" className="mt-6">
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader className="py-4">
-              <CardTitle className="text-white text-xl">MCP Link</CardTitle>
-            </CardHeader>
-            <hr className="border-zinc-800" />
-            <CardContent className="py-4">
-              <div className="relative">
-                <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
-                  <code className="text-gray-300">
-                    {URL}/mcp/openmemory/sse/{userId}
-                  </code>
-                </pre>
-                <div>
-                  <button
-                    className="absolute top-0 right-0 py-3 px-4 rounded-md hover:bg-zinc-600 bg-zinc-700"
-                    aria-label="Copy to clipboard"
-                    onClick={() => handleCopy("mcp", true)}
-                  >
-                    {copiedTab === "mcp" ? (
-                      <Check className="h-5 w-5 text-green-400" />
-                    ) : (
-                      <Copy className="h-5 w-5 text-zinc-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Client Tabs Content */}
-        {clientTabs.map(({ key }) => (
+        {/* Main app contents */}
+        {mainApps.map(({ key, label }) => (
           <TabsContent key={key} value={key} className="mt-6">
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader className="py-4">
-                <CardTitle className="text-white text-xl">
-                  {key.charAt(0).toUpperCase() + key.slice(1)} Installation
-                  Command
-                </CardTitle>
-              </CardHeader>
-              <hr className="border-zinc-800" />
-              <CardContent className="py-4">
-                <div className="relative">
-                  <pre className="bg-zinc-800 px-4 py-3 rounded-md overflow-x-auto text-sm">
-                    <code className="text-gray-300">
-                      {`npx install-mcp i ${URL}/mcp/${key}/sse/${userId} --client ${key}`}
-                    </code>
-                  </pre>
-                  <div>
-                    <button
-                      className="absolute top-0 right-0 py-3 px-4 rounded-md hover:bg-zinc-600 bg-zinc-700"
-                      aria-label="Copy to clipboard"
-                      onClick={() => handleCopy(key)}
-                    >
-                      {copiedTab === key ? (
-                        <Check className="h-5 w-5 text-green-400" />
-                      ) : (
-                        <Copy className="h-5 w-5 text-zinc-400" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {renderInstallCard(key, `${label} Installation`, key === "mcp")}
+          </TabsContent>
+        ))}
+
+        {/* Additional app contents */}
+        {additionalApps.map(({ key, label }) => (
+          <TabsContent key={key} value={key} className="mt-6">
+            {renderInstallCard(key, `${label} Installation`)}
           </TabsContent>
         ))}
       </Tabs>

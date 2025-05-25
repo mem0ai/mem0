@@ -98,31 +98,37 @@ export function MemoriesSection() {
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-zinc-800 p-3 mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-6 w-6 text-zinc-400"
-              >
-                <path d="M21 9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
-                <path d="M16 2v6h6"></path>
-                <path d="M12 18v-6"></path>
-                <path d="M9 15h6"></path>
-              </svg>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full"></div>
+              <div className="relative rounded-full bg-zinc-900 border border-zinc-800 p-6">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-purple-400"
+                >
+                  <path d="M12 2v20M2 12h20M8 8l8 8M16 8l-8 8" opacity="0.3"/>
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" opacity="0.2"/>
+                </svg>
+              </div>
             </div>
-            <h3 className="text-lg font-medium">No memories found</h3>
-            <p className="text-zinc-400 mt-1 mb-4">
+            <h3 className="text-xl font-semibold text-white mb-2">
               {selectedCategory !== "all" || selectedClient !== "all"
-                ? "Try adjusting your filters"
-                : "Create your first memory to see it here"}
+                ? "No memories match your filters"
+                : "Start Building Your Memory Bank"}
+            </h3>
+            <p className="text-zinc-400 mb-6 max-w-md">
+              {selectedCategory !== "all" || selectedClient !== "all"
+                ? "Try adjusting your filters to see more memories"
+                : "Your AI conversations will appear here. Connect an app above and start chatting to create your first memory!"}
             </p>
             {selectedCategory !== "all" || selectedClient !== "all" ? (
               <Button
@@ -131,11 +137,17 @@ export function MemoriesSection() {
                   setSelectedCategory("all");
                   setSelectedClient("all");
                 }}
+                className="border-zinc-700 hover:bg-zinc-800"
               >
                 Clear Filters
               </Button>
             ) : (
-              <CreateMemoryDialog />
+              <div className="flex flex-col items-center gap-3">
+                <CreateMemoryDialog />
+                <p className="text-xs text-zinc-500">
+                  Or start chatting with Claude, Cursor, or any connected app
+                </p>
+              </div>
             )}
           </div>
         )}
