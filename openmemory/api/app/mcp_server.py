@@ -18,6 +18,7 @@ from qdrant_client import models as qdrant_models
 from app.integrations.substack_service import SubstackService
 from app.utils.gemini import GeminiService
 import asyncio
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
@@ -295,57 +296,30 @@ async def deep_memory_query(search_query: str) -> str:
             # Get user
             user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
             
-            # Get ALL memories for the user (limit to most recent to avoid timeout)
+            # Get memories and documents
             all_memories = db.query(Memory).filter(
                 Memory.user_id == user.id,
                 Memory.state == MemoryState.active
-            ).order_by(Memory.created_at.desc()).limit(30).all()  # Reduced from 50
+            ).order_by(Memory.created_at.desc()).limit(20).all()  # Reduced further
             
-            # Convert to the format expected by Gemini
-            relevant_memories = []
-            for mem in all_memories:
-                relevant_memories.append({
-                    'memory': mem.content,
-                    'content': mem.content,  # Add both for compatibility
-                    'metadata': mem.metadata_ or {},
-                    'created_at': mem.created_at.isoformat() if mem.created_at else None
-                })
-            
-            # Get ALL documents for the user
             all_documents = db.query(Document).filter(
                 Document.user_id == user.id
             ).order_by(Document.created_at.desc()).all()
             
-            # Debug logging
+            # Convert memories to expected format
+            relevant_memories = []
+            for mem in all_memories:
+                relevant_memories.append({
+                    'memory': mem.content,
+                    'content': mem.content,
+                    'metadata': mem.metadata_ or {},
+                    'created_at': mem.created_at.isoformat() if mem.created_at else None
+                })
+            
             logging.info(f"Deep query: Found {len(relevant_memories)} memories and {len(all_documents)} documents")
             
-            # Calculate total content size to determine strategy
-            total_content_size = sum(len(doc.content) for doc in all_documents)
-            total_memory_size = sum(len(mem['content']) for mem in relevant_memories)
-            
-            logging.info(f"Deep query: Total content size: {total_content_size + total_memory_size} chars")
-            
-            # Use different strategies based on content size
-            if total_content_size + total_memory_size > 500000:  # 500K chars
-                # Large content - use chunked approach with timeout protection
-                return await _chunked_deep_query(relevant_memories, all_documents, search_query)
-            else:
-                # Smaller content - use full query with timeout protection
-                try:
-                    # Set a timeout for the Gemini call
-                    gemini_service = GeminiService()
-                    result = await asyncio.wait_for(
-                        gemini_service.deep_query(
-                            memories=relevant_memories,
-                            documents=all_documents,
-                            query=search_query
-                        ),
-                        timeout=45.0  # 45 second timeout
-                    )
-                    return result
-                except asyncio.TimeoutError:
-                    logging.warning("Deep query timed out, falling back to chunked approach")
-                    return await _chunked_deep_query(relevant_memories, all_documents, search_query)
+            # ALWAYS use parallel chunked approach to avoid timeouts
+            return await _parallel_chunked_query(relevant_memories, all_documents, search_query)
             
         finally:
             db.close()
@@ -354,69 +328,165 @@ async def deep_memory_query(search_query: str) -> str:
         return f"Error performing deep query: {str(e)}"
 
 
-async def _chunked_deep_query(memories: list, documents: list, query: str) -> str:
+async def _parallel_chunked_query(memories: list, documents: list, query: str) -> str:
     """
-    Fallback chunked approach for large content or when main query times out
+    Parallel processing approach with orchestrating agent for super fast results
     """
     try:
         gemini_service = GeminiService()
         
-        # First, search through memories only (faster)
-        memory_result = ""
+        # Create tasks for parallel processing
+        tasks = []
+        task_descriptions = []
+        
+        # Task 1: Memory analysis (if we have memories)
         if memories:
-            try:
-                memory_result = await asyncio.wait_for(
-                    gemini_service.deep_query(
-                        memories=memories,
-                        documents=[],  # No documents in this pass
-                        query=query
-                    ),
-                    timeout=20.0
+            tasks.append(
+                asyncio.create_task(
+                    _quick_memory_search(gemini_service, memories, query)
                 )
-            except asyncio.TimeoutError:
-                memory_result = "Memory search timed out."
+            )
+            task_descriptions.append("Memory Analysis")
         
-        # Then search through documents in chunks
-        document_results = []
-        chunk_size = 2  # Process 2 documents at a time
-        
-        for i in range(0, len(documents), chunk_size):
-            chunk = documents[i:i + chunk_size]
-            try:
-                chunk_result = await asyncio.wait_for(
-                    gemini_service.deep_query(
-                        memories=[],  # No memories in document chunks
-                        documents=chunk,
-                        query=query
-                    ),
-                    timeout=25.0
+        # Task 2-N: Document chunks (process 1 document at a time for speed)
+        for i, doc in enumerate(documents):
+            if i >= 3:  # Limit to first 3 documents to avoid timeout
+                break
+            tasks.append(
+                asyncio.create_task(
+                    _quick_document_search(gemini_service, [doc], query, i+1)
                 )
-                document_results.append(f"Documents {i+1}-{min(i+chunk_size, len(documents))}: {chunk_result}")
-            except asyncio.TimeoutError:
-                document_results.append(f"Documents {i+1}-{min(i+chunk_size, len(documents))}: Search timed out.")
-            except Exception as e:
-                document_results.append(f"Documents {i+1}-{min(i+chunk_size, len(documents))}: Error - {str(e)}")
+            )
+            task_descriptions.append(f"Document {i+1}: {doc.title[:30]}...")
         
-        # Combine results
-        final_result = f"=== DEEP MEMORY SEARCH RESULTS ===\n\n"
-        final_result += f"Query: {query}\n\n"
+        # Run all tasks in parallel with aggressive timeout
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=90.0  # Very aggressive 25-second total timeout
+            )
+        except asyncio.TimeoutError:
+            # If we timeout, cancel remaining tasks and use what we have
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            results = [task.result() if task.done() else "Timed out" for task in tasks]
         
-        if memory_result:
-            final_result += f"=== MEMORY ANALYSIS ===\n{memory_result}\n\n"
-        
-        if document_results:
-            final_result += f"=== DOCUMENT ANALYSIS ===\n"
-            for result in document_results:
-                final_result += f"{result}\n\n"
-        
-        if not memory_result and not document_results:
-            final_result += "No relevant information found in your memories or documents."
-        
-        return final_result
+        # Orchestrate results with a quick summary
+        return await _orchestrate_results(gemini_service, results, task_descriptions, query)
         
     except Exception as e:
-        logging.error(f"Error in chunked deep query: {e}")
-        return f"Error in fallback search: {str(e)}"
+        logging.error(f"Error in parallel chunked query: {e}")
+        return f"Error in parallel search: {str(e)}"
+
+
+async def _quick_memory_search(gemini_service, memories: list, query: str) -> str:
+    """Quick memory search with tight timeout"""
+    try:
+        # Build minimal context
+        context = "=== MEMORIES ===\n"
+        for i, mem in enumerate(memories[:10], 1):  # Limit to 10 memories
+            memory_text = mem.get('memory', mem.get('content', ''))
+            context += f"{i}. {memory_text[:300]}...\n"  # Truncate each memory
+        
+        prompt = f"""Analyze these memories for: {query}
+
+{context}
+
+Provide a brief analysis focusing on the query. Be concise."""
+        
+        response = await asyncio.wait_for(
+            asyncio.to_thread(
+                gemini_service.model.generate_content,
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=1024,
+                )
+            ),
+            timeout=10.0  # 10 second timeout
+        )
+        return response.text
+    except Exception as e:
+        return f"Memory search error: {str(e)}"
+
+
+async def _quick_document_search(gemini_service, documents: list, query: str, doc_num: int) -> str:
+    """Quick document search with tight timeout"""
+    try:
+        doc = documents[0]  # Should only be one document
+        
+        # Smart truncation for speed
+        content = doc.content
+        if len(content) > 20000:  # Much more aggressive truncation
+            content = content[:15000] + "\n[...truncated...]\n" + content[-3000:]
+        
+        prompt = f"""Analyze this document for: {query}
+
+Document: {doc.title}
+Content: {content}
+
+Provide a brief analysis focusing on the query. Be concise."""
+        
+        response = await asyncio.wait_for(
+            asyncio.to_thread(
+                gemini_service.model.generate_content,
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=1024,
+                )
+            ),
+            timeout=12.0  # 12 second timeout per document
+        )
+        return response.text
+    except Exception as e:
+        return f"Document {doc_num} error: {str(e)}"
+
+
+async def _orchestrate_results(gemini_service, results: list, descriptions: list, query: str) -> str:
+    """Orchestrating agent that combines all results"""
+    try:
+        # Build summary of all results
+        combined_results = f"=== DEEP MEMORY SEARCH RESULTS ===\n\nQuery: {query}\n\n"
+        
+        for i, (result, desc) in enumerate(zip(results, descriptions)):
+            if isinstance(result, Exception):
+                combined_results += f"**{desc}**: Error - {str(result)}\n\n"
+            elif result and "error" not in result.lower():
+                combined_results += f"**{desc}**:\n{result}\n\n"
+            else:
+                combined_results += f"**{desc}**: {result}\n\n"
+        
+        # Quick orchestration with very short timeout
+        orchestration_prompt = f"""Synthesize these search results into a coherent answer:
+
+{combined_results}
+
+Original Query: {query}
+
+Provide a unified, comprehensive response that draws connections across all sources. Be specific and cite sources."""
+        
+        try:
+            final_response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    gemini_service.model.generate_content,
+                    orchestration_prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=2048,
+                    )
+                ),
+                timeout=8.0  # Very short timeout for orchestration
+            )
+            return final_response.text
+        except asyncio.TimeoutError:
+            # If orchestration times out, return the raw results
+            return combined_results + "\n[Note: Final synthesis timed out, showing raw results]"
+        
+    except Exception as e:
+        # Fallback to just returning what we have
+        return f"=== SEARCH RESULTS (Raw) ===\n\nQuery: {query}\n\n" + "\n".join([str(r) for r in results if r])
 
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
