@@ -650,19 +650,28 @@ async def get_related_memories(
     if not category_ids:
         return Page[MemoryResponse].create([], total=0, params=params)
     
-    query = db.query(Memory).distinct(Memory.id).filter(
+    # First, get memory IDs with their category counts
+    subquery = db.query(
+        Memory.id,
+        func.count(Category.id).label('category_count')
+    ).filter(
         Memory.user_id == user.id,
         Memory.id != memory_id,
         Memory.state != MemoryState.deleted
     ).join(Memory.categories).filter(
         Category.id.in_(category_ids)
+    ).group_by(Memory.id).subquery()
+    
+    # Then join with full memory data and order properly
+    query = db.query(Memory).join(
+        subquery, Memory.id == subquery.c.id
     ).options(
         joinedload(Memory.categories),
         joinedload(Memory.app)
     ).order_by(
-        func.count(Category.id).desc(),
+        subquery.c.category_count.desc(),
         Memory.created_at.desc()
-    ).group_by(Memory.id)
+    )
     
     page_num = params.page if params and params.page is not None else 1
     forced_params = Params(page=page_num, size=5)

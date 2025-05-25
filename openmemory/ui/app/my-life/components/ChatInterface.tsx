@@ -62,7 +62,7 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
     try {
       // Prepare context from memories
       const memoryContext = memoriesContext.slice(0, 20).map(m => 
-        `Memory: ${m.content} (from ${m.app_name || 'unknown app'} on ${new Date(m.created_at).toLocaleDateString()})`
+        `Memory: ${m.memory} (from ${m.app_name || 'unknown app'} on ${new Date(m.created_at).toLocaleDateString()})`
       ).join('\n');
 
       const prompt = `You are a personal AI assistant with access to the user's memories. Based on the following memories and the user's question, provide helpful insights about their life patterns, experiences, and growth.
