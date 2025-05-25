@@ -4,7 +4,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { AppCard } from "./AppCard";
-import { SubstackCard } from "./SubstackCard";
 import { AppCardSkeleton } from "@/skeleton/AppCardSkeleton";
 
 export function AppGrid() {
@@ -39,7 +38,7 @@ export function AppGrid() {
     );
   }
 
-  // Sort apps to ensure Cursor comes first, then Substack, then others
+  // Sort apps to ensure Cursor comes first, then others
   const sortedApps = [...apps].sort((a, b) => {
     if (a.name === "cursor") return -1;
     if (b.name === "cursor") return 1;
@@ -52,8 +51,6 @@ export function AppGrid() {
         // Show regular AppCard for all apps
         return <AppCard key={app.id} app={app} />;
       })}
-      {/* Add SubstackCard after Cursor (if Cursor exists) */}
-      {sortedApps.some(app => app.name === "cursor") && <SubstackCard />}
     </div>
   );
 }

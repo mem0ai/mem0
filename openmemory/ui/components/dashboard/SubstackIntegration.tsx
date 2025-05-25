@@ -24,7 +24,7 @@ export function SubstackIntegration() {
   const fetchDocumentCount = async () => {
     if (!user) return;
     try {
-      const response = await apiClient.get("/api/v1/documents/count", {
+      const response = await apiClient.get("/api/v1/integrations/documents/count", {
         params: { document_type: "substack" }
       });
       setDocumentCount(response.data.count || 0);
@@ -83,6 +83,11 @@ export function SubstackIntegration() {
           <p className="text-sm text-zinc-400 mb-3">
             Sync your Substack essays to build a comprehensive memory bank
           </p>
+          {isSyncing && (
+            <p className="text-xs text-zinc-500 mb-2">
+              This may take a few minutes depending on the number of essays...
+            </p>
+          )}
           <div className="flex gap-2">
             <Input
               type="url"
