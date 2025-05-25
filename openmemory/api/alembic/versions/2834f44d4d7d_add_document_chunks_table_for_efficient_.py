@@ -24,7 +24,7 @@ def upgrade() -> None:
         sa.Column('chunk_index', sa.Integer(), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
         sa.Column('embedding', postgresql.ARRAY(sa.Float()), nullable=True),
-        sa.Column('metadata_', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')

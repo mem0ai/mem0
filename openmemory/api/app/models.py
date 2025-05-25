@@ -193,7 +193,7 @@ class Document(Base):
     source_url = Column(String, nullable=True)
     document_type = Column(String, nullable=False)  # 'substack', 'obsidian', 'medium', etc.
     content = Column(Text, nullable=False)
-    metadata_ = Column(JSONB, nullable=True)
+    metadata_ = Column('metadata', JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -212,7 +212,7 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     embedding = Column(ARRAY(Float), nullable=True)  # For future vector search
-    metadata_ = Column(JSONB, nullable=True)
+    metadata_ = Column('metadata', JSONB, nullable=True)  # Map to 'metadata' column
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # Relationships
