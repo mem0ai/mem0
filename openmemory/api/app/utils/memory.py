@@ -134,6 +134,37 @@ def reset_memory_client():
     _config_hash = None
 
 
+def get_default_memory_config():
+    """Get default memory client configuration with sensible defaults."""
+    return {
+        "vector_store": {
+            "provider": "qdrant",
+            "config": {
+                "collection_name": "openmemory",
+                "host": "mem0_store",
+                "port": 6333,
+            }
+        },
+        "llm": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "max_tokens": 2000,
+                "api_key": "env:OPENAI_API_KEY"
+            }
+        },
+        "embedder": {
+            "provider": "openai",
+            "config": {
+                "model": "text-embedding-3-small",
+                "api_key": "env:OPENAI_API_KEY"
+            }
+        },
+        "version": "v1.1"
+    }
+
+
 def get_memory_client(custom_instructions: str = None):
     """
     Get or initialize the Mem0 client.
@@ -150,17 +181,8 @@ def get_memory_client(custom_instructions: str = None):
     global _memory_client, _config_hash
 
     try:
-        # Base configuration for vector store
-        config = {
-            "vector_store": {
-                "provider": "qdrant",
-                "config": {
-                    "collection_name": "openmemory",
-                    "host": "mem0_store",
-                    "port": 6333,
-                }
-            },
-        }
+        # Start with default configuration
+        config = get_default_memory_config()
         
         # Variable to track custom instructions
         db_custom_instructions = None
@@ -177,12 +199,12 @@ def get_memory_client(custom_instructions: str = None):
                 if "openmemory" in json_config and "custom_instructions" in json_config["openmemory"]:
                     db_custom_instructions = json_config["openmemory"]["custom_instructions"]
                 
-                # Add configurations from the database
+                # Override defaults with configurations from the database
                 if "mem0" in json_config:
                     mem0_config = json_config["mem0"]
                     
-                    # Add LLM configuration if available
-                    if "llm" in mem0_config:
+                    # Update LLM configuration if available
+                    if "llm" in mem0_config and mem0_config["llm"] is not None:
                         config["llm"] = mem0_config["llm"]
                         
                         # Fix Ollama URLs for Docker if needed
@@ -200,11 +222,11 @@ def get_memory_client(custom_instructions: str = None):
                                 if env_api_key:
                                     config["llm"]["config"]["api_key"] = env_api_key
                                 else:
-                                    print(f"Warning: {env_var} environment variable not set, continuing without API key")
+                                    print(f"Warning: {env_var} environment variable not set, using default configuration")
                             # Otherwise, use the API key directly as provided in the config
                     
-                    # Add Embedder configuration if available
-                    if "embedder" in mem0_config:
+                    # Update Embedder configuration if available
+                    if "embedder" in mem0_config and mem0_config["embedder"] is not None:
                         config["embedder"] = mem0_config["embedder"]
                         
                         # Fix Ollama URLs for Docker if needed
@@ -222,22 +244,22 @@ def get_memory_client(custom_instructions: str = None):
                                 if env_api_key:
                                     config["embedder"]["config"]["api_key"] = env_api_key
                                 else:
-                                    print(f"Warning: {env_var} environment variable not set, continuing without API key")
+                                    print(f"Warning: {env_var} environment variable not set, using default configuration")
                             # Otherwise, use the API key directly as provided in the config
+            else:
+                print("No configuration found in database, using defaults")
                     
             db.close()
                             
         except Exception as e:
             print(f"Warning: Error loading configuration from database: {e}")
-            # Continue with basic configuration if database config can't be loaded
+            print("Using default configuration")
+            # Continue with default configuration if database config can't be loaded
 
         # Use custom_instructions parameter first, then fall back to database value
         instructions_to_use = custom_instructions or db_custom_instructions
         if instructions_to_use:
             config["custom_fact_extraction_prompt"] = instructions_to_use
-        
-        # Add version
-        config["version"] = "v1.1"
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)

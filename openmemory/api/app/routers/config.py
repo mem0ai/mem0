@@ -41,20 +41,71 @@ class ConfigSchema(BaseModel):
     openmemory: Optional[OpenMemoryConfig] = None
     mem0: Mem0Config
 
+def get_default_configuration():
+    """Get the default configuration with sensible defaults for LLM and embedder."""
+    return {
+        "openmemory": {
+            "custom_instructions": None
+        },
+        "mem0": {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                    "max_tokens": 2000,
+                    "api_key": "env:OPENAI_API_KEY"
+                }
+            },
+            "embedder": {
+                "provider": "openai",
+                "config": {
+                    "model": "text-embedding-3-small",
+                    "api_key": "env:OPENAI_API_KEY"
+                }
+            }
+        }
+    }
+
 def get_config_from_db(db: Session, key: str = "main"):
     """Get configuration from database."""
     config = db.query(ConfigModel).filter(ConfigModel.key == key).first()
     
     if not config:
-        # Create empty config if none exists
-        empty_config = {"openmemory": {"custom_instructions": None}, "mem0": {"llm": None, "embedder": None}}
-        db_config = ConfigModel(key=key, value=empty_config)
+        # Create default config with proper provider configurations
+        default_config = get_default_configuration()
+        db_config = ConfigModel(key=key, value=default_config)
         db.add(db_config)
         db.commit()
         db.refresh(db_config)
-        return empty_config
+        return default_config
     
-    return config.value
+    # Ensure the config has all required sections with defaults
+    config_value = config.value
+    default_config = get_default_configuration()
+    
+    # Merge with defaults to ensure all required fields exist
+    if "openmemory" not in config_value:
+        config_value["openmemory"] = default_config["openmemory"]
+    
+    if "mem0" not in config_value:
+        config_value["mem0"] = default_config["mem0"]
+    else:
+        # Ensure LLM config exists with defaults
+        if "llm" not in config_value["mem0"] or config_value["mem0"]["llm"] is None:
+            config_value["mem0"]["llm"] = default_config["mem0"]["llm"]
+        
+        # Ensure embedder config exists with defaults
+        if "embedder" not in config_value["mem0"] or config_value["mem0"]["embedder"] is None:
+            config_value["mem0"]["embedder"] = default_config["mem0"]["embedder"]
+    
+    # Save the updated config back to database if it was modified
+    if config_value != config.value:
+        config.value = config_value
+        db.commit()
+        db.refresh(config)
+    
+    return config_value
 
 def save_config_to_db(db: Session, config: Dict[str, Any], key: str = "main"):
     """Save configuration to database."""
@@ -103,11 +154,8 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
 async def reset_configuration(db: Session = Depends(get_db)):
     """Reset the configuration to default values."""
     try:
-        # Create a basic default configuration
-        default_config = {
-            "openmemory": {"custom_instructions": None}, 
-            "mem0": {"llm": None, "embedder": None}
-        }
+        # Get the default configuration with proper provider setups
+        default_config = get_default_configuration()
         
         # Save it as the current configuration in the database
         save_config_to_db(db, default_config)
