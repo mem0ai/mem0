@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -186,7 +187,15 @@ Please provide a thoughtful, personalized response based on the user's memories.
                     ? "bg-purple-500 text-white"
                     : "bg-zinc-800/50 text-zinc-100"
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  {message.role === "assistant" ? (
+                    <div className="text-sm prose prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      <ReactMarkdown>
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
                   {isClient && (
                     <p className="text-xs mt-1 opacity-50">
                       {message.timestamp.toLocaleTimeString()}

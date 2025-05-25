@@ -219,11 +219,20 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get<SimpleMemory>(
+      const response = await apiClient.get<any>(
         `/api/v1/memories/${memoryId}`, { params: { user_id: user_id } }
       );
       setIsLoading(false);
-      dispatch(setSelectedMemory(response.data));
+      // Map the API response to SimpleMemory format
+      const memoryData: SimpleMemory = {
+        id: response.data.id,
+        text: response.data.content,  // Map content to text
+        created_at: response.data.created_at,
+        state: response.data.state,
+        categories: response.data.categories,
+        app_name: response.data.app_name
+      };
+      dispatch(setSelectedMemory(memoryData));
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch memory';
       setError(errorMessage);
