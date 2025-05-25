@@ -196,6 +196,7 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
     This can be called from an API endpoint or MCP tool.
     """
     from app.utils.memory import get_memory_client
+    from app.models import Memory, App
     
     service = TwitterService()
     memory_client = get_memory_client()
@@ -230,15 +231,33 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
                 try:
                     logger.debug(f"Adding tweet {i+j+1} to memory: {content[:50]}...")
                     
-                    # Add to memory using mem0 client
+                    # Create memory in database first
+                    memory_metadata = {
+                        'source': 'twitter',
+                        'source_app': 'twitter',
+                        'username': username,
+                        'type': 'tweet',
+                        'tweet_index': i + j,
+                        'tweet_data': tweets[i + j] if i + j < len(tweets) else {}
+                    }
+                    
+                    # Create database record
+                    db_memory = Memory(
+                        user_id=UUID(user_id),
+                        app_id=UUID(app_id),
+                        content=content,
+                        metadata_=memory_metadata
+                    )
+                    db_session.add(db_memory)
+                    db_session.flush()  # Get the ID without committing
+                    
+                    # Add to vector store using mem0 client with the database ID
                     response = memory_client.add(
                         messages=content,
                         user_id=user_id,  # This should be the Supabase user ID
                         metadata={
-                            'source': 'twitter',
-                            'source_app': 'twitter',
-                            'username': username,
-                            'type': 'tweet',
+                            **memory_metadata,
+                            'db_memory_id': str(db_memory.id),  # Link to database record
                             'app_id': app_id,
                             'app_db_id': app_id
                         }
@@ -253,7 +272,18 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
                 except Exception as e:
                     logger.error(f"Failed to add tweet {i+j+1} to memory: {e}")
                     failed_count += 1
+                    db_session.rollback()
                     continue
+            
+            # Commit the batch
+            try:
+                db_session.commit()
+                logger.info(f"Committed batch {i//batch_size + 1} to database")
+            except Exception as e:
+                logger.error(f"Failed to commit batch: {e}")
+                db_session.rollback()
+                failed_count += len(batch)
+                synced_count -= len(batch)
             
             # Longer delay between batches
             if i + batch_size < len(memory_contents):
@@ -265,4 +295,5 @@ async def sync_twitter_to_memory(username: str, user_id: str, app_id: str, db_se
         
     except Exception as e:
         logger.error(f"Failed to sync Twitter for @{username}: {e}")
+        db_session.rollback()
         raise 
