@@ -50,7 +50,7 @@ function GraphNodes({ nodes, onNodeClick }: { nodes: GraphNode[], onNodeClick: (
               anchorX="center"
               anchorY="middle"
             >
-              {node.memory?.content?.substring(0, 50) || "No content"}...
+              {node.memory?.memory?.substring(0, 50) || "No content"}...
             </Text>
           )}
         </group>
@@ -230,7 +230,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
           className="absolute bottom-4 left-4 right-4 bg-zinc-900/90 backdrop-blur-sm rounded-lg p-4 border border-zinc-800"
         >
           <h3 className="text-lg font-semibold text-white mb-2">Selected Memory</h3>
-          <p className="text-sm text-zinc-300 line-clamp-3">{selectedNode.memory?.content || "No content available"}</p>
+          <p className="text-sm text-zinc-300 line-clamp-3">{selectedNode.memory?.memory || "No content available"}</p>
           <div className="flex gap-2 mt-3">
             <span className="text-xs text-zinc-500">
               {selectedNode.memory?.created_at ? new Date(selectedNode.memory.created_at).toLocaleDateString() : "Unknown date"}
