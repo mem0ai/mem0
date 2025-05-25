@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class TwitterService:
     """
     Twitter integration service using Apify Tweet Scraper V2.
+    Updated to use proper app creation with environment variable support.
     """
     
     def __init__(self):
