@@ -175,7 +175,7 @@ async def list_memories(
 
     # First, get distinct memory IDs with pagination
     # This avoids the JSON DISTINCT issue
-    memory_ids_query = query.with_entities(Memory.id).distinct()
+    memory_ids_query = query.with_entities(Memory.id, Memory.created_at).distinct()
     
     # Apply pagination to the IDs query
     paginated_ids = sqlalchemy_paginate(memory_ids_query, params)
