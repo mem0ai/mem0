@@ -125,19 +125,21 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post<ApiResponse>(
-        `/api/v1/memories/filter`,
-        {
-          user_id: user_id,
-          page: page,
-          size: size,
-          search_query: query,
-          app_ids: filters?.apps,
-          category_ids: filters?.categories,
-          sort_column: filters?.sortColumn?.toLowerCase(),
-          sort_direction: filters?.sortDirection,
-          show_archived: filters?.showArchived
-        }
+      // Use the working GET endpoint instead of the failing POST filter endpoint
+      const params: any = {
+        page: page,
+        size: size,
+      };
+
+      if (query) params.search_query = query;
+      if (filters?.apps && filters.apps.length > 0) params.app_id = filters.apps[0]; // GET endpoint takes single app_id
+      if (filters?.categories && filters.categories.length > 0) params.categories = filters.categories.join(',');
+      if (filters?.sortColumn) params.sort_column = filters.sortColumn.toLowerCase();
+      if (filters?.sortDirection) params.sort_direction = filters.sortDirection;
+
+      const response = await apiClient.get<ApiResponse>(
+        `/api/v1/memories/`,
+        { params }
       );
 
       const adaptedMemories: Memory[] = response.data.items.map((item: ApiMemoryItem) => ({
