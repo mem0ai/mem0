@@ -14,3 +14,7 @@ httpx>=0.24.0
 pytest-cov>=4.0.0
 tenacity==9.1.2
 supabase>=2.5.0,<3.0.0
+feedparser>=6.0.0
+beautifulsoup4>=4.12.0
+python-dateutil>=2.8.0
+google-generativeai>=0.3.0
