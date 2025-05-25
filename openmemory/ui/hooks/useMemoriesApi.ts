@@ -220,7 +220,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setError(null);
     try {
       const response = await apiClient.get<any>(
-        `/api/v1/memories/${memoryId}`, { params: { user_id: user_id } }
+        `/api/v1/memories/${memoryId}`
       );
       setIsLoading(false);
       // Map the API response to SimpleMemory format
@@ -277,7 +277,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     setError(null);
     try {
       const response = await apiClient.get<RelatedMemoriesResponse>(
-        `/api/v1/memories/${memoryId}/related`, { params: { user_id: user_id } }
+        `/api/v1/memories/${memoryId}/related`
       );
 
       const adaptedMemories: Memory[] = response.data.items.map((item: RelatedMemoryItem) => ({

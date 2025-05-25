@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import ReactMarkdown from 'react-markdown';
+import apiClient from "@/lib/apiClient";
 
 interface Message {
   id: string;
@@ -25,9 +26,10 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [selectedMemoryDetails, setSelectedMemoryDetails] = useState<any>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { memories } = useMemoriesApi();
+  const { memories, fetchMemories } = useMemoriesApi();
 
   // Initialize client-side only
   useEffect(() => {
@@ -40,7 +42,20 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
         timestamp: new Date()
       }
     ]);
+    
+    // Fetch memories when component mounts
+    fetchMemories().then(() => {
+      console.log('Memories loaded:', memories);
+    }).catch(err => {
+      console.error('Error loading memories:', err);
+    });
   }, []);
+
+  // Debug log memories
+  useEffect(() => {
+    console.log('Current memories:', memories);
+    console.log('Number of memories:', memories.length);
+  }, [memories]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
@@ -54,26 +69,59 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
 
   useEffect(() => {
     if (selectedMemory) {
-      setInput(`Tell me more about this memory: ${selectedMemory}`);
-      textareaRef.current?.focus();
+      // Fetch the memory details when a memory is selected
+      fetchMemoryDetails(selectedMemory);
     }
   }, [selectedMemory]);
 
-  const callGeminiAPI = async (userMessage: string, memoriesContext: any[]) => {
+  const fetchMemoryDetails = async (memoryId: string) => {
+    try {
+      const response = await apiClient.get(`/api/v1/memories/${memoryId}`);
+      setSelectedMemoryDetails(response.data);
+      
+      // Update the input with memory details
+      const memoryContent = response.data.content || response.data.text || 'Unknown memory content';
+      const memoryDate = response.data.created_at ? new Date(response.data.created_at).toLocaleDateString() : 'Unknown date';
+      const appName = response.data.app_name || 'Unknown source';
+      
+      setInput(`Tell me more about this memory from ${appName} on ${memoryDate}: "${memoryContent}"`);
+      textareaRef.current?.focus();
+    } catch (error) {
+      console.error('Error fetching memory details:', error);
+      setInput(`Tell me more about this memory: ${memoryId}`);
+      textareaRef.current?.focus();
+    }
+  };
+
+  const callGeminiAPI = async (userMessage: string, memoriesContext: any[], selectedMemory: any) => {
     try {
       // Prepare context from memories
       const memoryContext = memoriesContext.slice(0, 20).map(m => 
         `Memory: ${m.memory} (from ${m.app_name || 'unknown app'} on ${new Date(m.created_at).toLocaleDateString()})`
       ).join('\n');
 
+      // Add selected memory details if available
+      let selectedMemoryContext = '';
+      if (selectedMemory) {
+        selectedMemoryContext = `\n\nSELECTED MEMORY DETAILS:\n`;
+        selectedMemoryContext += `ID: ${selectedMemory.id}\n`;
+        selectedMemoryContext += `Content: ${selectedMemory.content}\n`;
+        selectedMemoryContext += `Created: ${selectedMemory.created_at}\n`;
+        selectedMemoryContext += `App: ${selectedMemory.app_name || 'Unknown'}\n`;
+        selectedMemoryContext += `Categories: ${selectedMemory.categories?.join(', ') || 'None'}\n`;
+        if (selectedMemory.metadata_) {
+          selectedMemoryContext += `Metadata: ${JSON.stringify(selectedMemory.metadata_, null, 2)}\n`;
+        }
+      }
+
       const prompt = `You are a personal AI assistant with access to the user's memories. Based on the following memories and the user's question, provide helpful insights about their life patterns, experiences, and growth.
 
 MEMORIES CONTEXT:
-${memoryContext}
+${memoryContext}${selectedMemoryContext}
 
 USER QUESTION: ${userMessage}
 
-Please provide a thoughtful, personalized response based on the user's memories. If the memories don't contain relevant information for the question, acknowledge this and provide general guidance.`;
+Please provide a thoughtful, personalized response based on the user's memories. If a specific memory was selected, focus on providing insights about that particular memory while connecting it to other relevant memories when appropriate.`;
 
       const response = await fetch('/api/chat/gemini', {
         method: 'POST',
@@ -82,7 +130,8 @@ Please provide a thoughtful, personalized response based on the user's memories.
         },
         body: JSON.stringify({
           prompt,
-          memories: memoriesContext
+          memories: memoriesContext,
+          selectedMemory: selectedMemory
         }),
       });
 
@@ -114,7 +163,7 @@ Please provide a thoughtful, personalized response based on the user's memories.
     setIsLoading(true);
 
     try {
-      const aiResponse = await callGeminiAPI(currentInput, memories);
+      const aiResponse = await callGeminiAPI(currentInput, memories, selectedMemoryDetails);
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -134,6 +183,8 @@ Please provide a thoughtful, personalized response based on the user's memories.
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Clear selected memory details after sending
+      setSelectedMemoryDetails(null);
     }
   };
 

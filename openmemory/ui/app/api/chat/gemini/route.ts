@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, memories } = await request.json();
+    const { prompt, memories, selectedMemory } = await request.json();
 
     // Get Gemini API key from environment variables
     const apiKey = process.env.GEMINI_API_KEY;
@@ -14,6 +14,39 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Build context with selected memory highlighted
+    let contextText = `You are a personal AI assistant with access to the user's memory collection. You have access to ${memories?.length || 0} memories.`;
+    
+    if (selectedMemory) {
+      contextText += `\n\nThe user has specifically asked about this memory:\n`;
+      contextText += `Memory ID: ${selectedMemory.id}\n`;
+      contextText += `Content: ${selectedMemory.content}\n`;
+      contextText += `Created: ${selectedMemory.created_at}\n`;
+      contextText += `App/Source: ${selectedMemory.app_name || 'Unknown'}\n`;
+      contextText += `Categories: ${selectedMemory.categories?.join(', ') || 'None'}\n`;
+      if (selectedMemory.metadata_) {
+        contextText += `Additional Details: ${JSON.stringify(selectedMemory.metadata_, null, 2)}\n`;
+      }
+    }
+
+    contextText += `\n\nOther Memory Context:\n`;
+    contextText += memories?.slice(0, 10).map((m: any, index: number) => {
+      // Handle different memory formats
+      const memoryContent = m.content || m.memory || m.text || 'No content';
+      const appName = m.app_name || m.appName || 'unknown app';
+      const createdAt = m.created_at || m.createdAt;
+      const dateStr = createdAt ? new Date(createdAt).toLocaleDateString() : 'unknown date';
+      return `[Memory ${index + 1}] ${memoryContent} (from ${appName} on ${dateStr})`;
+    }).join('\n') || 'No other memories available.';
+
+    contextText += `\n\nUser Query: ${prompt}`;
+    
+    if (selectedMemory) {
+      contextText += `\n\nPlease provide detailed insights about the selected memory, including any patterns, connections to other memories, and what this reveals about the user's experiences or growth.`;
+    } else {
+      contextText += `\n\nPlease provide a helpful response based on the available memory context.`;
+    }
+
     // Updated to use the latest stable Gemini 2.0 Flash model
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -23,16 +56,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are a personal AI assistant with access to the user's memory collection. You have access to ${memories?.length || 0} memories.
-
-Memory Context:
-${memories?.slice(0, 10).map((m: any, index: number) => 
-  `[Memory ${index + 1}] ${m.content} (from ${m.app_name || 'unknown app'})`
-).join('\n') || 'No memories available.'}
-
-User Query: ${prompt}
-
-Please provide a helpful response based on the available memory context.`
+            text: contextText
           }]
         }],
         generationConfig: {
