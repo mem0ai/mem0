@@ -4,6 +4,7 @@ import profileReducer from './profileSlice';
 import appsReducer from './appsSlice';
 import uiReducer from './uiSlice';
 import filtersReducer from './filtersSlice';
+import configReducer from './configSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     apps: appsReducer,
     ui: uiReducer,
     filters: filtersReducer,
+    config: configReducer,
   },
 });
 
