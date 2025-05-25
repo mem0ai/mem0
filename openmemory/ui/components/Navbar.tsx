@@ -100,7 +100,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60">
       <div className="container flex h-14 items-center justify-between">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="Jean Memory" width={26} height={26} />
+          <Image src="/images/jean-bug.png" alt="Jean Memory" width={26} height={26} />
           <span className="text-xl font-medium">Jean Memory</span>
         </Link>
         <div className="flex items-center gap-2">
