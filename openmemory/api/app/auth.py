@@ -9,15 +9,15 @@ logger = logging.getLogger(__name__) # Assuming logger is configured in main or 
 
 # Supabase Client Initialization
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 supabase_service_client: SupabaseClient = None
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    logger.error("Supabase URL and Service Key must be set in environment variables for auth module.")
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    logger.error("Supabase URL and Anon Key must be set in environment variables for auth module.")
     # Depending on desired behavior, could raise error or allow None client for offline/testing
 else:
     try:
-        supabase_service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        supabase_service_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
         logger.info("Supabase client initialized in auth module.")
     except Exception as e:
         logger.error(f"Failed to initialize Supabase client in auth module: {e}", exc_info=True)
