@@ -24,6 +24,9 @@ from app.services.chunking_service import ChunkingService
 # Load environment variables
 load_dotenv()
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
 
@@ -139,8 +142,10 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str) -> st
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
-        user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+        # Get user (but don't filter by specific app - search ALL memories)
+        user = get_or_create_user(db, supa_uid, None)
 
+        # Search ALL memories for this user across all apps
         mem0_search_results = memory_client.search(query=query, user_id=supa_uid)
 
         processed_results = []
@@ -186,8 +191,10 @@ async def _list_memories_impl(supa_uid: str, client_name: str) -> str:
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
-        user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+        # Get user (but don't filter by specific app - show ALL memories)
+        user = get_or_create_user(db, supa_uid, None)
 
+        # Get ALL memories for this user across all apps
         all_mem0_memories = memory_client.get_all(user_id=supa_uid)
 
         processed_results = []
