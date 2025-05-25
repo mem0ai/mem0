@@ -165,6 +165,31 @@ def get_default_memory_config():
     }
 
 
+def _parse_environment_variables(config_dict):
+    """
+    Parse environment variables in config values.
+    Converts 'env:VARIABLE_NAME' to actual environment variable values.
+    """
+    if isinstance(config_dict, dict):
+        parsed_config = {}
+        for key, value in config_dict.items():
+            if isinstance(value, str) and value.startswith("env:"):
+                env_var = value.split(":", 1)[1]
+                env_value = os.environ.get(env_var)
+                if env_value:
+                    parsed_config[key] = env_value
+                    print(f"Loaded {env_var} from environment for {key}")
+                else:
+                    print(f"Warning: Environment variable {env_var} not found, keeping original value")
+                    parsed_config[key] = value
+            elif isinstance(value, dict):
+                parsed_config[key] = _parse_environment_variables(value)
+            else:
+                parsed_config[key] = value
+        return parsed_config
+    return config_dict
+
+
 def get_memory_client(custom_instructions: str = None):
     """
     Get or initialize the Mem0 client.
@@ -210,20 +235,6 @@ def get_memory_client(custom_instructions: str = None):
                         # Fix Ollama URLs for Docker if needed
                         if config["llm"].get("provider") == "ollama":
                             config["llm"] = _fix_ollama_urls(config["llm"])
-                        
-                        # Handle API key - support both direct keys and environment variables
-                        if "config" in config["llm"] and "api_key" in config["llm"]["config"]:
-                            api_key = config["llm"]["config"]["api_key"]
-                            
-                            # If API key is set to load from environment
-                            if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
-                                env_var = api_key.split(":", 1)[1]
-                                env_api_key = os.environ.get(env_var)
-                                if env_api_key:
-                                    config["llm"]["config"]["api_key"] = env_api_key
-                                else:
-                                    print(f"Warning: {env_var} environment variable not set, using default configuration")
-                            # Otherwise, use the API key directly as provided in the config
                     
                     # Update Embedder configuration if available
                     if "embedder" in mem0_config and mem0_config["embedder"] is not None:
@@ -232,20 +243,6 @@ def get_memory_client(custom_instructions: str = None):
                         # Fix Ollama URLs for Docker if needed
                         if config["embedder"].get("provider") == "ollama":
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
-                        
-                        # Handle API key - support both direct keys and environment variables
-                        if "config" in config["embedder"] and "api_key" in config["embedder"]["config"]:
-                            api_key = config["embedder"]["config"]["api_key"]
-                            
-                            # If API key is set to load from environment
-                            if api_key and isinstance(api_key, str) and api_key.startswith("env:"):
-                                env_var = api_key.split(":", 1)[1]
-                                env_api_key = os.environ.get(env_var)
-                                if env_api_key:
-                                    config["embedder"]["config"]["api_key"] = env_api_key
-                                else:
-                                    print(f"Warning: {env_var} environment variable not set, using default configuration")
-                            # Otherwise, use the API key directly as provided in the config
             else:
                 print("No configuration found in database, using defaults")
                     
@@ -260,6 +257,11 @@ def get_memory_client(custom_instructions: str = None):
         instructions_to_use = custom_instructions or db_custom_instructions
         if instructions_to_use:
             config["custom_fact_extraction_prompt"] = instructions_to_use
+
+        # ALWAYS parse environment variables in the final config
+        # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
+        print("Parsing environment variables in final config...")
+        config = _parse_environment_variables(config)
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)

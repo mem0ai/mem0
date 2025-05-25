@@ -2,6 +2,7 @@ from datetime import datetime, UTC
 from typing import List, Optional, Set
 from uuid import UUID, uuid4
 import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from fastapi_pagination import Page, Params
@@ -13,7 +14,7 @@ from app.utils.memory import get_memory_client
 from app.database import get_db
 from app.models import (
     Memory, MemoryState, MemoryAccessLog, App,
-    MemoryStatusHistory, User, Category, AccessControl
+    MemoryStatusHistory, User, Category, AccessControl, Config as ConfigModel
 )
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
@@ -342,7 +343,6 @@ async def create_memory(
             # Try to add with our specific ID
             memory_client.add(
                 request.text,
-                memory_id=str(memory_id),  # Specify the ID
                 user_id=request.user_id,
                 metadata={
                     "source_app": "openmemory",

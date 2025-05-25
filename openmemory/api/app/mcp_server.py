@@ -12,6 +12,7 @@ Key features:
 - Graceful error handling for unavailable dependencies
 - Fallback to database-only mode when vector store is unavailable
 - Proper logging for debugging connection issues
+- Environment variable parsing for API keys
 """
 
 import logging
