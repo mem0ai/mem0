@@ -6,6 +6,7 @@ import { Send, Sparkles, User, Bot, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 
 interface Message {
   id: string;
@@ -19,18 +20,26 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Hello! I'm your personal AI assistant powered by Gemini. I have access to all your memories and can help you explore your life's journey. Ask me anything about your experiences, patterns, or insights from your memories.",
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { memories } = useMemoriesApi();
+
+  // Initialize client-side only
+  useEffect(() => {
+    setIsClient(true);
+    setMessages([
+      {
+        id: "1",
+        role: "assistant",
+        content: "Hello! I'm your personal AI assistant powered by Gemini. I have access to all your memories and can help you explore your life's journey. Ask me anything about your experiences, patterns, or insights from your memories.",
+        timestamp: new Date()
+      }
+    ]);
+  }, []);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
@@ -49,6 +58,45 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
     }
   }, [selectedMemory]);
 
+  const callGeminiAPI = async (userMessage: string, memoriesContext: any[]) => {
+    try {
+      // Prepare context from memories
+      const memoryContext = memoriesContext.slice(0, 20).map(m => 
+        `Memory: ${m.content} (from ${m.app_name || 'unknown app'} on ${new Date(m.created_at).toLocaleDateString()})`
+      ).join('\n');
+
+      const prompt = `You are a personal AI assistant with access to the user's memories. Based on the following memories and the user's question, provide helpful insights about their life patterns, experiences, and growth.
+
+MEMORIES CONTEXT:
+${memoryContext}
+
+USER QUESTION: ${userMessage}
+
+Please provide a thoughtful, personalized response based on the user's memories. If the memories don't contain relevant information for the question, acknowledge this and provide general guidance.`;
+
+      const response = await fetch('/api/chat/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          memories: memoriesContext
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response from Gemini');
+      }
+
+      const data = await response.json();
+      return data.response || "I'm having trouble processing your request right now. Please try again.";
+    } catch (error) {
+      console.error('Gemini API error:', error);
+      return "I'm currently unable to access my full capabilities. This would normally use Gemini's long context window to analyze all your memories and provide personalized insights about your life patterns, experiences, and growth over time.";
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -60,20 +108,32 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
     setIsLoading(true);
 
-    // Simulate AI response (replace with actual Gemini API call)
-    setTimeout(() => {
+    try {
+      const aiResponse = await callGeminiAPI(currentInput, memories);
+      
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I'm analyzing your memories to provide you with insights. In a full implementation, this would use Gemini's long context window to process all your memories and provide personalized insights about your life patterns, experiences, and growth over time.",
+        content: aiResponse,
         timestamp: new Date()
       };
+      
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -127,9 +187,11 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
                     : "bg-zinc-800/50 text-zinc-100"
                 }`}>
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className="text-xs mt-1 opacity-50">
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
+                  {isClient && (
+                    <p className="text-xs mt-1 opacity-50">
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>

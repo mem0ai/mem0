@@ -50,7 +50,7 @@ function GraphNodes({ nodes, onNodeClick }: { nodes: GraphNode[], onNodeClick: (
               anchorX="center"
               anchorY="middle"
             >
-              {node.memory.content.substring(0, 50)}...
+              {node.memory?.content?.substring(0, 50) || "No content"}...
             </Text>
           )}
         </group>
@@ -193,7 +193,17 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
         </motion.div>
       </div>
 
-      <Canvas camera={{ position: [0, 5, 15], fov: 60 }}>
+      <Canvas 
+        camera={{ position: [0, 5, 15], fov: 60 }}
+        gl={{ 
+          antialias: false, 
+          alpha: false,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: false
+        }}
+        dpr={[1, 2]}
+        performance={{ min: 0.5 }}
+      >
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} intensity={1} />
         <pointLight position={[-10, -10, -10]} intensity={0.5} color="#8b5cf6" />
@@ -220,12 +230,12 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
           className="absolute bottom-4 left-4 right-4 bg-zinc-900/90 backdrop-blur-sm rounded-lg p-4 border border-zinc-800"
         >
           <h3 className="text-lg font-semibold text-white mb-2">Selected Memory</h3>
-          <p className="text-sm text-zinc-300 line-clamp-3">{selectedNode.memory.content}</p>
+          <p className="text-sm text-zinc-300 line-clamp-3">{selectedNode.memory?.content || "No content available"}</p>
           <div className="flex gap-2 mt-3">
             <span className="text-xs text-zinc-500">
-              {new Date(selectedNode.memory.created_at).toLocaleDateString()}
+              {selectedNode.memory?.created_at ? new Date(selectedNode.memory.created_at).toLocaleDateString() : "Unknown date"}
             </span>
-            {selectedNode.memory.app_name && (
+            {selectedNode.memory?.app_name && (
               <span className="text-xs text-zinc-500">• {selectedNode.memory.app_name}</span>
             )}
           </div>
