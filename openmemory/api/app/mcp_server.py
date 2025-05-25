@@ -118,81 +118,94 @@ async def add_memories(text: str) -> str:
 async def search_memory(query: str) -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
-    memory_client = get_memory_client() # Initialize client when tool is called
+    
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
     if not client_name:
         return "Error: client_name not available in context"
+    
     try:
-        db = SessionLocal()
-        try:
-            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
-
-            mem0_search_results = memory_client.search(query=query, user_id=supa_uid)
-
-            processed_results = []
-            actual_results_list = []
-            if isinstance(mem0_search_results, dict) and 'results' in mem0_search_results:
-                 actual_results_list = mem0_search_results['results']
-            elif isinstance(mem0_search_results, list):
-                 actual_results_list = mem0_search_results
-
-            for mem_data in actual_results_list:
-                mem0_id = mem_data.get('id')
-                if not mem0_id: continue
-
-                # Note: We're not creating MemoryAccessLog here because we don't have
-                # a SQL memory_id, only a mem0 ID. The schema requires memory_id to be NOT NULL.
-                # Access logging for mem0-only operations could be tracked differently if needed.
-                processed_results.append(mem_data)
-            
-            db.commit()
-            return json.dumps(processed_results, indent=2)
-        finally:
-            db.close()
+        # Add timeout to prevent hanging
+        return await asyncio.wait_for(_search_memory_impl(query, supa_uid, client_name), timeout=30.0)
+    except asyncio.TimeoutError:
+        return f"Search timed out. Please try a simpler query."
     except Exception as e:
         logging.error(f"Error in search_memory MCP tool: {e}", exc_info=True)
         return f"Error searching memory: {e}"
+
+
+async def _search_memory_impl(query: str, supa_uid: str, client_name: str) -> str:
+    """Implementation of search_memory with timeout protection"""
+    memory_client = get_memory_client()
+    db = SessionLocal()
+    try:
+        user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+
+        mem0_search_results = memory_client.search(query=query, user_id=supa_uid)
+
+        processed_results = []
+        actual_results_list = []
+        if isinstance(mem0_search_results, dict) and 'results' in mem0_search_results:
+             actual_results_list = mem0_search_results['results']
+        elif isinstance(mem0_search_results, list):
+             actual_results_list = mem0_search_results
+
+        for mem_data in actual_results_list:
+            mem0_id = mem_data.get('id')
+            if not mem0_id: continue
+            processed_results.append(mem_data)
+        
+        db.commit()
+        return json.dumps(processed_results, indent=2)
+    finally:
+        db.close()
 
 
 @mcp.tool(description="List all memories in the user's memory")
 async def list_memories() -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
-    memory_client = get_memory_client() # Initialize client when tool is called
+    
     if not supa_uid:
         return "Error: Supabase user_id not available in context"
     if not client_name:
         return "Error: client_name not available in context"
+    
     try:
-        db = SessionLocal()
-        try:
-            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
-
-            all_mem0_memories = memory_client.get_all(user_id=supa_uid)
-
-            processed_results = []
-            actual_results_list = []
-            if isinstance(all_mem0_memories, dict) and 'results' in all_mem0_memories:
-                 actual_results_list = all_mem0_memories['results']
-            elif isinstance(all_mem0_memories, list):
-                 actual_results_list = all_mem0_memories
-
-            for mem_data in actual_results_list:
-                mem0_id = mem_data.get('id')
-                if not mem0_id: continue
-                # Note: We're not creating MemoryAccessLog here because we don't have
-                # a SQL memory_id, only a mem0 ID. The schema requires memory_id to be NOT NULL.
-                # Access logging for mem0-only operations could be tracked differently if needed.
-                processed_results.append(mem_data)
-            
-            db.commit()
-            return json.dumps(processed_results, indent=2)
-        finally:
-            db.close()
+        # Add timeout to prevent hanging
+        return await asyncio.wait_for(_list_memories_impl(supa_uid, client_name), timeout=30.0)
+    except asyncio.TimeoutError:
+        return f"List memories timed out. Please try again."
     except Exception as e:
         logging.error(f"Error in list_memories MCP tool: {e}", exc_info=True)
         return f"Error getting memories: {e}"
+
+
+async def _list_memories_impl(supa_uid: str, client_name: str) -> str:
+    """Implementation of list_memories with timeout protection"""
+    memory_client = get_memory_client()
+    db = SessionLocal()
+    try:
+        user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+
+        all_mem0_memories = memory_client.get_all(user_id=supa_uid)
+
+        processed_results = []
+        actual_results_list = []
+        if isinstance(all_mem0_memories, dict) and 'results' in all_mem0_memories:
+             actual_results_list = all_mem0_memories['results']
+        elif isinstance(all_mem0_memories, list):
+             actual_results_list = all_mem0_memories
+
+        for mem_data in actual_results_list:
+            mem0_id = mem_data.get('id')
+            if not mem0_id: continue
+            processed_results.append(mem_data)
+        
+        db.commit()
+        return json.dumps(processed_results, indent=2)
+    finally:
+        db.close()
 
 
 @mcp.tool(description="Delete all memories in the user's memory")
@@ -432,49 +445,73 @@ async def chunk_documents() -> str:
 @mcp_router.get("/{client_name}/sse/{user_id}")
 async def handle_sse(request: Request):
     supa_user_id_from_path = request.path_params.get("user_id")
-    user_token = user_id_var.set(supa_user_id_from_path or "")
     client_name = request.path_params.get("client_name")
+    
+    # Set context variables
+    user_token = user_id_var.set(supa_user_id_from_path or "")
     client_token = client_name_var.set(client_name or "")
 
     try:
+        # Add error handling and proper initialization
         async with sse.connect_sse(
             request.scope,
             request.receive,
             request._send,
         ) as (read_stream, write_stream):
-            await mcp._mcp_server.run(
-                read_stream,
-                write_stream,
-                mcp._mcp_server.create_initialization_options(),
-            )
+            # Ensure proper initialization before running
+            try:
+                await mcp._mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    mcp._mcp_server.create_initialization_options(),
+                )
+            except Exception as e:
+                logging.error(f"MCP server run error: {e}")
+                # Don't re-raise, let the connection close gracefully
+    except Exception as e:
+        logging.error(f"MCP SSE connection error: {e}")
     finally:
-        user_id_var.reset(user_token)
-        client_name_var.reset(client_token)
+        # Always reset context variables
+        try:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+        except:
+            pass
 
 
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
-    """Handle POST messages for SSE"""
+    """Handle POST messages for SSE with better error handling"""
     try:
+        # Get session_id from query params
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            return {"status": "error", "message": "Missing session_id"}
+        
         body = await request.body()
+        if not body:
+            return {"status": "error", "message": "Empty request body"}
 
-        # Create a simple receive function that returns the body
+        # Create proper receive function
         async def receive():
             return {"type": "http.request", "body": body, "more_body": False}
 
-        # Create a simple send function that does nothing
+        # Create proper send function that captures responses
+        responses = []
         async def send(message):
-            pass
+            responses.append(message)
 
-        # Call handle_post_message with the correct arguments
-        await sse.handle_post_message(request.scope, receive, send)
-
-        # Return a success response
-        return {"status": "ok"}
-    finally:
-        pass
-        # Clean up context variable
-        # client_name_var.reset(client_token)
+        try:
+            # Handle the message with proper error catching
+            await sse.handle_post_message(request.scope, receive, send)
+            return {"status": "ok", "session_id": session_id}
+        except Exception as e:
+            logging.error(f"Error handling POST message: {e}")
+            return {"status": "error", "message": str(e)}
+            
+    except Exception as e:
+        logging.error(f"Error in handle_post_message: {e}")
+        return {"status": "error", "message": "Internal server error"}
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
