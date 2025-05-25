@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Test script for Twitter integration
+Test script for Twitter integration with Apify
 """
 import asyncio
 import sys
+import os
 from app.integrations.twitter_service import TwitterService
 
 async def test_twitter_fetch():
@@ -15,18 +16,29 @@ async def test_twitter_fetch():
     
     print(f"Testing Twitter integration for @{username}...")
     
+    # Check if APIFY_TOKEN is set
+    apify_token = os.getenv('APIFY_TOKEN')
+    if apify_token:
+        print(f"✅ APIFY_TOKEN found: {apify_token[:10]}...")
+    else:
+        print("⚠️  No APIFY_TOKEN found, will use demo tweets")
+    
     try:
-        tweets = await service.fetch_tweets_nitter(username, max_tweets=5)
+        # Test Apify integration
+        tweets = await service.fetch_tweets_apify(username, max_tweets=5)
         
         print(f"\nFound {len(tweets)} tweets:")
         for i, tweet in enumerate(tweets, 1):
             print(f"\n{i}. {tweet['text'][:100]}...")
             if tweet.get('created_at'):
                 print(f"   Date: {tweet['created_at']}")
+            print(f"   Source: {tweet.get('source', 'unknown')}")
         
         # Test formatting
         memories = service.format_tweets_for_memory(tweets, username)
-        print(f"\n\nFormatted as {len(memories)} memories")
+        print(f"\n\nFormatted as {len(memories)} memories:")
+        for i, memory in enumerate(memories[:3], 1):
+            print(f"{i}. {memory[:100]}...")
         
     except Exception as e:
         print(f"Error: {e}")
