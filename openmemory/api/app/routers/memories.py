@@ -150,9 +150,6 @@ async def list_memories(
         category_list = [c.strip() for c in categories.split(",")]
         query = query.filter(Category.name.in_(category_list))
     
-    # Add distinct to handle duplicates from joins
-    query = query.distinct()
-
     # Apply sorting if specified
     if sort_column:
         sort_field = None
@@ -176,16 +173,26 @@ async def list_memories(
     else:
         query = query.order_by(Memory.created_at.desc())
 
-    # Get paginated results - items are SQLAlchemy Memory objects
-    paginated_sqla_results = sqlalchemy_paginate(
-        query.options(joinedload(Memory.app), joinedload(Memory.categories)), 
-        params
-    )
+    # First, get distinct memory IDs with pagination
+    # This avoids the JSON DISTINCT issue
+    memory_ids_query = query.with_entities(Memory.id).distinct()
+    
+    # Apply pagination to the IDs query
+    paginated_ids = sqlalchemy_paginate(memory_ids_query, params)
+    
+    # Now fetch the full memory objects for these IDs
+    if paginated_ids.items:
+        memory_ids = [item[0] for item in paginated_ids.items]
+        memories = db.query(Memory).filter(Memory.id.in_(memory_ids))\
+            .options(joinedload(Memory.app), joinedload(Memory.categories))\
+            .order_by(Memory.created_at.desc()).all()
+    else:
+        memories = []
 
     # Filter results based on permissions
     permitted_sqla_items = []
-    for item in paginated_sqla_results.items: # item is app.models.Memory
-        if check_memory_access_permissions(db, item, app_id): # app_id is the one from query params for filtering
+    for item in memories:
+        if check_memory_access_permissions(db, item, app_id):
             permitted_sqla_items.append(item)
 
     # Now, transform the permitted SQLAlchemy items into MemoryResponse Pydantic models
@@ -206,7 +213,7 @@ async def list_memories(
     # Create a new Page object with the transformed items and correct total
     return Page.create(
         items=response_items,
-        total=len(response_items), 
+        total=paginated_ids.total if paginated_ids.items else 0, 
         params=params 
     )
 
