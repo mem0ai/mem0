@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
     contextText += `\n\nUser Query: ${prompt}`;
     
     if (selectedMemory) {
-      contextText += `\n\nPlease provide detailed insights about the selected memory, including any patterns, connections to other memories, and what this reveals about the user's experiences or growth.`;
+      contextText += `\n\nInstructions: Provide a concise response (2-3 paragraphs max) about the selected memory. Focus on key insights and connections. Be direct and avoid repetition.`;
     } else {
-      contextText += `\n\nPlease provide a helpful response based on the available memory context.`;
+      contextText += `\n\nInstructions: Provide a concise, helpful response (2-3 paragraphs max). Be direct and focus on the most relevant insights.`;
     }
 
     // Updated to use the latest stable Gemini 2.0 Flash model
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           }]
         }],
         generationConfig: {
-          maxOutputTokens: 1024,
+          maxOutputTokens: 512,  // Reduced from 1024 for more concise responses
           temperature: 0.7,
         },
       }),

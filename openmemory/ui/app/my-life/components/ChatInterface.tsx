@@ -114,14 +114,14 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
         }
       }
 
-      const prompt = `You are a personal AI assistant with access to the user's memories. Based on the following memories and the user's question, provide helpful insights about their life patterns, experiences, and growth.
+      const prompt = `You are a personal AI assistant with access to the user's memories. Be concise and direct in your responses.
 
 MEMORIES CONTEXT:
 ${memoryContext}${selectedMemoryContext}
 
 USER QUESTION: ${userMessage}
 
-Please provide a thoughtful, personalized response based on the user's memories. If a specific memory was selected, focus on providing insights about that particular memory while connecting it to other relevant memories when appropriate.`;
+Provide a focused, concise response (2-3 paragraphs max). If discussing a specific memory, highlight key insights and connections without being verbose.`;
 
       const response = await fetch('/api/chat/gemini', {
         method: 'POST',
