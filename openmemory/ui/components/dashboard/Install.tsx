@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Copy, Check, ChevronDown, Link2 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import { SubstackIntegration } from "./SubstackIntegration";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ const mainApps = [
   { key: "mcp", label: "MCP Link", icon: "🔗", isSpecial: true },
   { key: "claude", label: "Claude", icon: "/images/claude.webp" },
   { key: "cursor", label: "Cursor", icon: "/images/cursor.png" },
+  { key: "substack", label: "Substack", icon: "/images/substack.png", isIntegration: true },
   { key: "windsurf", label: "Windsurf", icon: "/images/windsurf.png" },
 ];
 
@@ -33,6 +35,7 @@ const colorGradientMap: { [key: string]: string } = {
   mcp: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-purple-500/20 data-[state=active]:to-transparent data-[state=active]:border-purple-500",
   claude: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-orange-500/20 data-[state=active]:to-transparent data-[state=active]:border-orange-500",
   cursor: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-blue-500/20 data-[state=active]:to-transparent data-[state=active]:border-blue-500",
+  substack: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-[#FF6719]/20 data-[state=active]:to-transparent data-[state=active]:border-[#FF6719]",
   windsurf: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-teal-500/20 data-[state=active]:to-transparent data-[state=active]:border-teal-500",
   more: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-zinc-500/20 data-[state=active]:to-transparent data-[state=active]:border-zinc-500",
 };
@@ -178,9 +181,13 @@ export const Install = () => {
         </TabsList>
 
         {/* Main app contents */}
-        {mainApps.map(({ key, label }) => (
+        {mainApps.map(({ key, label, isIntegration }) => (
           <TabsContent key={key} value={key} className="mt-6">
-            {renderInstallCard(key, `${label} Installation`, key === "mcp")}
+            {key === "substack" ? (
+              <SubstackIntegration />
+            ) : (
+              renderInstallCard(key, `${label} Installation`, key === "mcp")
+            )}
           </TabsContent>
         ))}
 

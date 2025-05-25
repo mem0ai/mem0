@@ -51,6 +51,11 @@ export const constants = {
     icon: <Icon source="/images/enconvo.png" />,
     iconImage: "/images/enconvo.png",
   },
+  substack: {
+    name: "Substack",
+    icon: <Icon source="/images/substack.png" />,
+    iconImage: "/images/substack.png",
+  },
   default: {
     name: "Default",
     icon: <BiEdit size={18} className="ml-1" />,

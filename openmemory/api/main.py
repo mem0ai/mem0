@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends
 from fastapi.security import OAuth2PasswordBearer
 from app.database import engine, Base, SessionLocal
 from app.mcp_server import setup_mcp_server
-from app.routers import memories_router, apps_router, stats_router
+from app.routers import memories_router, apps_router, stats_router, integrations_router
 from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import User, App
@@ -60,6 +60,7 @@ app.include_router(apps_router, prefix="/api/v1", dependencies=[Depends(get_curr
 # if 'feedback_router' in globals():
 # app.include_router(feedback_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
 app.include_router(stats_router, prefix="/api/v1", dependencies=[Depends(get_current_supa_user)])
+app.include_router(integrations_router, dependencies=[Depends(get_current_supa_user)])
 
 setup_mcp_server(app) # Keep
 

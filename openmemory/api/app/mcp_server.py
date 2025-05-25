@@ -9,12 +9,15 @@ import contextvars
 import os
 from dotenv import load_dotenv
 from app.database import SessionLocal
-from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog
+from app.models import Memory, MemoryState, MemoryStatusHistory, MemoryAccessLog, Document
 from app.utils.db import get_user_and_app, get_or_create_user
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
 from qdrant_client import models as qdrant_models
+from app.integrations.substack_service import SubstackService
+from app.utils.gemini import GeminiService
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -238,6 +241,126 @@ async def delete_all_memories() -> str:
     except Exception as e:
         logging.error(f"Error in delete_all_memories MCP tool: {e}", exc_info=True)
         return f"Error deleting memories: {e}"
+
+
+@mcp.tool(description="Sync Substack posts for the user. Provide the Substack URL (e.g., https://username.substack.com)")
+async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Use the SubstackService to handle the sync
+            service = SubstackService()
+            synced_count, message = await service.sync_substack_posts(
+                db=db,
+                supabase_user_id=supa_uid,
+                substack_url=substack_url,
+                max_posts=max_posts,
+                use_mem0=True  # Try to use mem0, but it will gracefully degrade if not available
+            )
+            
+            return message
+            
+        finally:
+            db.close()
+    except Exception as e:
+        logging.error(f"Error in sync_substack_posts MCP tool: {e}", exc_info=True)
+        return f"Error syncing Substack: {str(e)}"
+
+
+@mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. This searches through everything - regular memories, documents, essays, etc.")
+async def deep_memory_query(search_query: str) -> str:
+    """
+    Performs a deep, comprehensive search across all user content using Gemini.
+    This is the 'heavy lifting' tool that can understand context across all memories and documents.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Get user
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+            
+            # First, do a vector search to find relevant memories
+            memory_client = get_memory_client()
+            search_results = memory_client.search(query=search_query, user_id=supa_uid, limit=20)
+            
+            # Collect all relevant content
+            relevant_memories = []
+            document_ids = set()
+            
+            if isinstance(search_results, dict) and 'results' in search_results:
+                for result in search_results['results']:
+                    relevant_memories.append(result)
+                    # Check if this memory is linked to a document
+                    metadata = result.get('metadata', {})
+                    if 'document_id' in metadata:
+                        document_ids.add(metadata['document_id'])
+            
+            # Get recent memories if search didn't return enough
+            if len(relevant_memories) < 10:
+                recent_memories = db.query(Memory).filter(
+                    Memory.user_id == user.id,
+                    Memory.state == MemoryState.active
+                ).order_by(Memory.created_at.desc()).limit(20).all()
+                
+                for mem in recent_memories:
+                    relevant_memories.append({
+                        'memory': mem.content,
+                        'metadata': mem.metadata_ or {},
+                        'created_at': mem.created_at.isoformat() if mem.created_at else None
+                    })
+                    if mem.metadata_ and 'document_id' in mem.metadata_:
+                        document_ids.add(mem.metadata_['document_id'])
+            
+            # Get all documents (if any)
+            documents = []
+            if document_ids:
+                documents = db.query(Document).filter(
+                    Document.id.in_(list(document_ids)),
+                    Document.user_id == user.id
+                ).all()
+            
+            # Also get recent documents even if not in search results
+            recent_docs = db.query(Document).filter(
+                Document.user_id == user.id
+            ).order_by(Document.created_at.desc()).limit(5).all()
+            
+            # Combine documents (remove duplicates)
+            all_doc_ids = {doc.id for doc in documents}
+            for doc in recent_docs:
+                if doc.id not in all_doc_ids:
+                    documents.append(doc)
+            
+            # Use Gemini to perform deep analysis
+            gemini_service = GeminiService()
+            result = await gemini_service.deep_query(
+                memories=relevant_memories,
+                documents=documents,
+                query=search_query
+            )
+            
+            return result
+            
+        finally:
+            db.close()
+    except Exception as e:
+        logging.error(f"Error in deep_memory_query MCP tool: {e}", exc_info=True)
+        return f"Error performing deep query: {str(e)}"
 
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
