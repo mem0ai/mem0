@@ -7,6 +7,7 @@ import { Copy, Check, ChevronDown, Link2 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { SubstackIntegration } from "./SubstackIntegration";
+import { TwitterIntegration } from "./TwitterIntegration";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ const mainApps = [
   { key: "claude", label: "Claude", icon: "/images/claude.webp" },
   { key: "cursor", label: "Cursor", icon: "/images/cursor.png" },
   { key: "substack", label: "Substack", icon: "/images/substack.png", isIntegration: true },
+  { key: "twitter", label: "Twitter/X", icon: "🐦", isIntegration: true },
   { key: "windsurf", label: "Windsurf", icon: "/images/windsurf.png" },
 ];
 
@@ -36,6 +38,7 @@ const colorGradientMap: { [key: string]: string } = {
   claude: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-orange-500/20 data-[state=active]:to-transparent data-[state=active]:border-orange-500",
   cursor: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-blue-500/20 data-[state=active]:to-transparent data-[state=active]:border-blue-500",
   substack: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-[#FF6719]/20 data-[state=active]:to-transparent data-[state=active]:border-[#FF6719]",
+  twitter: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-[#1DA1F2]/20 data-[state=active]:to-transparent data-[state=active]:border-[#1DA1F2]",
   windsurf: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-teal-500/20 data-[state=active]:to-transparent data-[state=active]:border-teal-500",
   more: "data-[state=active]:bg-gradient-to-t data-[state=active]:from-zinc-500/20 data-[state=active]:to-transparent data-[state=active]:border-zinc-500",
 };
@@ -185,6 +188,8 @@ export const Install = () => {
           <TabsContent key={key} value={key} className="mt-6">
             {key === "substack" ? (
               <SubstackIntegration />
+            ) : key === "twitter" ? (
+              <TwitterIntegration />
             ) : (
               renderInstallCard(key, `${label} Installation`, key === "mcp")
             )}

@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Dict
 from app.database import get_db
 from app.auth import get_current_supa_user
 from gotrue.types import User as SupabaseUser
 from app.utils.db import get_or_create_user
-from app.models import User, Document
+from app.models import User, Document, App
 from app.integrations.substack_service import SubstackService
 import asyncio
 from app.services.chunking_service import ChunkingService
+from app.integrations.twitter_service import sync_twitter_to_memory
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
@@ -84,4 +88,56 @@ async def chunk_documents(
         "status": "success",
         "documents_processed": processed,
         "message": f"Successfully chunked {processed} documents"
-    } 
+    }
+
+
+@router.post("/sync/twitter")
+async def sync_twitter(
+    username: str = Query(..., description="Twitter username without @"),
+    max_posts: int = Query(40, description="Maximum number of tweets to sync"),
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Sync recent tweets from a Twitter user to memory.
+    """
+    try:
+        # Get user and default app
+        user = get_or_create_user(db, str(current_supa_user.id), current_supa_user.email)
+        
+        # Get or create default app
+        default_app = db.query(App).filter(
+            App.owner_id == user.id,
+            App.name == "default"
+        ).first()
+        
+        if not default_app:
+            default_app = App(
+                owner_id=user.id,
+                name="default",
+                description="Default app for Twitter sync"
+            )
+            db.add(default_app)
+            db.commit()
+        
+        # Sync tweets - pass Supabase user ID for mem0
+        synced_count = await sync_twitter_to_memory(
+            username=username.lstrip('@'),
+            user_id=str(current_supa_user.id),  # Use Supabase ID for mem0
+            app_id=str(default_app.id),
+            db_session=db
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Successfully synced {synced_count} tweets from @{username}",
+            "synced_count": synced_count,
+            "username": username
+        }
+        
+    except Exception as e:
+        logger.error(f"Error syncing Twitter for user {current_supa_user.id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to sync Twitter posts: {str(e)}"
+        ) 
