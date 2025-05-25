@@ -1,17 +1,41 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Shield, Zap, Globe } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ParticleNetwork from "@/components/landing/ParticleNetwork";
 import AnimatedSphere from "@/components/landing/AnimatedSphere";
 import AnimatedIcons from "@/components/landing/AnimatedIcons";
 import MouseFollowArrow from "@/components/landing/MouseFollowArrow";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LandingPage() {
   const buttonRef = useRef<HTMLAnchorElement>(null);
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
 
+  // Redirect authenticated users to dashboard immediately
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, isLoading, router]);
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render landing page for authenticated users (they'll be redirected)
+  if (user) return null;
+
+  // Show landing page for unauthenticated users
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       {/* Background Effects */}
@@ -93,7 +117,7 @@ export default function LandingPage() {
           >
             <Link
               ref={buttonRef}
-              href="/dashboard"
+              href="/auth"
               className="group relative inline-flex items-center gap-3 px-10 py-5 text-xl font-bold rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/25 hover:scale-105"
             >
               <span>One-Click Setup</span>

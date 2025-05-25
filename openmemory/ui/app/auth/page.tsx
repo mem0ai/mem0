@@ -10,7 +10,7 @@ const AuthPage = () => {
 
   React.useEffect(() => {
     if (!isLoading && user) {
-      router.push('/'); // Redirect to home page if already logged in
+      router.push('/dashboard'); // Redirect to dashboard if already logged in
     }
   }, [user, isLoading, router]);
 
