@@ -73,6 +73,8 @@ async def add_memories(text: str) -> str:
             )
 
             if isinstance(response, dict) and 'results' in response:
+                added_count = 0
+                updated_count = 0
                 for result in response['results']:
                     mem0_memory_id_str = result['id']
                     mem0_content = result.get('memory', text)
@@ -87,6 +89,7 @@ async def add_memories(text: str) -> str:
                         )
                         db.add(sql_memory_record)
                         db.flush()  # Flush to get the memory ID before creating history
+                        added_count += 1
                         
                         # Don't create history for initial creation since old_state cannot be NULL
                         # The memory is created with state=active, which is sufficient
@@ -108,8 +111,21 @@ async def add_memories(text: str) -> str:
                                 new_state=MemoryState.deleted
                             )
                             db.add(history)
+                    elif result.get('event') == 'UPDATE':
+                        updated_count += 1
+                        
                 db.commit()
-            return response
+                
+                # Return a meaningful string response
+                if added_count > 0:
+                    return f"Successfully added {added_count} new memory(ies). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                elif updated_count > 0:
+                    return f"Updated {updated_count} existing memory(ies) with new information. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                else:
+                    return f"Memory processed but no changes made (possibly duplicate). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+            else:
+                # Handle case where response doesn't have expected format
+                return f"Memory processed successfully. Response: {str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"
         finally:
             db.close()
     except Exception as e:
@@ -325,11 +341,18 @@ async def deep_memory_query(search_query: str) -> str:
             
             # 1. Search regular memories (quick)
             memory_client = get_memory_client()
-            memories = memory_client.search(
+            memories_result = memory_client.search(
                 query=search_query,
                 user_id=str(user.id),
                 limit=20
             )
+            
+            # Handle different memory result formats
+            memories = []
+            if isinstance(memories_result, dict) and 'results' in memories_result:
+                memories = memories_result['results']
+            elif isinstance(memories_result, list):
+                memories = memories_result
             
             # 2. Search document chunks (efficient)
             relevant_chunks = chunking_service.search_chunks(
@@ -350,11 +373,15 @@ async def deep_memory_query(search_query: str) -> str:
             # 4. Build context for Gemini
             context = "=== SEARCH RESULTS ===\n\n"
             
-            # Add memories
+            # Add memories with proper type checking
             if memories:
                 context += "--- RELEVANT MEMORIES ---\n\n"
                 for i, mem in enumerate(memories, 1):
-                    memory_text = mem.get('memory', mem.get('content', ''))
+                    # Handle both string and dict formats
+                    if isinstance(mem, dict):
+                        memory_text = mem.get('memory', mem.get('content', str(mem)))
+                    else:
+                        memory_text = str(mem)
                     context += f"Memory {i}: {memory_text}\n"
                 context += "\n"
             
