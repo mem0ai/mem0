@@ -344,7 +344,7 @@ async def deep_memory_query(search_query: str) -> str:
             memory_client = get_memory_client()
             memories_result = memory_client.search(
                 query=search_query,
-                user_id=str(user.id),
+                user_id=supa_uid,  # Use Supabase user ID for mem0 search
                 limit=20
             )
             
@@ -359,7 +359,7 @@ async def deep_memory_query(search_query: str) -> str:
             relevant_chunks = chunking_service.search_chunks(
                 db=db,
                 query=search_query,
-                user_id=str(user.id),
+                user_id=str(user.id),  # Use SQL user ID for document search
                 limit=10
             )
             
@@ -371,7 +371,14 @@ async def deep_memory_query(search_query: str) -> str:
                     Document.id.in_(document_ids)
                 ).all()
             
-            # 4. Build context for Gemini
+            # 4. If no chunks found, search documents directly by content
+            if not relevant_documents:
+                relevant_documents = db.query(Document).filter(
+                    Document.user_id == user.id,
+                    Document.content.ilike(f"%{search_query}%")
+                ).limit(5).all()
+            
+            # 5. Build context for Gemini
             context = "=== SEARCH RESULTS ===\n\n"
             
             # Add memories with proper type checking
@@ -395,7 +402,7 @@ async def deep_memory_query(search_query: str) -> str:
                         context += f"From '{doc.title}' ({doc.document_type}):\n"
                         context += f"{chunk.content}\n\n"
             
-            # 5. If we have relevant documents, include their full context
+            # 6. If we have relevant documents, include their full context
             if relevant_documents and len(context) < 50000:  # Limit context size
                 context += "\n--- FULL DOCUMENTS (Most Relevant) ---\n\n"
                 for doc in relevant_documents[:2]:  # Limit to 2 full documents
@@ -408,7 +415,7 @@ async def deep_memory_query(search_query: str) -> str:
                         context += "\n... (truncated)\n"
                     context += "\n\n"
             
-            # 6. Generate response with Gemini
+            # 7. Generate response with Gemini
             prompt = f"""You are analyzing a user's knowledge base to answer their query.
 
 Query: {search_query}
