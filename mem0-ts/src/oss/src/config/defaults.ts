@@ -20,6 +20,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   llm: {
     provider: "openai",
     config: {
+      baseURL: "https://api.openai.com/v1",
       apiKey: process.env.OPENAI_API_KEY || "",
       model: "gpt-4-turbo-preview",
       modelProperties: undefined,

@@ -78,8 +78,9 @@ export class ConfigManager {
           } else if (userConf?.model && typeof userConf.model === "string") {
             finalModel = userConf.model;
           }
-
+          
           return {
+            baseURL: userConf?.baseURL || defaultConf.baseURL,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey
