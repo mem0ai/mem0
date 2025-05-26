@@ -22,6 +22,8 @@ import google.generativeai as genai
 from app.services.chunking_service import ChunkingService
 from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
+import time
+from typing import Dict
 
 # Load environment variables
 load_dotenv()
@@ -31,6 +33,11 @@ logger = logging.getLogger(__name__)
 
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
+
+# Connection management
+connection_heartbeats: Dict[str, float] = {}
+HEARTBEAT_INTERVAL = 30  # seconds
+CONNECTION_TIMEOUT = 120  # seconds
 
 # DO NOT initialize memory_client globally:
 # memory_client = get_memory_client()
@@ -610,6 +617,10 @@ async def handle_sse(request: Request):
     user_token = user_id_var.set(supa_user_id_from_path or "")
     client_token = client_name_var.set(client_name or "")
 
+    # Create connection ID for tracking
+    connection_id = f"{client_name}:{supa_user_id_from_path}"
+    connection_heartbeats[connection_id] = time.time()
+
     try:
         # Add error handling and proper initialization
         async with sse.connect_sse(
@@ -617,7 +628,12 @@ async def handle_sse(request: Request):
             request.receive,
             request._send,
         ) as (read_stream, write_stream):
-            # Ensure proper initialization before running
+            
+            # Start heartbeat task
+            heartbeat_task = asyncio.create_task(
+                send_heartbeat(write_stream, connection_id)
+            )
+            
             try:
                 await mcp._mcp_server.run(
                     read_stream,
@@ -627,9 +643,15 @@ async def handle_sse(request: Request):
             except Exception as e:
                 logging.error(f"MCP server run error: {e}")
                 # Don't re-raise, let the connection close gracefully
+            finally:
+                heartbeat_task.cancel()
+                
     except Exception as e:
         logging.error(f"MCP SSE connection error: {e}")
     finally:
+        # Clean up connection tracking
+        connection_heartbeats.pop(connection_id, None)
+        
         # Always reset context variables
         try:
             user_id_var.reset(user_token)
@@ -637,6 +659,54 @@ async def handle_sse(request: Request):
         except:
             pass
 
+async def send_heartbeat(write_stream, connection_id: str):
+    """Send periodic heartbeat to keep connection alive"""
+    try:
+        while True:
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            
+            # Update heartbeat timestamp
+            connection_heartbeats[connection_id] = time.time()
+            
+            # Send heartbeat message
+            heartbeat_message = {
+                "jsonrpc": "2.0",
+                "method": "notifications/heartbeat",
+                "params": {
+                    "timestamp": time.time(),
+                    "connection_id": connection_id
+                }
+            }
+            
+            try:
+                await write_stream.send(heartbeat_message)
+                logger.debug(f"Sent heartbeat for connection {connection_id}")
+            except Exception as e:
+                logger.warning(f"Failed to send heartbeat for {connection_id}: {e}")
+                break
+                
+    except asyncio.CancelledError:
+        logger.debug(f"Heartbeat cancelled for connection {connection_id}")
+    except Exception as e:
+        logger.error(f"Heartbeat error for {connection_id}: {e}")
+
+async def cleanup_stale_connections():
+    """Clean up stale connections periodically"""
+    while True:
+        try:
+            await asyncio.sleep(60)  # Check every minute
+            current_time = time.time()
+            stale_connections = [
+                conn_id for conn_id, last_heartbeat in connection_heartbeats.items()
+                if current_time - last_heartbeat > CONNECTION_TIMEOUT
+            ]
+            
+            for conn_id in stale_connections:
+                logger.info(f"Cleaning up stale connection: {conn_id}")
+                connection_heartbeats.pop(conn_id, None)
+                
+        except Exception as e:
+            logger.error(f"Error in cleanup_stale_connections: {e}")
 
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
@@ -678,3 +748,32 @@ def setup_mcp_server(app: FastAPI):
 
     # Include MCP router in the FastAPI app
     app.include_router(mcp_router)
+    
+    # Start background cleanup task
+    asyncio.create_task(cleanup_stale_connections())
+    
+    logger.info("MCP server setup complete with connection management")
+
+# Add connection health check endpoint
+@mcp_router.get("/health/{client_name}/{user_id}")
+async def connection_health(client_name: str, user_id: str):
+    """Check connection health"""
+    connection_id = f"{client_name}:{user_id}"
+    last_heartbeat = connection_heartbeats.get(connection_id)
+    
+    if last_heartbeat:
+        age = time.time() - last_heartbeat
+        is_healthy = age < CONNECTION_TIMEOUT
+        return {
+            "connection_id": connection_id,
+            "last_heartbeat": last_heartbeat,
+            "age_seconds": age,
+            "is_healthy": is_healthy,
+            "status": "healthy" if is_healthy else "stale"
+        }
+    else:
+        return {
+            "connection_id": connection_id,
+            "status": "not_found",
+            "is_healthy": False
+        }
