@@ -30,7 +30,12 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize MCP
-mcp = FastMCP("mem0-mcp-server")
+mcp = FastMCP("jean-memory-api")
+
+# Add logging for MCP initialization
+logger.info(f"Initialized MCP server with name: jean-memory-api")
+logger.info(f"MCP server object: {mcp}")
+logger.info(f"MCP internal server: {mcp._mcp_server}")
 
 # DO NOT initialize memory_client globally:
 # memory_client = get_memory_client()
@@ -805,8 +810,10 @@ async def handle_sse(request: Request):
     supa_user_id_from_path = request.path_params.get("user_id")
     client_name = request.path_params.get("client_name")
     
-    # Log connection attempt
+    # Log connection attempt with more details
     logging.info(f"SSE connection attempt for user {supa_user_id_from_path}, client {client_name}")
+    logging.info(f"Request headers: {dict(request.headers)}")
+    logging.info(f"MCP server name: {mcp._mcp_server.name}")
     
     # Set context variables
     user_token = user_id_var.set(supa_user_id_from_path or "")
@@ -821,6 +828,7 @@ async def handle_sse(request: Request):
         ) as (read_stream, write_stream):
             # Log successful connection
             logging.info(f"SSE connection established for user {supa_user_id_from_path}")
+            logging.info(f"Available MCP tools: {[tool.name for tool in mcp._mcp_server._tools.values()]}")
             
             # Ensure proper initialization before running
             try:
@@ -830,10 +838,10 @@ async def handle_sse(request: Request):
                     mcp._mcp_server.create_initialization_options(),
                 )
             except Exception as e:
-                logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}")
+                logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}", exc_info=True)
                 # Don't re-raise, let the connection close gracefully
     except Exception as e:
-        logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}")
+        logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}", exc_info=True)
     finally:
         # Always reset context variables
         try:
@@ -877,7 +885,13 @@ async def mcp_health_check(client_name: str, user_id: str):
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
-    mcp._mcp_server.name = f"mem0-mcp-server"
-
+    # Set the server name to match what Claude expects
+    mcp._mcp_server.name = "jean-memory-api"
+    
+    # Add logging to help debug initialization
+    logger.info(f"Setting up MCP server with name: {mcp._mcp_server.name}")
+    
     # Include MCP router in the FastAPI app
     app.include_router(mcp_router)
+    
+    logger.info("MCP server setup complete - router included in FastAPI app")
