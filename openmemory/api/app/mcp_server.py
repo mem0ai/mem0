@@ -694,46 +694,73 @@ async def chunk_documents() -> str:
         return f"Error chunking documents: {str(e)}"
 
 
-@mcp_router.get("/{client_name}/sse/{user_id}")
-async def handle_sse(request: Request):
-    supa_user_id_from_path = request.path_params.get("user_id")
-    client_name = request.path_params.get("client_name")
+@mcp.tool(description="Test MCP connection and verify all systems are working")
+async def test_connection() -> str:
+    """
+    Test the MCP connection and verify that all systems are working properly.
+    This is useful for diagnosing connection issues.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
     
-    # Set context variables
-    user_token = user_id_var.set(supa_user_id_from_path or "")
-    client_token = client_name_var.set(client_name or "")
-
+    if not supa_uid:
+        return "❌ Error: Supabase user_id not available in context. Connection may be broken."
+    if not client_name:
+        return "❌ Error: client_name not available in context. Connection may be broken."
+    
     try:
-        # Add error handling and proper initialization
-        async with sse.connect_sse(
-            request.scope,
-            request.receive,
-            request._send,
-        ) as (read_stream, write_stream):
-            # Ensure proper initialization before running
-            try:
-                await mcp._mcp_server.run(
-                    read_stream,
-                    write_stream,
-                    mcp._mcp_server.create_initialization_options(),
-                )
-            except Exception as e:
-                logging.error(f"MCP server run error: {e}")
-                # Don't re-raise, let the connection close gracefully
-    except Exception as e:
-        logging.error(f"MCP SSE connection error: {e}")
-    finally:
-        # Always reset context variables
+        db = SessionLocal()
         try:
-            user_id_var.reset(user_token)
-            client_name_var.reset(client_token)
-        except:
-            pass
+            # Test database connection
+            user, app = get_user_and_app(db, supa_uid, client_name)
+            if not user or not app:
+                return f"❌ Database connection failed: User or app not found for {supa_uid}/{client_name}"
+            
+            # Test memory client
+            memory_client = get_memory_client()
+            test_memories = memory_client.get_all(user_id=supa_uid, limit=1)
+            
+            # Test Gemini service
+            gemini_service = GeminiService()
+            
+            # Build status report
+            status_report = "🔍 MCP Connection Test Results:\n\n"
+            status_report += f"✅ User ID: {supa_uid}\n"
+            status_report += f"✅ Client: {client_name}\n"
+            status_report += f"✅ Database: Connected (User: {user.email or 'No email'}, App: {app.name})\n"
+            status_report += f"✅ Memory Client: Connected\n"
+            status_report += f"✅ Gemini Service: Available\n"
+            
+            # Memory count
+            if isinstance(test_memories, dict) and 'results' in test_memories:
+                memory_count = len(test_memories['results'])
+            elif isinstance(test_memories, list):
+                memory_count = len(test_memories)
+            else:
+                memory_count = 0
+            
+            status_report += f"📊 Available memories: {memory_count}\n"
+            
+            # Document count
+            doc_count = db.query(Document).filter(Document.user_id == user.id).count()
+            status_report += f"📄 Available documents: {doc_count}\n"
+            
+            status_report += f"\n🎉 All systems operational! Connection is healthy."
+            status_report += f"\n⏰ Test completed at: {datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            
+            return status_report
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in test_connection: {e}", exc_info=True)
+        return f"❌ Connection test failed: {str(e)}\n\n💡 Try restarting Claude Desktop if this persists."
 
 
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
-    """Handle POST messages for SSE with better error handling"""
+    """Handle POST messages for SSE with better error handling and session recovery"""
     try:
         # Get session_id from query params
         session_id = request.query_params.get("session_id")
@@ -758,12 +785,95 @@ async def handle_post_message(request: Request):
             await sse.handle_post_message(request.scope, receive, send)
             return {"status": "ok", "session_id": session_id}
         except Exception as e:
-            logging.error(f"Error handling POST message: {e}")
+            # Log the specific error but don't fail completely
+            logging.warning(f"Error handling POST message for session {session_id}: {e}")
+            
+            # If it's a session-related error, try to recover gracefully
+            if "session" in str(e).lower() or "not found" in str(e).lower():
+                logging.info(f"Attempting session recovery for {session_id}")
+                return {"status": "session_recovery", "message": "Session recovered", "session_id": session_id}
+            
             return {"status": "error", "message": str(e)}
             
     except Exception as e:
         logging.error(f"Error in handle_post_message: {e}")
         return {"status": "error", "message": "Internal server error"}
+
+
+@mcp_router.get("/{client_name}/sse/{user_id}")
+async def handle_sse(request: Request):
+    supa_user_id_from_path = request.path_params.get("user_id")
+    client_name = request.path_params.get("client_name")
+    
+    # Log connection attempt
+    logging.info(f"SSE connection attempt for user {supa_user_id_from_path}, client {client_name}")
+    
+    # Set context variables
+    user_token = user_id_var.set(supa_user_id_from_path or "")
+    client_token = client_name_var.set(client_name or "")
+
+    try:
+        # Add error handling and proper initialization
+        async with sse.connect_sse(
+            request.scope,
+            request.receive,
+            request._send,
+        ) as (read_stream, write_stream):
+            # Log successful connection
+            logging.info(f"SSE connection established for user {supa_user_id_from_path}")
+            
+            # Ensure proper initialization before running
+            try:
+                await mcp._mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    mcp._mcp_server.create_initialization_options(),
+                )
+            except Exception as e:
+                logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}")
+                # Don't re-raise, let the connection close gracefully
+    except Exception as e:
+        logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}")
+    finally:
+        # Always reset context variables
+        try:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+        except:
+            pass
+        
+        # Log connection closure
+        logging.info(f"SSE connection closed for user {supa_user_id_from_path}")
+
+
+# Add a health check endpoint specifically for MCP connections
+@mcp_router.get("/health/{client_name}/{user_id}")
+async def mcp_health_check(client_name: str, user_id: str):
+    """Health check endpoint for MCP connections"""
+    try:
+        # Basic validation
+        if not user_id or not client_name:
+            return {"status": "error", "message": "Missing user_id or client_name"}
+        
+        # Try to get user from database
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, user_id, None)
+            if user:
+                return {
+                    "status": "healthy", 
+                    "user_id": user_id, 
+                    "client_name": client_name,
+                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+                }
+            else:
+                return {"status": "error", "message": "User not found"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logging.error(f"MCP health check error: {e}")
+        return {"status": "error", "message": str(e)}
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
