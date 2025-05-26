@@ -86,6 +86,7 @@ class VectorStoreFactory:
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
         "langchain": "mem0.vector_stores.langchain.Langchain",
+        "lancedb" : "mem0.vector_stores.lancedb.LanceDB",
     }
 
     @classmethod
