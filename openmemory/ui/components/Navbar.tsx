@@ -12,12 +12,15 @@ import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain } from "lucide-react";
+import { Brain, Menu, X } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const memoriesApi = useMemoriesApi();
   const appsApi = useAppsApi();
@@ -96,64 +99,41 @@ export function Navbar() {
   const activeClass = "bg-zinc-800 text-white border-zinc-600";
   const inactiveClass = "text-zinc-300";
 
+  const navLinks = [
+    { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
+    { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
+    { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "My Life" },
+    { href: "/apps", icon: <RiApps2AddFill />, label: "Apps" },
+  ];
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60">
-      <div className="container flex h-14 items-center justify-between">
+      <div className="container flex h-14 items-center justify-between px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Image src="/images/jean-bug.png" alt="Jean Memory" width={26} height={26} />
-          <span className="text-xl font-medium">Jean Memory</span>
+          <span className="text-lg sm:text-xl font-medium">Jean Memory</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`flex items-center gap-2 border-none ${
-                isActive("/dashboard") ? activeClass : inactiveClass
-              }`}
-            >
-              <HiHome />
-              Dashboard
-            </Button>
-          </Link>
-          <Link href="/memories">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`flex items-center gap-2 border-none ${
-                isActive("/memories") ? activeClass : inactiveClass
-              }`}
-            >
-              <HiMiniRectangleStack />
-              Memories
-            </Button>
-          </Link>
-          <Link href="/my-life">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`flex items-center gap-2 border-none ${
-                isActive("/my-life") ? activeClass : inactiveClass
-              }`}
-            >
-              <Brain className="w-4 h-4" />
-              My Life
-            </Button>
-          </Link>
-          <Link href="/apps">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`flex items-center gap-2 border-none ${
-                isActive("/apps") ? activeClass : inactiveClass
-              }`}
-            >
-              <RiApps2AddFill />
-              Apps
-            </Button>
-          </Link>
+        
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-2">
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`flex items-center gap-2 border-none ${
+                  isActive(link.href) ? activeClass : inactiveClass
+                }`}
+              >
+                {link.icon}
+                {link.label}
+              </Button>
+            </Link>
+          ))}
         </div>
-        <div className="flex items-center gap-4">
+        
+        {/* Desktop Actions */}
+        <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
               <Button
@@ -190,7 +170,81 @@ export function Navbar() {
             </Link>
           )}
         </div>
+
+        {/* Mobile Menu Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
       </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden border-t border-zinc-800 bg-zinc-950"
+          >
+            <div className="container px-4 py-4 space-y-2">
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href}>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start gap-2 ${
+                      isActive(link.href) ? "bg-zinc-800 text-white" : "text-zinc-300"
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {link.icon}
+                    {link.label}
+                  </Button>
+                </Link>
+              ))}
+              
+              <div className="pt-2 border-t border-zinc-800 space-y-2">
+                {user ? (
+                  <>
+                    <Button
+                      onClick={handleRefresh}
+                      variant="ghost"
+                      className="w-full justify-start gap-2"
+                    >
+                      <FiRefreshCcw />
+                      Refresh
+                    </Button>
+                    <CreateMemoryDialog />
+                    <Button
+                      onClick={async () => {
+                        await signOut();
+                        router.push('/auth');
+                      }}
+                      variant="ghost"
+                      className="w-full justify-start text-red-400 hover:text-red-300"
+                    >
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <Link href="/auth">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                    >
+                      Login
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

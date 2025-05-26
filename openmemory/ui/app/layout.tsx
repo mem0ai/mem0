@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="h-screen font-sans antialiased flex flex-col bg-zinc-950">
+      <body className="min-h-screen font-sans antialiased flex flex-col bg-zinc-950">
         <Providers>
           <AuthProvider>
             <ThemeProvider
@@ -30,7 +30,7 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <Navbar />
-              <main className="flex-1 overflow-hidden">
+              <main className="flex-1">
                 {children}
               </main>
               <Toaster />
