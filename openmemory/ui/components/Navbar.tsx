@@ -26,6 +26,10 @@ export function Navbar() {
   const appsApi = useAppsApi();
   const statsApi = useStats();
 
+  // Check for reduced motion preference
+  const prefersReducedMotion = typeof window !== 'undefined' && 
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   // Don't show navbar on landing page
   if (pathname === "/") {
     return null;
@@ -142,7 +146,7 @@ export function Navbar() {
                 size="sm"
                 className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
               >
-                <FiRefreshCcw className="transition-transform duration-300 group-hover:rotate-180" />
+                <FiRefreshCcw className="transition-transform duration-300 group-hover:rotate-180 motion-reduce:transition-none" />
                 Refresh
               </Button>
               <CreateMemoryDialog />
@@ -186,9 +190,10 @@ export function Navbar() {
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
+            animate={prefersReducedMotion ? undefined : { opacity: 1, height: "auto" }}
+            exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
             className="md:hidden border-t border-zinc-800 bg-zinc-950"
           >
             <div className="container px-4 py-4 space-y-2">
@@ -215,7 +220,7 @@ export function Navbar() {
                       variant="ghost"
                       className="w-full justify-start gap-2"
                     >
-                      <FiRefreshCcw />
+                      <FiRefreshCcw className="motion-reduce:transition-none" />
                       Refresh
                     </Button>
                     <CreateMemoryDialog />
