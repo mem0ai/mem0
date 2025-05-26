@@ -1,144 +1,156 @@
+import logging
 import sqlite3
 import threading
 import uuid
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class SQLiteManager:
-    def __init__(self, db_path=":memory:"):
-        self.connection = sqlite3.connect(db_path, check_same_thread=False)
+    def __init__(self, db_path: str = ":memory:"):
+        self.db_path = db_path
+        self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._lock = threading.Lock()
         self._migrate_history_table()
         self._create_history_table()
 
-    def _migrate_history_table(self):
-        with self._lock:
-            with self.connection:
-                cursor = self.connection.cursor()
+    def _migrate_history_table(self) -> None:
+        """
+        If a pre-existing history table had the old group-chat columns,
+        rename it, create the new schema, copy the intersecting data, then
+        drop the old table.
+        """
+        with self._lock, self.connection:
+            cur = self.connection.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history'")
+            if cur.fetchone() is None:
+                return  # nothing to migrate
 
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history'")
-                table_exists = cursor.fetchone() is not None
+            cur.execute("PRAGMA table_info(history)")
+            old_cols = {row[1] for row in cur.fetchall()}
 
-                if table_exists:
-                    # Get the current schema of the history table
-                    cursor.execute("PRAGMA table_info(history)")
-                    current_schema = {row[1]: row[2] for row in cursor.fetchall()}
+            expected_cols = {
+                "id",
+                "memory_id",
+                "old_memory",
+                "new_memory",
+                "event",
+                "created_at",
+                "updated_at",
+                "is_deleted",
+                "actor_id",
+                "role",
+            }
 
-                    # Define the expected schema
-                    expected_schema = {
-                        "id": "TEXT",
-                        "memory_id": "TEXT",
-                        "old_memory": "TEXT",
-                        "new_memory": "TEXT",
-                        "new_value": "TEXT",
-                        "event": "TEXT",
-                        "created_at": "DATETIME",
-                        "updated_at": "DATETIME",
-                        "is_deleted": "INTEGER",
-                    }
+            if old_cols == expected_cols:
+                return
 
-                    # Check if the schemas are the same
-                    if current_schema != expected_schema:
-                        # Rename the old table
-                        cursor.execute("ALTER TABLE history RENAME TO old_history")
+            logger.info("Migrating history table to new schema (no convo columns).")
+            cur.execute("ALTER TABLE history RENAME TO history_old")
 
-                        cursor.execute(
-                            """
-                            CREATE TABLE IF NOT EXISTS history (
-                                id TEXT PRIMARY KEY,
-                                memory_id TEXT,
-                                old_memory TEXT,
-                                new_memory TEXT,
-                                new_value TEXT,
-                                event TEXT,
-                                created_at DATETIME,
-                                updated_at DATETIME,
-                                is_deleted INTEGER
-                            )
-                        """
-                        )
+            self._create_history_table()
 
-                        # Copy data from the old table to the new table
-                        cursor.execute(
-                            """
-                            INSERT INTO history (id, memory_id, old_memory, new_memory, new_value, event, created_at, updated_at, is_deleted)
-                            SELECT id, memory_id, prev_value, new_value, new_value, event, timestamp, timestamp, is_deleted
-                            FROM old_history
-                        """  # noqa: E501
-                        )
+            intersecting = list(expected_cols & old_cols)
+            cols_csv = ", ".join(intersecting)
+            cur.execute(f"INSERT INTO history ({cols_csv}) SELECT {cols_csv} FROM history_old")
+            cur.execute("DROP TABLE history_old")
 
-                        cursor.execute("DROP TABLE old_history")
-
-                        self.connection.commit()
-
-    def _create_history_table(self):
-        with self._lock:
-            with self.connection:
-                self.connection.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS history (
-                        id TEXT PRIMARY KEY,
-                        memory_id TEXT,
-                        old_memory TEXT,
-                        new_memory TEXT,
-                        new_value TEXT,
-                        event TEXT,
-                        created_at DATETIME,
-                        updated_at DATETIME,
-                        is_deleted INTEGER
-                    )
+    def _create_history_table(self) -> None:
+        with self._lock, self.connection:
+            self.connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS history (
+                    id           TEXT PRIMARY KEY,
+                    memory_id    TEXT,
+                    old_memory   TEXT,
+                    new_memory   TEXT,
+                    event        TEXT,
+                    created_at   DATETIME,
+                    updated_at   DATETIME,
+                    is_deleted   INTEGER,
+                    actor_id     TEXT,
+                    role         TEXT
                 )
+            """
+            )
 
     def add_history(
         self,
-        memory_id,
-        old_memory,
-        new_memory,
-        event,
-        created_at=None,
-        updated_at=None,
-        is_deleted=0,
-    ):
-        with self._lock:
-            with self.connection:
-                self.connection.execute(
-                    """
-                    INSERT INTO history (id, memory_id, old_memory, new_memory, event, created_at, updated_at, is_deleted)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        str(uuid.uuid4()),
-                        memory_id,
-                        old_memory,
-                        new_memory,
-                        event,
-                        created_at,
-                        updated_at,
-                        is_deleted,
-                    ),
-                )
-
-    def get_history(self, memory_id):
-        with self._lock:
-            cursor = self.connection.execute(
+        memory_id: str,
+        old_memory: Optional[str],
+        new_memory: Optional[str],
+        event: str,
+        *,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        is_deleted: int = 0,
+        actor_id: Optional[str] = None,
+        role: Optional[str] = None,
+    ) -> None:
+        with self._lock, self.connection:
+            self.connection.execute(
                 """
-                SELECT id, memory_id, old_memory, new_memory, event, created_at, updated_at
+                INSERT INTO history (
+                    id, memory_id, old_memory, new_memory, event,
+                    created_at, updated_at, is_deleted, actor_id, role
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    str(uuid.uuid4()),
+                    memory_id,
+                    old_memory,
+                    new_memory,
+                    event,
+                    created_at,
+                    updated_at,
+                    is_deleted,
+                    actor_id,
+                    role,
+                ),
+            )
+
+    def get_history(self, memory_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            cur = self.connection.execute(
+                """
+                SELECT id, memory_id, old_memory, new_memory, event,
+                       created_at, updated_at, is_deleted, actor_id, role
                 FROM history
                 WHERE memory_id = ?
-                ORDER BY updated_at ASC
+                ORDER BY created_at ASC, DATETIME(updated_at) ASC
             """,
                 (memory_id,),
             )
-            rows = cursor.fetchall()
-            return [
-                {
-                    "id": row[0],
-                    "memory_id": row[1],
-                    "old_memory": row[2],
-                    "new_memory": row[3],
-                    "event": row[4],
-                    "created_at": row[5],
-                    "updated_at": row[6],
-                }
-                for row in rows
-            ]
+            rows = cur.fetchall()
+
+        return [
+            {
+                "id": r[0],
+                "memory_id": r[1],
+                "old_memory": r[2],
+                "new_memory": r[3],
+                "event": r[4],
+                "created_at": r[5],
+                "updated_at": r[6],
+                "is_deleted": bool(r[7]),
+                "actor_id": r[8],
+                "role": r[9],
+            }
+            for r in rows
+        ]
+
+    def reset(self) -> None:
+        """Drop and recreate the history table."""
+        with self._lock, self.connection:
+            self.connection.execute("DROP TABLE IF EXISTS history")
+        self._create_history_table()
+
+    def close(self) -> None:
+        if self.connection:
+            self.connection.close()
+            self.connection = None
+
+    def __del__(self):
+        self.close()

@@ -11,9 +11,7 @@ def mock_lm_studio_client():
     with patch("mem0.llms.lmstudio.OpenAI") as mock_openai:  # Corrected path
         mock_client = Mock()
         mock_client.chat.completions.create.return_value = Mock(
-            choices=[
-                Mock(message=Mock(content="I'm doing well, thank you for asking!"))
-            ]
+            choices=[Mock(message=Mock(content="I'm doing well, thank you for asking!"))]
         )
         mock_openai.return_value = mock_client
         yield mock_client

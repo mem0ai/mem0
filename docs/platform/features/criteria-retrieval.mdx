@@ -1,0 +1,184 @@
+---
+title: Criteria Retrieval
+icon: "magnifying-glass-plus"
+iconType: "solid"
+---
+
+<Snippet file="paper-release.mdx" />
+
+Mem0's **Criteria Retrieval** feature allows you to retrieve memories based on specific criteria. This is useful when you need to find memories that match certain conditions or criteria, such as emotional content, sentiment, or other custom attributes.
+
+## Setting Up Custom Criteria
+
+You can define custom criteria at the project level, assigning weights to each criterion. These weights will be normalized during memory retrieval.
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient(
+    api_key="mem0_api_key",
+    org_id="mem0_organization_id",
+    project_id="mem0_project_id"
+)
+
+# Define custom criteria with weights
+retrieval_criteria = [
+    {
+        "name": "joy",
+        "description": "Measure the intensity of positive emotions such as happiness, excitement, or amusement expressed in the sentence. A higher score reflects greater joy.",
+        "weight": 3
+    },
+    {
+        "name": "curiosity",
+        "description": "Assess the extent to which the sentence reflects inquisitiveness, interest in exploring new information, or asking questions. A higher score reflects stronger curiosity.",
+        "weight": 2
+    },
+    {
+        "name": "emotion",
+        "description": "Evaluate the presence and depth of sadness or negative emotional tone, including expressions of disappointment, frustration, or sorrow. A higher score reflects greater sadness.",
+        "weight": 1
+    }
+]
+
+# Update project with custom criteria
+client.update_project(
+    retrieval_criteria=retrieval_criteria
+)
+```
+
+## Using Criteria Retrieval
+
+After setting up your criteria, you can use them to filter and retrieve memories. Here's an example:
+
+```python
+# Add some example memories
+messages = [
+    {"role": "user", "content": "What a beautiful sunny day! I feel so refreshed and ready to take on anything!"},
+    {"role": "user", "content": "I've always wondered how storms form—what triggers them in the atmosphere?"},
+    {"role": "user", "content": "It's been raining for days, and it just makes everything feel heavier."},
+    {"role": "user", "content": "Finally I get time to draw something today, after a long time!! I am super happy today."}
+]
+
+client.add(messages, user_id="alice")
+
+# Search with criteria-based filtering
+filters = {
+    "AND": [
+        {"user_id": "alice"}
+    ]
+}
+results_with_criteria = client.search(
+    query="Why I am feeling happy today?", 
+    filters=filters, 
+    version="v2"
+)
+
+# Standard search without criteria filtering
+results_without_criteria = client.search(
+    query="Why I am feeling happy today?", 
+    user_id="alice"
+)
+```
+
+## Search Results Comparison
+
+Let's compare the results from criteria-based retrieval versus standard retrieval to see how the emotional criteria affects ranking:
+
+### Search Results (with Criteria)
+```python
+[
+    {
+        "memory": "User feels refreshed and ready to take on anything on a beautiful sunny day",
+        "score": 0.666,
+        ...
+    },
+    {
+        "memory": "User finally has time to draw something after a long time",
+        "score": 0.616,
+        ...
+    },
+    {
+        "memory": "User is happy today",
+        "score": 0.500,
+        ...
+    },
+    {
+        "memory": "User is curious about how storms form and what triggers them in the atmosphere.",
+        "score": 0.400,
+        ...
+    },
+    {
+        "memory": "It has been raining for days, making everything feel heavier.",
+        "score": 0.116,
+        ...
+    }
+]
+```
+
+### Search Results (without Criteria)
+```python
+[
+    {
+        "memory": "User is happy today",
+        "score": 0.607,
+        ...
+    },
+    {
+        "memory": "User feels refreshed and ready to take on anything on a beautiful sunny day",
+        "score": 0.512,
+        ...
+    },
+    {
+        "memory": "It has been raining for days, making everything feel heavier.",
+        "score": 0.4617,
+        ...
+    },
+    {
+        "memory": "User is curious about how storms form and what triggers them in the atmosphere.",
+        "score": 0.340,
+        ...
+    },
+    {
+        "memory": "User finally has time to draw something after a long time",
+        "score": 0.336,
+        ...
+    }
+]
+```
+
+Looking at the example results above, we can see how criteria-based filtering affects the output:
+
+1. **Memory Ordering**: With criteria, memories with high joy scores (like feeling refreshed and drawing) are ranked higher, while without criteria, the most relevant memory ("User is happy today") comes first.
+
+2. **Score Distribution**: With criteria, scores are more spread out (0.116 to 0.666) and reflect the criteria weights, while without criteria, scores are more clustered (0.336 to 0.607) and based purely on relevance.
+
+3. **Negative Content**: With criteria, the negative memory about rain has a much lower score (0.116) due to the emotion criteria, while without criteria it maintains a relatively high score (0.4617) due to its relevance.
+
+4. **Curiosity Content**: The storm-related memory gets a moderate score (0.400) with criteria due to the curiosity weighting, while without criteria it's ranked lower (0.340) as it's less relevant to the happiness query.
+
+## Key Differences
+
+1. **Scoring**: With criteria, normalized scores (0-1) are used based on custom criteria weights, while without criteria, standard relevance scoring is used
+
+2. **Ordering**: With criteria, memories are first retrieved by relevance, then criteria-based filtering and prioritization is applied, while without criteria, ordering is solely by relevance
+
+3. **Filtering**: With criteria, post-retrieval filtering based on custom criteria (joy, curiosity, etc.) is available, which isn't available without criteria
+
+<Note>
+When no custom criteria are specified, the search will default to standard relevance-based retrieval. In this case, results are returned based solely on their relevance to the query, without any additional filtering or prioritization that would normally be applied through criteria.
+</Note>
+
+## How It Works
+
+1. **Criteria Definition**: Define custom criteria with names, descriptions, and weights
+2. **Project Configuration**: Apply these criteria at the project level
+3. **Memory Retrieval**: Use v2 search with filters to retrieve memories based on your criteria
+4. **Weighted Scoring**: Memories are scored based on the defined criteria weights
+
+<Note>
+Criteria retrieval is currently supported only in search v2. Make sure to use `version="v2"` when performing searches with custom criteria.
+</Note>
+
+If you have any questions, please feel free to reach out to us using one of the following methods:
+
+<Snippet file="get-help.mdx" />

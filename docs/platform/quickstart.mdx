@@ -64,7 +64,10 @@ client = AsyncMemoryClient()
 
 
 async def main():
-    response = await client.add("I'm travelling to SF", user_id="john")
+    messages = [
+        {"role": "user", "content": "I'm travelling to SF"}
+    ]
+    response = await client.add(messages, user_id="john")
     print(response)
 
 await main()
@@ -139,7 +142,20 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 </CodeGroup>
 
 <Note>
-    Messages passed along with `user_id`, `run_id`, or `app_id` are stored as user memories, while messages from the assistant are excluded from memory. To store messages for the assistant, use `agent_id` exclusively and avoid including other IDs, such as user_id, alongside it. This ensures the memory is properly attributed to the assistant.
+    When passing `user_id`, memories are primarily created based on user messages, but may be influenced by assistant messages for contextual understanding. For example, in a conversation about food preferences, both the user's stated preferences and their responses to the assistant's questions would form user memories. Similarly, when using `agent_id`, assistant messages are prioritized, but user messages might influence the agent's memories based on context. This approach ensures comprehensive memory creation while maintaining appropriate attribution to either users or agents.
+    
+    **Example:**
+    ```
+    User: My favorite cuisine is Italian
+    Assistant: Nice! What about Indian cuisine?
+    User: Don't like it much since I cannot eat spicy food
+    
+    Resulting user memories:
+    memory1 - Likes Italian food
+    memory2 - Doesn't like Indian food since cannot eat spicy 
+    
+    (memory2 comes from user's response about Indian cuisine)
+    ```
 </Note>
 
 <Note>Metadata allows you to store structured information (location, timestamp, user state) with memories. Add it during creation to enable precise filtering and retrieval during searches.</Note>
@@ -667,6 +683,77 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
             "user_id": "alex",
             "metadata": {"food": "vegan"},
             "categories": ["food_preferences"],
+            "immutable": false,
+            "expiration_date": null,
+            "created_at": "2024-07-20T01:30:36.275141-07:00",
+            "updated_at": "2024-07-20T01:30:36.275172-07:00"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
+Example 4: Search using NOT filters
+<CodeGroup>
+```python Python
+query = "What do you know about me?"
+filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+client.search(query, { version: "v2", filters })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+            "NOT": [
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+        }
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "id": "123abc-d456-7890-efgh-ijklmnopqrst",
+            "memory": "Lives in San Francisco",
+            "user_id": "alex",
+            "metadata": null,
+            "categories": ["location"],
             "immutable": false,
             "expiration_date": null,
             "created_at": "2024-07-20T01:30:36.275141-07:00",
@@ -1295,6 +1382,121 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
 
 </CodeGroup>
 
+Example 3: Get all memories using NOT filters
+<CodeGroup>
+```python Python
+filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+}
+
+# Default (No Pagination)
+client.get_all(version="v2", filters=filters)
+
+# Pagination (You can also use the page and page_size parameters)
+client.get_all(version="v2", filters=filters, page=1, page_size=50)
+```
+
+```javascript JavaScript
+const filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+// Default (No Pagination)
+client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Pagination (You can also use the page and page_size parameters)
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# Default (No Pagination)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+            "NOT": [
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+        }
+     }'
+
+# Pagination (You can also use the page and page_size parameters)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+            "NOT": [
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+        }
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "789xyz-e012-3456-fghi-jklmnopqrstu",
+        "memory": "Works as a software engineer",
+        "user_id": "alex",
+        "metadata": {"job": "tech"},
+        "categories": ["work"],
+        "immutable": false,
+        "expiration_date": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+
+```json Output (Paginated)
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "789xyz-e012-3456-fghi-jklmnopqrstu",
+            "memory": "Works as a software engineer",
+            "user_id": "alex",
+            "metadata": {"job": "tech"},
+            "categories": ["work"],
+            "immutable": false,
+            "expiration_date": null,
+            "created_at": "2024-07-20T01:30:36.275141-07:00",
+            "updated_at": "2024-07-20T01:30:36.275172-07:00"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
 
 ### 4.5 Memory History
 
@@ -1547,11 +1749,17 @@ Fun fact: You can also delete the memory using the `add()` method by passing a n
 <CodeGroup>
 
 ```python Python
-client.add("Delete all of my food preferences", user_id="alex")
+messages = [
+    {"role": "user", "content": "Delete all of my food preferences"}
+]
+client.add(messages, user_id="alex")
 ```
 
 ```javascript JavaScript
-client.add("Delete all of my food preferences", { user_id: "alex" })
+const messages = [
+    {"role": "user", "content": "Delete all of my food preferences"}
+]
+client.add(messages, { user_id: "alex" })
     .then(result => console.log(result))
     .catch(error => console.error(error));
 ```

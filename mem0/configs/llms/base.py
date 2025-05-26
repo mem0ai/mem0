@@ -39,8 +39,14 @@ class BaseLlmConfig(ABC):
         deepseek_base_url: Optional[str] = None,
         # XAI specific
         xai_base_url: Optional[str] = None,
+        # Sarvam specific
+        sarvam_base_url: Optional[str] = "https://api.sarvam.ai/v1",
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # AWS Bedrock specific
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_region: Optional[str] = "us-west-2",
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -85,6 +91,8 @@ class BaseLlmConfig(ABC):
         :type deepseek_base_url: Optional[str], optional
         :param xai_base_url: XAI base URL to be use, defaults to None
         :type xai_base_url: Optional[str], optional
+        :param sarvam_base_url: Sarvam base URL to be use, defaults to "https://api.sarvam.ai/v1"
+        :type sarvam_base_url: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
         """
@@ -121,5 +129,13 @@ class BaseLlmConfig(ABC):
         # XAI specific
         self.xai_base_url = xai_base_url
 
+        # Sarvam specific
+        self.sarvam_base_url = sarvam_base_url
+
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
+
+        # AWS Bedrock specific
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_region = aws_region
