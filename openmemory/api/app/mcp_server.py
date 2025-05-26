@@ -48,7 +48,7 @@ client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_na
 mcp_router = APIRouter(prefix="/mcp")
 
 # Initialize SSE transport
-sse = SseServerTransport("/mcp/messages/")
+sse = SseServerTransport("/messages/")
 
 @mcp.tool(description="Add new memories to the user's memory")
 async def add_memories(text: str) -> str:
@@ -820,11 +820,18 @@ async def handle_sse(request: Request):
     client_token = client_name_var.set(client_name or "")
 
     try:
+        # Create a proper send function that handles ASGI correctly
+        async def send_wrapper(message):
+            try:
+                await request._send(message)
+            except Exception as e:
+                logging.warning(f"ASGI send error (expected during disconnect): {e}")
+        
         # Add error handling and proper initialization
         async with sse.connect_sse(
             request.scope,
             request.receive,
-            request._send,
+            send_wrapper,  # Use wrapper instead of direct _send
         ) as (read_stream, write_stream):
             # Log successful connection
             logging.info(f"SSE connection established for user {supa_user_id_from_path}")
@@ -837,10 +844,18 @@ async def handle_sse(request: Request):
                     mcp._mcp_server.create_initialization_options(),
                 )
             except Exception as e:
-                logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}", exc_info=True)
+                # Check if it's a normal disconnect
+                if "disconnect" in str(e).lower() or "closed" in str(e).lower():
+                    logging.info(f"SSE connection closed normally for user {supa_user_id_from_path}")
+                else:
+                    logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}", exc_info=True)
                 # Don't re-raise, let the connection close gracefully
     except Exception as e:
-        logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}", exc_info=True)
+        # Check if it's a normal disconnect
+        if "disconnect" in str(e).lower() or "closed" in str(e).lower():
+            logging.info(f"SSE connection closed normally for user {supa_user_id_from_path}")
+        else:
+            logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}", exc_info=True)
     finally:
         # Always reset context variables
         try:
