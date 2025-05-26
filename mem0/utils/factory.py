@@ -27,6 +27,7 @@ class LlmFactory:
         "gemini": "mem0.llms.gemini.GeminiLLM",
         "deepseek": "mem0.llms.deepseek.DeepSeekLLM",
         "xai": "mem0.llms.xai.XAILLM",
+        "sarvam": "mem0.llms.sarvam.SarvamLLM",
         "lmstudio": "mem0.llms.lmstudio.LMStudioLLM",
         "langchain": "mem0.llms.langchain.LangchainLLM",
     }
