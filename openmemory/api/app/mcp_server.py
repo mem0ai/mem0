@@ -828,7 +828,6 @@ async def handle_sse(request: Request):
         ) as (read_stream, write_stream):
             # Log successful connection
             logging.info(f"SSE connection established for user {supa_user_id_from_path}")
-            logging.info(f"Available MCP tools: {[tool.name for tool in mcp._mcp_server._tools.values()]}")
             
             # Ensure proper initialization before running
             try:
