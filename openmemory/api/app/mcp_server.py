@@ -415,17 +415,17 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
         return f"Error syncing Substack: {str(e)}"
 
 
-@mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. This searches through everything - regular memories, documents, essays, etc.")
+@mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. Ask any natural language question about the user's life, work, thoughts, or experiences.")
 async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = False) -> str:
     """
     Performs a deep, comprehensive search across all user content using Gemini.
-    Uses chunked search for efficiency, then retrieves full context.
+    This is designed for natural language questions and can understand context, relationships, and nuanced queries.
     
     Args:
-        search_query: The search query string
+        search_query: Any natural language question about the user (e.g., "What are my core values?", "Tell me about my writing style", "What companies have I worked for?")
         memory_limit: Maximum number of memories to retrieve (default: from config, max: from config)
         chunk_limit: Maximum number of document chunks to retrieve (default: from config, max: from config)
-        include_full_docs: Whether to include full document content (default: False)
+        include_full_docs: Whether to include full document content for richer context (default: False)
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -455,102 +455,195 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
             gemini_service = GeminiService()
             chunking_service = ChunkingService()
             
-            # 1. Search regular memories (quick)
+            # 1. Get ALL memories (not just search results) for comprehensive context
             memory_client = get_memory_client()
-            memories_result = memory_client.search(
+            all_memories_result = memory_client.get_all(user_id=supa_uid, limit=memory_limit * 2)  # Get more for better context
+            
+            # Also do a targeted search for the specific query
+            search_memories_result = memory_client.search(
                 query=search_query,
-                user_id=supa_uid,  # Use Supabase user ID for mem0 search
+                user_id=supa_uid,
                 limit=memory_limit
             )
             
-            # Handle different memory result formats
-            memories = []
-            if isinstance(memories_result, dict) and 'results' in memories_result:
-                memories = memories_result['results']
-            elif isinstance(memories_result, list):
-                memories = memories_result
+            # Combine and deduplicate memories
+            all_memories = []
+            search_memories = []
             
-            # 2. Search document chunks (efficient)
-            relevant_chunks = chunking_service.search_chunks(
+            if isinstance(all_memories_result, dict) and 'results' in all_memories_result:
+                all_memories = all_memories_result['results']
+            elif isinstance(all_memories_result, list):
+                all_memories = all_memories_result
+                
+            if isinstance(search_memories_result, dict) and 'results' in search_memories_result:
+                search_memories = search_memories_result['results']
+            elif isinstance(search_memories_result, list):
+                search_memories = search_memories_result
+            
+            # Prioritize search results, then add other memories
+            memory_ids_seen = set()
+            prioritized_memories = []
+            
+            # Add search results first
+            for mem in search_memories:
+                if isinstance(mem, dict) and mem.get('id'):
+                    memory_ids_seen.add(mem['id'])
+                    prioritized_memories.append(mem)
+            
+            # Add other memories up to limit
+            for mem in all_memories:
+                if len(prioritized_memories) >= memory_limit:
+                    break
+                if isinstance(mem, dict) and mem.get('id') and mem['id'] not in memory_ids_seen:
+                    prioritized_memories.append(mem)
+            
+            # 2. Get ALL documents for this user (not just search results)
+            all_documents = db.query(Document).filter(
+                Document.user_id == user.id
+            ).order_by(Document.created_at.desc()).limit(20).all()  # Get recent documents
+            
+            # 3. Search document chunks with multiple strategies
+            relevant_chunks = []
+            
+            # Strategy 1: Semantic search on chunks
+            semantic_chunks = chunking_service.search_chunks(
                 db=db,
                 query=search_query,
-                user_id=str(user.id),  # Use SQL user ID for document search
+                user_id=str(user.id),
                 limit=chunk_limit
             )
+            relevant_chunks.extend(semantic_chunks)
             
-            # 3. Get unique documents from relevant chunks
-            document_ids = list(set(chunk.document_id for chunk in relevant_chunks))
-            relevant_documents = []
-            if document_ids:
-                relevant_documents = db.query(Document).filter(
-                    Document.id.in_(document_ids)
-                ).all()
+            # Strategy 2: Keyword search on full documents
+            keyword_documents = db.query(Document).filter(
+                Document.user_id == user.id,
+                Document.content.ilike(f"%{search_query}%")
+            ).limit(5).all()
             
-            # 4. If no chunks found, search documents directly by content
-            if not relevant_documents:
-                relevant_documents = db.query(Document).filter(
-                    Document.user_id == user.id,
-                    Document.content.ilike(f"%{search_query}%")
-                ).limit(5).all()
+            # Get chunks from keyword-matched documents
+            for doc in keyword_documents:
+                doc_chunks = db.query(DocumentChunk).filter(
+                    DocumentChunk.document_id == doc.id
+                ).limit(3).all()  # Get a few chunks per document
+                relevant_chunks.extend(doc_chunks)
             
-            # 5. Build context for Gemini
-            context = "=== SEARCH RESULTS ===\n\n"
+            # Remove duplicates
+            seen_chunk_ids = set()
+            unique_chunks = []
+            for chunk in relevant_chunks:
+                if chunk.id not in seen_chunk_ids:
+                    seen_chunk_ids.add(chunk.id)
+                    unique_chunks.append(chunk)
+            relevant_chunks = unique_chunks[:chunk_limit]
             
-            # Add memories with proper type checking
-            if memories:
-                context += "--- RELEVANT MEMORIES ---\n\n"
-                for i, mem in enumerate(memories, 1):
-                    # Handle both string and dict formats
+            # 4. Build comprehensive context for Gemini
+            context = "=== USER'S COMPLETE KNOWLEDGE BASE ===\n\n"
+            
+            # Add user metadata if available
+            context += f"User ID: {supa_uid}\n"
+            context += f"Total memories available: {len(prioritized_memories)}\n"
+            context += f"Total documents available: {len(all_documents)}\n"
+            context += f"Document chunks analyzed: {len(relevant_chunks)}\n\n"
+            
+            # Add memories with rich context
+            if prioritized_memories:
+                context += "=== MEMORIES (Thoughts, Experiences, Facts) ===\n\n"
+                for i, mem in enumerate(prioritized_memories, 1):
                     if isinstance(mem, dict):
                         memory_text = mem.get('memory', mem.get('content', str(mem)))
-                    else:
-                        memory_text = str(mem)
-                    context += f"Memory {i}: {memory_text}\n"
+                        metadata = mem.get('metadata', {})
+                        created_at = mem.get('created_at', 'Unknown date')
+                        
+                        context += f"Memory {i}:\n"
+                        context += f"Content: {memory_text}\n"
+                        context += f"Date: {created_at}\n"
+                        
+                        if metadata:
+                            source_app = metadata.get('source_app', metadata.get('source', 'Unknown'))
+                            context += f"Source: {source_app}\n"
+                            if 'username' in metadata:
+                                context += f"Username: {metadata['username']}\n"
+                            if 'type' in metadata:
+                                context += f"Type: {metadata['type']}\n"
+                        context += "\n"
                 context += "\n"
             
-            # Add relevant chunks with document context
-            if relevant_chunks:
-                context += "--- RELEVANT DOCUMENT EXCERPTS ---\n\n"
-                for chunk in relevant_chunks:
-                    doc = next((d for d in relevant_documents if d.id == chunk.document_id), None)
-                    if doc:
-                        context += f"From '{doc.title}' ({doc.document_type}):\n"
-                        context += f"{chunk.content}\n\n"
-            
-            # 6. If requested and we have relevant documents, include their full context
-            if include_full_docs and relevant_documents and len(context) < 50000:  # Limit context size
-                context += "\n--- FULL DOCUMENTS (Most Relevant) ---\n\n"
-                for doc in relevant_documents[:2]:  # Limit to 2 full documents
-                    context += f"=== {doc.title} ===\n"
+            # Add document information with rich context
+            if all_documents:
+                context += "=== DOCUMENTS (Essays, Posts, Articles) ===\n\n"
+                for i, doc in enumerate(all_documents, 1):
+                    context += f"Document {i}: {doc.title}\n"
                     context += f"Type: {doc.document_type}\n"
-                    context += f"URL: {doc.source_url}\n\n"
-                    # Include first 10k chars of document
-                    context += doc.content[:10000]
-                    if len(doc.content) > 10000:
-                        context += "\n... (truncated)\n"
+                    context += f"URL: {doc.source_url or 'No URL'}\n"
+                    context += f"Created: {doc.created_at}\n"
+                    
+                    # Include summary or first part of content
+                    if doc.content:
+                        if len(doc.content) > 500:
+                            context += f"Preview: {doc.content[:500]}...\n"
+                        else:
+                            context += f"Content: {doc.content}\n"
+                    context += "\n"
+                context += "\n"
+            
+            # Add relevant document chunks with full context
+            if relevant_chunks:
+                context += "=== RELEVANT DOCUMENT EXCERPTS ===\n\n"
+                for i, chunk in enumerate(relevant_chunks, 1):
+                    doc = next((d for d in all_documents if d.id == chunk.document_id), None)
+                    if doc:
+                        context += f"Excerpt {i} from '{doc.title}' ({doc.document_type}):\n"
+                        context += f"URL: {doc.source_url or 'No URL'}\n"
+                        context += f"Content: {chunk.content}\n\n"
+                context += "\n"
+            
+            # 5. Include full documents if requested and context allows
+            if include_full_docs and all_documents and len(context) < 80000:  # Higher limit for full docs
+                context += "=== FULL DOCUMENT CONTENT ===\n\n"
+                docs_to_include = all_documents[:3]  # Include up to 3 full documents
+                
+                for doc in docs_to_include:
+                    context += f"=== FULL CONTENT: {doc.title} ===\n"
+                    context += f"Type: {doc.document_type}\n"
+                    context += f"URL: {doc.source_url or 'No URL'}\n"
+                    context += f"Created: {doc.created_at}\n\n"
+                    
+                    # Include substantial content but not unlimited
+                    if doc.content:
+                        if len(doc.content) > 20000:
+                            context += doc.content[:20000] + "\n... (content truncated for length)\n"
+                        else:
+                            context += doc.content
                     context += "\n\n"
             
-            # 7. Generate response with Gemini
-            prompt = f"""You are analyzing a user's knowledge base to answer their query.
+            # 6. Create a much better prompt for Gemini
+            prompt = f"""You are an AI assistant with access to a comprehensive knowledge base about a specific user. Your job is to answer questions about this user based on their memories, documents, essays, social media posts, and other stored information.
 
-Query: {search_query}
+USER'S QUESTION: {search_query}
 
 {context}
 
-Please provide a comprehensive answer based on the search results above. If you found relevant information, cite which memories or documents it came from. If the query wasn't found, explain what you did find that might be related.
+INSTRUCTIONS:
+1. Answer the user's question directly and comprehensively using the information provided
+2. Draw connections between different pieces of information when relevant
+3. If you find specific information that answers the question, cite the source (e.g., "From Memory 5" or "From Document 'Essay Title'")
+4. If the exact answer isn't available, provide related information that might be helpful
+5. Be conversational and insightful - you're helping the user understand themselves better
+6. If you notice patterns or themes across multiple sources, point them out
+7. If the question can't be answered with the available information, be honest about what's missing
 
-Note: Retrieved {len(memories)} memories and {len(relevant_chunks)} document chunks."""
+Remember: This is personal information about the user, so be respectful and helpful in your analysis."""
             
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     gemini_service.model.generate_content,
                     prompt,
                     generation_config=genai.GenerationConfig(
-                        temperature=0.7,
-                        max_output_tokens=2048
+                        temperature=0.3,  # Lower temperature for more factual responses
+                        max_output_tokens=4096  # Allow longer responses
                     )
                 ),
-                timeout=30.0  # 30 second timeout
+                timeout=45.0  # Longer timeout for complex queries
             )
             
             return response.text
@@ -559,9 +652,9 @@ Note: Retrieved {len(memories)} memories and {len(relevant_chunks)} document chu
             db.close()
             
     except asyncio.TimeoutError:
-        return "The search took too long. Try a more specific query or use the regular search_memory tool for faster results."
+        return "The search took too long. This might be due to a complex query or large amount of data. Try a more specific question or contact support if this persists."
     except Exception as e:
-        logger.error(f"Error in deep_memory_query: {e}")
+        logger.error(f"Error in deep_memory_query: {e}", exc_info=True)
         return f"Error performing deep search: {str(e)}"
 
 
