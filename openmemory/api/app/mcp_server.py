@@ -48,7 +48,7 @@ client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_na
 mcp_router = APIRouter(prefix="/mcp")
 
 # Initialize SSE transport
-sse = SseServerTransport("/messages/")
+sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add new memories to the user's memory")
 async def add_memories(text: str) -> str:
