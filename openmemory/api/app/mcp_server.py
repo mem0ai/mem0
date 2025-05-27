@@ -805,6 +805,13 @@ async def handle_post_message(request: Request):
         return {"status": "error", "message": "Internal server error"}
 
 
+@mcp_router.post("/{client_name}/sse/{user_id}/messages")
+async def handle_post_message_with_path(request: Request):
+    """Handle POST messages for SSE when the client appends /messages to the SSE URL"""
+    # Just forward to the main handler
+    return await handle_post_message(request)
+
+
 @mcp_router.get("/{client_name}/sse/{user_id}")
 async def handle_sse(request: Request):
     supa_user_id_from_path = request.path_params.get("user_id")
