@@ -45,6 +45,8 @@ app.add_middleware(
         "http://localhost:3000", 
         "http://localhost:3001", 
         "https://jean-memory-ui.onrender.com",  # UPDATED to new frontend name
+        "https://jeanmemory.com", # New custom domain
+        "https://www.jeanmemory.com", # New custom domain with www
     ],  
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # Be more specific or keep "*"
