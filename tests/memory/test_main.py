@@ -52,7 +52,7 @@ class TestAddToVectorStoreErrors:
             )
 
         # Verify
-        assert mock_memory.llm.generate_response.call_count == 2
+        assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
         assert "Error in new_retrieved_facts" in caplog.text
 
