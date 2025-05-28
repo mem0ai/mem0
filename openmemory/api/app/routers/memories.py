@@ -5,7 +5,7 @@ import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from fastapi_pagination import Page, Params
+from fastapi_pagination import Page, Params, paginate
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
 from sqlalchemy import or_, func
@@ -153,21 +153,26 @@ async def list_memories(
         if sort_field:
             query = query.order_by(sort_field.desc()) if sort_direction == "desc" else query.order_by(sort_field.asc())
 
+    # Get all items and filter by permissions
+    all_items = [item for item in query.all() if check_memory_access_permissions(db, item, app_id)]
 
-    # Get paginated results
-    paginated_results = sqlalchemy_paginate(query, params)
-
-    # Filter results based on permissions
-    filtered_items = []
-    for item in paginated_results.items:
-        if check_memory_access_permissions(db, item, app_id):
-            filtered_items.append(item)
-
-    # Update paginated results with filtered items
-    paginated_results.items = filtered_items
-    paginated_results.total = len(filtered_items)
-
-    return paginated_results
+    # Paginate the serialized MemoryResponse list
+    return paginate(
+        [
+            MemoryResponse(
+                id=item.id,
+                content=item.content,
+                created_at=item.created_at,
+                state=item.state.value,
+                app_id=item.app_id,
+                app_name=item.app.name if item.app else None,
+                categories=[category.name for category in item.categories],
+                metadata_=item.metadata_
+            )
+            for item in all_items
+        ],
+        params
+    )
 
 
 # Get all categories
