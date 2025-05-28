@@ -22,9 +22,9 @@ We use `hatch` for managing development environments. To set up:
 
 ```bash
 # Activate environment for specific Python version:
-hatch shell test_39   # Python 3.9
-hatch shell test_310  # Python 3.10  
-hatch shell test_311  # Python 3.11
+hatch shell dev_py_3_9   # Python 3.9
+hatch shell dev_py_3_10  # Python 3.10  
+hatch shell dev_py_3_11  # Python 3.11
 
 # The environment will automatically install all dev dependencies
 # Run tests within the activated shell:

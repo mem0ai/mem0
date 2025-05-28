@@ -79,7 +79,7 @@ only-include = ["mem0"]
 [tool.hatch.build.targets.wheel.shared-data]
 "README.md" = "README.md"
 
-[tool.hatch.envs.test_39]
+[tool.hatch.envs.dev_py_3_9]
 python = "3.9"
 features = [
   "test",
@@ -89,7 +89,7 @@ features = [
   "extras",
 ]
 
-[tool.hatch.envs.test_310]
+[tool.hatch.envs.dev_py_3_10]
 python = "3.10"
 features = [
   "test",
@@ -99,7 +99,7 @@ features = [
   "extras",
 ]
 
-[tool.hatch.envs.test_311]
+[tool.hatch.envs.dev_py_3_11]
 python = "3.11"
 features = [
   "test",
