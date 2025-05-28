@@ -694,6 +694,77 @@ curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
 
 </CodeGroup>
 
+Example 4: Search using NOT filters
+<CodeGroup>
+```python Python
+query = "What do you know about me?"
+filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+}
+client.search(query, version="v2", filters=filters)
+```
+
+```javascript JavaScript
+const query = "What do you know about me?";
+const filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+client.search(query, { version: "v2", filters })
+    .then(results => console.log(results))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/search/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "query": "What do you know about me?",
+         "filters": {
+            "NOT": [
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+        }
+     }'
+```
+
+```json Output
+{
+    "results": [
+        {
+            "id": "123abc-d456-7890-efgh-ijklmnopqrst",
+            "memory": "Lives in San Francisco",
+            "user_id": "alex",
+            "metadata": null,
+            "categories": ["location"],
+            "immutable": false,
+            "expiration_date": null,
+            "created_at": "2024-07-20T01:30:36.275141-07:00",
+            "updated_at": "2024-07-20T01:30:36.275172-07:00"
+        }
+    ]
+}
+```
+
+</CodeGroup>
+
 
 ### 4.3 Get All Users
 
@@ -1307,6 +1378,121 @@ curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
         "updated_at": "2024-07-20T01:30:36.275172-07:00"
     }
 ]
+```
+
+</CodeGroup>
+
+Example 3: Get all memories using NOT filters
+<CodeGroup>
+```python Python
+filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+}
+
+# Default (No Pagination)
+client.get_all(version="v2", filters=filters)
+
+# Pagination (You can also use the page and page_size parameters)
+client.get_all(version="v2", filters=filters, page=1, page_size=50)
+```
+
+```javascript JavaScript
+const filters = {
+    "NOT": [
+        {
+            "categories": {
+                "contains": "food_preferences"
+            }
+        }
+    ]
+};
+
+// Default (No Pagination)
+client.getAll({ version: "v2", filters })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+
+// Pagination (You can also use the page and page_size parameters)
+client.getAll({ version: "v2", filters, page: 1, page_size: 50 })
+    .then(memories => console.log(memories))
+    .catch(error => console.error(error));
+```
+
+```bash cURL
+# Default (No Pagination)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+            "NOT": [
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+        }
+     }'
+
+# Pagination (You can also use the page and page_size parameters)
+curl -X GET "https://api.mem0.ai/v1/memories/?version=v2&page=1&page_size=50" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+            "NOT": [
+                {
+                    "categories": {
+                        "contains": "food_preferences"
+                    }
+                }
+            ]
+        }
+     }'
+```
+
+```json Output
+[
+    {
+        "id": "789xyz-e012-3456-fghi-jklmnopqrstu",
+        "memory": "Works as a software engineer",
+        "user_id": "alex",
+        "metadata": {"job": "tech"},
+        "categories": ["work"],
+        "immutable": false,
+        "expiration_date": null,
+        "created_at": "2024-07-20T01:30:36.275141-07:00",
+        "updated_at": "2024-07-20T01:30:36.275172-07:00"
+    }
+]
+```
+
+```json Output (Paginated)
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "789xyz-e012-3456-fghi-jklmnopqrstu",
+            "memory": "Works as a software engineer",
+            "user_id": "alex",
+            "metadata": {"job": "tech"},
+            "categories": ["work"],
+            "immutable": false,
+            "expiration_date": null,
+            "created_at": "2024-07-20T01:30:36.275141-07:00",
+            "updated_at": "2024-07-20T01:30:36.275172-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>

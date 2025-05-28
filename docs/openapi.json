@@ -4819,7 +4819,7 @@
 				"type": "object",
 				"properties": {
 					"messages": {
-						"description": "An array of message objects representing the content of the memory. Each message object typically contains 'role' and 'content' fields, where 'role' indicates the sender (e.g., 'user', 'assistant', 'system') and 'content' contains the actual message text. This structure allows for the representation of conversations or multi-part memories.",
+						"description": "An array of message objects representing the content of the memory. Each message object typically contains 'role' and 'content' fields, where 'role' indicates the sender either 'user' or 'assistant' and 'content' contains the actual message text. This structure allows for the representation of conversations or multi-part memories.",
 						"type": "array",
 						"items": {
 							"type": "object",
