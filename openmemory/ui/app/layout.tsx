@@ -6,11 +6,40 @@ import { Toaster } from "@/components/ui/toaster";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Providers } from "./providers";
 import { AuthProvider } from "../contexts/AuthContext";
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: "Jean Memory - Secure Memory for AI",
-  description: "Your secure, unified memory layer across all AI applications",
-  generator: "v0.dev",
+export const metadata: Metadata = {
+  title: {
+    default: 'Jean Memory - Your Personal Memory Layer',
+    template: '%s | Jean Memory',
+  },
+  description: 'Securely store, manage, and access your digital memories across all your AI applications with Jean Memory.',
+  openGraph: {
+    title: 'Jean Memory - Your Personal Memory Layer',
+    description: 'Securely store, manage, and access your digital memories across all your AI applications.',
+    url: 'https://jeanmemory.com',
+    siteName: 'Jean Memory',
+    images: [
+      {
+        url: 'https://jeanmemory.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Jean Memory Banner',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Jean Memory - Your Personal Memory Layer',
+    description: 'Securely store, manage, and access your digital memories across all your AI applications.',
+    images: ['https://jeanmemory.com/og-image.png'],
+  },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({

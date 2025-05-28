@@ -10,41 +10,6 @@ import AnimatedSphere from "@/components/landing/AnimatedSphere";
 import AnimatedIcons from "@/components/landing/AnimatedIcons";
 import MouseFollowArrow from "@/components/landing/MouseFollowArrow";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Jean Memory - Your Personal Memory Layer',
-  description: 'Securely store, manage, and access your digital memories across all your AI applications with Jean Memory.',
-  openGraph: {
-    title: 'Jean Memory - Your Personal Memory Layer',
-    description: 'Securely store, manage, and access your digital memories across all your AI applications.',
-    url: 'https://jeanmemory.com',
-    siteName: 'Jean Memory',
-    images: [
-      {
-        url: 'https://jeanmemory.com/og-image.png', // Replace with your actual image path
-        width: 1200,
-        height: 630,
-        alt: 'Jean Memory Banner',
-      },
-    ],
-    locale: 'en_US',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Jean Memory - Your Personal Memory Layer',
-    description: 'Securely store, manage, and access your digital memories across all your AI applications.',
-    images: ['https://jeanmemory.com/og-image.png'], // Replace with your actual image path
-    // creator: '@YourTwitterHandle', // Optional: Add your Twitter handle
-  },
-  // Optional: Add icons and manifest for a more complete PWA-like experience
-  // icons: {
-  //   icon: '/favicon.ico',
-  //   apple: '/apple-touch-icon.png',
-  // },
-  // manifest: '/site.webmanifest',
-};
 
 export default function LandingPage() {
   const buttonRef = useRef<HTMLAnchorElement>(null);
