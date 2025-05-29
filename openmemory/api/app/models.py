@@ -186,7 +186,7 @@ document_memories = Table(
 class Document(Base):
     __tablename__ = "documents"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: uuid.uuid4())
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     app_id = Column(UUID(as_uuid=True), ForeignKey("apps.id"), nullable=False)
     title = Column(String, nullable=False)
@@ -194,8 +194,8 @@ class Document(Base):
     document_type = Column(String, nullable=False)  # 'substack', 'obsidian', 'medium', etc.
     content = Column(Text, nullable=False)
     metadata_ = Column('metadata', JSONB, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_current_utc_time, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=get_current_utc_time, onupdate=get_current_utc_time)
     
     # Relationships
     user = relationship("User", back_populates="documents")
@@ -207,13 +207,13 @@ class Document(Base):
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: uuid.uuid4())
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     embedding = Column(ARRAY(Float), nullable=True)  # For future vector search
     metadata_ = Column('metadata', JSONB, nullable=True)  # Map to 'metadata' column
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_current_utc_time, nullable=False)
     
     # Relationships
     document = relationship("Document", back_populates="chunks")

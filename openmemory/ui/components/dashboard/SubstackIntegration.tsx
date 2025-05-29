@@ -33,14 +33,31 @@ export function SubstackIntegration() {
     }
   };
 
+  const normalizeSubstackUrl = (url: string): string => {
+    url = url.trim();
+    
+    // If no protocol, add https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = `https://${url}`;
+    }
+    
+    // Remove trailing slash
+    url = url.replace(/\/$/, '');
+    
+    return url;
+  };
+
   const handleSync = async () => {
     if (!substackUrl || !user) return;
 
-    // Validate URL format
+    // Normalize the URL first
+    const normalizedUrl = normalizeSubstackUrl(substackUrl);
+
+    // Validate normalized URL format
     const urlPattern = /^https?:\/\/([^.]+)\.substack\.com\/?$/;
-    if (!urlPattern.test(substackUrl)) {
+    if (!urlPattern.test(normalizedUrl)) {
       setSyncStatus("error");
-      setSyncMessage("Invalid URL format. Expected: https://username.substack.com");
+      setSyncMessage("Invalid URL format. Expected: https://username.substack.com or username.substack.com");
       return;
     }
 
@@ -49,9 +66,9 @@ export function SubstackIntegration() {
     setSyncMessage("");
 
     try {
-      // Call the sync endpoint
+      // Call the sync endpoint with the normalized URL
       const response = await apiClient.post("/api/v1/integrations/substack/sync", {
-        substack_url: substackUrl,
+        substack_url: normalizedUrl, // Use normalized URL
         max_posts: 20
       });
 
@@ -91,7 +108,7 @@ export function SubstackIntegration() {
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="https://username.substack.com"
+              placeholder="username.substack.com or https://username.substack.com"
               value={substackUrl}
               onChange={(e) => setSubstackUrl(e.target.value)}
               className="bg-zinc-950/50 border-zinc-800 text-zinc-300"
