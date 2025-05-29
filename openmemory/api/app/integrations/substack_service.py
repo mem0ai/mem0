@@ -6,6 +6,7 @@ import asyncio
 import re
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.models import Document, Memory, User, App, document_memories, MemoryState
 from app.integrations.substack_scraper import SubstackScraper, Post
@@ -124,8 +125,8 @@ class SubstackService:
                     active_memories = db.query(Memory).filter(
                         Memory.user_id == user.id,
                         Memory.state == MemoryState.active,
-                        Memory.metadata_['document_id'].astext == str(existing_doc.id)
-                    ).count()
+                        text("metadata_->>'document_id' = :doc_id")
+                    ).params(doc_id=str(existing_doc.id)).count()
                     
                     if active_memories > 0:
                         logger.info(f"Skipping existing post with active memories: {post.title}")
