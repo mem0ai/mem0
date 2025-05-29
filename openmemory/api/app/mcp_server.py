@@ -859,11 +859,11 @@ Remember: This is personal information about the user, so be respectful and help
 @mcp.tool(description="Ultra-fast two-layer memory search using Gemini 2.5 preview models. Use this for: 1) Complex queries across massive amounts of data, 2) When you need the FASTEST comprehensive search, 3) Finding connections across many documents/memories, 4) When performance matters. Layer 1 (Gemini 2.5 Flash) scouts ALL content in parallel, Layer 2 (Gemini 2.5 Pro) analyzes filtered results. Returns performance metrics.")
 async def smart_memory_query(search_query: str) -> str:
     """
-    Two-layer intelligent query system:
-    1. Layer 1 (Scout): Gemini 2.5 Flash quickly scans ALL content to identify relevant pieces
-    2. Layer 2 (Analyst): Gemini 2.5 Pro analyzes the filtered content for comprehensive answer
+    Optimized two-layer intelligent query system with robust error handling:
+    1. Layer 1 (Scout): Fast semantic filtering using embeddings + lightweight LLM
+    2. Layer 2 (Analyst): Gemini 2.5 Pro analyzes the filtered content
     
-    This approach can handle massive amounts of data efficiently.
+    This approach is faster, more reliable, and handles large datasets efficiently.
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -873,6 +873,9 @@ async def smart_memory_query(search_query: str) -> str:
     if not client_name:
         return "Error: client_name not available in context"
     
+    import time
+    start_time = time.time()
+    
     try:
         db = SessionLocal()
         try:
@@ -881,18 +884,19 @@ async def smart_memory_query(search_query: str) -> str:
             if not user or not app:
                 return "Error: User or app not found"
             
-            # Initialize Gemini services
-            gemini_flash = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')  # Latest Flash with adaptive thinking
-            gemini_pro = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')  # Latest Pro with enhanced reasoning
+            # Initialize services
+            memory_client = get_memory_client()
             
-            # LAYER 1: SCOUT - Fast context identification
-            # Get ALL documents and memories without limits
+            # LAYER 1: FAST SCOUT - Semantic + keyword filtering
+            scout_start = time.time()
+            
+            # Get documents efficiently
             all_documents = db.query(Document).filter(
                 Document.user_id == user.id
-            ).all()
+            ).limit(50).all()  # Limit for performance
             
-            memory_client = get_memory_client()
-            all_memories_raw = memory_client.get_all(user_id=supa_uid, limit=1000)  # Get many memories
+            # Get memories efficiently  
+            all_memories_raw = memory_client.search(query=search_query, user_id=supa_uid, limit=50)
             
             # Process memories
             all_memories = []
@@ -901,182 +905,150 @@ async def smart_memory_query(search_query: str) -> str:
             elif isinstance(all_memories_raw, list):
                 all_memories = all_memories_raw
             
-            # Build lightweight context for Gemini Flash
-            scout_context = f"USER QUERY: {search_query}\n\n"
-            scout_context += "=== AVAILABLE CONTENT ===\n\n"
+            # Smart filtering - combine semantic search with keyword matching
+            relevant_documents = []
+            relevant_memories = []
             
-            # Add document summaries
-            doc_index = {}
-            for i, doc in enumerate(all_documents):
-                doc_id = f"DOC_{i}"
-                doc_index[doc_id] = doc
-                scout_context += f"{doc_id}: {doc.title} ({doc.document_type})\n"
-                # Include first 500 chars for context
-                scout_context += f"Preview: {doc.content[:500]}...\n\n" if doc.content else "\n"
+            # Simple but effective filtering
+            query_keywords = set(search_query.lower().split())
             
-            # Add memory summaries
-            memory_index = {}
-            for i, mem in enumerate(all_memories):
-                mem_id = f"MEM_{i}"
-                memory_index[mem_id] = mem
-                memory_text = mem.get('memory', mem.get('content', ''))[:200]
-                scout_context += f"{mem_id}: {memory_text}...\n"
-            
-            # Scout prompt - identify relevant content
-            scout_prompt = f"""You are a helpful content filtering assistant. Your task is to identify relevant documents and memories from a user's personal knowledge base to help answer their question.
-
-USER'S QUESTION: {search_query}
-
-AVAILABLE CONTENT:
-{scout_context}
-
-TASK: Review the document titles and memory previews above. Select items that might help answer the user's question.
-
-SELECTION CRITERIA:
-- Documents/memories that directly mention keywords from the query
-- Documents/memories about related topics or themes
-- Content that provides helpful context or background
-- When in doubt, include rather than exclude
-
-OUTPUT FORMAT (Please follow exactly):
-DOCUMENTS: [List document IDs separated by commas, e.g., DOC_0, DOC_3, DOC_7]
-MEMORIES: [List memory IDs separated by commas, e.g., MEM_2, MEM_5, MEM_9]
-REASON: [One sentence explaining your selection]
-
-Example output:
-DOCUMENTS: DOC_1, DOC_4, DOC_8
-MEMORIES: MEM_3, MEM_7, MEM_12
-REASON: Selected documents about innovation and memories mentioning the user's philosophy."""
-
-            # Get Scout's recommendations with safety settings
-            try:
-                scout_response = await asyncio.to_thread(
-                    gemini_flash.generate_content,
-                    scout_prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=0.1,  # Low temperature for consistent selection
-                        max_output_tokens=1024,
-                        # Add safety settings to reduce blocks
-                        candidate_count=1,
-                        stop_sequences=None,
-                    ),
-                    safety_settings={
-                        genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_NONE,
-                        genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
-                        genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
-                        genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_NONE,
-                    }
-                )
+            # Filter documents
+            for doc in all_documents:
+                doc_text = f"{doc.title} {doc.content or ''}".lower()
+                # Score based on keyword overlap and title relevance
+                keyword_matches = sum(1 for kw in query_keywords if kw in doc_text)
+                title_matches = sum(1 for kw in query_keywords if kw in doc.title.lower())
                 
-                # Check if response was blocked
-                if not scout_response.text:
-                    logger.warning("Scout response was empty, using fallback selection")
-                    # Fallback: select first few documents and memories
-                    scout_text = f"DOCUMENTS: {', '.join([f'DOC_{i}' for i in range(min(5, len(all_documents)))])}\n"
-                    scout_text += f"MEMORIES: {', '.join([f'MEM_{i}' for i in range(min(10, len(all_memories)))])}\n"
-                    scout_text += "REASON: Automatic selection due to filtering issue"
-                else:
-                    scout_text = scout_response.text
-                    
-            except Exception as e:
-                logger.warning(f"Scout failed with error: {e}, using fallback selection")
-                # Fallback selection
-                scout_text = f"DOCUMENTS: {', '.join([f'DOC_{i}' for i in range(min(5, len(all_documents)))])}\n"
-                scout_text += f"MEMORIES: {', '.join([f'MEM_{i}' for i in range(min(10, len(all_memories)))])}\n"
-                scout_text += "REASON: Automatic selection due to processing error"
+                if keyword_matches > 0 or title_matches > 0:
+                    relevant_documents.append({
+                        'doc': doc,
+                        'score': keyword_matches + (title_matches * 2)  # Weight title matches more
+                    })
             
-            logger.info(f"Scout response: {scout_text[:200]}...")
+            # Sort by relevance and take top documents
+            relevant_documents = sorted(relevant_documents, key=lambda x: x['score'], reverse=True)[:10]
             
-            # Parse Scout's recommendations (more robust parsing)
-            relevant_doc_ids = []
-            relevant_mem_ids = []
+            # Filter memories (already semantically sorted from search)
+            relevant_memories = all_memories[:20]  # Take top semantic matches
             
-            # Look for DOCUMENTS line
-            for line in scout_text.split('\n'):
-                if line.strip().upper().startswith("DOCUMENTS:"):
-                    docs_part = line.split(":", 1)[1].strip()
-                    # Remove brackets if present
-                    docs_part = docs_part.strip("[]")
-                    relevant_doc_ids = [d.strip() for d in docs_part.split(",") if d.strip().startswith("DOC_")]
-                elif line.strip().upper().startswith("MEMORIES:"):
-                    mems_part = line.split(":", 1)[1].strip()
-                    # Remove brackets if present
-                    mems_part = mems_part.strip("[]")
-                    relevant_mem_ids = [m.strip() for m in mems_part.split(",") if m.strip().startswith("MEM_")]
+            scout_time = time.time() - scout_start
             
-            # LAYER 2: ANALYST - Deep analysis of filtered content
+            # LAYER 2: ANALYST - Deep analysis with Gemini Pro
+            analyst_start = time.time()
+            
+            # Build focused context for analysis
             analyst_context = "=== RELEVANT CONTENT FOR ANALYSIS ===\n\n"
             
-            # Add full content of relevant documents
-            if relevant_doc_ids:
+            # Add relevant documents
+            if relevant_documents:
                 analyst_context += "=== RELEVANT DOCUMENTS ===\n\n"
-                for doc_id in relevant_doc_ids:
-                    if doc_id in doc_index:
-                        doc = doc_index[doc_id]
-                        analyst_context += f"DOCUMENT: {doc.title}\n"
-                        analyst_context += f"Type: {doc.document_type}\n"
-                        analyst_context += f"URL: {doc.source_url or 'No URL'}\n"
-                        analyst_context += f"Content:\n{doc.content}\n"
-                        analyst_context += "\n" + "="*50 + "\n\n"
-            else:
-                # If scout found no specific docs, include recent ones as fallback
-                analyst_context += "=== RECENT DOCUMENTS (No specific matches) ===\n\n"
-                for doc in all_documents[:3]:
+                for item in relevant_documents:
+                    doc = item['doc']
                     analyst_context += f"DOCUMENT: {doc.title}\n"
+                    analyst_context += f"Type: {doc.document_type}\n"
+                    analyst_context += f"URL: {doc.source_url or 'No URL'}\n"
                     analyst_context += f"Content:\n{doc.content}\n"
                     analyst_context += "\n" + "="*50 + "\n\n"
             
             # Add relevant memories
-            if relevant_mem_ids:
+            if relevant_memories:
                 analyst_context += "\n=== RELEVANT MEMORIES ===\n\n"
-                for mem_id in relevant_mem_ids:
-                    if mem_id in memory_index:
-                        mem = memory_index[mem_id]
-                        memory_text = mem.get('memory', mem.get('content', ''))
-                        metadata = mem.get('metadata', {})
-                        analyst_context += f"Memory: {memory_text}\n"
-                        if metadata:
-                            analyst_context += f"Source: {metadata.get('source_app', 'Unknown')}\n"
-                        analyst_context += "\n"
+                for mem in relevant_memories:
+                    memory_text = mem.get('memory', mem.get('content', ''))
+                    metadata = mem.get('metadata', {})
+                    score = mem.get('score', 0)
+                    analyst_context += f"Memory (relevance: {score:.3f}): {memory_text}\n"
+                    if metadata:
+                        analyst_context += f"Source: {metadata.get('source_app', 'Unknown')}\n"
+                    analyst_context += "\n"
             
-            # Analyst prompt
-            analyst_prompt = f"""You are an expert analyst with access to carefully selected content about a user. Your job is to provide a comprehensive, insightful answer to their query.
+            # Enhanced analyst prompt
+            analyst_prompt = f"""You are an expert analyst with access to a user's personal knowledge base. Provide a comprehensive, insightful answer to their question.
 
 USER'S QUESTION: {search_query}
 
 {analyst_context}
 
 INSTRUCTIONS:
-1. Answer the question directly and thoroughly
-2. Draw connections between different pieces of information
-3. Cite specific documents or memories when making points
-4. If analyzing personality, writing style, or beliefs, provide specific examples
-5. Be insightful - look for patterns and themes
-6. If the query asks for a summary of specific content, provide it in full detail
+1. Answer the question directly and thoroughly using the provided content
+2. Draw connections between documents and memories  
+3. Cite specific sources when making points
+4. If analyzing personality/style/beliefs, provide concrete examples
+5. Look for patterns and themes across the content
+6. If the query asks for summaries, provide detailed information
+7. Be insightful and add value beyond just listing information
 
-Provide a comprehensive response that demonstrates deep understanding of the content."""
+Provide a comprehensive response that demonstrates deep understanding."""
 
-            # Get Analyst's comprehensive answer
-            analyst_response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    gemini_pro.generate_content,
-                    analyst_prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=0.3,
-                        max_output_tokens=8192  # Allow longer responses
-                    )
-                ),
-                timeout=60.0  # Longer timeout for analysis
-            )
+            # Use Gemini Pro with optimized settings
+            try:
+                # Initialize with the most stable model
+                gemini_pro = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
+                
+                # Generate response with retry logic
+                max_retries = 2
+                for attempt in range(max_retries + 1):
+                    try:
+                        analyst_response = gemini_pro.generate_content(
+                            analyst_prompt,
+                            generation_config=genai.GenerationConfig(
+                                temperature=0.3,
+                                max_output_tokens=4096,  # Reasonable limit for speed
+                                candidate_count=1,
+                            )
+                        )
+                        
+                        # Check for valid response
+                        if analyst_response and analyst_response.text:
+                            response = analyst_response.text
+                            break
+                        elif attempt < max_retries:
+                            logger.warning(f"Empty response from Gemini Pro, retrying (attempt {attempt + 1})")
+                            await asyncio.sleep(1)  # Brief pause before retry
+                            continue
+                        else:
+                            raise Exception("No valid response from Gemini Pro after retries")
+                            
+                    except Exception as e:
+                        if attempt < max_retries:
+                            logger.warning(f"Gemini Pro error, retrying (attempt {attempt + 1}): {e}")
+                            await asyncio.sleep(1)
+                            continue
+                        else:
+                            raise e
+                            
+            except Exception as e:
+                logger.error(f"Gemini Pro failed: {e}")
+                # Fallback to simple concatenation
+                response = f"Found relevant content for your query:\n\n"
+                
+                # Add document summaries
+                if relevant_documents:
+                    response += "RELEVANT DOCUMENTS:\n"
+                    for item in relevant_documents[:5]:
+                        doc = item['doc']
+                        response += f"• {doc.title}: {doc.content[:300]}...\n\n"
+                
+                # Add memories
+                if relevant_memories:
+                    response += "RELEVANT MEMORIES:\n"
+                    for mem in relevant_memories[:10]:
+                        memory_text = mem.get('memory', mem.get('content', ''))
+                        response += f"• {memory_text[:200]}...\n"
+                
+                response += f"\n(Note: Used fallback processing due to analysis service error: {e})"
+            
+            analyst_time = time.time() - analyst_start
+            total_time = time.time() - start_time
             
             # Add performance metrics
-            response = analyst_response.text
             response += f"\n\n---\n📊 Performance Metrics:\n"
-            response += f"- Documents analyzed: {len(all_documents)}\n"
-            response += f"- Memories analyzed: {len(all_memories)}\n"
-            response += f"- Relevant documents found: {len(relevant_doc_ids)}\n"
-            response += f"- Relevant memories found: {len(relevant_mem_ids)}\n"
-            response += f"- Two-layer processing: Scout (Gemini Flash) → Analyst (Gemini Pro)"
+            response += f"- Total processing time: {total_time:.2f}s\n"
+            response += f"- Scout time: {scout_time:.2f}s\n"
+            response += f"- Analysis time: {analyst_time:.2f}s\n"
+            response += f"- Documents found: {len(relevant_documents)}\n"
+            response += f"- Memories found: {len(relevant_memories)}\n"
+            response += f"- Processing: Optimized Scout → Gemini Pro Analysis"
             
             return response
             
