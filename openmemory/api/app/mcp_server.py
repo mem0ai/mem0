@@ -420,17 +420,17 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
         return f"Error syncing Substack: {str(e)}"
 
 
-@mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. Ask any natural language question about the user's life, work, thoughts, or experiences.")
-async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = False) -> str:
+@mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. Intelligently includes full document content when specific essays/documents are mentioned or highly relevant to your query. Perfect for essay analysis, personality insights, or comprehensive questions about the user's knowledge base.")
+async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = True) -> str:
     """
     Performs a deep, comprehensive search across all user content using Gemini.
-    This is designed for natural language questions and can understand context, relationships, and nuanced queries.
+    Automatically detects when specific documents/essays are referenced and includes their full content.
     
     Args:
-        search_query: Any natural language question about the user (e.g., "What are my core values?", "Tell me about my writing style", "What companies have I worked for?")
+        search_query: Any natural language question (e.g., "summarize The Irreverent Act", "what are my thoughts on self-healing software?", "analyze my personality from my essays")
         memory_limit: Maximum number of memories to retrieve (default: from config, max: from config)
         chunk_limit: Maximum number of document chunks to retrieve (default: from config, max: from config)
-        include_full_docs: Whether to include full document content for richer context (default: False)
+        include_full_docs: Whether to include full document content (default: True for comprehensive analysis)
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -502,10 +502,74 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
                 if isinstance(mem, dict) and mem.get('id') and mem['id'] not in memory_ids_seen:
                     prioritized_memories.append(mem)
             
-            # 2. Get ALL documents for this user (not just search results)
+            # 2. Get ALL documents for this user
             all_documents = db.query(Document).filter(
                 Document.user_id == user.id
-            ).order_by(Document.created_at.desc()).limit(20).all()  # Get recent documents
+            ).order_by(Document.created_at.desc()).all()  # Get ALL documents, not limited
+            
+            # Smart document selection based on query - fully dynamic
+            query_lower = search_query.lower()
+            query_words = [w for w in query_lower.split() if len(w) > 2]  # Filter out small words
+            selected_documents = []
+            
+            # Score each document based on relevance
+            for doc in all_documents:
+                doc_title_lower = doc.title.lower()
+                doc_content_lower = doc.content.lower() if doc.content else ""
+                relevance_score = 0
+                match_reasons = []
+                
+                # Title matching (highest priority)
+                title_words = doc_title_lower.split()
+                for word in query_words:
+                    if word in doc_title_lower:
+                        relevance_score += 10
+                        match_reasons.append("title_keyword")
+                    # Fuzzy match for similar words
+                    elif any(tw.startswith(word[:3]) for tw in title_words if len(tw) > 3):
+                        relevance_score += 5
+                        match_reasons.append("title_fuzzy")
+                
+                # Check if entire title appears in query
+                if doc_title_lower in query_lower:
+                    relevance_score += 50
+                    match_reasons.append("exact_title")
+                
+                # Content relevance scoring
+                if doc_content_lower:
+                    # Count query word occurrences in content
+                    for word in query_words:
+                        count = doc_content_lower.count(word)
+                        relevance_score += min(count, 5)  # Cap at 5 per word
+                    
+                    # Check for contextual phrases
+                    contextual_phrases = [
+                        "essay", "wrote about", "my thoughts on", "post about",
+                        "article", "piece on", "writing about"
+                    ]
+                    for phrase in contextual_phrases:
+                        if phrase in query_lower and any(w in doc_content_lower[:1000] for w in query_words):
+                            relevance_score += 8
+                            match_reasons.append("contextual_match")
+                            break
+                
+                # Semantic matching - check if query seems to be asking about themes in the doc
+                if any(theme in query_lower for theme in ["personality", "values", "philosophy", "beliefs", "approach", "style"]):
+                    # Look for personal pronouns and reflective language in doc
+                    if any(word in doc_content_lower[:2000] for word in ["i think", "i believe", "my view", "my approach"]):
+                        relevance_score += 7
+                        match_reasons.append("thematic_match")
+                
+                # Add document if it has any relevance
+                if relevance_score > 0:
+                    selected_documents.append((doc, relevance_score, match_reasons))
+            
+            # Sort by relevance score
+            selected_documents.sort(key=lambda x: x[1], reverse=True)
+            
+            # If no documents matched but query seems to want documents, include recent ones
+            if not selected_documents and any(word in query_lower for word in ["essay", "document", "post", "writing", "article"]):
+                selected_documents = [(doc, 1, ["recent"]) for doc in all_documents[:5]]
             
             # 3. Search document chunks with multiple strategies
             relevant_chunks = []
@@ -602,24 +666,47 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
                         context += f"Content: {chunk.content}\n\n"
                 context += "\n"
             
-            # 5. Include full documents if requested and context allows
-            if include_full_docs and all_documents and len(context) < 80000:  # Higher limit for full docs
+            # 5. Include full documents based on smart selection and relevance scores
+            if include_full_docs and selected_documents:
                 context += "=== FULL DOCUMENT CONTENT ===\n\n"
-                docs_to_include = all_documents[:3]  # Include up to 3 full documents
                 
-                for doc in docs_to_include:
-                    context += f"=== FULL CONTENT: {doc.title} ===\n"
-                    context += f"Type: {doc.document_type}\n"
-                    context += f"URL: {doc.source_url or 'No URL'}\n"
-                    context += f"Created: {doc.created_at}\n\n"
-                    
-                    # Include substantial content but not unlimited
-                    if doc.content:
-                        if len(doc.content) > 20000:
-                            context += doc.content[:20000] + "\n... (content truncated for length)\n"
-                        else:
-                            context += doc.content
-                    context += "\n\n"
+                docs_included = 0
+                total_chars = len(context)
+                
+                # Include documents based on relevance score
+                for doc, score, reasons in selected_documents:
+                    # Always include high-scoring documents (score > 20)
+                    if score > 20 or docs_included < 3:
+                        context += f"=== FULL CONTENT: {doc.title} ===\n"
+                        context += f"Type: {doc.document_type}\n"
+                        context += f"URL: {doc.source_url or 'No URL'}\n"
+                        context += f"Relevance Score: {score} ({', '.join(reasons)})\n"
+                        context += f"Created: {doc.created_at}\n\n"
+                        
+                        if doc.content:
+                            # For very high relevance (score > 50), include full content
+                            if score > 50 or total_chars < 1000000:
+                                context += doc.content
+                                total_chars += len(doc.content)
+                            else:
+                                # For lower relevance, include substantial excerpt
+                                context += doc.content[:50000] + "\n\n[... truncated for length ...]"
+                                total_chars += 50000
+                        
+                        context += "\n\n" + "="*50 + "\n\n"
+                        docs_included += 1
+                        
+                        # Stop if we've included enough or context is getting too large
+                        if docs_included >= 10 or total_chars > 1200000:
+                            break
+                
+                # If no documents were selected, include recent ones as fallback
+                if docs_included == 0 and all_documents:
+                    context += "No specifically relevant documents found. Including recent documents:\n\n"
+                    for doc in all_documents[:3]:
+                        context += f"=== {doc.title} ===\n"
+                        context += doc.content[:30000] if doc.content else "[No content]"
+                        context += "\n\n"
             
             # 6. Create a much better prompt for Gemini
             prompt = f"""You are an AI assistant with access to a comprehensive knowledge base about a specific user. Your job is to answer questions about this user based on their memories, documents, essays, social media posts, and other stored information.
@@ -661,6 +748,205 @@ Remember: This is personal information about the user, so be respectful and help
     except Exception as e:
         logger.error(f"Error in deep_memory_query: {e}", exc_info=True)
         return f"Error performing deep search: {str(e)}"
+
+
+@mcp.tool(description="Smart two-layer memory query using Gemini Flash for ultra-fast context filtering. First identifies relevant content across ALL documents and memories, then provides comprehensive analysis. Optimized for speed and accuracy.")
+async def smart_memory_query(search_query: str) -> str:
+    """
+    Two-layer intelligent query system:
+    1. Layer 1 (Scout): Gemini Flash quickly scans ALL content to identify relevant pieces
+    2. Layer 2 (Analyst): Gemini Pro analyzes the filtered content for comprehensive answer
+    
+    This approach can handle massive amounts of data efficiently.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Get user and app
+            user, app = get_user_and_app(db, supa_uid, client_name)
+            if not user or not app:
+                return "Error: User or app not found"
+            
+            # Initialize Gemini services
+            gemini_flash = genai.GenerativeModel('gemini-1.5-flash-latest')  # Fast model for filtering
+            gemini_pro = genai.GenerativeModel('gemini-2.0-flash-exp')  # Better model for analysis
+            
+            # LAYER 1: SCOUT - Fast context identification
+            # Get ALL documents and memories without limits
+            all_documents = db.query(Document).filter(
+                Document.user_id == user.id
+            ).all()
+            
+            memory_client = get_memory_client()
+            all_memories_raw = memory_client.get_all(user_id=supa_uid, limit=1000)  # Get many memories
+            
+            # Process memories
+            all_memories = []
+            if isinstance(all_memories_raw, dict) and 'results' in all_memories_raw:
+                all_memories = all_memories_raw['results']
+            elif isinstance(all_memories_raw, list):
+                all_memories = all_memories_raw
+            
+            # Build lightweight context for Gemini Flash
+            scout_context = f"USER QUERY: {search_query}\n\n"
+            scout_context += "=== AVAILABLE CONTENT ===\n\n"
+            
+            # Add document summaries
+            doc_index = {}
+            for i, doc in enumerate(all_documents):
+                doc_id = f"DOC_{i}"
+                doc_index[doc_id] = doc
+                scout_context += f"{doc_id}: {doc.title} ({doc.document_type})\n"
+                # Include first 500 chars for context
+                scout_context += f"Preview: {doc.content[:500]}...\n\n" if doc.content else "\n"
+            
+            # Add memory summaries
+            memory_index = {}
+            for i, mem in enumerate(all_memories):
+                mem_id = f"MEM_{i}"
+                memory_index[mem_id] = mem
+                memory_text = mem.get('memory', mem.get('content', ''))[:200]
+                scout_context += f"{mem_id}: {memory_text}...\n"
+            
+            # Scout prompt - identify relevant content
+            scout_prompt = f"""You are a content scout. Your job is to identify which documents and memories are relevant to answer the user's query.
+
+{scout_context}
+
+Based on the user's query, identify:
+1. Which document IDs (DOC_X) contain relevant information
+2. Which memory IDs (MEM_X) are relevant
+3. Why each is relevant (one sentence)
+
+Be generous in your selection - it's better to include potentially relevant content than miss something important.
+Consider:
+- Direct mentions of topics in the query
+- Related concepts and themes
+- Historical context that might inform the answer
+- Personality traits, values, or patterns if asked about the person
+
+Format your response as:
+RELEVANT_DOCS: DOC_1, DOC_5, DOC_12
+RELEVANT_MEMORIES: MEM_3, MEM_7, MEM_15, MEM_22
+REASONING: Brief explanation of why these are relevant"""
+
+            # Get Scout's recommendations
+            scout_response = await asyncio.to_thread(
+                gemini_flash.generate_content,
+                scout_prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.1,  # Low temperature for consistent selection
+                    max_output_tokens=1024
+                )
+            )
+            
+            scout_text = scout_response.text
+            logger.info(f"Scout response: {scout_text[:200]}...")
+            
+            # Parse Scout's recommendations
+            relevant_doc_ids = []
+            relevant_mem_ids = []
+            
+            if "RELEVANT_DOCS:" in scout_text:
+                docs_line = scout_text.split("RELEVANT_DOCS:")[1].split("\n")[0]
+                relevant_doc_ids = [d.strip() for d in docs_line.split(",") if d.strip().startswith("DOC_")]
+            
+            if "RELEVANT_MEMORIES:" in scout_text:
+                mems_line = scout_text.split("RELEVANT_MEMORIES:")[1].split("\n")[0]
+                relevant_mem_ids = [m.strip() for m in mems_line.split(",") if m.strip().startswith("MEM_")]
+            
+            # LAYER 2: ANALYST - Deep analysis of filtered content
+            analyst_context = "=== RELEVANT CONTENT FOR ANALYSIS ===\n\n"
+            
+            # Add full content of relevant documents
+            if relevant_doc_ids:
+                analyst_context += "=== RELEVANT DOCUMENTS ===\n\n"
+                for doc_id in relevant_doc_ids:
+                    if doc_id in doc_index:
+                        doc = doc_index[doc_id]
+                        analyst_context += f"DOCUMENT: {doc.title}\n"
+                        analyst_context += f"Type: {doc.document_type}\n"
+                        analyst_context += f"URL: {doc.source_url or 'No URL'}\n"
+                        analyst_context += f"Content:\n{doc.content}\n"
+                        analyst_context += "\n" + "="*50 + "\n\n"
+            else:
+                # If scout found no specific docs, include recent ones as fallback
+                analyst_context += "=== RECENT DOCUMENTS (No specific matches) ===\n\n"
+                for doc in all_documents[:3]:
+                    analyst_context += f"DOCUMENT: {doc.title}\n"
+                    analyst_context += f"Content:\n{doc.content}\n"
+                    analyst_context += "\n" + "="*50 + "\n\n"
+            
+            # Add relevant memories
+            if relevant_mem_ids:
+                analyst_context += "\n=== RELEVANT MEMORIES ===\n\n"
+                for mem_id in relevant_mem_ids:
+                    if mem_id in memory_index:
+                        mem = memory_index[mem_id]
+                        memory_text = mem.get('memory', mem.get('content', ''))
+                        metadata = mem.get('metadata', {})
+                        analyst_context += f"Memory: {memory_text}\n"
+                        if metadata:
+                            analyst_context += f"Source: {metadata.get('source_app', 'Unknown')}\n"
+                        analyst_context += "\n"
+            
+            # Analyst prompt
+            analyst_prompt = f"""You are an expert analyst with access to carefully selected content about a user. Your job is to provide a comprehensive, insightful answer to their query.
+
+USER'S QUESTION: {search_query}
+
+{analyst_context}
+
+INSTRUCTIONS:
+1. Answer the question directly and thoroughly
+2. Draw connections between different pieces of information
+3. Cite specific documents or memories when making points
+4. If analyzing personality, writing style, or beliefs, provide specific examples
+5. Be insightful - look for patterns and themes
+6. If the query asks for a summary of specific content, provide it in full detail
+
+Provide a comprehensive response that demonstrates deep understanding of the content."""
+
+            # Get Analyst's comprehensive answer
+            analyst_response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    gemini_pro.generate_content,
+                    analyst_prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.3,
+                        max_output_tokens=8192  # Allow longer responses
+                    )
+                ),
+                timeout=60.0  # Longer timeout for analysis
+            )
+            
+            # Add performance metrics
+            response = analyst_response.text
+            response += f"\n\n---\n📊 Performance Metrics:\n"
+            response += f"- Documents analyzed: {len(all_documents)}\n"
+            response += f"- Memories analyzed: {len(all_memories)}\n"
+            response += f"- Relevant documents found: {len(relevant_doc_ids)}\n"
+            response += f"- Relevant memories found: {len(relevant_mem_ids)}\n"
+            response += f"- Two-layer processing: Scout (Gemini Flash) → Analyst (Gemini Pro)"
+            
+            return response
+            
+        finally:
+            db.close()
+            
+    except asyncio.TimeoutError:
+        return "The analysis took too long. Try a more specific query or break it into smaller parts."
+    except Exception as e:
+        logger.error(f"Error in smart_memory_query: {e}", exc_info=True)
+        return f"Error performing smart search: {str(e)}"
 
 
 @mcp.tool(description="Process documents into chunks for efficient retrieval. Run this after syncing new documents.")
