@@ -787,8 +787,9 @@ async def smart_memory_query(search_query: str) -> str:
             
             memory_client = get_memory_client()
             try:
-                gemini_flash = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
-                gemini_pro = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
+                gemini_flash_extractor = genai.GenerativeModel('gemini-1.5-flash')
+                gemini_flash_orchestrator = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+                gemini_pro_analyst = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
             except Exception as model_init_e:
                 logger.error(f"Error initializing Gemini models: {model_init_e}")
                 return f"Error initializing AI models: {model_init_e}"
@@ -802,23 +803,21 @@ async def smart_memory_query(search_query: str) -> str:
                 if not document.content:
                     return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': "[No content to extract from]", 'original_doc': document, 'status': 'no_content'}
                 
-                # More targeted prompt for query-focused extraction
                 extraction_prompt = f"""Given the user's query: '{current_query}'
 
-Review the following document content (first ~2000 characters):
+Review the following document content (first ~1000 characters):
 Title: {document.title}
-Content Snippet: {document.content[:2000]}...
+Content Snippet: {document.content[:1000]}...
 
-Task: Extract the single most relevant continuous snippet (max 150 words) OR provide a very concise answer (1-2 sentences) from this document that directly addresses or relates to the user's query. 
-If the document is clearly not relevant to the query, respond with ONLY the exact phrase 'Not relevant'.
+Task: Extract the single most relevant continuous snippet (max 100 words) OR provide a very concise answer (1 sentence) from this document snippet that directly addresses or relates to the user's query. 
+If the document snippet is clearly not relevant to the query, respond with ONLY the exact phrase 'Not relevant'.
 
 Relevant Snippet/Answer (or 'Not relevant'):"""
                 try:
-                    # Run blocking SDK call in a separate thread
                     extraction_response = await asyncio.to_thread(
                         flash_model.generate_content,
                         extraction_prompt,
-                        generation_config=genai.GenerationConfig(temperature=0.2, max_output_tokens=200, candidate_count=1)
+                        generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=150, candidate_count=1)
                     )
                     extract_text = extraction_response.text.strip() if extraction_response and extraction_response.text else "Error: Empty response from extractor."
                     status = 'extracted' if extract_text != 'Not relevant' and not extract_text.startswith("Error:") else ('not_relevant' if extract_text == 'Not relevant' else 'error')
@@ -829,7 +828,7 @@ Relevant Snippet/Answer (or 'Not relevant'):"""
                 
                 return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': extract_text, 'original_doc': document, 'status': status}
 
-            extraction_tasks = [_extract_query_focused_snippet(i, doc_obj, gemini_flash, search_query) for i, doc_obj in enumerate(all_db_documents)]
+            extraction_tasks = [_extract_query_focused_snippet(i, doc_obj, gemini_flash_extractor, search_query) for i, doc_obj in enumerate(all_db_documents)]
             
             query_focused_extracts = []
             if extraction_tasks: # Only run gather if there are tasks
@@ -885,7 +884,7 @@ REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly ad
 
             try:
                 orchestrator_response_task = asyncio.to_thread(
-                    gemini_flash.generate_content,
+                    gemini_flash_orchestrator.generate_content,
                     orchestrator_prompt,
                     generation_config=genai.GenerationConfig(temperature=0.2, max_output_tokens=300, candidate_count=1)
                 )
@@ -958,9 +957,9 @@ If the selected content is insufficient to fully answer, clearly state that and 
             final_response_text = ""
             try:
                 analyst_response_task = asyncio.to_thread(
-                     gemini_pro.generate_content,
+                     gemini_pro_analyst.generate_content,
                      analyst_prompt,
-                     generation_config=genai.GenerationConfig(temperature=0.25, max_output_tokens=4000) # Generous tokens for quality answer
+                     generation_config=genai.GenerationConfig(temperature=0.25, max_output_tokens=4000)
                 )
                 analyst_response = await asyncio.wait_for(analyst_response_task, timeout=30.0) # Analyst timeout
 
