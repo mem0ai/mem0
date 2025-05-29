@@ -235,12 +235,12 @@ m = Memory.from_config(config_dict=config)
 ### Initialize Kuzu
 
 [Kuzu](https://kuzudb.com) is a fully local in-process graph database system that run openCypher queries.
-Kuzu comes embedded into the Python package and there is no extra setup required.
+Kuzu comes embedded into the Python package and there is no additional setup required.
+
+Kuzu needs a path to a directory where it will store the graph database. For example:
 
 <CodeGroup>
 ```python Python
-from mem0 import Memory
-
 config = {
     "graph_store": {
         "provider": "kuzu",
@@ -249,6 +249,30 @@ config = {
         }
     }
 }
+```
+</CodeGroup>
+
+Kuzu can also store its database in memory. Note that in this mode, all stored memories will be lost
+after the program has finished executing.
+
+<CodeGroup>
+```python Python
+config = {
+    "graph_store": {
+        "provider": "kuzu",
+        "config": {
+            "db": ":memory:"
+        }
+    }
+}
+```
+</CodeGroup>
+
+You can use the above configuration in the usual way:
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
 
 m = Memory.from_config(config_dict=config)
 ```
