@@ -8,7 +8,11 @@ import { Loader2, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/contexts/AuthContext";
 
-export function SubstackIntegration() {
+interface SubstackIntegrationProps {
+  onSyncComplete?: (syncedCount: number) => void;
+}
+
+export function SubstackIntegration({ onSyncComplete }: SubstackIntegrationProps) {
   const [substackUrl, setSubstackUrl] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
@@ -85,17 +89,20 @@ export function SubstackIntegration() {
         }
         
         setIsSyncing(false);
-        setSyncStatus("success");
-        setSyncMessage(task.result?.message || "Successfully synced Substack posts");
-        setTaskId(null);
         setProgress(100);
-        setProgressMessage("Sync completed!");
+        setProgressMessage("Sync completed successfully!");
         
-        // Refresh document count
-        await fetchDocumentCount();
+        // Show success message
+        const result = task.result || {};
+        const syncedCount = result.synced_count || 0;
+        onSyncComplete?.(syncedCount);
         
-        // Clear URL after successful sync
-        setSubstackUrl("");
+        // Clear progress after delay
+        setTimeout(() => {
+          setProgress(0);
+          setProgressMessage("");
+        }, 3000);
+        
       } else if (task.status === "failed") {
         // Task failed
         if (pollIntervalRef.current) {
@@ -104,18 +111,61 @@ export function SubstackIntegration() {
         }
         
         setIsSyncing(false);
-        setSyncStatus("error");
-        setSyncMessage(task.error || "Failed to sync Substack");
-        setTaskId(null);
         setProgress(0);
-        setProgressMessage("Sync failed");
+        setProgressMessage("Sync failed. Please try again.");
+        
+        console.error("Task failed:", task.error);
+        
+        // Clear error after delay
+        setTimeout(() => {
+          setProgressMessage("");
+        }, 5000);
       }
-      // If status is "pending" or "running", continue polling
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error("Error polling task status:", error);
-      // Continue polling even if there's an error, but set a fallback message
-      if (isSyncing) {
-        setProgressMessage("Syncing in progress...");
+      
+      // Handle specific error cases
+      if (error.response?.status === 404) {
+        // Task not found - likely server restarted
+        console.log("Task not found - server may have restarted");
+        
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        
+        setIsSyncing(false);
+        setProgress(0);
+        setProgressMessage("Sync may have completed during server restart. Please check your documents.");
+        
+        // Clear message after delay
+        setTimeout(() => {
+          setProgressMessage("");
+        }, 8000);
+        
+      } else if (error.response?.status >= 500) {
+        // Server error - continue polling but show fallback message
+        console.log("Server error during polling, continuing...");
+        if (isSyncing) {
+          setProgressMessage("Sync in progress (server temporarily unavailable)...");
+        }
+      } else {
+        // Other errors - stop polling
+        console.error("Unexpected error:", error);
+        
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        
+        setIsSyncing(false);
+        setProgress(0);
+        setProgressMessage("Error checking sync status. Please try again.");
+        
+        setTimeout(() => {
+          setProgressMessage("");
+        }, 5000);
       }
     }
   };

@@ -1,116 +1,186 @@
+"""
+Background task management system for handling long-running operations.
+"""
 import asyncio
-import logging
 import uuid
-from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
+from typing import Dict, Optional, Any, Callable
+from pydantic import BaseModel
+import logging
+import json
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Persistent storage for tasks
+TASK_STORAGE_DIR = Path("/tmp/openmemory_tasks")
+TASK_STORAGE_DIR.mkdir(exist_ok=True)
+
 class TaskStatus(Enum):
     PENDING = "pending"
-    RUNNING = "running"
+    RUNNING = "running" 
     COMPLETED = "completed"
     FAILED = "failed"
 
-class BackgroundTask:
-    def __init__(self, task_id: str, task_type: str, user_id: str):
-        self.task_id = task_id
-        self.task_type = task_type
-        self.user_id = user_id
-        self.status = TaskStatus.PENDING
-        self.progress = 0
-        self.progress_message = ""
-        self.created_at = datetime.utcnow()
-        self.started_at = None
-        self.completed_at = None
-        self.result = None
-        self.error = None
+class BackgroundTask(BaseModel):
+    task_id: str
+    task_type: str
+    user_id: str
+    status: TaskStatus
+    progress: int = 0
+    progress_message: str = "Starting..."
+    created_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    result: Optional[Dict] = None
+    error: Optional[str] = None
 
-# In-memory task storage (replace with Redis in production)
-_tasks: Dict[str, BackgroundTask] = {}
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+
+# Persistent task storage
+def save_task(task: BackgroundTask):
+    """Save task to persistent storage"""
+    try:
+        task_file = TASK_STORAGE_DIR / f"{task.task_id}.json"
+        with open(task_file, 'w') as f:
+            json.dump(task.dict(), f, default=str)
+    except Exception as e:
+        logger.error(f"Failed to save task {task.task_id}: {e}")
+
+def load_task(task_id: str) -> Optional[BackgroundTask]:
+    """Load task from persistent storage"""
+    try:
+        task_file = TASK_STORAGE_DIR / f"{task_id}.json"
+        if task_file.exists():
+            with open(task_file, 'r') as f:
+                data = json.load(f)
+                # Convert datetime strings back to datetime objects
+                for field in ['created_at', 'started_at', 'completed_at']:
+                    if data.get(field):
+                        data[field] = datetime.fromisoformat(data[field])
+                return BackgroundTask(**data)
+    except Exception as e:
+        logger.error(f"Failed to load task {task_id}: {e}")
+    return None
+
+def delete_task_file(task_id: str):
+    """Delete task file from storage"""
+    try:
+        task_file = TASK_STORAGE_DIR / f"{task_id}.json"
+        if task_file.exists():
+            task_file.unlink()
+    except Exception as e:
+        logger.error(f"Failed to delete task file {task_id}: {e}")
 
 def create_task(task_type: str, user_id: str) -> str:
-    """Create a new background task and return its ID"""
+    """Create a new background task with persistent storage"""
     task_id = str(uuid.uuid4())
-    task = BackgroundTask(task_id, task_type, user_id)
-    _tasks[task_id] = task
+    task = BackgroundTask(
+        task_id=task_id,
+        task_type=task_type,
+        user_id=user_id,
+        status=TaskStatus.PENDING,
+        created_at=datetime.utcnow()
+    )
+    save_task(task)
     logger.info(f"Created background task {task_id} of type {task_type} for user {user_id}")
     return task_id
 
 def get_task(task_id: str) -> Optional[BackgroundTask]:
-    """Get a task by ID"""
-    return _tasks.get(task_id)
+    """Get task status from persistent storage"""
+    return load_task(task_id)
 
-def update_task_progress(task_id: str, progress: int, message: str = ""):
-    """Update task progress"""
-    if task_id in _tasks:
-        task = _tasks[task_id]
+def update_task_progress(task_id: str, progress: int, message: str = None):
+    """Update task progress with persistent storage"""
+    task = load_task(task_id)
+    if task:
         task.progress = progress
-        task.progress_message = message
-        if task.status == TaskStatus.PENDING:
-            task.status = TaskStatus.RUNNING
-            task.started_at = datetime.utcnow()
-        logger.debug(f"Task {task_id} progress: {progress}% - {message}")
+        if message:
+            task.progress_message = message
+        save_task(task)
 
-def complete_task(task_id: str, result: Dict[str, Any]):
-    """Mark a task as completed with result"""
-    task = _tasks.get(task_id)
+def mark_task_started(task_id: str):
+    """Mark task as started with persistent storage"""
+    task = load_task(task_id)
+    if task:
+        task.status = TaskStatus.RUNNING
+        task.started_at = datetime.utcnow()
+        save_task(task)
+
+def mark_task_completed(task_id: str, result: Dict = None):
+    """Mark task as completed with persistent storage"""
+    task = load_task(task_id)
     if task:
         task.status = TaskStatus.COMPLETED
         task.completed_at = datetime.utcnow()
-        task.result = result
+        task.progress = 100
+        task.progress_message = "Completed"
+        if result:
+            task.result = result
+        save_task(task)
+        logger.info(f"Task {task_id} completed successfully")
 
-def fail_task(task_id: str, error: str):
-    """Mark a task as failed with error"""
-    task = _tasks.get(task_id)
+def mark_task_failed(task_id: str, error: str):
+    """Mark task as failed with persistent storage"""
+    task = load_task(task_id)
     if task:
         task.status = TaskStatus.FAILED
         task.completed_at = datetime.utcnow()
         task.error = error
+        save_task(task)
+        logger.error(f"Task {task_id} failed: {error}")
 
-async def run_task_async(task_id: str, coro):
-    """Run an async task and update its status"""
-    if task_id not in _tasks:
-        logger.error(f"Task {task_id} not found")
-        return
-    
-    task = _tasks[task_id]
+async def run_task_async(task_id: str, coroutine):
+    """
+    Run a task asynchronously with proper error handling and cleanup
+    """
     try:
-        logger.info(f"Starting execution of task {task_id}")
-        task.status = TaskStatus.RUNNING
-        task.started_at = datetime.utcnow()
+        mark_task_started(task_id)
         
-        result = await coro
+        # Execute the task
+        result = await coroutine
         
-        task.status = TaskStatus.COMPLETED
-        task.completed_at = datetime.utcnow()
-        task.result = result
-        task.progress = 100
-        task.progress_message = "Completed successfully"
-        logger.info(f"Task {task_id} completed successfully")
+        # Mark as completed
+        mark_task_completed(task_id, result)
+        
+        # Schedule cleanup after a delay (don't block)
+        asyncio.create_task(cleanup_task_after_delay(task_id, 300))  # 5 minutes
         
     except Exception as e:
         logger.error(f"Task {task_id} failed with error: {e}")
-        task.status = TaskStatus.FAILED
-        task.completed_at = datetime.utcnow()
-        task.error = str(e)
-        task.progress_message = f"Failed: {str(e)}"
+        mark_task_failed(task_id, str(e))
+        # Still schedule cleanup for failed tasks
+        asyncio.create_task(cleanup_task_after_delay(task_id, 300))
 
-def cleanup_old_tasks(hours: int = 24) -> int:
-    """Clean up tasks older than specified hours"""
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-    to_remove = []
-    
-    for task_id, task in _tasks.items():
-        if task.created_at < cutoff_time:
-            to_remove.append(task_id)
-    
-    for task_id in to_remove:
-        del _tasks[task_id]
-        logger.debug(f"Cleaned up old task {task_id}")
-    
-    if to_remove:
-        logger.info(f"Cleaned up {len(to_remove)} old background tasks")
-    
-    return len(to_remove) 
+async def cleanup_task_after_delay(task_id: str, delay_seconds: int):
+    """Clean up task file after a delay"""
+    try:
+        await asyncio.sleep(delay_seconds)
+        delete_task_file(task_id)
+        logger.info(f"Cleaned up task {task_id} after {delay_seconds} seconds")
+    except Exception as e:
+        logger.error(f"Error cleaning up task {task_id}: {e}")
+
+def cleanup_old_tasks():
+    """Clean up tasks older than 24 hours on startup"""
+    try:
+        cutoff_time = datetime.utcnow().timestamp() - (24 * 60 * 60)  # 24 hours ago
+        
+        for task_file in TASK_STORAGE_DIR.glob("*.json"):
+            try:
+                if task_file.stat().st_mtime < cutoff_time:
+                    task_file.unlink()
+                    logger.info(f"Cleaned up old task file: {task_file.name}")
+            except Exception as e:
+                logger.error(f"Error cleaning up task file {task_file}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Error during task cleanup: {e}")
+
+# Initialize cleanup on import
+cleanup_old_tasks() 

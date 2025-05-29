@@ -12,7 +12,7 @@ from app.services.chunking_service import ChunkingService
 from app.integrations.twitter_service import sync_twitter_to_memory
 import logging
 from sqlalchemy import text
-from app.background_tasks import create_task, get_task, update_task_progress, run_task_async
+from app.background_tasks import create_task, get_task, update_task_progress, run_task_async, mark_task_started, mark_task_completed, mark_task_failed
 
 logger = logging.getLogger(__name__)
 
@@ -41,35 +41,56 @@ async def sync_substack(
     # Create a background task
     task_id = create_task("substack_sync", supabase_user_id_str)
     
-    # Define the async task
-    async def sync_task():
-        service = SubstackService()
-        try:
-            # Create a new database session for the background task
-            from app.database import SessionLocal
-            db_session = SessionLocal()
+    # Define the sync function (non-async wrapper)
+    def execute_sync():
+        """Non-blocking sync execution"""
+        import asyncio
+        
+        async def sync_task():
+            service = SubstackService()
             try:
-                synced_count, message = await service.sync_substack_posts(
-                    db=db_session,
-                    supabase_user_id=supabase_user_id_str,
-                    substack_url=substack_url,
-                    max_posts=max_posts,
-                    use_mem0=True,
-                    progress_callback=lambda p, m, count: update_task_progress(task_id, p, f"{m} ({count} essays synced)")
-                )
-                return {"synced_count": synced_count, "message": message}
-            finally:
-                db_session.close()
+                # Create a new database session for the background task
+                from app.database import SessionLocal
+                db_session = SessionLocal()
+                try:
+                    synced_count, message = await service.sync_substack_posts(
+                        db=db_session,
+                        supabase_user_id=supabase_user_id_str,
+                        substack_url=substack_url,
+                        max_posts=max_posts,
+                        use_mem0=True,
+                        progress_callback=lambda p, m, count: update_task_progress(task_id, p, f"{m} ({count} essays synced)")
+                    )
+                    return {"synced_count": synced_count, "message": message}
+                finally:
+                    db_session.close()
+            except Exception as e:
+                logger.error(f"Sync task error: {e}")
+                raise e
+        
+        # Create new event loop for this task
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(sync_task())
+            mark_task_completed(task_id, result)
+            logger.info(f"Task {task_id} completed successfully with result: {result}")
         except Exception as e:
-            raise e
+            mark_task_failed(task_id, str(e))
+            logger.error(f"Task {task_id} failed: {e}")
+        finally:
+            try:
+                loop.close()
+            except:
+                pass
     
-    # Run the task in background
-    background_tasks.add_task(run_task_async, task_id, sync_task())
+    # Add to background tasks (this won't block or cause shutdown)
+    background_tasks.add_task(execute_sync)
     
     return {
         "task_id": task_id,
         "status": "started",
-        "message": f"Substack sync started for {substack_url}. Use /api/v1/tasks/{task_id} to check progress."
+        "message": f"Substack sync started for {substack_url}. Use /api/v1/integrations/tasks/{task_id} to check progress."
     }
 
 
@@ -143,31 +164,34 @@ async def chunk_documents(
     # Create a background task
     task_id = create_task("document_chunking", str(current_supa_user.id))
     
-    # Define the async task
-    async def chunk_task():
-        from app.database import SessionLocal
-        db_session = SessionLocal()
+    # Define the chunking function (non-async wrapper)
+    def execute_chunking():
+        """Non-blocking chunking execution"""
         try:
-            chunking_service = ChunkingService()
-            processed = await asyncio.to_thread(
-                chunking_service.chunk_all_documents,
-                db_session,
-                user.id
-            )
-            return {
-                "documents_processed": processed,
-                "message": f"Successfully chunked {processed} documents"
-            }
-        finally:
-            db_session.close()
+            from app.database import SessionLocal
+            db_session = SessionLocal()
+            try:
+                chunking_service = ChunkingService()
+                processed = chunking_service.chunk_all_documents(db_session, user.id)
+                result = {
+                    "documents_processed": processed,
+                    "message": f"Successfully chunked {processed} documents"
+                }
+                mark_task_completed(task_id, result)
+                logger.info(f"Chunking task {task_id} completed: {processed} documents")
+            finally:
+                db_session.close()
+        except Exception as e:
+            mark_task_failed(task_id, str(e))
+            logger.error(f"Chunking task {task_id} failed: {e}")
     
-    # Run the task in background
-    background_tasks.add_task(run_task_async, task_id, chunk_task())
+    # Add to background tasks
+    background_tasks.add_task(execute_chunking)
     
     return {
         "task_id": task_id,
         "status": "started",
-        "message": f"Document chunking started. Use /api/v1/tasks/{task_id} to check progress."
+        "message": f"Document chunking started. Use /api/v1/integrations/tasks/{task_id} to check progress."
     }
 
 
@@ -203,27 +227,47 @@ async def sync_twitter(
         # Create a background task
         task_id = create_task("twitter_sync", str(current_supa_user.id))
         
-        # Define the async task
-        async def twitter_sync_task():
-            from app.database import SessionLocal
-            db_session = SessionLocal()
+        # Define the sync function (non-async wrapper)
+        def execute_twitter_sync():
+            """Non-blocking Twitter sync execution"""
+            import asyncio
+            
+            async def twitter_sync_task():
+                from app.database import SessionLocal
+                db_session = SessionLocal()
+                try:
+                    synced_count = await sync_twitter_to_memory(
+                        username=username.lstrip('@'),
+                        user_id=str(current_supa_user.id),
+                        app_id=str(app.id),
+                        db_session=db_session
+                    )
+                    return {
+                        "synced_count": synced_count,
+                        "message": f"Successfully synced {synced_count} tweets from @{username}",
+                        "username": username
+                    }
+                finally:
+                    db_session.close()
+            
+            # Create new event loop for this task
             try:
-                synced_count = await sync_twitter_to_memory(
-                    username=username.lstrip('@'),
-                    user_id=str(current_supa_user.id),
-                    app_id=str(app.id),
-                    db_session=db_session
-                )
-                return {
-                    "synced_count": synced_count,
-                    "message": f"Successfully synced {synced_count} tweets from @{username}",
-                    "username": username
-                }
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(twitter_sync_task())
+                mark_task_completed(task_id, result)
+                logger.info(f"Twitter task {task_id} completed successfully")
+            except Exception as e:
+                mark_task_failed(task_id, str(e))
+                logger.error(f"Twitter task {task_id} failed: {e}")
             finally:
-                db_session.close()
+                try:
+                    loop.close()
+                except:
+                    pass
         
-        # Run the task in background
-        background_tasks.add_task(run_task_async, task_id, twitter_sync_task())
+        # Add to background tasks
+        background_tasks.add_task(execute_twitter_sync)
         
         return {
             "task_id": task_id,

@@ -187,7 +187,12 @@ export const Install = () => {
         {mainApps.map(({ key, label, isIntegration }) => (
           <TabsContent key={key} value={key} className="mt-6">
             {key === "substack" ? (
-              <SubstackIntegration />
+              <SubstackIntegration 
+                onSyncComplete={(syncedCount) => {
+                  console.log(`Successfully synced ${syncedCount} essays`);
+                  // Optionally refresh any document counts or show a success message
+                }}
+              />
             ) : key === "twitter" ? (
               <TwitterIntegration />
             ) : (
