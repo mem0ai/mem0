@@ -215,7 +215,7 @@ class TestAddMemory:
 
         return memory
 
-    def test_valid_llm_response_fact_extraction(self, mock_memory, caplog, base_memory_scenario):
+    def test_valid_llm_response_fact_extraction(self, mocker, mock_memory, caplog, base_memory_scenario):
         """Test valid response from LLM during fact extraction"""
         memory_payload, llm_responses, id_mapping, message_from_user = base_memory_scenario
 
@@ -232,6 +232,9 @@ class TestAddMemory:
         mock_memory.vector_store.update.side_effect = mock_update
 
         mock_memory.llm.generate_response.side_effect = llm_responses
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
 
         with caplog.at_level(logging.ERROR):
             add_result = mock_memory.add(
@@ -343,8 +346,9 @@ class TestAddMemory:
         assert sorted(actual_insert_call_values, key=lambda x: x["hash"]) == sorted(
             expected_insert_call_values, key=lambda x: x["hash"]
         )
+        assert mock_capture_event.call_count == 1
 
-    def test_empty_llm_response_memory_actions(self, mock_memory, caplog, base_memory_scenario):
+    def test_empty_llm_response_fact_extraction(self, mocker, mock_memory, caplog, base_memory_scenario):
         """Test empty response in AsyncMemory.add.
         Sometimes the LLM doesn't return a valid JSON response
         and we need to handle that gracefully.
@@ -359,6 +363,46 @@ class TestAddMemory:
         mock_memory.vector_store.search.return_value = [mock_search(key) for key in memory_payload.keys()]
 
         mock_memory.llm.generate_response.side_effect = ["", ""]
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        with caplog.at_level(logging.ERROR):
+            add_result = mock_memory.add(
+                messages=[{"role": "user", "content": message_from_user}],
+                user_id="default_user",
+                agent_id="test_agent",
+                metadata={},
+                infer=True,
+            )
+
+        # Verify
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert add_result is not None
+        assert "results" in add_result
+        results = add_result["results"]
+        assert results == []
+        assert "Error in new_retrieved_facts:" in caplog.text
+        assert mock_memory.vector_store.update.call_count == 0
+        assert mock_memory.vector_store.insert.call_count == 0
+        assert mock_capture_event.call_count == 1
+
+    def test_empty_llm_response_memory_actions(self, mocker, mock_memory, caplog, base_memory_scenario):
+        """Test empty response in AsyncMemory.add.
+        Sometimes the LLM doesn't return a valid JSON response
+        and we need to handle that gracefully.
+        """
+        memory_payload, _, id_mapping, message_from_user = base_memory_scenario
+
+        from functools import partial
+
+        mock_get = partial(create_mock_record, memory_payload)
+        mock_search = partial(create_mock_scored_point, memory_payload)
+        mock_memory.vector_store.get.side_effect = mock_get
+        mock_memory.vector_store.search.return_value = [mock_search(key) for key in memory_payload.keys()]
+
+        mock_memory.llm.generate_response.side_effect = [json.dumps({"facts": ["Likes all pizza"]}), ""]
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
         with caplog.at_level(logging.ERROR):
             add_result = mock_memory.add(
@@ -376,9 +420,9 @@ class TestAddMemory:
         results = add_result["results"]
         assert results == []
         assert "Invalid JSON response" in caplog.text
-        assert "Error in new_retrieved_facts:" in caplog.text
         assert mock_memory.vector_store.update.call_count == 0
         assert mock_memory.vector_store.insert.call_count == 0
+        assert mock_capture_event.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -416,6 +460,8 @@ class TestAsyncAddMemory:
         mock_async_memory.vector_store.update.side_effect = mock_update
 
         mock_async_memory.llm.generate_response.side_effect = llm_responses
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
         with caplog.at_level(logging.ERROR):
             add_result = await mock_async_memory.add(
@@ -526,6 +572,48 @@ class TestAsyncAddMemory:
         assert sorted(actual_insert_call_values, key=lambda x: x["hash"]) == sorted(
             expected_insert_call_values, key=lambda x: x["hash"]
         )
+        assert mock_capture_event.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_empty_llm_response_fact_extraction(
+        self, mock_async_memory, caplog, mocker, base_memory_scenario
+    ):
+        """Test empty response in AsyncMemory.add.
+        Sometimes the LLM doesn't return a valid JSON response
+        and we need to handle that gracefully.
+        """
+        memory_payload, _, id_mapping, message_from_user = base_memory_scenario
+
+        from functools import partial
+
+        mock_get = partial(create_mock_record, memory_payload)
+        mock_search = partial(create_mock_scored_point, memory_payload)
+        mock_async_memory.vector_store.get.side_effect = mock_get
+        mock_async_memory.vector_store.search.return_value = [mock_search(key) for key in memory_payload.keys()]
+
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        mock_async_memory.llm.generate_response.side_effect = ["", ""]
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+
+        with caplog.at_level(logging.ERROR):
+            add_result = await mock_async_memory.add(
+                messages=[{"role": "user", "content": message_from_user}],
+                user_id="default_user",
+                agent_id="test_agent",
+                metadata={},
+                infer=True,
+            )
+
+        assert mock_async_memory.llm.generate_response.call_count == 1
+        assert add_result is not None
+        assert "results" in add_result
+        results = add_result["results"]
+        assert results == []
+        assert "Error in new_retrieved_facts:" in caplog.text
+        assert mock_async_memory.vector_store.update.call_count == 0
+        assert mock_async_memory.vector_store.insert.call_count == 0
+        assert mock_capture_event.call_count == 1
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(
@@ -545,7 +633,9 @@ class TestAsyncAddMemory:
         mock_async_memory.vector_store.search.return_value = [mock_search(key) for key in memory_payload.keys()]
 
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
-        mock_async_memory.llm.generate_response.side_effect = ["", ""]
+        mock_async_memory.llm.generate_response.side_effect = [json.dumps({"facts": ["Likes all pizza"]}), ""]
+        mock_capture_event = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
         with caplog.at_level(logging.ERROR):
             add_result = await mock_async_memory.add(
@@ -562,6 +652,6 @@ class TestAsyncAddMemory:
         results = add_result["results"]
         assert results == []
         assert "Invalid JSON response" in caplog.text
-        assert "Error in new_retrieved_facts:" in caplog.text
         assert mock_async_memory.vector_store.update.call_count == 0
         assert mock_async_memory.vector_store.insert.call_count == 0
+        assert mock_capture_event.call_count == 1
