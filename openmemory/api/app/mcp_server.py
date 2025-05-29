@@ -942,15 +942,16 @@ Relevant Snippet/Answer (or 'Not relevant'):"""
                 mem_map[mem_id_str] = mem
                 orchestrator_context += f"{mem_id_str}: {mem.get('memory', mem.get('content', ''))[:200]}...\\n\\n"
 
-            orchestrator_prompt = f"""{orchestrator_context}TASK: Review the USER QUERY, DOCUMENT EXTRACTS, and MEMORY SNIPPETS. 
-Select the MOST VALUABLE documents (using their DOC_IDs from the extracts) and memories (using their MEM_IDs) that are essential for constructing a comprehensive answer. 
+            orchestrator_prompt = f"""{orchestrator_context}TASK: Review the USER QUERY, DOCUMENT EXTRACTS, and MEMORY SNIPPETS.
+Select the MOST VALUABLE documents (using their DOC_IDs from the extracts) and memories (using their MEM_IDs) that are essential for constructing a comprehensive answer.
 Prioritize extracts that are directly relevant and not marked 'Not relevant' or 'Error'.
 Choose up to 5 best documents and up to 10 best memories.
 
+Respond ONLY with the IDs in the specified format.
 OUTPUT FORMAT (IDs only, comma-separated; use NONE if no relevant items in a category):
-SELECTED_DOCS: DOC_1, DOC_3
-SELECTED_MEMS: MEM_0, MEM_2, MEM_5
-REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly address the query; memories A,B provide context.']"""
+SELECTED_DOCS: DOC_ID_1, DOC_ID_2
+SELECTED_MEMS: MEM_ID_1, MEM_ID_2
+REASONING: [Briefly explain your selection strategy in one sentence.]"""
 
             selected_doc_objects = []
             selected_memory_objects = []
