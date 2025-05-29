@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.integrations.substack_service import SubstackService
 from app.services.chunking_service import ChunkingService
-from app.models import User, Document, DocumentChunk
+from app.models import User, Document, DocumentChunk, Memory, MemoryState
 from sqlalchemy import text
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
@@ -46,13 +46,24 @@ class BackgroundProcessor:
         """Process documents that need chunking"""
         db = SessionLocal()
         try:
-            # Find documents that need chunking (limit to prevent memory issues)
-            # Use consistent boolean check for needs_chunking
+            # Find documents that need chunking AND have active memories
             documents = db.query(Document).filter(
                 Document.metadata_['needs_chunking'].astext == 'true'
+            ).filter(
+                # Only process documents that have at least one active memory
+                Document.id.in_(
+                    db.query(Document.id).join(
+                        Memory,
+                        text("memories.metadata->>'document_id' = CAST(documents.id AS TEXT)")
+                    ).filter(
+                        Memory.state == MemoryState.active
+                    )
+                )
             ).limit(5).all()  # Process 5 at a time
             
             if not documents:
+                # Also clean up orphaned documents (no active memories)
+                await self.cleanup_orphaned_documents(db)
                 return
             
             logger.info(f"Processing {len(documents)} documents for chunking")
@@ -102,13 +113,60 @@ class BackgroundProcessor:
         finally:
             db.close()
 
+    async def cleanup_orphaned_documents(self, db: Session):
+        """Clean up documents that have no active memories"""
+        try:
+            # Find documents that need chunking but have no active memories
+            orphaned_docs = db.query(Document).filter(
+                Document.metadata_['needs_chunking'].astext == 'true'
+            ).filter(
+                ~Document.id.in_(
+                    db.query(Document.id).join(
+                        Memory,
+                        text("memories.metadata->>'document_id' = CAST(documents.id AS TEXT)")
+                    ).filter(
+                        Memory.state == MemoryState.active
+                    )
+                )
+            ).all()
+            
+            if orphaned_docs:
+                cleared = 0
+                for doc in orphaned_docs:
+                    # Clear the chunking flag for orphaned documents
+                    updated_metadata = dict(doc.metadata_) if doc.metadata_ else {}
+                    updated_metadata["needs_chunking"] = False
+                    updated_metadata["orphaned_cleanup"] = datetime.utcnow().isoformat()
+                    updated_metadata["reason"] = "No active memories"
+                    
+                    doc.metadata_ = updated_metadata
+                    flag_modified(doc, 'metadata_')
+                    cleared += 1
+                
+                db.commit()
+                logger.info(f"Cleared chunking flag for {cleared} orphaned documents (no active memories)")
+                
+        except Exception as e:
+            logger.error(f"Error in cleanup_orphaned_documents: {e}")
+            db.rollback()
+
     async def clear_stuck_documents(self):
         """One-time fix to clear documents that are stuck in chunking loop"""
         db = SessionLocal()
         try:
-            # Find documents that might be stuck (have chunks but still marked for chunking)
+            # Find documents that might be stuck AND have active memories
             stuck_docs = db.query(Document).filter(
                 Document.metadata_['needs_chunking'].astext == 'true'
+            ).filter(
+                # Only process documents that have at least one active memory
+                Document.id.in_(
+                    db.query(Document.id).join(
+                        Memory,
+                        text("memories.metadata->>'document_id' = CAST(documents.id AS TEXT)")
+                    ).filter(
+                        Memory.state == MemoryState.active
+                    )
+                )
             ).all()
             
             cleared = 0
@@ -130,6 +188,9 @@ class BackgroundProcessor:
             if cleared > 0:
                 db.commit()
                 logger.info(f"Cleared stuck chunking flag for {cleared} documents that already have chunks")
+            
+            # Also run orphaned cleanup at startup
+            await self.cleanup_orphaned_documents(db)
             
         except Exception as e:
             logger.error(f"Error clearing stuck documents: {e}")
