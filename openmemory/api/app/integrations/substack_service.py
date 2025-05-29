@@ -241,8 +241,8 @@ class SubstackService:
                 synced_count += 1
                 logger.info(f"Synced: {post.title} ({len(post.content)} chars)")
                 
-                # MEMORY OPTIMIZATION: Force garbage collection periodically
-                if i % 3 == 0:  # Every 3 posts, more frequent for large posts
+                # MEMORY OPTIMIZATION: Force garbage collection less frequently with 2GB
+                if i % 10 == 0:  # Every 10 posts instead of 3, since we have 2GB now
                     gc.collect()
                     logger.info(f"Performed garbage collection after {i} posts")
                 
@@ -250,8 +250,8 @@ class SubstackService:
                 if progress_callback:
                     progress_callback(post_progress, f"Synced: {post.title}", synced_count)
 
-                # Small delay to prevent overwhelming the system
-                await asyncio.sleep(0.2)  # Slightly longer delay for stability
+                # Shorter delay with more memory available
+                await asyncio.sleep(0.1)  # Reduced from 0.2 seconds
 
             if progress_callback:
                 progress_callback(100, f"Completed! Synced {synced_count} posts", synced_count)

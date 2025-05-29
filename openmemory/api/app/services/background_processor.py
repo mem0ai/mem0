@@ -59,7 +59,7 @@ class BackgroundProcessor:
                         Memory.state == MemoryState.active
                     )
                 )
-            ).limit(5).all()  # Process 5 at a time
+            ).limit(10).all()  # Process 10 at a time with 2GB (was 5)
             
             if not documents:
                 # Also clean up orphaned documents (no active memories)
@@ -98,7 +98,7 @@ class BackgroundProcessor:
                     logger.info(f"Background chunking completed for: {doc.title} ({len(chunks_created)} chunks)")
                     
                     # Small delay to prevent memory buildup
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.3)  # Reduced delay with more memory available
                     
                 except Exception as e:
                     logger.error(f"Error chunking document {doc.id}: {e}")

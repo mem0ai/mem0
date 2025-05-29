@@ -66,6 +66,14 @@ export function SubstackIntegration() {
       const response = await apiClient.get(`/api/v1/integrations/tasks/${taskId}`);
       const task = response.data;
       
+      // Debug logging
+      console.log("Task status update:", {
+        taskId,
+        status: task.status,
+        progress: task.progress,
+        message: task.progress_message
+      });
+      
       setProgress(task.progress || 0);
       setProgressMessage(task.progress_message || "Processing...");
       
@@ -81,6 +89,7 @@ export function SubstackIntegration() {
         setSyncMessage(task.result?.message || "Successfully synced Substack posts");
         setTaskId(null);
         setProgress(100);
+        setProgressMessage("Sync completed!");
         
         // Refresh document count
         await fetchDocumentCount();
@@ -99,11 +108,15 @@ export function SubstackIntegration() {
         setSyncMessage(task.error || "Failed to sync Substack");
         setTaskId(null);
         setProgress(0);
+        setProgressMessage("Sync failed");
       }
       // If status is "pending" or "running", continue polling
     } catch (error) {
       console.error("Error polling task status:", error);
-      // Continue polling even if there's an error
+      // Continue polling even if there's an error, but set a fallback message
+      if (isSyncing) {
+        setProgressMessage("Syncing in progress...");
+      }
     }
   };
 
