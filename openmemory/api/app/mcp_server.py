@@ -140,6 +140,96 @@ async def add_memories(text: str) -> str:
         return f"Error adding to memory: {e}"
 
 
+@mcp.tool(description="Add new memory/fact/observation about the user. Use this to save: 1) Important information learned in conversation, 2) User preferences/values/beliefs, 3) Facts about their work/life/interests, 4) Anything the user wants remembered. The memory will be permanently stored and searchable.")
+async def add_memories(text: str) -> str:
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    memory_client = get_memory_client() # Initialize client when tool is called
+
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+
+    try:
+        db = SessionLocal()
+        try:
+            user, app = get_user_and_app(db, supabase_user_id=supa_uid, app_name=client_name, email=None)
+
+            if not app.is_active:
+                return f"Error: App {app.name} is currently paused. Cannot create new memories."
+
+            response = memory_client.add(
+                messages=text,
+                user_id=supa_uid,
+                metadata={
+                    "source_app": "openmemory_mcp",
+                    "mcp_client": client_name,
+                    "app_db_id": str(app.id)
+                }
+            )
+
+            if isinstance(response, dict) and 'results' in response:
+                added_count = 0
+                updated_count = 0
+                for result in response['results']:
+                    mem0_memory_id_str = result['id']
+                    mem0_content = result.get('memory', text)
+
+                    if result.get('event') == 'ADD':
+                        sql_memory_record = Memory(
+                            user_id=user.id,
+                            app_id=app.id,
+                            content=mem0_content,
+                            state=MemoryState.active,
+                            metadata_={**result.get('metadata', {}), "mem0_id": mem0_memory_id_str}
+                        )
+                        db.add(sql_memory_record)
+                        db.flush()  # Flush to get the memory ID before creating history
+                        added_count += 1
+                        
+                        # Don't create history for initial creation since old_state cannot be NULL
+                        # The memory is created with state=active, which is sufficient
+                        # History tracking starts from the first state change
+                    elif result.get('event') == 'DELETE':
+                        # Find the existing SQL memory record by mem0_id
+                        sql_memory_record = db.query(Memory).filter(
+                            text("metadata_->>'mem0_id' = :mem0_id"),
+                            Memory.user_id == user.id
+                        ).params(mem0_id=mem0_memory_id_str).first()
+                        
+                        if sql_memory_record:
+                            sql_memory_record.state = MemoryState.deleted
+                            sql_memory_record.deleted_at = datetime.datetime.now(datetime.UTC)
+                            history = MemoryStatusHistory(
+                                memory_id=sql_memory_record.id,
+                                changed_by=user.id,
+                                old_state=MemoryState.active,
+                                new_state=MemoryState.deleted
+                            )
+                            db.add(history)
+                    elif result.get('event') == 'UPDATE':
+                        updated_count += 1
+                        
+                db.commit()
+                
+                # Return a meaningful string response
+                if added_count > 0:
+                    return f"Successfully added {added_count} new memory(ies). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                elif updated_count > 0:
+                    return f"Updated {updated_count} existing memory(ies) with new information. Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+                else:
+                    return f"Memory processed but no changes made (possibly duplicate). Content: {text[:100]}{'...' if len(text) > 100 else ''}"
+            else:
+                # Handle case where response doesn't have expected format
+                return f"Memory processed successfully. Response: {str(response)[:200]}{'...' if len(str(response)) > 200 else ''}"
+        finally:
+            db.close()
+    except Exception as e:
+        logging.error(f"Error in add_memories MCP tool: {e}", exc_info=True)
+        return f"Error adding to memory: {e}"
+
+
 @mcp.tool(description="Search the user's memory for memories that match the query")
 async def search_memory(query: str, limit: int = None) -> str:
     """
@@ -420,7 +510,7 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
         return f"Error syncing Substack: {str(e)}"
 
 
-@mcp.tool(description="Deep query across all user's memories and documents using Gemini's long-context capabilities. Intelligently includes full document content when specific essays/documents are mentioned or highly relevant to your query. Perfect for essay analysis, personality insights, or comprehensive questions about the user's knowledge base.")
+@mcp.tool(description="Deep memory search with automatic full document inclusion. Use this for: 1) Reading/summarizing specific essays (e.g. 'summarize The Irreverent Act'), 2) Analyzing personality/writing style across documents, 3) Finding insights from essays written months/years ago, 4) Any query needing full essay context. Automatically detects and includes complete relevant documents using dynamic scoring.")
 async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_limit: int = None, include_full_docs: bool = True) -> str:
     """
     Performs a deep, comprehensive search across all user content using Gemini.
@@ -457,7 +547,7 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
                 return "Error: User or app not found"
             
             # Initialize services
-            gemini_service = GeminiService()
+            gemini_service = GeminiService()  # Will use Gemini 2.0 Flash Exp from config
             chunking_service = ChunkingService()
             
             # 1. Get ALL memories (not just search results) for comprehensive context
@@ -591,10 +681,26 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
             
             # Get chunks from keyword-matched documents
             for doc in keyword_documents:
-                doc_chunks = db.query(DocumentChunk).filter(
+                # Avoid metadata column issue by selecting specific columns
+                doc_chunks_query = db.query(
+                    DocumentChunk.id,
+                    DocumentChunk.document_id,
+                    DocumentChunk.chunk_index,
+                    DocumentChunk.content,
+                    DocumentChunk.created_at
+                ).filter(
                     DocumentChunk.document_id == doc.id
-                ).limit(3).all()  # Get a few chunks per document
-                relevant_chunks.extend(doc_chunks)
+                ).limit(3)
+                
+                # Convert to DocumentChunk objects
+                for chunk_data in doc_chunks_query.all():
+                    chunk = DocumentChunk()
+                    chunk.id = chunk_data.id
+                    chunk.document_id = chunk_data.document_id
+                    chunk.chunk_index = chunk_data.chunk_index
+                    chunk.content = chunk_data.content
+                    chunk.created_at = chunk_data.created_at
+                    relevant_chunks.append(chunk)
             
             # Remove duplicates
             seen_chunk_ids = set()
@@ -750,12 +856,12 @@ Remember: This is personal information about the user, so be respectful and help
         return f"Error performing deep search: {str(e)}"
 
 
-@mcp.tool(description="Smart two-layer memory query using Gemini Flash for ultra-fast context filtering. First identifies relevant content across ALL documents and memories, then provides comprehensive analysis. Optimized for speed and accuracy.")
+@mcp.tool(description="Ultra-fast two-layer memory search using Gemini 2.5 preview models. Use this for: 1) Complex queries across massive amounts of data, 2) When you need the FASTEST comprehensive search, 3) Finding connections across many documents/memories, 4) When performance matters. Layer 1 (Gemini 2.5 Flash) scouts ALL content in parallel, Layer 2 (Gemini 2.5 Pro) analyzes filtered results. Returns performance metrics.")
 async def smart_memory_query(search_query: str) -> str:
     """
     Two-layer intelligent query system:
-    1. Layer 1 (Scout): Gemini Flash quickly scans ALL content to identify relevant pieces
-    2. Layer 2 (Analyst): Gemini Pro analyzes the filtered content for comprehensive answer
+    1. Layer 1 (Scout): Gemini 2.5 Flash quickly scans ALL content to identify relevant pieces
+    2. Layer 2 (Analyst): Gemini 2.5 Pro analyzes the filtered content for comprehensive answer
     
     This approach can handle massive amounts of data efficiently.
     """
@@ -776,8 +882,8 @@ async def smart_memory_query(search_query: str) -> str:
                 return "Error: User or app not found"
             
             # Initialize Gemini services
-            gemini_flash = genai.GenerativeModel('gemini-1.5-flash-latest')  # Fast model for filtering
-            gemini_pro = genai.GenerativeModel('gemini-2.0-flash-exp')  # Better model for analysis
+            gemini_flash = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')  # Latest Flash with adaptive thinking
+            gemini_pro = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')  # Latest Pro with enhanced reasoning
             
             # LAYER 1: SCOUT - Fast context identification
             # Get ALL documents and memories without limits
