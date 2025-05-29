@@ -939,7 +939,7 @@ REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly ad
             if selected_doc_objects:
                 analyst_context += "SELECTED DOCUMENTS (Full Content):\\n"
                 for doc_obj in selected_doc_objects:
-                    analyst_context += f"Title: {doc_obj.title}\\nContent (up to 20k chars):\\n{(doc_obj.content or '')[:20000]}...\\n---\\n"
+                    analyst_context += f"Title: {doc_obj.title}\\nContent (up to 10k chars):\\n{(doc_obj.content or '')[:10000]}...\\n---\\n"
             
             if selected_memory_objects:
                 analyst_context += "\\nSELECTED MEMORIES:\\n"
@@ -959,7 +959,7 @@ If the selected content is insufficient to fully answer, clearly state that and 
                 analyst_response_task = asyncio.to_thread(
                      gemini_pro_analyst.generate_content,
                      analyst_prompt,
-                     generation_config=genai.GenerationConfig(temperature=0.25, max_output_tokens=4000)
+                     generation_config=genai.GenerationConfig(temperature=0.25, max_output_tokens=2500)
                 )
                 analyst_response = await asyncio.wait_for(analyst_response_task, timeout=30.0) # Analyst timeout
 
