@@ -83,7 +83,7 @@ export default function SetupMCPPage() {
                 <div>
                   <h3 className="font-semibold mb-2">1. Install the MCP Server</h3>
                   <CodeBlock 
-                    code="npx @openmemory/mcp-server claude"
+                    code="npx -y @openmemory/mcp-server claude"
                     item="claude-install"
                   />
                   <p className="text-sm text-zinc-400 mt-2">
@@ -120,7 +120,7 @@ export default function SetupMCPPage() {
                 <div>
                   <h3 className="font-semibold mb-2">1. Install the MCP Server</h3>
                   <CodeBlock 
-                    code="npx @openmemory/mcp-server cursor"
+                    code="npx -y @openmemory/mcp-server cursor"
                     item="cursor-install"
                   />
                   <p className="text-sm text-zinc-400 mt-2">
@@ -238,6 +238,54 @@ export default function SetupMCPPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-1">list_memories</Badge>
+                  <div>
+                    <p className="font-medium">List Memories</p>
+                    <p className="text-sm text-zinc-400">
+                      View all your stored memories
+                    </p>
+                    <CodeBlock 
+                      code='Example: "Show me my recent memories"'
+                      item="list-example"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-1">chunk_documents</Badge>
+                  <div>
+                    <p className="font-medium">Chunk Documents</p>
+                    <p className="text-sm text-zinc-400">
+                      Process documents into searchable chunks for better performance
+                    </p>
+                    <CodeBlock 
+                      code='Example: "Chunk my documents for faster search"'
+                      item="chunk-example"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-1">test_connection</Badge>
+                  <div>
+                    <p className="font-medium">Test Connection</p>
+                    <p className="text-sm text-zinc-400">
+                      Verify your MCP connection is working properly
+                    </p>
+                    <CodeBlock 
+                      code='Example: "Test my Jean Memory connection"'
+                      item="test-example"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -300,6 +348,68 @@ export default function SetupMCPPage() {
               <p className="font-medium text-sm">Slow queries?</p>
               <p className="text-sm text-zinc-400">
                 Deep queries process all your content - use regular search for quick lookups
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Manual Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Manual Configuration</CardTitle>
+            <CardDescription>
+              For advanced users who want to configure MCP manually
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="font-medium text-sm mb-2">Claude Desktop Config</p>
+              <p className="text-sm text-zinc-400 mb-2">
+                Add this to your Claude Desktop configuration file:
+              </p>
+              <CodeBlock 
+                code={`{
+  "mcpServers": {
+    "jean-memory-api": {
+      "command": "npx",
+      "args": ["-y", "@openmemory/mcp-server", "claude"],
+      "env": {}
+    }
+  }
+}`}
+                item="claude-config"
+              />
+              <p className="text-xs text-zinc-500 mt-2">
+                Location: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-sm mb-2">Cursor Config</p>
+              <p className="text-sm text-zinc-400 mb-2">
+                Add this to your Cursor configuration:
+              </p>
+              <CodeBlock 
+                code={`{
+  "mcpServers": {
+    "jean-memory-api": {
+      "command": "npx",
+      "args": ["-y", "@openmemory/mcp-server", "cursor"],
+      "env": {}
+    }
+  }
+}`}
+                item="cursor-config"
+              />
+              <p className="text-xs text-zinc-500 mt-2">
+                Location: ~/.cursor/config.json
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-sm mb-2">API Endpoint</p>
+              <p className="text-sm text-zinc-400">
+                The MCP server connects to: <code className="text-xs bg-zinc-800 px-2 py-1 rounded">https://api.jeanmemory.com</code>
               </p>
             </div>
           </CardContent>
