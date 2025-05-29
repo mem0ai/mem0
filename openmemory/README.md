@@ -90,6 +90,8 @@ Join us in building the future of AI memory management! Your contributions help 
 
 ## Licensing
 
-The `openmemory` module contains original work and modifications by Jean Technologies, Copyright (c) 2024 Jean Technologies. This work is licensed under the MIT License. A copy of this license can be found in the `LICENSE-JEAN.md` file in this directory.
+The `openmemory` module contains original work and modifications by Jean Technologies, Copyright (c) 2025 Jean Technologies. These contributions are proprietary and all rights are reserved. Unauthorized copying, modification, or distribution of this proprietary code is strictly prohibited. For licensing inquiries regarding these portions, please contact Jean Technologies.
+
+A copy of the proprietary notice can be found in the `LICENSE-JEAN.md` file in this directory.
 
 This project is a fork of and incorporates code from the `mem0` project (https://github.com/mem0ai/mem0), which is licensed under the Apache 2.0 License. The original Apache 2.0 license and copyright notices for `mem0` are maintained where applicable.
