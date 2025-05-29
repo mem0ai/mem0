@@ -923,51 +923,86 @@ async def smart_memory_query(search_query: str) -> str:
                 scout_context += f"{mem_id}: {memory_text}...\n"
             
             # Scout prompt - identify relevant content
-            scout_prompt = f"""You are a content scout. Your job is to identify which documents and memories are relevant to answer the user's query.
+            scout_prompt = f"""You are a helpful content filtering assistant. Your task is to identify relevant documents and memories from a user's personal knowledge base to help answer their question.
 
+USER'S QUESTION: {search_query}
+
+AVAILABLE CONTENT:
 {scout_context}
 
-Based on the user's query, identify:
-1. Which document IDs (DOC_X) contain relevant information
-2. Which memory IDs (MEM_X) are relevant
-3. Why each is relevant (one sentence)
+TASK: Review the document titles and memory previews above. Select items that might help answer the user's question.
 
-Be generous in your selection - it's better to include potentially relevant content than miss something important.
-Consider:
-- Direct mentions of topics in the query
-- Related concepts and themes
-- Historical context that might inform the answer
-- Personality traits, values, or patterns if asked about the person
+SELECTION CRITERIA:
+- Documents/memories that directly mention keywords from the query
+- Documents/memories about related topics or themes
+- Content that provides helpful context or background
+- When in doubt, include rather than exclude
 
-Format your response as:
-RELEVANT_DOCS: DOC_1, DOC_5, DOC_12
-RELEVANT_MEMORIES: MEM_3, MEM_7, MEM_15, MEM_22
-REASONING: Brief explanation of why these are relevant"""
+OUTPUT FORMAT (Please follow exactly):
+DOCUMENTS: [List document IDs separated by commas, e.g., DOC_0, DOC_3, DOC_7]
+MEMORIES: [List memory IDs separated by commas, e.g., MEM_2, MEM_5, MEM_9]
+REASON: [One sentence explaining your selection]
 
-            # Get Scout's recommendations
-            scout_response = await asyncio.to_thread(
-                gemini_flash.generate_content,
-                scout_prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.1,  # Low temperature for consistent selection
-                    max_output_tokens=1024
+Example output:
+DOCUMENTS: DOC_1, DOC_4, DOC_8
+MEMORIES: MEM_3, MEM_7, MEM_12
+REASON: Selected documents about innovation and memories mentioning the user's philosophy."""
+
+            # Get Scout's recommendations with safety settings
+            try:
+                scout_response = await asyncio.to_thread(
+                    gemini_flash.generate_content,
+                    scout_prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.1,  # Low temperature for consistent selection
+                        max_output_tokens=1024,
+                        # Add safety settings to reduce blocks
+                        candidate_count=1,
+                        stop_sequences=None,
+                    ),
+                    safety_settings={
+                        genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                        genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                        genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                        genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                    }
                 )
-            )
+                
+                # Check if response was blocked
+                if not scout_response.text:
+                    logger.warning("Scout response was empty, using fallback selection")
+                    # Fallback: select first few documents and memories
+                    scout_text = f"DOCUMENTS: {', '.join([f'DOC_{i}' for i in range(min(5, len(all_documents)))])}\n"
+                    scout_text += f"MEMORIES: {', '.join([f'MEM_{i}' for i in range(min(10, len(all_memories)))])}\n"
+                    scout_text += "REASON: Automatic selection due to filtering issue"
+                else:
+                    scout_text = scout_response.text
+                    
+            except Exception as e:
+                logger.warning(f"Scout failed with error: {e}, using fallback selection")
+                # Fallback selection
+                scout_text = f"DOCUMENTS: {', '.join([f'DOC_{i}' for i in range(min(5, len(all_documents)))])}\n"
+                scout_text += f"MEMORIES: {', '.join([f'MEM_{i}' for i in range(min(10, len(all_memories)))])}\n"
+                scout_text += "REASON: Automatic selection due to processing error"
             
-            scout_text = scout_response.text
             logger.info(f"Scout response: {scout_text[:200]}...")
             
-            # Parse Scout's recommendations
+            # Parse Scout's recommendations (more robust parsing)
             relevant_doc_ids = []
             relevant_mem_ids = []
             
-            if "RELEVANT_DOCS:" in scout_text:
-                docs_line = scout_text.split("RELEVANT_DOCS:")[1].split("\n")[0]
-                relevant_doc_ids = [d.strip() for d in docs_line.split(",") if d.strip().startswith("DOC_")]
-            
-            if "RELEVANT_MEMORIES:" in scout_text:
-                mems_line = scout_text.split("RELEVANT_MEMORIES:")[1].split("\n")[0]
-                relevant_mem_ids = [m.strip() for m in mems_line.split(",") if m.strip().startswith("MEM_")]
+            # Look for DOCUMENTS line
+            for line in scout_text.split('\n'):
+                if line.strip().upper().startswith("DOCUMENTS:"):
+                    docs_part = line.split(":", 1)[1].strip()
+                    # Remove brackets if present
+                    docs_part = docs_part.strip("[]")
+                    relevant_doc_ids = [d.strip() for d in docs_part.split(",") if d.strip().startswith("DOC_")]
+                elif line.strip().upper().startswith("MEMORIES:"):
+                    mems_part = line.split(":", 1)[1].strip()
+                    # Remove brackets if present
+                    mems_part = mems_part.strip("[]")
+                    relevant_mem_ids = [m.strip() for m in mems_part.split(",") if m.strip().startswith("MEM_")]
             
             # LAYER 2: ANALYST - Deep analysis of filtered content
             analyst_context = "=== RELEVANT CONTENT FOR ANALYSIS ===\n\n"
