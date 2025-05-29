@@ -44,7 +44,7 @@ class BackgroundProcessor:
         try:
             # Find documents that need chunking (limit to prevent memory issues)
             documents = db.query(Document).filter(
-                Document.metadata_['needs_chunking'].astext == 'true'
+                Document.metadata['needs_chunking'].astext == 'true'
             ).limit(5).all()  # Process 5 at a time
             
             if not documents:
@@ -61,11 +61,11 @@ class BackgroundProcessor:
                     chunks_created = chunking_service.chunk_document(db, doc)
                     
                     # Mark as processed
-                    if doc.metadata_ is None:
-                        doc.metadata_ = {}
-                    doc.metadata_["needs_chunking"] = False
-                    doc.metadata_["chunked_at"] = datetime.utcnow().isoformat()
-                    doc.metadata_["chunks_created"] = len(chunks_created)
+                    if doc.metadata is None:
+                        doc.metadata = {}
+                    doc.metadata["needs_chunking"] = False
+                    doc.metadata["chunked_at"] = datetime.utcnow().isoformat()
+                    doc.metadata["chunks_created"] = len(chunks_created)
                     
                     db.commit()
                     processed += 1

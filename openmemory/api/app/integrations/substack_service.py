@@ -4,6 +4,7 @@ Handles syncing Substack posts to documents and memories.
 """
 import asyncio
 import re
+import gc  # Add garbage collection for memory optimization
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -161,14 +162,14 @@ class SubstackService:
                 if should_skip:
                     continue
 
-                # Create document
+                # Create document (STORE FULL CONTENT in PostgreSQL)
                 doc = Document(
                     user_id=user.id,
                     app_id=app.id,
                     title=post.title,
                     source_url=post.url,
                     document_type="substack",
-                    content=post.content,
+                    content=post.content,  # Keep full content in PostgreSQL
                     metadata_={
                         "author": username,
                         "published_date": post.date.isoformat() if post.date else None,
@@ -181,19 +182,22 @@ class SubstackService:
                 db.add(doc)
                 db.flush()  # Get the ID immediately
 
-                # Create a LIGHTWEIGHT summary for immediate memory
+                # Create LIGHTWEIGHT summary for memory systems (LIMIT SIZE for vector DB)
                 summary_text = f"Essay: {post.title}"
-                if len(post.content) > 500:
-                    # Just take the beginning for immediate memory
-                    summary_text += f" - {post.content[:500]}..."
+                # For large posts, create a meaningful but limited summary
+                if len(post.content) > 1000:
+                    # Take first 800 chars for better context than just 500
+                    summary_text += f" - {post.content[:800]}..."
                 else:
                     summary_text += f" - {post.content}"
 
-                # Add to mem0 if available (lightweight version)
+                # Add to mem0 if available (HEAVILY LIMIT SIZE for vector DB memory efficiency)
                 if use_mem0 and memory_client:
                     try:
+                        # Strict limit for vector DB to prevent memory issues
+                        mem0_content = summary_text[:1200] if len(summary_text) > 1200 else summary_text
                         mem0_response = memory_client.add(
-                            messages=summary_text,
+                            messages=mem0_content,
                             user_id=supabase_user_id,
                             metadata={
                                 "source_app": "substack",
@@ -207,11 +211,11 @@ class SubstackService:
                     except Exception as e:
                         logger.error(f"Error adding to mem0: {e}")
 
-                # Create SQL memory record
+                # Create SQL memory record (can be longer than vector DB version)
                 summary_memory = Memory(
                     user_id=user.id,
                     app_id=app.id,
-                    content=summary_text,
+                    content=summary_text,  # Use the same summary (PostgreSQL can handle it)
                     metadata_={
                         "document_id": str(doc.id),
                         "type": "document_summary",
@@ -237,9 +241,17 @@ class SubstackService:
                 synced_count += 1
                 logger.info(f"Synced: {post.title} ({len(post.content)} chars)")
                 
+                # MEMORY OPTIMIZATION: Force garbage collection periodically
+                if i % 3 == 0:  # Every 3 posts, more frequent for large posts
+                    gc.collect()
+                    logger.info(f"Performed garbage collection after {i} posts")
+                
                 # Update progress after each successful sync
                 if progress_callback:
                     progress_callback(post_progress, f"Synced: {post.title}", synced_count)
+
+                # Small delay to prevent overwhelming the system
+                await asyncio.sleep(0.2)  # Slightly longer delay for stability
 
             if progress_callback:
                 progress_callback(100, f"Completed! Synced {synced_count} posts", synced_count)
