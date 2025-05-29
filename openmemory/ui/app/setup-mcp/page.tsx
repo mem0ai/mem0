@@ -114,19 +114,19 @@ export default function SetupMCPPage() {
               Installation (30 seconds)
             </CardTitle>
             <CardDescription>
-              Copy and paste this one command into your terminal
+              Copy and paste this command into your terminal
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-zinc-900 p-4 rounded-lg relative">
-              <code className="text-green-400 font-mono">
-                npx -y @openmemory/mcp-server [app-name]
+              <code className="text-green-400 font-mono text-sm">
+                npx install-mcp i https://api.jeanmemory.com/mcp/[client]/sse/[your-user-id] --client [client]
               </code>
               <Button
                 size="sm"
                 variant="ghost"
                 className="absolute top-2 right-2"
-                onClick={() => copyToClipboard('npx -y @openmemory/mcp-server', 'install-command')}
+                onClick={() => copyToClipboard('npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/[your-user-id] --client claude', 'install-command')}
               >
                 {copiedItem === 'install-command' ? (
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -136,26 +136,21 @@ export default function SetupMCPPage() {
               </Button>
             </div>
             
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-start gap-2">
-                <span className="text-blue-500 font-mono">claude</span>
-                <span className="text-zinc-400">for Claude Desktop</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-blue-500 font-mono">cursor</span>
-                <span className="text-zinc-400">for Cursor IDE</span>
-              </div>
+            <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Important:</strong> Replace <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded text-xs">[client]</code> with your AI app name and <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded text-xs">[your-user-id]</code> with your actual user ID from your dashboard.
+              </p>
             </div>
 
             <div className="text-sm text-zinc-400 space-y-2">
-              <p><strong>Examples:</strong></p>
-              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx -y @openmemory/mcp-server claude</code></p>
-              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx -y @openmemory/mcp-server cursor</code></p>
+              <p><strong>Examples for different AI apps:</strong></p>
+              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-id-here --client claude</code></p>
+              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/cursor/sse/your-id-here --client cursor</code></p>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>That's it!</strong> Restart your AI app and Jean Memory will be available in the tools menu.
+                <strong>To get your personal command:</strong> Sign up at <a href="/auth" className="underline hover:no-underline">jeantechnologies.com</a>, then visit your dashboard for the exact command with your user ID already filled in.
               </p>
             </div>
           </CardContent>
