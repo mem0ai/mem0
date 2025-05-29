@@ -120,7 +120,7 @@ export default function SetupMCPPage() {
           <CardContent className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Step 1:</strong> Sign up at <a href="/auth" className="underline hover:no-underline">jeantechnologies.com</a>
+                <strong>Step 1:</strong> Sign up at <a href="/auth" className="underline hover:no-underline">jeanmemory.com</a>
               </p>
             </div>
 
