@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.integrations.substack_service import SubstackService
 from app.services.chunking_service import ChunkingService
-from app.models import User, Document, Chunk
+from app.models import User, Document, DocumentChunk
 from sqlalchemy import text
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
@@ -114,7 +114,7 @@ class BackgroundProcessor:
             cleared = 0
             for doc in stuck_docs:
                 # Check if this document already has chunks
-                existing_chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).count()
+                existing_chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == doc.id).count()
                 
                 if existing_chunks > 0:
                     # Document already has chunks, clear the flag
