@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       
       const data = await resend.emails.send({
         from: 'Jean Memory Support <onboarding@resend.dev>',
-        to: ['jonathan@jeantechnologies.com'],
+        to: ['politzki18@gmail.com'], // Temporary: change back to jonathan@jeantechnologies.com after domain verification
         replyTo: email,
         subject: `Jean Memory Support Request from ${name}`,
         html: `
