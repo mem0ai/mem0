@@ -7,7 +7,7 @@ import re
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 
-from app.models import Document, Memory, User, App, document_memories
+from app.models import Document, Memory, User, App, document_memories, MemoryState
 from app.integrations.substack_scraper import SubstackScraper, Post
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
@@ -112,14 +112,31 @@ class SubstackService:
             for i, post in enumerate(posts, 1):
                 logger.info(f"Processing post {i}/{len(posts)}: {post.title}")
                 
-                # Check if document already exists
+                # Check if document already exists and has active content
                 existing_doc = db.query(Document).filter(
                     Document.source_url == post.url,
                     Document.user_id == user.id
                 ).first()
                 
+                should_skip = False
                 if existing_doc:
-                    logger.info(f"Skipping existing post: {post.title}")
+                    # Check if this document has any active memories
+                    active_memories = db.query(Memory).filter(
+                        Memory.user_id == user.id,
+                        Memory.state == MemoryState.active,
+                        Memory.metadata_['document_id'].astext == str(existing_doc.id)
+                    ).count()
+                    
+                    if active_memories > 0:
+                        logger.info(f"Skipping existing post with active memories: {post.title}")
+                        should_skip = True
+                    else:
+                        # Document exists but no active memories - allow re-import by removing old document
+                        logger.info(f"Re-importing post (no active memories found): {post.title}")
+                        db.delete(existing_doc)
+                        db.flush()
+                
+                if should_skip:
                     continue
                 
                 # Create document
