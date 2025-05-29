@@ -15,16 +15,15 @@ title: AWS Bedrock
 import os
 from mem0 import Memory
 
-os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
-os.environ['AWS_REGION'] = 'us-east-1'
-os.environ["AWS_ACCESS_KEY"] = "xx"
+os.environ['AWS_REGION'] = 'us-west-2'
+os.environ["AWS_ACCESS_KEY_ID"] = "xx"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "xx"
 
 config = {
     "llm": {
         "provider": "aws_bedrock",
         "config": {
-            "model": "arn:aws:bedrock:us-east-1:123456789012:model/your-model-name",
+            "model": "anthropic.claude-3-5-haiku-20241022-v1:0",
             "temperature": 0.2,
             "max_tokens": 2000,
         }

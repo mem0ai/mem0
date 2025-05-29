@@ -1,53 +1,75 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "mem0ai"
-version = "0.1.98"
+version = "0.1.102"
 description = "Long-term memory for AI Agents"
-authors = ["Mem0 <founders@mem0.ai>"]
-exclude = [
-    "db",
-    "configs",
-    "notebooks",
-    "embedchain",
-    "evaluation",
-    "mem0-ts",
-    "examples",
-    "vercel-ai-sdk",
-    "docs",
-]
-packages = [
-    { include = "mem0" },
+authors = [
+    { name = "Mem0", email = "founders@mem0.ai" }
 ]
 readme = "README.md"
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    "qdrant-client>=1.9.1",
+    "pydantic>=2.7.3",
+    "openai>=1.33.0",
+    "posthog>=3.5.0",
+    "pytz>=2024.1",
+    "sqlalchemy>=2.0.31",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-qdrant-client = "^1.9.1"
-pydantic = "^2.7.3"
-openai = "^1.33.0"
-posthog = "^3.5.0"
-pytz = "^2024.1"
-sqlalchemy = "^2.0.31"
-langchain-neo4j = "^0.4.0"
-neo4j = "^5.23.1"
-rank-bm25 = "^0.2.2"
+[project.optional-dependencies]
+graph = [
+    "langchain-neo4j>=0.4.0",
+    "neo4j>=5.23.1",
+    "rank-bm25>=0.2.2",
+]
+test = [
+    "pytest>=8.2.2",
+    "pytest-mock>=3.14.0",
+    "pytest-asyncio>=0.23.7",
+]
+dev = [
+    "ruff>=0.6.5",
+    "isort>=5.13.2",
+    "pytest>=8.2.2",
+]
 
-[tool.poetry.extras]
-graph = ["langchain-neo4j", "neo4j", "rank-bm25"]
+[tool.hatch.build]
+include = [
+    "mem0/**/*.py",
+]
+exclude = [
+    "**/*",
+    "!mem0/**/*.py",
+]
 
-[tool.poetry.group.test.dependencies]
-pytest = "^8.2.2"
-pytest-mock = "^3.14.0"
-pytest-asyncio = "^0.23.7"
+[tool.hatch.build.targets.wheel]
+packages = ["mem0"]
+only-include = ["mem0"]
 
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.6.5"
-isort = "^5.13.2"
-pytest = "^8.2.2"
+[tool.hatch.build.targets.wheel.shared-data]
+"README.md" = "README.md"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.hatch.envs.default.scripts]
+format = [
+    "ruff format",
+]
+format-check = [
+    "ruff format --check",
+]
+lint = [
+    "ruff check",
+]
+lint-fix = [
+    "ruff check --fix",
+]
+test = [
+    "pytest tests/ {args}",
+]
 
 [tool.ruff]
 line-length = 120
-exclude = ["embedchain/"]
+exclude = ["embedchain/", "openmemory/"]

@@ -3,7 +3,7 @@ import logging
 import os
 import warnings
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import httpx
 import requests
@@ -95,10 +95,7 @@ class MemoryClient:
             self.client = client
             # Ensure the client has the correct base_url and headers
             self.client.base_url = httpx.URL(self.host)
-            self.client.headers.update({
-                "Authorization": f"Token {self.api_key}",
-                "Mem0-User-ID": self.user_id
-            })
+            self.client.headers.update({"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id})
         else:
             self.client = httpx.Client(
                 base_url=self.host,
@@ -132,11 +129,11 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
-            messages: Either a string message or a list of message dictionaries.
+            messages: A list of message dictionaries.
             **kwargs: Additional parameters such as user_id, agent_id, app_id, metadata, filters.
 
         Returns:
@@ -237,7 +234,9 @@ class MemoryClient:
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
-        capture_client_event("client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "sync"})
+        capture_client_event(
+            "client.search", self, {"api_version": version, "keys": list(kwargs.keys()), "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
@@ -357,10 +356,7 @@ class MemoryClient:
         else:
             entities = self.users()
             # Filter entities based on provided IDs using list comprehension
-            to_delete = [
-                {"type": entity["type"], "name": entity["name"]}
-                for entity in entities["results"]
-            ]
+            to_delete = [{"type": entity["type"], "name": entity["name"]} for entity in entities["results"]]
 
         params = self._prepare_params()
 
@@ -373,7 +369,9 @@ class MemoryClient:
             response.raise_for_status()
 
         capture_client_event(
-            "client.delete_users", self, {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id, "sync_type": "sync"}
+            "client.delete_users",
+            self,
+            {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id, "sync_type": "sync"},
         )
         return {
             "message": "Entity deleted successfully."
@@ -454,7 +452,9 @@ class MemoryClient:
         """
         response = self.client.post("/v1/exports/", json={"schema": schema, **self._prepare_params(kwargs)})
         response.raise_for_status()
-        capture_client_event("client.create_memory_export", self, {"schema": schema, "keys": list(kwargs.keys()), "sync_type": "sync"})
+        capture_client_event(
+            "client.create_memory_export", self, {"schema": schema, "keys": list(kwargs.keys()), "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
@@ -527,7 +527,11 @@ class MemoryClient:
             )
 
         payload = self._prepare_params(
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria}
+            {
+                "custom_instructions": custom_instructions,
+                "custom_categories": custom_categories,
+                "retrieval_criteria": retrieval_criteria,
+            }
         )
         response = self.client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
@@ -537,7 +541,12 @@ class MemoryClient:
         capture_client_event(
             "client.update_project",
             self,
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria, "sync_type": "sync"},
+            {
+                "custom_instructions": custom_instructions,
+                "custom_categories": custom_categories,
+                "retrieval_criteria": retrieval_criteria,
+                "sync_type": "sync",
+            },
         )
         return response.json()
 
@@ -658,7 +667,7 @@ class MemoryClient:
         return response.json()
 
     def _prepare_payload(
-        self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
+        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
@@ -670,10 +679,7 @@ class MemoryClient:
             A dictionary containing the prepared payload.
         """
         payload = {}
-        if isinstance(messages, str):
-            payload["messages"] = [{"role": "user", "content": messages}]
-        elif isinstance(messages, list):
-            payload["messages"] = messages
+        payload["messages"] = messages
 
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
@@ -750,10 +756,7 @@ class AsyncMemoryClient:
             self.async_client = client
             # Ensure the client has the correct base_url and headers
             self.async_client.base_url = httpx.URL(self.host)
-            self.async_client.headers.update({
-                "Authorization": f"Token {self.api_key}",
-                "Mem0-User-ID": self.user_id
-            })
+            self.async_client.headers.update({"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id})
         else:
             self.async_client = httpx.AsyncClient(
                 base_url=self.host,
@@ -768,7 +771,11 @@ class AsyncMemoryClient:
         """Validate the API key by making a test request."""
         try:
             params = self._prepare_params()
-            response = requests.get(f"{self.host}/v1/ping/", headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id}, params=params)
+            response = requests.get(
+                f"{self.host}/v1/ping/",
+                headers={"Authorization": f"Token {self.api_key}", "Mem0-User-ID": self.user_id},
+                params=params,
+            )
             data = response.json()
 
             response.raise_for_status()
@@ -788,7 +795,7 @@ class AsyncMemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     def _prepare_payload(
-        self, messages: Union[str, List[Dict[str, str]], None], kwargs: Dict[str, Any]
+        self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Prepare the payload for API requests.
 
@@ -800,10 +807,7 @@ class AsyncMemoryClient:
             A dictionary containing the prepared payload.
         """
         payload = {}
-        if isinstance(messages, str):
-            payload["messages"] = [{"role": "user", "content": messages}]
-        elif isinstance(messages, list):
-            payload["messages"] = messages
+        payload["messages"] = messages
 
         payload.update({k: v for k, v in kwargs.items() if v is not None})
         return payload
@@ -840,7 +844,7 @@ class AsyncMemoryClient:
         await self.async_client.aclose()
 
     @api_error_handler
-    async def add(self, messages: Union[str, List[Dict[str, str]]], **kwargs) -> Dict[str, Any]:
+    async def add(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         kwargs = self._prepare_params(kwargs)
         if kwargs.get("output_format") != "v1.1":
             kwargs["output_format"] = "v1.1"
@@ -973,10 +977,7 @@ class AsyncMemoryClient:
         else:
             entities = await self.users()
             # Filter entities based on provided IDs using list comprehension
-            to_delete = [
-                {"type": entity["type"], "name": entity["name"]}
-                for entity in entities["results"]
-            ]
+            to_delete = [{"type": entity["type"], "name": entity["name"]} for entity in entities["results"]]
 
         params = self._prepare_params()
 
@@ -988,7 +989,11 @@ class AsyncMemoryClient:
             response = await self.async_client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
             response.raise_for_status()
 
-        capture_client_event("client.delete_users", self, {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id, "sync_type": "async"})
+        capture_client_event(
+            "client.delete_users",
+            self,
+            {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id, "sync_type": "async"},
+        )
         return {
             "message": "Entity deleted successfully."
             if (user_id or agent_id or app_id or run_id)
@@ -1091,8 +1096,10 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def update_project(
-        self, custom_instructions: Optional[str] = None, custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[List[str]] = None,
+        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
@@ -1103,7 +1110,11 @@ class AsyncMemoryClient:
             )
 
         payload = self._prepare_params(
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria}
+            {
+                "custom_instructions": custom_instructions,
+                "custom_categories": custom_categories,
+                "retrieval_criteria": retrieval_criteria,
+            }
         )
         response = await self.async_client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
@@ -1113,7 +1124,12 @@ class AsyncMemoryClient:
         capture_client_event(
             "client.update_project",
             self,
-            {"custom_instructions": custom_instructions, "custom_categories": custom_categories, "retrieval_criteria": retrieval_criteria, "sync_type": "async"},
+            {
+                "custom_instructions": custom_instructions,
+                "custom_categories": custom_categories,
+                "retrieval_criteria": retrieval_criteria,
+                "sync_type": "async",
+            },
         )
         return response.json()
 

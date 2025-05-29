@@ -45,21 +45,22 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
-                      "features/platform-overview",
-                      "features/advanced-retrieval",
-                      "features/contextual-add",
-                      "features/multimodal-support",
-                      "features/timestamp",
-                      "features/selective-memory",
-                      "features/custom-categories",
-                      "features/custom-instructions",
-                      "features/direct-import",
-                      "features/async-client",
-                      "features/memory-export",
-                      "features/webhooks",
-                      "features/graph-memory",
-                      "features/feedback-mechanism",
-                      "features/expiration-date"
+                      "platform/features/platform-overview",
+                      "platform/features/advanced-retrieval",
+                      "platform/features/criteria-retrieval",
+                      "platform/features/contextual-add",
+                      "platform/features/multimodal-support",
+                      "platform/features/timestamp",
+                      "platform/features/selective-memory",
+                      "platform/features/custom-categories",
+                      "platform/features/custom-instructions",
+                      "platform/features/direct-import",
+                      "platform/features/async-client",
+                      "platform/features/memory-export",
+                      "platform/features/webhooks",
+                      "platform/features/graph-memory",
+                      "platform/features/feedback-mechanism",
+                      "platform/features/expiration-date"
                     ]
                   }
                 ]
@@ -76,10 +77,10 @@
                     "icon": "wrench",
                     "pages": [
                       "open-source/features/async-memory",
-                      "features/openai_compatibility",
-                      "features/custom-fact-extraction-prompt",
-                      "features/custom-update-memory-prompt",
-                      "open-source/multimodal-support",
+                      "open-source/features/openai_compatibility",
+                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-update-memory-prompt",
+                      "open-source/features/multimodal-support",
                       "open-source/features/rest-api"
                     ]
                   },
@@ -114,6 +115,7 @@
                           "components/llms/models/gemini",
                           "components/llms/models/deepseek",
                           "components/llms/models/xAI",
+                          "components/llms/models/sarvam",
                           "components/llms/models/lmstudio",
                           "components/llms/models/langchain"
                         ]
@@ -185,6 +187,14 @@
             ]
           },
           {
+            "tab": "OpenMemory",
+            "icon": "square-terminal",
+            "pages": [
+              "openmemory/overview",
+              "openmemory/quickstart"
+            ]
+          },
+          {
             "tab": "Examples",
             "groups": [
               {
@@ -192,8 +202,11 @@
                 "icon": "lightbulb",
                 "pages": [
                   "examples",
+                  "examples/aws_example",
                   "examples/mem0-demo",
                   "examples/ai_companion_js",
+                  "examples/collaborative-task-agent",
+                  "examples/eliza_os",
                   "examples/mem0-mastra",
                   "examples/mem0-with-ollama",
                   "examples/personal-ai-tutor",
@@ -207,6 +220,7 @@
                   "examples/mem0-agentic-tool",
                   "examples/openai-inbuilt-tools",
                   "examples/mem0-openai-voice-demo",
+                  "examples/mem0-google-adk-healthcare-assistant",
                   "examples/email_processing",
                   "examples/youtube-assistant"
                 ]
@@ -235,7 +249,9 @@
                   "integrations/elevenlabs",
                   "integrations/pipecat",
                   "integrations/agno",
-                  "integrations/keywords"
+                  "integrations/keywords",
+                  "integrations/raycast",
+                  "integrations/mastra"
                 ]
               }
             ]

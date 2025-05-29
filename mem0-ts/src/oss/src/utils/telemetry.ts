@@ -4,7 +4,7 @@ import type {
   TelemetryEventData,
 } from "./telemetry.types";
 
-let version = "2.1.16";
+let version = "2.1.26";
 
 // Safely check for process.env in different environments
 let MEM0_TELEMETRY = true;

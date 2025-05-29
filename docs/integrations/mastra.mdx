@@ -1,0 +1,136 @@
+---
+title: Mastra
+---
+
+<Snippet file="paper-release.mdx" />
+
+The [**Mastra**](https://mastra.ai/) integration demonstrates how to use Mastra's agent system with Mem0 as the memory backend through custom tools. This enables agents to remember and recall information across conversations.
+
+## Overview
+
+In this guide, we'll create a Mastra agent that:
+1. Uses Mem0 to store information using a memory tool
+2. Retrieves relevant memories using a search tool
+3. Provides personalized responses based on past interactions
+4. Maintains context across conversations and sessions
+
+## Setup and Configuration
+
+Install the required libraries:
+
+```bash
+npm install @mastra/core @mastra/mem0 @ai-sdk/openai zod
+```
+
+Set up your environment variables:
+
+<Note>Remember to get the Mem0 API key from [Mem0 Platform](https://app.mem0.ai).</Note>
+
+```bash
+MEM0_API_KEY=your-mem0-api-key
+OPENAI_API_KEY=your-openai-api-key
+```
+
+## Initialize Mem0 Integration
+
+Import required modules and set up the Mem0 integration:
+
+```typescript
+import { Mem0Integration } from '@mastra/mem0';
+import { createTool } from '@mastra/core/tools';
+import { Agent } from '@mastra/core/agent';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
+
+// Initialize Mem0 integration
+const mem0 = new Mem0Integration({
+  config: {
+    apiKey: process.env.MEM0_API_KEY || '',
+    user_id: 'alice', // Unique user identifier
+  },
+});
+```
+
+## Create Memory Tools
+
+Set up tools for memorizing and remembering information:
+
+```typescript
+// Tool for remembering saved memories
+const mem0RememberTool = createTool({
+  id: 'Mem0-remember',
+  description: "Remember your agent memories that you've previously saved using the Mem0-memorize tool.",
+  inputSchema: z.object({
+    question: z.string().describe('Question used to look up the answer in saved memories.'),
+  }),
+  outputSchema: z.object({
+    answer: z.string().describe('Remembered answer'),
+  }),
+  execute: async ({ context }) => {
+    console.log(`Searching memory "${context.question}"`);
+    const memory = await mem0.searchMemory(context.question);
+    console.log(`\nFound memory "${memory}"\n`);
+
+    return {
+      answer: memory,
+    };
+  },
+});
+
+// Tool for saving new memories
+const mem0MemorizeTool = createTool({
+  id: 'Mem0-memorize',
+  description: 'Save information to mem0 so you can remember it later using the Mem0-remember tool.',
+  inputSchema: z.object({
+    statement: z.string().describe('A statement to save into memory'),
+  }),
+  execute: async ({ context }) => {
+    console.log(`\nCreating memory "${context.statement}"\n`);
+    // To reduce latency, memories can be saved async without blocking tool execution
+    void mem0.createMemory(context.statement).then(() => {
+      console.log(`\nMemory "${context.statement}" saved.\n`);
+    });
+    return { success: true };
+  },
+});
+```
+
+## Create Mastra Agent
+
+Initialize an agent with memory tools and clear instructions:
+
+```typescript
+// Create an agent with memory tools
+const mem0Agent = new Agent({
+  name: 'Mem0 Agent',
+  instructions: `
+    You are a helpful assistant that has the ability to memorize and remember facts using Mem0.
+    Use the Mem0-memorize tool to save important information that might be useful later.
+    Use the Mem0-remember tool to recall previously saved information when answering questions.
+  `,
+  model: openai('gpt-4o'),
+  tools: { mem0RememberTool, mem0MemorizeTool },
+});
+```
+
+
+## Key Features
+
+1. **Tool-based Memory Control**: The agent decides when to save and retrieve information using specific tools
+2. **Semantic Search**: Mem0 finds relevant memories based on semantic similarity, not just exact matches
+3. **User-specific Memory Spaces**: Each user_id maintains separate memory contexts
+4. **Asynchronous Saving**: Memories are saved in the background to reduce response latency
+5. **Cross-conversation Persistence**: Memories persist across different conversation threads
+6. **Transparent Operations**: Memory operations are visible through tool usage
+
+## Conclusion
+
+By integrating Mastra with Mem0, you can build intelligent agents that learn and remember information across conversations. The tool-based approach provides transparency and control over memory operations, making it easy to create personalized and context-aware AI experiences.
+
+## Help
+
+- For more details on Mastra, visit the [Mastra documentation](https://docs.mastra.ai/).
+- For Mem0 documentation, refer to the [Mem0 Platform](https://app.mem0.ai/).
+- If you need further assistance, please feel free to reach out to us through the following methods:
+
+<Snippet file="get-help.mdx" /> 

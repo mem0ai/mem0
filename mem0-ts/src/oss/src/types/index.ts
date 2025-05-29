@@ -39,6 +39,7 @@ export interface HistoryStoreConfig {
 
 export interface LLMConfig {
   provider?: string;
+  baseURL?: string;
   config?: Record<string, any>;
   apiKey?: string;
   model?: string | any;

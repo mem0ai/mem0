@@ -44,25 +44,24 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+      - name: Install Hatch
+        run: pip install hatch
       - name: Load cached venv
-        id: cached-poetry-dependencies
+        id: cached-hatch-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
-        run: make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          make install_all
+          pip install -e ".[test]"
+          pip install pinecone pinecone-text
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
-          mkdir -p mem0/.ruff_cache && chmod -R 777 mem0/.ruff_cache
-          cd mem0 && poetry run ruff check . --select F
+          mkdir -p .ruff_cache && chmod -R 777 .ruff_cache
+          hatch run format
       - name: Run tests and generate coverage report
         run: make test
 
@@ -79,25 +78,21 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+      - name: Install Hatch
+        run: pip install hatch
       - name: Load cached venv
-        id: cached-poetry-dependencies
+        id: cached-hatch-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
         run: cd embedchain && make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
           mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
-          cd embedchain && poetry run ruff check . --select F
+          cd embedchain && hatch run format
       - name: Lint with ruff
         run: cd embedchain && make lint
       - name: Run tests and generate coverage report
