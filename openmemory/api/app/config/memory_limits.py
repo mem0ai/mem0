@@ -31,6 +31,13 @@ class MemoryLimits(BaseModel):
     # Vector search score thresholds
     min_relevance_score: float = 0.7  # Minimum score to consider a memory relevant
     
+    # Smart memory query limits (for performance)
+    smart_batch_size: int = 10  # Process documents in batches
+    smart_content_preview: int = 1000  # Chars to preview per document
+    smart_max_docs_analysis: int = 3  # Max docs to send to analyst
+    smart_doc_content_limit: int = 5000  # Max chars per doc for analyst
+    smart_max_memories_analysis: int = 10  # Max memories for analyst
+    
     @classmethod
     def get_defaults(cls) -> "MemoryLimits":
         """Get default memory limits"""

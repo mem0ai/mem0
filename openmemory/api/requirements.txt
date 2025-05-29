@@ -18,3 +18,4 @@ feedparser>=6.0.0
 python-dateutil>=2.8.0
 google-generativeai>=0.3.0
 beautifulsoup4>=4.12.0
+psutil>=5.9.0

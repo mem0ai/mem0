@@ -1,5 +1,6 @@
 import logging
 import json
+import gc  # Add garbage collection
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from app.utils.memory import get_memory_client
@@ -800,7 +801,7 @@ async def smart_memory_query(search_query: str) -> str:
             all_db_documents = db.query(Document).filter(Document.user_id == user.id).all()
             
             # Process documents in batches to avoid memory issues
-            BATCH_SIZE = 10  # Process 10 documents at a time
+            BATCH_SIZE = MEMORY_LIMITS.smart_batch_size  # Use config value
             query_focused_extracts = []
             
             async def _extract_query_focused_snippet(doc_idx: int, document: Document, flash_model: genai.GenerativeModel, current_query: str):
@@ -808,11 +809,11 @@ async def smart_memory_query(search_query: str) -> str:
                     return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': "[No content to extract from]", 'original_doc': document, 'status': 'no_content'}
                 
                 # Limit content size to prevent memory issues
-                content_preview = (document.content or '')[:1000]
+                content_preview = (document.content or '')[:MEMORY_LIMITS.smart_content_preview]
                 
                 extraction_prompt = f"""Given the user's query: '{current_query}'
 
-Review the following document content (first ~1000 characters):
+Review the following document content (first ~{MEMORY_LIMITS.smart_content_preview} characters):
 Title: {document.title}
 Content Snippet: {content_preview}...
 
@@ -859,7 +860,21 @@ Relevant Snippet/Answer (or 'Not relevant'):"""
                     except asyncio.TimeoutError:
                         logger.warning(f"Batch {i//BATCH_SIZE + 1} timed out, continuing with next batch")
                         continue
+                    finally:
+                        # Clean up batch data to free memory
+                        del batch
+                        del batch_tasks
+                        if 'batch_results' in locals():
+                            del batch_results
+                        
+                        # Force garbage collection every few batches
+                        if (i // BATCH_SIZE + 1) % 5 == 0:
+                            gc.collect()
             
+            # Clean up document list after processing
+            del all_db_documents
+            gc.collect()
+
             # Limit memories to prevent memory issues
             memories_raw = memory_client.search(query=search_query, user_id=supa_uid, limit=20)
             top_memories = memories_raw['results'] if isinstance(memories_raw, dict) and 'results' in memories_raw else (memories_raw if isinstance(memories_raw, list) else [])
@@ -953,13 +968,26 @@ REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly ad
 
             if selected_doc_objects:
                 analyst_context += "SELECTED DOCUMENTS (Full Content):\\n"
-                for doc_obj in selected_doc_objects:
-                    analyst_context += f"Title: {doc_obj.title}\\nContent (up to 10k chars):\\n{(doc_obj.content or '')[:10000]}...\\n---\\n"
+                # Limit to prevent memory issues
+                max_docs_for_analysis = min(len(selected_doc_objects), MEMORY_LIMITS.smart_max_docs_analysis)
+                for idx, doc_obj in enumerate(selected_doc_objects[:max_docs_for_analysis]):
+                    # Limit content size per document
+                    content_limit = MEMORY_LIMITS.smart_doc_content_limit
+                    doc_content = (doc_obj.content or '')[:content_limit]
+                    analyst_context += f"Document {idx + 1}: {doc_obj.title}\\nContent:\\n{doc_content}...\\n---\\n"
+                
+                if len(selected_doc_objects) > max_docs_for_analysis:
+                    analyst_context += f"\\n(Note: {len(selected_doc_objects) - max_docs_for_analysis} additional documents were selected but omitted to prevent overload)\\n"
             
             if selected_memory_objects:
                 analyst_context += "\\nSELECTED MEMORIES:\\n"
-                for mem_obj in selected_memory_objects:
+                # Limit memories to prevent issues
+                max_memories = min(len(selected_memory_objects), MEMORY_LIMITS.smart_max_memories_analysis)
+                for mem_obj in selected_memory_objects[:max_memories]:
                     analyst_context += f"- {mem_obj.get('memory', mem_obj.get('content', ''))}\\n"
+                
+                if len(selected_memory_objects) > max_memories:
+                    analyst_context += f"\\n(Note: {len(selected_memory_objects) - max_memories} additional memories omitted)\\n"
             
             if not selected_doc_objects and not selected_memory_objects:
                  analyst_context += "No specific documents or memories were selected by the AI orchestrator as highly relevant. The user query may need to be rephrased or the knowledge base may not contain relevant information."
@@ -1224,6 +1252,15 @@ async def handle_sse(request: Request):
 async def mcp_health_check(client_name: str, user_id: str):
     """Health check endpoint for MCP connections"""
     try:
+        import psutil
+        import os
+        
+        # Get memory usage
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        memory_usage_mb = memory_info.rss / 1024 / 1024  # Convert to MB
+        memory_percent = process.memory_percent()
+        
         # Basic validation
         if not user_id or not client_name:
             return {"status": "error", "message": "Missing user_id or client_name"}
@@ -1237,13 +1274,36 @@ async def mcp_health_check(client_name: str, user_id: str):
                     "status": "healthy", 
                     "user_id": user_id, 
                     "client_name": client_name,
-                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+                    "memory_usage_mb": round(memory_usage_mb, 2),
+                    "memory_percent": round(memory_percent, 2),
+                    "warning": "high_memory_usage" if memory_percent > 80 else None
                 }
             else:
                 return {"status": "error", "message": "User not found"}
         finally:
             db.close()
             
+    except ImportError:
+        # If psutil is not available, still return basic health
+        try:
+            db = SessionLocal()
+            try:
+                user = get_or_create_user(db, user_id, None)
+                if user:
+                    return {
+                        "status": "healthy", 
+                        "user_id": user_id, 
+                        "client_name": client_name,
+                        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+                    }
+                else:
+                    return {"status": "error", "message": "User not found"}
+            finally:
+                db.close()
+        except Exception as e:
+            logging.error(f"MCP health check error: {e}")
+            return {"status": "error", "message": str(e)}
     except Exception as e:
         logging.error(f"MCP health check error: {e}")
         return {"status": "error", "message": str(e)}
