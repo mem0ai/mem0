@@ -274,7 +274,8 @@ async def search_memory(query: str, limit: int = None) -> str:
 
 
 async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit: int = 10) -> str:
-    """Implementation of search_memory with timeout protection"""
+    """Implementation of search memory with error handling and timeout"""
+    from app.utils.memory import get_memory_client
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
@@ -336,6 +337,7 @@ async def list_memories(limit: int = None) -> str:
 
 async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) -> str:
     """Implementation of list_memories with timeout protection"""
+    from app.utils.memory import get_memory_client
     memory_client = get_memory_client()
     db = SessionLocal()
     try:
