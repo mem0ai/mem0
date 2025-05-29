@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       const resend = new Resend(process.env.RESEND_API_KEY);
       
       const data = await resend.emails.send({
-        from: 'Jean Memory Support <onboarding@resend.dev>',
-        to: ['politzki18@gmail.com'], // Temporary: change back to jonathan@jeantechnologies.com after domain verification
+        from: 'Jean Memory Support <support@jeantechnologies.com>',
+        to: ['jonathan@jeantechnologies.com'],
         replyTo: email,
         subject: `Jean Memory Support Request from ${name}`,
         html: `

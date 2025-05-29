@@ -106,9 +106,9 @@ export function Navbar() {
   const navLinks = [
     { href: "/dashboard", icon: <HiHome />, label: "Dashboard" },
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
-    { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "My Life" },
+    { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "Life Graph" },
     { href: "/apps", icon: <RiApps2AddFill />, label: "Apps" },
-    { href: "/setup-mcp", icon: <Settings2 className="w-4 h-4" />, label: "MCP Setup" },
+    { href: "/setup-mcp", icon: <Settings2 className="w-4 h-4" />, label: "How to Use" },
   ];
 
   return (

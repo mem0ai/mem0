@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
-import { Brain, ExternalLink, MessageCircle, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
+import { Brain, ExternalLink, MessageCircle, Sparkles, ArrowRight, CheckCircle, Terminal, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function SetupMCPPage() {
@@ -17,6 +17,7 @@ export default function SetupMCPPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +47,12 @@ export default function SetupMCPPage() {
     }
   };
 
+  const copyToClipboard = (text: string, item: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedItem(item);
+    setTimeout(() => setCopiedItem(null), 2000);
+  };
+
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="space-y-8">
@@ -53,14 +60,14 @@ export default function SetupMCPPage() {
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold flex items-center justify-center gap-3">
             <Brain className="h-10 w-10 text-purple-500" />
-            Connect Jean Memory to Your AI Assistant
+            How to Use Jean Memory
           </h1>
           <p className="text-xl text-zinc-400">
-            Give your AI assistant access to your personal memory in just a few clicks
+            Connect your personal memory to any AI assistant in seconds
           </p>
           <div className="flex justify-center gap-2">
-            <Badge variant="secondary">No Technical Skills Required</Badge>
-            <Badge variant="secondary">Works in Minutes</Badge>
+            <Badge variant="secondary">One Simple Command</Badge>
+            <Badge variant="secondary">Works Everywhere</Badge>
           </div>
         </div>
 
@@ -99,60 +106,60 @@ export default function SetupMCPPage() {
           </CardContent>
         </Card>
 
-        {/* Easy Setup */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <img src="/images/claude-icon.png" alt="Claude" className="h-6 w-6" onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }} />
-                Claude Desktop Users
-              </CardTitle>
-              <CardDescription>
-                If you use Claude Desktop on your computer
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm space-y-2">
-                <p>1. Open Claude Desktop</p>
-                <p>2. Look for "Jean Memory" in the tools menu</p>
-                <p>3. Start talking to your AI naturally!</p>
-              </div>
-              <Button className="w-full" asChild>
-                <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">
-                  Get Claude Desktop <ExternalLink className="h-4 w-4 ml-2" />
-                </a>
+        {/* Simple Installation */}
+        <Card className="border-green-500/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5 text-green-500" />
+              Installation (30 seconds)
+            </CardTitle>
+            <CardDescription>
+              Copy and paste this one command into your terminal
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-zinc-900 p-4 rounded-lg relative">
+              <code className="text-green-400 font-mono">
+                npx -y @openmemory/mcp-server [app-name]
+              </code>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="absolute top-2 right-2"
+                onClick={() => copyToClipboard('npx -y @openmemory/mcp-server', 'install-command')}
+              >
+                {copiedItem === 'install-command' ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div className="flex items-start gap-2">
+                <span className="text-blue-500 font-mono">claude</span>
+                <span className="text-zinc-400">for Claude Desktop</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-blue-500 font-mono">cursor</span>
+                <span className="text-zinc-400">for Cursor IDE</span>
+              </div>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <img src="/images/cursor-icon.png" alt="Cursor" className="h-6 w-6" onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }} />
-                Cursor IDE Users
-              </CardTitle>
-              <CardDescription>
-                If you use Cursor for coding
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm space-y-2">
-                <p>1. Open Cursor IDE</p>
-                <p>2. Look for "Jean Memory" in the AI chat</p>
-                <p>3. Start having smarter coding conversations!</p>
-              </div>
-              <Button className="w-full" asChild>
-                <a href="https://cursor.sh" target="_blank" rel="noopener noreferrer">
-                  Get Cursor IDE <ExternalLink className="h-4 w-4 ml-2" />
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="text-sm text-zinc-400 space-y-2">
+              <p><strong>Examples:</strong></p>
+              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx -y @openmemory/mcp-server claude</code></p>
+              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx -y @openmemory/mcp-server cursor</code></p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>That's it!</strong> Restart your AI app and Jean Memory will be available in the tools menu.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Example Conversations */}
         <Card>
@@ -252,7 +259,7 @@ export default function SetupMCPPage() {
         <Alert>
           <Sparkles className="h-4 w-4" />
           <AlertDescription>
-            <strong>Ready to get started?</strong> Download Claude Desktop or Cursor IDE above, and Jean Memory will be waiting for you!
+            <strong>Ready to get started?</strong> Copy the command above, paste it in your terminal, and restart your AI app. Jean Memory will be waiting for you!
           </AlertDescription>
         </Alert>
       </div>
