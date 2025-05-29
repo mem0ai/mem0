@@ -590,7 +590,7 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
                     prioritized_memories.append(mem)
             
             # 2. Get ALL documents for comprehensive analysis
-            all_documents = db.query(Document).filter(
+            all_db_documents = db.query(Document).filter(
                 Document.user_id == user.id
             ).order_by(Document.created_at.desc()).all()
             
@@ -600,7 +600,7 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
             selected_documents = []
             
             # Score each document for relevance
-            for doc in all_documents:
+            for doc in all_db_documents:
                 doc_title_lower = doc.title.lower()
                 doc_content_lower = doc.content.lower() if doc.content else ""
                 relevance_score = 0
@@ -637,7 +637,7 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
             
             # If no documents matched but query seems to want documents, include recent ones
             if not selected_documents and any(word in query_lower for word in ["essay", "document", "post"]):
-                selected_documents = [(doc, 1, ["recent"]) for doc in all_documents[:5]]
+                selected_documents = [(doc, 1, ["recent"]) for doc in all_db_documents[:5]]
             
             # 3. Search document chunks
             relevant_chunks = []
@@ -672,9 +672,9 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
                 context += "\n"
             
             # Add document information
-            if all_documents:
+            if all_db_documents:
                 context += "=== ALL DOCUMENTS (Essays, Posts, Articles) ===\n\n"
-                for i, doc in enumerate(all_documents, 1):
+                for i, doc in enumerate(all_db_documents, 1):
                     context += f"Document {i}: {doc.title}\n"
                     context += f"Type: {doc.document_type}\n"
                     context += f"URL: {doc.source_url or 'No URL'}\n"
@@ -692,7 +692,7 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
             if relevant_chunks:
                 context += "=== RELEVANT DOCUMENT EXCERPTS ===\n\n"
                 for i, chunk in enumerate(relevant_chunks, 1):
-                    doc = next((d for d in all_documents if d.id == chunk.document_id), None)
+                    doc = next((d for d in all_db_documents if d.id == chunk.document_id), None)
                     if doc:
                         context += f"Excerpt {i} from '{doc.title}':\n"
                         context += f"Content: {chunk.content}\n\n"
@@ -745,7 +745,7 @@ Provide a thorough, insightful response."""
             
             processing_time = time.time() - start_time
             result = response.text
-            result += f"\n\n📊 Deep Analysis: {processing_time:.2f}s | {len(prioritized_memories)} memories, {len(all_documents)} docs, {len(selected_documents)} full docs"
+            result += f"\n\n📊 Deep Analysis: {processing_time:.2f}s | {len(prioritized_memories)} memories, {len(all_db_documents)} docs, {len(selected_documents)} full docs"
             
             return result
             
@@ -799,6 +799,7 @@ async def smart_memory_query(search_query: str) -> str:
             extractor_start_time = time.time()
 
             all_db_documents = db.query(Document).filter(Document.user_id == user.id).all()
+            total_document_count = len(all_db_documents)  # Save count before processing
             
             # Process documents in batches to avoid memory issues
             BATCH_SIZE = MEMORY_LIMITS.smart_batch_size  # Use config value
@@ -1018,8 +1019,8 @@ If the selected content is insufficient to fully answer, clearly state that and 
             total_time = time.time() - start_time
 
             final_response_text += f"\\n\\n🤖 AI Performance Metrics:\\n"
-            final_response_text += f"⚡ Total: {total_time:.2f}s | Extractor: {extractor_time:.2f}s ({len(query_focused_extracts)}/{len(all_db_documents)} docs processed) | Orchestrator: {orchestrator_time:.2f}s | Analyst: {analyst_time:.2f}s\\n"
-            final_response_text += f"📊 Content Path: {len(all_db_documents)} total docs → {len(query_focused_extracts)} extracts reviewed by Orchestrator → {len(selected_doc_objects)} docs & {len(selected_memory_objects)} memories selected for final analysis.\\n"
+            final_response_text += f"⚡ Total: {total_time:.2f}s | Extractor: {extractor_time:.2f}s ({len(query_focused_extracts)}/{total_document_count} docs processed) | Orchestrator: {orchestrator_time:.2f}s | Analyst: {analyst_time:.2f}s\\n"
+            final_response_text += f"📊 Content Path: {total_document_count} total docs → {len(query_focused_extracts)} extracts reviewed by Orchestrator → {len(selected_doc_objects)} docs & {len(selected_memory_objects)} memories selected for final analysis.\\n"
             final_response_text += f"🧠 Orchestrator Strategy: {reasoning}"
             
             return final_response_text
