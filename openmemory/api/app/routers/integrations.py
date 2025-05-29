@@ -13,7 +13,6 @@ from app.integrations.twitter_service import sync_twitter_to_memory
 import logging
 from sqlalchemy import text
 from app.background_tasks import create_task, get_task, update_task_progress, run_task_async, mark_task_started, mark_task_completed, mark_task_failed, get_task_health_status
-import signal
 import psutil
 
 logger = logging.getLogger(__name__)
@@ -45,13 +44,8 @@ async def sync_substack(
     
     # Define the sync function (non-async wrapper)
     def execute_sync():
-        """Non-blocking sync execution with timeout protection"""
+        """Non-blocking sync execution with asyncio timeout protection"""
         import asyncio
-        import signal
-        import psutil
-        
-        def timeout_handler(signum, frame):
-            raise TimeoutError("Sync operation timed out")
         
         async def sync_task():
             service = SubstackService()
@@ -75,12 +69,8 @@ async def sync_substack(
                 logger.error(f"Sync task error: {e}")
                 raise e
         
-        # Create new event loop for this task with timeout protection
+        # Create new event loop for this task with asyncio timeout protection
         try:
-            # Set timeout alarm (30 minutes max)
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(1800)  # 30 minutes timeout
-            
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
@@ -88,7 +78,10 @@ async def sync_substack(
             initial_memory = psutil.Process().memory_info().rss / 1024 / 1024
             logger.info(f"Starting sync with {initial_memory:.1f}MB memory usage")
             
-            result = loop.run_until_complete(sync_task())
+            # Use asyncio timeout instead of signal (works in background threads)
+            result = loop.run_until_complete(
+                asyncio.wait_for(sync_task(), timeout=1800)  # 30 minutes timeout
+            )
             
             final_memory = psutil.Process().memory_info().rss / 1024 / 1024
             logger.info(f"Sync completed with {final_memory:.1f}MB memory usage (+{final_memory-initial_memory:.1f}MB)")
@@ -96,14 +89,13 @@ async def sync_substack(
             mark_task_completed(task_id, result)
             logger.info(f"Task {task_id} completed successfully with result: {result}")
             
-        except TimeoutError:
+        except asyncio.TimeoutError:
             mark_task_failed(task_id, "Sync operation timed out after 30 minutes")
             logger.error(f"Task {task_id} timed out")
         except Exception as e:
             mark_task_failed(task_id, str(e))
             logger.error(f"Task {task_id} failed: {e}")
         finally:
-            signal.alarm(0)  # Disable alarm
             try:
                 loop.close()
             except:
@@ -254,7 +246,7 @@ async def sync_twitter(
         
         # Define the sync function (non-async wrapper)
         def execute_twitter_sync():
-            """Non-blocking Twitter sync execution"""
+            """Non-blocking Twitter sync execution with asyncio timeout"""
             import asyncio
             
             async def twitter_sync_task():
@@ -275,13 +267,22 @@ async def sync_twitter(
                 finally:
                     db_session.close()
             
-            # Create new event loop for this task
+            # Create new event loop for this task with asyncio timeout
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(twitter_sync_task())
+                
+                # Use asyncio timeout for Twitter sync too (15 minutes)
+                result = loop.run_until_complete(
+                    asyncio.wait_for(twitter_sync_task(), timeout=900)  # 15 minutes timeout
+                )
+                
                 mark_task_completed(task_id, result)
                 logger.info(f"Twitter task {task_id} completed successfully")
+                
+            except asyncio.TimeoutError:
+                mark_task_failed(task_id, "Twitter sync timed out after 15 minutes")
+                logger.error(f"Twitter task {task_id} timed out")
             except Exception as e:
                 mark_task_failed(task_id, str(e))
                 logger.error(f"Twitter task {task_id} failed: {e}")
