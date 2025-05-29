@@ -97,13 +97,13 @@ app.add_middleware(
 )
 
 # Add health check endpoints early before any dependencies
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     """Root endpoint - redirects to documentation"""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/docs")
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     """Health check endpoint for deployment services"""
     # Keep it simple for fast response
