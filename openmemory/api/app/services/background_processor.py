@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.integrations.substack_service import SubstackService
 from app.services.chunking_service import ChunkingService
-from app.models import User, Document
+from app.models import User, Document, Chunk
 from sqlalchemy import text
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
@@ -25,6 +25,9 @@ class BackgroundProcessor:
         
         self.is_running = True
         logger.info("Background processor started")
+        
+        # One-time fix for stuck documents
+        await self.clear_stuck_documents()
         
         while self.is_running:
             try:
@@ -96,6 +99,41 @@ class BackgroundProcessor:
         
         except Exception as e:
             logger.error(f"Error in process_pending_documents: {e}")
+        finally:
+            db.close()
+
+    async def clear_stuck_documents(self):
+        """One-time fix to clear documents that are stuck in chunking loop"""
+        db = SessionLocal()
+        try:
+            # Find documents that might be stuck (have chunks but still marked for chunking)
+            stuck_docs = db.query(Document).filter(
+                Document.metadata_['needs_chunking'].astext == 'true'
+            ).all()
+            
+            cleared = 0
+            for doc in stuck_docs:
+                # Check if this document already has chunks
+                existing_chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).count()
+                
+                if existing_chunks > 0:
+                    # Document already has chunks, clear the flag
+                    updated_metadata = dict(doc.metadata_) if doc.metadata_ else {}
+                    updated_metadata["needs_chunking"] = False
+                    updated_metadata["chunks_cleared_at"] = datetime.utcnow().isoformat()
+                    updated_metadata["existing_chunks"] = existing_chunks
+                    
+                    doc.metadata_ = updated_metadata
+                    flag_modified(doc, 'metadata_')
+                    cleared += 1
+            
+            if cleared > 0:
+                db.commit()
+                logger.info(f"Cleared stuck chunking flag for {cleared} documents that already have chunks")
+            
+        except Exception as e:
+            logger.error(f"Error clearing stuck documents: {e}")
+            db.rollback()
         finally:
             db.close()
 
