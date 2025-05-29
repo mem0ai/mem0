@@ -479,7 +479,7 @@ async def get_memory_details(memory_id: str) -> str:
         return f"Error retrieving memory details: {e}"
 
 
-# @mcp.tool(description="Sync Substack posts for the user. Provide the Substack URL (e.g., https://username.substack.com)")
+@mcp.tool(description="Sync Substack posts for the user. Provide the Substack URL (e.g., https://username.substack.com or username.substack.com). Note: This process may take 30-60 seconds depending on the number of posts being processed.")
 async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -488,6 +488,9 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
         return "Error: Supabase user_id not available in context"
     if not client_name:
         return "Error: client_name not available in context"
+    
+    # Let user know we're starting
+    logger.info(f"Starting Substack sync for {substack_url}")
     
     try:
         db = SessionLocal()
@@ -502,13 +505,17 @@ async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
                 use_mem0=True  # Try to use mem0, but it will gracefully degrade if not available
             )
             
-            return message
+            # Enhanced return message
+            if synced_count > 0:
+                return f"✅ {message}\n\n📊 Processed {synced_count} posts and added them to your memory system. Posts are now searchable using memory tools."
+            else:
+                return f"⚠️ {message}"
             
         finally:
             db.close()
     except Exception as e:
         logging.error(f"Error in sync_substack_posts MCP tool: {e}", exc_info=True)
-        return f"Error syncing Substack: {str(e)}"
+        return f"❌ Error syncing Substack: {str(e)}"
 
 
 @mcp.tool(description="Deep memory search with automatic full document inclusion. Use this for: 1) Reading/summarizing specific essays (e.g. 'summarize The Irreverent Act'), 2) Analyzing personality/writing style across documents, 3) Finding insights from essays written months/years ago, 4) Any query needing full essay context. Automatically detects and includes complete relevant documents using dynamic scoring.")

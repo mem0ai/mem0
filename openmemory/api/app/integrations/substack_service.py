@@ -21,8 +21,25 @@ class SubstackService:
     """Service for syncing Substack posts to OpenMemory"""
     
     @staticmethod
+    def normalize_substack_url(url: str) -> str:
+        """Normalize Substack URL by adding protocol if missing"""
+        url = url.strip()
+        
+        # If no protocol, add https://
+        if not url.startswith(('http://', 'https://')):
+            url = f"https://{url}"
+        
+        # Remove trailing slash
+        url = url.rstrip('/')
+        
+        return url
+    
+    @staticmethod
     def extract_username_from_url(url: str) -> Optional[str]:
         """Extract username from Substack URL"""
+        # First normalize the URL
+        url = SubstackService.normalize_substack_url(url)
+        
         match = re.match(r'https?://(?:www\.)?([^.]+)\.substack\.com/?', url)
         if match:
             return match.group(1)
@@ -45,7 +62,10 @@ class SubstackService:
         # Validate URL
         username = self.extract_username_from_url(substack_url)
         if not username:
-            return 0, "Error: Invalid Substack URL format. Expected: https://username.substack.com"
+            return 0, "Error: Invalid Substack URL format. Expected: https://username.substack.com or username.substack.com"
+        
+        # Use normalized URL for scraping
+        normalized_url = self.normalize_substack_url(substack_url)
         
         # Get or create user and app
         user, app = get_user_and_app(
@@ -58,27 +78,40 @@ class SubstackService:
         if not app.is_active:
             return 0, "Error: Substack app is paused. Cannot sync posts."
         
-        # Initialize scraper
-        scraper = SubstackScraper(substack_url, max_posts=max_posts)
+        # Initialize scraper with normalized URL
+        scraper = SubstackScraper(normalized_url, max_posts=max_posts)
         
         try:
             # Scrape posts
+            logger.info(f"Starting to scrape posts from {normalized_url} (max: {max_posts})")
             posts = await scraper.scrape()
             if not posts:
-                return 0, f"No posts found at {substack_url}"
+                # More informative error message
+                error_msg = f"No posts found at {normalized_url}. This could mean:\n"
+                error_msg += f"1. The blog has no published posts\n"
+                error_msg += f"2. The RSS feed is disabled\n" 
+                error_msg += f"3. The blog URL format is incorrect\n"
+                error_msg += f"4. The blog might be private or require authentication\n"
+                error_msg += f"Please verify the URL and try again."
+                return 0, error_msg
+            
+            logger.info(f"Found {len(posts)} posts to process")
             
             # Initialize memory client if needed
             memory_client = None
             if use_mem0:
                 try:
                     memory_client = get_memory_client()
+                    logger.info("Memory client initialized successfully")
                 except Exception as e:
                     logger.warning(f"Could not initialize memory client: {e}. Continuing without mem0.")
                     use_mem0 = False
             
             synced_count = 0
             
-            for post in posts:
+            for i, post in enumerate(posts, 1):
+                logger.info(f"Processing post {i}/{len(posts)}: {post.title}")
+                
                 # Check if document already exists
                 existing_doc = db.query(Document).filter(
                     Document.source_url == post.url,

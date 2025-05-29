@@ -44,19 +44,45 @@ class SubstackScraper(BaseScraper):
         Returns:
             A list of Post objects with content and metadata
         """
-        try:
-            logger.info(f"Fetching Substack posts from: {self.url}")
-            # Note: verify=False is needed for SSL certificate issues on some systems
-            async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
-                response = await client.get(f"{self.url}feed")
-                response.raise_for_status()
-                feed = feedparser.parse(response.text)
-                logger.info(f"Number of entries in feed: {len(feed.entries)}")
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error: {e}")
+        # Try multiple feed URL formats for robustness
+        feed_urls = [
+            f"{self.url}/feed",      # Primary format
+            f"{self.url}/feed.xml",  # Alternative format
+            f"{self.url}/rss",       # Some blogs use this
+            f"{self.url}/atom.xml",  # Atom format
+        ]
+        
+        for feed_url in feed_urls:
+            try:
+                logger.info(f"Fetching Substack posts from: {feed_url}")
+                # Note: verify=False is needed for SSL certificate issues on some systems
+                async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+                    response = await client.get(feed_url)
+                    response.raise_for_status()
+                    feed = feedparser.parse(response.text)
+                    logger.info(f"Number of entries in feed: {len(feed.entries)}")
+                    
+                    # If we found entries, break out of the loop
+                    if len(feed.entries) > 0:
+                        logger.info(f"Successfully found feed at: {feed_url}")
+                        break
+                    else:
+                        logger.warning(f"Feed at {feed_url} exists but has no entries")
+                        
+            except httpx.HTTPStatusError as e:
+                logger.warning(f"HTTP error for {feed_url}: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"Error fetching feed {feed_url}: {str(e)}")
+                continue
+        else:
+            # If we've tried all URLs and none worked
+            logger.error(f"No working RSS feed found for {self.url}")
             return []
-        except Exception as e:
-            logger.error(f"Error fetching Substack feed: {str(e)}")
+
+        # If we have no entries after trying all feeds, return empty
+        if len(feed.entries) == 0:
+            logger.error(f"All RSS feeds for {self.url} were empty")
             return []
 
         posts = []
