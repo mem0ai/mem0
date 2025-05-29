@@ -1,3 +1,13 @@
+/**
+ * Support form API endpoint
+ * 
+ * Environment Variables Required:
+ * - RESEND_API_KEY: Your Resend API key for sending emails
+ * 
+ * If RESEND_API_KEY is not configured, the form will still work
+ * but support requests will be logged to console for manual processing.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
