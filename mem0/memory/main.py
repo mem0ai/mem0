@@ -140,6 +140,8 @@ class Memory(MemoryBase):
                 from mem0.memory.memgraph_memory import MemoryGraph
             elif self.config.graph_store.provider == "neptune":
                 from mem0.graphs.neptune.main import MemoryGraph
+            elif self.config.graph_store.provider == "kuzu":
+                from mem0.memory.kuzu_memory import MemoryGraph
             else:
                 from mem0.memory.graph_memory import MemoryGraph
 

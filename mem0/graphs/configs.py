@@ -70,12 +70,16 @@ class NeptuneConfig(BaseModel):
             )
 
 
+class KuzuConfig(BaseModel):
+    db: Optional[str] = Field(":memory:", description="Path to the Kuzu database directory")
+
+
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
         description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune')",
         default="neo4j",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
@@ -87,10 +91,12 @@ class GraphStoreConfig(BaseModel):
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
         if provider == "neo4j":
-            return Neo4jConfig(**v.model_dump())
+            return Neo4jConfig(**v)
         elif provider == "memgraph":
             return MemgraphConfig(**v.model_dump())
         elif provider == "neptune":
             return NeptuneConfig(**v.model_dump())
+        elif provider == "kuzu":
+            return KuzuConfig(**v)
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
