@@ -25,6 +25,7 @@ graph = [
     "langchain-neo4j>=0.4.0",
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
+    "kuzu>=0.10.0",
 ]
 test = [
     "pytest>=8.2.2",
