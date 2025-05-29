@@ -48,7 +48,10 @@ def save_task(task: BackgroundTask):
     try:
         task_file = TASK_STORAGE_DIR / f"{task.task_id}.json"
         with open(task_file, 'w') as f:
-            json.dump(task.dict(), f, default=str)
+            # Convert to dict and handle enum serialization properly
+            task_dict = task.model_dump()
+            task_dict['status'] = task.status.value  # Convert enum to string value
+            json.dump(task_dict, f, default=str)
     except Exception as e:
         logger.error(f"Failed to save task {task.task_id}: {e}")
 
@@ -63,6 +66,14 @@ def load_task(task_id: str) -> Optional[BackgroundTask]:
                 for field in ['created_at', 'started_at', 'completed_at']:
                     if data.get(field):
                         data[field] = datetime.fromisoformat(data[field])
+                # Ensure status is converted properly
+                if 'status' in data:
+                    if isinstance(data['status'], str):
+                        # Handle both old format (TaskStatus.PENDING) and new format (pending)
+                        status_str = data['status']
+                        if status_str.startswith('TaskStatus.'):
+                            status_str = status_str.split('.')[1].lower()
+                        data['status'] = TaskStatus(status_str)
                 return BackgroundTask(**data)
     except Exception as e:
         logger.error(f"Failed to load task {task_id}: {e}")
@@ -167,20 +178,119 @@ async def cleanup_task_after_delay(task_id: str, delay_seconds: int):
         logger.error(f"Error cleaning up task {task_id}: {e}")
 
 def cleanup_old_tasks():
-    """Clean up tasks older than 24 hours on startup"""
+    """Clean up tasks older than 24 hours on startup and recover stuck tasks"""
     try:
         cutoff_time = datetime.utcnow().timestamp() - (24 * 60 * 60)  # 24 hours ago
+        stuck_cutoff = datetime.utcnow().timestamp() - (2 * 60 * 60)  # 2 hours ago
+        
+        cleaned_count = 0
+        recovered_count = 0
         
         for task_file in TASK_STORAGE_DIR.glob("*.json"):
             try:
-                if task_file.stat().st_mtime < cutoff_time:
+                file_time = task_file.stat().st_mtime
+                
+                if file_time < cutoff_time:
+                    # Delete old tasks
                     task_file.unlink()
+                    cleaned_count += 1
                     logger.info(f"Cleaned up old task file: {task_file.name}")
+                    
+                elif file_time < stuck_cutoff:
+                    # Try to recover stuck tasks
+                    try:
+                        with open(task_file, 'r') as f:
+                            data = json.load(f)
+                            
+                        if data.get('status') in ['pending', 'running']:
+                            # Mark stuck tasks as failed
+                            data['status'] = 'failed'
+                            data['error'] = 'Task recovery: Marked as failed due to system restart'
+                            data['completed_at'] = datetime.utcnow().isoformat()
+                            
+                            with open(task_file, 'w') as f:
+                                json.dump(data, f, default=str)
+                                
+                            recovered_count += 1
+                            logger.info(f"Recovered stuck task: {task_file.stem}")
+                            
+                    except Exception as e:
+                        logger.error(f"Error recovering task {task_file}: {e}")
+                        # If we can't recover it, delete it
+                        task_file.unlink()
+                        cleaned_count += 1
+                        
             except Exception as e:
-                logger.error(f"Error cleaning up task file {task_file}: {e}")
+                logger.error(f"Error processing task file {task_file}: {e}")
+                
+        if cleaned_count > 0:
+            logger.info(f"Cleaned up {cleaned_count} old task files")
+        if recovered_count > 0:
+            logger.info(f"Recovered {recovered_count} stuck tasks")
                 
     except Exception as e:
         logger.error(f"Error during task cleanup: {e}")
+
+def get_task_health_status() -> dict:
+    """Get health status of the task system"""
+    try:
+        task_files = list(TASK_STORAGE_DIR.glob("*.json"))
+        
+        status_counts = {
+            'pending': 0,
+            'running': 0,
+            'completed': 0,
+            'failed': 0,
+            'total': len(task_files)
+        }
+        
+        stuck_tasks = []
+        old_tasks = []
+        
+        current_time = datetime.utcnow().timestamp()
+        
+        for task_file in task_files:
+            try:
+                with open(task_file, 'r') as f:
+                    data = json.load(f)
+                    
+                status = data.get('status', 'unknown')
+                if status in status_counts:
+                    status_counts[status] += 1
+                    
+                # Check for stuck tasks (running for more than 2 hours)
+                if status == 'running':
+                    created_time = task_file.stat().st_mtime
+                    if current_time - created_time > 7200:  # 2 hours
+                        stuck_tasks.append(task_file.stem)
+                        
+                # Check for old completed tasks (older than 1 day)
+                if status in ['completed', 'failed']:
+                    created_time = task_file.stat().st_mtime
+                    if current_time - created_time > 86400:  # 24 hours
+                        old_tasks.append(task_file.stem)
+                        
+            except Exception as e:
+                logger.error(f"Error reading task file {task_file}: {e}")
+                
+        return {
+            'status_counts': status_counts,
+            'stuck_tasks': stuck_tasks,
+            'old_tasks': old_tasks,
+            'storage_path': str(TASK_STORAGE_DIR),
+            'healthy': len(stuck_tasks) == 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting task health status: {e}")
+        return {
+            'status_counts': {'error': 1},
+            'stuck_tasks': [],
+            'old_tasks': [],
+            'storage_path': str(TASK_STORAGE_DIR),
+            'healthy': False,
+            'error': str(e)
+        }
 
 # Initialize cleanup on import
 cleanup_old_tasks() 

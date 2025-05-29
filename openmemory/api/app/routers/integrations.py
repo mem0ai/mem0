@@ -12,7 +12,9 @@ from app.services.chunking_service import ChunkingService
 from app.integrations.twitter_service import sync_twitter_to_memory
 import logging
 from sqlalchemy import text
-from app.background_tasks import create_task, get_task, update_task_progress, run_task_async, mark_task_started, mark_task_completed, mark_task_failed
+from app.background_tasks import create_task, get_task, update_task_progress, run_task_async, mark_task_started, mark_task_completed, mark_task_failed, get_task_health_status
+import signal
+import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +45,13 @@ async def sync_substack(
     
     # Define the sync function (non-async wrapper)
     def execute_sync():
-        """Non-blocking sync execution"""
+        """Non-blocking sync execution with timeout protection"""
         import asyncio
+        import signal
+        import psutil
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Sync operation timed out")
         
         async def sync_task():
             service = SubstackService()
@@ -68,17 +75,35 @@ async def sync_substack(
                 logger.error(f"Sync task error: {e}")
                 raise e
         
-        # Create new event loop for this task
+        # Create new event loop for this task with timeout protection
         try:
+            # Set timeout alarm (30 minutes max)
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(1800)  # 30 minutes timeout
+            
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            
+            # Monitor memory during execution
+            initial_memory = psutil.Process().memory_info().rss / 1024 / 1024
+            logger.info(f"Starting sync with {initial_memory:.1f}MB memory usage")
+            
             result = loop.run_until_complete(sync_task())
+            
+            final_memory = psutil.Process().memory_info().rss / 1024 / 1024
+            logger.info(f"Sync completed with {final_memory:.1f}MB memory usage (+{final_memory-initial_memory:.1f}MB)")
+            
             mark_task_completed(task_id, result)
             logger.info(f"Task {task_id} completed successfully with result: {result}")
+            
+        except TimeoutError:
+            mark_task_failed(task_id, "Sync operation timed out after 30 minutes")
+            logger.error(f"Task {task_id} timed out")
         except Exception as e:
             mark_task_failed(task_id, str(e))
             logger.error(f"Task {task_id} failed: {e}")
         finally:
+            signal.alarm(0)  # Disable alarm
             try:
                 loop.close()
             except:
@@ -283,3 +308,65 @@ async def sync_twitter(
             status_code=500,
             detail=f"Failed to start Twitter sync: {str(e)}"
         ) 
+
+@router.get("/health")
+async def get_integration_health():
+    """Get health status of integration services and background tasks"""
+    import psutil
+    
+    # Get task system health
+    task_health = get_task_health_status()
+    
+    # Get current memory usage
+    memory_info = psutil.Process().memory_info()
+    memory_mb = memory_info.rss / 1024 / 1024
+    
+    # Get CPU usage
+    cpu_percent = psutil.cpu_percent(interval=1)
+    
+    # Overall health check
+    is_healthy = (
+        task_health.get('healthy', False) and
+        memory_mb < 1500 and  # Stay under 1.5GB for 2GB container
+        cpu_percent < 80  # CPU usage reasonable
+    )
+    
+    return {
+        "status": "healthy" if is_healthy else "degraded",
+        "memory_usage_mb": round(memory_mb, 1),
+        "cpu_percent": round(cpu_percent, 1),
+        "task_system": task_health,
+        "limits": {
+            "memory_limit_mb": 1500,
+            "cpu_limit_percent": 80
+        },
+        "recommendations": {
+            "memory": "OK" if memory_mb < 1200 else "High" if memory_mb < 1500 else "Critical",
+            "cpu": "OK" if cpu_percent < 60 else "High" if cpu_percent < 80 else "Critical",
+            "tasks": "OK" if task_health.get('healthy') else "Issues detected"
+        }
+    }
+
+
+@router.post("/health/cleanup")
+async def force_cleanup(
+    current_supa_user: SupabaseUser = Depends(get_current_supa_user)
+):
+    """Force cleanup of old tasks and memory (admin endpoint)"""
+    import gc
+    from app.background_tasks import cleanup_old_tasks
+    
+    # Force garbage collection
+    gc.collect()
+    
+    # Cleanup old tasks
+    cleanup_old_tasks()
+    
+    # Get updated health status
+    health_status = get_task_health_status()
+    
+    return {
+        "message": "Cleanup completed",
+        "task_health": health_status,
+        "memory_after_cleanup_mb": round(psutil.Process().memory_info().rss / 1024 / 1024, 1)
+    } 

@@ -36,9 +36,8 @@ async def lifespan(app: FastAPI):
     async def periodic_cleanup():
         while True:
             try:
-                cleaned = cleanup_old_tasks(hours=24)
-                if cleaned > 0:
-                    logger.info(f"Cleaned up {cleaned} old background tasks")
+                cleanup_old_tasks()
+                logger.info("Periodic cleanup completed")
             except Exception as e:
                 logger.error(f"Error in periodic cleanup: {e}")
             await asyncio.sleep(3600)  # Run every hour
