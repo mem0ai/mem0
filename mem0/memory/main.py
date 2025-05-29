@@ -1197,12 +1197,6 @@ class AsyncMemory(MemoryBase):
             logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
-        if not new_memories_with_actions:
-            logger.info("No new facts retrieved from input (async). Skipping memory update LLM call.")
-            return []
-
-
-
         returned_memories = []
         try:
             memory_tasks = []
