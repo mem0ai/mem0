@@ -25,6 +25,8 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
       
       # OpenAI Configuration (Required - Set in dashboard)
       - key: OPENAI_API_KEY
@@ -52,11 +54,17 @@ services:
       - key: APIFY_TOKEN
         sync: false
       
+      # Gemini Configuration (Optional - for AI features)
+      - key: GEMINI_API_KEY
+        sync: false
+      
       # Runtime Configuration
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: LOG_LEVEL
         value: "INFO"
+      - key: UVICORN_TIMEOUT_KEEP_ALIVE
+        value: "75"
 
   # Frontend UI Service
   - type: web

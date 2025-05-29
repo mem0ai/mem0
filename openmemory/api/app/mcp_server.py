@@ -3,7 +3,8 @@ import json
 import gc  # Add garbage collection
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
-from app.utils.memory import get_memory_client
+# Defer heavy imports
+# from app.utils.memory import get_memory_client
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
 import contextvars
@@ -15,12 +16,14 @@ from app.utils.db import get_user_and_app, get_or_create_user
 import uuid
 import datetime
 from app.utils.permissions import check_memory_access_permissions
-from qdrant_client import models as qdrant_models
-from app.integrations.substack_service import SubstackService
-from app.utils.gemini import GeminiService
+# Defer heavy imports
+# from qdrant_client import models as qdrant_models
+# from app.integrations.substack_service import SubstackService
+# from app.utils.gemini import GeminiService
 import asyncio
-import google.generativeai as genai
-from app.services.chunking_service import ChunkingService
+# Defer heavy imports
+# import google.generativeai as genai
+# from app.services.chunking_service import ChunkingService
 from sqlalchemy import text
 from app.config.memory_limits import MEMORY_LIMITS
 
@@ -53,6 +56,13 @@ sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add new memories to the user's memory")
 async def add_memories(text: str) -> str:
+    """
+    Add memories to the user's personal memory bank.
+    These memories are stored in a vector database and can be searched later.
+    """
+    # Lazy import
+    from app.utils.memory import get_memory_client
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     memory_client = get_memory_client() # Initialize client when tool is called
@@ -235,11 +245,11 @@ async def add_memories(text: str) -> str:
 async def search_memory(query: str, limit: int = None) -> str:
     """
     Search the user's memory for memories that match the query.
-    
-    Args:
-        query: The search query string
-        limit: Maximum number of results to return (default: from config, max: from config)
+    Returns memories that are semantically similar to the query.
     """
+    # Lazy import
+    from app.utils.memory import get_memory_client
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -295,11 +305,12 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
 @mcp.tool(description="List all memories in the user's memory")
 async def list_memories(limit: int = None) -> str:
     """
-    List memories in the user's memory.
-    
-    Args:
-        limit: Maximum number of memories to return (default: from config, max: from config)
+    List all memories for the user.
+    Returns a formatted list of memories with their content and metadata.
     """
+    # Lazy import
+    from app.utils.memory import get_memory_client
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -354,6 +365,13 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
 
 @mcp.tool(description="Delete all memories in the user's memory")
 async def delete_all_memories() -> str:
+    """
+    Delete all memories for the user. This action cannot be undone.
+    Requires confirmation by being called explicitly.
+    """
+    # Lazy import
+    from app.utils.memory import get_memory_client
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     memory_client = get_memory_client() # Initialize client when tool is called
@@ -405,9 +423,12 @@ async def delete_all_memories() -> str:
 @mcp.tool(description="Get detailed information about a specific memory by its ID")
 async def get_memory_details(memory_id: str) -> str:
     """
-    Retrieve detailed information about a specific memory using its ID.
-    This is useful when you want to examine a particular memory in detail.
+    Get detailed information about a specific memory, including all metadata.
+    Use this to understand context about when and how a memory was created.
     """
+    # Lazy import
+    from app.utils.memory import get_memory_client
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -481,6 +502,9 @@ async def get_memory_details(memory_id: str) -> str:
 
 @mcp.tool(description="Sync Substack posts for the user. Provide the Substack URL (e.g., https://username.substack.com or username.substack.com). Note: This process may take 30-60 seconds depending on the number of posts being processed.")
 async def sync_substack_posts(substack_url: str, max_posts: int = 20) -> str:
+    # Lazy import
+    from app.integrations.substack_service import SubstackService
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -525,6 +549,12 @@ async def deep_memory_query(search_query: str, memory_limit: int = None, chunk_l
     Automatically detects when specific documents/essays are referenced and includes their full content.
     This is thorough but slower - use smart_memory_query for speed.
     """
+    # Lazy imports
+    from app.utils.memory import get_memory_client
+    from app.utils.gemini import GeminiService
+    from app.services.chunking_service import ChunkingService
+    import google.generativeai as genai
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -773,6 +803,10 @@ async def smart_memory_query(search_query: str) -> str:
     3. Layer 2 (Analyst): Gemini Pro performs deep analysis on the AI-selected, highly relevant content (full docs for selected extracts).
     Designed for speed, relevance, and robustness.
     """
+    # Lazy imports
+    from app.utils.memory import get_memory_client
+    import google.generativeai as genai
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -1064,6 +1098,9 @@ async def chunk_documents() -> str:
     Chunks all documents for the current user into smaller pieces for efficient search.
     This runs in the background and improves search performance.
     """
+    # Lazy import
+    from app.services.chunking_service import ChunkingService
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
@@ -1100,6 +1137,10 @@ async def test_connection() -> str:
     Test the MCP connection and verify that all systems are working properly.
     This is useful for diagnosing connection issues.
     """
+    # Lazy imports
+    from app.utils.memory import get_memory_client
+    from app.utils.gemini import GeminiService
+    
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     
