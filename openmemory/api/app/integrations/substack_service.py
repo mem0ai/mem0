@@ -125,7 +125,7 @@ class SubstackService:
                     active_memories = db.query(Memory).filter(
                         Memory.user_id == user.id,
                         Memory.state == MemoryState.active,
-                        text("metadata_->>'document_id' = :doc_id")
+                        text("metadata->>'document_id' = :doc_id")
                     ).params(doc_id=str(existing_doc.id)).count()
                     
                     if active_memories > 0:

@@ -5,12 +5,13 @@ from app.database import get_db
 from app.auth import get_current_supa_user
 from gotrue.types import User as SupabaseUser
 from app.utils.db import get_or_create_user, get_user_and_app
-from app.models import User, Document, App
+from app.models import User, Document, App, Memory, MemoryState
 from app.integrations.substack_service import SubstackService
 import asyncio
 from app.services.chunking_service import ChunkingService
 from app.integrations.twitter_service import sync_twitter_to_memory
 import logging
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -57,12 +58,24 @@ async def get_document_count(
     current_supa_user: SupabaseUser = Depends(get_current_supa_user),
     db: Session = Depends(get_db)
 ):
-    """Get count of documents by type for the authenticated user"""
+    """Get count of documents by type for the authenticated user (only documents with active memories)"""
     user = get_or_create_user(db, current_supa_user.id, current_supa_user.email)
     
+    # Count documents that have at least one active memory
     count = db.query(Document).filter(
         Document.user_id == user.id,
         Document.document_type == document_type
+    ).filter(
+        # Only include documents that have active memories
+        Document.id.in_(
+            db.query(Document.id).join(
+                Memory,
+                text("metadata->>'document_id' = CAST(documents.id AS TEXT)")
+            ).filter(
+                Memory.user_id == user.id,
+                Memory.state == MemoryState.active
+            )
+        )
     ).count()
     
     return {"count": count}
