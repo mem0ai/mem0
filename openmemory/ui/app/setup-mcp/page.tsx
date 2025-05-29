@@ -114,43 +114,31 @@ export default function SetupMCPPage() {
               Installation (30 seconds)
             </CardTitle>
             <CardDescription>
-              Copy and paste this command into your terminal
+              Get your personalized install commands from your dashboard
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-zinc-900 p-4 rounded-lg relative">
-              <code className="text-green-400 font-mono text-sm">
-                npx install-mcp i https://api.jeanmemory.com/mcp/[client]/sse/[your-user-id] --client [client]
-              </code>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="absolute top-2 right-2"
-                onClick={() => copyToClipboard('npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/[your-user-id] --client claude', 'install-command')}
-              >
-                {copiedItem === 'install-command' ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            
-            <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>Important:</strong> Replace <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded text-xs">[client]</code> with your AI app name and <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded text-xs">[your-user-id]</code> with your actual user ID from your dashboard.
+            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Step 1:</strong> Sign up at <a href="/auth" className="underline hover:no-underline">jeantechnologies.com</a>
               </p>
             </div>
 
-            <div className="text-sm text-zinc-400 space-y-2">
-              <p><strong>Examples for different AI apps:</strong></p>
-              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-id-here --client claude</code></p>
-              <p><code className="bg-zinc-800 px-2 py-1 rounded text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/cursor/sse/your-id-here --client cursor</code></p>
+            <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm text-green-800 dark:text-green-200">
+                <strong>Step 2:</strong> Visit your <a href="/dashboard" className="underline hover:no-underline">dashboard</a> and find the "Quick Setup" section
+              </p>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>To get your personal command:</strong> Sign up at <a href="/auth" className="underline hover:no-underline">jeantechnologies.com</a>, then visit your dashboard for the exact command with your user ID already filled in.
+            <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+              <p className="text-sm text-purple-800 dark:text-purple-200">
+                <strong>Step 3:</strong> Copy the install command for your AI app (Claude, Cursor, etc.) - it already has your user ID filled in!
+              </p>
+            </div>
+
+            <div className="bg-zinc-50 dark:bg-zinc-950/20 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
+              <p className="text-sm text-zinc-800 dark:text-zinc-200">
+                <strong>Step 4:</strong> Paste the command in your terminal and restart your AI app
               </p>
             </div>
           </CardContent>
