@@ -12,7 +12,7 @@ import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Menu, X } from "lucide-react";
+import { Brain, Menu, X, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -108,6 +108,7 @@ export function Navbar() {
     { href: "/memories", icon: <HiMiniRectangleStack />, label: "Memories" },
     { href: "/my-life", icon: <Brain className="w-4 h-4" />, label: "My Life" },
     { href: "/apps", icon: <RiApps2AddFill />, label: "Apps" },
+    { href: "/setup-mcp", icon: <Settings2 className="w-4 h-4" />, label: "MCP Setup" },
   ];
 
   return (
