@@ -65,6 +65,7 @@
     "react-redux": "^9.2.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
+    "resend": "^4.5.1",
     "sass": "^1.86.3",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
