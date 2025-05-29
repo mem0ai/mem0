@@ -7,6 +7,7 @@ from app.services.chunking_service import ChunkingService
 from app.models import User, Document
 from sqlalchemy import text
 from datetime import datetime
+from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +44,9 @@ class BackgroundProcessor:
         db = SessionLocal()
         try:
             # Find documents that need chunking (limit to prevent memory issues)
-            # Use text() to avoid MetaData object confusion
+            # Use consistent boolean check for needs_chunking
             documents = db.query(Document).filter(
-                text("metadata->>'needs_chunking' = 'true'")
+                Document.metadata_['needs_chunking'].astext == 'true'
             ).limit(5).all()  # Process 5 at a time
             
             if not documents:
@@ -61,12 +62,21 @@ class BackgroundProcessor:
                     # Process chunks for this document
                     chunks_created = chunking_service.chunk_document(db, doc)
                     
-                    # Mark as processed (use dict access safely)
+                    # Mark as processed - ensure metadata exists and update correctly
                     if doc.metadata_ is None:
                         doc.metadata_ = {}
-                    doc.metadata_["needs_chunking"] = False
-                    doc.metadata_["chunked_at"] = datetime.utcnow().isoformat()
-                    doc.metadata_["chunks_created"] = len(chunks_created)
+                    
+                    # Create new metadata dict to ensure proper update
+                    updated_metadata = dict(doc.metadata_) if doc.metadata_ else {}
+                    updated_metadata["needs_chunking"] = False
+                    updated_metadata["chunked_at"] = datetime.utcnow().isoformat()
+                    updated_metadata["chunks_created"] = len(chunks_created)
+                    
+                    # Assign the updated metadata
+                    doc.metadata_ = updated_metadata
+                    
+                    # Force SQLAlchemy to recognize the change
+                    flag_modified(doc, 'metadata_')
                     
                     db.commit()
                     processed += 1
