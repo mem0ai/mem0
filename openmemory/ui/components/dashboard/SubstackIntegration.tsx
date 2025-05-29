@@ -95,7 +95,12 @@ export function SubstackIntegration({ onSyncComplete }: SubstackIntegrationProps
         // Show success message
         const result = task.result || {};
         const syncedCount = result.synced_count || 0;
+        setSyncStatus("success");
+        setSyncMessage(result.message || `Successfully synced ${syncedCount} essays`);
         onSyncComplete?.(syncedCount);
+        
+        // Refresh document count
+        await fetchDocumentCount();
         
         // Clear progress after delay
         setTimeout(() => {
@@ -113,6 +118,8 @@ export function SubstackIntegration({ onSyncComplete }: SubstackIntegrationProps
         setIsSyncing(false);
         setProgress(0);
         setProgressMessage("Sync failed. Please try again.");
+        setSyncStatus("error");
+        setSyncMessage(task.error || "Sync failed. Please try again.");
         
         console.error("Task failed:", task.error);
         
