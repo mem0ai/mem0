@@ -818,7 +818,7 @@ Relevant Snippet/Answer (or 'Not relevant'):"""
                     extraction_response = await asyncio.to_thread(
                         flash_model.generate_content,
                         extraction_prompt,
-                        generation_config=genai.GenerationConfig(temperature=0.0, max_output_tokens=200, candidate_count=1)
+                        generation_config=genai.GenerationConfig(temperature=0.2, max_output_tokens=200, candidate_count=1)
                     )
                     extract_text = extraction_response.text.strip() if extraction_response and extraction_response.text else "Error: Empty response from extractor."
                     status = 'extracted' if extract_text != 'Not relevant' and not extract_text.startswith("Error:") else ('not_relevant' if extract_text == 'Not relevant' else 'error')
@@ -887,7 +887,7 @@ REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly ad
                 orchestrator_response_task = asyncio.to_thread(
                     gemini_flash.generate_content,
                     orchestrator_prompt,
-                    generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=300) # Increased tokens slightly for reasoning
+                    generation_config=genai.GenerationConfig(temperature=0.2, max_output_tokens=300, candidate_count=1)
                 )
                 orchestrator_response = await asyncio.wait_for(orchestrator_response_task, timeout=15.0) # Orchestrator timeout
                 
