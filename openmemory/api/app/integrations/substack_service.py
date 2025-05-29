@@ -11,6 +11,7 @@ from app.models import Document, Memory, User, App, document_memories
 from app.integrations.substack_scraper import SubstackScraper, Post
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
+from app.services.chunking_service import ChunkingService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -107,11 +108,24 @@ class SubstackService:
                 db.add(doc)
                 db.flush()  # Get the ID
                 
-                # Create summary (first 500 chars of content)
+                # Create a more comprehensive summary that captures key sections
                 summary_text = f"Essay: {post.title}"
-                if len(post.content) > 500:
-                    summary_text += f" - {post.content[:500]}..."
+                
+                # Extract meaningful sections from the essay
+                content_length = len(post.content)
+                if content_length > 1500:
+                    # For longer essays, sample from beginning, middle, and end
+                    intro = post.content[:500].strip()
+                    middle_start = content_length // 2 - 250
+                    middle = post.content[middle_start:middle_start + 500].strip()
+                    conclusion = post.content[-500:].strip()
+                    
+                    summary_text += f"\n\n[Beginning]: {intro}...\n\n[Middle]: ...{middle}...\n\n[End]: ...{conclusion}"
+                elif content_length > 500:
+                    # For medium essays, take more content
+                    summary_text += f" - {post.content[:1000]}..."
                 else:
+                    # For short content, include everything
                     summary_text += f" - {post.content}"
                 
                 # Add to mem0 if available
@@ -158,6 +172,18 @@ class SubstackService:
                 synced_count += 1
             
             db.commit()
+            
+            # NEW: Automatically chunk all newly synced documents
+            if synced_count > 0:
+                logger.info(f"Starting automatic chunking for {synced_count} new documents...")
+                try:
+                    chunking_service = ChunkingService()
+                    # Chunk all documents for this user
+                    chunked_count = chunking_service.chunk_all_documents(db, str(user.id))
+                    logger.info(f"Successfully chunked {chunked_count} documents")
+                except Exception as chunk_error:
+                    logger.error(f"Error during automatic chunking: {chunk_error}")
+                    # Don't fail the sync if chunking fails
             
             return synced_count, f"Successfully synced {synced_count} posts from {username}'s Substack"
             
