@@ -7,6 +7,7 @@ import re
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from datetime import datetime
 
 from app.models import Document, Memory, User, App, document_memories, MemoryState
 from app.integrations.substack_scraper import SubstackScraper, Post
@@ -52,22 +53,31 @@ class SubstackService:
         supabase_user_id: str, 
         substack_url: str, 
         max_posts: int = 20,
-        use_mem0: bool = True
+        use_mem0: bool = True,
+        progress_callback=None
     ) -> Tuple[int, str]:
         """
-        Sync Substack posts for a user.
+        Sync Substack posts for a user - PHASE 1 ONLY (documents + basic memories).
+        Chunking happens separately in background.
+        
+        Args:
+            progress_callback: Optional callback function(progress: int, message: str, documents_synced: int)
         
         Returns:
             Tuple of (synced_count, status_message)
         """
+        # Report progress
+        if progress_callback:
+            progress_callback(0, "Starting Substack sync...", 0)
+            
         # Validate URL
         username = self.extract_username_from_url(substack_url)
         if not username:
             return 0, "Error: Invalid Substack URL format. Expected: https://username.substack.com or username.substack.com"
-        
+
         # Use normalized URL for scraping
         normalized_url = self.normalize_substack_url(substack_url)
-        
+
         # Get or create user and app
         user, app = get_user_and_app(
             db,
@@ -75,16 +85,19 @@ class SubstackService:
             app_name="substack",
             email=None
         )
-        
+
         if not app.is_active:
             return 0, "Error: Substack app is paused. Cannot sync posts."
-        
+
         # Initialize scraper with normalized URL
         scraper = SubstackScraper(normalized_url, max_posts=max_posts)
-        
+
         try:
             # Scrape posts
             logger.info(f"Starting to scrape posts from {normalized_url} (max: {max_posts})")
+            if progress_callback:
+                progress_callback(10, f"Fetching posts from {username}'s Substack...", 0)
+                
             posts = await scraper.scrape()
             if not posts:
                 # More informative error message
@@ -95,9 +108,11 @@ class SubstackService:
                 error_msg += f"4. The blog might be private or require authentication\n"
                 error_msg += f"Please verify the URL and try again."
                 return 0, error_msg
-            
+
             logger.info(f"Found {len(posts)} posts to process")
-            
+            if progress_callback:
+                progress_callback(20, f"Found {len(posts)} posts to process", 0)
+
             # Initialize memory client if needed
             memory_client = None
             if use_mem0:
@@ -107,18 +122,24 @@ class SubstackService:
                 except Exception as e:
                     logger.warning(f"Could not initialize memory client: {e}. Continuing without mem0.")
                     use_mem0 = False
-            
+
             synced_count = 0
-            
+
+            # PHASE 1: Process posts ONE BY ONE for memory efficiency
             for i, post in enumerate(posts, 1):
                 logger.info(f"Processing post {i}/{len(posts)}: {post.title}")
                 
+                # Calculate progress (20-90% range for post processing)
+                post_progress = 20 + int((i / len(posts)) * 70)
+                if progress_callback:
+                    progress_callback(post_progress, f"Syncing essay: {post.title}", synced_count)
+
                 # Check if document already exists and has active content
                 existing_doc = db.query(Document).filter(
                     Document.source_url == post.url,
                     Document.user_id == user.id
                 ).first()
-                
+
                 should_skip = False
                 if existing_doc:
                     # Check if this document has any active memories
@@ -136,10 +157,10 @@ class SubstackService:
                         logger.info(f"Re-importing post (no active memories found): {post.title}")
                         db.delete(existing_doc)
                         db.flush()
-                
+
                 if should_skip:
                     continue
-                
+
                 # Create document
                 doc = Document(
                     user_id=user.id,
@@ -153,33 +174,22 @@ class SubstackService:
                         "published_date": post.date.isoformat() if post.date else None,
                         "word_count": len(post.content.split()),
                         "char_count": len(post.content),
-                        "substack_username": username
+                        "substack_username": username,
+                        "needs_chunking": True  # Mark for Phase 2 processing
                     }
                 )
                 db.add(doc)
-                db.flush()  # Get the ID
-                
-                # Create a more comprehensive summary that captures key sections
+                db.flush()  # Get the ID immediately
+
+                # Create a LIGHTWEIGHT summary for immediate memory
                 summary_text = f"Essay: {post.title}"
-                
-                # Extract meaningful sections from the essay
-                content_length = len(post.content)
-                if content_length > 1500:
-                    # For longer essays, sample from beginning, middle, and end
-                    intro = post.content[:500].strip()
-                    middle_start = content_length // 2 - 250
-                    middle = post.content[middle_start:middle_start + 500].strip()
-                    conclusion = post.content[-500:].strip()
-                    
-                    summary_text += f"\n\n[Beginning]: {intro}...\n\n[Middle]: ...{middle}...\n\n[End]: ...{conclusion}"
-                elif content_length > 500:
-                    # For medium essays, take more content
-                    summary_text += f" - {post.content[:1000]}..."
+                if len(post.content) > 500:
+                    # Just take the beginning for immediate memory
+                    summary_text += f" - {post.content[:500]}..."
                 else:
-                    # For short content, include everything
                     summary_text += f" - {post.content}"
-                
-                # Add to mem0 if available
+
+                # Add to mem0 if available (lightweight version)
                 if use_mem0 and memory_client:
                     try:
                         mem0_response = memory_client.add(
@@ -189,13 +199,14 @@ class SubstackService:
                                 "source_app": "substack",
                                 "document_id": str(doc.id),
                                 "type": "document_summary",
-                                "app_db_id": str(app.id)
+                                "app_db_id": str(app.id),
+                                "processing_phase": "phase1"  # Mark as basic processing
                             }
                         )
                         logger.info(f"Added to mem0: {post.title}")
                     except Exception as e:
                         logger.error(f"Error adding to mem0: {e}")
-                
+
                 # Create SQL memory record
                 summary_memory = Memory(
                     user_id=user.id,
@@ -205,12 +216,13 @@ class SubstackService:
                         "document_id": str(doc.id),
                         "type": "document_summary",
                         "source_url": post.url,
-                        "title": post.title
+                        "title": post.title,
+                        "processing_phase": "phase1"
                     }
                 )
                 db.add(summary_memory)
                 db.flush()
-                
+
                 # Link document to memory
                 db.execute(
                     document_memories.insert().values(
@@ -218,26 +230,23 @@ class SubstackService:
                         memory_id=summary_memory.id
                     )
                 )
+
+                # COMMIT IMMEDIATELY for each post (memory efficient)
+                db.commit()
                 
-                logger.info(f"Synced: {post.title} ({len(post.content)} chars)")
                 synced_count += 1
-            
-            db.commit()
-            
-            # NEW: Automatically chunk all newly synced documents
-            if synced_count > 0:
-                logger.info(f"Starting automatic chunking for {synced_count} new documents...")
-                try:
-                    chunking_service = ChunkingService()
-                    # Chunk all documents for this user
-                    chunked_count = chunking_service.chunk_all_documents(db, str(user.id))
-                    logger.info(f"Successfully chunked {chunked_count} documents")
-                except Exception as chunk_error:
-                    logger.error(f"Error during automatic chunking: {chunk_error}")
-                    # Don't fail the sync if chunking fails
-            
-            return synced_count, f"Successfully synced {synced_count} posts from {username}'s Substack"
-            
+                logger.info(f"Synced: {post.title} ({len(post.content)} chars)")
+                
+                # Update progress after each successful sync
+                if progress_callback:
+                    progress_callback(post_progress, f"Synced: {post.title}", synced_count)
+
+            if progress_callback:
+                progress_callback(100, f"Completed! Synced {synced_count} posts", synced_count)
+
+            # NOTE: Chunking is now handled separately by background service
+            return synced_count, f"Successfully synced {synced_count} posts from {username}'s Substack. Advanced processing will continue in background."
+
         except Exception as e:
             db.rollback()
             logger.error(f"Error syncing Substack: {e}")

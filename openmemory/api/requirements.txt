@@ -19,3 +19,6 @@ python-dateutil>=2.8.0
 google-generativeai>=0.3.0
 beautifulsoup4>=4.12.0
 psutil>=5.9.0
+httpx==0.27.0
+starlette==0.38.2
+sse-starlette==2.1.3

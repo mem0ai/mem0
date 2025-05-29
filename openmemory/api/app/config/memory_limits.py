@@ -33,10 +33,18 @@ class MemoryLimits(BaseModel):
     
     # Smart memory query limits (for performance)
     smart_batch_size: int = 10  # Process documents in batches
-    smart_content_preview: int = 1000  # Chars to preview per document
-    smart_max_docs_analysis: int = 3  # Max docs to send to analyst
-    smart_doc_content_limit: int = 5000  # Max chars per doc for analyst
-    smart_max_memories_analysis: int = 10  # Max memories for analyst
+    smart_content_preview: int = 5000  # Characters to preview per document
+    smart_max_docs_analysis: int = 5  # Max documents for final analysis
+    smart_doc_content_limit: int = 10000  # Max characters per document in analysis
+    smart_max_memories_analysis: int = 20  # Max memories for final analysis
+    
+    # Memory monitoring
+    max_memory_usage_mb: int = 400  # Restart if using more than 400MB (Render starter limit is 512MB)
+    gc_threshold_mb: int = 300  # Run garbage collection if using more than 300MB
+    
+    # Batch processing for syncs
+    sync_batch_size: int = 5  # Process posts in batches during sync
+    sync_batch_delay_seconds: int = 1  # Delay between batches to prevent memory buildup
     
     @classmethod
     def get_defaults(cls) -> "MemoryLimits":

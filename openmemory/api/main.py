@@ -11,6 +11,10 @@ from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import User, App
 from app.auth import get_current_supa_user
+from app.middleware.memory_monitor import MemoryMonitorMiddleware
+from app.background_tasks import cleanup_old_tasks
+from app.services.background_processor import background_processor
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
@@ -27,7 +31,41 @@ async def lifespan(app: FastAPI):
     logger.info("Application startup...")
     # Base.metadata.create_all(bind=engine) # Alembic handles this
     logger.info("Database and services initialization (if any at startup beyond Supabase client)." )
+    
+    # Start periodic cleanup task
+    async def periodic_cleanup():
+        while True:
+            try:
+                cleaned = cleanup_old_tasks(hours=24)
+                if cleaned > 0:
+                    logger.info(f"Cleaned up {cleaned} old background tasks")
+            except Exception as e:
+                logger.error(f"Error in periodic cleanup: {e}")
+            await asyncio.sleep(3600)  # Run every hour
+    
+    # Start cleanup in background
+    cleanup_task = asyncio.create_task(periodic_cleanup())
+    
+    # Start background processor for Phase 2 document processing
+    processor_task = asyncio.create_task(background_processor.start())
+    
     yield
+    
+    # Cancel all background tasks on shutdown
+    background_processor.stop()
+    cleanup_task.cancel()
+    processor_task.cancel()
+    
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+    
+    try:
+        await processor_task
+    except asyncio.CancelledError:
+        pass
+    
     logger.info("Application shutdown.")
 
 app = FastAPI(
@@ -35,6 +73,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Add memory monitoring middleware (before CORS)
+app.add_middleware(MemoryMonitorMiddleware)
 
 # CORS Middleware Configuration
 # When allow_credentials=True, allow_origins cannot be "*"

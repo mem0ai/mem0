@@ -1,9 +1,10 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -13,12 +14,25 @@ export function SubstackIntegration() {
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
   const [syncMessage, setSyncMessage] = useState("");
   const [documentCount, setDocumentCount] = useState(0);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
   
   const { user } = useAuth();
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch document count on mount
   useEffect(() => {
     fetchDocumentCount();
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
   }, []);
 
   const fetchDocumentCount = async () => {
@@ -47,6 +61,52 @@ export function SubstackIntegration() {
     return url;
   };
 
+  const pollTaskStatus = async (taskId: string) => {
+    try {
+      const response = await apiClient.get(`/api/v1/integrations/tasks/${taskId}`);
+      const task = response.data;
+      
+      setProgress(task.progress || 0);
+      setProgressMessage(task.progress_message || "Processing...");
+      
+      if (task.status === "completed") {
+        // Task completed successfully
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        
+        setIsSyncing(false);
+        setSyncStatus("success");
+        setSyncMessage(task.result?.message || "Successfully synced Substack posts");
+        setTaskId(null);
+        setProgress(100);
+        
+        // Refresh document count
+        await fetchDocumentCount();
+        
+        // Clear URL after successful sync
+        setSubstackUrl("");
+      } else if (task.status === "failed") {
+        // Task failed
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        
+        setIsSyncing(false);
+        setSyncStatus("error");
+        setSyncMessage(task.error || "Failed to sync Substack");
+        setTaskId(null);
+        setProgress(0);
+      }
+      // If status is "pending" or "running", continue polling
+    } catch (error) {
+      console.error("Error polling task status:", error);
+      // Continue polling even if there's an error
+    }
+  };
+
   const handleSync = async () => {
     if (!substackUrl || !user) return;
 
@@ -64,6 +124,8 @@ export function SubstackIntegration() {
     setIsSyncing(true);
     setSyncStatus("idle");
     setSyncMessage("");
+    setProgress(0);
+    setProgressMessage("Starting sync...");
 
     try {
       // Call the sync endpoint with the normalized URL
@@ -72,18 +134,26 @@ export function SubstackIntegration() {
         max_posts: 20
       });
 
-      setSyncStatus("success");
-      setSyncMessage(response.data.message || "Successfully synced Substack posts");
-      
-      // Refresh document count
-      await fetchDocumentCount();
-      
-      // Clear URL after successful sync
-      setSubstackUrl("");
+      // Handle background task response
+      if (response.data.task_id) {
+        setTaskId(response.data.task_id);
+        setSyncMessage("Sync started in background...");
+        
+        // Start polling for progress
+        pollIntervalRef.current = setInterval(() => {
+          pollTaskStatus(response.data.task_id);
+        }, 2000); // Poll every 2 seconds
+      } else {
+        // Old sync response (synchronous)
+        setSyncStatus("success");
+        setSyncMessage(response.data.message || "Successfully synced Substack posts");
+        setIsSyncing(false);
+        await fetchDocumentCount();
+        setSubstackUrl("");
+      }
     } catch (error: any) {
       setSyncStatus("error");
       setSyncMessage(error.response?.data?.detail || "Failed to sync Substack");
-    } finally {
       setIsSyncing(false);
     }
   };
@@ -100,11 +170,6 @@ export function SubstackIntegration() {
           <p className="text-sm text-zinc-400 mb-3">
             Sync your Substack essays to build a comprehensive memory bank
           </p>
-          {isSyncing && (
-            <p className="text-xs text-zinc-500 mb-2">
-              This may take a few minutes depending on the number of essays...
-            </p>
-          )}
           <div className="flex gap-2">
             <Input
               type="url"
@@ -131,8 +196,24 @@ export function SubstackIntegration() {
           </div>
         </div>
 
+        {/* Progress bar and status when syncing */}
+        {isSyncing && (
+          <div className="space-y-3">
+            <Progress value={progress} className="h-2" />
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <FileText className="h-4 w-4" />
+              <span>{progressMessage}</span>
+            </div>
+            {progress > 0 && (
+              <p className="text-xs text-zinc-500">
+                Essays are being added to your memory as they sync. Advanced processing happens in the background.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Status message */}
-        {syncMessage && (
+        {syncMessage && !isSyncing && (
           <div className={`flex items-center gap-2 text-sm ${
             syncStatus === "success" ? "text-green-400" : "text-red-400"
           }`}>
@@ -148,8 +229,14 @@ export function SubstackIntegration() {
         {/* Document count */}
         {documentCount > 0 && (
           <div className="pt-2 border-t border-zinc-800">
-            <p className="text-sm text-zinc-400">
-              <span className="text-zinc-100 font-medium">{documentCount}</span> essays synced
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <FileText className="h-4 w-4" />
+              <span>
+                <span className="text-zinc-100 font-medium">{documentCount}</span> essays synced and searchable
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Your essays are being processed in the background for enhanced search capabilities.
             </p>
           </div>
         )}
