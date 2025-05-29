@@ -9,9 +9,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +34,10 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // Dynamic import and initialize Resend only when we have an API key
+      const { Resend } = await import('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      
       const data = await resend.emails.send({
         from: 'Jean Memory Support <support@jeanmemory.com>',
         to: ['jonathan@jeantechnologies.com'],
