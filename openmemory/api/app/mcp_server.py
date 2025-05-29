@@ -759,12 +759,11 @@ Provide a thorough, insightful response."""
 @mcp.tool(description="Ultra-fast two-layer memory search using Gemini 2.5 preview models. Use this for: 1) Complex queries across massive amounts of data, 2) When you need the FASTEST comprehensive search, 3) Finding connections across many documents/memories, 4) When performance matters. Layer 1 (Gemini 2.5 Flash) scouts ALL content in parallel, Layer 2 (Gemini 2.5 Pro) analyzes filtered results. Returns performance metrics.")
 async def smart_memory_query(search_query: str) -> str:
     """
-    True two-layer AI system with AI-powered summarization and orchestration:
-    1. Layer 1 (Parallel Scout Summarizer): Gemini Flash runs quick inference on ALL documents CONCURRENTLY to generate summaries.
-    2. Layer 1.5 (Orchestrator Agent): Gemini Flash AI agent reviews all summaries + top memories and selects the most relevant items.
-    3. Layer 2 (Analyst): Gemini Pro performs deep analysis on the AI-selected, highly relevant content.
-    
-    This is designed for intelligent filtering and speed via parallelism.
+    True three-stage AI system with query-focused parallel extraction:
+    1. Layer 1 (Parallel Query-Focused Extractor): Gemini Flash runs CONCURRENTLY on ALL documents to extract query-relevant snippets/answers.
+    2. Layer 1.5 (Orchestrator Agent): Gemini Flash AI agent reviews all query-focused extracts + top memories and selects the most relevant items.
+    3. Layer 2 (Analyst): Gemini Pro performs deep analysis on the AI-selected, highly relevant content (full docs for selected extracts).
+    Designed for speed, relevance, and robustness.
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -775,7 +774,7 @@ async def smart_memory_query(search_query: str) -> str:
         return "Error: client_name not available in context"
     
     import time
-    import asyncio # Required for asyncio.gather and to_thread
+    import asyncio
 
     start_time = time.time()
     
@@ -787,79 +786,81 @@ async def smart_memory_query(search_query: str) -> str:
                 return "Error: User or app not found"
             
             memory_client = get_memory_client()
-            # Ensure models are initialized correctly
             try:
-                gemini_flash = genai.GenerativeModel('gemini-2.5-flash-preview-05-20') # Using a generally available Flash model
-                gemini_pro = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')   # Using a generally available Pro model
+                gemini_flash = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+                gemini_pro = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
             except Exception as model_init_e:
                 logger.error(f"Error initializing Gemini models: {model_init_e}")
                 return f"Error initializing AI models: {model_init_e}"
 
-            # --- LAYER 1: PARALLEL SCOUT SUMMARIZER ---
-            scout_start_time = time.time()
+            # --- LAYER 1: PARALLEL QUERY-FOCUSED EXTRACTOR ---
+            extractor_start_time = time.time()
 
             all_db_documents = db.query(Document).filter(Document.user_id == user.id).all()
             
-            # Helper function to summarize a single document asynchronously
-            async def _summarize_document(doc_idx: int, document: Document, flash_model: genai.GenerativeModel):
+            async def _extract_query_focused_snippet(doc_idx: int, document: Document, flash_model: genai.GenerativeModel, current_query: str):
                 if not document.content:
-                    return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'summary': "[No content to summarize]", 'original_doc': document}
+                    return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': "[No content to extract from]", 'original_doc': document, 'status': 'no_content'}
                 
-                summary_prompt = f"""Concisely summarize this document in 2-3 key bullet points for relevance assessment based on a user query. Focus on main themes and conclusions.
+                # More targeted prompt for query-focused extraction
+                extraction_prompt = f"""Given the user's query: '{current_query}'
 
+Review the following document content (first ~2000 characters):
 Title: {document.title}
-Content (first 2000 chars): {document.content[:2000]}...
+Content Snippet: {document.content[:2000]}...
 
-Summary (2-3 bullet points):"""
+Task: Extract the single most relevant continuous snippet (max 150 words) OR provide a very concise answer (1-2 sentences) from this document that directly addresses or relates to the user's query. 
+If the document is clearly not relevant to the query, respond with ONLY the exact phrase 'Not relevant'.
+
+Relevant Snippet/Answer (or 'Not relevant'):"""
                 try:
-                    # Gemini SDK's generate_content is blocking, run in a thread
-                    summary_response = await asyncio.to_thread(
+                    # Run blocking SDK call in a separate thread
+                    extraction_response = await asyncio.to_thread(
                         flash_model.generate_content,
-                        summary_prompt,
-                        generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=100, candidate_count=1)
+                        extraction_prompt,
+                        generation_config=genai.GenerationConfig(temperature=0.0, max_output_tokens=200, candidate_count=1)
                     )
-                    summary_text = summary_response.text.strip() if summary_response and summary_response.text else f"Could not summarize. Preview: {document.content[:200]}..."
+                    extract_text = extraction_response.text.strip() if extraction_response and extraction_response.text else "Error: Empty response from extractor."
+                    status = 'extracted' if extract_text != 'Not relevant' and not extract_text.startswith("Error:") else ('not_relevant' if extract_text == 'Not relevant' else 'error')
                 except Exception as e:
-                    logger.warning(f"Async summarization for '{document.title}' failed: {e}")
-                    summary_text = f"Error during summary. Preview: {document.content[:200]}..."
+                    logger.warning(f"Async extraction for '{document.title}' failed: {e}")
+                    extract_text = f"Error extracting: {str(e)[:100]}"
+                    status = 'error'
                 
-                return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'summary': summary_text, 'original_doc': document}
+                return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': extract_text, 'original_doc': document, 'status': status}
 
-            # Create and run summarization tasks concurrently
-            summary_tasks = []
-            for i, doc_obj in enumerate(all_db_documents):
-                summary_tasks.append(_summarize_document(i, doc_obj, gemini_flash))
+            extraction_tasks = [_extract_query_focused_snippet(i, doc_obj, gemini_flash, search_query) for i, doc_obj in enumerate(all_db_documents)]
             
-            # Gather results from all summarization tasks
-            # Add a timeout for the entire summarization phase
-            try:
-                document_summaries_results = await asyncio.wait_for(asyncio.gather(*summary_tasks, return_exceptions=True), timeout=45.0)
-            except asyncio.TimeoutError:
-                logger.error("Document summarization phase timed out.")
-                return "Error: Document summarization phase took too long."
-
-            document_summaries = []
-            for res in document_summaries_results:
-                if isinstance(res, Exception): # Log individual task errors but continue
-                    logger.error(f"An individual summarization task failed: {res}")
-                else:
-                    document_summaries.append(res)
+            query_focused_extracts = []
+            if extraction_tasks: # Only run gather if there are tasks
+                try:
+                    extraction_results = await asyncio.wait_for(asyncio.gather(*extraction_tasks, return_exceptions=True), timeout=60.0) # Increased timeout for more docs
+                except asyncio.TimeoutError:
+                    logger.error("Document query-focused extraction phase timed out.")
+                    # Allow to proceed with any results gathered so far or an empty list
+                    extraction_results = [asyncio.TimeoutError("Individual task likely timed out within gather") for _ in extraction_tasks]
+                
+                for res in extraction_results:
+                    if isinstance(res, Exception):
+                        logger.error(f"An individual extraction task failed or timed out: {res}")
+                        # Optionally add a placeholder if needed for consistent list length, or just skip
+                    elif res: # Ensure res is not None
+                        query_focused_extracts.append(res)
             
-            # Get top memories via semantic search (this can run in parallel with summaries if optimized further, but simple for now)
-            memories_raw = memory_client.search(query=search_query, user_id=supa_uid, limit=20) # Limit for orchestrator
+            memories_raw = memory_client.search(query=search_query, user_id=supa_uid, limit=20)
             top_memories = memories_raw['results'] if isinstance(memories_raw, dict) and 'results' in memories_raw else (memories_raw if isinstance(memories_raw, list) else [])
             
-            scout_time = time.time() - scout_start_time
+            extractor_time = time.time() - extractor_start_time
 
             # --- LAYER 1.5: ORCHESTRATOR AGENT ---
             orchestrator_start_time = time.time()
             
-            orchestrator_context = f"USER QUERY: {search_query}\\n\\nAVAILABLE DOCUMENT SUMMARIES (ID, Title, AI Summary):\\n"
+            orchestrator_context = f"USER QUERY: {search_query}\\n\\nAVAILABLE DOCUMENT EXTRACTS (ID, Title, Query-Focused Extract/Status):\\n"
             doc_map = {} 
-            for summary_obj in document_summaries: # Use the results from gather
-                doc_id_str = f"DOC_{summary_obj['doc_id']}"
-                doc_map[doc_id_str] = summary_obj['original_doc'] # Map to the original Document object
-                orchestrator_context += f"{doc_id_str}: {summary_obj['title']} ({summary_obj['doc_type']})\\nSummary: {summary_obj['summary']}\\n\\n"
+            for extract_obj in query_focused_extracts:
+                doc_id_str = f"DOC_{extract_obj['doc_id']}"
+                doc_map[doc_id_str] = extract_obj['original_doc']
+                orchestrator_context += f"{doc_id_str}: {extract_obj['title']} ({extract_obj['doc_type']})\\nExtract/Status: {extract_obj['extract']}\\n\\n"
 
             orchestrator_context += "AVAILABLE MEMORIES (ID, Snippet):\\n"
             mem_map = {}
@@ -868,27 +869,31 @@ Summary (2-3 bullet points):"""
                 mem_map[mem_id_str] = mem
                 orchestrator_context += f"{mem_id_str}: {mem.get('memory', mem.get('content', ''))[:200]}...\\n\\n"
 
-            orchestrator_prompt = f"""{orchestrator_context}TASK: Based on the USER QUERY, select the MOST RELEVANT documents (from their summaries) and memories for detailed analysis.
-Choose up to 5 documents and up to 10 memories that are most likely to help answer the query.
+            orchestrator_prompt = f"""{orchestrator_context}TASK: Review the USER QUERY, DOCUMENT EXTRACTS, and MEMORY SNIPPETS. 
+Select the MOST VALUABLE documents (using their DOC_IDs from the extracts) and memories (using their MEM_IDs) that are essential for constructing a comprehensive answer. 
+Prioritize extracts that are directly relevant and not marked 'Not relevant' or 'Error'.
+Choose up to 5 best documents and up to 10 best memories.
 
-OUTPUT FORMAT (IDs only, comma-separated, or NONE if none are relevant):
+OUTPUT FORMAT (IDs only, comma-separated; use NONE if no relevant items in a category):
 SELECTED_DOCS: DOC_1, DOC_3
 SELECTED_MEMS: MEM_0, MEM_2, MEM_5
-REASONING: [Briefly explain your selection strategy]"""
+REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly address the query; memories A,B provide context.']"""
 
             selected_doc_objects = []
             selected_memory_objects = []
-            reasoning = "Default: No selection made by orchestrator."
+            reasoning = "Default: Orchestrator did not provide specific reasoning."
 
             try:
-                orchestrator_response = await asyncio.to_thread(
+                orchestrator_response_task = asyncio.to_thread(
                     gemini_flash.generate_content,
                     orchestrator_prompt,
-                    generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=250)
+                    generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=300) # Increased tokens slightly for reasoning
                 )
-                orchestrator_text = orchestrator_response.text.strip() if orchestrator_response and orchestrator_response.text else ""
+                orchestrator_response = await asyncio.wait_for(orchestrator_response_task, timeout=15.0) # Orchestrator timeout
                 
-                current_reasoning = "AI selection based on relevance" # Default if not parsed
+                orchestrator_text = orchestrator_response.text.strip() if orchestrator_response and orchestrator_response.text else ""
+                current_reasoning = "AI selection based on relevance from extracts and memories."
+
                 for line in orchestrator_text.split('\\n'):
                     line_upper = line.strip().upper()
                     if line_upper.startswith("SELECTED_DOCS:"):
@@ -907,13 +912,21 @@ REASONING: [Briefly explain your selection strategy]"""
                                     selected_memory_objects.append(mem_map[mem_id_str_clean])
                     elif line_upper.startswith("REASONING:"):
                         current_reasoning = line.split(":", 1)[1].strip()
-                reasoning = current_reasoning
+                reasoning = current_reasoning if current_reasoning else reasoning
 
-            except Exception as e:
-                logger.warning(f"Orchestrator (Gemini Flash) failed: {e}. Using fallback: top 3 doc summaries, top 5 memories.")
-                selected_doc_objects = [ds['original_doc'] for ds in document_summaries[:3]] # Fallback to first few summarized docs
+            except asyncio.TimeoutError:
+                logger.warning("Orchestrator (Gemini Flash) timed out. Applying simple fallback: top 3 'extracted' docs, top 5 memories.")
+                # Fallback: prioritize docs where extraction was successful and seemed relevant
+                fallback_docs = [extract['original_doc'] for extract in query_focused_extracts if extract['status'] == 'extracted'][:3]
+                selected_doc_objects = fallback_docs
                 selected_memory_objects = top_memories[:5]
-                reasoning = f"Fallback due to orchestrator error: {str(e)}"
+                reasoning = "Fallback: Orchestrator timeout. Selected top successfully extracted docs & memories."
+            except Exception as e:
+                logger.warning(f"Orchestrator (Gemini Flash) failed: {e}. Applying simple fallback.")
+                fallback_docs = [extract['original_doc'] for extract in query_focused_extracts if extract['status'] == 'extracted'][:3]
+                selected_doc_objects = fallback_docs
+                selected_memory_objects = top_memories[:5]
+                reasoning = f"Fallback: Orchestrator error ({str(e)[:50]}). Selected top successfully extracted docs & memories."
             
             orchestrator_time = time.time() - orchestrator_start_time
 
@@ -921,36 +934,40 @@ REASONING: [Briefly explain your selection strategy]"""
             analyst_start_time = time.time()
             
             analyst_context = f"USER QUERY: {search_query}\\n"
-            analyst_context += f"AI SELECTION REASONING: {reasoning}\\n\\n"
-            analyst_context += "=== AI-SELECTED RELEVANT CONTENT FOR ANALYSIS ===\\n\\n"
+            analyst_context += f"AI ORCHESTRATOR'S SELECTION REASONING: {reasoning}\\n\\n"
+            analyst_context += "=== AI-SELECTED RELEVANT CONTENT FOR FINAL ANALYSIS ===\\n\\n"
 
             if selected_doc_objects:
                 analyst_context += "SELECTED DOCUMENTS (Full Content):\\n"
-                for doc in selected_doc_objects: # These are now full Document objects
-                    analyst_context += f"Title: {doc.title}\\nContent (up to 15k chars):\\n{(doc.content or '')[:15000]}...\\n---\\n"
+                for doc_obj in selected_doc_objects:
+                    analyst_context += f"Title: {doc_obj.title}\\nContent (up to 20k chars):\\n{(doc_obj.content or '')[:20000]}...\\n---\\n"
             
             if selected_memory_objects:
                 analyst_context += "\\nSELECTED MEMORIES:\\n"
-                for mem in selected_memory_objects: # These are memory dicts
-                    analyst_context += f"- {mem.get('memory', mem.get('content', ''))}\\n"
+                for mem_obj in selected_memory_objects:
+                    analyst_context += f"- {mem_obj.get('memory', mem_obj.get('content', ''))}\\n"
             
             if not selected_doc_objects and not selected_memory_objects:
-                 analyst_context += "No specific documents or memories were selected by the AI orchestrator as highly relevant. General knowledge may be used if applicable, or indicate if the query cannot be answered."
-
+                 analyst_context += "No specific documents or memories were selected by the AI orchestrator as highly relevant. The user query may need to be rephrased or the knowledge base may not contain relevant information."
 
             analyst_prompt = f"""{analyst_context}
-TASK: Based on the user's query and the AI-selected content (including full document text for selected docs), provide a comprehensive and insightful answer.
-Synthesize information, draw connections, and cite sources (document titles or memory content) where appropriate.
-If the selected content is insufficient, state that and explain what might be missing."""
+TASK: Based on the USER QUERY and the AI-SELECTED CONTENT (including full document text for selected docs and relevant memories), provide a comprehensive and insightful answer.
+Synthesize information from all provided sources, draw connections, and cite specific document titles or memory content where appropriate.
+If the selected content is insufficient to fully answer, clearly state that and explain what kind of information might be missing or would be helpful."""
 
             final_response_text = ""
             try:
-                analyst_response = await asyncio.to_thread(
+                analyst_response_task = asyncio.to_thread(
                      gemini_pro.generate_content,
                      analyst_prompt,
-                     generation_config=genai.GenerationConfig(temperature=0.3, max_output_tokens=3500) # Increased for better answers
+                     generation_config=genai.GenerationConfig(temperature=0.25, max_output_tokens=4000) # Generous tokens for quality answer
                 )
-                final_response_text = analyst_response.text.strip() if analyst_response and analyst_response.text else "Analyst returned an empty response."
+                analyst_response = await asyncio.wait_for(analyst_response_task, timeout=30.0) # Analyst timeout
+
+                final_response_text = analyst_response.text.strip() if analyst_response and analyst_response.text else "Analyst returned an empty response. The AI may not have found enough relevant information in the selected content."
+            except asyncio.TimeoutError:
+                 logger.error("Analyst (Gemini Pro) timed out.")
+                 final_response_text = f"Error: Final analysis took too long and timed out. The Orchestrator selected {len(selected_doc_objects)} docs and {len(selected_memory_objects)} memories based on reasoning: '{reasoning}'. This content might have been too extensive or complex for rapid analysis."
             except Exception as e:
                 logger.error(f"Analyst (Gemini Pro) failed: {e}")
                 final_response_text = f"Error during final analysis: {str(e)}. Orchestrator selected {len(selected_doc_objects)} docs, {len(selected_memory_objects)} memories. Reasoning: {reasoning}"
@@ -959,8 +976,8 @@ If the selected content is insufficient, state that and explain what might be mi
             total_time = time.time() - start_time
 
             final_response_text += f"\\n\\n🤖 AI Performance Metrics:\\n"
-            final_response_text += f"⚡ Total: {total_time:.2f}s | Summarizer: {scout_time:.2f}s ({len(document_summaries)} docs) | Orchestrator: {orchestrator_time:.2f}s | Analyst: {analyst_time:.2f}s\\n"
-            final_response_text += f"📊 Content Path: {len(all_db_documents)} total docs summarized → Orchestrator selected {len(selected_doc_objects)} docs & {len(selected_memory_objects)} memories for final analysis.\\n"
+            final_response_text += f"⚡ Total: {total_time:.2f}s | Extractor: {extractor_time:.2f}s ({len(query_focused_extracts)}/{len(all_db_documents)} docs processed) | Orchestrator: {orchestrator_time:.2f}s | Analyst: {analyst_time:.2f}s\\n"
+            final_response_text += f"📊 Content Path: {len(all_db_documents)} total docs → {len(query_focused_extracts)} extracts reviewed by Orchestrator → {len(selected_doc_objects)} docs & {len(selected_memory_objects)} memories selected for final analysis.\\n"
             final_response_text += f"🧠 Orchestrator Strategy: {reasoning}"
             
             return final_response_text
