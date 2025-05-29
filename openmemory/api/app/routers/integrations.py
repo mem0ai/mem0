@@ -70,7 +70,7 @@ async def get_document_count(
         Document.id.in_(
             db.query(Document.id).join(
                 Memory,
-                text("metadata->>'document_id' = CAST(documents.id AS TEXT)")
+                text("memories.metadata_->>'document_id' = CAST(documents.id AS TEXT)")
             ).filter(
                 Memory.user_id == user.id,
                 Memory.state == MemoryState.active
