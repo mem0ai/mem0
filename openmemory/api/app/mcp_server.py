@@ -921,28 +921,46 @@ REASONING: [Briefly explain your selection strategy, e.g., 'Docs X,Y directly ad
                 )
                 orchestrator_response = await asyncio.wait_for(orchestrator_response_task, timeout=15.0) # Orchestrator timeout
                 
-                orchestrator_text = orchestrator_response.text.strip() if orchestrator_response and orchestrator_response.text else ""
-                current_reasoning = "AI selection based on relevance from extracts and memories."
+                # Check if response was blocked or has no text
+                if not orchestrator_response or not orchestrator_response.text:
+                    # Check if it was blocked by safety filters
+                    if orchestrator_response and hasattr(orchestrator_response, 'candidates'):
+                        if orchestrator_response.candidates and orchestrator_response.candidates[0].finish_reason == 2:
+                            logger.warning("Orchestrator response blocked by safety filters, using fallback")
+                        else:
+                            logger.warning("Orchestrator returned empty response, using fallback")
+                    else:
+                        logger.warning("Orchestrator returned no valid response, using fallback")
+                    
+                    # Use fallback selection
+                    fallback_docs = [extract['original_doc'] for extract in query_focused_extracts if extract['status'] == 'extracted'][:3]
+                    selected_doc_objects = fallback_docs
+                    selected_memory_objects = top_memories[:5]
+                    reasoning = "Fallback: Response blocked or empty. Selected top extracted docs & memories."
+                else:
+                    # Process the valid response
+                    orchestrator_text = orchestrator_response.text.strip()
+                    current_reasoning = "AI selection based on relevance from extracts and memories."
 
-                for line in orchestrator_text.split('\\n'):
-                    line_upper = line.strip().upper()
-                    if line_upper.startswith("SELECTED_DOCS:"):
-                        ids_str = line.split(":", 1)[1].strip()
-                        if ids_str.upper() != "NONE":
-                            for doc_id_str_raw in ids_str.split(","):
-                                doc_id_str_clean = doc_id_str_raw.strip()
-                                if doc_id_str_clean in doc_map:
-                                    selected_doc_objects.append(doc_map[doc_id_str_clean])
-                    elif line_upper.startswith("SELECTED_MEMS:"):
-                        ids_str = line.split(":", 1)[1].strip()
-                        if ids_str.upper() != "NONE":
-                            for mem_id_str_raw in ids_str.split(","):
-                                mem_id_str_clean = mem_id_str_raw.strip()
-                                if mem_id_str_clean in mem_map:
-                                    selected_memory_objects.append(mem_map[mem_id_str_clean])
-                    elif line_upper.startswith("REASONING:"):
-                        current_reasoning = line.split(":", 1)[1].strip()
-                reasoning = current_reasoning if current_reasoning else reasoning
+                    for line in orchestrator_text.split('\\n'):
+                        line_upper = line.strip().upper()
+                        if line_upper.startswith("SELECTED_DOCS:"):
+                            ids_str = line.split(":", 1)[1].strip()
+                            if ids_str.upper() != "NONE":
+                                for doc_id_str_raw in ids_str.split(","):
+                                    doc_id_str_clean = doc_id_str_raw.strip()
+                                    if doc_id_str_clean in doc_map:
+                                        selected_doc_objects.append(doc_map[doc_id_str_clean])
+                        elif line_upper.startswith("SELECTED_MEMS:"):
+                            ids_str = line.split(":", 1)[1].strip()
+                            if ids_str.upper() != "NONE":
+                                for mem_id_str_raw in ids_str.split(","):
+                                    mem_id_str_clean = mem_id_str_raw.strip()
+                                    if mem_id_str_clean in mem_map:
+                                        selected_memory_objects.append(mem_map[mem_id_str_clean])
+                        elif line_upper.startswith("REASONING:"):
+                            current_reasoning = line.split(":", 1)[1].strip()
+                    reasoning = current_reasoning if current_reasoning else reasoning
 
             except asyncio.TimeoutError:
                 logger.warning("Orchestrator (Gemini Flash) timed out. Applying simple fallback: top 3 'extracted' docs, top 5 memories.")
