@@ -48,7 +48,7 @@ Jean Memory is your **secure, unified memory layer** that works across all AI ap
 ## 🧠 How Jean Memory Works
 
 <p align="center">
-  <img src="openmemory/ui/public/og-image.png" width="600px" alt="Jean Memory Architecture - Connected Memory Graph">
+  <img src="docs/images/jean-memory-architecture.png" width="600px" alt="Jean Memory Architecture - Connected Memory Graph">
 </p>
 
 Jean Memory creates a **connected memory graph** that links all your AI interactions across different applications. As shown in the diagram above:
