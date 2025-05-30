@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/jonathan-politzki/your-memory">
-    <img src="openmemory/ui/public/logo.svg" width="200px" alt="Jean Memory - Your Personal Memory Layer for AI">
+    <img src="docs/images/hero-dark.svg" width="400px" alt="Jean Memory - Your Personal Memory Layer for AI">
   </a>
 </p>
 
@@ -44,6 +44,22 @@
 ## 🚀 What is Jean Memory?
 
 Jean Memory is your **secure, unified memory layer** that works across all AI applications. It gives your AI assistants the ability to remember you, your preferences, and your context - while keeping everything private and under your control.
+
+## 🧠 How Jean Memory Works
+
+<p align="center">
+  <img src="openmemory/ui/public/og-image.png" width="600px" alt="Jean Memory Architecture - Connected Memory Graph">
+</p>
+
+Jean Memory creates a **connected memory graph** that links all your AI interactions across different applications. As shown in the diagram above:
+
+- **🎯 Central Memory Hub**: Your personal memory sits at the center, accessible by all connected AI applications
+- **🔗 Cross-Application Links**: Memories flow seamlessly between Claude, Cursor, GPT, and other AI tools
+- **📊 Smart Connections**: Related memories are automatically linked and surfaced when relevant
+- **🔒 Private & Secure**: All connections happen through your personal memory layer - no data sharing between AI providers
+- **⚡ Real-time Sync**: Updates to your memory are instantly available across all connected applications
+
+This means when you tell Claude about your coding preferences, Cursor automatically knows them too. When you research a topic in one app, that context is available everywhere.
 
 ### Why Jean Memory?
 
