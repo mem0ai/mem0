@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import warnings
 from typing import Dict, List, Optional
@@ -121,5 +122,10 @@ class OpenAILLM(LLMBase):
         response = self.client.chat.completions.create(**params)
         parsed_response = self._parse_response(response, tools)
         if self.config.response_callback:
-            self.config.response_callback(self, response, params)
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as e:
+                # Log error but don't propagate
+                logging.error(f"Error due to callback: {e}")
+                pass
         return parsed_response
