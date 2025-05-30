@@ -3,7 +3,7 @@ import logging
 from mem0.memory.utils import format_entities
 
 try:
-    from langchain_memgraph import Memgraph
+    from langchain_memgraph.graphs.memgraph import Memgraph
 except ImportError:
     raise ImportError("langchain_memgraph is not installed. Please install it using pip install langchain-memgraph")
 
