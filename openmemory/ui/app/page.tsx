@@ -112,6 +112,75 @@ export default function LandingPage() {
             Your secure, unified memory layer across all AI applications
           </motion.p>
 
+          {/* GitHub Badges */}
+          <motion.div
+            className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-8 sm:mb-12"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <a 
+              href="https://github.com/jonathan-politzki/your-memory" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:scale-105 transition-transform duration-200"
+            >
+              <img 
+                src="https://img.shields.io/github/stars/jonathan-politzki/your-memory?style=social" 
+                alt="GitHub stars"
+                className="h-5 sm:h-6"
+              />
+            </a>
+            <a 
+              href="https://github.com/jonathan-politzki/your-memory/fork" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:scale-105 transition-transform duration-200"
+            >
+              <img 
+                src="https://img.shields.io/github/forks/jonathan-politzki/your-memory?style=social" 
+                alt="GitHub forks"
+                className="h-5 sm:h-6"
+              />
+            </a>
+            <a 
+              href="https://github.com/jonathan-politzki/your-memory/blob/main/LICENSE" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:scale-105 transition-transform duration-200"
+            >
+              <img 
+                src="https://img.shields.io/github/license/jonathan-politzki/your-memory?style=flat-square&color=blue" 
+                alt="License"
+                className="h-5 sm:h-6"
+              />
+            </a>
+            <a 
+              href="https://github.com/jonathan-politzki/your-memory/commits/main" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:scale-105 transition-transform duration-200"
+            >
+              <img 
+                src="https://img.shields.io/github/last-commit/jonathan-politzki/your-memory?style=flat-square&color=green" 
+                alt="Last commit"
+                className="h-5 sm:h-6"
+              />
+            </a>
+            <a 
+              href="https://github.com/jonathan-politzki/your-memory/issues" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:scale-105 transition-transform duration-200"
+            >
+              <img 
+                src="https://img.shields.io/github/issues/jonathan-politzki/your-memory?style=flat-square&color=orange" 
+                alt="GitHub issues"
+                className="h-5 sm:h-6"
+              />
+            </a>
+          </motion.div>
+
           {/* Features */}
           <motion.div
             className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12 max-w-3xl mx-auto"
