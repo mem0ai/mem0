@@ -6,7 +6,7 @@
 
 <p align="center">
   <h1 align="center">Jean Memory</h1>
-  <p align="center">Your Personal Memory Layer for AI Applications</p>
+  <p align="center">Your Personal Memory Layer for AI Applications, powered by the community.</p>
 </p>
 
 <p align="center">
@@ -34,6 +34,12 @@
   </a>
   <a href="https://github.com/jonathan-politzki/your-memory/issues">
     <img src="https://img.shields.io/github/issues/jonathan-politzki/your-memory?style=flat-square&color=orange" alt="GitHub issues">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://star-history.com/#jonathan-politzki/your-memory&Date">
+    <img src="https://api.star-history.com/svg?repos=jonathan-politzki/your-memory&type=Date" alt="Star History Chart">
   </a>
 </p>
 
@@ -228,7 +234,7 @@ Jean Memory additions and modifications are proprietary. See [LICENSE-JEAN.md](/
 
 - **Documentation**: [jeanmemory.com/docs](https://jeanmemory.com/docs)
 - **Issues**: [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
-- **Email**: [hello@jeanmemory.com](mailto:hello@jeanmemory.com)
+- **Email**: [jonathan@jeantechnologies.com](mailto:jonathan@jeantechnologies.com)
 
 ---
 
