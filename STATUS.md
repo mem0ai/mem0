@@ -74,11 +74,12 @@ Launch a functional multi-tenant Minimum Viable Product (MVP) with:
 
 The Jean Memory application has been successfully deployed to Render.com and is fully operational.
 
-**Live Endpoints:**
-*   **Frontend UI:** `https://jean-memory-ui.onrender.com`
-*   **Backend API:** `https://jean-memory-api.onrender.com`
-    *   API Documentation (Swagger): `https://jean-memory-api.onrender.com/docs`
-    *   API Documentation (ReDoc): `https://jean-memory-api.onrender.com/redoc`
+**🎉 Live Application URLs:**
+
+*   **Frontend UI:** `https://app.jeanmemory.com`
+*   **Backend API:** `https://api.jeanmemory.com`
+*   API Documentation (Swagger): `https://api.jeanmemory.com/docs`
+*   API Documentation (ReDoc): `https://api.jeanmemory.com/redoc`
 
 **Cloud Infrastructure Utilized:**
 *   **Application Hosting:** Render.com (for Backend API & Frontend UI)

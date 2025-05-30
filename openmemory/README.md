@@ -2,10 +2,12 @@
 
 Jean Memory is your personal memory layer for LLMs, now available as a cloud-hosted service and for local development. It allows you to build AI applications with personalized memories while giving you options for data control.
 
-**Live Cloud Version:**
-*   **Frontend UI:** [https://jean-memory-ui.onrender.com](https://jean-memory-ui.onrender.com)
-*   **Backend API:** `https://jean-memory-api.onrender.com`
-    *   API Docs: [https://jean-memory-api.onrender.com/docs](https://jean-memory-api.onrender.com/docs)
+## 🚀 Quick Start
+
+*   **Live Application:** [https://jeanmemory.com](https://jeanmemory.com)
+*   **Frontend UI:** [https://app.jeanmemory.com](https://app.jeanmemory.com)
+*   **Backend API:** `https://api.jeanmemory.com`
+*   API Docs: [https://api.jeanmemory.com/docs](https://api.jeanmemory.com/docs)
 
 To use the cloud version, simply visit the Frontend UI link above, sign up or log in, and follow the instructions to connect your MCP clients using the provided production API endpoints.
 

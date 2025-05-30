@@ -81,7 +81,7 @@ services:
       
       # Explicitly set the Backend API URL
       - key: NEXT_PUBLIC_API_URL
-        value: "https://jean-memory-api.onrender.com"
+        value: "https://api.jeanmemory.com"
       
       # Runtime
       - key: NODE_ENV

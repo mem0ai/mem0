@@ -84,7 +84,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://localhost:3001", 
-        "https://jean-memory-ui.onrender.com",  # UPDATED to new frontend name
+        "https://app.jeanmemory.com",  # Updated to new custom domain
         "https://jeanmemory.com", # New custom domain
         "https://www.jeanmemory.com", # New custom domain with www
     ],  
