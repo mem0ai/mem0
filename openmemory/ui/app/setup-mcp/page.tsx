@@ -144,6 +144,69 @@ export default function SetupMCPPage() {
           </CardContent>
         </Card>
 
+        {/* Detailed Installation Walkthrough */}
+        <Card className="border-yellow-500/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5 text-yellow-500" />
+              Step-by-Step Installation Walkthrough
+            </CardTitle>
+            <CardDescription>
+              Here's exactly what you'll see when you run the install command
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="bg-zinc-900 p-4 rounded-lg font-mono text-sm">
+                <p className="text-green-400 mb-2">1. Run the install command (from your dashboard):</p>
+                <div className="bg-zinc-800 p-3 rounded border-l-4 border-blue-500">
+                  <p className="text-zinc-300">npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-user-id --client claude</p>
+                </div>
+              </div>
+
+              <div className="bg-zinc-900 p-4 rounded-lg font-mono text-sm">
+                <p className="text-green-400 mb-2">2. You'll see this prompt:</p>
+                <div className="bg-zinc-800 p-3 rounded border-l-4 border-purple-500">
+                  <p className="text-zinc-300">✔ Enter the name of the server:</p>
+                </div>
+                <p className="text-yellow-300 mt-2 font-sans text-xs">
+                  💡 Type anything you want, like: <strong>"jean-memory"</strong> or <strong>"my-memory"</strong> (the name doesn't matter!)
+                </p>
+              </div>
+
+              <div className="bg-zinc-900 p-4 rounded-lg font-mono text-sm">
+                <p className="text-green-400 mb-2">3. Then you'll see this confirmation:</p>
+                <div className="bg-zinc-800 p-3 rounded border-l-4 border-purple-500">
+                  <p className="text-zinc-300">✔ Are you ready to install MCP server https://api.jeanmemory.com/mcp/claude/sse/your-user-id in claude?</p>
+                </div>
+                <p className="text-yellow-300 mt-2 font-sans text-xs">
+                  💡 Type: <strong>"Yes"</strong> or just press Enter
+                </p>
+              </div>
+
+              <div className="bg-zinc-900 p-4 rounded-lg font-mono text-sm">
+                <p className="text-green-400 mb-2">4. Success! You'll see:</p>
+                <div className="bg-zinc-800 p-3 rounded border-l-4 border-green-500">
+                  <p className="text-green-300">Successfully installed MCP server https://api.jeanmemory.com/mcp/claude/sse/your-user-id in claude.</p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Final Step:</strong> Restart Claude Desktop completely (quit and reopen). Jean Memory will appear in your tools! 🎉
+                </p>
+              </div>
+            </div>
+
+            <Alert className="border-green-500/20 bg-green-50 dark:bg-green-950/20">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-200">
+                <strong>Pro Tip:</strong> After installation, you can say things like "Remember that I love Italian food" or "What did I write about AI?" and your assistant will use your personal memory!
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
         {/* Example Conversations */}
         <Card>
           <CardHeader>
