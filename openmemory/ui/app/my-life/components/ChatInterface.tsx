@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
+import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from 'react-markdown';
 import apiClient from "@/lib/apiClient";
+import { createClient } from '@supabase/supabase-js';
 
 interface Message {
   id: string;
@@ -30,6 +32,7 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { memories, fetchMemories } = useMemoriesApi();
+  const { user } = useAuth();
 
   // Initialize client-side only
   useEffect(() => {
@@ -95,6 +98,17 @@ export default function ChatInterface({ selectedMemory }: ChatInterfaceProps) {
 
   const callGeminiAPI = async (userMessage: string, memoriesContext: any[], selectedMemory: any) => {
     try {
+      // Get auth token from Supabase
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('Unable to get authentication token');
+      }
+
       // Prepare context from memories
       const memoryContext = memoriesContext.slice(0, 20).map(m => 
         `Memory: ${m.memory} (from ${m.app_name || 'unknown app'} on ${new Date(m.created_at).toLocaleDateString()})`
@@ -127,6 +141,7 @@ Provide a focused, concise response (2-3 paragraphs max). If discussing a specif
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           prompt,
