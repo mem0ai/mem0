@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -41,9 +41,13 @@ class MemgraphConfig(BaseModel):
         return values
 
 
+class KuzuConfig(BaseModel):
+    db: Optional[str] = Field(":memory:", description="Path to the Kuzu database directory")
+
+
 class GraphStoreConfig(BaseModel):
     provider: str = Field(description="Provider of the data store (e.g., 'neo4j')", default="neo4j")
-    config: Neo4jConfig = Field(description="Configuration for the specific data store", default=None)
+    config: Dict = Field(description="Configuration for the specific data store", default=None)
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
     custom_prompt: Optional[str] = Field(
         description="Custom prompt to fetch entities from the given text", default=None
@@ -53,8 +57,10 @@ class GraphStoreConfig(BaseModel):
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
         if provider == "neo4j":
-            return Neo4jConfig(**v.model_dump())
+            return Neo4jConfig(**v)
         elif provider == "memgraph":
-            return MemgraphConfig(**v.model_dump())
+            return MemgraphConfig(**v)
+        elif provider == "kuzu":
+            return KuzuConfig(**v)
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
