@@ -1,169 +1,221 @@
 <p align="center">
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
-  </a>
-</p>
-<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
-  <a href="https://trendshift.io/repositories/11194" target="blank">
-    <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
+  <a href="https://github.com/jonathan-politzki/your-memory">
+    <img src="openmemory/ui/public/logo.svg" width="200px" alt="Jean Memory - Your Personal Memory Layer for AI">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai">Learn more</a>
+  <h1 align="center">Jean Memory</h1>
+  <p align="center">Your Personal Memory Layer for AI Applications</p>
+</p>
+
+<p align="center">
+  <a href="https://jeanmemory.com">Learn more</a>
   ·
-  <a href="https://mem0.dev/DiG">Join Discord</a>
+  <a href="https://app.jeanmemory.com">Try Jean Memory</a>
   ·
-  <a href="https://mem0.dev/demo">Demo</a>
+  <a href="https://api.jeanmemory.com/docs">API Docs</a>
   ·
-  <a href="https://mem0.dev/openmemory">OpenMemory</a>
+  <a href="/openmemory">OpenMemory</a>
 </p>
 
 <p align="center">
-  <a href="https://mem0.dev/DiG">
-    <img src="https://dcbadge.vercel.app/api/server/6PzXDgEjG5?style=flat" alt="Mem0 Discord">
+  <a href="https://github.com/jonathan-politzki/your-memory">
+    <img src="https://img.shields.io/github/stars/jonathan-politzki/your-memory?style=social" alt="GitHub stars">
   </a>
-  <a href="https://pepy.tech/project/mem0ai">
-    <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads">
+  <a href="https://github.com/jonathan-politzki/your-memory">
+    <img src="https://img.shields.io/github/forks/jonathan-politzki/your-memory?style=social" alt="GitHub forks">
   </a>
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
+  <a href="https://github.com/jonathan-politzki/your-memory">
+    <img src="https://img.shields.io/github/commit-activity/m/jonathan-politzki/your-memory?style=flat-square" alt="GitHub commit activity">
   </a>
-  <a href="https://pypi.org/project/mem0ai" target="blank">
-    <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
+  <a href="https://github.com/jonathan-politzki/your-memory/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/jonathan-politzki/your-memory?style=flat-square&color=blue" alt="License">
   </a>
-  <a href="https://www.npmjs.com/package/mem0ai" target="blank">
-    <img src="https://img.shields.io/npm/v/mem0ai" alt="Npm package">
-  </a>
-  <a href="https://www.ycombinator.com/companies/mem0">
-    <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
+  <a href="https://github.com/jonathan-politzki/your-memory/issues">
+    <img src="https://img.shields.io/github/issues/jonathan-politzki/your-memory?style=flat-square&color=orange" alt="GitHub issues">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
-</p>
-<p align="center">
-  <strong>⚡ +26% Accuracy vs. OpenAI Memory • 🚀 91% Faster • 💰 90% Fewer Tokens</strong>
+  <strong>🔒 Private • 🚀 Fast • 🔗 Universal</strong>
 </p>
 
-##  🔥 Research Highlights
-- **+26% Accuracy** over OpenAI Memory on the LOCOMO benchmark
-- **91% Faster Responses** than full-context, ensuring low-latency at scale
-- **90% Lower Token Usage** than full-context, cutting costs without compromise
-- [Read the full paper](https://mem0.ai/research)
+## 🚀 What is Jean Memory?
 
-# Introduction
+Jean Memory is your **secure, unified memory layer** that works across all AI applications. It gives your AI assistants the ability to remember you, your preferences, and your context - while keeping everything private and under your control.
 
-[Mem0](https://mem0.ai) ("mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. It remembers user preferences, adapts to individual needs, and continuously learns over time—ideal for customer support chatbots, AI assistants, and autonomous systems.
+### Why Jean Memory?
 
-### Key Features & Use Cases
+- **🔒 Privacy First**: Your memories stay yours with end-to-end encryption
+- **⚡ Lightning Fast**: Instant access to your context across all AI tools  
+- **🌐 Universal**: Works with Claude, GPT, Cursor, and any MCP-compatible app
+- **🏠 Your Choice**: Use our hosted service or run it completely locally
+
+### Key Features
 
 **Core Capabilities:**
-- **Multi-Level Memory**: Seamlessly retains User, Session, and Agent state with adaptive personalization
-- **Developer-Friendly**: Intuitive API, cross-platform SDKs, and a fully managed service option
+- **Cross-Application Memory**: Seamlessly share context between Claude, Cursor, GPT, and more
+- **MCP Protocol**: Built on the Model Context Protocol for maximum compatibility
+- **Local & Cloud Options**: Choose between our hosted service or complete local deployment
+- **Developer-Friendly**: Simple APIs and one-command setup
 
-**Applications:**
-- **AI Assistants**: Consistent, context-rich conversations
-- **Customer Support**: Recall past tickets and user history for tailored help
-- **Healthcare**: Track patient preferences and history for personalized care
-- **Productivity & Gaming**: Adaptive workflows and environments based on user behavior
+**Use Cases:**
+- **Personal AI Assistant**: Remember your preferences across all AI interactions
+- **Development Work**: Maintain context across coding sessions in different tools
+- **Research & Writing**: Keep track of insights and references across platforms
+- **Customer Support**: Build AI that remembers customer history and preferences
 
-## 🚀 Quickstart Guide <a name="quickstart"></a>
+## 🚀 Quick Start
 
-Choose between our hosted platform or self-hosted package:
+### Option 1: Hosted Service (Recommended)
 
-### Hosted Platform
+Get started in seconds with our hosted service:
 
-Get up and running in minutes with automatic updates, analytics, and enterprise security.
-
-1. Sign up on [Mem0 Platform](https://app.mem0.ai)
-2. Embed the memory layer via SDK or API keys
-
-### Self-Hosted (Open Source)
-
-Install the sdk via pip:
+1. **Sign up** at [jeanmemory.com](https://jeanmemory.com)
+2. **Get your install command** from the dashboard
+3. **Run one command** to connect your AI tools:
 
 ```bash
-pip install mem0ai
+npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-user-id --client claude
 ```
 
-Install sdk via npm:
+4. **Restart your AI app** and start using memory!
+
+### Option 2: Local Development
+
+Run Jean Memory completely locally:
+
 ```bash
-npm install mem0ai
+git clone https://github.com/jonathan-politzki/your-memory.git
+cd your-memory/openmemory
+make build
+make up
 ```
 
-### Basic Usage
+Access at:
+- **API**: `http://localhost:8765`
+- **UI**: `http://localhost:3000`
 
-Mem0 requires an LLM to function, with `gpt-4o-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+## 💬 Example Usage
 
-First step is to instantiate the memory:
+Once connected, you can:
+
+```
+You: "Remember that I prefer TypeScript over JavaScript for new projects"
+AI: ✓ I'll remember your preference for TypeScript.
+
+You: "Help me set up a new web project"  
+AI: I'll help you create a TypeScript project since you prefer TypeScript over JavaScript...
+```
+
+Your AI will remember this across all applications - Claude, Cursor, GPT, and more!
+
+## 🔗 Supported Applications
+
+Jean Memory works with any MCP-compatible application:
+
+- **Claude Desktop** - Anthropic's AI assistant
+- **Cursor** - AI-powered code editor  
+- **Windsurf** - Codeium's AI editor
+- **Cline** - VS Code AI extension
+- **Any MCP Client** - Universal compatibility
+
+## 🛠️ For Developers
+
+### API Integration
 
 ```python
-from openai import OpenAI
-from mem0 import Memory
+import requests
 
-openai_client = OpenAI()
-memory = Memory()
+# Add a memory
+response = requests.post("https://api.jeanmemory.com/memories", 
+    headers={"Authorization": "Bearer your-api-key"},
+    json={"text": "User prefers dark mode", "user_id": "user123"}
+)
 
-def chat_with_memories(message: str, user_id: str = "default_user") -> str:
-    # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, user_id=user_id, limit=3)
-    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
-
-    # Generate Assistant response
-    system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=messages)
-    assistant_response = response.choices[0].message.content
-
-    # Create new memories from the conversation
-    messages.append({"role": "assistant", "content": assistant_response})
-    memory.add(messages, user_id=user_id)
-
-    return assistant_response
-
-def main():
-    print("Chat with AI (type 'exit' to quit)")
-    while True:
-        user_input = input("You: ").strip()
-        if user_input.lower() == 'exit':
-            print("Goodbye!")
-            break
-        print(f"AI: {chat_with_memories(user_input)}")
-
-if __name__ == "__main__":
-    main()
+# Search memories  
+response = requests.get("https://api.jeanmemory.com/memories/search",
+    params={"query": "dark mode", "user_id": "user123"},
+    headers={"Authorization": "Bearer your-api-key"}
+)
 ```
 
-For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quickstart) and [API Reference](https://docs.mem0.ai/api-reference).
+### MCP Integration
 
-## 🔗 Integrations & Demos
+Jean Memory is built on the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), making it compatible with any MCP-supporting application.
 
-- **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.dev/demo))
-- **Browser Extension**: Store memories across ChatGPT, Perplexity, and Claude ([Chrome Extension](https://chromewebstore.google.com/detail/onihkkbipkfeijkadecaafbgagkhglop?utm_source=item-share-cb))
-- **Langgraph Support**: Build a customer bot with Langgraph + Mem0 ([Guide](https://docs.mem0.ai/integrations/langgraph))
-- **CrewAI Integration**: Tailor CrewAI outputs with Mem0 ([Example](https://docs.mem0.ai/integrations/crewai))
+### Local Deployment
 
-## 📚 Documentation & Support
+Full docker-compose setup included for local development and self-hosting.
 
-- Full docs: https://docs.mem0.ai
-- Community: [Discord](https://mem0.dev/DiG) · [Twitter](https://x.com/mem0ai)
-- Contact: founders@mem0.ai
+## 🏗️ Architecture
 
-## Citation
+Jean Memory consists of:
 
-We now have a paper you can cite:
+- **Memory API** - Core memory storage and retrieval
+- **MCP Server** - Model Context Protocol compatibility  
+- **Web UI** - Dashboard for managing memories
+- **Vector Database** - Semantic search capabilities
+- **Authentication** - Secure user management
 
-```bibtex
-@article{mem0,
-  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
-  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
-  journal={arXiv preprint arXiv:2504.19413},
-  year={2025}
-}
+## 📚 Documentation
+
+- **Getting Started**: [jeanmemory.com/docs](https://jeanmemory.com/docs)
+- **API Reference**: [api.jeanmemory.com/docs](https://api.jeanmemory.com/docs)
+- **MCP Setup**: [Local setup guide](/openmemory/README.md)
+
+## 🤝 Contributing
+
+We welcome contributions! Jean Memory is built on open source foundations and we believe in community-driven development.
+
+### How to Contribute
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Commit your changes**: `git commit -m 'Add amazing feature'`
+4. **Push to branch**: `git push origin feature/amazing-feature`
+5. **Open a Pull Request**
+
+### Development Setup
+
+```bash
+git clone https://github.com/jonathan-politzki/your-memory.git
+cd your-memory
+# See /openmemory/README.md for detailed setup
 ```
 
-## ⚖️ License
+## 🔒 Privacy & Security
 
-Apache 2.0 — see the [LICENSE](LICENSE) file for details.
+- **End-to-end encryption** available for sensitive data
+- **Local deployment** option for complete control
+- **No vendor lock-in** - export your data anytime
+- **Transparent** - open source components you can audit
+
+## 📈 Roadmap
+
+- [x] **MCP Protocol Support** - Universal AI app compatibility
+- [x] **Hosted Service** - Managed cloud offering
+- [x] **Local Deployment** - Self-hosting capabilities
+- [ ] **Client-side Encryption** - Zero-knowledge architecture
+- [ ] **Advanced Search** - Semantic and temporal queries
+- [ ] **Team Collaboration** - Shared memory spaces
+- [ ] **Enterprise Features** - SSO, compliance, analytics
+
+## 📄 License
+
+This project incorporates code from [mem0ai/mem0](https://github.com/mem0ai/mem0) under the Apache 2.0 License.
+
+Jean Memory additions and modifications are proprietary. See [LICENSE-JEAN.md](/openmemory/LICENSE-JEAN.md) for details.
+
+## 🙋‍♂️ Support
+
+- **Documentation**: [jeanmemory.com/docs](https://jeanmemory.com/docs)
+- **Issues**: [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
+- **Email**: [hello@jeanmemory.com](mailto:hello@jeanmemory.com)
+
+---
+
+<p align="center">
+  Built with ❤️ by <a href="https://jeanmemory.com">Jean Technologies</a>
+</p>
