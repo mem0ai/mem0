@@ -118,28 +118,59 @@ export default function SetupMCPPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Step 1:</strong> Sign up at <a href="/auth" className="underline hover:no-underline">jeanmemory.com</a>
-              </p>
-            </div>
+            <div className="space-y-3">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full flex items-center justify-center text-sm font-semibold">
+                    1
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Sign up for Jean Memory</h3>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300 ml-11">
+                  Create your account at <a href="/auth" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">jeanmemory.com</a> to get started
+                </p>
+              </div>
 
-            <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-              <p className="text-sm text-green-800 dark:text-green-200">
-                <strong>Step 2:</strong> Visit your <a href="/dashboard" className="underline hover:no-underline">dashboard</a> and find the "Quick Setup" section
-              </p>
-            </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full flex items-center justify-center text-sm font-semibold">
+                    2
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Find your install commands</h3>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300 ml-11">
+                  Visit your <a href="/dashboard" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">dashboard</a> and look for the "Quick Setup" section with personalized commands
+                </p>
+              </div>
 
-            <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-              <p className="text-sm text-purple-800 dark:text-purple-200">
-                <strong>Step 3:</strong> Copy the install command for your AI app (Claude, Cursor, etc.) - it already has your user ID filled in!
-              </p>
-            </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full flex items-center justify-center text-sm font-semibold">
+                    3
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Copy your personalized command</h3>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300 ml-11">
+                  Click on your AI app (Claude, Cursor, etc.) - the command already has your unique user ID filled in automatically
+                </p>
+              </div>
 
-            <div className="bg-zinc-50 dark:bg-zinc-950/20 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
-              <p className="text-sm text-zinc-800 dark:text-zinc-200">
-                <strong>Step 4:</strong> Paste the command in your terminal and restart your AI app
-              </p>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-full flex items-center justify-center text-sm font-semibold">
+                    4
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Run the command & restart</h3>
+                </div>
+                <div className="ml-11 space-y-2">
+                  <p className="text-slate-600 dark:text-slate-300">
+                    Paste the command in your terminal and follow the prompts
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Then restart your AI app completely (quit and reopen) - that's it!
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
