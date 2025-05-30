@@ -12,7 +12,7 @@ install:
 
 install_all:
 	pip install ruff==0.6.9 groq together boto3 litellm ollama chromadb weaviate weaviate-client sentence_transformers vertexai \
-	                        google-generativeai elasticsearch opensearch-py vecs pinecone pinecone-text faiss-cpu langchain-community \
+	                        google-generativeai elasticsearch opensearch-py vecs "pinecone<7.0.0" pinecone-text faiss-cpu langchain-community \
 							upstash-vector azure-search-documents langchain-memgraph langchain-neo4j rank-bm25
 
 # Format code with ruff
@@ -41,3 +41,12 @@ clean:
 
 test:
 	hatch run test
+
+test-py-3.9:
+	hatch run dev_py_3_9:test
+
+test-py-3.10:
+	hatch run dev_py_3_10:test
+
+test-py-3.11:
+	hatch run dev_py_3_11:test
