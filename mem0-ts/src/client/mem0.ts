@@ -159,10 +159,7 @@ export default class MemoryClient {
     return jsonResponse;
   }
 
-  _preparePayload(
-    messages: Array<Message>,
-    options: MemoryOptions,
-  ): object {
+  _preparePayload(messages: Array<Message>, options: MemoryOptions): object {
     const payload: any = {};
     payload.messages = messages;
     return { ...payload, ...options };
