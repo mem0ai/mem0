@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/jonathan-politzki/your-memory">
-    <img src="docs/images/banner-sm.png" width="600px" alt="Jean Memory - Your Personal Memory Layer for AI">
+    <img src="docs/images/jean-logo.png" width="300px" alt="Jean Memory - Your Personal Memory Layer for AI">
   </a>
 </p>
 
