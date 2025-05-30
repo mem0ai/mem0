@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/jonathan-politzki/your-memory">
-    <img src="docs/images/hero-dark.svg" width="400px" alt="Jean Memory - Your Personal Memory Layer for AI">
+    <img src="docs/images/banner-sm.png" width="600px" alt="Jean Memory - Your Personal Memory Layer for AI">
   </a>
 </p>
 
@@ -34,12 +34,6 @@
   </a>
   <a href="https://github.com/jonathan-politzki/your-memory/issues">
     <img src="https://img.shields.io/github/issues/jonathan-politzki/your-memory?style=flat-square&color=orange" alt="GitHub issues">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://star-history.com/#jonathan-politzki/your-memory&Date">
-    <img src="https://api.star-history.com/svg?repos=jonathan-politzki/your-memory&type=Date" alt="Star History Chart">
   </a>
 </p>
 
@@ -235,6 +229,16 @@ Jean Memory additions and modifications are proprietary. See [LICENSE-JEAN.md](/
 - **Documentation**: [jeanmemory.com/docs](https://jeanmemory.com/docs)
 - **Issues**: [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
 - **Email**: [jonathan@jeantechnologies.com](mailto:jonathan@jeantechnologies.com)
+
+---
+
+## ⭐ Star History
+
+<p align="center">
+  <a href="https://star-history.com/#jonathan-politzki/your-memory&Date">
+    <img src="https://api.star-history.com/svg?repos=jonathan-politzki/your-memory&type=Date" alt="Star History Chart">
+  </a>
+</p>
 
 ---
 
