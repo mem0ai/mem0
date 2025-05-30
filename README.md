@@ -243,5 +243,5 @@ Jean Memory additions and modifications are proprietary. See [LICENSE-JEAN.md](/
 ---
 
 <p align="center">
-  Built with ❤️ by <a href="https://jeanmemory.com">Jean Technologies</a>
+  Built with ❤️ by <a href="https://jeantechnologies.com">Jean Technologies</a>
 </p>
