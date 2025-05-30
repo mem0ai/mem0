@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import httpx
 
@@ -47,6 +47,8 @@ class BaseLlmConfig(ABC):
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_region: Optional[str] = "us-west-2",
+        # Response monitoring callback
+        response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
         """
         Initializes a configuration class instance for the LLM.
@@ -95,6 +97,8 @@ class BaseLlmConfig(ABC):
         :type sarvam_base_url: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param response_callback: Optional callback for monitoring LLM responses.
+            Signature: (llm_instance: Any, raw_response: dict, params: dict) -> None
         """
 
         self.model = model
@@ -139,3 +143,6 @@ class BaseLlmConfig(ABC):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_region = aws_region
+
+        # Response monitoring
+        self.response_callback = response_callback

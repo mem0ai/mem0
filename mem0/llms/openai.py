@@ -118,6 +118,8 @@ class OpenAILLM(LLMBase):
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
-
         response = self.client.chat.completions.create(**params)
-        return self._parse_response(response, tools)
+        parsed_response = self._parse_response(response, tools)
+        if self.config.response_callback:
+            self.config.response_callback(self, response, params)
+        return parsed_response
