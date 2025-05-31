@@ -74,6 +74,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         // 📊 Track authentication events with PostHog
         if (posthog && currentSession?.user && event === 'SIGNED_IN') {
+          // Identify the user for the People section
+          posthog.identify(currentSession.user.id, {
+            email: currentSession.user.email,
+            user_id: currentSession.user.id
+          });
+          
           posthog.capture('user_signed_in', {
             user_id: currentSession.user.id,
             email: currentSession.user.email,
