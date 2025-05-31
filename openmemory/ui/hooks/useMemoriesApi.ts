@@ -4,6 +4,7 @@ import { Memory, Client, Category } from '@/components/types';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { setAccessLogs, setMemoriesSuccess, setSelectedMemory, setRelatedMemories } from '@/store/memoriesSlice';
+import { usePostHog } from 'posthog-js/react';
 
 // Define the new simplified memory type
 export interface SimpleMemory {
@@ -103,6 +104,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
   const user_id = useSelector((state: RootState) => state.profile.userId);
   const memories = useSelector((state: RootState) => state.memories.memories);
   const selectedMemory = useSelector((state: RootState) => state.memories.selectedMemory);
+  const posthog = usePostHog();
 
   const URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
 
@@ -181,7 +183,16 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         app_name: "openmemory",
       }
       console.log("Creating memory with data:", memoryData);
-      await apiClient.post<ApiMemoryItem>(`/api/v1/memories/`, memoryData);
+      const response = await apiClient.post<ApiMemoryItem>(`/api/v1/memories/`, memoryData);
+      
+      // 📊 Track memory creation with PostHog
+      if (posthog) {
+        posthog.capture('memory_created', {
+          memory_length: text.length,
+          app_name: 'openmemory',
+          memory_id: response.data?.id || 'unknown'
+        });
+      }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
       setError(errorMessage);

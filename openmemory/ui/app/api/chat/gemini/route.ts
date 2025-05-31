@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import PostHogClient from '@/lib/posthog';
 
 export async function POST(request: NextRequest) {
   try {
@@ -113,6 +114,29 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+
+    // 📊 Track chat interaction with PostHog
+    try {
+      const posthog = PostHogClient();
+      posthog.capture({
+        distinctId: user.id,
+        event: 'chat_message_sent',
+        properties: {
+          user_id: user.id,
+          user_email: user.email,
+          memories_available: memories?.length || 0,
+          has_selected_memory: !!selectedMemory,
+          selected_memory_app: selectedMemory?.app_name || null,
+          prompt_length: prompt.length,
+          response_length: generatedText.length,
+          model_used: 'gemini-2.0-flash'
+        }
+      });
+      await posthog.shutdown();
+    } catch (trackingError) {
+      console.error('PostHog tracking failed:', trackingError);
+      // Don't let tracking errors break the main functionality
+    }
 
     return NextResponse.json({
       response: generatedText

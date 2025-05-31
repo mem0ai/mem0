@@ -10,6 +10,7 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import { useDispatch } from 'react-redux'; // Import useDispatch
 import { setUserId } from '@/store/profileSlice'; // Import setUserId
+import { usePostHog } from 'posthog-js/react';
 
 // Store the latest token globally, accessible by non-React modules
 let globalAccessToken: string | null = null;
@@ -38,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<AuthError | null>(null);
   const [localAccessToken, setLocalAccessToken] = useState<string | null>(null);
   const dispatch = useDispatch();
+  const posthog = usePostHog();
 
   // Define updateTokenAndProfile in the component scope
   const updateTokenAndProfile = useCallback((currentSession: Session | null) => {
@@ -69,13 +71,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         updateTokenAndProfile(currentSession);
         setIsLoading(false);
         setError(null);
+
+        // 📊 Track authentication events with PostHog
+        if (posthog && currentSession?.user && event === 'SIGNED_IN') {
+          posthog.capture('user_signed_in', {
+            user_id: currentSession.user.id,
+            email: currentSession.user.email,
+            provider: currentSession.user.app_metadata?.provider || 'email'
+          });
+        }
       }
     );
 
     return () => {
       authListener.subscription?.unsubscribe();
     };
-  }, [updateTokenAndProfile]); // useEffect now depends on updateTokenAndProfile
+  }, [updateTokenAndProfile, posthog]);
 
   const signInWithPassword = async (
     credentials: SignInWithPasswordCredentials
@@ -95,7 +106,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     setError(null);
     const response = await supabase.auth.signUp(credentials);
-    if (response.error) setError(response.error);
+    if (response.error) {
+      setError(response.error);
+    } else if (response.data.user && posthog) {
+      // 📊 Track successful signup with PostHog
+      posthog.capture('user_signed_up', {
+        user_id: response.data.user.id,
+        email: response.data.user.email,
+        provider: 'email'
+      });
+    }
     // onAuthStateChange will handle updating user and token states
     setIsLoading(false);
     return response;
@@ -123,6 +143,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async (): Promise<{ error: AuthError | null }> => {
     setIsLoading(true);
     setError(null);
+    
+    // 📊 Track sign out with PostHog
+    if (posthog && user) {
+      posthog.capture('user_signed_out', {
+        user_id: user.id,
+        email: user.email
+      });
+    }
+    
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) {
       setError(signOutError);

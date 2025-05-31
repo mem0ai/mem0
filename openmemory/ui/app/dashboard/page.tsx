@@ -6,9 +6,22 @@ import { MemoryFilters } from "@/app/memories/components/MemoryFilters";
 import { MemoriesSection } from "@/app/memories/components/MemoriesSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
+import { usePostHog } from 'posthog-js/react';
+import { useEffect } from 'react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const posthog = usePostHog();
+
+  // 📊 Track dashboard visits
+  useEffect(() => {
+    if (posthog && user) {
+      posthog.capture('dashboard_visited', {
+        user_id: user.id,
+        user_email: user.email
+      });
+    }
+  }, [posthog, user]);
 
   return (
     <div className="min-h-screen bg-black">
