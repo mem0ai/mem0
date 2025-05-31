@@ -77,7 +77,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Identify the user for the People section
           posthog.identify(currentSession.user.id, {
             email: currentSession.user.email,
-            user_id: currentSession.user.id
+            user_id: currentSession.user.id,
+            name: currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name,
+            provider: currentSession.user.app_metadata?.provider || 'email'
           });
           
           posthog.capture('user_signed_in', {
