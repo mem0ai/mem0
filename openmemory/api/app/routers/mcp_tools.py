@@ -15,6 +15,7 @@ from app.utils.memory import get_memory_client
 from app.services.chunking_service import ChunkingService
 from app.integrations.substack_service import SubstackService
 from app.config.memory_limits import MEMORY_LIMITS
+from app.utils.posthog_client import get_posthog_client
 import json
 import asyncio
 import logging
@@ -54,6 +55,23 @@ async def search_memory_http(
         elif isinstance(results, list):
             processed_results = results[:limit]  # Extra safety
         
+        # 📊 Track MCP search usage with PostHog
+        try:
+            posthog = get_posthog_client()
+            posthog.capture(
+                user_id=str(current_supa_user.id),
+                event='mcp_search_memory',
+                properties={
+                    'user_email': current_supa_user.email,
+                    'query_length': len(query),
+                    'results_count': len(processed_results),
+                    'limit_requested': limit,
+                    'tool_type': 'external_mcp'
+                }
+            )
+        except Exception as e:
+            logger.error(f"PostHog tracking failed for search_memory: {e}")
+        
         return {
             "status": "success",
             "results": processed_results,
@@ -92,6 +110,22 @@ async def list_memories_http(
             processed_results = results['results'][:limit]  # Extra safety
         elif isinstance(results, list):
             processed_results = results[:limit]  # Extra safety
+        
+        # 📊 Track MCP list usage with PostHog
+        try:
+            posthog = get_posthog_client()
+            posthog.capture(
+                user_id=str(current_supa_user.id),
+                event='mcp_list_memories',
+                properties={
+                    'user_email': current_supa_user.email,
+                    'memories_count': len(processed_results),
+                    'limit_requested': limit,
+                    'tool_type': 'external_mcp'
+                }
+            )
+        except Exception as e:
+            logger.error(f"PostHog tracking failed for list_memories: {e}")
         
         return {
             "status": "success",
@@ -135,6 +169,22 @@ async def add_memories_http(
             }
         )
         
+        # 📊 Track MCP memory creation with PostHog
+        try:
+            posthog = get_posthog_client()
+            posthog.capture(
+                user_id=str(current_supa_user.id),
+                event='mcp_add_memory',
+                properties={
+                    'user_email': current_supa_user.email,
+                    'memory_length': len(text),
+                    'app_name': app.name,
+                    'tool_type': 'external_mcp'
+                }
+            )
+        except Exception as e:
+            logger.error(f"PostHog tracking failed for add_memories: {e}")
+        
         return {
             "status": "success",
             "response": response
@@ -163,6 +213,21 @@ async def chunk_documents_http(
             db,
             str(user.id)
         )
+        
+        # 📊 Track MCP document chunking with PostHog
+        try:
+            posthog = get_posthog_client()
+            posthog.capture(
+                user_id=str(current_supa_user.id),
+                event='mcp_chunk_documents',
+                properties={
+                    'user_email': current_supa_user.email,
+                    'documents_processed': processed,
+                    'tool_type': 'external_mcp'
+                }
+            )
+        except Exception as e:
+            logger.error(f"PostHog tracking failed for chunk_documents: {e}")
         
         return {
             "status": "success",
@@ -198,6 +263,23 @@ async def sync_substack_http(
             max_posts=max_posts,
             use_mem0=True
         )
+        
+        # 📊 Track MCP Substack sync with PostHog
+        try:
+            posthog = get_posthog_client()
+            posthog.capture(
+                user_id=str(current_supa_user.id),
+                event='mcp_sync_substack',
+                properties={
+                    'user_email': current_supa_user.email,
+                    'substack_url': substack_url,
+                    'max_posts_requested': max_posts,
+                    'synced_count': synced_count,
+                    'tool_type': 'external_mcp'
+                }
+            )
+        except Exception as e:
+            logger.error(f"PostHog tracking failed for sync_substack: {e}")
         
         return {
             "status": "success",
