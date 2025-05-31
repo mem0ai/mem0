@@ -5,16 +5,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import google.api_core.exceptions
 from google.cloud import aiplatform, aiplatform_v1
-from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (
-    Namespace,
-)
+from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import \
+    Namespace
 from google.oauth2 import service_account
 from langchain.schema import Document
 from pydantic import BaseModel
 
-from mem0.configs.vector_stores.vertex_ai_vector_search import (
-    GoogleMatchingEngineConfig,
-)
+from mem0.configs.vector_stores.vertex_ai_vector_search import \
+    GoogleMatchingEngineConfig
 from mem0.vector_stores.base import VectorStoreBase
 
 # Configure logging
@@ -445,7 +443,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             "region": self.region,
         }
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> list[list[OutputData]]:
         """List vectors matching the given filters.
 
         Args:

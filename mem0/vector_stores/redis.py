@@ -251,7 +251,7 @@ class RedisDB(VectorStoreBase):
         # Recreate the index with the same parameters
         self.create_col(collection_name, self.embedding_model_dims)
 
-    def list(self, filters: dict = None, limit: int = None) -> list:
+    def list(self, filters: dict = None, limit: int = None) -> list[list[MemoryResult]]:
         """
         List all recent created memories from the vector store.
         """
