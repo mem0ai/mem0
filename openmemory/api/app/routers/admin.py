@@ -217,4 +217,146 @@ async def audit_user_memories(
         
     except Exception as e:
         logger.error(f"❌ Admin audit failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Audit failed: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Audit failed: {str(e)}")
+
+
+@router.get("/investigate-contamination-scope")
+async def investigate_contamination_scope(
+    user_uuid: str,
+    admin_verified: bool = Depends(verify_admin_access),
+    db: Session = Depends(get_db)
+):
+    """
+    ADMIN ONLY: Investigate the full scope of contamination and analyze patterns.
+    This will help us understand HOW the contamination happened.
+    """
+    
+    logger.info(f"🔍 CONTAMINATION INVESTIGATION for user: {user_uuid}")
+    
+    try:
+        memory_client = get_memory_client()
+        user = db.query(User).filter(User.user_id == user_uuid).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        investigation_report = {
+            "user_id": user_uuid,
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+            "total_memories": 0,
+            "contaminated_memories": 0,
+            "legitimate_memories": 0,
+            "contamination_patterns": {},
+            "memory_sources": {},
+            "time_analysis": {},
+            "sample_contaminated": [],
+            "sample_legitimate": []
+        }
+        
+        # Get ALL memories from vector store
+        all_memories = memory_client.get_all(user_id=user_uuid, limit=500)
+        memories_list = []
+        if isinstance(all_memories, dict) and 'results' in all_memories:
+            memories_list = all_memories['results']
+        elif isinstance(all_memories, list):
+            memories_list = all_memories
+        
+        investigation_report["total_memories"] = len(memories_list)
+        
+        # Contamination patterns to check
+        contamination_patterns = {
+            'java_development': ['java', '.class', 'import ', 'public class', 'junit'],
+            'planning_system': ['planningcontext', 'pickgroup', 'defaultgroup', 'planning-manager'],
+            'compilation': ['compilation', 'verified successful', 'main source compiles'],
+            'testing': ['test files', 'updated tests', 'junit', 'assertions'],
+            'pralayb_user': ['pralayb', '/users/pralayb', 'faircopyfolder'],
+            'constructors': ['constructor', 'factory', 'convenience methods'],
+            'documentation': ['comprehensive documentation', 'leaner api', 'outdated tests']
+        }
+        
+        for mem in memories_list:
+            content = mem.get('memory', mem.get('content', ''))
+            content_lower = content.lower()
+            metadata = mem.get('metadata', {})
+            created_at = mem.get('created_at', 'unknown')
+            
+            # Check if contaminated
+            is_contaminated = False
+            contamination_type = []
+            
+            for pattern_name, patterns in contamination_patterns.items():
+                if any(pattern in content_lower for pattern in patterns):
+                    is_contaminated = True
+                    contamination_type.append(pattern_name)
+                    
+                    if pattern_name not in investigation_report["contamination_patterns"]:
+                        investigation_report["contamination_patterns"][pattern_name] = 0
+                    investigation_report["contamination_patterns"][pattern_name] += 1
+            
+            # Analyze metadata source
+            source_app = metadata.get('source_app', 'unknown')
+            if source_app not in investigation_report["memory_sources"]:
+                investigation_report["memory_sources"][source_app] = {"total": 0, "contaminated": 0}
+            investigation_report["memory_sources"][source_app]["total"] += 1
+            
+            if is_contaminated:
+                investigation_report["contaminated_memories"] += 1
+                investigation_report["memory_sources"][source_app]["contaminated"] += 1
+                
+                # Sample contaminated memories
+                if len(investigation_report["sample_contaminated"]) < 10:
+                    investigation_report["sample_contaminated"].append({
+                        "content": content[:150] + "..." if len(content) > 150 else content,
+                        "metadata": metadata,
+                        "created_at": created_at,
+                        "contamination_types": contamination_type
+                    })
+            else:
+                investigation_report["legitimate_memories"] += 1
+                
+                # Sample legitimate memories
+                if len(investigation_report["sample_legitimate"]) < 5:
+                    investigation_report["sample_legitimate"].append({
+                        "content": content[:100] + "..." if len(content) > 100 else content,
+                        "metadata": metadata,
+                        "created_at": created_at
+                    })
+        
+        # Calculate contamination rate
+        if investigation_report["total_memories"] > 0:
+            contamination_rate = (investigation_report["contaminated_memories"] / investigation_report["total_memories"]) * 100
+            investigation_report["contamination_rate"] = round(contamination_rate, 2)
+        
+        return {
+            "status": "success",
+            "investigation": investigation_report
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Investigation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Investigation failed: {str(e)}")
+
+
+@router.post("/emergency-fix-context-bleeding")
+async def emergency_fix_context_bleeding(
+    admin_verified: bool = Depends(verify_admin_access),
+):
+    """
+    ADMIN ONLY: Emergency fix for context variable bleeding in MCP server.
+    This will implement proper context isolation.
+    """
+    
+    logger.info("🚨 EMERGENCY CONTEXT BLEEDING FIX INITIATED")
+    
+    # This is a placeholder - the actual fix needs to be implemented in mcp_server.py
+    # by modifying how context variables are handled
+    
+    return {
+        "status": "success",
+        "message": "Context bleeding fix implementation needed - see mcp_server.py",
+        "recommendations": [
+            "Modify SSE connection handler to use proper async context isolation",
+            "Pass user_id explicitly instead of relying on context variables",
+            "Add request-level context scoping",
+            "Implement connection-specific memory client instances"
+        ]
+    } 

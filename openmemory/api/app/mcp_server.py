@@ -65,6 +65,25 @@ async def add_memories(text: str) -> str:
     
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
+    
+    # 🚨 CRITICAL: Add comprehensive logging to detect contamination
+    logger.error(f"🔍 ADD_MEMORIES DEBUG - User ID from context: {supa_uid}")
+    logger.error(f"🔍 ADD_MEMORIES DEBUG - Client name from context: {client_name}")
+    logger.error(f"🔍 ADD_MEMORIES DEBUG - Memory content preview: {text[:100]}...")
+    
+    # 🚨 CONTAMINATION DETECTION: Check for suspicious Java patterns
+    if any(pattern in text.lower() for pattern in [
+        'planningcontext', 'java', 'compilation', 'pickgroup', 'defaultgroup',
+        'constructor', 'factory', 'junit', '.class', 'import ', 'public class'
+    ]):
+        logger.error(f"🚨 POTENTIAL CONTAMINATION DETECTED!")
+        logger.error(f"🚨 User {supa_uid} trying to add Java content: {text[:150]}...")
+        logger.error(f"🚨 This may indicate context variable bleeding!")
+        
+        # Let's also log current context info
+        import contextvars
+        logger.error(f"🚨 Current context vars: user_id_var={user_id_var}, client_name_var={client_name_var}")
+    
     memory_client = get_memory_client() # Initialize client when tool is called
 
     if not supa_uid:
