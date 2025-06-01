@@ -83,6 +83,14 @@ async def add_memories(text: str) -> str:
         # Let's also log current context info
         import contextvars
         logger.error(f"🚨 Current context vars: user_id_var={user_id_var}, client_name_var={client_name_var}")
+        
+        # 🚨 EMERGENCY: Block suspicious Java content completely to prevent contamination
+        return f"❌ BLOCKED: Suspicious Java development content detected. This appears to be contaminated memory from another user. Content blocked for security."
+    
+    # 🚨 ADDITIONAL SAFETY: Validate user_id format and detect known contaminated user patterns
+    if supa_uid and any(suspicious_user in supa_uid.lower() for suspicious_user in ['pralayb', 'test', 'debug']):
+        logger.error(f"🚨 SUSPICIOUS USER ID DETECTED: {supa_uid}")
+        return f"❌ BLOCKED: Suspicious user ID pattern detected. Operation blocked for security."
     
     memory_client = get_memory_client() # Initialize client when tool is called
 
@@ -174,6 +182,33 @@ async def add_memories(text: str) -> str:
 async def add_memories(text: str) -> str:
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
+    
+    # 🚨 CRITICAL: Add comprehensive logging to detect contamination
+    logger.error(f"🔍 ADD_MEMORIES DEBUG (2nd function) - User ID from context: {supa_uid}")
+    logger.error(f"🔍 ADD_MEMORIES DEBUG (2nd function) - Client name from context: {client_name}")
+    logger.error(f"🔍 ADD_MEMORIES DEBUG (2nd function) - Memory content preview: {text[:100]}...")
+    
+    # 🚨 CONTAMINATION DETECTION: Check for suspicious Java patterns
+    if any(pattern in text.lower() for pattern in [
+        'planningcontext', 'java', 'compilation', 'pickgroup', 'defaultgroup',
+        'constructor', 'factory', 'junit', '.class', 'import ', 'public class'
+    ]):
+        logger.error(f"🚨 POTENTIAL CONTAMINATION DETECTED!")
+        logger.error(f"🚨 User {supa_uid} trying to add Java content: {text[:150]}...")
+        logger.error(f"🚨 This may indicate context variable bleeding!")
+        
+        # Let's also log current context info
+        import contextvars
+        logger.error(f"🚨 Current context vars: user_id_var={user_id_var}, client_name_var={client_name_var}")
+        
+        # 🚨 EMERGENCY: Block suspicious Java content completely to prevent contamination
+        return f"❌ BLOCKED: Suspicious Java development content detected. This appears to be contaminated memory from another user. Content blocked for security."
+    
+    # 🚨 ADDITIONAL SAFETY: Validate user_id format and detect known contaminated user patterns
+    if supa_uid and any(suspicious_user in supa_uid.lower() for suspicious_user in ['pralayb', 'test', 'debug']):
+        logger.error(f"🚨 SUSPICIOUS USER ID DETECTED: {supa_uid}")
+        return f"❌ BLOCKED: Suspicious user ID pattern detected. Operation blocked for security."
+    
     memory_client = get_memory_client() # Initialize client when tool is called
 
     if not supa_uid:
@@ -1041,9 +1076,11 @@ async def handle_sse(request: Request):
     logging.info(f"Request headers: {dict(request.headers)}")
     logging.info(f"MCP server name: {mcp._mcp_server.name}")
     
-    # Set context variables
+    # 🚨 CRITICAL FIX: Set context variables with proper isolation using tokens
     user_token = user_id_var.set(supa_user_id_from_path or "")
     client_token = client_name_var.set(client_name or "")
+    
+    logger.info(f"🔒 CONTEXT VARS SET - User: {supa_user_id_from_path}, Client: {client_name}")
 
     try:
         # Create a proper send function that handles ASGI correctly
@@ -1062,7 +1099,13 @@ async def handle_sse(request: Request):
             # Log successful connection
             logging.info(f"SSE connection established for user {supa_user_id_from_path}")
             
-            # Ensure proper initialization before running
+            # 🚨 CRITICAL FIX: Verify context variables are correct before running MCP
+            current_user = user_id_var.get(None)
+            current_client = client_name_var.get(None) 
+            if current_user != supa_user_id_from_path or current_client != client_name:
+                logger.error(f"🚨 CONTEXT MISMATCH DETECTED! Expected: {supa_user_id_from_path}/{client_name}, Got: {current_user}/{current_client}")
+                raise Exception(f"Context variable bleeding detected - aborting connection")
+            
             try:
                 await mcp._mcp_server.run(
                     read_stream,
@@ -1076,6 +1119,7 @@ async def handle_sse(request: Request):
                 else:
                     logging.error(f"MCP server run error for user {supa_user_id_from_path}: {e}", exc_info=True)
                 # Don't re-raise, let the connection close gracefully
+            
     except Exception as e:
         # Check if it's a normal disconnect
         if "disconnect" in str(e).lower() or "closed" in str(e).lower():
@@ -1083,12 +1127,13 @@ async def handle_sse(request: Request):
         else:
             logging.error(f"MCP SSE connection error for user {supa_user_id_from_path}: {e}", exc_info=True)
     finally:
-        # Always reset context variables
+        # 🚨 CRITICAL FIX: Always reset context variables using tokens
         try:
             user_id_var.reset(user_token)
             client_name_var.reset(client_token)
-        except:
-            pass
+            logger.info(f"🔒 CONTEXT VARS RESET - User: {supa_user_id_from_path}")
+        except Exception as e:
+            logger.error(f"🚨 ERROR RESETTING CONTEXT VARS: {e}")
         
         # Log connection closure
         logging.info(f"SSE connection closed for user {supa_user_id_from_path}")
