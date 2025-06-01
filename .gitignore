@@ -186,3 +186,6 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+# security
+CONTAMINATION_INCIDENT_REPORT.md

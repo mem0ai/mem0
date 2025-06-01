@@ -1137,11 +1137,12 @@ async def mcp_health_check(client_name: str, user_id: str):
         return {"status": "error", "message": str(e)}
 
 
-@mcp.tool(description="Perform security audit to check memory isolation and detect potential data leakage")
-async def audit_memory_security() -> str:
+# @mcp.tool(description="Perform security audit to check memory isolation and detect potential data leakage")
+async def audit_memory_security_ADMIN_ONLY() -> str:
     """
-    Comprehensive security audit to detect memory isolation issues.
+    ADMIN-ONLY Comprehensive security audit to detect memory isolation issues.
     Checks for cross-user data leakage and validates user boundaries.
+    This tool has been removed from user-facing MCP interface.
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
