@@ -1253,11 +1253,12 @@ async def audit_memory_security() -> str:
         return f"❌ Security audit failed: {str(e)}"
 
 
-@mcp.tool(description="Clean up contaminated cross-user memories that were incorrectly stored with your user ID")
-async def cleanup_contaminated_memories() -> str:
+# @mcp.tool(description="Clean up contaminated cross-user memories that were incorrectly stored with your user ID")
+async def cleanup_contaminated_memories_ADMIN_ONLY() -> str:
     """
-    Emergency cleanup tool to remove memories that clearly belong to other users
+    ADMIN-ONLY Emergency cleanup tool to remove memories that clearly belong to other users
     but were incorrectly stored with your user ID due to a previous bug.
+    This tool has been removed from user-facing MCP interface.
     """
     supa_uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
