@@ -195,29 +195,6 @@ async def list_memories(
     permitted_sqla_items = []
     for item in memories:
         if check_memory_access_permissions(db, item, app_id):
-            # 🚨 EMERGENCY: Additional content filtering to prevent cross-user leakage
-            memory_content = item.content.lower()
-            
-            # Comprehensive contamination patterns - block memories that clearly belong to other users
-            contamination_patterns = [
-                # Original patterns
-                'pralayb', '/users/pralayb', 'faircopyfolder', 'fair copy folder',
-                # Java development patterns (clearly from another user's work)
-                'pickgroup', 'abstractentityid', 'centertest', 'pickgrouptest', 'centeridtest',
-                'pick-planning-manager', 'rebin', 'shipmentdto', 'pickorder', 'junit',
-                'equals/hashcode', 'tostring()', 'compilation errors', 'test failures',
-                'fair copy folder', '/users/pralay', 'workplace/pick', 'http client',
-                'pending-shipments', 'centers/{centerid}', 'groups/{groupid}',
-                # Generic suspicious patterns that indicate development work from another user
-                'test files referencing non-existent', 'correct version of', 'from fair copy'
-            ]
-            
-            # Block suspicious content that might belong to other users
-            if any(suspicious in memory_content for suspicious in contamination_patterns):
-                logging.error(f"🚨 BLOCKED CONTAMINATED MEMORY - User {current_supa_user.id} tried to access: {item.content[:100]}...")
-                logging.error(f"🚨 Memory user_id: {item.user_id}, Expected user.id: {user.id}")
-                continue  # Skip this memory
-            
             permitted_sqla_items.append(item)
 
     # Now, transform the permitted SQLAlchemy items into MemoryResponse Pydantic models
