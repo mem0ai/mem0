@@ -7,6 +7,7 @@ from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
 from sqlalchemy import or_, func
+import logging
 
 from app.database import get_db
 from app.auth import get_current_supa_user
@@ -20,6 +21,7 @@ from app.models import (
 from app.schemas import MemoryResponse, PaginatedMemoryResponse
 from app.utils.permissions import check_memory_access_permissions
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/memories", tags=["memories"])
 
 
@@ -193,6 +195,15 @@ async def list_memories(
     permitted_sqla_items = []
     for item in memories:
         if check_memory_access_permissions(db, item, app_id):
+            # 🚨 EMERGENCY: Additional content filtering to prevent cross-user leakage
+            memory_content = item.content.lower()
+            
+            # Block suspicious content that might belong to other users
+            if any(suspicious in memory_content for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder', 'fair copy folder']):
+                logger.error(f"🚨 BLOCKED SUSPICIOUS MEMORY - User {current_supa_user.id} tried to access: {item.content[:100]}...")
+                logger.error(f"🚨 Memory user_id: {item.user_id}, Expected user.id: {user.id}")
+                continue  # Skip this memory
+            
             permitted_sqla_items.append(item)
 
     # Now, transform the permitted SQLAlchemy items into MemoryResponse Pydantic models

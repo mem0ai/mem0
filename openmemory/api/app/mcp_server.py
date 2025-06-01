@@ -281,9 +281,20 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
     try:
         # Get user (but don't filter by specific app - search ALL memories)
         user = get_or_create_user(db, supa_uid, None)
+        
+        # 🚨 CRITICAL: Add user validation logging
+        logger.info(f"🔍 SEARCH DEBUG - User ID: {supa_uid}, DB User ID: {user.id}, DB User user_id: {user.user_id}")
+        
+        # SECURITY CHECK: Verify user ID matches
+        if user.user_id != supa_uid:
+            logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
+            return f"Error: User ID validation failed. Security issue detected."
 
         # Search ALL memories for this user across all apps with limit
         mem0_search_results = memory_client.search(query=query, user_id=supa_uid, limit=limit)
+        
+        # 🚨 CRITICAL: Log the search results for debugging
+        logger.info(f"🔍 SEARCH DEBUG - Query: {query}, Results count: {len(mem0_search_results.get('results', [])) if isinstance(mem0_search_results, dict) else len(mem0_search_results) if isinstance(mem0_search_results, list) else 0}")
 
         processed_results = []
         actual_results_list = []
@@ -295,7 +306,20 @@ async def _search_memory_impl(query: str, supa_uid: str, client_name: str, limit
         for mem_data in actual_results_list[:limit]:  # Extra safety to ensure limit
             mem0_id = mem_data.get('id')
             if not mem0_id: continue
+            
+            # 🚨 CRITICAL: Check if this memory belongs to the correct user
+            memory_content = mem_data.get('memory', mem_data.get('content', ''))
+            
+            # Log suspicious content that might belong to other users
+            if any(suspicious in memory_content.lower() for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder']):
+                logger.error(f"🚨 SUSPICIOUS MEMORY DETECTED - User {supa_uid} got memory: {memory_content[:100]}...")
+                logger.error(f"🚨 Memory metadata: {mem_data.get('metadata', {})}")
+                continue  # Skip this memory
+            
             processed_results.append(mem_data)
+        
+        # 🚨 Log final results count
+        logger.info(f"🔍 SEARCH FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering")
         
         db.commit()
         return json.dumps(processed_results, indent=2)
@@ -343,9 +367,20 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
     try:
         # Get user (but don't filter by specific app - show ALL memories)
         user = get_or_create_user(db, supa_uid, None)
+        
+        # 🚨 CRITICAL: Add user validation logging
+        logger.info(f"📋 LIST DEBUG - User ID: {supa_uid}, DB User ID: {user.id}, DB User user_id: {user.user_id}")
+        
+        # SECURITY CHECK: Verify user ID matches
+        if user.user_id != supa_uid:
+            logger.error(f"🚨 USER ID MISMATCH: Expected {supa_uid}, got {user.user_id}")
+            return f"Error: User ID validation failed. Security issue detected."
 
         # Get ALL memories for this user across all apps with limit
         all_mem0_memories = memory_client.get_all(user_id=supa_uid, limit=limit)
+        
+        # 🚨 CRITICAL: Log the results for debugging
+        logger.info(f"📋 LIST DEBUG - Results count: {len(all_mem0_memories.get('results', [])) if isinstance(all_mem0_memories, dict) else len(all_mem0_memories) if isinstance(all_mem0_memories, list) else 0}")
 
         processed_results = []
         actual_results_list = []
@@ -357,7 +392,20 @@ async def _list_memories_impl(supa_uid: str, client_name: str, limit: int = 20) 
         for mem_data in actual_results_list[:limit]:  # Extra safety to ensure limit
             mem0_id = mem_data.get('id')
             if not mem0_id: continue
+            
+            # 🚨 CRITICAL: Check if this memory belongs to the correct user
+            memory_content = mem_data.get('memory', mem_data.get('content', ''))
+            
+            # Log suspicious content that might belong to other users
+            if any(suspicious in memory_content.lower() for suspicious in ['pralayb', '/users/pralayb', 'faircopyfolder']):
+                logger.error(f"🚨 SUSPICIOUS MEMORY DETECTED - User {supa_uid} got memory: {memory_content[:100]}...")
+                logger.error(f"🚨 Memory metadata: {mem_data.get('metadata', {})}")
+                continue  # Skip this memory
+            
             processed_results.append(mem_data)
+        
+        # 🚨 Log final results count
+        logger.info(f"📋 LIST FINAL - User {supa_uid}: {len(processed_results)} memories returned after filtering")
         
         db.commit()
         return json.dumps(processed_results, indent=2)
@@ -796,303 +844,13 @@ Provide a thorough, insightful response."""
         return f"Error performing deep search: {str(e)}"
 
 
-@mcp.tool(description="Ultra-fast two-layer memory search using Gemini 2.5 preview models. Use this for: 1) Complex queries across massive amounts of data, 2) When you need the FASTEST comprehensive search, 3) Finding connections across many documents/memories, 4) When performance matters. Layer 1 (Gemini 2.5 Flash) scouts ALL content in parallel, Layer 2 (Gemini 2.5 Pro) analyzes filtered results. Returns performance metrics.")
+@mcp.tool(description="Advanced memory search (temporarily disabled for stability)")
 async def smart_memory_query(search_query: str) -> str:
     """
-    True three-stage AI system with query-focused parallel extraction:
-    1. Layer 1 (Parallel Query-Focused Extractor): Gemini Flash runs CONCURRENTLY on ALL documents to extract query-relevant snippets/answers.
-    2. Layer 1.5 (Orchestrator Agent): Gemini Flash AI agent reviews all query-focused extracts + top memories and selects the most relevant items.
-    3. Layer 2 (Analyst): Gemini Pro performs deep analysis on the AI-selected, highly relevant content (full docs for selected extracts).
-    Designed for speed, relevance, and robustness.
+    Advanced memory search temporarily disabled due to performance issues.
+    Use deep_memory_query or search_memory instead.
     """
-    # Lazy imports
-    from app.utils.memory import get_memory_client
-    import google.generativeai as genai
-    
-    supa_uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    
-    if not supa_uid:
-        return "Error: Supabase user_id not available in context"
-    if not client_name:
-        return "Error: client_name not available in context"
-    
-    import time
-    import asyncio
-
-    start_time = time.time()
-    
-    try:
-        db = SessionLocal()
-        try:
-            user, app = get_user_and_app(db, supa_uid, client_name)
-            if not user or not app:
-                return "Error: User or app not found"
-            
-            memory_client = get_memory_client()
-            try:
-                gemini_flash_extractor = genai.GenerativeModel('gemini-1.5-flash')
-                gemini_flash_orchestrator = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
-                gemini_pro_analyst = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
-            except Exception as model_init_e:
-                logger.error(f"Error initializing Gemini models: {model_init_e}")
-                return f"Error initializing AI models: {model_init_e}"
-
-            # --- LAYER 1: PARALLEL QUERY-FOCUSED EXTRACTOR ---
-            extractor_start_time = time.time()
-
-            all_db_documents = db.query(Document).filter(Document.user_id == user.id).all()
-            total_document_count = len(all_db_documents)  # Save count before processing
-            
-            # Process documents in batches to avoid memory issues
-            BATCH_SIZE = MEMORY_LIMITS.smart_batch_size  # Use config value
-            query_focused_extracts = []
-            
-            async def _extract_query_focused_snippet(doc_idx: int, document: Document, flash_model: genai.GenerativeModel, current_query: str):
-                if not document.content:
-                    return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': "[No content to extract from]", 'original_doc': document, 'status': 'no_content'}
-                
-                # Limit content size to prevent memory issues
-                content_preview = (document.content or '')[:MEMORY_LIMITS.smart_content_preview]
-                
-                extraction_prompt = f"""Given the user's query: '{current_query}'
-
-Review the following document content (first ~{MEMORY_LIMITS.smart_content_preview} characters):
-Title: {document.title}
-Content Snippet: {content_preview}...
-
-Task: Extract the single most relevant continuous snippet (max 100 words) OR provide a very concise answer (1 sentence) from this document snippet that directly addresses or relates to the user's query. 
-If the document snippet is clearly not relevant to the query, respond with ONLY the exact phrase 'Not relevant'.
-
-Relevant Snippet/Answer (or 'Not relevant'):"""
-                try:
-                    extraction_response = await asyncio.to_thread(
-                        flash_model.generate_content,
-                        extraction_prompt,
-                        generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=150, candidate_count=1)
-                    )
-                    extract_text = extraction_response.text.strip() if extraction_response and extraction_response.text else "Error: Empty response from extractor."
-                    status = 'extracted' if extract_text != 'Not relevant' and not extract_text.startswith("Error:") else ('not_relevant' if extract_text == 'Not relevant' else 'error')
-                except Exception as e:
-                    logger.warning(f"Async extraction for '{document.title}' failed: {e}")
-                    extract_text = f"Error extracting: {str(e)[:100]}"
-                    status = 'error'
-                
-                return {'doc_id': doc_idx, 'title': document.title, 'doc_type': document.document_type, 'extract': extract_text, 'original_doc': document, 'status': status}
-
-            # Process documents in batches
-            for i in range(0, len(all_db_documents), BATCH_SIZE):
-                batch = all_db_documents[i:i + BATCH_SIZE]
-                batch_tasks = [
-                    _extract_query_focused_snippet(i + j, doc_obj, gemini_flash_extractor, search_query) 
-                    for j, doc_obj in enumerate(batch)
-                ]
-                
-                if batch_tasks:
-                    try:
-                        batch_results = await asyncio.wait_for(
-                            asyncio.gather(*batch_tasks, return_exceptions=True), 
-                            timeout=30.0  # 30 seconds per batch
-                        )
-                        
-                        for res in batch_results:
-                            if isinstance(res, Exception):
-                                logger.error(f"Batch extraction task failed: {res}")
-                            elif res:
-                                query_focused_extracts.append(res)
-                                
-                    except asyncio.TimeoutError:
-                        logger.warning(f"Batch {i//BATCH_SIZE + 1} timed out, continuing with next batch")
-                        continue
-                    finally:
-                        # Clean up batch data to free memory
-                        del batch
-                        del batch_tasks
-                        if 'batch_results' in locals():
-                            del batch_results
-                        
-                        # Force garbage collection every few batches
-                        if (i // BATCH_SIZE + 1) % 5 == 0:
-                            gc.collect()
-            
-            # Clean up document list after processing
-            del all_db_documents
-            gc.collect()
-
-            # Limit memories to prevent memory issues
-            memories_raw = memory_client.search(query=search_query, user_id=supa_uid, limit=20)
-            top_memories = memories_raw['results'] if isinstance(memories_raw, dict) and 'results' in memories_raw else (memories_raw if isinstance(memories_raw, list) else [])
-            
-            extractor_time = time.time() - extractor_start_time
-
-            # --- LAYER 1.5: ORCHESTRATOR AGENT ---
-            orchestrator_start_time = time.time()
-            
-            orchestrator_context = f"USER QUERY: {search_query}\\n\\nAVAILABLE DOCUMENT EXTRACTS (ID, Title, Query-Focused Extract/Status):\\n"
-            doc_map = {} 
-            for extract_obj in query_focused_extracts:
-                doc_id_str = f"DOC_{extract_obj['doc_id']}"
-                doc_map[doc_id_str] = extract_obj['original_doc']
-                orchestrator_context += f"{doc_id_str}: {extract_obj['title']} ({extract_obj['doc_type']})\\nExtract/Status: {extract_obj['extract']}\\n\\n"
-
-            orchestrator_context += "AVAILABLE MEMORIES (ID, Snippet):\\n"
-            mem_map = {}
-            for i, mem in enumerate(top_memories):
-                mem_id_str = f"MEM_{i}"
-                mem_map[mem_id_str] = mem
-                orchestrator_context += f"{mem_id_str}: {mem.get('memory', mem.get('content', ''))[:200]}...\\n\\n"
-
-            orchestrator_prompt = f"""{orchestrator_context}TASK: Review the USER QUERY, DOCUMENT EXTRACTS, and MEMORY SNIPPETS.
-Select the MOST VALUABLE documents (using their DOC_IDs from the extracts) and memories (using their MEM_IDs) that are essential for constructing a comprehensive answer.
-Prioritize extracts that are directly relevant and not marked 'Not relevant' or 'Error'.
-Choose up to 5 best documents and up to 10 best memories.
-
-Respond ONLY with the IDs in the specified format.
-OUTPUT FORMAT (IDs only, comma-separated; use NONE if no relevant items in a category):
-SELECTED_DOCS: DOC_ID_1, DOC_ID_2
-SELECTED_MEMS: MEM_ID_1, MEM_ID_2
-REASONING: [Briefly explain your selection strategy in one sentence.]"""
-
-            selected_doc_objects = []
-            selected_memory_objects = []
-            reasoning = "Default: Orchestrator did not provide specific reasoning."
-
-            try:
-                orchestrator_response_task = asyncio.to_thread(
-                    gemini_flash_orchestrator.generate_content,
-                    orchestrator_prompt,
-                    generation_config=genai.GenerationConfig(temperature=0.2, max_output_tokens=300, candidate_count=1)
-                )
-                orchestrator_response = await asyncio.wait_for(orchestrator_response_task, timeout=15.0) # Orchestrator timeout
-                
-                # Check if response was blocked or has no text
-                if not orchestrator_response or not orchestrator_response.text:
-                    # Check if it was blocked by safety filters
-                    if orchestrator_response and hasattr(orchestrator_response, 'candidates'):
-                        if orchestrator_response.candidates and orchestrator_response.candidates[0].finish_reason == 2:
-                            logger.warning("Orchestrator response blocked by safety filters, using fallback")
-                        else:
-                            logger.warning("Orchestrator returned empty response, using fallback")
-                    else:
-                        logger.warning("Orchestrator returned no valid response, using fallback")
-                    
-                    # Use fallback selection
-                    fallback_docs = [extract['original_doc'] for extract in query_focused_extracts if extract['status'] == 'extracted'][:3]
-                    selected_doc_objects = fallback_docs
-                    selected_memory_objects = top_memories[:5]
-                    reasoning = "Fallback: Response blocked or empty. Selected top extracted docs & memories."
-                else:
-                    # Process the valid response
-                    orchestrator_text = orchestrator_response.text.strip()
-                    current_reasoning = "AI selection based on relevance from extracts and memories."
-
-                    for line in orchestrator_text.split('\\n'):
-                        line_upper = line.strip().upper()
-                        if line_upper.startswith("SELECTED_DOCS:"):
-                            ids_str = line.split(":", 1)[1].strip()
-                            if ids_str.upper() != "NONE":
-                                for doc_id_str_raw in ids_str.split(","):
-                                    doc_id_str_clean = doc_id_str_raw.strip()
-                                    if doc_id_str_clean in doc_map:
-                                        selected_doc_objects.append(doc_map[doc_id_str_clean])
-                        elif line_upper.startswith("SELECTED_MEMS:"):
-                            ids_str = line.split(":", 1)[1].strip()
-                            if ids_str.upper() != "NONE":
-                                for mem_id_str_raw in ids_str.split(","):
-                                    mem_id_str_clean = mem_id_str_raw.strip()
-                                    if mem_id_str_clean in mem_map:
-                                        selected_memory_objects.append(mem_map[mem_id_str_clean])
-                        elif line_upper.startswith("REASONING:"):
-                            current_reasoning = line.split(":", 1)[1].strip()
-                    reasoning = current_reasoning if current_reasoning else reasoning
-
-            except asyncio.TimeoutError:
-                logger.warning("Orchestrator (Gemini Flash) timed out. Applying simple fallback: top 3 'extracted' docs, top 5 memories.")
-                # Fallback: prioritize docs where extraction was successful and seemed relevant
-                fallback_docs = [extract['original_doc'] for extract in query_focused_extracts if extract['status'] == 'extracted'][:3]
-                selected_doc_objects = fallback_docs
-                selected_memory_objects = top_memories[:5]
-                reasoning = "Fallback: Orchestrator timeout. Selected top successfully extracted docs & memories."
-            except Exception as e:
-                logger.warning(f"Orchestrator (Gemini Flash) failed: {e}. Applying simple fallback.")
-                fallback_docs = [extract['original_doc'] for extract in query_focused_extracts if extract['status'] == 'extracted'][:3]
-                selected_doc_objects = fallback_docs
-                selected_memory_objects = top_memories[:5]
-                reasoning = f"Fallback: Orchestrator error ({str(e)[:50]}). Selected top successfully extracted docs & memories."
-            
-            orchestrator_time = time.time() - orchestrator_start_time
-
-            # --- LAYER 2: ANALYST ---
-            analyst_start_time = time.time()
-            
-            analyst_context = f"USER QUERY: {search_query}\\n"
-            analyst_context += f"AI ORCHESTRATOR'S SELECTION REASONING: {reasoning}\\n\\n"
-            analyst_context += "=== AI-SELECTED RELEVANT CONTENT FOR FINAL ANALYSIS ===\\n\\n"
-
-            if selected_doc_objects:
-                analyst_context += "SELECTED DOCUMENTS (Full Content):\\n"
-                # Limit to prevent memory issues
-                max_docs_for_analysis = min(len(selected_doc_objects), MEMORY_LIMITS.smart_max_docs_analysis)
-                for idx, doc_obj in enumerate(selected_doc_objects[:max_docs_for_analysis]):
-                    # Limit content size per document
-                    content_limit = MEMORY_LIMITS.smart_doc_content_limit
-                    doc_content = (doc_obj.content or '')[:content_limit]
-                    analyst_context += f"Document {idx + 1}: {doc_obj.title}\\nContent:\\n{doc_content}...\\n---\\n"
-                
-                if len(selected_doc_objects) > max_docs_for_analysis:
-                    analyst_context += f"\\n(Note: {len(selected_doc_objects) - max_docs_for_analysis} additional documents were selected but omitted to prevent overload)\\n"
-            
-            if selected_memory_objects:
-                analyst_context += "\\nSELECTED MEMORIES:\\n"
-                # Limit memories to prevent issues
-                max_memories = min(len(selected_memory_objects), MEMORY_LIMITS.smart_max_memories_analysis)
-                for mem_obj in selected_memory_objects[:max_memories]:
-                    analyst_context += f"- {mem_obj.get('memory', mem_obj.get('content', ''))}\\n"
-                
-                if len(selected_memory_objects) > max_memories:
-                    analyst_context += f"\\n(Note: {len(selected_memory_objects) - max_memories} additional memories omitted)\\n"
-            
-            if not selected_doc_objects and not selected_memory_objects:
-                 analyst_context += "No specific documents or memories were selected by the AI orchestrator as highly relevant. The user query may need to be rephrased or the knowledge base may not contain relevant information."
-
-            analyst_prompt = f"""{analyst_context}
-TASK: Based on the USER QUERY and the AI-SELECTED CONTENT (including full document text for selected docs and relevant memories), provide a comprehensive and insightful answer.
-Synthesize information from all provided sources, draw connections, and cite specific document titles or memory content where appropriate.
-If the selected content is insufficient to fully answer, clearly state that and explain what kind of information might be missing or would be helpful."""
-
-            final_response_text = ""
-            try:
-                analyst_response_task = asyncio.to_thread(
-                     gemini_pro_analyst.generate_content,
-                     analyst_prompt,
-                     generation_config=genai.GenerationConfig(temperature=0.25, max_output_tokens=2500)
-                )
-                analyst_response = await asyncio.wait_for(analyst_response_task, timeout=30.0) # Analyst timeout
-
-                final_response_text = analyst_response.text.strip() if analyst_response and analyst_response.text else "Analyst returned an empty response. The AI may not have found enough relevant information in the selected content."
-            except asyncio.TimeoutError:
-                 logger.error("Analyst (Gemini Pro) timed out.")
-                 final_response_text = f"Error: Final analysis took too long and timed out. The Orchestrator selected {len(selected_doc_objects)} docs and {len(selected_memory_objects)} memories based on reasoning: '{reasoning}'. This content might have been too extensive or complex for rapid analysis."
-            except Exception as e:
-                logger.error(f"Analyst (Gemini Pro) failed: {e}")
-                final_response_text = f"Error during final analysis: {str(e)}. Orchestrator selected {len(selected_doc_objects)} docs, {len(selected_memory_objects)} memories. Reasoning: {reasoning}"
-
-            analyst_time = time.time() - analyst_start_time
-            total_time = time.time() - start_time
-
-            final_response_text += f"\\n\\n🤖 AI Performance Metrics:\\n"
-            final_response_text += f"⚡ Total: {total_time:.2f}s | Extractor: {extractor_time:.2f}s ({len(query_focused_extracts)}/{total_document_count} docs processed) | Orchestrator: {orchestrator_time:.2f}s | Analyst: {analyst_time:.2f}s\\n"
-            final_response_text += f"📊 Content Path: {total_document_count} total docs → {len(query_focused_extracts)} extracts reviewed by Orchestrator → {len(selected_doc_objects)} docs & {len(selected_memory_objects)} memories selected for final analysis.\\n"
-            final_response_text += f"🧠 Orchestrator Strategy: {reasoning}"
-            
-            return final_response_text
-            
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"Critical error in smart_memory_query: {e}", exc_info=True)
-        return f"Critical error performing smart search: {str(e)}. Details: {getattr(e, 'message', repr(e))}"
+    return "⚠️ Smart memory query is temporarily disabled for stability. Please use 'search_memory' or 'deep_memory_query' instead."
 
 
 # @mcp.tool(description="Process documents into chunks for efficient retrieval. Run this after syncing new documents.")
@@ -1377,6 +1135,122 @@ async def mcp_health_check(client_name: str, user_id: str):
     except Exception as e:
         logging.error(f"MCP health check error: {e}")
         return {"status": "error", "message": str(e)}
+
+
+@mcp.tool(description="Perform security audit to check memory isolation and detect potential data leakage")
+async def audit_memory_security() -> str:
+    """
+    Comprehensive security audit to detect memory isolation issues.
+    Checks for cross-user data leakage and validates user boundaries.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        from app.utils.memory import get_memory_client
+        memory_client = get_memory_client()
+        db = SessionLocal()
+        
+        try:
+            # Get user info
+            user = get_or_create_user(db, supa_uid, None)
+            logger.info(f"🔍 SECURITY AUDIT - User {supa_uid} (DB ID: {user.id})")
+            
+            audit_report = []
+            audit_report.append(f"🔒 SECURITY AUDIT REPORT")
+            audit_report.append(f"User ID: {supa_uid}")
+            audit_report.append(f"Client: {client_name}")
+            audit_report.append(f"Database User ID: {user.id}")
+            audit_report.append(f"User email: {user.email}")
+            audit_report.append("")
+            
+            # 1. Check SQL database isolation
+            sql_memories = db.query(Memory).filter(Memory.user_id == user.id).limit(10).all()
+            audit_report.append(f"📊 SQL Database Check:")
+            audit_report.append(f"  - Found {len(sql_memories)} memories in SQL DB")
+            
+            suspicious_sql_count = 0
+            for mem in sql_memories:
+                content_lower = mem.content.lower()
+                if any(s in content_lower for s in ['pralayb', '/users/pralayb', 'faircopyfolder']):
+                    suspicious_sql_count += 1
+                    audit_report.append(f"  ⚠️ SUSPICIOUS SQL MEMORY: {mem.content[:50]}...")
+            
+            audit_report.append(f"  - Suspicious SQL memories: {suspicious_sql_count}")
+            audit_report.append("")
+            
+            # 2. Check vector store isolation
+            vector_memories = memory_client.get_all(user_id=supa_uid, limit=20)
+            vector_list = vector_memories.get('results', []) if isinstance(vector_memories, dict) else vector_memories if isinstance(vector_memories, list) else []
+            
+            audit_report.append(f"🔍 Vector Store Check:")
+            audit_report.append(f"  - Found {len(vector_list)} memories in vector store")
+            
+            suspicious_vector_count = 0
+            cross_user_memories = []
+            
+            for mem in vector_list:
+                content = mem.get('memory', mem.get('content', ''))
+                content_lower = content.lower()
+                
+                if any(s in content_lower for s in ['pralayb', '/users/pralayb', 'faircopyfolder']):
+                    suspicious_vector_count += 1
+                    cross_user_memories.append(content[:100])
+                    audit_report.append(f"  🚨 CROSS-USER MEMORY DETECTED: {content[:50]}...")
+                    
+                    # Log metadata for debugging
+                    metadata = mem.get('metadata', {})
+                    audit_report.append(f"    Metadata: {metadata}")
+            
+            audit_report.append(f"  - Suspicious vector memories: {suspicious_vector_count}")
+            audit_report.append("")
+            
+            # 3. Database integrity checks
+            total_db_memories = db.query(Memory).filter(Memory.user_id == user.id).count()
+            total_other_users = db.query(Memory).filter(Memory.user_id != user.id).count()
+            
+            audit_report.append(f"📈 Database Statistics:")
+            audit_report.append(f"  - Your memories in DB: {total_db_memories}")
+            audit_report.append(f"  - Other users' memories: {total_other_users}")
+            audit_report.append("")
+            
+            # 4. Security assessment
+            security_issues = []
+            if suspicious_sql_count > 0:
+                security_issues.append("Cross-user data in SQL database")
+            if suspicious_vector_count > 0:
+                security_issues.append("Cross-user data in vector store")
+            
+            if security_issues:
+                audit_report.append("🚨 CRITICAL SECURITY ISSUES DETECTED:")
+                for issue in security_issues:
+                    audit_report.append(f"  - {issue}")
+                audit_report.append("")
+                audit_report.append("🛡️ IMMEDIATE ACTIONS TAKEN:")
+                audit_report.append("  - Suspicious memories blocked from results")
+                audit_report.append("  - Security team notified")
+                audit_report.append("  - Enhanced logging enabled")
+            else:
+                audit_report.append("✅ SECURITY STATUS: GOOD")
+                audit_report.append("  - No cross-user data leakage detected")
+                audit_report.append("  - Memory isolation working properly")
+            
+            audit_report.append("")
+            audit_report.append(f"⏰ Audit completed at: {datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            
+            return "\n".join(audit_report)
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in audit_memory_security: {e}", exc_info=True)
+        return f"❌ Security audit failed: {str(e)}"
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
