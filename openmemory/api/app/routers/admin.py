@@ -5,12 +5,13 @@ from app.utils.memory import get_memory_client
 from app.models import Memory, User, MemoryState
 import datetime
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Admin security key - you should set this in your environment
-ADMIN_SECRET_KEY = "contamination-cleanup-emergency-key-2025"
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "CHANGE_THIS_IN_PRODUCTION")
 
 def verify_admin_access(x_admin_key: str = Header(None)):
     """Verify admin access with secret key"""
