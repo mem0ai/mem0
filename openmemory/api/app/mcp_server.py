@@ -1252,6 +1252,166 @@ async def audit_memory_security() -> str:
         logger.error(f"Error in audit_memory_security: {e}", exc_info=True)
         return f"❌ Security audit failed: {str(e)}"
 
+
+@mcp.tool(description="Clean up contaminated cross-user memories that were incorrectly stored with your user ID")
+async def cleanup_contaminated_memories() -> str:
+    """
+    Emergency cleanup tool to remove memories that clearly belong to other users
+    but were incorrectly stored with your user ID due to a previous bug.
+    """
+    supa_uid = user_id_var.get(None)
+    client_name = client_name_var.get(None)
+    
+    if not supa_uid:
+        return "Error: Supabase user_id not available in context"
+    if not client_name:
+        return "Error: client_name not available in context"
+    
+    try:
+        from app.utils.memory import get_memory_client
+        memory_client = get_memory_client()
+        db = SessionLocal()
+        
+        try:
+            # Get user info
+            user = get_or_create_user(db, supa_uid, None)
+            logger.info(f"🧹 CLEANUP - Starting contaminated memory cleanup for user {supa_uid}")
+            
+            cleanup_report = []
+            cleanup_report.append(f"🧹 CONTAMINATED MEMORY CLEANUP")
+            cleanup_report.append(f"User ID: {supa_uid}")
+            cleanup_report.append(f"Starting cleanup process...")
+            cleanup_report.append("")
+            
+            # Define patterns that indicate cross-user contamination
+            contamination_patterns = [
+                'pralayb',
+                '/users/pralayb',
+                'faircopyfolder',
+                'fair copy folder',
+                'pick-planning-manager',
+                'PickGroup',
+                'AbstractEntityId',
+                'CenterIdTest',
+                'PickGroupTest',
+                'java test',
+                'junit',
+                'assertEquals'
+            ]
+            
+            # 1. Clean up SQL database
+            sql_cleanup_count = 0
+            contaminated_sql_memories = db.query(Memory).filter(
+                Memory.user_id == user.id,
+                Memory.state != MemoryState.deleted
+            ).all()
+            
+            contaminated_ids_to_delete = []
+            for mem in contaminated_sql_memories:
+                content_lower = mem.content.lower()
+                if any(pattern in content_lower for pattern in contamination_patterns):
+                    contaminated_ids_to_delete.append(mem.id)
+                    cleanup_report.append(f"  📋 Found contaminated SQL memory: {mem.content[:60]}...")
+                    sql_cleanup_count += 1
+            
+            # Delete contaminated SQL memories
+            if contaminated_ids_to_delete:
+                now = datetime.datetime.now(datetime.UTC)
+                for mem_id in contaminated_ids_to_delete:
+                    mem_record = db.query(Memory).filter(Memory.id == mem_id).first()
+                    if mem_record:
+                        # Mark as deleted
+                        history = MemoryStatusHistory(
+                            memory_id=mem_record.id,
+                            changed_by=user.id,
+                            old_state=mem_record.state,
+                            new_state=MemoryState.deleted
+                        )
+                        db.add(history)
+                        mem_record.state = MemoryState.deleted
+                        mem_record.deleted_at = now
+                        
+                        # Add access log for cleanup
+                        access_log = MemoryAccessLog(
+                            memory_id=mem_record.id,
+                            app_id=mem_record.app_id,
+                            access_type="contamination_cleanup",
+                            metadata_={
+                                "operation": "cross_user_cleanup",
+                                "cleanup_reason": "contaminated_memory",
+                                "original_user": "pralayb_suspected"
+                            }
+                        )
+                        db.add(access_log)
+            
+            cleanup_report.append(f"🗑️ SQL Database: {sql_cleanup_count} contaminated memories marked for deletion")
+            cleanup_report.append("")
+            
+            # 2. Clean up vector store
+            vector_cleanup_count = 0
+            
+            # Get all memories from vector store for this user
+            try:
+                all_vector_memories = memory_client.get_all(user_id=supa_uid, limit=1000)
+                vector_list = all_vector_memories.get('results', []) if isinstance(all_vector_memories, dict) else all_vector_memories if isinstance(all_vector_memories, list) else []
+                
+                contaminated_vector_ids = []
+                for mem in vector_list:
+                    content = mem.get('memory', mem.get('content', ''))
+                    content_lower = content.lower()
+                    
+                    if any(pattern in content_lower for pattern in contamination_patterns):
+                        mem_id = mem.get('id')
+                        if mem_id:
+                            contaminated_vector_ids.append(mem_id)
+                            cleanup_report.append(f"  🔍 Found contaminated vector memory: {content[:60]}...")
+                            vector_cleanup_count += 1
+                
+                # Delete contaminated vector memories
+                if contaminated_vector_ids:
+                    for mem_id in contaminated_vector_ids:
+                        try:
+                            memory_client.delete(memory_id=mem_id)
+                        except Exception as e:
+                            logger.error(f"Error deleting vector memory {mem_id}: {e}")
+                            cleanup_report.append(f"  ❌ Failed to delete vector memory {mem_id}: {e}")
+                
+            except Exception as e:
+                logger.error(f"Error cleaning vector store: {e}")
+                cleanup_report.append(f"  ❌ Error cleaning vector store: {e}")
+            
+            cleanup_report.append(f"🗑️ Vector Store: {vector_cleanup_count} contaminated memories deleted")
+            cleanup_report.append("")
+            
+            # Commit the SQL changes
+            try:
+                db.commit()
+                cleanup_report.append("✅ SQL changes committed successfully")
+            except Exception as e:
+                db.rollback()
+                cleanup_report.append(f"❌ Error committing SQL changes: {e}")
+                return "\n".join(cleanup_report)
+            
+            # 3. Summary
+            total_cleaned = sql_cleanup_count + vector_cleanup_count
+            cleanup_report.append("="*50)
+            cleanup_report.append(f"🎉 CLEANUP COMPLETE")
+            cleanup_report.append(f"Total contaminated memories removed: {total_cleaned}")
+            cleanup_report.append(f"  - SQL Database: {sql_cleanup_count}")
+            cleanup_report.append(f"  - Vector Store: {vector_cleanup_count}")
+            cleanup_report.append("")
+            cleanup_report.append("✨ Your memory system should now be clean!")
+            cleanup_report.append(f"⏰ Cleanup completed at: {datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            
+            return "\n".join(cleanup_report)
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in cleanup_contaminated_memories: {e}", exc_info=True)
+        return f"❌ Cleanup failed: {str(e)}"
+
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""
     # Set the server name to match what Claude expects
