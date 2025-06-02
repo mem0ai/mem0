@@ -9,10 +9,10 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypedDict
 
 import pytz
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
@@ -321,12 +321,14 @@ class Memory(MemoryBase):
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
         if self.enable_azureopenai:
+            class ResponseObj(TypedDict):
+                facts: list[str] = Field(description="Write some facts about the given memory")
             response = self.llm.generate_response(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format={"type": "json_schema", "json_schema": {"strict": True, "schema": ...}},
+                response_format={"type": "json_schema", "json_schema": {"strict": True, "schema": ResponseObj}},
             )
         else:
             response = self.llm.generate_response(
@@ -1150,13 +1152,13 @@ class AsyncMemory(MemoryBase):
         try:
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
-        except Exception as e:
+        except Exception:
             new_retrieved_facts = []
 
         if not new_retrieved_facts:
             logger.info("No new facts retrieved from input. Skipping memory update LLM call.")
             return []
-            logging.error(f"Error in new_retrieved_facts: {e}")
+            # logging.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
 
         retrieved_old_memory = []
@@ -1206,7 +1208,7 @@ class AsyncMemory(MemoryBase):
         try:
             response = remove_code_blocks(response)
             new_memories_with_actions = json.loads(response)
-        except Exception as e:
+        except Exception:
 
             new_memories_with_actions = {}
 
@@ -1214,7 +1216,7 @@ class AsyncMemory(MemoryBase):
             logger.info("No new facts retrieved from input (async). Skipping memory update LLM call.")
             return []
 
-            logging.error(f"Invalid JSON response: {e}")
+            # logging.error(f"Invalid JSON response: {e}")
             new_memories_with_actions = {}
 
 
