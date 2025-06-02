@@ -15,6 +15,21 @@ To use the cloud version, simply visit the Frontend UI link above, sign up or lo
 
 ![Jean Memory Dashboard](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
+## ❤️ Support This Project
+
+If Jean Memory helps streamline your AI workflow or if you believe in the future of personalized AI memory, consider supporting the project! Your support helps us:
+
+- 🚀 **Accelerate development** of new features and integrations
+- 🔒 **Enhance privacy features** and security infrastructure  
+- 📚 **Improve documentation** and developer experience
+- 🌍 **Keep the service running** and accessible to everyone
+
+[![Support Jean Memory](https://img.shields.io/badge/💝_Support_This_Project-$19.99-ff69b4?style=for-the-badge&logo=stripe&logoColor=white)](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)
+
+**[→ Support Jean Memory for $19.99](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)**
+
+Every contribution, no matter the size, makes a meaningful difference in our mission to build better AI tools. Thank you for being part of this journey! 🙏
+
 ## 🔧 Local Development Setup
 
 If you wish to run Jean Memory locally for development or complete privacy, follow these steps:
@@ -180,6 +195,7 @@ Join us in building the future of AI memory management! We're a team of develope
 
 **Ways to get involved:**
 - ⭐ Star the repository
+- 💝 [Support the project](https://buy.stripe.com/fZuaEX70gev399t4tMabK00) ($19.99)
 - 🐛 Report bugs via [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
 - 💡 Suggest features
 - 📖 Contribute to documentation
