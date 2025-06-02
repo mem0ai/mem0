@@ -235,6 +235,7 @@
                 "icon": "plug",
                 "pages": [
                   "integrations",
+                  "integrations/agentops",
                   "integrations/vercel-ai-sdk",
                   "integrations/flowise",
                   "integrations/crewai",
