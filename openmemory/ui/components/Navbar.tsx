@@ -12,9 +12,10 @@ import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Menu, X, Settings2 } from "lucide-react";
+import { Brain, Menu, X, Settings2, Heart, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Icons } from "@/components/icons";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -141,6 +142,40 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
+              {/* GitHub Repo Link */}
+              <a
+                href="https://github.com/jonathan-politzki/your-memory"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center gap-2"
+                >
+                  <Icons.github className="w-4 h-4" />
+                  <ExternalLink className="w-3 h-3" />
+                </Button>
+              </a>
+              
+              {/* Support Link */}
+              <a
+                href="https://buy.stripe.com/fZuaEX70gev399t4tMabK00"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-pink-500/50 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 hover:text-pink-300 flex items-center gap-2"
+                >
+                  <Heart className="w-4 h-4" />
+                  Support
+                </Button>
+              </a>
+              
               <Button
                 onClick={handleRefresh}
                 variant="outline"
@@ -216,6 +251,39 @@ export function Navbar() {
               <div className="pt-2 border-t border-zinc-800 space-y-2">
                 {user ? (
                   <>
+                    {/* GitHub Repo Link - Mobile */}
+                    <a
+                      href="https://github.com/jonathan-politzki/your-memory"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-2 text-zinc-300 hover:text-white"
+                      >
+                        <Icons.github className="w-4 h-4" />
+                        <ExternalLink className="w-3 h-3" />
+                        GitHub Repository
+                      </Button>
+                    </a>
+                    
+                    {/* Support Link - Mobile */}
+                    <a
+                      href="https://buy.stripe.com/fZuaEX70gev399t4tMabK00"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-2 text-pink-400 hover:text-pink-300"
+                      >
+                        <Heart className="w-4 h-4" />
+                        Support this Project
+                      </Button>
+                    </a>
+                    
                     <Button
                       onClick={handleRefresh}
                       variant="ghost"
