@@ -148,6 +148,7 @@ class Memory(MemoryBase):
         self._telemetry_vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
+        self.enable_azureopenai = False
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @classmethod
@@ -319,13 +320,22 @@ class Memory(MemoryBase):
         else:
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
-        response = self.llm.generate_response(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
-        )
+        if self.enable_azureopenai:
+            response = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_schema", "json_schema": {"strict": True, "schema": ...}},
+            )
+        else:
+            response = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
 
         try:
             response = remove_code_blocks(response)
