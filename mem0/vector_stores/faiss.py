@@ -464,7 +464,7 @@ class FAISS(VectorStoreBase):
             if count >= limit:
                 break
 
-        return [results]
+        return results
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
