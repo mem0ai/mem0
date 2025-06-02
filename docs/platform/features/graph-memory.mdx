@@ -281,6 +281,67 @@ console.log(memories);
 
 </CodeGroup>
 
+### Setting Graph Memory at Project Level
+
+Instead of passing `enable_graph=True` to every add call, you can enable it once at the project level:
+
+<CodeGroup>
+
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(
+    api_key="your-api-key",
+    org_id="your-org-id",
+    project_id="your-project-id"
+)
+
+# Enable graph memory for all operations in this project
+client.update_project(enable_graph=True, version="v1")
+
+# Now all add operations will use graph memory by default
+messages = [
+    {"role": "user", "content": "My name is Joseph"},
+    {"role": "assistant", "content": "Hello Joseph, it's nice to meet you!"},
+    {"role": "user", "content": "I'm from Seattle and I work as a software engineer"}
+]
+
+client.add(
+    messages,
+    user_id="joseph",
+    output_format="v1.1"
+)
+```
+
+```javascript JavaScript
+import { MemoryClient } from "mem0";
+
+const client = new MemoryClient({
+  apiKey: "your-api-key",
+  org_id: "your-org-id",
+  project_id: "your-project-id"
+});
+
+# Enable graph memory for all operations in this project
+await client.updateProject({ enable_graph: true, version: "v1" });
+
+# Now all add operations will use graph memory by default
+const messages = [
+  { role: "user", content: "My name is Joseph" },
+  { role: "assistant", content: "Hello Joseph, it's nice to meet you!" },
+  { role: "user", content: "I'm from Seattle and I work as a software engineer" }
+];
+
+await client.add({
+  messages,
+  user_id: "joseph",
+  output_format: "v1.1"
+});
+```
+
+</CodeGroup>
+
+
 ## Best Practices
 
 - Enable Graph Memory for applications where understanding context and relationships between memories is important
