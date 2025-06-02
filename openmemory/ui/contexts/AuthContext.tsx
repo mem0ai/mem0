@@ -26,6 +26,7 @@ interface AuthContextType {
   signInWithPassword: (credentials: SignInWithPasswordCredentials) => Promise<AuthResponse>; 
   signUpWithPassword: (credentials: SignUpWithPasswordCredentials) => Promise<AuthResponse>;
   signInWithGoogle: () => Promise<void>; // signInWithOAuth doesn't have a straightforward return to type here for data
+  signInWithGitHub: () => Promise<void>; // Adding GitHub sign-in
   signOut: () => Promise<{ error: AuthError | null }>; // signOut returns { error }
   accessToken: string | null;
 }
@@ -148,6 +149,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // No explicit data return here, session updates via onAuthStateChange
   };
 
+  const signInWithGitHub = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      },
+    });
+    if (oauthError) {
+      setError(oauthError);
+      setIsLoading(false);
+    }
+    // No explicit data return here, session updates via onAuthStateChange
+  };
+
   const signOut = async (): Promise<{ error: AuthError | null }> => {
     setIsLoading(true);
     setError(null);
@@ -178,6 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signInWithPassword,
     signUpWithPassword,
     signInWithGoogle,
+    signInWithGitHub,
     signOut,
     accessToken: localAccessToken, // Corrected: use the state variable here
   };

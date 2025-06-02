@@ -14,7 +14,7 @@ export const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const { signInWithPassword, signUpWithPassword, signInWithGoogle, error, isLoading, user } = useAuth();
+  const { signInWithPassword, signUpWithPassword, signInWithGoogle, signInWithGitHub, error, isLoading, user } = useAuth();
   const router = useRouter();
 
   // Redirect to dashboard when user becomes authenticated
@@ -52,6 +52,11 @@ export const AuthForm = () => {
   const handleGoogleSignIn = async () => {
     setMessage('');
     await signInWithGoogle();
+  };
+
+  const handleGitHubSignIn = async () => {
+    setMessage('');
+    await signInWithGitHub();
   };
 
   React.useEffect(() => {
@@ -92,7 +97,7 @@ export const AuthForm = () => {
         >
           <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
             <p className="text-xs text-blue-300 text-center font-medium">
-              ⚡ Recommended: Sign in with Google for the fastest setup
+              ⚡ Recommended: Sign in with Google or GitHub for the fastest setup
             </p>
           </div>
           <Button 
@@ -109,6 +114,21 @@ export const AuthForm = () => {
               <Icons.google className="mr-3 h-5 w-5" />
             )}
             Continue with Google
+          </Button>
+          <Button 
+            variant="outline" 
+            type="button" 
+            disabled={isLoading} 
+            onClick={handleGitHubSignIn} 
+            className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-700 font-medium text-base relative overflow-hidden group mt-3"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-500/10 to-zinc-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            {isLoading ? (
+              <Icons.spinner className="mr-3 h-5 w-5 animate-spin" />
+            ) : (
+              <Icons.github className="mr-3 h-5 w-5" />
+            )}
+            Continue with GitHub
           </Button>
         </motion.div>
 
