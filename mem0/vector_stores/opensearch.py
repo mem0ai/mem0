@@ -266,9 +266,11 @@ class OpenSearchDB(VectorStoreBase):
             hits = response["hits"]["hits"]
 
             return [
+                [
                     OutputData(id=hit["_source"].get("id"), score=1.0, payload=hit["_source"].get("payload", {}))
                     for hit in hits
                 ]
+            ]
         except Exception:
             return []
 
