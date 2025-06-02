@@ -41,7 +41,7 @@ export default function SetupMCPPage() {
     } catch (error) {
       console.error('Error submitting support request:', error);
       // You could add error state here if needed
-      alert('Failed to send message. Please try again or email jonathan@jeantechnologies.com directly.');
+      alert('Failed to send message. Please try again or email politzki18@gmail.com directly.');
     } finally {
       setIsSubmitting(false);
     }

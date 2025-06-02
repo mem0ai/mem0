@@ -189,3 +189,10 @@ testing.ipynb
 
 # security
 CONTAMINATION_INCIDENT_REPORT.md
+
+# Local investigation scripts - DO NOT COMMIT
+investigate_contamination_local.py
+admin_contamination_*.py
+admin_contamination_*.sql
+*_contamination_*
+contamination_report_* 

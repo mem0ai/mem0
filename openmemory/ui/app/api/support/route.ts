@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       
       const data = await resend.emails.send({
         from: 'Jean Memory Support <support@jeantechnologies.com>',
-        to: ['jonathan@jeantechnologies.com'],
+        to: ['politzki18@gmail.com'],
         replyTo: email,
         subject: `Jean Memory Support Request from ${name}`,
         html: `
@@ -93,4 +93,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
