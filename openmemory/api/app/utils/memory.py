@@ -32,6 +32,7 @@ import json
 import hashlib
 import socket
 import platform
+import urllib.parse
 
 from mem0 import Memory
 from app.database import SessionLocal
@@ -103,27 +104,41 @@ def _get_docker_host_url():
 def _fix_ollama_urls(config_section):
     """
     Fix Ollama URLs for Docker environment.
-    Replaces localhost URLs with appropriate Docker host URLs.
-    Sets default ollama_base_url if not provided.
+    Only set a default ollama_base_url if not provided. If user provides a value, always use it as-is.
     """
     if not config_section or "config" not in config_section:
         return config_section
-    
+
     ollama_config = config_section["config"]
-    
+
     # Set default ollama_base_url if not provided
-    if "ollama_base_url" not in ollama_config:
-        ollama_config["ollama_base_url"] = "http://host.docker.internal:11434"
-    else:
-        # Check for ollama_base_url and fix if it's localhost
-        url = ollama_config["ollama_base_url"]
-        if "localhost" in url or "127.0.0.1" in url:
-            docker_host = _get_docker_host_url()
-            if docker_host != "localhost":
-                new_url = url.replace("localhost", docker_host).replace("127.0.0.1", docker_host)
-                ollama_config["ollama_base_url"] = new_url
-                print(f"Adjusted Ollama URL from {url} to {new_url}")
+    if "ollama_base_url" not in ollama_config or not ollama_config["ollama_base_url"]:
+        is_docker = os.path.exists('/.dockerenv')
+        default_url = "http://host.docker.internal:11434" if is_docker else "http://localhost:11434"
+        ollama_config["ollama_base_url"] = default_url
+        print(f"Ollama: No base URL provided. Set default to {default_url}")
+    # else: always use user-supplied value as-is
+    return config_section
+
+
+def _fix_lmstudio_urls(config_section):
+    """
+    Fix LM Studio URLs for Docker environment.
+    Only set a default lmstudio_base_url if not provided. If user provides a value, always use it as-is.
+    """
+    if not config_section:
+        return config_section
+
+    if "config" not in config_section or config_section["config"] is None:
+        config_section["config"] = {}
+    lmstudio_config = config_section["config"]
     
+    if "lmstudio_base_url" not in lmstudio_config or not lmstudio_config["lmstudio_base_url"]:
+        is_docker = os.path.exists('/.dockerenv')
+        default_url = "http://host.docker.internal:1234/v1" if is_docker else "http://localhost:1234/v1"
+        lmstudio_config["lmstudio_base_url"] = default_url
+        print(f"LM Studio: No base URL provided. Set default to {default_url}")
+    # else: always use user-supplied value as-is
     return config_section
 
 
@@ -235,6 +250,8 @@ def get_memory_client(custom_instructions: str = None):
                         # Fix Ollama URLs for Docker if needed
                         if config["llm"].get("provider") == "ollama":
                             config["llm"] = _fix_ollama_urls(config["llm"])
+                        elif config["llm"].get("provider") == "lmstudio":
+                            config["llm"] = _fix_lmstudio_urls(config["llm"])
                     
                     # Update Embedder configuration if available
                     if "embedder" in mem0_config and mem0_config["embedder"] is not None:
@@ -243,6 +260,8 @@ def get_memory_client(custom_instructions: str = None):
                         # Fix Ollama URLs for Docker if needed
                         if config["embedder"].get("provider") == "ollama":
                             config["embedder"] = _fix_ollama_urls(config["embedder"])
+                        elif config["embedder"].get("provider") == "lmstudio":
+                            config["embedder"] = _fix_lmstudio_urls(config["embedder"])
             else:
                 print("No configuration found in database, using defaults")
                     
