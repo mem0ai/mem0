@@ -2,12 +2,14 @@ import hashlib
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from embedchain.loaders.youtube_video import YoutubeVideoLoader
+
+from datetime import datetime
 
 
 @pytest.fixture
 def youtube_video_loader():
+     
     return YoutubeVideoLoader()
 
 
@@ -15,10 +17,11 @@ def test_load_data(youtube_video_loader):
     video_url = "https://www.youtube.com/watch?v=VIDEO_ID"
     mock_loader = Mock()
     mock_page_content = "This is a YouTube video content."
+    mock_published_at = "2024-01-14T12:34:56"
     mock_loader.load.return_value = [
         MagicMock(
             page_content=mock_page_content,
-            metadata={"url": video_url, "title": "Test Video"},
+            metadata={"url": video_url, "title": "Test Video" , "publishedAt": mock_published_at,},
         )
     ]
 
@@ -36,7 +39,9 @@ def test_load_data(youtube_video_loader):
     expected_data = [
         {
             "content": "This is a YouTube video content.",
-            "meta_data": {"url": video_url, "title": "Test Video", "transcript": "Unavailable"},
+            "meta_data": {"url": video_url, "title": "Test Video", 
+                          "publishedAt": mock_published_at,                 
+                          "transcript": 'Unavailable',},
         }
     ]
 
