@@ -21,8 +21,9 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
         if email and not user.email:
             # Check if another user already has this email
             existing_user_with_email = db.query(User).filter(User.email == email).first()
-            if existing_user_with_email:
-                logger.warning(f"Cannot update user {supabase_user_id} with email {email} - already exists for user {existing_user_with_email.user_id}")
+            # Check if the email is taken by a *different* user
+            if existing_user_with_email and existing_user_with_email.user_id != supabase_user_id:
+                logger.warning(f"Cannot update user {supabase_user_id} ({user.id}) with email {email} - email already exists for a different user {existing_user_with_email.user_id} ({existing_user_with_email.id})")
                 # Don't update the email to avoid constraint violation
                 return user
             
