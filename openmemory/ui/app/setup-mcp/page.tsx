@@ -215,6 +215,70 @@ export default function SetupMCPPage() {
           </CardContent>
         </Card>
 
+        {/* Troubleshooting */}
+        <Card className="border-orange-500/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Troubleshooting
+            </CardTitle>
+            <CardDescription>
+              Having trouble with the install command? Here are common fixes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert className="border-orange-500/20 bg-orange-50 dark:bg-orange-950/20">
+              <Terminal className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800 dark:text-orange-200">
+                <div className="space-y-3">
+                  <div>
+                    <strong>Error: "Cannot find module 'yargs'" on Mac?</strong>
+                    <p className="text-sm mt-1">This is a common NPX cache issue. Try these commands:</p>
+                  </div>
+                  
+                  <div className="bg-zinc-900 p-3 rounded font-mono text-sm">
+                    <div className="text-green-400 mb-1">1. Install yargs globally:</div>
+                    <div className="text-zinc-300">npm install -g yargs</div>
+                    
+                    <div className="text-green-400 mb-1 mt-3">2. Clear NPX cache:</div>
+                    <div className="text-zinc-300">npx clear-npx-cache</div>
+                    
+                    <div className="text-green-400 mb-1 mt-3">3. Try install command again:</div>
+                    <div className="text-zinc-300">npx install-mcp i https://api.jeanmemory.com/mcp/...</div>
+                  </div>
+                  
+                  <p className="text-xs text-orange-700 dark:text-orange-300">
+                    This fixes dependency resolution issues with NPX on some Mac systems.
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="grid gap-3 text-sm">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <strong>Node.js not found?</strong> Install from <a href="https://nodejs.org" className="text-blue-600 hover:underline">nodejs.org</a>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <strong>Permission denied?</strong> Try adding <code className="bg-zinc-200 dark:bg-zinc-800 px-1 rounded">sudo</code> before the command
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <strong>Command not working?</strong> Make sure you copied the full command from your dashboard
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Example Conversations */}
         <Card>
           <CardHeader>
