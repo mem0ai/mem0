@@ -108,6 +108,8 @@ def _build_filters_and_metadata(
 setup_config()
 logger = logging.getLogger(__name__)
 
+class ResponseObj(TypedDict):
+        facts: list[str] = Field(description="Write some facts about the given memory")
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
@@ -321,8 +323,6 @@ class Memory(MemoryBase):
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
 
         if self.enable_azureopenai:
-            class ResponseObj(TypedDict):
-                facts: list[str] = Field(description="Write some facts about the given memory")
             response = self.llm.generate_response(
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -381,10 +381,16 @@ class Memory(MemoryBase):
         )
 
         try:
-            response: str = self.llm.generate_response(
-                messages=[{"role": "user", "content": function_calling_prompt}],
-                response_format={"type": "json_object"},
-            )
+            if self.enable_azureopenai:
+                response: str = self.llm.generate_response(
+                    messages=[{"role": "user", "content": function_calling_prompt}],
+                    response_format={"type": "json_schema", "json_schema": {"strict": True, "schema": ResponseObj}},
+                )
+            else:
+                response: str = self.llm.generate_response(
+                    messages=[{"role": "user", "content": function_calling_prompt}],
+                    response_format={"type": "json_object"},
+                )
         except Exception as e:
             logging.error(f"Error in new memory actions response: {e}")
             response = ""
