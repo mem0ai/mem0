@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Info, Settings, X } from "lucide-react";
+import { constants } from "@/components/shared/source-app";
 
 interface GraphNode {
   id: string;
@@ -349,7 +350,9 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
                   <SelectContent>
                     <SelectItem value="all">All Apps</SelectItem>
                     {apps.map(app => (
-                      <SelectItem key={app} value={app}>{app}</SelectItem>
+                      <SelectItem key={app} value={app}>
+                        {constants[app as keyof typeof constants]?.name || app}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

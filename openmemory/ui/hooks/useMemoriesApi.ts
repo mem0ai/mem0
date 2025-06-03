@@ -184,7 +184,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
         user_id: user_id,
         text: text,
         infer: false,
-        app_name: "openmemory",
+        app_name: "jean memory",
       }
       console.log("Creating memory with data:", memoryData);
       const response = await apiClient.post<ApiMemoryItem>(`/api/v1/memories/`, memoryData);
@@ -193,7 +193,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       if (posthog) {
         posthog.capture('memory_created', {
           memory_length: text.length,
-          app_name: 'openmemory',
+          app_name: 'jean memory',
           memory_id: response.data?.id || 'unknown'
         });
       }
