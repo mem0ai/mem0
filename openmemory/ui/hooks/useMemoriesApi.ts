@@ -175,6 +175,10 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       setError("User not authenticated to create memory.");
       throw new Error("User not authenticated to create memory.");
     }
+    
+    setIsLoading(true);
+    setError(null);
+    
     try {
       const memoryData = {
         user_id: user_id,
@@ -193,6 +197,8 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
           memory_id: response.data?.id || 'unknown'
         });
       }
+      
+      setIsLoading(false);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
       setError(errorMessage);

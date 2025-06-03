@@ -27,6 +27,10 @@ export function CreateMemoryDialog() {
     try {
       await createMemory(text);
       toast.success("Memory created successfully");
+      // clear the textarea
+      if (textRef.current) {
+        textRef.current.value = "";
+      }
       // close the dialog
       setOpen(false);
       // refetch memories
