@@ -113,6 +113,31 @@ Access at:
 - **API**: `http://localhost:8765`
 - **UI**: `http://localhost:3000`
 
+## ⭐ Upgrade to Jean Memory Pro
+
+Take your AI memory to the next level with **Jean Memory Pro** - advanced features for power users and developers who demand more from their AI tools.
+
+### 🚀 Pro Features
+
+- **🎯 Priority Support** - Get help fast with dedicated support channels and faster response times
+- **💡 Feature Requests** - Request new features and vote on development priorities to shape the roadmap
+- **🔍 Advanced Search** - Semantic search, date filters, smart categorization, and memory insights
+- **📈 Higher Limits** - 10x more memories, API calls, and storage vs. free tier
+- **📦 Data Export** - Download and backup all your memories in multiple formats anytime
+- **🚪 Early Access** - Get beta features and improvements weeks before general release  
+- **🏷️ Custom Categories** - Organize memories with personalized tags, folders, and smart grouping
+- **⚡ Bulk Operations** - Manage hundreds of memories with powerful batch editing and organization tools
+
+<p align="center">
+  <a href="https://buy.stripe.com/fZuaEX70gev399t4tMabK00">
+    <img src="https://img.shields.io/badge/⭐_Upgrade_to_Pro-$19.99-9333ea?style=for-the-badge&logo=stripe&logoColor=white" alt="Upgrade to Jean Memory Pro">
+  </a>
+</p>
+
+**[→ Upgrade to Jean Memory Pro for $19.99](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)**
+
+Join hundreds of developers and power users building the future of AI memory management! 🚀
+
 ## 💬 Example Usage
 
 Once connected, you can:
@@ -192,6 +217,7 @@ We welcome contributions! Jean Memory is built on open source foundations and we
 3. **Commit your changes**: `git commit -m 'Add amazing feature'`
 4. **Push to branch**: `git push origin feature/amazing-feature`
 5. **Open a Pull Request**
+6. **⭐ [Support the project](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)** ($19.99) - Help fund development
 
 ### Development Setup
 
@@ -228,6 +254,7 @@ Jean Memory additions and modifications are proprietary. See [LICENSE-JEAN.md](/
 
 - **Documentation**: [jeanmemory.com/docs](https://jeanmemory.com/docs)
 - **Issues**: [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
+- **Upgrade to Pro**: [Jean Memory Pro](https://buy.stripe.com/fZuaEX70gev399t4tMabK00) ($19.99)
 - **Email**: [jonathan@jeantechnologies.com](mailto:jonathan@jeantechnologies.com)
 
 ---

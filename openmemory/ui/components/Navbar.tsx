@@ -3,16 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { HiHome, HiMiniRectangleStack } from "react-icons/hi2";
 import { RiApps2AddFill } from "react-icons/ri";
-import { FiRefreshCcw } from "react-icons/fi";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CreateMemoryDialog } from "@/app/memories/components/CreateMemoryDialog";
-import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import Image from "next/image";
-import { useStats } from "@/hooks/useStats";
-import { useAppsApi } from "@/hooks/useAppsApi";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Menu, X, Settings2, Heart, ExternalLink } from "lucide-react";
+import { Brain, Menu, X, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icons } from "@/components/icons";
@@ -23,10 +19,6 @@ export function Navbar() {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const memoriesApi = useMemoriesApi();
-  const appsApi = useAppsApi();
-  const statsApi = useStats();
-
   // Check for reduced motion preference
   const prefersReducedMotion = typeof window !== 'undefined' && 
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -35,66 +27,6 @@ export function Navbar() {
   if (pathname === "/") {
     return null;
   }
-
-  // Define route matchers with typed parameter extraction
-  const routeBasedFetchMapping: {
-    match: RegExp;
-    getFetchers: (params: Record<string, string>) => (() => Promise<any>)[];
-  }[] = [
-    {
-      match: /^\/memory\/([^/]+)$/,
-      getFetchers: ({ memory_id }) => [
-        () => memoriesApi.fetchMemoryById(memory_id),
-        () => memoriesApi.fetchAccessLogs(memory_id),
-        () => memoriesApi.fetchRelatedMemories(memory_id),
-      ],
-    },
-    {
-      match: /^\/apps\/([^/]+)$/,
-      getFetchers: ({ app_id }) => [
-        () => appsApi.fetchAppMemories(app_id),
-        () => appsApi.fetchAppAccessedMemories(app_id),
-        () => appsApi.fetchAppDetails(app_id),
-      ],
-    },
-    {
-      match: /^\/memories$/,
-      getFetchers: () => [memoriesApi.fetchMemories],
-    },
-    {
-      match: /^\/apps$/,
-      getFetchers: () => [appsApi.fetchApps],
-    },
-    {
-      match: /^\/dashboard$/,
-      getFetchers: () => [statsApi.fetchStats, memoriesApi.fetchMemories],
-    },
-    {
-      match: /^\/my-life$/,
-      getFetchers: () => [memoriesApi.fetchMemories],
-    },
-  ];
-
-  const getFetchersForPath = (path: string) => {
-    for (const route of routeBasedFetchMapping) {
-      const match = path.match(route.match);
-      if (match) {
-        if (route.match.source.includes("memory")) {
-          return route.getFetchers({ memory_id: match[1] });
-        }
-        if (route.match.source.includes("app")) {
-          return route.getFetchers({ app_id: match[1] });
-        }
-        return route.getFetchers({});
-      }
-    }
-    return [];
-  };
-
-  const handleRefresh = async () => {
-    const fetchers = getFetchersForPath(pathname);
-    await Promise.allSettled(fetchers.map((fn) => fn()));
-  };
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === href;
@@ -152,14 +84,13 @@ export function Navbar() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center gap-2"
+                  className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white"
                 >
                   <Icons.github className="w-4 h-4" />
-                  <ExternalLink className="w-3 h-3" />
                 </Button>
               </a>
               
-              {/* Support Link */}
+              {/* Pro Link */}
               <a
                 href="https://buy.stripe.com/fZuaEX70gev399t4tMabK00"
                 target="_blank"
@@ -169,22 +100,15 @@ export function Navbar() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-pink-500/50 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 hover:text-pink-300 flex items-center gap-2"
+                  className="border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 flex items-center gap-2"
                 >
-                  <Heart className="w-4 h-4" />
-                  Support
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Pro
                 </Button>
               </a>
               
-              <Button
-                onClick={handleRefresh}
-                variant="outline"
-                size="sm"
-                className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800"
-              >
-                <FiRefreshCcw className="transition-transform duration-300 group-hover:rotate-180 motion-reduce:transition-none" />
-                Refresh
-              </Button>
               <CreateMemoryDialog />
               <Button
                 onClick={async () => {
@@ -263,12 +187,10 @@ export function Navbar() {
                         className="w-full justify-start gap-2 text-zinc-300 hover:text-white"
                       >
                         <Icons.github className="w-4 h-4" />
-                        <ExternalLink className="w-3 h-3" />
-                        GitHub Repository
                       </Button>
                     </a>
                     
-                    {/* Support Link - Mobile */}
+                    {/* Pro Link - Mobile */}
                     <a
                       href="https://buy.stripe.com/fZuaEX70gev399t4tMabK00"
                       target="_blank"
@@ -277,21 +199,15 @@ export function Navbar() {
                     >
                       <Button
                         variant="ghost"
-                        className="w-full justify-start gap-2 text-pink-400 hover:text-pink-300"
+                        className="w-full justify-start gap-2 text-purple-400 hover:text-purple-300"
                       >
-                        <Heart className="w-4 h-4" />
-                        Support this Project
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                        Pro
                       </Button>
                     </a>
                     
-                    <Button
-                      onClick={handleRefresh}
-                      variant="ghost"
-                      className="w-full justify-start gap-2"
-                    >
-                      <FiRefreshCcw className="motion-reduce:transition-none" />
-                      Refresh
-                    </Button>
                     <CreateMemoryDialog />
                     <Button
                       onClick={async () => {

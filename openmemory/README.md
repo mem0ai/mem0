@@ -15,20 +15,26 @@ To use the cloud version, simply visit the Frontend UI link above, sign up or lo
 
 ![Jean Memory Dashboard](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
-## ❤️ Support This Project
+## ⭐ Upgrade to Jean Memory Pro
 
-If Jean Memory helps streamline your AI workflow or if you believe in the future of personalized AI memory, consider supporting the project! Your support helps us:
+Take your AI memory to the next level with **Jean Memory Pro** - advanced features for power users and developers who want more control and capabilities.
 
-- 🚀 **Accelerate development** of new features and integrations
-- 🔒 **Enhance privacy features** and security infrastructure  
-- 📚 **Improve documentation** and developer experience
-- 🌍 **Keep the service running** and accessible to everyone
+### 🚀 Pro Features
 
-[![Support Jean Memory](https://img.shields.io/badge/💝_Support_This_Project-$19.99-ff69b4?style=for-the-badge&logo=stripe&logoColor=white)](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)
+- **🎯 Priority Support** - Get help fast with dedicated support channels
+- **💡 Feature Requests** - Request new features and vote on development priorities  
+- **🔍 Advanced Search** - Semantic search, date filters, and smart categorization
+- **📈 Higher Limits** - 10x more memories and API calls vs. free tier
+- **📦 Data Export** - Download and backup all your memories anytime
+- **🚪 Early Access** - Get beta features weeks before general release
+- **🏷️ Custom Categories** - Organize memories with personalized tags and folders
+- **⚡ Bulk Operations** - Manage hundreds of memories with powerful batch tools
 
-**[→ Support Jean Memory for $19.99](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)**
+[![Upgrade to Pro](https://img.shields.io/badge/⭐_Upgrade_to_Pro-$19.99-9333ea?style=for-the-badge&logo=stripe&logoColor=white)](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)
 
-Every contribution, no matter the size, makes a meaningful difference in our mission to build better AI tools. Thank you for being part of this journey! 🙏
+**[→ Upgrade to Jean Memory Pro for $19.99](https://buy.stripe.com/fZuaEX70gev399t4tMabK00)**
+
+Join our Pro community and help shape the future of AI memory management! 🚀
 
 ## 🔧 Local Development Setup
 
@@ -195,7 +201,7 @@ Join us in building the future of AI memory management! We're a team of develope
 
 **Ways to get involved:**
 - ⭐ Star the repository
-- 💝 [Support the project](https://buy.stripe.com/fZuaEX70gev399t4tMabK00) ($19.99)
+- ⭐ [Upgrade to Pro](https://buy.stripe.com/fZuaEX70gev399t4tMabK00) ($19.99)
 - 🐛 Report bugs via [GitHub Issues](https://github.com/jonathan-politzki/your-memory/issues)
 - 💡 Suggest features
 - 📖 Contribute to documentation
