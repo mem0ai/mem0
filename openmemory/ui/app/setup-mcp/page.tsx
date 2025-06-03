@@ -71,6 +71,46 @@ export default function SetupMCPPage() {
           </div>
         </div>
 
+        {/* Video Tutorial */}
+        <Card className="border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-purple-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-2xl">
+              <svg className="h-6 w-6 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136C4.495 20.455 12 20.455 12 20.455s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+              Video Tutorial: Set Up Jean Memory in 5 Minutes
+            </CardTitle>
+            <CardDescription>
+              Watch this step-by-step video tutorial to get Jean Memory working with your AI tools quickly and easily.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full rounded-lg"
+                  src="https://www.youtube.com/embed/qXe4mEaCN9k"
+                  title="Jean Memory Setup Tutorial"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                ></iframe>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-zinc-400">
+                <span>⏱️ 5 minutes</span>
+                <span>👨‍💻 Beginner-friendly</span>
+                <span>🎯 Complete walkthrough</span>
+              </div>
+              <Alert className="border-blue-500/20 bg-blue-50 dark:bg-blue-950/20">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200">
+                  <strong>Perfect for beginners!</strong> This video covers everything from installing Node.js to testing your first memory. Follow along and you'll be up and running in minutes.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* What This Does */}
         <Card className="border-purple-500/20">
           <CardHeader>
