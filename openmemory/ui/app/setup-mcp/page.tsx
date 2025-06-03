@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
-import { Brain, ExternalLink, MessageCircle, Sparkles, ArrowRight, CheckCircle, Terminal, Copy } from "lucide-react";
+import { Brain, ExternalLink, MessageCircle, Sparkles, ArrowRight, CheckCircle, Terminal, Copy, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function SetupMCPPage() {
@@ -18,6 +18,7 @@ export default function SetupMCPPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,6 +312,137 @@ export default function SetupMCPPage() {
               </div>
             </div>
           </CardContent>
+        </Card>
+
+        {/* Advanced Section */}
+        <Card className="border-violet-500/20">
+          <CardHeader 
+            className="cursor-pointer" 
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-violet-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                </svg>
+                Advanced Configuration
+              </div>
+              <ChevronDown className={`h-5 w-5 text-violet-500 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            </CardTitle>
+            <CardDescription>
+              Power user tips, system prompts, and advanced settings
+            </CardDescription>
+          </CardHeader>
+          
+          {showAdvanced && (
+            <CardContent className="space-y-6">
+              {/* System Prompts */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-violet-400 flex items-center gap-2">
+                  <Terminal className="h-4 w-4" />
+                  Custom System Prompts
+                </h4>
+                <p className="text-sm text-zinc-400">
+                  Enhance your AI assistant with custom system prompts that integrate Jean Memory:
+                </p>
+                <div className="bg-zinc-900 p-4 rounded-lg">
+                  <div className="text-xs text-zinc-500 mb-2">Add this to your Claude system prompt:</div>
+                  <div className="bg-zinc-800 p-3 rounded text-sm font-mono text-zinc-300">
+                    "You have access to Jean Memory tools. Always search my memory for relevant context before answering questions. When I share important information, offer to remember it for future conversations."
+                  </div>
+                  <button 
+                    onClick={() => copyToClipboard("You have access to Jean Memory tools. Always search my memory for relevant context before answering questions. When I share important information, offer to remember it for future conversations.", "system-prompt")}
+                    className="mt-2 text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1"
+                  >
+                    <Copy className="h-3 w-3" />
+                    {copiedItem === "system-prompt" ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Multiple Clients */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-violet-400 flex items-center gap-2">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/>
+                  </svg>
+                  Multiple AI Apps
+                </h4>
+                <p className="text-sm text-zinc-400">
+                  Connect the same memory to multiple AI applications:
+                </p>
+                <div className="grid gap-2 text-sm">
+                  <div className="bg-zinc-800/50 p-3 rounded">
+                    <strong className="text-green-400">Claude:</strong>
+                    <code className="ml-2 text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/YOUR_ID --client claude</code>
+                  </div>
+                  <div className="bg-zinc-800/50 p-3 rounded">
+                    <strong className="text-blue-400">Cursor:</strong>
+                    <code className="ml-2 text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/cursor/sse/YOUR_ID --client cursor</code>
+                  </div>
+                  <div className="bg-zinc-800/50 p-3 rounded">
+                    <strong className="text-purple-400">Windsurf:</strong>
+                    <code className="ml-2 text-xs">npx install-mcp i https://api.jeanmemory.com/mcp/windsurf/sse/YOUR_ID --client windsurf</code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Memory Organization */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-violet-400 flex items-center gap-2">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M10 4H4c-1.1 0-2 .9-2 2v3h2V6h6V4zm6 0v2h6v3h2V6c0-1.1-.9-2-2-2h-6zm-6 15H4v-3H2v3c0 1.1.9 2 2 2h6v-2zm6 2h6c1.1 0 2-.9 2-2v-3h-2v3h-6v2zm-3-7.5c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5 2.5-1.12 2.5-2.5-1.12-2.5-2.5-2.5z"/>
+                  </svg>
+                  Memory Organization Tips
+                </h4>
+                <div className="space-y-2 text-sm text-zinc-400">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong>Be specific:</strong> Instead of "I like coffee", say "I prefer dark roast coffee, no sugar, oat milk"
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong>Include context:</strong> "For my startup project X, I'm using TypeScript and Supabase"
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong>Update regularly:</strong> "Actually, I switched from React to Next.js for better SEO"
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Access */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-violet-400 flex items-center gap-2">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8.5,18l3.5,4l3.5-4H19c1.1,0,2-0.9,2-2V4c0-1.1-0.9-2-2-2H5C3.9,2,3,2.9,3,4v12c0,1.1,0.9,2,2,2H8.5z M7,7h10v2H7V7z M7,11h8v2H7V11z"/>
+                  </svg>
+                  Direct API Access
+                </h4>
+                <p className="text-sm text-zinc-400">
+                  For developers: Access your memories programmatically
+                </p>
+                <div className="bg-zinc-900 p-4 rounded-lg">
+                  <div className="text-xs text-zinc-500 mb-2">API Documentation:</div>
+                  <a 
+                    href="https://api.jeanmemory.com/docs" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-violet-400 hover:text-violet-300 text-sm flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    api.jeanmemory.com/docs
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Support */}
