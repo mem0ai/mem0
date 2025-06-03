@@ -94,9 +94,22 @@
   .scrollbar-hide {
     /* Firefox */
     scrollbar-width: none;
-    /* Safari and Chrome */
-    &::-webkit-scrollbar {
-      display: none;
-    }
+    /* Enable smooth scrolling on mobile */
+    -webkit-overflow-scrolling: touch;
+    /* Ensure scrolling works on mobile */
+    overflow: auto;
+  }
+  
+  /* Safari and Chrome */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Force horizontal scrolling on mobile */
+  .mobile-scroll-x {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
 }

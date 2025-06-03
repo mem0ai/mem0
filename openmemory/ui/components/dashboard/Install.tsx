@@ -136,33 +136,33 @@ export const Install = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-1 p-0 h-auto overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1 min-w-max px-1">
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-1 p-0 h-auto mobile-scroll-x scrollbar-hide">
+          <div className="flex gap-1 min-w-max px-1 pb-0">
             {mainApps.map(({ key, label, icon }) => (
               <TabsTrigger
                 key={key}
                 value={key}
-                className={`px-4 py-3 rounded-none flex-shrink-0 ${colorGradientMap[key] || ''} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center gap-2 text-sm font-medium transition-all whitespace-nowrap`}
+                className={`px-3 py-3 rounded-none flex-shrink-0 ${colorGradientMap[key] || ''} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center gap-2 text-sm font-medium transition-all whitespace-nowrap min-w-fit`}
               >
                 {icon.startsWith("/") ? (
-                  <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
-                    <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
+                  <div className="w-4 h-4 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                    <Image src={icon} alt={label} width={16} height={16} className="object-cover" />
                   </div>
                 ) : key === "mcp" ? (
                   <Link2 className="w-4 h-4" />
                 ) : (
-                  <span className="text-base">{icon}</span>
+                  <span className="text-sm">{icon}</span>
                 )}
-                <span>{label}</span>
+                <span className="text-sm">{label}</span>
               </TabsTrigger>
             ))}
             
             {/* More Apps Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className={`px-4 py-3 text-zinc-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap ${additionalApps.some(app => app.key === activeTab) ? 'text-white border-b-2 border-zinc-500' : ''}`}>
+                <button className={`px-3 py-3 text-zinc-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap min-w-fit ${additionalApps.some(app => app.key === activeTab) ? 'text-white border-b-2 border-zinc-500' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
-                  <span>More Apps</span>
+                  <span className="text-sm">More Apps</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-800">
