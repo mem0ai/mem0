@@ -223,7 +223,7 @@ export default function LandingPage() {
             </p>
             <div className="flex justify-center">
               <a
-                href="https://discord.gg/your-invite-code"
+                href="https://discord.gg/NYru6Wbr"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-sm font-medium transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-indigo-500/25"

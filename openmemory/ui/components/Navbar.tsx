@@ -92,7 +92,7 @@ export function Navbar() {
               
               {/* Discord Link */}
               <a
-                href="https://discord.gg/your-invite-code"
+                href="https://discord.gg/NYru6Wbr"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center"
@@ -210,7 +210,7 @@ export function Navbar() {
                     
                     {/* Discord Link - Mobile */}
                     <a
-                      href="https://discord.gg/your-invite-code"
+                      href="https://discord.gg/NYru6Wbr"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block"
