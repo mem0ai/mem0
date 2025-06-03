@@ -15,6 +15,20 @@ To use the cloud version, simply visit the Frontend UI link above, sign up or lo
 
 ![Jean Memory Dashboard](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
 
+## 🎥 **Video Tutorial**
+
+Watch this 5-minute step-by-step tutorial to get Jean Memory working with your AI tools:
+
+<p align="center">
+  <a href="https://youtu.be/qXe4mEaCN9k">
+    <img src="https://img.youtube.com/vi/qXe4mEaCN9k/maxresdefault.jpg" alt="Jean Memory Setup Tutorial" width="600">
+  </a>
+</p>
+
+**[▶️ Watch the Full Tutorial on YouTube](https://youtu.be/qXe4mEaCN9k)**
+
+*Perfect for beginners! Covers everything from installing Node.js to testing your first memory.*
+
 ## ⭐ Upgrade to Jean Memory Pro
 
 Take your AI memory to the next level with **Jean Memory Pro** - advanced features for power users and developers who want more control and capabilities.

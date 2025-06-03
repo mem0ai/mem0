@@ -98,6 +98,20 @@ npx install-mcp i https://api.jeanmemory.com/mcp/claude/sse/your-user-id --clien
 
 4. **Restart your AI app** and start using memory!
 
+## 🎥 **Video Tutorial**
+
+Watch this 5-minute step-by-step tutorial to get Jean Memory working with your AI tools:
+
+<p align="center">
+  <a href="https://youtu.be/qXe4mEaCN9k">
+    <img src="https://img.youtube.com/vi/qXe4mEaCN9k/maxresdefault.jpg" alt="Jean Memory Setup Tutorial" width="600">
+  </a>
+</p>
+
+**[▶️ Watch the Full Tutorial on YouTube](https://youtu.be/qXe4mEaCN9k)**
+
+*Perfect for beginners! Covers everything from installing Node.js to testing your first memory.*
+
 ### Option 2: Local Development
 
 Run Jean Memory completely locally:
