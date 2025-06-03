@@ -239,7 +239,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
       const appColors: { [key: string]: string } = {
         "claude": "#8b5cf6",
         "twitter": "#3b82f6", 
-        "openmemory": "#10b981",
+        "jean memory": "#10b981",
         "cursor": "#f59e0b",
         "windsurf": "#ef4444",
         "chatgpt": "#06b6d4"
@@ -423,7 +423,7 @@ export default function KnowledgeGraph({ onMemorySelect }: KnowledgeGraphProps) 
               {Object.entries({
                 "claude": "#8b5cf6",
                 "twitter": "#3b82f6",
-                "openmemory": "#10b981",
+                "jean memory": "#10b981",
                 "cursor": "#f59e0b",
                 "windsurf": "#ef4444",
                 "chatgpt": "#06b6d4"

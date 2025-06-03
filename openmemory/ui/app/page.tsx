@@ -237,7 +237,14 @@ export default function LandingPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1.1 }}
           >
-            No credit card required • Free forever for personal use
+            No credit card required • Free forever for personal use • <a 
+              href="https://jonathan-politzki.github.io/jean-privacy-policy/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-gray-300 transition-colors underline"
+            >
+              Privacy Policy
+            </a>
           </motion.p>
         </motion.div>
       </div>
