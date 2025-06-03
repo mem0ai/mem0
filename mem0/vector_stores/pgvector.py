@@ -245,7 +245,7 @@ class PGVector(VectorStoreBase):
         result = self.cur.fetchone()
         return {"name": result[0], "count": result[1], "size": result[2]}
 
-    def list(self, filters=None, limit=100):
+    def list(self, filters=None, limit=100) -> list[list[OutputData]]:
         """
         List all vectors in a collection.
 

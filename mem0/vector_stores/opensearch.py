@@ -244,7 +244,7 @@ class OpenSearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> list[list[OutputData]]:
         try:
             """List all memories with optional filters."""
             query: Dict = {"query": {"match_all": {}}}
