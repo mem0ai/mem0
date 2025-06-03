@@ -89,4 +89,14 @@
   .bg-gradient-conic {
     background-image: conic-gradient(var(--tw-gradient-stops));
   }
+
+  /* Hide scrollbars while maintaining functionality */
+  .scrollbar-hide {
+    /* Firefox */
+    scrollbar-width: none;
+    /* Safari and Chrome */
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }

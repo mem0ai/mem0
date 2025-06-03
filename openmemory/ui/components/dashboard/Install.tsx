@@ -136,51 +136,53 @@ export const Install = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-1 p-0 h-auto">
-          {mainApps.map(({ key, label, icon }) => (
-            <TabsTrigger
-              key={key}
-              value={key}
-              className={`px-4 py-3 rounded-none ${colorGradientMap[key] || ''} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center gap-2 text-sm font-medium transition-all`}
-            >
-              {icon.startsWith("/") ? (
-                <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
-                  <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
-                </div>
-              ) : key === "mcp" ? (
-                <Link2 className="w-4 h-4" />
-              ) : (
-                <span className="text-base">{icon}</span>
-              )}
-              <span>{label}</span>
-            </TabsTrigger>
-          ))}
-          
-          {/* More Apps Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={`px-4 py-3 text-zinc-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-all ${additionalApps.some(app => app.key === activeTab) ? 'text-white border-b-2 border-zinc-500' : ''}`}>
-                <ChevronDown className="w-4 h-4" />
-                <span>More Apps</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-800">
-              {additionalApps.map(({ key, label, icon }) => (
-                <DropdownMenuItem
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800"
-                >
-                  {icon.startsWith("/") && (
-                    <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
-                      <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
-                    </div>
-                  )}
-                  <span>{label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <TabsList className="bg-transparent border-b border-zinc-800 rounded-none w-full justify-start gap-1 p-0 h-auto overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1 min-w-max px-1">
+            {mainApps.map(({ key, label, icon }) => (
+              <TabsTrigger
+                key={key}
+                value={key}
+                className={`px-4 py-3 rounded-none flex-shrink-0 ${colorGradientMap[key] || ''} data-[state=active]:border-b-2 data-[state=active]:shadow-none text-zinc-400 data-[state=active]:text-white flex items-center gap-2 text-sm font-medium transition-all whitespace-nowrap`}
+              >
+                {icon.startsWith("/") ? (
+                  <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                    <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
+                  </div>
+                ) : key === "mcp" ? (
+                  <Link2 className="w-4 h-4" />
+                ) : (
+                  <span className="text-base">{icon}</span>
+                )}
+                <span>{label}</span>
+              </TabsTrigger>
+            ))}
+            
+            {/* More Apps Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={`px-4 py-3 text-zinc-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap ${additionalApps.some(app => app.key === activeTab) ? 'text-white border-b-2 border-zinc-500' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
+                  <span>More Apps</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-800">
+                {additionalApps.map(({ key, label, icon }) => (
+                  <DropdownMenuItem
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800"
+                  >
+                    {icon.startsWith("/") && (
+                      <div className="w-5 h-5 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                        <Image src={icon} alt={label} width={20} height={20} className="object-cover" />
+                      </div>
+                    )}
+                    <span>{label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </TabsList>
 
         {/* Main app contents */}
