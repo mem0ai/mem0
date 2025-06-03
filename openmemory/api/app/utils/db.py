@@ -1,7 +1,11 @@
 import uuid # Import Python's uuid module
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.models import User, App
 from typing import Tuple, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] = None) -> User:
@@ -13,15 +17,29 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
     # First try to find user by the string user_id
     user = db.query(User).filter(User.user_id == supabase_user_id).first()
     if user:
-        # Update email if provided and not set
+        # Update email if provided and not set, but only if no other user has this email
         if email and not user.email:
+            # Check if another user already has this email
+            existing_user_with_email = db.query(User).filter(User.email == email).first()
+            if existing_user_with_email:
+                logger.warning(f"Cannot update user {supabase_user_id} with email {email} - already exists for user {existing_user_with_email.user_id}")
+                # Don't update the email to avoid constraint violation
+                return user
+            
+            # Safe to update email
             user.email = email
             user.name = user.name or (email.split("@")[0] if email else supabase_user_id)
             try:
                 db.commit()
                 db.refresh(user)
+            except IntegrityError as e:
+                db.rollback()
+                logger.error(f"Integrity error updating user {supabase_user_id}: {e}")
+                # Return user without email update rather than failing
+                return user
             except Exception as e:
                 db.rollback()
+                logger.error(f"Error updating user {supabase_user_id}: {e}")
                 raise
         return user
     
@@ -50,9 +68,19 @@ def get_or_create_user(db: Session, supabase_user_id: str, email: Optional[str] 
     try:
         db.commit()
         db.refresh(user)
+    except IntegrityError as e:
+        db.rollback()
+        # If there's an integrity error (like duplicate email), try to find existing user
+        if email and "email" in str(e):
+            logger.warning(f"Email {email} already exists, attempting to find existing user")
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user:
+                return existing_user
+        logger.error(f"Error creating user {supabase_user_id}: {e}")
+        raise
     except Exception as e:
         db.rollback()
-        # Log the error, e.g., logger.error(f"Error creating user {supabase_user_id}: {e}")
+        logger.error(f"Error creating user {supabase_user_id}: {e}")
         raise # Re-raise after rollback
     
     return user

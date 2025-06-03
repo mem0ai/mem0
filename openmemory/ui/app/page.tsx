@@ -181,30 +181,6 @@ export default function LandingPage() {
             </a>
           </motion.div>
 
-          {/* Features */}
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12 max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
-              <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 mb-2 sm:mb-3 mx-auto" />
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Secure & Private</h3>
-              <p className="text-xs sm:text-sm text-gray-400">Your memories stay yours with end-to-end encryption</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
-              <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 mb-2 sm:mb-3 mx-auto" />
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Lightning Fast</h3>
-              <p className="text-xs sm:text-sm text-gray-400">Instant access to your context across all AI tools</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
-              <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400 mb-2 sm:mb-3 mx-auto" />
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Universal</h3>
-              <p className="text-xs sm:text-sm text-gray-400">Works with Claude, GPT, Gemini, and more</p>
-            </div>
-          </motion.div>
-
           {/* Discord Community Section */}
           <motion.div
             className="bg-indigo-500/10 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-indigo-500/20 mb-8 sm:mb-12 max-w-lg mx-auto"
@@ -234,6 +210,30 @@ export default function LandingPage() {
                 Join Discord
                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </a>
+            </div>
+          </motion.div>
+
+          {/* Features */}
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12 max-w-3xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+          >
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
+              <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 mb-2 sm:mb-3 mx-auto" />
+              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Secure & Private</h3>
+              <p className="text-xs sm:text-sm text-gray-400">Your memories stay yours with end-to-end encryption</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
+              <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 mb-2 sm:mb-3 mx-auto" />
+              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Lightning Fast</h3>
+              <p className="text-xs sm:text-sm text-gray-400">Instant access to your context across all AI tools</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 sm:p-6 border border-white/10">
+              <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400 mb-2 sm:mb-3 mx-auto" />
+              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Universal</h3>
+              <p className="text-xs sm:text-sm text-gray-400">Works with Claude, GPT, Gemini, and more</p>
             </div>
           </motion.div>
 
