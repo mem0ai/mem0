@@ -795,7 +795,7 @@ class AsyncMemoryClient:
 
             return data.get("user_email")
 
-        except requests.HTTPStatusError as e:
+        except requests.exceptions.HTTPError as e:
             try:
                 error_data = e.response.json()
                 error_message = error_data.get("detail", str(e))
