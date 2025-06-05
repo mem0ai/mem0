@@ -74,15 +74,15 @@ You can do this in one of the following ways:
    ```
 - #### Example `/api/.env`
 
-```env
+``` bash
 OPENAI_API_KEY=sk-xxx
-USER=user
+USER=<user-id> # The User Id you want to associate the memories with 
 ```
 - #### Example `/ui/.env`
 
-```env
+```bash
 NEXT_PUBLIC_API_URL=http://localhost:8765
-NEXT_PUBLIC_USER_ID=user
+NEXT_PUBLIC_USER_ID=<user-id> # Same as the user id for environment variable in api
 ```
 
 ### 3. Build and Run the Project
@@ -96,9 +96,9 @@ After running these commands, you will have:
 - OpenMemory MCP server running at: http://localhost:8765 (API documentation available at http://localhost:8765/docs)
 - OpenMemory UI running at: http://localhost:3000
 
-#### UI not working on `localhost:3000`?
+#### UI not working on http://localhost:3000?
 
-If the UI does not start properly on [http://localhost:3000](http://localhost:3000), try running it manually:
+If the UI does not start properly on http://localhost:3000, try running it manually:
 
 ```bash
 cd ui

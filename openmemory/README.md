@@ -66,13 +66,13 @@ You can do this in one of the following ways:
 
 ```env
 OPENAI_API_KEY=sk-xxx
-USER=user
+USER=<user-id> # The User Id you want to associate the memories with 
 ```
 - #### Example `/ui/.env`
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8765
-NEXT_PUBLIC_USER_ID=user
+NEXT_PUBLIC_USER_ID=<user-id> # Same as the user id for environment variable in api
 ```
 
 ### 2. Build and Run the Project
