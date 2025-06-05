@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime
+import pytz
 
 from mem0.memory.utils import format_entities
 
@@ -516,22 +518,37 @@ class MemoryGraph:
 
             # TODO: Create a cypher query and common params for all the cases
             if not destination_node_search_result and source_node_search_result:
+                current_formatted_time = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
+                
+                # Build SET clauses for relationship properties
+                relationship_set_clauses = []
+                if weight is not None:
+                    relationship_set_clauses.append("r.weight = $weight")
+                if is_uncertain is not None:
+                    relationship_set_clauses.append("r.is_uncertain = $is_uncertain")
+                if status is not None:
+                    relationship_set_clauses.append("r.status = $status")
+                if start_date is not None:
+                    relationship_set_clauses.append("r.start_date = $start_date")
+                if end_date is not None:
+                    relationship_set_clauses.append("r.end_date = $end_date")
+                if emotion is not None:
+                    relationship_set_clauses.append("r.emotion = $emotion")
+                
+                additional_set_properties_str = ""
+                if relationship_set_clauses:
+                    additional_set_properties_str = ", " + ", ".join(relationship_set_clauses)
+
                 cypher = f"""
                     MATCH (source)
                     WHERE elementId(source) = $source_id
                     MERGE (destination:{destination_type} {{name: $destination_name, user_id: $user_id}})
                     ON CREATE SET
-                        destination.created = timestamp(),
+                        destination.created_at = $current_formatted_time,
                         destination.embedding = $destination_embedding
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created = timestamp()
-                        {", r.weight = $weight" if weight is not None else ""}
-                        {", r.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
-                        {", r.status = $status" if status is not None else ""}
-                        {", r.start_date = $start_date" if start_date is not None else ""}
-                        {", r.end_date = $end_date" if end_date is not None else ""}
-                        {", r.emotion = $emotion" if emotion is not None else ""}
+                        r.created_at = $current_formatted_time{additional_set_properties_str}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -544,6 +561,7 @@ class MemoryGraph:
                     "destination_type": destination_type,
                     "destination_embedding": dest_embedding,
                     "user_id": user_id,
+                    "current_formatted_time": current_formatted_time,
                 }
 
                 # Add additional parameters to params if they exist
@@ -564,22 +582,37 @@ class MemoryGraph:
                 results.append(resp)
 
             elif destination_node_search_result and not source_node_search_result:
+                current_formatted_time = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+                # Build SET clauses for relationship properties
+                relationship_set_clauses = []
+                if weight is not None:
+                    relationship_set_clauses.append("r.weight = $weight")
+                if is_uncertain is not None:
+                    relationship_set_clauses.append("r.is_uncertain = $is_uncertain")
+                if status is not None:
+                    relationship_set_clauses.append("r.status = $status")
+                if start_date is not None:
+                    relationship_set_clauses.append("r.start_date = $start_date")
+                if end_date is not None:
+                    relationship_set_clauses.append("r.end_date = $end_date")
+                if emotion is not None:
+                    relationship_set_clauses.append("r.emotion = $emotion")
+
+                additional_set_properties_str = ""
+                if relationship_set_clauses:
+                    additional_set_properties_str = ", " + ", ".join(relationship_set_clauses)
+
                 cypher = f"""
                     MATCH (destination)
                     WHERE elementId(destination) = $destination_id
                     MERGE (source:{source_type} {{name: $source_name, user_id: $user_id}})
                     ON CREATE SET
-                        source.created = timestamp(),
+                        source.created_at = $current_formatted_time,
                         source.embedding = $source_embedding
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created = timestamp()
-                        {", r.weight = $weight" if weight is not None else ""}
-                        {", r.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
-                        {", r.status = $status" if status is not None else ""}
-                        {", r.start_date = $start_date" if start_date is not None else ""}
-                        {", r.end_date = $end_date" if end_date is not None else ""}
-                        {", r.emotion = $emotion" if emotion is not None else ""}
+                        r.created_at = $current_formatted_time{additional_set_properties_str}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
 
@@ -592,6 +625,7 @@ class MemoryGraph:
                     "source_type": source_type,
                     "source_embedding": source_embedding,
                     "user_id": user_id,
+                    "current_formatted_time": current_formatted_time,
                 }
 
                 # Add additional parameters to params if they exist
@@ -612,6 +646,31 @@ class MemoryGraph:
                 results.append(resp)
 
             elif source_node_search_result and destination_node_search_result:
+                current_formatted_time = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+                # Build SET clauses for relationship properties
+                relationship_set_clauses = []
+                if weight is not None:
+                    relationship_set_clauses.append("r.weight = $weight")
+                if is_uncertain is not None:
+                    relationship_set_clauses.append("r.is_uncertain = $is_uncertain")
+                if status is not None:
+                    relationship_set_clauses.append("r.status = $status")
+                if start_date is not None:
+                    relationship_set_clauses.append("r.start_date = $start_date")
+                if end_date is not None:
+                    relationship_set_clauses.append("r.end_date = $end_date")
+                if emotion is not None:
+                    relationship_set_clauses.append("r.emotion = $emotion")
+
+                additional_set_properties_str = ""
+                # For this case, r.updated_at is also set, so check if relationship_set_clauses is non-empty
+                # to decide if a comma is needed before r.updated_at or before the additional properties.
+                # However, the original code sets r.created_at and r.updated_at unconditionally on merge.
+                # We'll stick to adding optional properties after these.
+                if relationship_set_clauses:
+                    additional_set_properties_str = ", " + ", ".join(relationship_set_clauses)
+
                 cypher = f"""
                     MATCH (source)
                     WHERE elementId(source) = $source_id
@@ -619,14 +678,8 @@ class MemoryGraph:
                     WHERE elementId(destination) = $destination_id
                     MERGE (source)-[r:{relationship}]->(destination)
                     ON CREATE SET 
-                        r.created_at = timestamp(),
-                        r.updated_at = timestamp()
-                        {", r.weight = $weight" if weight is not None else ""}
-                        {", r.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
-                        {", r.status = $status" if status is not None else ""}
-                        {", r.start_date = $start_date" if start_date is not None else ""}
-                        {", r.end_date = $end_date" if end_date is not None else ""}
-                        {", r.emotion = $emotion" if emotion is not None else ""}
+                        r.created_at = $current_formatted_time,
+                        r.updated_at = $current_formatted_time{additional_set_properties_str}
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
@@ -638,6 +691,7 @@ class MemoryGraph:
                     ],
                     "user_id": user_id,
                     "relationship": relationship,
+                    "current_formatted_time": current_formatted_time,
                 }
 
                 # Add additional parameters to params if they exist
@@ -658,21 +712,36 @@ class MemoryGraph:
                 results.append(resp)
 
             elif not source_node_search_result and not destination_node_search_result:
+                current_formatted_time = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+                # Build SET clauses for relationship properties
+                relationship_set_clauses = [] # Note: using 'rel' here as per original query
+                if weight is not None:
+                    relationship_set_clauses.append("rel.weight = $weight")
+                if is_uncertain is not None:
+                    relationship_set_clauses.append("rel.is_uncertain = $is_uncertain")
+                if status is not None:
+                    relationship_set_clauses.append("rel.status = $status")
+                if start_date is not None:
+                    relationship_set_clauses.append("rel.start_date = $start_date")
+                if end_date is not None:
+                    relationship_set_clauses.append("rel.end_date = $end_date")
+                if emotion is not None:
+                    relationship_set_clauses.append("rel.emotion = $emotion")
+                
+                additional_set_properties_str = ""
+                if relationship_set_clauses:
+                    additional_set_properties_str = ", " + ", ".join(relationship_set_clauses)
+
                 cypher = f"""
                     MERGE (n:{source_type} {{name: $source_name, user_id: $user_id}})
-                    ON CREATE SET n.created = timestamp(), n.embedding = $source_embedding
+                    ON CREATE SET n.created_at = $current_formatted_time, n.embedding = $source_embedding
                     ON MATCH SET n.embedding = $source_embedding
                     MERGE (m:{destination_type} {{name: $dest_name, user_id: $user_id}})
-                    ON CREATE SET m.created = timestamp(), m.embedding = $dest_embedding
+                    ON CREATE SET m.created_at = $current_formatted_time, m.embedding = $dest_embedding
                     ON MATCH SET m.embedding = $dest_embedding
                     MERGE (n)-[rel:{relationship}]->(m)
-                    ON CREATE SET rel.created = timestamp()
-                        {", rel.weight = $weight" if weight is not None else ""}
-                        {", rel.is_uncertain = $is_uncertain" if is_uncertain is not None else ""}
-                        {", rel.status = $status" if status is not None else ""}
-                        {", rel.start_date = $start_date" if start_date is not None else ""}
-                        {", rel.end_date = $end_date" if end_date is not None else ""}
-                        {", rel.emotion = $emotion" if emotion is not None else ""}
+                    ON CREATE SET rel.created_at = $current_formatted_time{additional_set_properties_str}
                     RETURN n.name AS source, type(rel) AS relationship, m.name AS target
                     """
                 params = {
@@ -683,6 +752,7 @@ class MemoryGraph:
                     "source_embedding": source_embedding,
                     "dest_embedding": dest_embedding,
                     "user_id": user_id,
+                    "current_formatted_time": current_formatted_time,
                 }
 
                 # Add additional parameters to params if they exist
@@ -814,8 +884,16 @@ class MemoryGraph:
             dict: Updated relationship data
         """
         # Build the SET clause dynamically based on provided properties
-        set_clauses = ["r.updated_at = timestamp()"]
-        params = {"source_name": source, "dest_name": destination, "user_id": user_id}
+        current_formatted_time_update = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
+        set_clauses = [
+            f"r.updated_at = $current_formatted_time_update"
+        ]  # Use a distinct param name
+        params = {
+            "source_name": source,
+            "dest_name": destination,
+            "user_id": user_id,
+            "current_formatted_time_update": current_formatted_time_update,  # Add to params
+        }
 
         # Add each property to the SET clause if provided
         for key, value in properties.items():
