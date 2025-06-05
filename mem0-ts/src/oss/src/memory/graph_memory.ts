@@ -1,6 +1,5 @@
 import neo4j, { Driver } from "neo4j-driver";
 import { BM25 } from "../utils/bm25";
-import { GraphStoreConfig } from "../graphs/configs";
 import { MemoryConfig } from "../types";
 import { EmbedderFactory, LLMFactory } from "../utils/factory";
 import { Embedder } from "../embeddings/base";
@@ -21,15 +20,6 @@ interface SearchOutput {
   destination: string;
   destination_id: string;
   similarity: number;
-}
-
-interface ToolCall {
-  name: string;
-  arguments: string;
-}
-
-interface LLMResponse {
-  toolCalls?: ToolCall[];
 }
 
 interface Tool {
@@ -151,6 +141,7 @@ export class MemoryGraph {
     const searchOutput = await this._searchGraphDb(
       Object.keys(entityTypeMap),
       filters,
+      limit,
     );
 
     if (!searchOutput.length) {
