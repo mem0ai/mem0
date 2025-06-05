@@ -26,6 +26,7 @@ import { HistoryManager } from "../storage/base";
 import { GoogleEmbedder } from "../embeddings/google";
 import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
+import { AzureOpenAIStructuredLLM } from "../llms/azure_structured";
 import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
@@ -67,6 +68,8 @@ export class LLMFactory {
         return new GoogleLLM(config);
       case "azure_openai":
         return new AzureOpenAILLM(config);
+      case "azure_openai_structured":
+        return new AzureOpenAIStructuredLLM(config);
       case "mistral":
         return new MistralLLM(config);
       case "langchain":

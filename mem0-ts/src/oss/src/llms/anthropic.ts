@@ -39,7 +39,16 @@ export class AnthropicLLM implements LLM {
       max_tokens: 4096,
     });
 
-    return response.content[0].text;
+    // Extract text from response content
+    const contentBlock = response.content[0];
+
+    // Handle different content types from Anthropic API
+    if (contentBlock.type === "text") {
+      return contentBlock.text;
+    } else {
+      // Return stringified content or error message if text is not available
+      return JSON.stringify(contentBlock) || "No text content available";
+    }
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {

@@ -51,7 +51,6 @@ export class MemoryGraph {
   private config: MemoryConfig;
   private graph: Driver;
   private embeddingModel: Embedder;
-  private llm: LLM;
   private structuredLlm: LLM;
   private llmProvider: string;
   private threshold: number;
@@ -80,17 +79,28 @@ export class MemoryGraph {
     );
 
     this.llmProvider = "openai";
+    let llmConfig = this.config.llm?.config;
+
     if (this.config.llm?.provider) {
       this.llmProvider = this.config.llm.provider;
     }
+
     if (this.config.graphStore?.llm?.provider) {
       this.llmProvider = this.config.graphStore.llm.provider;
     }
 
-    this.llm = LLMFactory.create(this.llmProvider, this.config.llm.config);
-    this.structuredLlm = LLMFactory.create(
+    if (this.config.graphStore?.llm?.config) {
+      llmConfig = this.config.graphStore.llm.config;
+    }
+
+    const isStructuredProvider = [
       "openai_structured",
-      this.config.llm.config,
+      "azure_openai_structured",
+    ].includes(this.llmProvider);
+
+    this.structuredLlm = LLMFactory.create(
+      isStructuredProvider ? this.llmProvider : "openai_structured",
+      llmConfig,
     );
     this.threshold = 0.7;
   }
@@ -423,7 +433,7 @@ export class MemoryGraph {
           -[r:${relationship}]->
           (m {name: $dest_name, user_id: $user_id})
           DELETE r
-          RETURN 
+          RETURN
               n.name AS source,
               m.name AS target,
               type(r) AS relationship
@@ -485,7 +495,7 @@ export class MemoryGraph {
                 destination.created = timestamp(),
                 destination.embedding = $destination_embedding
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created = timestamp()
             RETURN source.name AS source, type(r) AS relationship, destination.name AS target
           `;
@@ -508,7 +518,7 @@ export class MemoryGraph {
                 source.created = timestamp(),
                 source.embedding = $source_embedding
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created = timestamp()
             RETURN source.name AS source, type(r) AS relationship, destination.name AS target
           `;
@@ -529,7 +539,7 @@ export class MemoryGraph {
             MATCH (destination)
             WHERE elementId(destination) = $destination_id
             MERGE (source)-[r:${relationship}]->(destination)
-            ON CREATE SET 
+            ON CREATE SET
                 r.created_at = timestamp(),
                 r.updated_at = timestamp()
             RETURN source.name AS source, type(r) AS relationship, destination.name AS target
@@ -590,7 +600,7 @@ export class MemoryGraph {
     try {
       const cypher = `
         MATCH (source_candidate)
-        WHERE source_candidate.embedding IS NOT NULL 
+        WHERE source_candidate.embedding IS NOT NULL
         AND source_candidate.user_id = $user_id
 
         WITH source_candidate,
@@ -636,7 +646,7 @@ export class MemoryGraph {
     try {
       const cypher = `
         MATCH (destination_candidate)
-        WHERE destination_candidate.embedding IS NOT NULL 
+        WHERE destination_candidate.embedding IS NOT NULL
         AND destination_candidate.user_id = $user_id
 
         WITH destination_candidate,
