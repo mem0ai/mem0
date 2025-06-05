@@ -10,7 +10,7 @@ interface ProfileState {
 }
 
 const initialState: ProfileState = {
-  userId: process.env.NEXT_PUBLIC_USER_ID || 'deshraj',
+  userId: process.env.NEXT_PUBLIC_USER_ID || 'user',
   totalMemories: 0,
   totalApps: 0,
   status: 'idle',
@@ -36,7 +36,7 @@ const profileSlice = createSlice({
     resetProfileState: (state) => {
       state.status = 'idle';
       state.error = null;
-      state.userId = process.env.NEXT_PUBLIC_USER_ID || 'deshraj';
+      state.userId = process.env.NEXT_PUBLIC_USER_ID || 'user';
     },
     setTotalMemories: (state, action: PayloadAction<number>) => {
       state.totalMemories = action.payload;
