@@ -604,7 +604,7 @@ class Memory(MemoryBase):
         metadata = metadata or {}
         metadata["data"] = data
         metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        metadata["created_at"] = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -628,7 +628,7 @@ class Memory(MemoryBase):
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["updated_at"] = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         if "user_id" in existing_memory.payload:
             new_metadata["user_id"] = existing_memory.payload["user_id"]
