@@ -199,6 +199,23 @@ for await (const textPart of textStream) {
 }
 ```
 
+### 6. manage memories using tools
+
+```typescript
+import { generateText } from "ai";
+import { createMem0, mem0tool } from "@mem0/vercel-ai-provider";
+
+const mem0 = createMem0();
+
+const result = await generateText({
+  model: mem0("gpt-4o", { user_id: "borat" }),
+  prompt: "remember this message", // uses addMemoryTool
+  tools: mem0tool,
+});
+
+console.log(result);
+```
+
 ## Core Functions
 
 - `createMem0()`: Initializes a new mem0 provider instance with optional configuration
