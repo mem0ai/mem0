@@ -246,10 +246,10 @@ class MemoryGraph:
             WITH n, round(2 * vector.similarity.cosine(n.embedding, $n_embedding) - 1, 4) AS similarity // denormalize for backward compatibility
             WHERE similarity >= $threshold
             CALL (n) {{
-                MATCH (n)-[r]->(m) 
+                MATCH (n)-[r]->(m)
                 RETURN n.name AS source, elementId(n) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, m.name AS destination, elementId(m) AS destination_id
                 UNION
-                MATCH (m)-[r]->(n) 
+                MATCH (m)-[r]->(n)
                 RETURN m.name AS source, elementId(m) AS source_id, type(r) AS relationship, elementId(r) AS relation_id, n.name AS destination, elementId(n) AS destination_id
             }}
             WITH distinct source, source_id, relationship, relation_id, destination, destination_id, similarity //deduplicate
@@ -310,7 +310,7 @@ class MemoryGraph:
             -[r:{relationship}]->
             (m {self.node_label} {{name: $dest_name, user_id: $user_id}})
             DELETE r
-            RETURN 
+            RETURN
                 n.name AS source,
                 m.name AS target,
                 type(r) AS relationship
@@ -367,7 +367,7 @@ class MemoryGraph:
                     CALL db.create.setNodeVectorProperty(destination, 'embedding', $destination_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created = timestamp(),
                         r.mentions = 1
                     ON MATCH SET
@@ -398,7 +398,7 @@ class MemoryGraph:
                     CALL db.create.setNodeVectorProperty(source, 'embedding', $source_embedding)
                     WITH source, destination
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created = timestamp(),
                         r.mentions = 1
                     ON MATCH SET
@@ -422,13 +422,13 @@ class MemoryGraph:
                     WHERE elementId(destination) = $destination_id
                     SET destination.mentions = coalesce(destination.mentions) + 1
                     MERGE (source)-[r:{relationship}]->(destination)
-                    ON CREATE SET 
+                    ON CREATE SET
                         r.created_at = timestamp(),
                         r.updated_at = timestamp(),
                         r.mentions = 1
                     ON MATCH SET r.mentions = coalesce(r.mentions, 0) + 1
-                    
-                    
+
+
                     RETURN source.name AS source, type(r) AS relationship, destination.name AS target
                     """
                 params = {
@@ -472,6 +472,12 @@ class MemoryGraph:
 
     def _remove_spaces_from_entities(self, entity_list):
         for item in entity_list:
+            if "source" not in item and "source_entity" in item:
+                item["source"] = item["source_entity"]
+            if "relationship" not in item and "relatationship" in item:
+                item["relationship"] = item["relatationship"]
+            if "destination" not in item and "destination_entity" in item:
+                item["destination"] = item["destination_entity"]
             item["source"] = item["source"].lower().replace(" ", "_")
             item["relationship"] = item["relationship"].lower().replace(" ", "_")
             item["destination"] = item["destination"].lower().replace(" ", "_")
@@ -480,7 +486,7 @@ class MemoryGraph:
     def _search_source_node(self, source_embedding, user_id, threshold=0.9):
         cypher = f"""
             MATCH (source_candidate {self.node_label})
-            WHERE source_candidate.embedding IS NOT NULL 
+            WHERE source_candidate.embedding IS NOT NULL
             AND source_candidate.user_id = $user_id
 
             WITH source_candidate,
@@ -506,7 +512,7 @@ class MemoryGraph:
     def _search_destination_node(self, destination_embedding, user_id, threshold=0.9):
         cypher = f"""
             MATCH (destination_candidate {self.node_label})
-            WHERE destination_candidate.embedding IS NOT NULL 
+            WHERE destination_candidate.embedding IS NOT NULL
             AND destination_candidate.user_id = $user_id
 
             WITH destination_candidate,
