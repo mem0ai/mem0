@@ -11,6 +11,7 @@ The v2 search API is powerful and flexible, allowing for more precise memory ret
 - `lt`: Less than
 - `ne`: Not equal to
 - `icontains`: Case-insensitive containment check
+- `*`: Wildcard character that matches everything
 
   <CodeGroup>
   ```python Code
@@ -47,5 +48,25 @@ The v2 search API is powerful and flexible, allowing for more precise memory ret
       }
     ],
   }
+  ```
+  </CodeGroup>
+
+  <CodeGroup>
+  ```python Wildcard Example
+  # Using wildcard to match all run_ids for a specific user
+  all_memories = m.search(
+      query="What are Alice's hobbies?",
+      version="v2",
+      filters={
+          "AND": [
+              {
+                  "user_id": "alice"
+              },
+              {
+                  "run_id": "*"
+              }
+          ]
+      },
+  )
   ```
   </CodeGroup>

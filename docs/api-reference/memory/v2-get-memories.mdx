@@ -9,6 +9,9 @@ The v2 get memories API is powerful and flexible, allowing for more precise memo
 - `lte`: Less than or equal to
 - `gt`: Greater than
 - `lt`: Less than
+- `ne`: Not equal to
+- `icontains`: Case-insensitive containment check
+- `*`: Wildcard character that matches everything
 
 <CodeGroup>
 ```python Code
@@ -39,5 +42,24 @@ memories = m.get_all(
     "updated_at":"2024-07-25T23:57:00.108367-07:00"
 }
 ]
+```
+</CodeGroup>
+
+<CodeGroup>
+```python Wildcard Example
+# Using wildcard to get all memories for a specific user across all run_ids
+memories = m.get_all(
+    filters={
+        "AND": [
+            {
+                "user_id": "alex"
+            },
+            {
+                "run_id": "*"
+            }
+        ]
+    },
+    version="v2"
+)
 ```
 </CodeGroup>
