@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.1.29",
+  "version": "2.1.30",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -107,6 +107,8 @@
     "@types/sqlite3": "3.1.11",
     "groq-sdk": "0.3.0",
     "@langchain/core": "^0.3.44",
+    "cloudflare": "^4.2.0",
+    "@cloudflare/workers-types": "^4.20250504.0",
     "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
