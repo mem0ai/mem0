@@ -203,17 +203,18 @@ for await (const textPart of textStream) {
 
 ```typescript
 import { generateText } from "ai";
-import { createMem0, mem0tool } from "@mem0/vercel-ai-provider";
+import { createMem0, createMemoryTools } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0();
+const memoryTools = createMemoryTools({ userId: "borat" });
 
-const result = await generateText({
-  model: mem0("gpt-4o", { user_id: "borat" }),
-  prompt: "remember this message", // uses addMemoryTool
-  tools: mem0tool,
+const response = await generateText({
+  model: mem0("gpt-4o"),
+  maxSteps: 4,
+  tools: memoryTools,
 });
 
-console.log(result);
+console.log(response);
 ```
 
 ## Core Functions
